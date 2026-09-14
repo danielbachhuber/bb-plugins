@@ -276,6 +276,31 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
           {status}
         </span>
 
+        {dirty && state.status !== "conflict" ? (
+          <Button
+            variant={discardArmed ? "destructive" : "ghost"}
+            size="sm"
+            // A fixed width so arming, which adds a question mark, does not
+            // nudge the text beside it.
+            className="h-7 w-[5.25rem] shrink-0"
+            aria-label={
+              discardArmed
+                ? `Confirm discarding unsaved changes to ${name}`
+                : `Discard unsaved changes to ${name}`
+            }
+            onClick={() => {
+              if (!discardArmed) {
+                setDiscardArmed(true);
+                return;
+              }
+              setDiscardArmed(false);
+              dispatch({ type: "discard" });
+            }}
+          >
+            {discardArmed ? "Discard?" : "Discard"}
+          </Button>
+        ) : null}
+
         <Button
           variant="ghost"
           size="icon"
@@ -301,29 +326,6 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
             label="Raw"
           />
         </div>
-
-        {dirty && state.status !== "conflict" ? (
-          <Button
-            variant={discardArmed ? "destructive" : "ghost"}
-            size="sm"
-            className="h-7 shrink-0"
-            aria-label={
-              discardArmed
-                ? `Confirm discarding unsaved changes to ${name}`
-                : `Discard unsaved changes to ${name}`
-            }
-            onClick={() => {
-              if (!discardArmed) {
-                setDiscardArmed(true);
-                return;
-              }
-              setDiscardArmed(false);
-              dispatch({ type: "discard" });
-            }}
-          >
-            {discardArmed ? "Discard?" : "Discard"}
-          </Button>
-        ) : null}
 
         <Button
           size="sm"

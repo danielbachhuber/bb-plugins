@@ -18,8 +18,8 @@ Saving is explicit. Press Cmd+S or click Save; both do nothing while the file
 is unchanged, so there is no way to write by accident and no autosave writing
 half-finished sentences to a file an agent is watching.
 
-Discard sits beside Save while a file has unsaved changes and puts the buffer
-back to the text last read from disk. It arms on the first click and acts on
+Discard appears next to the save state while a file has unsaved changes and
+puts the buffer back to the text last read from disk. It arms on the first click and acts on
 the second, because the edits it throws away cannot be recovered.
 
 ## When something else edits the same file
