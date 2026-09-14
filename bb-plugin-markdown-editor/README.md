@@ -30,10 +30,10 @@ are saved.
 Saving is explicit — `Cmd+S`, or the Save button, both inert when nothing has
 changed. The header reads `Unsaved changes` / `Saving…` / `Saved`.
 
-**Discard** appears next to the save state only while there are unsaved
-changes, and puts the buffer back to the file as it was last read. It sits
-there rather than beside Save so that Reload, the Preview/Raw pair, and Save
-keep their positions when it appears; only the words beside it give way. It asks first: the button
+**Discard** appears only while there are unsaved changes, and puts the buffer
+back to the file as it was last read. It rides on the save state as a quiet
+text action rather than a fourth button among the controls, so Reload, the
+Preview/Raw pair, and Save keep their positions when it appears. It asks first: the button
 arms to `Discard?` and a second click within four seconds does it. Discarding
 cannot be undone, because replacing the textarea's value takes its native undo
 history with it, so a stray click next to Save should not cost you a

@@ -267,39 +267,45 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
           <span className="text-foreground">{name}</span>
         </span>
 
-        <span
-          className={cn(
-            "shrink-0 text-xs",
-            dirty ? "text-foreground" : "text-muted-foreground",
-          )}
-        >
-          {status}
-        </span>
+        {/*
+          Discard rides on the save state rather than sitting among the
+          controls: it is a tertiary action, and the `link` variant stripped
+          of its padding lets it read as part of the same line of text. The
+          fixed width reserves room for the question mark so arming shifts
+          nothing.
+        */}
+        <div className="flex shrink-0 items-center gap-2.5 text-xs">
+          <span className={cn(dirty ? "text-foreground" : "text-muted-foreground")}>
+            {status}
+          </span>
 
-        {dirty && state.status !== "conflict" ? (
-          <Button
-            variant={discardArmed ? "destructive" : "ghost"}
-            size="sm"
-            // A fixed width so arming, which adds a question mark, does not
-            // nudge the text beside it.
-            className="h-7 w-[5.25rem] shrink-0"
-            aria-label={
-              discardArmed
-                ? `Confirm discarding unsaved changes to ${name}`
-                : `Discard unsaved changes to ${name}`
-            }
-            onClick={() => {
-              if (!discardArmed) {
-                setDiscardArmed(true);
-                return;
+          {dirty && state.status !== "conflict" ? (
+            <Button
+              variant="link"
+              className={cn(
+                "h-auto w-[3.5rem] justify-start p-0 text-xs",
+                discardArmed
+                  ? "font-medium text-destructive underline"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-label={
+                discardArmed
+                  ? `Confirm discarding unsaved changes to ${name}`
+                  : `Discard unsaved changes to ${name}`
               }
-              setDiscardArmed(false);
-              dispatch({ type: "discard" });
-            }}
-          >
-            {discardArmed ? "Discard?" : "Discard"}
-          </Button>
-        ) : null}
+              onClick={() => {
+                if (!discardArmed) {
+                  setDiscardArmed(true);
+                  return;
+                }
+                setDiscardArmed(false);
+                dispatch({ type: "discard" });
+              }}
+            >
+              {discardArmed ? "Discard?" : "Discard"}
+            </Button>
+          ) : null}
+        </div>
 
         <Button
           variant="ghost"
