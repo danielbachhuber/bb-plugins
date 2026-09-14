@@ -1,6 +1,4 @@
 // @vitest-environment jsdom
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/react";
@@ -618,18 +616,7 @@ describe("sync header", () => {
 });
 
 
-/**
- * True when this checkout is building against the Harvest stand-in rather than
- * the real plugin (see ../harvest-fallback). The clock tests below exercise
- * the real component, so on a machine without that checkout they are skipped
- * rather than left to fail — a red suite there would say nothing about this
- * plugin, and passing them against a no-op component would say less.
- */
-function usingHarvestFallback(): boolean {
-  return existsSync(join(process.cwd(), "node_modules/bb-plugin-harvest/.harvest-fallback"));
-}
-
-describe.skipIf(usingHarvestFallback())("harvest", () => {
+describe("harvest", () => {
   const available = (extra: Record<string, unknown> = {}) =>
     listing({ harvest: { available: true, running: null, ...extra } });
 
