@@ -18,16 +18,23 @@ fi
 
 installed="$(bb plugin list --json 2>/dev/null || echo '[]')"
 
-for plugin in "$DIR"/*/; do
-  plugin="${plugin%/}"
-  [ -f "$plugin/package.json" ] || continue
-  # This repository also holds shared libraries the plugins depend on. A bb
-  # plugin is the thing with a "bb" manifest block; anything else is not
-  # installable and is picked up as a `file:` dependency instead.
-  jq -e '.bb | type == "object"' "$plugin/package.json" >/dev/null 2>&1 || continue
+for package in "$DIR"/*/; do
+  package="${package%/}"
+  [ -f "$package/package.json" ] || continue
 
-  id="$(basename "$plugin")"
-  id="${id#bb-plugin-}"
+  name="$(basename "$package")"
+
+  # This repository also holds shared libraries the plugins depend on. A bb
+  # plugin is the thing with a "bb" manifest block; anything else is bundled in
+  # as a `file:` dependency rather than installed. Those still get an npm
+  # install, so their own test and typecheck scripts work in a fresh clone.
+  if ! jq -e '.bb | type == "object"' "$package/package.json" >/dev/null 2>&1; then
+    echo "==> $name (shared library)"
+    ( cd "$package" && npm install --silent )
+    continue
+  fi
+
+  id="${name#bb-plugin-}"
 
   if printf '%s' "$installed" | grep -q "\"$id\""; then
     echo "==> $id (already installed, skipping)"
@@ -36,7 +43,7 @@ for plugin in "$DIR"/*/; do
 
   echo "==> $id"
   (
-    cd "$plugin"
+    cd "$package"
     npm install --silent
     # npm resolves a `file:` dependency to a symlink, which puts a second React
     # in the tree and breaks every clock test. harvest:sync reinstates the copy
