@@ -318,7 +318,10 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
       ) : null}
 
       {view === "preview" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        // The page is white (or the theme's background in a dark theme) while
+        // the header above keeps the panel's own tint, which is how bb's
+        // native file preview reads: a toolbar over a document.
+        <div className="min-h-0 flex-1 overflow-y-auto bg-background">
           <div className="mx-auto box-border w-full max-w-3xl px-4 py-4">
             <Markdown content={previewContent} />
           </div>
@@ -335,7 +338,7 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
           aria-label={`Markdown source of ${name}`}
           // Editing is the point, so the textarea gets the whole pane and no
           // resize handle: the tab already decides how tall it is.
-          className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-mono text-sm leading-relaxed text-foreground outline-none"
+          className="min-h-0 flex-1 resize-none bg-background px-4 py-3 font-mono text-sm leading-relaxed text-foreground outline-none"
         />
       )}
     </div>
