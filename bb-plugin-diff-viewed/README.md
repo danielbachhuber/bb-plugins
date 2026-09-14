@@ -1,13 +1,59 @@
 # Diff Viewed
 
-Two things for bb's changes panel, both of which bb keeps only in memory:
+Keep your place in a long diff. Every file in bb's changes panel gets a
+**Viewed** checkbox: check it and the file collapses, its header dims, and it
+stays that way until the file's diff changes.
 
-1. A **Viewed** checkbox on every file. Checking one collapses the file, dims
-   its header, and remembers it for that thread until the file's diff changes.
-2. Persistence for the toolbar's **line wrap** and **stacked/split** settings,
-   so a diff opens the way you last read one.
+![Three files marked viewed and collapsed above a file still expanded](docs/viewed.png)
 
-Collapse all is deliberately left alone — it is an action, not a setting.
+## Use
+
+- Open the changes panel (⌘ D). Each file header now ends with a **Viewed**
+  checkbox beside its `+N -M` counts.
+- Check a file to fold it away. What is still expanded is what you have not
+  read yet.
+- Uncheck it to bring it back. Nothing else about the panel changes.
+
+Marks are kept per thread and survive a reload and a restart of bb. Another
+open window picks up a change when it regains focus.
+
+## What clears a mark
+
+A mark is keyed on the thread, the file path, and the file's `+N -M` counts.
+Because the counts are part of the key, the mark clears itself when the file's
+diff changes: rebase the branch, add a hunk, or revert the file, and it comes
+back expanded and undimmed. An edit that adds and removes the same number of
+lines keeps the mark, since the counts carry no other per-file signal.
+
+Marks for files that leave the diff are pruned when the panel next loads.
+
+## Toolbar settings
+
+The toolbar's line-wrap toggle and stacked/split pair are stored once,
+globally, and restored on every diff. They are how you read a diff, not facts
+about one thread.
+
+They are restored by clicking bb's own buttons, because the state lives in
+React and there is nothing else to set. That also settles a conflict: bb picks
+stacked or split from the panel's width until you override it, and the click
+*is* that override, so bb stops second-guessing the restored choice. Applying
+once per toolbar mount is therefore enough. "Never chosen" is stored distinctly
+from "stacked", which is what keeps bb's width-driven default in charge until
+you actually pick something.
+
+Collapse all is deliberately left alone. It is an action, not a setting.
+
+## Install
+
+This repository holds several plugins, so the install names which one and where
+its release tags live:
+
+```sh
+bb plugin install git:https://github.com/danielbachhuber/bb-plugins.git@^0.1.0 \
+  --plugin diff-viewed --tag-prefix diff-viewed/
+```
+
+Needs bb 0.41 or later. No account, external service, or separate install.
 
 ## How it works
 
@@ -32,6 +78,11 @@ No minified class names. If bb changes the header and the anchors stop
 matching, the plugin decorates nothing and bb behaves exactly as it does
 without it.
 
+Marks live in the plugin's kv storage, which is what makes them survive a
+reload. Another window picks them up on focus rather than live, because
+realtime subscription is a React-side API and a content script has no component
+to hang it on.
+
 There is deliberately no "card must be inside container X" check. bb's file
 card list carries no attribute of its own, and `data-secondary-panel-tab-content`
 — which reads like the right one — is the *tab strip's* inner container, not a
@@ -39,43 +90,6 @@ tab's content. Requiring it matched nothing on any screen. The structural checks
 in `resolveCard` carry that weight instead: the collapse button must be the
 first child of the header's left span, and the header row must have exactly two
 children and `justify-between`.
-
-`viewed/engine.test.ts` drives the whole loop against a DOM shaped like bb's,
-with a stand-in for React that flips `aria-expanded` on click. The engine is
-split out of `app.tsx` precisely so it can be tested: every bug this plugin has
-shipped lived in that loop and survived a green run, because only the pure
-functions had tests.
-
-`viewed/dom.test.ts` holds fixtures of the header and toolbar DOM as bb renders
-them. After a bb upgrade, those are the tests that fail first; re-read
-`GitDiffCardHeader-*.js` and `ThreadSecondaryPanel-*.js` in bb's
-`app/dist/assets` and update the fixtures and `viewed/dom.ts` together.
-
-## What a mark is keyed on
-
-`threadId` + file path + a fingerprint of the diff. The fingerprint is the
-`+N -M` count from the card header, which is the only per-file signal the header
-DOM carries. So a rebase, new hunks, or a reverted file clears the mark; an edit
-that adds and removes the same number of lines does not. Marks for files that
-leave the diff are pruned when the panel next loads.
-
-Marks live in the plugin's kv storage, so they survive a reload. Another window
-picks up a change when it regains focus — realtime subscription is a React-side
-API and a content script has no component to hang it on.
-
-## Toolbar preferences
-
-Wrap and view mode are stored once, globally: they are how you read a diff, not
-facts about a thread.
-
-They are restored by clicking bb's own buttons, because the state lives in React
-and there is nothing else to set. That also settles a conflict — bb picks
-stacked or split from the panel's width until you override it, and the click
-*is* that override, so bb stops second-guessing the restored choice. Applying
-once per toolbar mount is therefore enough.
-
-"Never chosen" is stored distinctly from "stacked", which is what keeps bb's
-width-driven default in charge until you actually pick something.
 
 ## Layout
 
@@ -96,6 +110,17 @@ npm test
 npm run typecheck
 bb plugin build && bb plugin reload diff-viewed
 ```
+
+`viewed/engine.test.ts` drives the whole loop against a DOM shaped like bb's,
+with a stand-in for React that flips `aria-expanded` on click. The engine is
+split out of `app.tsx` precisely so it can be tested: every bug this plugin has
+shipped lived in that loop and survived a green run, because only the pure
+functions had tests.
+
+`viewed/dom.test.ts` holds fixtures of the header and toolbar DOM as bb renders
+them. After a bb upgrade, those are the tests that fail first; re-read
+`GitDiffCardHeader-*.js` and `ThreadSecondaryPanel-*.js` in bb's
+`app/dist/assets` and update the fixtures and `viewed/dom.ts` together.
 
 The RPC surface against a running server:
 
