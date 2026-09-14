@@ -16,6 +16,10 @@
       "source": "./bb-plugin-issue-sweep"
     },
     {
+      "name": "markdown-editor",
+      "source": "./bb-plugin-markdown-editor"
+    },
+    {
       "name": "new-issue",
       "source": "./bb-plugin-new-issue"
     },

@@ -19,6 +19,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes. |
 | `bb-plugin-harvest` | `harvest` | Track time in Harvest from the thread header. |
 | `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. |
+| `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab you were reading them in: a Preview/Raw toggle, an editable source pane, and Cmd+S saving that refuses to clobber an edit made on disk while you typed. |
 | `bb-plugin-new-issue` | `new-issue` | Draft a GitHub issue from a few lines of notes, in a thread that runs the draft-issue-description skill. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you, oldest request first. |
