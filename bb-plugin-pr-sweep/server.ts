@@ -18,11 +18,7 @@ import { buildPromptParts, headerItem, trailerItem } from "./sweep/prompt.js";
 import {
   actionSummary,
   commentsToRead,
-  isWorkFinished,
-  isAutoArchivable,
-  reasonsForRow,
   modelForFlags,
-  parseAutoArchiveActions,
   parseModelByAction,
   parsePermissionMode,
   scopedThreadTitle,
@@ -72,21 +68,6 @@ export default async function plugin(bb: BbPluginApi) {
       // without a checkout here — a deploy repository you only ever open pull
       // requests against. Ignored when the filter is off.
       default: "",
-    },
-    autoArchiveActions: {
-      type: "string",
-      label: "Auto-archive threads for these actions",
-      // Only conflicts by default. A conflict has an unambiguous finish line —
-      // GitHub either reports the branch mergeable or it does not — so the
-      // sweep can tell it is over without reading the thread. "Address
-      // feedback" and "Fix failing CI" have no such line: CI can pass on a
-      // change that missed the point, so those stay for you to close.
-      //
-      // A thread is only closed when every finding it was sent to work is
-      // listed here. One that also has feedback to address, or comments to
-      // answer, is doing work this setting does not cover, so the conflict
-      // clearing leaves it open.
-      default: "conflict",
     },
     modelByAction: {
       type: "string",
@@ -283,9 +264,6 @@ export default async function plugin(bb: BbPluginApi) {
 
       // Linked either way, because a pull request may have several threads and
       // the store now keeps them all. Renaming is the conditional part.
-      //
-      // No reasons recorded: auto-archive fires when the work a thread was
-      // started for is done, and this thread was not started for any of it.
       store.linkThread(row.repo, row.number, thread.id, Date.now());
 
       // One of this plugin's own, restored after being archived: it already
@@ -361,14 +339,6 @@ export default async function plugin(bb: BbPluginApi) {
       await reconcileThreadLinks();
     } catch (error) {
       bb.log.warn(`could not reconcile thread links: ${String(error)}`);
-    }
-
-    // After reconciliation, so a link whose thread is already gone has been
-    // dropped and is not archived a second time.
-    try {
-      await archiveFinishedThreads();
-    } catch (error) {
-      bb.log.warn(`could not archive finished threads: ${String(error)}`);
     }
 
     return outcome;
@@ -627,74 +597,6 @@ export default async function plugin(bb: BbPluginApi) {
     }
 
     if (plan.kind === "fork") await configurePush(repoPath, plan);
-  }
-
-  /**
-   * Closes threads whose work the sweep can see is done.
-   *
-   * The judgement comes from the pull request, never from the thread: a thread
-   * announces success in prose, and the row is a fact recomputed from GitHub
-   * on this very cycle. If the flag that justified the thread is gone, the
-   * thread has nothing left to do.
-   *
-   * A thread still running is left alone even when the flag has cleared. It may
-   * have pushed the fix and still be verifying, and archiving mid-run would
-   * pull the worktree out from under it.
-   */
-  async function archiveFinishedThreads(): Promise<void> {
-    const { autoArchiveActions } = await settings.get();
-    const actions = parseAutoArchiveActions(autoArchiveActions);
-    if (actions.size === 0) return;
-
-    const links = store
-      .threadReasons()
-      .filter((link) => isAutoArchivable(link.reasons, actions));
-    if (links.length === 0) return;
-
-    const rows = store.readRows();
-    for (const link of links) {
-      const row = rows.find((entry) => entry.repo === link.repo && entry.number === link.number);
-      // No row means the pull request left the sweep entirely — merged, closed,
-      // or the listing failed. None of those are "the conflict was resolved",
-      // so the thread stays and the user decides.
-      if (!row) continue;
-      if (!isWorkFinished(link.reasons, row.flags)) continue;
-
-      const thread = await bb.sdk.threads.get({ threadId: link.threadId });
-      if (thread.status !== "idle") continue;
-      if (await isBlockedOnUser(link.threadId)) continue;
-
-      await bb.sdk.threads.archive({ threadId: link.threadId });
-      store.unlinkThread(link.threadId);
-      bb.log.info(
-        `archived ${link.threadId}: ${link.repo}#${link.number} no longer reports ` +
-          link.reasons.join(", "),
-      );
-      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
-    }
-  }
-
-  /**
-   * Whether a thread is stopped on something only the user can answer: an
-   * approval prompt, or a question asked through one.
-   *
-   * Such a thread is idle in the same way a finished one is, and archiving it
-   * throws the question away along with the answer nobody has given yet.
-   *
-   * An error here counts as blocked. The check exists to avoid destroying a
-   * question, and "I could not tell" is not grounds for going ahead.
-   */
-  async function isBlockedOnUser(threadId: string): Promise<boolean> {
-    try {
-      const interactions = await bb.sdk.threads.interactions.list({ threadId });
-      return interactions.some(
-        (interaction) =>
-          interaction.status === "pending" || interaction.status === "resolving",
-      );
-    } catch (error) {
-      bb.log.warn(`could not read pending interactions for ${threadId}: ${String(error)}`);
-      return true;
-    }
   }
 
   const harvest = createHarvestBridge(bb);
@@ -1026,9 +928,7 @@ export default async function plugin(bb: BbPluginApi) {
         } as Parameters<typeof bb.sdk.threads.spawn>[0]);
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
-        // Every finding the prompt just handed it, since the thread walks all
-        // of them. Auto-archive waits for the whole list to clear.
-        store.linkThread(repo, number, thread.id, Date.now(), reasonsForRow(row));
+        store.linkThread(repo, number, thread.id, Date.now());
         bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
         return { threadId: thread.id, existing: false, reason: null };
       })();

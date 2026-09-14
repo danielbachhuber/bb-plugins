@@ -12,11 +12,6 @@ import {
   isCounted,
   hasNothingToDo,
   isOnlyWaitingOnCi,
-  isAutoArchivable,
-  isWorkFinished,
-  reasonsForRow,
-  COMMENTS_REASON,
-  parseAutoArchiveActions,
   worstFlag,
   modelForFlags,
   parseModelByAction,
@@ -530,8 +525,8 @@ describe("every button label fits its column", () => {
 
 describe("worstFlag", () => {
   it("agrees with everything else that resolves against the worst flag", () => {
-    // The stored reason has to name the same flag the button and the skill
-    // did, or a thread would be judged finished against work it never started.
+    // The button and the skill resolve against the same flag, or a row would
+    // offer one piece of work and hand the thread another.
     for (const first of FLAG_SEVERITY) {
       for (const second of FLAG_SEVERITY) {
         const worst = worstFlag([first, second])!;
@@ -544,136 +539,6 @@ describe("worstFlag", () => {
   it("is null for a row with nothing on it", () => {
     expect(worstFlag([])).toBeNull();
     expect(worstFlag(["something-new"])).toBeNull();
-  });
-});
-
-describe("reasonsForRow", () => {
-  const row = { flags: [] as string[], unresolvedThreads: 0, notedBy: [] as string[] };
-
-  it("records every flag, worst first", () => {
-    expect(reasonsForRow({ ...row, flags: ["feedback", "conflict"] })).toEqual([
-      "conflict",
-      "feedback",
-    ]);
-  });
-
-  it("records the reading as a reason of its own", () => {
-    // Unresolved threads and review notes belong to no flag, and the prompt
-    // still sends the thread to answer them.
-    expect(reasonsForRow({ ...row, flags: ["conflict"], unresolvedThreads: 4 })).toEqual([
-      "conflict",
-      COMMENTS_REASON,
-    ]);
-    expect(reasonsForRow({ ...row, notedBy: ["octocat"] })).toEqual([COMMENTS_REASON]);
-  });
-
-  it("is empty for a row asking nothing", () => {
-    expect(reasonsForRow(row)).toEqual([]);
-  });
-});
-
-describe("isWorkFinished", () => {
-  it("is not finished while any flag is still there", () => {
-    expect(isWorkFinished(["conflict"], ["conflict"])).toBe(false);
-    expect(isWorkFinished(["ci-failing"], ["ci-failing", "feedback"])).toBe(false);
-  });
-
-  it("is finished once every flag has gone", () => {
-    expect(isWorkFinished(["conflict"], [])).toBe(true);
-    expect(isWorkFinished(["ci-failing"], ["no-reviewer"])).toBe(true);
-    expect(isWorkFinished(["conflict", "feedback"], [])).toBe(true);
-  });
-
-  it("is not finished while one of several reasons remains", () => {
-    // #5950: conflicting, with live feedback and four unresolved comments.
-    // Resolving the conflict finished the first of three numbered steps, and
-    // judging the thread on that flag alone archived it mid-run.
-    expect(isWorkFinished(["conflict", "feedback"], ["feedback"])).toBe(false);
-  });
-
-  it("never counts the reading as finished", () => {
-    // No recount clears it: an approval body carrying conditions still reads
-    // as APPROVED, so there is no finish line the sweep can see.
-    expect(isWorkFinished([COMMENTS_REASON], [])).toBe(false);
-    expect(isWorkFinished(["conflict", COMMENTS_REASON], [])).toBe(false);
-  });
-
-  it("is not finished for a thread with no recorded reasons", () => {
-    // A thread adopted from the composer was not started for a flag, so
-    // nothing about the row can say its work is over.
-    expect(isWorkFinished([], [])).toBe(false);
-  });
-
-  it("does not treat an unknown merge state as a resolved conflict", () => {
-    // GitHub drops the conflict flag while it recomputes mergeability, so an
-    // unknown reads exactly like a fix that never landed.
-    expect(isWorkFinished(["conflict"], ["mergeable-unknown"])).toBe(false);
-  });
-
-  it("lets a different reason finish even while mergeability is unknown", () => {
-    // The guard is about conflicts specifically; a CI fix does not wait on
-    // GitHub recomputing whether the branch merges.
-    expect(isWorkFinished(["ci-failing"], ["mergeable-unknown"])).toBe(true);
-  });
-
-  it("judges every flag by its own disappearance", () => {
-    for (const flag of FLAG_SEVERITY) {
-      expect(isWorkFinished([flag], [flag])).toBe(false);
-    }
-  });
-});
-
-describe("isAutoArchivable", () => {
-  const conflictsOnly = new Set(["conflict"]);
-
-  it("closes a thread whose only work is enabled", () => {
-    expect(isAutoArchivable(["conflict"], conflictsOnly)).toBe(true);
-  });
-
-  it("leaves a thread carrying work the setting does not cover", () => {
-    // The whole list has to be enabled. "Address feedback" has no finish line
-    // the sweep can see, and a conflict thread that also has feedback to
-    // address is doing that work too.
-    expect(isAutoArchivable(["conflict", "feedback"], conflictsOnly)).toBe(false);
-  });
-
-  it("never closes a thread that was sent to read comments", () => {
-    // The reading is deliberately not a flag, so the setting cannot name it
-    // and this stays false however the setting is written.
-    expect(isAutoArchivable(["conflict", COMMENTS_REASON], conflictsOnly)).toBe(false);
-    expect(
-      isAutoArchivable(["conflict", COMMENTS_REASON], new Set(["conflict", COMMENTS_REASON])),
-    ).toBe(true);
-    expect(parseAutoArchiveActions(`conflict,${COMMENTS_REASON}`).has(COMMENTS_REASON)).toBe(false);
-  });
-
-  it("leaves a thread with no recorded reasons alone", () => {
-    expect(isAutoArchivable([], conflictsOnly)).toBe(false);
-  });
-});
-
-describe("parseAutoArchiveActions", () => {
-  it("defaults the setting to conflicts alone", () => {
-    expect([...parseAutoArchiveActions("conflict")]).toEqual(["conflict"]);
-  });
-
-  it("reads a list", () => {
-    const actions = parseAutoArchiveActions("conflict, ci-failing");
-    expect(actions.has("conflict")).toBe(true);
-    expect(actions.has("ci-failing")).toBe(true);
-  });
-
-  it("turns the behaviour off when blank", () => {
-    expect(parseAutoArchiveActions("").size).toBe(0);
-    expect(parseAutoArchiveActions("   ").size).toBe(0);
-    expect(parseAutoArchiveActions(undefined).size).toBe(0);
-  });
-
-  it("drops a name no flag will ever match", () => {
-    // A typo that stayed in the set would never fire, which is the safe
-    // failure, but keeping it invites the opposite bug later.
-    const actions = parseAutoArchiveActions("conflcit, conflict");
-    expect([...actions]).toEqual(["conflict"]);
   });
 });
 

@@ -99,20 +99,7 @@ export interface Store {
    * thread on the same pull request is added rather than replacing the first.
    * Re-linking the same thread updates it.
    */
-  linkThread(
-    repo: string,
-    number: number,
-    threadId: string,
-    createdAt: number,
-    reasons?: readonly string[],
-  ): void;
-  /** Every link with the work it was started for, for the archive sweep. */
-  threadReasons(): Array<{
-    repo: string;
-    number: number;
-    threadId: string;
-    reasons: string[];
-  }>;
+  linkThread(repo: string, number: number, threadId: string, createdAt: number): void;
   /**
    * The pull request's newest thread, which is the one its row acts on.
    *
@@ -140,18 +127,6 @@ export interface Store {
   markThreadScanned(threadId: string, scannedAt: number): void;
 }
 
-/** Tolerates a null column and anything that is not an array of strings. */
-function parseReasons(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((entry): entry is string => typeof entry === "string");
-  } catch {
-    return [];
-  }
-}
-
 export function createStore(db: DatabaseLike): Store {
   const deleteRepo = db.prepare(`DELETE FROM rows WHERE repo = ?`);
   const insertRow = db.prepare(`INSERT INTO rows (repo, number, payload) VALUES (?, ?, ?)`);
@@ -169,17 +144,15 @@ export function createStore(db: DatabaseLike): Store {
        truncated = excluded.truncated,
        last_error = NULL`,
   );
-  // `reason` is written alongside `reasons` and holds its first entry, which
-  // is the row's worst flag. Nothing reads it any more; it is kept current so
-  // that anyone reading this table by hand is not looking at a stale column.
+  // `reason` and `reasons` are left out entirely. They fed auto-archive, which
+  // no longer exists; the columns stay because these migrations are
+  // append-only, but nothing writes or reads them.
   const insertLink = db.prepare(
-    `INSERT INTO pr_thread_links (repo, number, thread_id, created_at, reason, reasons)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO pr_thread_links (repo, number, thread_id, created_at)
+     VALUES (?, ?, ?, ?)
      ON CONFLICT(thread_id) DO UPDATE SET
        repo = excluded.repo,
        number = excluded.number,
-       reason = excluded.reason,
-       reasons = excluded.reasons,
        created_at = excluded.created_at`,
   );
   // Newest first, and by thread_id after that so a tie is at least stable
@@ -191,9 +164,6 @@ export function createStore(db: DatabaseLike): Store {
   const selectLinks = db.prepare(
     `SELECT repo, number, thread_id FROM pr_thread_links
      ORDER BY created_at DESC, thread_id DESC`,
-  );
-  const selectReasons = db.prepare(
-    `SELECT repo, number, thread_id, reasons FROM pr_thread_links`,
   );
   const deleteLink = db.prepare(`DELETE FROM pr_thread_links WHERE thread_id = ?`);
   const selectScans = db.prepare(`SELECT thread_id FROM thread_scan`);
@@ -299,34 +269,8 @@ export function createStore(db: DatabaseLike): Store {
       upsertFailure.run(message);
     },
 
-    linkThread(repo, number, threadId, createdAt, reasons = []) {
-      insertLink.run(
-        repo,
-        number,
-        threadId,
-        createdAt,
-        reasons[0] ?? null,
-        JSON.stringify(reasons),
-      );
-    },
-
-    threadReasons() {
-      return (
-        selectReasons.all() as Array<{
-          repo: string;
-          number: number;
-          thread_id: string;
-          reasons: string | null;
-        }>
-      ).map((link) => ({
-        repo: link.repo,
-        number: link.number,
-        threadId: link.thread_id,
-        // A link with no reasons at all — adopted from the composer, or opened
-        // rather than swept — is an empty list, which no caller can mistake
-        // for finished work.
-        reasons: parseReasons(link.reasons),
-      }));
+    linkThread(repo, number, threadId, createdAt) {
+      insertLink.run(repo, number, threadId, createdAt);
     },
 
     threadFor(repo, number) {
