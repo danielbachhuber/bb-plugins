@@ -90,6 +90,49 @@ describe("editing", () => {
   });
 });
 
+describe("discarding", () => {
+  it("puts the buffer back to the file we last read", () => {
+    const state = run(
+      loaded,
+      { type: "edit", content: "# Plan\n\nSomething I regret\n" },
+      { type: "discard" },
+    );
+    expect(state.buffer).toBe("# Plan\n");
+    expect(isDirty(state)).toBe(false);
+    expect(canSave(state)).toBe(false);
+  });
+
+  it("keeps the hash, because discarding touches nothing on disk", () => {
+    const state = run(loaded, { type: "edit", content: "changed" }, { type: "discard" });
+    expect(expectedSha(state, false)).toBe("aaa");
+  });
+
+  it("clears a failed save along with the edits that failed", () => {
+    const state = run(
+      loaded,
+      { type: "edit", content: "changed" },
+      { type: "fail", message: "Host unreachable" },
+      { type: "discard" },
+    );
+    expect(state.status).toBe("idle");
+    expect(state.message).toBeNull();
+  });
+
+  // Nothing loaded means there is no known-good text to go back to, so the
+  // event has nowhere to land and the error stays on screen.
+  it("does nothing when the file never loaded", () => {
+    const state = run({ type: "fail", message: "Path does not exist" }, { type: "discard" });
+    expect(state.status).toBe("error");
+    expect(state.loaded).toBeNull();
+  });
+
+  it("is a no-op on a clean file", () => {
+    const state = run(loaded, { type: "discard" });
+    expect(state.buffer).toBe("# Plan\n");
+    expect(isDirty(state)).toBe(false);
+  });
+});
+
 describe("saving", () => {
   it("refuses a save with nothing to write", () => {
     expect(canSave(run(loaded))).toBe(false);

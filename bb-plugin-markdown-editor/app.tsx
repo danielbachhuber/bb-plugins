@@ -99,6 +99,16 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   /** Path of the route that serves images, once the server has told us. */
   const [assetRoute, setAssetRoute] = useState<string | null>(null);
+  /**
+   * Whether Discard is one click from throwing the buffer away.
+   *
+   * Discarding cannot be undone — React replaces the textarea's value, which
+   * takes its native undo history with it — so a single stray click next to
+   * Save would silently cost someone their paragraph. Arming first makes the
+   * second click a decision rather than an accident, without a modal in a
+   * header this narrow.
+   */
+  const [discardArmed, setDiscardArmed] = useState(false);
   const wireSource = useMemo(() => toWireSource(source), [source]);
   const { directory, name } = splitPath(path);
   const dirty = isDirty(state);
@@ -224,6 +234,18 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
     return replaceImageUrls(state.buffer, refs, rewritten);
   }, [state.buffer, assetRoute, path, wireSource]);
 
+  // Nothing to discard, or a conflict banner offering its own reload: either
+  // way the armed state is stale and should not greet the next edit.
+  useEffect(() => {
+    if (!dirty || state.status === "conflict") setDiscardArmed(false);
+  }, [dirty, state.status]);
+
+  useEffect(() => {
+    if (!discardArmed) return;
+    const timer = window.setTimeout(() => setDiscardArmed(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [discardArmed]);
+
   const status = (() => {
     if (state.status === "loading") return "Loading…";
     if (state.status === "saving") return "Saving…";
@@ -279,6 +301,29 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
             label="Raw"
           />
         </div>
+
+        {dirty && state.status !== "conflict" ? (
+          <Button
+            variant={discardArmed ? "destructive" : "ghost"}
+            size="sm"
+            className="h-7 shrink-0"
+            aria-label={
+              discardArmed
+                ? `Confirm discarding unsaved changes to ${name}`
+                : `Discard unsaved changes to ${name}`
+            }
+            onClick={() => {
+              if (!discardArmed) {
+                setDiscardArmed(true);
+                return;
+              }
+              setDiscardArmed(false);
+              dispatch({ type: "discard" });
+            }}
+          >
+            {discardArmed ? "Discard?" : "Discard"}
+          </Button>
+        ) : null}
 
         <Button
           size="sm"

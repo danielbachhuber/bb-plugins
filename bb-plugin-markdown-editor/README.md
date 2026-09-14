@@ -4,7 +4,7 @@ Edit a markdown file in the tab you were reading it in, and save it with
 `Cmd+S`.
 
 ![The Raw view: the file's source in an editable pane, with unsaved changes in
-the header and Save enabled](screenshots/raw-unsaved.png)
+the header and Discard and Save enabled](screenshots/raw-unsaved.png)
 
 The plugin registers a file opener for `md`, `mdx`, `markdown`, and `txt`. When
 one of those files opens in a tab, this component is the tab: a header with the
@@ -29,6 +29,14 @@ are saved.
 
 Saving is explicit — `Cmd+S`, or the Save button, both inert when nothing has
 changed. The header reads `Unsaved changes` / `Saving…` / `Saved`.
+
+**Discard** appears beside Save only while there are unsaved changes, and puts
+the buffer back to the file as it was last read. It asks first: the button
+arms to `Discard?` and a second click within four seconds does it. Discarding
+cannot be undone, because replacing the textarea's value takes its native undo
+history with it, so a stray click next to Save should not cost you a
+paragraph. Reload, next to it, is the different question — what is on disk
+now.
 
 Every read returns the file's sha256 and every write sends that hash back, so
 the host refuses a write when the bytes on disk are no longer the bytes that

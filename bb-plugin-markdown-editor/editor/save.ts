@@ -33,6 +33,7 @@ export interface EditorState {
 export type EditorEvent =
   | { type: "load"; content: string; sha256: string }
   | { type: "edit"; content: string }
+  | { type: "discard" }
   | { type: "save-start" }
   | { type: "save-ok"; content: string; sha256: string }
   | { type: "save-conflict" }
@@ -99,6 +100,18 @@ export function reduce(state: EditorState, event: EditorEvent): EditorState {
         message: clearable ? null : state.message,
       };
     }
+
+    // Throw the buffer away and go back to the file as we last read it.
+    // Distinct from a reload, which asks the host what is there now: this is
+    // "forget what I typed", and it needs no round trip to mean that.
+    case "discard":
+      if (state.loaded === null) return state;
+      return {
+        ...state,
+        buffer: state.loaded.content,
+        status: "idle",
+        message: null,
+      };
 
     case "save-start":
       return { ...state, status: "saving", message: null };
