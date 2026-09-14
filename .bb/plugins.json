@@ -2,5 +2,22 @@
   "$schema": "https://getbb.app/schemas/plugins.schema.json",
   "schemaVersion": 1,
   "name": "bb-plugins",
-  "plugins": []
+  "plugins": [
+    {
+      "name": "diff-viewed",
+      "source": "./bb-plugin-diff-viewed"
+    },
+    {
+      "name": "new-issue",
+      "source": "./bb-plugin-new-issue"
+    },
+    {
+      "name": "thread-todos",
+      "source": "./bb-plugin-thread-todos"
+    },
+    {
+      "name": "weekly-review",
+      "source": "./bb-plugin-weekly-review"
+    }
+  ]
 }
