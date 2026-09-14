@@ -7,6 +7,7 @@
 // hash a write should expect — live in editor/ as pure functions.
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { imageMimeType } from "./editor/images";
 import {
   TargetError,
   assertPathShape,
@@ -18,6 +19,13 @@ import {
 
 /** Refuse anything larger than this rather than hand a browser a huge string. */
 const MAX_BYTES = 2_000_000;
+
+/**
+ * Images are inlined into the preview as data URLs, which costs about a third
+ * again in base64. A screenshot is a few hundred KB; this is the point past
+ * which a document is better off not previewing its images at all.
+ */
+const MAX_IMAGE_BYTES = 4_000_000;
 
 const idSchema = z.string().trim().min(1).max(200);
 
@@ -61,6 +69,15 @@ export const rpcContract = defineRpcContract({
       z.object({ outcome: z.literal("written"), sha256: z.string() }),
       z.object({ outcome: z.literal("conflict") }),
     ]),
+  },
+  /**
+   * Where the image route lives. The client prefixes its own origin, so this
+   * is a path rather than a URL: the server's loopback address is not where
+   * a browser on another machine would find it.
+   */
+  asset_base: {
+    input: z.null(),
+    output: z.object({ routePath: z.string() }),
   },
 });
 
@@ -143,6 +160,8 @@ export default async function plugin(bb: BbPluginApi) {
       }
     },
 
+    asset_base: () => ({ routePath: `/api/v1/plugins/${bb.pluginId}/http/asset` }),
+
     file_write: async ({ path, source, content, expectedSha256 }) => {
       try {
         const target = await resolveTarget(path, source);
@@ -164,6 +183,66 @@ export default async function plugin(bb: BbPluginApi) {
         throw new Error(describe(cause));
       }
     },
+  });
+
+  /**
+   * Serve one image a previewed markdown file points at.
+   *
+   * This is a route rather than an RPC because of what bb's markdown
+   * sanitizer allows: an <img> survives only with an absolute http or https
+   * src, and a data URL is dropped along with the element. Serving the bytes
+   * also keeps a large screenshot out of the document string and lets the
+   * browser cache it.
+   *
+   * Auth is the default "local" mode, so only a local bb app origin reaches
+   * it. That is the same trust boundary the RPC methods sit behind.
+   */
+  bb.http.route("GET", "/asset", async (context) => {
+    const query = context.req.query();
+    const parsedSource = sourceSchema.safeParse({
+      kind: query.kind,
+      threadId: query.threadId ?? null,
+      environmentId: query.environmentId ?? null,
+      projectId: query.projectId ?? null,
+      ...(query.hostId === undefined ? {} : { hostId: query.hostId }),
+    });
+    const parsedPath = pathSchema.safeParse(query.path);
+    if (!parsedSource.success || !parsedPath.success) {
+      return new Response("Bad request", { status: 400 });
+    }
+    const path = parsedPath.data;
+
+    // Extension first. It decides the media type, and a path that is not an
+    // image is a request that should never reach the filesystem.
+    const mimeType = imageMimeType(path);
+    if (mimeType === null) {
+      return new Response("Not an image", { status: 415 });
+    }
+
+    try {
+      const target = await resolveTarget(path, parsedSource.data);
+      const file = await bb.sdk.files.read(target);
+      if (file.sizeBytes > MAX_IMAGE_BYTES) {
+        return new Response("Image too large to preview", { status: 413 });
+      }
+      // An SVG comes back as text; a raster image comes back base64.
+      const bytes =
+        file.contentEncoding === "base64"
+          ? Buffer.from(file.content, "base64")
+          : Buffer.from(file.content, "utf8");
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          "content-type": mimeType,
+          "content-length": String(bytes.byteLength),
+          // The file on disk can change while the tab is open, and a stale
+          // screenshot is worse than a second read.
+          "cache-control": "no-store",
+        },
+      });
+    } catch (cause) {
+      bb.log.warn(`asset failed for ${path}: ${describe(cause)}`);
+      return new Response("Not found", { status: 404 });
+    }
   });
 
   bb.onDispose(() => {

@@ -24,6 +24,14 @@ import {
   isDirty,
   reduce,
 } from "./editor/save";
+import {
+  buildAssetUrl,
+  findImageRefs,
+  imageMimeType,
+  isSiblingRef,
+  replaceImageUrls,
+  resolveSibling,
+} from "./editor/images";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -89,6 +97,8 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   const [state, dispatch] = useReducer(reduce, initialState);
   const [view, setView] = useState<View>("preview");
   const rootRef = useRef<HTMLDivElement>(null);
+  /** Path of the route that serves images, once the server has told us. */
+  const [assetRoute, setAssetRoute] = useState<string | null>(null);
   const wireSource = useMemo(() => toWireSource(source), [source]);
   const { directory, name } = splitPath(path);
   const dirty = isDirty(state);
@@ -179,6 +189,40 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   useEffect(() => {
     rootRef.current?.focus({ preventScroll: true });
   }, []);
+
+  useEffect(() => {
+    rpc.call("asset_base").then(
+      (result) => setAssetRoute(result.routePath),
+      // Without the route, images stay as the author wrote them and the
+      // rest of the preview is unaffected.
+      () => {},
+    );
+  }, [rpc]);
+
+  /**
+   * The buffer with every sibling image pointed at the plugin's own route.
+   *
+   * bb's `Markdown` keeps an <img> only for an absolute http or https src —
+   * a relative path resolves against the app origin and returns the SPA's
+   * index.html, and a data URL is dropped outright — so a file's own
+   * screenshots cannot render until they are rewritten here.
+   */
+  const previewContent = useMemo(() => {
+    if (assetRoute === null) return state.buffer;
+    const refs = findImageRefs(state.buffer);
+    const rewritten = new Map<string, string>();
+    for (const ref of refs) {
+      if (!isSiblingRef(ref.url) || rewritten.has(ref.url)) continue;
+      const resolved = resolveSibling(path, ref.url);
+      if (resolved === null || imageMimeType(resolved) === null) continue;
+      rewritten.set(
+        ref.url,
+        buildAssetUrl(window.location.origin, assetRoute, resolved, wireSource),
+      );
+    }
+    if (rewritten.size === 0) return state.buffer;
+    return replaceImageUrls(state.buffer, refs, rewritten);
+  }, [state.buffer, assetRoute, path, wireSource]);
 
   const status = (() => {
     if (state.status === "loading") return "Loading…";
@@ -276,7 +320,7 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
       {view === "preview" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto box-border w-full max-w-3xl px-4 py-4">
-            <Markdown content={state.buffer} />
+            <Markdown content={previewContent} />
           </div>
         </div>
       ) : (

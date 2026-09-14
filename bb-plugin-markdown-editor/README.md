@@ -12,7 +12,9 @@ file's path, a Preview/Raw toggle, a reload button, one word of save state, and
 a Save button.
 
 **Preview** renders the buffer with bb's own chat-message markdown renderer, so
-a file looks the way the same text would look in a thread.
+a file looks the way the same text would look in a thread. Images the file
+points at are rendered too: `![](screenshots/a.png)` resolves against the
+file's own directory and is served from the host it lives on.
 
 ![The Preview view: the same file rendered, with the header reading
 Saved](screenshots/preview.png)
@@ -63,6 +65,10 @@ choosing between them per extension.
   excludes them from openers, and read-only is the right answer there anyway.
 - Closing a tab with unsaved changes cannot be intercepted — bb's tabs are not
   browser navigations. Quitting or reloading the app does prompt.
+- Preview images are resolved only for paths relative to the open file, in the
+  formats a browser shows inline, up to 4 MB. A `https://` image loads as it
+  always did. A root-relative `/logo.png` is left alone: on GitHub that means
+  the repository root, which a host file does not have.
 
 ## Layout
 
@@ -70,12 +76,22 @@ choosing between them per extension.
 | --- | --- |
 | `editor/target.ts` | Turning a file's source and path into `bb.files` arguments, and the path rules that make that safe |
 | `editor/save.ts` | The save state machine: dirty, saving, conflict, error |
+| `editor/images.ts` | Finding image references, resolving them against the open file, and pointing them at the asset route |
 | `server.ts` | The `file_read` / `file_write` contract and the `bb.sdk.files` boundary |
 | `app.tsx` | The file opener registration and the tab's UI |
+
+Two host behaviors this code exists to accommodate, both found by running it
+rather than by reading the types:
 
 `bb.files` wants an absolute `path`; `rootPath` is a containment guard the host
 daemon enforces, not a base it joins against. `editor/target.ts` supplies both,
 and a test holds that line — every rooted file failed to load until it did.
+
+bb's markdown sanitizer keeps an `<img>` only when its `src` is an absolute
+`http`/`https` URL. A relative path resolves against the app origin and returns
+the SPA's `index.html`; a data URL is dropped along with the element. So
+images are served from `/api/v1/plugins/markdown-editor/http/asset` rather
+than inlined.
 
 ## Working on it
 

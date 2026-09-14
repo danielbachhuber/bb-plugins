@@ -5,6 +5,10 @@ segment in the tab header switches the same file to its source in an editable
 textarea, and **Preview** switches back. The buffer is shared, so text you have
 typed and not yet saved shows up rendered in Preview before it reaches disk.
 
+Images the file points at render in Preview. A reference like
+`screenshots/a.png` resolves against the file's own directory and is served
+from the host the file lives on, so a README shows its own screenshots.
+
 The header carries the file path, the Preview/Raw pair, a reload button, a Save
 button, and one word of state: Unsaved changes, Saving, or Saved.
 
@@ -36,7 +40,8 @@ available in the same menu.
 ## Limits
 
 Reads UTF-8 text up to 2 MB. A binary file that happens to end in .md is
-refused rather than mangled.
+refused rather than mangled. A preview image is read up to 4 MB, in the
+formats a browser shows inline.
 
 Saves to a path whose parent directory is missing fail instead of creating it:
 this edits files, it does not make them.
