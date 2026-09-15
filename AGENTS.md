@@ -68,11 +68,13 @@ changes all three in the same commit:
 - the plugin's own `README.md` — the prose, and its Layout table when the
   change adds a directory
 - the root `README.md` table, whose "What it does" column is `bb.description`
-  word for word
+  word for word where that description is one sentence, and a condensed
+  sentence of its own where it runs to a paragraph
 
 Those last two are coupled, so editing one and not the other is the usual way
-this goes wrong. Add the screenshots to the list when the change is visible in
-one of them.
+this goes wrong. Match whichever shape the row already has rather than pasting
+a four-sentence description into a table cell. Add the screenshots to the list
+when the change is visible in one of them.
 
 Leaving it for later does not work: the description is the only account of the
 plugin that anyone outside this checkout reads, and a plugin whose description
