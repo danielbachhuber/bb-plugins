@@ -9,7 +9,6 @@ import {
   worktreePlan,
   type WorktreePlan,
 } from "./sweep/open-pr.js";
-import { parseRemoteSlug } from "./sweep/spawn-target.js";
 import { isAdoptable, solePullRequestReference } from "./sweep/adopt.js";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./sweep/contract.js";
@@ -27,6 +26,9 @@ import {
 import {
   buildRepoFilter,
   matchProjectForRepo,
+  parseRepositorySlugs,
+  matchProjectTargetForRepo,
+  toProjectCandidates,
   type ProjectCandidate,
   type RepoFilter,
 } from "./sweep/spawn-target.js";
@@ -67,6 +69,14 @@ export default async function plugin(bb: BbPluginApi) {
       // Comma or newline separated owner/name, for a repository worth watching
       // without a checkout here — a deploy repository you only ever open pull
       // requests against. Ignored when the filter is off.
+      default: "",
+    },
+    reviewerOptionalRepositories: {
+      type: "string",
+      label: "Repositories that do not need a reviewer",
+      // Comma or newline separated owner/name. In these repositories nobody is
+      // ever assigned, so an unassigned pull request is the normal state and
+      // the no-reviewer flag is noise. Every other flag still applies.
       default: "",
     },
     modelByAction: {
@@ -377,11 +387,26 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /**
+   * The repositories where nobody is ever assigned as a reviewer, read fresh
+   * each sweep so the setting takes effect without a reload.
+   */
+  async function reviewerOptionalRepos(): Promise<(repo: string) => boolean> {
+    const { reviewerOptionalRepositories } = await settings.get();
+    const waived = new Set(parseRepositorySlugs(reviewerOptionalRepositories));
+    return (repo: string) => waived.has(repo.toLowerCase());
+  }
+
   async function fetchAndStore(): Promise<{ ok: boolean; error: string | null }> {
     const { ghPath } = await settings.get();
     try {
       const scope = await repoFilter();
-      const result = await runSweep(createGhRunner(ghPath), () => Date.now(), scope);
+      const result = await runSweep(
+        createGhRunner(ghPath),
+        () => Date.now(),
+        scope,
+        await reviewerOptionalRepos(),
+      );
       store.replaceAll(result);
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: result.sweptAt });
       bb.log.info(
@@ -424,15 +449,15 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
-   * ProjectResponse carries `gitRemoteUrl` directly, so matching a PR's
-   * repository to a project needs no filesystem read.
+   * Every project bb knows about here, with every remote its checkout has.
+   *
+   * ProjectResponse carries one `gitRemoteUrl`, which for a fork-and-upstream
+   * checkout is the fork. Reading the checkout's git config as well is what
+   * lets a repository be matched by the remote the pull requests are actually
+   * against.
    */
   async function projectCandidates(): Promise<ProjectCandidate[]> {
-    const projects = await bb.sdk.projects.list();
-    return projects.map((project) => ({
-      id: project.id,
-      remoteUrls: project.gitRemoteUrl ? [project.gitRemoteUrl] : [],
-    }));
+    return toProjectCandidates(await bb.sdk.projects.list());
   }
 
   /** The repository a bare "#123" should be read against: the only one swept. */
@@ -455,17 +480,9 @@ export default async function plugin(bb: BbPluginApi) {
   async function projectForRepo(
     repo: string,
   ): Promise<{ id: string; path: string; hostId: string } | null> {
-    const projects = await bb.sdk.projects.list();
-    for (const project of projects) {
-      if (!project.gitRemoteUrl) continue;
-      if (parseRemoteSlug(project.gitRemoteUrl)?.toLowerCase() !== repo.toLowerCase()) continue;
-      const sources = (project.sources ?? []).filter((entry) => entry.path && entry.hostId);
-      // The default source first: a project with several checkouts means the
-      // one bb itself would pick, not whichever came back first.
-      const source = sources.find((entry) => entry.isDefault) ?? sources[0];
-      if (source) return { id: project.id, path: source.path, hostId: source.hostId };
-    }
-    return null;
+    const target = matchProjectTargetForRepo(repo, await projectCandidates());
+    if (!target?.path || !target.hostId) return null;
+    return { id: target.id, path: target.path, hostId: target.hostId };
   }
 
   /**

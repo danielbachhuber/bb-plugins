@@ -232,10 +232,25 @@ export function repoRunsChecks(prs: readonly RawPullRequest[]): boolean {
   return prs.some((pr) => (pr.statusCheckRollup ?? []).length > 0);
 }
 
+/** Per-repository rules that are a preference rather than a fact about the PR. */
+export interface ClassifyOptions {
+  /**
+   * True where nobody is ever assigned as a reviewer, so an unassigned pull
+   * request is the normal state rather than something to chase.
+   *
+   * Applied here rather than by hiding the badge in the panel, because the
+   * flag is what puts a row in Needs action and what names the work a spawned
+   * thread would do. Suppressed downstream, the row would keep claiming to
+   * need attention it does not need.
+   */
+  reviewerOptional?: boolean;
+}
+
 export function classifyOne(
   pr: RawPullRequest,
   repo: string,
   repoHasChecks = true,
+  options: ClassifyOptions = {},
 ): ClassifiedRow {
   const checks = summarizeChecks(pr.statusCheckRollup);
   const approvedBy = approvers(pr);
@@ -253,7 +268,7 @@ export function classifyOne(
   if (hasLiveFeedback(pr)) flags.add("feedback");
 
   const covered = pr.reviewRequests.length > 0 || pr.latestReviews.length > 0;
-  if (!pr.isDraft && !covered) flags.add("no-reviewer");
+  if (!pr.isDraft && !covered && !options.reviewerOptional) flags.add("no-reviewer");
 
   const awaitingReReview = isAwaitingReReview(pr);
 
@@ -303,10 +318,14 @@ export function classifyOne(
   };
 }
 
-export function classify(prs: RawPullRequest[], repo: string): ClassifiedRow[] {
+export function classify(
+  prs: RawPullRequest[],
+  repo: string,
+  options: ClassifyOptions = {},
+): ClassifiedRow[] {
   const repoHasChecks = repoRunsChecks(prs);
   return prs
-    .map((pr) => classifyOne(pr, repo, repoHasChecks))
+    .map((pr) => classifyOne(pr, repo, repoHasChecks, options))
     .sort((a, b) => {
       const rank = (row: ClassifiedRow) =>
         row.flags.length === 0 ? FLAG_SEVERITY.length : FLAG_SEVERITY.indexOf(row.flags[0]!);

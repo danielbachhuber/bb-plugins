@@ -20,8 +20,9 @@ bb plugin install . --yes
 - `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
   missing or unauthenticated `gh` as a configuration state, not an error.
 - A bb project is needed only for "Work on this", which matches a PR's
-  repository against each project's `gitRemoteUrl`. PRs in repositories with no
-  matching project are still listed; their button is disabled.
+  repository against every git remote in the project's checkout, so a fork's
+  upstream counts as well as its origin. PRs in repositories with no matching
+  project are still listed; their button is disabled.
 
 ## In a spawned thread
 
@@ -36,11 +37,19 @@ an unrelated thread.
 - **Sync interval** — how often the background sweep runs. Default 5 minutes.
 - **Path to the gh CLI** — override when `gh` is not on the server's PATH.
 - **Only sweep repositories checked out here** — on by default. A repository is
-  swept only when a bb project on this machine has its git remote. bb's project
+  swept only when a bb project on this machine has it as one of its checkout's
+  git remotes, upstream as readily as origin. bb's project
   list is per-installation, so this is what separates the computer a repository
   is checked out on from every other one: the work laptop's repositories stop
   filling the personal one's panel. The skipped repositories are named under
   the list, so an empty panel never reads as "no open pull requests".
+- **Repositories that do not need a reviewer** — comma or newline separated
+  `owner/name`. Where nobody is ever assigned, an unassigned pull request is
+  the normal state rather than something to chase, so the no-reviewer flag is
+  skipped for these repositories. Only that flag: a conflict or a red check in
+  one of them still reads the same. The row loses the flag as it is classified,
+  so with nothing else outstanding it moves to Clean rather than sitting in
+  Needs action with a badge you have decided to ignore.
 - **Also sweep these repositories** — comma or newline separated `owner/name`,
   for a repository worth watching without a checkout here. Ignored when the
   filter is off.
@@ -75,7 +84,7 @@ an unrelated thread.
 | mergeability unknown | GitHub had not computed it, twice. |
 | CI cancelled | A run was cancelled; usually needs a re-run. |
 | no CI | Zero checks ran. Not the same as green. |
-| no reviewer | Non-draft with nobody requested and no reviews. |
+| no reviewer | Non-draft with nobody requested and no reviews. Never raised in a repository named by **Repositories that do not need a reviewer**. |
 | CI running | Still in flight. |
 | ready to merge | Approved, green, no conflict, not a draft. |
 

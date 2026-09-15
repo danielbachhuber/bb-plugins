@@ -81,3 +81,38 @@ export function createGhRunner(ghPath: string): GhRunner {
   };
 }
 
+
+/**
+ * Every git remote URL configured in a checkout, in `git config` order.
+ *
+ * A project record carries one remote — the one bb resolved when the project
+ * was added, which for a fork-and-upstream checkout is the fork. The PRs are
+ * against the upstream, so matching on that single URL finds nothing: the
+ * sweep skips the repository and the panel reports no project is checked out
+ * for it. Reading the checkout's own config is what closes that gap.
+ *
+ * Returns an empty list rather than throwing when the path is not a checkout,
+ * is not on this machine, or git is missing. The caller still has the
+ * project's recorded remote, so a failure here narrows matching back to
+ * today's behaviour instead of breaking it.
+ */
+export async function readGitRemoteUrls(path: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["-C", path, "config", "--get-regexp", "^remote\\..*\\.url$"],
+      { maxBuffer: 1024 * 1024, timeout: 10_000 },
+    );
+    const urls: string[] = [];
+    for (const line of stdout.split("\n")) {
+      // "remote.origin.url git@github.com:acme/widgets.git"
+      const separator = line.indexOf(" ");
+      if (separator === -1) continue;
+      const url = line.slice(separator + 1).trim();
+      if (url) urls.push(url);
+    }
+    return urls;
+  } catch {
+    return [];
+  }
+}

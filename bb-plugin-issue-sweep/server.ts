@@ -23,6 +23,7 @@ import {
   buildRepoFilter,
   matchProjectTargetForRepo,
   matchProjectForRepo,
+  toProjectCandidates,
   type ProjectCandidate,
   type RepoFilter,
 } from "./issues/spawn-target.js";
@@ -161,20 +162,16 @@ export default async function plugin(bb: BbPluginApi) {
    */
   const spawning = new Map<string, Promise<{ threadId: string | null; existing: boolean; reason: string | null }>>();
 
+  /**
+   * Every project bb knows about here, with every remote its checkout has.
+   *
+   * ProjectResponse carries one `gitRemoteUrl`, which for a fork-and-upstream
+   * checkout is the fork. Reading the checkout's git config as well is what
+   * lets a repository be matched by the remote the pull requests are actually
+   * against.
+   */
   async function projectCandidates(): Promise<ProjectCandidate[]> {
-    const projects = await bb.sdk.projects.list();
-    return projects.map((project) => {
-      // The default checkout's host, or the first with one. Needed because a
-      // seeded worktree environment is rejected without it — see
-      // ProjectCandidate.hostId.
-      const sources = (project.sources ?? []).filter((entry) => entry.hostId);
-      const source = sources.find((entry) => entry.isDefault) ?? sources[0];
-      return {
-        id: project.id,
-        remoteUrls: project.gitRemoteUrl ? [project.gitRemoteUrl] : [],
-        ...(source ? { hostId: source.hostId } : {}),
-      };
-    });
+    return toProjectCandidates(await bb.sdk.projects.list());
   }
 
   /**

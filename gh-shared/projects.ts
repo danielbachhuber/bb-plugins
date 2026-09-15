@@ -1,8 +1,10 @@
-import { REPO_SLUG_PATTERN } from "./gh.js";
+import { REPO_SLUG_PATTERN, readGitRemoteUrls } from "./gh.js";
 
 export interface ProjectCandidate {
   id: string;
   remoteUrls: string[];
+  /** The checkout's path on {@link hostId}, when the caller looked it up. */
+  path?: string;
   /**
    * The host holding this project's default checkout, when the caller looked
    * it up. Optional so a caller that only needs an id need not gather it.
@@ -34,6 +36,52 @@ export function parseRemoteSlug(remoteUrl: string): string | null {
   return null;
 }
 
+/** The shape of bb's ProjectResponse that matching actually reads. */
+export interface ProjectSourceLike {
+  path?: string | null;
+  hostId?: string | null;
+  isDefault?: boolean | null;
+}
+
+export interface ProjectLike {
+  id: string;
+  gitRemoteUrl?: string | null;
+  sources?: ProjectSourceLike[] | null;
+}
+
+/**
+ * Turns bb's project list into candidates, using every remote each checkout
+ * has rather than only the one bb recorded.
+ *
+ * The recorded `gitRemoteUrl` comes first so a project whose checkout cannot
+ * be read still matches exactly what it used to.
+ *
+ * The source is the default checkout when there is one, matching the
+ * environment bb itself would open. Reading remotes from that same checkout
+ * keeps the path, the host and the remotes from drifting apart: a fork matched
+ * through one project's config must spawn into that project's directory.
+ */
+export async function toProjectCandidates(
+  projects: ProjectLike[],
+  readRemoteUrls: (path: string) => Promise<string[]> = readGitRemoteUrls,
+): Promise<ProjectCandidate[]> {
+  return Promise.all(
+    projects.map(async (project) => {
+      const sources = (project.sources ?? []).filter((entry) => entry.path && entry.hostId);
+      const source = sources.find((entry) => entry.isDefault) ?? sources[0];
+      const remoteUrls = new Set<string>();
+      if (project.gitRemoteUrl) remoteUrls.add(project.gitRemoteUrl);
+      if (source?.path) for (const url of await readRemoteUrls(source.path)) remoteUrls.add(url);
+      return {
+        id: project.id,
+        remoteUrls: [...remoteUrls],
+        ...(source?.path ? { path: source.path } : {}),
+        ...(source?.hostId ? { hostId: source.hostId } : {}),
+      };
+    }),
+  );
+}
+
 export function matchProjectForRepo(
   repo: string,
   candidates: ProjectCandidate[],
@@ -56,12 +104,16 @@ export function matchProjectForRepo(
 export function matchProjectTargetForRepo(
   repo: string,
   candidates: ProjectCandidate[],
-): { id: string; hostId: string | null } | null {
+): { id: string; hostId: string | null; path: string | null } | null {
   const target = repo.toLowerCase();
   for (const candidate of candidates) {
     for (const url of candidate.remoteUrls) {
       if (parseRemoteSlug(url)?.toLowerCase() === target) {
-        return { id: candidate.id, hostId: candidate.hostId ?? null };
+        return {
+          id: candidate.id,
+          hostId: candidate.hostId ?? null,
+          path: candidate.path ?? null,
+        };
       }
     }
   }
@@ -86,14 +138,15 @@ export function loadedRepoSlugs(candidates: ProjectCandidate[]): Set<string> {
 }
 
 /**
- * Reads the `extraRepositories` setting: repositories to sweep even with no
- * checkout here.
+ * Reads a setting that holds a list of repositories: the ones to sweep without
+ * a checkout here, the ones whose reviewer requirement is waived, and any
+ * later list of the same shape. Comma or newline separated, lowercased.
  *
  * Every entry is validated against {@link REPO_SLUG_PATTERN} rather than at the
  * call site, because these strings become `gh` arguments. An entry that does
  * not look like a slug is dropped, not passed along.
  */
-export function parseExtraRepositories(raw: string): string[] {
+export function parseRepositorySlugs(raw: string): string[] {
   return raw
     .split(/[,\n]/)
     .map((entry) => entry.trim().toLowerCase())
@@ -130,7 +183,7 @@ export function buildRepoFilter(options: {
   }
 
   const allowed = loadedRepoSlugs(candidates);
-  for (const extra of parseExtraRepositories(extras)) allowed.add(extra);
+  for (const extra of parseRepositorySlugs(extras)) allowed.add(extra);
 
   const allows = (repo: string) => allowed.has(repo.toLowerCase());
   return {

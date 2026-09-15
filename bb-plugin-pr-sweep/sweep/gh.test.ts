@@ -153,6 +153,20 @@ describe("runSweep repository filter", () => {
     expect(result.skippedRepos).toEqual(["acme/gadgets"]);
   });
 
+  it("waives the reviewer requirement only where it is asked for", async () => {
+    const fetched: string[] = [];
+    const result = await runSweep(
+      trackingRunner(fetched),
+      () => 1,
+      undefined,
+      (repo) => repo === "acme/widgets",
+    );
+    const flagsFor = (repo: string) =>
+      result.rows.find((row) => row.repo === repo)?.flags ?? [];
+    expect(flagsFor("acme/widgets")).not.toContain("no-reviewer");
+    expect(flagsFor("acme/gadgets")).toContain("no-reviewer");
+  });
+
   it("sweeps everything and skips nothing without a filter", async () => {
     const fetched: string[] = [];
     const result = await runSweep(trackingRunner(fetched), () => 1);

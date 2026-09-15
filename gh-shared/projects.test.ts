@@ -4,8 +4,9 @@ import {
   loadedRepoSlugs,
   matchProjectForRepo,
   matchProjectTargetForRepo,
-  parseExtraRepositories,
+  parseRepositorySlugs,
   parseRemoteSlug,
+  toProjectCandidates,
 } from "./projects.js";
 
 describe("parseRemoteSlug", () => {
@@ -71,6 +72,7 @@ describe("matchProjectTargetForRepo", () => {
     expect(matchProjectTargetForRepo("acme/widgets", candidates)).toEqual({
       id: "proj_a",
       hostId: "host_1",
+      path: null,
     });
   });
 
@@ -78,6 +80,7 @@ describe("matchProjectTargetForRepo", () => {
     expect(matchProjectTargetForRepo("acme/gadgets", candidates)).toEqual({
       id: "proj_b",
       hostId: null,
+      path: null,
     });
   });
 
@@ -98,9 +101,9 @@ describe("loadedRepoSlugs", () => {
   });
 });
 
-describe("parseExtraRepositories", () => {
+describe("parseRepositorySlugs", () => {
   it("splits on commas and newlines and lowercases", () => {
-    expect(parseExtraRepositories("acme/widgets, Acme/Gadgets\nocto/cat")).toEqual([
+    expect(parseRepositorySlugs("acme/widgets, Acme/Gadgets\nocto/cat")).toEqual([
       "acme/widgets",
       "acme/gadgets",
       "octo/cat",
@@ -109,14 +112,14 @@ describe("parseExtraRepositories", () => {
 
   it("drops entries that are not a valid repository slug", () => {
     // Anything reaching a gh argv is validated here, not at the call site.
-    expect(parseExtraRepositories("acme/widgets, not a repo, acme/gadgets;rm -rf /")).toEqual([
+    expect(parseRepositorySlugs("acme/widgets, not a repo, acme/gadgets;rm -rf /")).toEqual([
       "acme/widgets",
     ]);
   });
 
   it("returns nothing for blank input", () => {
-    expect(parseExtraRepositories("")).toEqual([]);
-    expect(parseExtraRepositories("  \n ")).toEqual([]);
+    expect(parseRepositorySlugs("")).toEqual([]);
+    expect(parseRepositorySlugs("  \n ")).toEqual([]);
   });
 });
 
@@ -155,6 +158,62 @@ describe("buildRepoFilter", () => {
     expect(filter.partition(["acme/widgets", "acme/gadgets", "octo/cat"])).toEqual({
       kept: ["acme/widgets"],
       skipped: ["acme/gadgets", "octo/cat"],
+    });
+  });
+});
+
+describe("toProjectCandidates", () => {
+  const fork = {
+    id: "proj_a",
+    gitRemoteUrl: "git@github.com:octocat/widgets.git",
+    sources: [
+      { path: "/checkouts/other", hostId: "host_1", isDefault: false },
+      { path: "/checkouts/widgets", hostId: "host_1", isDefault: true },
+    ],
+  };
+
+  const remotes = async (path: string) =>
+    path === "/checkouts/widgets"
+      ? ["git@github.com:octocat/widgets.git", "git@github.com:acme/widgets.git"]
+      : ["git@github.com:acme/gadgets.git"];
+
+  it("matches a fork checkout by its upstream remote", async () => {
+    const candidates = await toProjectCandidates([fork], remotes);
+    expect(matchProjectForRepo("acme/widgets", candidates)).toBe("proj_a");
+    expect(matchProjectForRepo("octocat/widgets", candidates)).toBe("proj_a");
+  });
+
+  it("reads remotes from the default checkout", async () => {
+    const [candidate] = await toProjectCandidates([fork], remotes);
+    expect(candidate!.path).toBe("/checkouts/widgets");
+    expect(candidate!.hostId).toBe("host_1");
+    expect(matchProjectForRepo("acme/gadgets", [candidate!])).toBeNull();
+  });
+
+  it("does not repeat the recorded remote", async () => {
+    const [candidate] = await toProjectCandidates([fork], remotes);
+    expect(candidate!.remoteUrls).toEqual([
+      "git@github.com:octocat/widgets.git",
+      "git@github.com:acme/widgets.git",
+    ]);
+  });
+
+  it("keeps the recorded remote when the checkout cannot be read", async () => {
+    const candidates = await toProjectCandidates([fork], async () => []);
+    expect(matchProjectForRepo("octocat/widgets", candidates)).toBe("proj_a");
+  });
+
+  it("handles a project with no source and no remote", async () => {
+    const candidates = await toProjectCandidates([{ id: "proj_b" }], remotes);
+    expect(candidates).toEqual([{ id: "proj_b", remoteUrls: [] }]);
+  });
+
+  it("carries the path through matchProjectTargetForRepo", async () => {
+    const candidates = await toProjectCandidates([fork], remotes);
+    expect(matchProjectTargetForRepo("acme/widgets", candidates)).toEqual({
+      id: "proj_a",
+      hostId: "host_1",
+      path: "/checkouts/widgets",
     });
   });
 });

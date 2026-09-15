@@ -42,7 +42,8 @@ rather than quietly showing a subset.
 - **Sync interval** — how often the background sweep runs. Default 5 minutes.
 - **Path to the gh CLI** — override when `gh` is not on the server's PATH.
 - **Only sweep repositories checked out here** — on by default. A repository is
-  swept only when a bb project on this machine has its git remote. bb's project
+  swept only when a bb project on this machine has it as one of its checkout's
+  git remotes, upstream as readily as origin. bb's project
   list is per-installation, so this is what separates the computer a repository
   is checked out on from every other one: the work laptop's repositories stop
   filling the personal one's panel. The skipped repositories are named under

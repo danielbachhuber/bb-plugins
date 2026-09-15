@@ -20,13 +20,17 @@ and `review-sweep`:
 So this package holds the parts that were byte-identical across every plugin,
 and nothing else:
 
-- **`gh`** — `createGhRunner`, `GhUnavailableError`, `REPO_SLUG_PATTERN`. The
-  one place any plugin spawns a process, and the slug validation that keeps a
-  repository name from reaching a shell. Each plugin keeps its own fetching:
+- **`gh`** — `createGhRunner`, `GhUnavailableError`, `REPO_SLUG_PATTERN`,
+  `readGitRemoteUrls`. The one place any plugin spawns a process, and the slug
+  validation that keeps a repository name from reaching a shell. Each plugin keeps its own fetching:
   pull requests fan out per repository, reviews run one GraphQL search, issues
   run a different one.
-- **`projects`** — matching a repository to a bb project by its git remote, and
-  `buildRepoFilter`, which turns that matching into the sweep scope. bb's
+- **`projects`** — matching a repository to a bb project by its git remotes,
+  and `buildRepoFilter`, which turns that matching into the sweep scope.
+  `toProjectCandidates` reads every remote out of a project's checkout rather
+  than trusting the single `gitRemoteUrl` bb recorded, which is the fork on a
+  fork-and-upstream checkout and so never matches the repository the pull
+  requests are against. bb's
   project list is per-installation, so "has a project here" is what separates
   the computer a repository is checked out on from every other one. Each plugin
   applies the filter where its own fetching allows: pr-sweep and issue-sweep

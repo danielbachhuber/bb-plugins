@@ -20,8 +20,9 @@ bb plugin install . --yes
 - `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
   missing or unauthenticated `gh` as a configuration state, not an error.
 - A bb project is needed only for the row action, which matches a PR's
-  repository against each project's `gitRemoteUrl`. PRs in repositories with no
-  matching project are still listed; their button is disabled.
+  repository against every git remote in the project's checkout, so a fork's
+  upstream counts as well as its origin. PRs in repositories with no matching
+  project are still listed; their button is disabled.
 
 ## What lands in the list
 
@@ -94,8 +95,9 @@ cheapest row in the queue to clear.
 
 - **Sync interval** — how often the background sweep runs. Default 5 minutes.
 - **Path to the gh CLI** — override when `gh` is not on the server's PATH.
-- **Only show repositories checked out here** — on by default. A review request is
-  shown only when a bb project on this machine has that repository's git remote. bb's project
+- **Only show repositories checked out here** — on by default. A review request
+  is shown only when a bb project on this machine has that repository as one of
+  its checkout's git remotes, upstream as readily as origin. bb's project
   list is per-installation, so this is what separates the computer a repository
   is checked out on from every other one: the work laptop's repositories stop
   filling the personal one's panel. The skipped repositories are named under

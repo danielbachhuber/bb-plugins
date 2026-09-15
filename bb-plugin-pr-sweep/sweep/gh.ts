@@ -104,6 +104,11 @@ export async function runSweep(
   gh: GhRunner,
   now: () => number,
   scope?: RepoScope,
+  /**
+   * Whether a repository waives the reviewer requirement. A predicate rather
+   * than a list, so the sweep stays ignorant of how the setting is written.
+   */
+  reviewerOptional?: (repo: string) => boolean,
 ): Promise<SweepResult> {
   const { repos: discovered, truncated } = await discoverRepos(gh);
   const repos: string[] = [];
@@ -116,7 +121,11 @@ export async function runSweep(
 
   for (const repo of repos) {
     try {
-      rows.push(...classify(await fetchRepoPullRequests(gh, repo), repo));
+      rows.push(
+        ...classify(await fetchRepoPullRequests(gh, repo), repo, {
+          reviewerOptional: reviewerOptional?.(repo) ?? false,
+        }),
+      );
     } catch (error) {
       if (error instanceof GhUnavailableError) throw error;
       failedRepos.push(repo);

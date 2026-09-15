@@ -72,6 +72,29 @@ describe("classifyOne reviewer state", () => {
     expect(row.flags).toContain("no-reviewer");
   });
 
+  it("exempts a repository whose reviewer requirement is waived", () => {
+    const row = classifyOne(
+      makePr({ reviewRequests: [], latestReviews: [] }),
+      "acme/widgets",
+      true,
+      { reviewerOptional: true },
+    );
+    expect(row.flags).not.toContain("no-reviewer");
+    // The row is not merely filtered later: with nothing else wrong it leaves
+    // the section that exists for work waiting on you.
+    expect(row.group).toBe("clean");
+  });
+
+  it("waives only the reviewer requirement, not the rest of the row", () => {
+    const row = classifyOne(
+      makePr({ reviewRequests: [], latestReviews: [], mergeable: "CONFLICTING" }),
+      "acme/widgets",
+      true,
+      { reviewerOptional: true },
+    );
+    expect(row.flags).toEqual(["conflict"]);
+  });
+
   it("exempts drafts from no-reviewer", () => {
     const row = classifyOne(
       makePr({ isDraft: true, reviewRequests: [], latestReviews: [] }),
