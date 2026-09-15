@@ -9,7 +9,7 @@
 // cannot be fetched while the palette is open, so the only way to list real
 // automations is to already know them.
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
-import { parseAutomations } from "./palette/automations";
+import { parseAutomations, type AutomationSummary } from "./palette/automations";
 import { paletteRows } from "./palette/rows";
 import { readSnapshot, sameAutomations, writeSnapshot } from "./palette/snapshot";
 import type { rpcContract } from "./server";
@@ -58,6 +58,44 @@ function snapshotStore(): Storage | undefined {
   }
 }
 
+/**
+ * Refresh the snapshot the next app load will register its rows from.
+ *
+ * Failures are reported to the console and nothing else: the rows on screen
+ * stay usable, and the next load tries again.
+ */
+async function refreshSnapshot(
+  signal: AbortSignal,
+  registered: readonly AutomationSummary[],
+): Promise<void> {
+  try {
+    const result = await callRpc<{ automations: unknown; error: string | null }>(
+      "automations_list",
+      null,
+    );
+    if (signal.aborted) return;
+
+    if (result.error !== null) {
+      console.warn(`[automation-palette] ${result.error}`);
+      return;
+    }
+
+    // Back through the parser rather than trusting the wire shape: the
+    // snapshot is read again next load, where a bad entry would cost a row.
+    const automations = parseAutomations(JSON.stringify(result.automations));
+    writeSnapshot(snapshotStore(), automations);
+
+    if (!sameAutomations(registered, automations)) {
+      console.info(
+        "[automation-palette] the automation list changed; reload bb to update the palette rows.",
+      );
+    }
+  } catch (error) {
+    if (signal.aborted) return;
+    console.warn("[automation-palette]", error);
+  }
+}
+
 export default definePluginApp((app) => {
   const registered = readSnapshot(snapshotStore());
 
@@ -86,30 +124,16 @@ export default definePluginApp((app) => {
 
   app.contentScripts.register({
     id: "automation-snapshot",
-    async mount(context) {
+    // Not async, deliberately. The host awaits a returned promise while it
+    // holds "the plugin currently mounting", and it attributes any DOM move it
+    // sees in that window to that plugin: awaiting an RPC here put
+    // `[bb] plugin "automation-palette" tried to move <div> out of React's
+    // tree` in the console during app startup, for a script that touches no
+    // DOM at all. Nothing on screen waits for the snapshot, so the refresh is
+    // detached and the mount returns at once.
+    mount(context) {
       pluginId = context.pluginId;
-
-      const result = await callRpc<{ automations: unknown; error: string | null }>(
-        "automations_list",
-        null,
-      );
-      if (context.signal.aborted) return;
-
-      if (result.error !== null) {
-        console.warn(`[automation-palette] ${result.error}`);
-        return;
-      }
-
-      // Back through the parser rather than trusting the wire shape: the
-      // snapshot is read again next load, where a bad entry would cost a row.
-      const automations = parseAutomations(JSON.stringify(result.automations));
-      writeSnapshot(snapshotStore(), automations);
-
-      if (!sameAutomations(registered, automations)) {
-        console.info(
-          "[automation-palette] the automation list changed; reload bb to update the palette rows.",
-        );
-      }
+      void refreshSnapshot(context.signal, registered);
     },
   });
 });
