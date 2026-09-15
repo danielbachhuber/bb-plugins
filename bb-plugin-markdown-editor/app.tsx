@@ -1,10 +1,13 @@
 // bb-plugin-markdown-editor — frontend entry.
 //
-// Registers one `fileOpener`, which means this component becomes the entire
-// body of a markdown file's tab. bb's own preview is still reachable through
-// the tab's "Open with" menu; we do not render it here, because delegating to
-// it would put its Preview/Raw control underneath ours and leave two
-// segmented controls arguing about which view is showing.
+// Registers a `fileOpener`, which means this component becomes the entire
+// body of a markdown file's tab, plus a content script that offers a pencil on
+// markdown files in bb's changes panel (see diff/engine.ts).
+//
+// bb's own preview is still reachable through the tab's "Open with" menu; we
+// do not render it here, because delegating to it would put its Preview/Raw
+// control underneath ours and leave two segmented controls arguing about which
+// view is showing.
 //
 // There is no filesystem API on this side, so every read and write is an RPC
 // to server.ts. The state rules live in editor/save.ts; this file is the
@@ -24,6 +27,8 @@ import {
   isDirty,
   reduce,
 } from "./editor/save";
+import { EDITABLE_EXTENSIONS } from "./diff/extensions";
+import { startEngine } from "./diff/engine";
 import {
   buildAssetUrl,
   findImageRefs,
@@ -402,7 +407,32 @@ export default definePluginApp((app) => {
   app.slots.fileOpener({
     id: "markdown-editor",
     title: "Markdown editor",
-    extensions: ["md", "mdx", "markdown", "txt"],
+    // Shared with the diff-header pencil, which must never offer to edit a
+    // file this opener would not claim.
+    extensions: [...EDITABLE_EXTENSIONS],
     component: MarkdownEditorTab,
+  });
+
+  // The pencil has no React slot to live in: bb owns the diff card header, and
+  // the icon group it belongs beside is internal to bb. Decorating existing
+  // app-shell DOM is what content scripts are for.
+  app.contentScripts.register({
+    id: "markdown-editor-diff-pencil",
+    mount({ signal }) {
+      const engine = startEngine({
+        signal,
+        doc: document,
+        defer: (run) => {
+          const frame = window.requestAnimationFrame(run);
+          return () => window.cancelAnimationFrame(frame);
+        },
+        warn: (cause) => {
+          console.warn("[markdown-editor]", cause);
+        },
+      });
+      return () => {
+        engine.dispose();
+      };
+    },
   });
 });
