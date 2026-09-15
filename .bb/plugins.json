@@ -4,6 +4,10 @@
   "name": "bb-plugins",
   "plugins": [
     {
+      "name": "diff-comment",
+      "source": "./bb-plugin-diff-comment"
+    },
+    {
       "name": "diff-viewed",
       "source": "./bb-plugin-diff-viewed"
     },
