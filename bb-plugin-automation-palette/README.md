@@ -77,6 +77,17 @@ started run logs to the browser console, and the run itself shows up where
 every other run does, on the Automations page and in
 `bb automation runs <id> --project <id>`.
 
+## Layout
+
+| Path | What it holds |
+| --- | --- |
+| `palette/automations.ts` | The `AutomationSummary` shape, and the tolerant parsers for `bb automation list` and `bb project list` output |
+| `palette/rows.ts` | What the palette shows: a row's id, its title, and the order the rows are registered in |
+| `palette/snapshot.ts` | The `localStorage` snapshot the rows are built from, and whether a refreshed list has made them stale |
+| `palette/cli.ts` | The only place a process is spawned: finding the `bb` CLI and running it with an argument array |
+| `server.ts` | The `automations_list` / `automations_run` contract and the `bbPath` setting |
+| `app.tsx` | The palette registrations and the content script that refreshes the snapshot |
+
 ## Working on it
 
 ```sh
