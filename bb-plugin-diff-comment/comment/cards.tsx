@@ -264,7 +264,7 @@ export function CommentCard({
             disabled={busy}
             onClick={act(() => onSetState("resolved"))}
           >
-            Resolve
+            Mark resolved
           </Button>
         )}
         <Button

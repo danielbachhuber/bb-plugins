@@ -51,7 +51,7 @@ function Row({
           </Button>
         ) : (
           <Button size="sm" variant="ghost" onClick={() => onSetState("resolved")}>
-            Resolve
+            Mark resolved
           </Button>
         )}
         <Button size="sm" variant="ghost" onClick={onRemove}>
