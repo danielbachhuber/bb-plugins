@@ -58,6 +58,28 @@ still stale, a failure that otherwise reaches the panel as a runtime
 `./sync.sh --check` reports which plugins have drifted from this checkout;
 `./sync.sh` runs the sequence above for each of them.
 
+## A feature is not shipped until the prose matches
+
+Each plugin describes itself in three places, and a change to what it does
+changes all three in the same commit:
+
+- `package.json`'s `bb.description`, which is what bb shows in the plugin list
+  and the marketplace
+- the plugin's own `README.md` — the prose, and its Layout table when the
+  change adds a directory
+- the root `README.md` table, whose "What it does" column is `bb.description`
+  word for word
+
+Those last two are coupled, so editing one and not the other is the usual way
+this goes wrong. Add the screenshots to the list when the change is visible in
+one of them.
+
+Leaving it for later does not work: the description is the only account of the
+plugin that anyone outside this checkout reads, and a plugin whose description
+is a release behind is advertising a feature set it no longer has. The pencil
+the markdown editor puts on markdown files in the changes panel shipped while
+all three still described a plugin that only opened files in tabs.
+
 ## Verify against live data, not just tests
 
 Every real bug in these plugins passed its unit tests, because the tests
