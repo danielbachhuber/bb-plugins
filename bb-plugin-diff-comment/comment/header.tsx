@@ -31,7 +31,8 @@ export function CommentHeaderAction({
   // thread, and a dead button in all of them is worse than an absent one.
   if (counts.open === 0) return null;
 
-  const label = `Send ${counts.open} diff comment${counts.open === 1 ? "" : "s"} to the agent`;
+  const noun = counts.open === 1 ? "comment" : "comments";
+  const label = `Send (${counts.open}) ${noun} to agent`;
 
   return (
     // The tooltip sits on a wrapper: the shared Button does not take `title`.
@@ -47,9 +48,12 @@ export function CommentHeaderAction({
         }}
       >
         <Icon name="MessageSquare" className="size-4" />
-        <span className="tabular-nums">{counts.open}</span>
-        {/* The row is short on a phone; the count and glyph carry it there. */}
-        {isCompactViewport ? null : <span>{sent ? "In composer" : "Send to agent"}</span>}
+        {/* The row is short on a phone, so the count carries it alone there. */}
+        {isCompactViewport ? (
+          <span className="tabular-nums">{counts.open}</span>
+        ) : (
+          <span>{sent ? "In composer — press ↵" : label}</span>
+        )}
       </Button>
     </span>
   );
