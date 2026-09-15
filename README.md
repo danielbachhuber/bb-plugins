@@ -17,6 +17,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | Directory | bb id | What it does |
 | --- | --- | --- |
 | `bb-plugin-diff-comment` | `diff-comment` | Leave review comments inline on a thread's diff, then have the agent work through them one at a time. |
+| `bb-plugin-automation-palette` | `automation-palette` | Lists every automation in bb's quick palette, so a scheduled sweep can be run by hand. |
 | `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes. |
 | `bb-plugin-harvest` | `harvest` | Track time in Harvest from the thread header. |
 | `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. |

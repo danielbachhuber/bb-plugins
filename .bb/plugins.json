@@ -4,6 +4,10 @@
   "name": "bb-plugins",
   "plugins": [
     {
+      "name": "automation-palette",
+      "source": "./bb-plugin-automation-palette"
+    },
+    {
       "name": "diff-comment",
       "source": "./bb-plugin-diff-comment"
     },
