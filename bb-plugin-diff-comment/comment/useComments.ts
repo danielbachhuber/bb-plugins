@@ -23,13 +23,17 @@ const EMPTY: CommentSummary = { open: 0, addressed: 0, resolved: 0, total: 0 };
 
 export function useThreadComments(threadId: string): ThreadComments {
   const rpc = useRpc<typeof rpcContract>();
-  const [comments, setComments] = useState<Comment[] | null>(null);
+  // The thread is stored WITH its comments. Keeping them apart let a thread
+  // with no comments briefly show the previous thread's count, because the
+  // state survived the prop change until the refetch landed — and a late reply
+  // for a thread you had already left could overwrite the current one.
+  const [loaded, setLoaded] = useState<{ threadId: string; comments: Comment[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(() => {
     rpc.call("comments_list", { threadId }).then(
       (result) => {
-        setComments(ordered(result.comments));
+        setLoaded({ threadId, comments: ordered(result.comments) });
         setError(null);
       },
       (cause: unknown) => {
@@ -42,6 +46,8 @@ export function useThreadComments(threadId: string): ThreadComments {
 
   useEffect(refetch, [refetch]);
   useRealtime(COMMENTS_CHANGED, refetch);
+
+  const comments = loaded?.threadId === threadId ? loaded.comments : null;
 
   return {
     comments,
