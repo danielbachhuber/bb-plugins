@@ -33,18 +33,31 @@ export const SUGGESTED_ACTIONS: SuggestedAction[] = ['close', 'comment', 'keep',
 
 /** Whether an action writes to GitHub when approved. */
 export function actionPostsComment(action: SuggestedAction): boolean {
-  return action === 'close' || action === 'comment';
+  return action === 'close' || action === 'comment' || action === 'needsInfo';
 }
 
 export function actionClosesIssue(action: SuggestedAction): boolean {
   return action === 'close';
 }
 
+/**
+ * GitHub's own close reasons. It records these on the issue, so a backlog
+ * closed as "not planned" reads differently from one closed as "completed"
+ * long after anyone remembers the pass.
+ */
+export type CloseReason = 'completed' | 'not planned' | 'duplicate';
+
+export const CLOSE_REASONS: CloseReason[] = ['completed', 'not planned', 'duplicate'];
+
 export type Verdict = 'pending' | 'approved' | 'rejected';
 
 /** The agent's proposal for one issue, written back through the CLI. */
 export interface Suggestion {
   action: SuggestedAction;
+  /** Only meaningful when the action is `close`. */
+  closeReason: CloseReason;
+  /** The issue this duplicates, when the reason is `duplicate`. */
+  duplicateOf: number | null;
   /** The comment to post. Empty for actions that do not post. */
   body: string;
   /** Why the agent proposed this, shown under the row. */
@@ -107,3 +120,23 @@ export const PENDING_DISPOSITION: Disposition = {
   appliedAt: null,
   applyError: null,
 };
+
+/**
+ * What the approve button will actually do, so it never just says "Approve"
+ * over an action that closes someone's issue.
+ */
+export function actionLabel(suggestion: Pick<Suggestion, 'action' | 'closeReason' | 'duplicateOf'>): string {
+  switch (suggestion.action) {
+    case 'close':
+      if (suggestion.closeReason === 'duplicate') {
+        return suggestion.duplicateOf ? `Close as duplicate of #${suggestion.duplicateOf}` : 'Close as duplicate';
+      }
+      return `Close as ${suggestion.closeReason}`;
+    case 'comment':
+      return 'Post comment';
+    case 'keep':
+      return 'Keep open';
+    case 'needsInfo':
+      return 'Ask for a repro';
+  }
+}

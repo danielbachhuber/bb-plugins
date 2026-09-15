@@ -9,7 +9,7 @@
 import { REPO_SLUG_PATTERN, type GhRunner } from '@danielb/gh-shared/gh';
 
 import { rankRows, toRow } from './classify.js';
-import type { RawIssue, TriageRow } from './types.js';
+import type { CloseReason, RawIssue, TriageRow } from './types.js';
 
 /** `gh issue list` will not return more than this in one call. */
 export const FETCH_LIMIT = 1000;
@@ -78,13 +78,20 @@ export async function applyDisposition(
   gh: GhRunner,
   repo: string,
   number: number,
-  options: { comment: string | null; close: boolean },
+  options: { comment: string | null; close: boolean; reason?: CloseReason; duplicateOf?: number | null },
 ): Promise<void> {
   assertRepoSlug(repo);
   if (options.comment && options.comment.trim().length > 0) {
     await gh.run(['issue', 'comment', String(number), '--repo', repo, '--body', options.comment]);
   }
   if (options.close) {
-    await gh.run(['issue', 'close', String(number), '--repo', repo]);
+    const args = ['issue', 'close', String(number), '--repo', repo];
+    if (options.reason === 'duplicate' && options.duplicateOf) {
+      // --duplicate-of sets the reason itself; passing both is redundant.
+      args.push('--duplicate-of', String(options.duplicateOf));
+    } else if (options.reason) {
+      args.push('--reason', options.reason);
+    }
+    await gh.run(args);
   }
 }

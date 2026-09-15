@@ -12,8 +12,12 @@ export const suggestedActionSchema = z.enum(['close', 'comment', 'keep', 'needsI
 
 export const verdictSchema = z.enum(['pending', 'approved', 'rejected']);
 
+export const closeReasonSchema = z.enum(['completed', 'not planned', 'duplicate']);
+
 export const suggestionSchema = z.object({
   action: suggestedActionSchema,
+  closeReason: closeReasonSchema,
+  duplicateOf: z.number().nullable(),
   body: z.string(),
   rationale: z.string(),
   suggestedAt: z.string(),

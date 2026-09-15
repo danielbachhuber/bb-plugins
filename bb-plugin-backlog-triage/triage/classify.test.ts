@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { classifyIssue, daysBetween, pendingRows, rankRows, scoreStaleness, toRow, unresearchedRows } from './classify.js';
-import { PENDING_DISPOSITION, type RawIssue, type TriageRow } from './types.js';
+import { actionClosesIssue, actionLabel, actionPostsComment, PENDING_DISPOSITION, type RawIssue, type TriageRow } from './types.js';
 
 const NOW = new Date('2026-09-15T00:00:00Z');
 
@@ -154,5 +154,38 @@ describe('pendingRows and unresearchedRows', () => {
   it('offers only unresearched rows to a batch', () => {
     const rows = [decided(1, 'pending', true), decided(2, 'pending', false)];
     expect(unresearchedRows(rows).map((r) => r.number)).toEqual([2]);
+  });
+});
+
+describe('actionLabel', () => {
+  it('names the close reason, so a button never just says Approve', () => {
+    expect(actionLabel({ action: 'close', closeReason: 'not planned', duplicateOf: null })).toBe('Close as not planned');
+    expect(actionLabel({ action: 'close', closeReason: 'completed', duplicateOf: null })).toBe('Close as completed');
+  });
+
+  it('names the issue a duplicate points at', () => {
+    expect(actionLabel({ action: 'close', closeReason: 'duplicate', duplicateOf: 294 })).toBe('Close as duplicate of #294');
+  });
+
+  it('falls back when a duplicate has no target', () => {
+    expect(actionLabel({ action: 'close', closeReason: 'duplicate', duplicateOf: null })).toBe('Close as duplicate');
+  });
+
+  it('labels the actions that do not close', () => {
+    expect(actionLabel({ action: 'comment', closeReason: 'not planned', duplicateOf: null })).toBe('Post comment');
+    expect(actionLabel({ action: 'keep', closeReason: 'not planned', duplicateOf: null })).toBe('Keep open');
+    expect(actionLabel({ action: 'needsInfo', closeReason: 'not planned', duplicateOf: null })).toBe('Ask for a repro');
+  });
+});
+
+describe('actionPostsComment and actionClosesIssue', () => {
+  it('only close closes', () => {
+    expect(actionClosesIssue('close')).toBe(true);
+    for (const a of ['comment', 'keep', 'needsInfo'] as const) expect(actionClosesIssue(a)).toBe(false);
+  });
+
+  it('keep is the only action that writes nothing', () => {
+    expect(actionPostsComment('keep')).toBe(false);
+    for (const a of ['close', 'comment', 'needsInfo'] as const) expect(actionPostsComment(a)).toBe(true);
   });
 });

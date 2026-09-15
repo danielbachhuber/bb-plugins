@@ -97,6 +97,27 @@ describe('applyDisposition', () => {
     expect(gh.calls.map((c) => c[1])).toEqual(['comment']);
   });
 
+  it('records the close reason GitHub should show', async () => {
+    const gh = runner('');
+    await applyDisposition(gh, 'acme/widgets', 43, { comment: null, close: true, reason: 'not planned' });
+    expect(gh.calls[0]).toContain('--reason');
+    expect(gh.calls[0][gh.calls[0].indexOf('--reason') + 1]).toBe('not planned');
+  });
+
+  it('uses --duplicate-of for a duplicate, which sets the reason itself', async () => {
+    const gh = runner('');
+    await applyDisposition(gh, 'acme/widgets', 560, { comment: null, close: true, reason: 'duplicate', duplicateOf: 294 });
+    expect(gh.calls[0]).toContain('--duplicate-of');
+    expect(gh.calls[0][gh.calls[0].indexOf('--duplicate-of') + 1]).toBe('294');
+    expect(gh.calls[0]).not.toContain('--reason');
+  });
+
+  it('falls back to the plain reason when a duplicate names no target', async () => {
+    const gh = runner('');
+    await applyDisposition(gh, 'acme/widgets', 560, { comment: null, close: true, reason: 'duplicate', duplicateOf: null });
+    expect(gh.calls[0][gh.calls[0].indexOf('--reason') + 1]).toBe('duplicate');
+  });
+
   it('closes without commenting', async () => {
     const gh = runner('');
     await applyDisposition(gh, 'acme/widgets', 43, { comment: null, close: true });

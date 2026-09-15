@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   definePluginApp,
   useRealtime,
@@ -13,12 +13,13 @@ import { EmptyGraphic } from '@/components/ui/empty-graphic';
 import { Icon } from '@/components/ui/icon';
 import { LoadingGraphic } from '@/components/ui/loading-graphic';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SyncStatus } from '@/components/ui/sync-status';
+import { SyncStatus, syncedAgo } from '@/components/ui/sync-status';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { TitleLink } from '@/components/ui/title-link';
 
 type SuggestedAction = 'close' | 'comment' | 'keep' | 'needsInfo';
+type CloseReason = 'completed' | 'not planned' | 'duplicate';
 
 interface Row {
   repo: string;
@@ -43,6 +44,8 @@ interface Row {
   };
   suggestion: {
     action: SuggestedAction;
+    closeReason: CloseReason;
+    duplicateOf: number | null;
     body: string;
     rationale: string;
     suggestedAt: string;
@@ -69,28 +72,114 @@ interface Listing {
   batchSize: number;
 }
 
-const ACTION_LABEL: Record<SuggestedAction, string> = {
-  close: 'Close',
-  comment: 'Comment',
-  keep: 'Keep',
-  needsInfo: 'Needs info',
-};
+/**
+ * A draft box that grows to fit its text.
+ *
+ * A fixed row count clips a comment mid-line and puts the rest behind an inner
+ * scrollbar nobody finds, which matters here because the text is the thing
+ * being approved. Height is driven off scrollHeight rather than a line count,
+ * so wrapping and pasted text are both handled.
+ */
+function AutoTextarea({
+  value,
+  onChange,
+  disabled,
+  label,
+  placeholder,
+  minRows = 2,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+  label: string;
+  placeholder?: string;
+  minRows?: number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  // Layout effect, not effect: resetting to auto and measuring after paint
+  // shows one frame at the wrong height on every keystroke.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <Textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      rows={minRows}
+      placeholder={placeholder}
+      aria-label={label}
+      className="resize-none overflow-hidden text-sm"
+    />
+  );
+}
+
+/**
+ * What the button will actually do. Mirrors `actionLabel` on the server: a
+ * control that closes someone's issue should say so before it is clicked, not
+ * just "Approve".
+ */
+function actionLabel(s: { action: SuggestedAction; closeReason: CloseReason; duplicateOf: number | null }): string {
+  switch (s.action) {
+    case 'close':
+      if (s.closeReason === 'duplicate') return s.duplicateOf ? `Close as duplicate of #${s.duplicateOf}` : 'Close as duplicate';
+      return `Close as ${s.closeReason}`;
+    case 'comment':
+      return 'Post comment';
+    case 'keep':
+      return 'Keep open';
+    case 'needsInfo':
+      return 'Ask for a repro';
+  }
+}
+
+/**
+ * What happened, in the past tense, for a row that has been decided. The row
+ * collapses to this one line: the comment itself is on GitHub, which the title
+ * links to.
+ */
+function outcomeLabel(s: { action: SuggestedAction; closeReason: CloseReason; duplicateOf: number | null }): string {
+  switch (s.action) {
+    case 'close':
+      if (s.closeReason === 'duplicate') return s.duplicateOf ? `Closed as duplicate of #${s.duplicateOf}` : 'Closed as duplicate';
+      return `Closed as ${s.closeReason}`;
+    case 'comment':
+      return 'Comment posted';
+    case 'keep':
+      return 'Kept open';
+    case 'needsInfo':
+      return 'Asked for a repro';
+  }
+}
+
+/** The short form for the Action column. */
+function actionBadgeLabel(s: { action: SuggestedAction; closeReason: CloseReason }): string {
+  if (s.action === 'close') return `Close · ${s.closeReason}`;
+  if (s.action === 'needsInfo') return 'Needs info';
+  return s.action === 'comment' ? 'Comment' : 'Keep';
+}
 
 /** Which actions write to GitHub, mirroring `actionPostsComment` on the server. */
 function postsComment(action: SuggestedAction): boolean {
-  return action === 'close' || action === 'comment';
+  return action === 'close' || action === 'comment' || action === 'needsInfo';
 }
 
 const BADGE = 'rounded-md px-1.5 py-0.5 text-xs font-medium';
 
-function ActionBadge({ action }: { action: SuggestedAction }) {
+function ActionBadge({ suggestion }: { suggestion: { action: SuggestedAction; closeReason: CloseReason } }) {
   const tone =
-    action === 'close'
+    suggestion.action === 'close'
       ? 'bg-destructive/10 text-destructive'
-      : action === 'keep'
+      : suggestion.action === 'keep'
         ? 'bg-muted text-muted-foreground'
         : 'bg-primary/10 text-primary';
-  return <span className={`${BADGE} ${tone}`}>{ACTION_LABEL[action]}</span>;
+  return <span className={`${BADGE} ${tone} inline-block break-words`}>{actionBadgeLabel(suggestion)}</span>;
 }
 
 /** The evidence the sweep derived, as one muted line. */
@@ -208,7 +297,7 @@ function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
       error: string | null;
     };
     setBusy(false);
-    if (result.ok) toast.success(`#${row.number} ${suggestion ? ACTION_LABEL[suggestion.action].toLowerCase() : 'approved'}d`);
+    if (result.ok) toast.success(`#${row.number}: ${suggestion ? actionLabel(suggestion).toLowerCase() : 'approved'} done`);
     else toast.error(result.error ?? 'Could not apply that.');
     onDone();
   }
@@ -233,18 +322,42 @@ function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
     onDone();
   }
 
+  // A decided row has nothing left to read or do, so it collapses to one line
+  // and steps back visually. What is left to act on is what should draw the eye.
+  if (decided && suggestion) {
+    const when = row.disposition.decidedAt ? syncedAgo(Date.parse(row.disposition.decidedAt), Date.now()) : null;
+    return (
+      <TableRow className="opacity-55">
+        <TableCell className="px-3 py-2 align-middle min-w-0">
+          <TitleLink href={row.url} text={`#${row.number} ${row.title}`} />
+        </TableCell>
+        <TableCell className="px-3 py-2 align-middle w-[150px] min-w-0">
+          <ActionBadge suggestion={suggestion} />
+        </TableCell>
+        <TableCell className="px-3 py-2 align-middle min-w-0">
+          <span className="text-xs text-muted-foreground break-words">
+            {row.disposition.verdict === 'rejected'
+              ? `Rejected: ${row.disposition.rejectionReason}`
+              : outcomeLabel(suggestion)}
+            {when ? ` · ${when}` : ''}
+          </span>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
     <TableRow>
-      <TableCell className="px-3 py-3 align-top">
+      <TableCell className="px-3 py-3 align-top min-w-0">
         <TitleLink href={row.url} text={`#${row.number} ${row.title}`} />
         <div className="mt-1 text-xs text-muted-foreground break-words">{stalenessLine(row)}</div>
       </TableCell>
 
-      <TableCell className="px-3 py-3 align-top w-[110px]">
-        {suggestion ? <ActionBadge action={suggestion.action} /> : <span className="text-xs text-muted-foreground">—</span>}
+      <TableCell className="px-3 py-3 align-top w-[150px] min-w-0">
+        {suggestion ? <ActionBadge suggestion={suggestion} /> : <span className="text-xs text-muted-foreground">—</span>}
       </TableCell>
 
-      <TableCell className="px-3 py-3 align-top">
+      <TableCell className="px-3 py-3 align-top min-w-0">
         {!suggestion && <div className="text-xs text-muted-foreground">Not researched yet.</div>}
 
         {suggestion && (
@@ -252,13 +365,11 @@ function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
             {suggestion.rationale && <div className="text-xs text-muted-foreground break-words">{suggestion.rationale}</div>}
 
             {postsComment(suggestion.action) && (
-              <Textarea
+              <AutoTextarea
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
-                disabled={decided || busy}
-                rows={5}
-                className="text-sm"
-                aria-label={`Draft comment for issue ${row.number}`}
+                onChange={setBody}
+                disabled={busy}
+                label={`Draft comment for issue ${row.number}`}
               />
             )}
 
@@ -266,42 +377,34 @@ function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
               <div className="text-xs text-destructive break-words">Could not apply: {row.disposition.applyError}</div>
             )}
 
-            {row.disposition.verdict === 'approved' && (
-              <div className="text-xs text-muted-foreground">
-                Approved{row.disposition.appliedAt ? ` and applied` : ''}.
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant={suggestion.action === 'close' ? 'destructive' : 'default'}
+                onClick={approve}
+                disabled={busy}
+                className="cursor-pointer"
+              >
+                {actionLabel(suggestion)}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setRejecting((v) => !v)}
+                disabled={busy}
+                className="cursor-pointer"
+              >
+                Reject
+              </Button>
+            </div>
 
-            {row.disposition.verdict === 'rejected' && (
-              <div className="text-xs text-muted-foreground break-words">Rejected: {row.disposition.rejectionReason}</div>
-            )}
-
-            {!decided && (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" onClick={approve} disabled={busy} className="cursor-pointer">
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRejecting((v) => !v)}
-                  disabled={busy}
-                  className="cursor-pointer"
-                >
-                  Reject
-                </Button>
-              </div>
-            )}
-
-            {!decided && rejecting && (
+            {rejecting && (
               <div className="space-y-2">
-                <Textarea
+                <AutoTextarea
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  rows={2}
+                  onChange={setReason}
                   placeholder="Why is this suggestion wrong?"
-                  className="text-sm"
-                  aria-label={`Rejection reason for issue ${row.number}`}
+                  label={`Rejection reason for issue ${row.number}`}
                 />
                 <Button size="sm" variant="outline" onClick={reject} disabled={busy} className="cursor-pointer">
                   Record rejection
@@ -381,7 +484,7 @@ function Panel() {
   const { counts } = listing;
 
   return (
-    <div className="flex flex-col gap-3 p-3">
+    <div className="flex min-w-0 flex-col gap-3 overflow-x-hidden p-3">
       <div className="flex flex-wrap items-center gap-2">
         <RepoPicker value={repo} onChange={(next) => void select(next)} />
         <Button size="sm" variant="outline" onClick={research} className="cursor-pointer">
@@ -409,11 +512,11 @@ function Panel() {
           Every issue in this repository is closed.
         </EmptyGraphic>
       ) : (
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="px-3 py-2">Issue</TableHead>
-              <TableHead className="px-3 py-2 w-[110px]">Action</TableHead>
+              <TableHead className="px-3 py-2 w-[38%]">Issue</TableHead>
+              <TableHead className="px-3 py-2 w-[150px]">Action</TableHead>
               <TableHead className="px-3 py-2">Draft and decision</TableHead>
             </TableRow>
           </TableHeader>

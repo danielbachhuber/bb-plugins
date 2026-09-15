@@ -16,7 +16,14 @@ import { rpcContract } from './triage/contract.js';
 import { applyDisposition, fetchOpenIssues, InvalidRepoError } from './triage/gh.js';
 import { buildResearchPrompt } from './triage/prompt.js';
 import { MIGRATIONS, createStore } from './triage/store.js';
-import { actionClosesIssue, actionPostsComment, SUGGESTED_ACTIONS, type SuggestedAction } from './triage/types.js';
+import {
+  actionClosesIssue,
+  actionPostsComment,
+  CLOSE_REASONS,
+  SUGGESTED_ACTIONS,
+  type CloseReason,
+  type SuggestedAction,
+} from './triage/types.js';
 
 export { rpcContract };
 
@@ -227,6 +234,8 @@ export default async function plugin(bb: BbPluginApi) {
         await applyDisposition(await gh(), repo, number, {
           comment: actionPostsComment(action) ? body : null,
           close: actionClosesIssue(action),
+          reason: row.suggestion.closeReason,
+          duplicateOf: row.suggestion.duplicateOf,
         });
       } catch (error) {
         const message = describeError(error);
@@ -309,7 +318,7 @@ export default async function plugin(bb: BbPluginApi) {
         name: 'suggest',
         summary: 'Propose what should happen to one issue, for review in the panel',
         usage:
-          'bb backlog-triage suggest <number> --repo <owner/name> --action close|comment|keep|needsInfo --rationale <text> [--body <text>]',
+          'bb backlog-triage suggest <number> --repo <owner/name> --action close|comment|keep|needsInfo [--reason completed|"not planned"|duplicate] [--duplicate-of <number>] --rationale <text> [--body <text>]',
       },
       {
         name: 'list',
@@ -377,6 +386,22 @@ export default async function plugin(bb: BbPluginApi) {
       return { exitCode: 1, stderr: `--body is required for --action ${action}, which posts a comment.` };
     }
 
+    // Most stale-backlog closes are work nobody chose to do, so that is the
+    // default. GitHub records the reason on the issue either way.
+    const closeReason = (flags.reason ?? 'not planned') as CloseReason;
+    if (!CLOSE_REASONS.includes(closeReason)) {
+      return { exitCode: 1, stderr: `--reason must be one of: ${CLOSE_REASONS.join(', ')}` };
+    }
+
+    const duplicateOfRaw = flags['duplicate-of'];
+    const duplicateOf = duplicateOfRaw ? Number.parseInt(duplicateOfRaw.replace(/^#/, ''), 10) : null;
+    if (duplicateOfRaw && !Number.isInteger(duplicateOf)) {
+      return { exitCode: 1, stderr: '--duplicate-of must be an issue number.' };
+    }
+    if (closeReason === 'duplicate' && action === 'close' && !duplicateOf) {
+      return { exitCode: 1, stderr: '--reason duplicate needs --duplicate-of <number>.' };
+    }
+
     const row = store.getRow(repo, number);
     if (!row) {
       return { exitCode: 1, stderr: `${repo}#${number} is not in the current sweep. Run a sync in the panel first.` };
@@ -384,6 +409,8 @@ export default async function plugin(bb: BbPluginApi) {
 
     store.putSuggestion(repo, number, {
       action,
+      closeReason,
+      duplicateOf,
       body,
       rationale: flags.rationale ?? '',
       suggestedAt: new Date().toISOString(),

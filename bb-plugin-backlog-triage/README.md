@@ -37,23 +37,46 @@ Requires `gh` on PATH and authenticated.
 3. **Research next N** spawns a thread for the N stalest issues that have no
    suggestion yet. The composer lets that one batch differ from the settings.
 4. Each researched row shows the suggested action, the agent's rationale, and an
-   editable comment body.
-5. **Approve** posts the body as it stands in the textarea and closes the issue
-   if the action is `close`. **Reject** records your reason, which is kept so a
-   later pass can see why a suggestion was wrong.
+   editable comment body. The box grows to fit the draft, because the text is
+   the thing being approved and a clipped comment cannot be read.
+5. The approve button names what it will do: **Close as not planned**, **Close
+   as duplicate of #294**, **Ask for a repro**, **Keep open**. A close renders
+   as destructive, so the row that shuts someone's issue does not look like the
+   one that leaves it open. It posts the body as it stands in the textarea.
+6. **Reject** records your reason, which is kept so a later pass can see why a
+   suggestion was wrong.
+7. A decided row collapses to one line and steps back: the comment is on GitHub,
+   which the title links to, so what is left to act on is what draws the eye.
 
 ## Actions
 
 | Action | Writes to GitHub on approval |
 | --- | --- |
-| `close` | Posts the comment, then closes |
+| `close` | Posts the comment, then closes with a reason |
 | `comment` | Posts the comment only |
+| `needsInfo` | Posts the question; the issue stays open |
 | `keep` | Nothing; records that you looked |
-| `needsInfo` | Nothing; for bugs that need a repro |
+
+`keep` is the only action that writes nothing. `needsInfo` posts, because asking
+for a repro and not sending the question is no use to anyone.
 
 The comment is posted before the close, deliberately. A close that fails leaves
 an explanatory comment behind; a comment that fails after a close would leave an
 issue shut with no reason on it.
+
+### Close reasons
+
+GitHub records why an issue was closed, and that outlives anyone's memory of the
+pass, so a close carries one of its three reasons:
+
+| Reason | For |
+| --- | --- |
+| `completed` | The thing asked for now exists, even if it arrived another way |
+| `not planned` | Work nobody chose to do: obsolete, superseded, overtaken. The default |
+| `duplicate` | Another issue covers it. Needs `--duplicate-of <number>` |
+
+A duplicate closes with `--duplicate-of`, which sets the reason itself, so
+`--reason` is not passed alongside it.
 
 ## Staleness ranking
 
@@ -79,6 +102,11 @@ sweeps instead of reshuffling.
 Issue facts and triage decisions are separate tables. A sweep replaces the facts
 and never touches the decisions, because a pass takes days while the sweep runs
 every few minutes. There is a test for that.
+
+A stored suggestion is normalized on read, filling fields it predates. Without
+that, adding a field to the row makes the RPC layer reject the whole list rather
+than the one row, and the only symptom is an empty panel and a line in the
+server log.
 
 ## Development
 

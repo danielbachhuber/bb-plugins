@@ -10,7 +10,28 @@
 import type { Database } from 'better-sqlite3';
 
 import { rankRows } from './classify.js';
-import { PENDING_DISPOSITION, type Disposition, type Suggestion, type TriageRow } from './types.js';
+import { CLOSE_REASONS, PENDING_DISPOSITION, type CloseReason, type Disposition, type Suggestion, type TriageRow } from './types.js';
+
+/**
+ * Fills fields a stored suggestion predates.
+ *
+ * SQLite holds these as JSON, so a row written before a field existed reads
+ * back without it, and the RPC layer rejects the whole list rather than the one
+ * row. The symptom is an empty panel and one line in the server log, so the
+ * defaults are applied here instead.
+ */
+function normalizeSuggestion(raw: Partial<Suggestion>): Suggestion {
+  const reason = raw.closeReason as CloseReason | undefined;
+  return {
+    action: raw.action ?? 'keep',
+    closeReason: reason && CLOSE_REASONS.includes(reason) ? reason : 'not planned',
+    duplicateOf: typeof raw.duplicateOf === 'number' ? raw.duplicateOf : null,
+    body: raw.body ?? '',
+    rationale: raw.rationale ?? '',
+    suggestedAt: raw.suggestedAt ?? new Date(0).toISOString(),
+    threadId: raw.threadId ?? null,
+  };
+}
 
 /**
  * APPEND-ONLY. Statement index is the migration id. Never edit or reorder a
@@ -85,7 +106,7 @@ export function createStore(db: Database): TriageStore {
       | undefined;
     if (!row) return { suggestion: null, disposition: { ...PENDING_DISPOSITION } };
     return {
-      suggestion: row.suggestion ? (JSON.parse(row.suggestion) as Suggestion) : null,
+      suggestion: row.suggestion ? normalizeSuggestion(JSON.parse(row.suggestion) as Partial<Suggestion>) : null,
       disposition: JSON.parse(row.disposition) as Disposition,
     };
   }

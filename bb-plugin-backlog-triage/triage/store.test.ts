@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { toRow } from './classify.js';
 import { MIGRATIONS, createStore, type TriageStore } from './store.js';
-import type { Disposition, RawIssue, Suggestion } from './types.js';
+import { PENDING_DISPOSITION, type Disposition, type RawIssue, type Suggestion } from './types.js';
 
 const NOW = new Date('2026-09-15T00:00:00Z');
 const REPO = 'acme/widgets';
@@ -28,6 +28,8 @@ function issue(number: number, over: Partial<RawIssue> = {}): RawIssue {
 
 const SUGGESTION: Suggestion = {
   action: 'close',
+  closeReason: 'not planned',
+  duplicateOf: null,
   body: 'Closing as obsolete.',
   rationale: 'The tool it names was replaced.',
   suggestedAt: NOW.toISOString(),
@@ -151,5 +153,28 @@ describe('createStore', () => {
     s.recordBatch('thr_abc', REPO, [61, 62, 63]);
     expect(s.batchNumbers('thr_abc')).toEqual({ repo: REPO, numbers: [61, 62, 63] });
     expect(s.batchNumbers('thr_missing')).toBeNull();
+  });
+});
+
+describe('reading a suggestion written before a field existed', () => {
+  it('fills the missing fields instead of failing the whole list', () => {
+    const db = new Database(':memory:');
+    for (const statement of MIGRATIONS) db.exec(statement);
+    const s = createStore(db);
+    s.replaceIssues(REPO, [toRow(issue(1), REPO, NOW)]);
+
+    // A row as an earlier version of the plugin wrote it: no closeReason,
+    // no duplicateOf.
+    db.prepare('INSERT INTO triage (repo, number, suggestion, disposition) VALUES (?, ?, ?, ?)').run(
+      REPO,
+      1,
+      JSON.stringify({ action: 'close', body: 'b', rationale: 'r', suggestedAt: NOW.toISOString(), threadId: null }),
+      JSON.stringify(PENDING_DISPOSITION),
+    );
+
+    const row = s.getRow(REPO, 1);
+    expect(row?.suggestion?.action).toBe('close');
+    expect(row?.suggestion?.closeReason).toBe('not planned');
+    expect(row?.suggestion?.duplicateOf).toBeNull();
   });
 });
