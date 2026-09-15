@@ -133,8 +133,6 @@ function BodyEditor({
   const [body, setBody] = useState(initialBody);
   const [busy, setBusy] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
-  /** Where the caret should land after a programmatic edit; null when it should not move. */
-  const caret = useRef<number | null>(null);
   const ready = body.trim() !== "" && !busy;
 
   // Focus once, caret at the end. An inline `ref` callback would run on every
@@ -148,28 +146,10 @@ function BodyEditor({
     node.setSelectionRange(node.value.length, node.value.length);
   }, []);
 
-  // Applies the caret position asked for by a newline insertion, after React
-  // has written the new value into the DOM.
-  useEffect(() => {
-    const at = caret.current;
-    const node = box.current;
-    if (at === null || node === null) return;
-    caret.current = null;
-    node.setSelectionRange(at, at);
-  }, [body]);
-
   const submit = () => {
     if (!ready) return;
     setBusy(true);
     onSubmit(body.trim());
-  };
-
-  /** Insert a line break at the caret, since the key that would have has been taken. */
-  const insertNewline = (node: HTMLTextAreaElement) => {
-    const start = node.selectionStart;
-    const end = node.selectionEnd;
-    setBody(`${body.slice(0, start)}\n${body.slice(end)}`);
-    caret.current = start + 1;
   };
 
   return (
@@ -179,21 +159,12 @@ function BodyEditor({
           ref={box}
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          // Enter sends, because a diff comment is usually one line and
-          // reaching for a modifier to post it gets old. A newline therefore
-          // needs a modifier: Cmd/Ctrl+Enter, or Shift+Enter, which is the
-          // same pair every chat box uses for the inverse binding.
+          // Cmd/Ctrl+Enter saves, matching how the composer behaves elsewhere
+          // in bb; plain Enter has to stay available for writing prose.
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              if (event.metaKey || event.ctrlKey) {
-                event.preventDefault();
-                insertNewline(event.currentTarget);
-                return;
-              }
-              if (event.shiftKey) return;
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
               submit();
-              return;
             }
             if (event.key === "Escape") {
               event.preventDefault();
@@ -214,9 +185,7 @@ function BodyEditor({
         <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-        <span className="text-muted-foreground ml-auto text-[11px]">
-          ↵ to save · ⌘↵ for a new line
-        </span>
+        <span className="text-muted-foreground ml-auto text-[11px]">⌘↵ to save</span>
       </Footer>
     </>
   );
