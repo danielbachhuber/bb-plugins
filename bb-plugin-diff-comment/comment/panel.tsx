@@ -4,15 +4,14 @@
 // reading code. This is the other view: what is still open, what the agent
 // said it did, and the ones whose code has moved out from under them and are
 // therefore invisible on the diff.
-import { useCallback, useEffect, useState } from "react";
-import { useComposer, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { useState } from "react";
+import { useComposer } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { COMMENTS_CHANGED } from "./contract";
-import { ordered, summarize } from "./store";
+import { agentPrompt } from "./prompt";
 import { relativeTime } from "./time";
+import { useThreadComments } from "./useComments";
 import type { Comment, CommentState } from "./types";
-import type { rpcContract } from "@/server";
 
 const GROUPS: Array<{ state: CommentState; title: string; empty: string }> = [
   { state: "open", title: "Open", empty: "Nothing open." },
@@ -103,10 +102,7 @@ function SendToAgent({ open }: { open: number }) {
   if (open === 0) return null;
 
   const send = () => {
-    composer.setText(
-      `Work through the ${open} open comment${open === 1 ? "" : "s"} on this diff, ` +
-        `one at a time, using the diff-comments skill.`,
-    );
+    composer.setText(agentPrompt(open));
     setSent(true);
   };
 
@@ -123,34 +119,13 @@ function SendToAgent({ open }: { open: number }) {
 }
 
 export function CommentPanel({ threadId }: { threadId: string }) {
-  const rpc = useRpc<typeof rpcContract>();
-  const [comments, setComments] = useState<Comment[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const refetch = useCallback(() => {
-    rpc.call("comments_list", { threadId }).then(
-      (result) => {
-        setComments(ordered(result.comments));
-        setError(null);
-      },
-      (cause: unknown) => {
-        // Never let the failing branch be the silent one: an empty panel with
-        // no explanation is the hardest thing to debug from a screenshot.
-        setError(cause instanceof Error ? cause.message : String(cause));
-      },
-    );
-  }, [rpc, threadId]);
-
-  useEffect(refetch, [refetch]);
-  // Published after every write, including from `bb diff-comment` in an
-  // agent's shell, so the list keeps up while the agent works.
-  useRealtime(COMMENTS_CHANGED, refetch);
+  const { comments, counts, error, refetch, rpc } = useThreadComments(threadId);
 
   const setState = (id: string, state: CommentState) => {
-    rpc.call("comments_set_state", { threadId, id, state }).then(refetch, setError as () => void);
+    rpc.call("comments_set_state", { threadId, id, state }).then(refetch, refetch);
   };
   const remove = (id: string) => {
-    rpc.call("comments_remove", { threadId, id }).then(refetch, setError as () => void);
+    rpc.call("comments_remove", { threadId, id }).then(refetch, refetch);
   };
 
   if (error !== null) {
@@ -162,8 +137,6 @@ export function CommentPanel({ threadId }: { threadId: string }) {
   if (comments.length === 0) {
     return <Empty />;
   }
-
-  const counts = summarize(comments);
 
   return (
     <div>

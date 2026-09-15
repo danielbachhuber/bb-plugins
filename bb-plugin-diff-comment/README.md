@@ -30,10 +30,13 @@ where you get to read what it actually did before the comment goes away.
 
 ## Working through them
 
-Open the **Diff comments** tab in the thread panel and press **Send to agent**.
-That writes the prompt into this thread's composer; press Enter to send it. It
-stops short of sending on its own deliberately — the SDK has no "submit now",
-and sending a message on your behalf is your affordance, not a plugin's.
+Press **Send to agent** in the thread header. It appears there as soon as a
+comment is open, showing how many, and writes the prompt into this thread's
+composer; press Enter to send it. The same button sits in the **Diff comments**
+panel tab.
+
+It stops short of sending on its own deliberately — the SDK has no "submit
+now", and sending a message on your behalf is your affordance, not a plugin's.
 
 Under that, the agent uses `bb diff-comment` inside the thread. It needs no
 arguments to find the right comments, because comments belong to the thread

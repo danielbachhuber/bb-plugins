@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { CommentCard, CommentComposer } from "@/comment/cards";
+import { CommentHeaderAction } from "@/comment/header";
 import { CommentPanel } from "@/comment/panel";
 import type { Comment, CommentState } from "@/comment/types";
 import { OVERLAY_CSS } from "@/diff/style";
@@ -240,6 +241,14 @@ export default definePluginApp((app) => {
     mount({ pluginId, signal }) {
       return mount(pluginId, signal);
     },
+  });
+
+  // Where the comments reach the agent. The panel tab is a place you have to
+  // know to open; this is in the header while you read the diff.
+  app.slots.experimental_threadHeaderAction({
+    id: "send-to-agent",
+    title: "Diff comments",
+    component: CommentHeaderAction,
   });
 
   app.slots.threadPanelAction({
