@@ -45,6 +45,14 @@ const DEFAULT_SKILL = "pr-sweep";
 const PASSIVE_FLAGS = new Set<Flag>(["ci-pending", "merge-ready"]);
 
 /**
+ * True when nothing a row is flagged for is the author's to do. An unflagged
+ * row qualifies: it has no flag asking anything either.
+ */
+export function hasOnlyPassiveFlags(flags: readonly string[]): boolean {
+  return flags.every((flag) => PASSIVE_FLAGS.has(flag as Flag));
+}
+
+/**
  * The skill for one flag, on one row.
  *
  * Only merge-readiness depends on more than the flag. An approved, green pull
@@ -77,7 +85,7 @@ export function skillFor(flags: readonly string[], commentsToRead = 0): string {
   // Nothing on the row is yours to do except read, so the reading is the whole
   // of the work — including on a row with no flag at all, since no flag
   // records an approval's unresolved threads.
-  if (commentsToRead > 0 && flags.every((flag) => PASSIVE_FLAGS.has(flag as Flag))) {
+  if (commentsToRead > 0 && hasOnlyPassiveFlags(flags)) {
     return SKILL_FOR.feedback ?? DEFAULT_SKILL;
   }
   for (const flag of FLAG_SEVERITY) {
@@ -332,7 +340,14 @@ export function displaySection(
     // just housekeeping.
     return outstandingReviewers > 0 ? "partial-approval" : "ready-to-merge";
   }
-  if (group === "clean") {
+  // A running job is not a flag that asks anything of the author, so a row
+  // carrying nothing else decides its section the same way an unflagged row
+  // does. #5884 had answered its review, re-requested it, and was waiting on
+  // six checks, and the running job alone held it under Needs Action.
+  // The length check keeps the group the authority on a row that carries no
+  // flag at all: `hasOnlyPassiveFlags([])` is true, and reading it here would
+  // let an unflagged row contradict its own group.
+  if (group === "clean" || (flags.length > 0 && hasOnlyPassiveFlags(flags))) {
     // A reviewer who still owes a look decides the section, comments or not.
     // The comments are real work, but they are not the next move: the row is
     // waiting either way, and it says so in its own Status column. #5950 read

@@ -11,6 +11,7 @@ import {
   displaySection,
   isCounted,
   hasNothingToDo,
+  hasOnlyPassiveFlags,
   isOnlyWaitingOnCi,
   worstFlag,
   modelForFlags,
@@ -283,6 +284,29 @@ describe("displaySection", () => {
     // row nobody had to do.
     expect(isOnlyWaitingOnCi(["ci-pending"], 2)).toBe(false);
     expect(displaySection("needs-action", false, false, 0, ["ci-pending"], 2)).toBe("needs-action");
+  });
+
+  it("files a row waiting on a reviewer under Awaiting Review while CI runs", () => {
+    // #5884: answered its review, re-requested it, one outdated unresolved
+    // thread and a note left over, six checks running. Comments kept it out of
+    // Waiting on CI and the running job was all that held it under Needs
+    // Action, on a pull request whose next move is the reviewer's.
+    expect(displaySection("needs-action", false, false, 1, ["ci-pending"], 2, true)).toBe(
+      "awaiting-review",
+    );
+    // With nothing to read, Waiting on CI still wins: it matches what the
+    // row's own Status column says, and neither section asks anything of you.
+    expect(displaySection("needs-action", false, false, 1, ["ci-pending"], 0)).toBe(
+      "waiting-on-ci",
+    );
+    // Any flag that is the author's to act on still decides the section.
+    expect(
+      displaySection("needs-action", false, false, 1, ["ci-failing", "ci-pending"], 2, true),
+    ).toBe("needs-action");
+    // A row with no flag at all is still the group's to place.
+    expect(displaySection("needs-action", false, false, 1, [], 2, true)).toBe("needs-action");
+    expect(hasOnlyPassiveFlags(["ci-pending"])).toBe(true);
+    expect(hasOnlyPassiveFlags(["ci-pending", "conflict"])).toBe(false);
   });
 
   it("keeps an unflagged row with comments out of Awaiting Review when nobody is outstanding", () => {
