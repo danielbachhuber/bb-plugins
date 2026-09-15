@@ -25,6 +25,23 @@ re-color text that Preview is one click away from rendering properly. The two
 views share one buffer, so edits typed in Raw show up in Preview before they
 are saved.
 
+## Opening from a diff
+
+A markdown file in a thread's changes panel gets a pencil in its card header,
+third in the strip after bb's copy and open-in-editor icons. It opens the file
+in this editor.
+
+Clicking the file's path in that header already did this, so the pencil is
+there to say so. It works by clicking bb's own path control rather than
+reimplementing the intent: the header is bb's DOM, decorated by a content
+script, and a content script has no `useBbNavigate` to open a file with. The
+extension list is shared with the file opener, so a pencil never appears on a
+file that would open in bb's preview instead.
+
+Because it is a content script reading bb's own markup, this is the part of the
+plugin a bb upgrade can quietly break. `diff/fixture.ts` reproduces the header
+bb renders and is where that shows up.
+
 ## Saving
 
 Saving is explicit — `Cmd+S`, or the Save button, both inert when nothing has
@@ -88,7 +105,8 @@ choosing between them per extension.
 | `editor/save.ts` | The save state machine: dirty, saving, conflict, error |
 | `editor/images.ts` | Finding image references, resolving them against the open file, and pointing them at the asset route |
 | `server.ts` | The `file_read` / `file_write` contract and the `bb.sdk.files` boundary |
-| `app.tsx` | The file opener registration and the tab's UI |
+| `diff/` | The changes-panel pencil: which files it offers, how it finds bb's diff header, and the loop that keeps it there |
+| `app.tsx` | The file opener registration, the content script, and the tab's UI |
 
 Two host behaviors this code exists to accommodate, both found by running it
 rather than by reading the types:
