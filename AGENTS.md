@@ -99,9 +99,6 @@ grep -h "plugin:<id>" ~/.bb/logs/server*.log | tail -20
 
 ## Further reading
 
-Two skills carry the rest and are not repeated here:
-
-- `improve-bb` — how these plugins are built, what has gone wrong in them, the
-  UI conventions, and how to change a row's shape without the panel silently
-  emptying. Read it before touching the code.
-- `building-bb-plugins` — authoring preferences for a new plugin.
+`building-bb-plugins` carries the authoring preferences for a new plugin —
+which of BB's own components to reuse, where logic goes relative to vendored
+shadcn source, and the testing-harness gotchas — and is not repeated here.
