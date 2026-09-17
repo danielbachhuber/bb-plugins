@@ -58,6 +58,26 @@ drifted:
 `sync.sh --check` is fast and offline, which makes it suitable for a
 `post-merge` hook.
 
+`sync.sh` builds with the Node version in `.nvmrc`, loading it through nvm, and
+stops if that version is not installed. Different npm versions write
+`package-lock.json` differently, so building with another Node leaves every
+lockfile modified. It skips a plugin that bb has not installed yet; run
+`setup.sh` to install one that arrived in a pull.
+
+`update.sh` keeps a machine current on its own. It fast-forwards `main` from
+`origin`, then runs `sync.sh`. If the checkout is on another branch, has
+uncommitted changes, or has diverged from `origin`, it changes nothing and says
+why. Schedule it on each machine as a bb script automation:
+
+```sh
+bb automation create --project <id> --name "Update bb-plugins" \
+  --cron "*/15 5-15 * * *" --timezone America/Los_Angeles --interpreter bash \
+  --script 'exec ~/projects/bb-plugins/update.sh'
+```
+
+Pass the path inline. `--script-file` stores a copy of the script, so later
+changes to `update.sh` would not run.
+
 ## Working on one plugin
 
 ```sh

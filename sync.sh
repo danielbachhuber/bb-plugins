@@ -143,6 +143,39 @@ fi
 # runtime "is not a function". A plugin that does not typecheck is not built
 # and not reloaded, so a broken pull cannot take a working panel down with it.
 
+# Build with the Node that .nvmrc pins. npm versions disagree about what belongs
+# in package-lock.json (one writes `libc` fields the other drops), so installing
+# with whatever Node is first on PATH leaves every lockfile modified, and the
+# next `update.sh` refuses to pull into a dirty checkout. A scheduled run gets a
+# non-interactive shell that has not loaded nvm, so load it here.
+use_pinned_node() {
+  local want have
+  want="$(tr -d '[:space:]v' < "$DIR/.nvmrc")"
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # nvm.sh is not written for `set -u`.
+    set +u
+    # shellcheck disable=SC1091
+    . "$NVM_DIR/nvm.sh" --no-use
+    ( cd "$DIR" && nvm which >/dev/null 2>&1 ) \
+      || { set -u; echo "Node $want is not installed. Run: nvm install $want" >&2; return 1; }
+    pushd "$DIR" >/dev/null && nvm use --silent >/dev/null; popd >/dev/null
+    set -u
+  fi
+  have="$(node -v 2>/dev/null | sed 's/^v//')"
+  case "$have" in
+    "$want"|"$want".*) return 0 ;;
+  esac
+  echo "Node ${have:-none} is on PATH, but .nvmrc pins $want. Install nvm and run: nvm install $want" >&2
+  return 1
+}
+
+if [ -f "$DIR/.nvmrc" ]; then
+  use_pinned_node || exit 1
+fi
+
+installed_ids="$(bb plugin list --json 2>/dev/null | jq -r '.plugins[].id' 2>/dev/null || true)"
+
 apply_plugin() {
   local plugin="$1" id="$2"
   echo "==> $id"
@@ -169,6 +202,12 @@ failed=0
 
 while IFS=$'\t' read -r plugin id reason; do
   [ -z "$plugin" ] && continue
+  # A plugin that arrived in a pull is not registered with bb yet, so there is
+  # nothing to reload. Installing one is setup.sh's job and a deliberate step.
+  if ! printf '%s\n' "$installed_ids" | grep -qx "$id"; then
+    echo "==> $id not installed; skipping. Run: ${DIR}/setup.sh"
+    continue
+  fi
   apply_plugin "$plugin" "$id" || { failed=1; echo "    failed; left as it was" >&2; }
 done < <(printf '%s' "$stale_plugins")
 

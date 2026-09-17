@@ -58,6 +58,12 @@ still stale, a failure that otherwise reaches the panel as a runtime
 `./sync.sh --check` reports which plugins have drifted from this checkout;
 `./sync.sh` runs the sequence above for each of them.
 
+Run npm with the Node version in `.nvmrc` (`nvm use`). Another npm version
+rewrites every `package-lock.json`. A scheduled `update.sh` keeps each machine's
+checkout current by pulling `main` and running `sync.sh`, and it skips a
+checkout that has uncommitted changes. So a lockfile left modified on `main`
+stops that machine from updating until someone notices.
+
 ## A feature is not shipped until the prose matches
 
 Each plugin describes itself in three places, and a change to what it does
