@@ -1,0 +1,36 @@
+{
+  "name": "bb-plugin-hacks",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.43",
+    "bbPluginSdk": ">=0.4.87"
+  },
+  "bb": {
+    "name": "Hacks",
+    "description": "Local patches to bb's own UI, each one standing in for a fix that has not landed upstream yet. Currently: remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads.",
+    "branding": {
+      "icon": "Beaker"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.4.87",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "better-sqlite3": "^12.11.1",
+    "cron-parser": "^5.10.1",
+    "hono": "^4.13.8",
+    "jsdom": "^30.0.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.11",
+    "zod": "^4.6.5"
+  },
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  }
+}

@@ -19,6 +19,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-automation-palette` | `automation-palette` | Lists your automations in bb's quick palette, so a scheduled sweep can be run by hand without leaving the keyboard. |
 | `bb-plugin-diff-comment` | `diff-comment` | Leave review comments inline on a thread's diff, then have the agent work through them one at a time. |
 | `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes. |
+| `bb-plugin-hacks` | `hacks` | Local patches to bb's own UI, standing in for fixes that have not landed upstream. Currently remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads. |
 | `bb-plugin-harvest` | `harvest` | Track time in Harvest from the thread header. |
 | `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. |
 | `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab you were reading them in: a Preview/Raw toggle, an editable source pane, Cmd+S saving that refuses to clobber an edit made on disk while you typed, and an Add to chat button on a preview selection. Reachable from a pencil on markdown files in the changes panel. |

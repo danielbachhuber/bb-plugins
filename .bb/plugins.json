@@ -16,6 +16,10 @@
       "source": "./bb-plugin-diff-viewed"
     },
     {
+      "name": "hacks",
+      "source": "./bb-plugin-hacks"
+    },
+    {
       "name": "harvest",
       "source": "./bb-plugin-harvest"
     },
