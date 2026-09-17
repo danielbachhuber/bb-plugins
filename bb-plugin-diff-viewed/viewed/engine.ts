@@ -7,29 +7,18 @@
 // wires them together was never exercised. `startEngine` takes its RPC,
 // scheduler, and location as parameters for exactly that reason.
 import {
-  applyClicks,
   cardForControl,
   createControl,
   existingControl,
   findCards,
   findToolbar,
   paintCard,
-  readToolbar,
   undecorate,
   type DiffCard,
 } from "./dom";
 import { isViewed, threadIdFromPath, type ViewedRecord } from "./marks";
-import {
-  clicksToApply,
-  sameState,
-  stateAfter,
-  withToolbarState,
-  type ToolbarPrefs,
-  type ToolbarState,
-} from "./prefs";
 
 export type RecordResult = { record: ViewedRecord };
-export type PrefsResult = { prefs: ToolbarPrefs };
 
 export interface EngineDeps {
   /** Calls one of the plugin's RPC methods. */
@@ -64,11 +53,6 @@ interface SyncState {
    */
   autoCollapsed: Set<string>;
   pruned: boolean;
-  /** Saved toolbar preferences, or null until loaded. */
-  prefs: ToolbarPrefs | null;
-  /** The last toolbar reading this engine is responsible for. */
-  toolbar: ToolbarState | null;
-  applied: boolean;
 }
 
 function collapseKey(path: string, fingerprint: string): string {
@@ -82,16 +66,12 @@ export function startEngine(deps: EngineDeps): Engine {
     record: {},
     autoCollapsed: new Set(),
     pruned: false,
-    prefs: null,
-    toolbar: null,
-    applied: false,
   };
   // True while this engine is writing to the DOM, so an observer driving
   // `schedule` does not treat its own edits as a reason to run again.
   let writing = false;
   let cancel: (() => void) | null = null;
   let loading: Promise<void> | null = null;
-  let watchedToolbar: Element | null = null;
 
   const fail = (cause: unknown) => {
     // A failed write must not leave the checkbox showing a state the server
@@ -169,57 +149,6 @@ export function startEngine(deps: EngineDeps): Engine {
     }, fail);
   }
 
-  /**
-   * Restore the saved wrap and view-mode settings onto a freshly rendered
-   * toolbar, then keep whatever the user does with them.
-   *
-   * The restore has to happen by clicking bb's own buttons rather than by
-   * setting anything: the state lives in React and bb's view mode is picked
-   * from the panel width until the user overrides it. Clicking is that
-   * override, which is also why applying once per toolbar is enough.
-   */
-  function syncToolbar(toolbar: HTMLElement): void {
-    const prefs = state.prefs;
-    if (prefs === null) return;
-    const current = readToolbar(toolbar);
-
-    if (!state.applied) {
-      state.applied = true;
-      const clicks = clicksToApply(prefs, current);
-      writing = true;
-      try {
-        applyClicks(toolbar, clicks);
-      } finally {
-        writing = false;
-      }
-      // Record what the clicks will settle into, not what the DOM says now:
-      // React has not re-rendered yet, and treating that lag as a change would
-      // save the state we just moved away from.
-      state.toolbar = stateAfter(current, clicks);
-      if (clicks.length > 0) schedule();
-      return;
-    }
-
-    const last = state.toolbar;
-    if (last !== null && sameState(last, current)) return;
-    state.toolbar = current;
-    const next = withToolbarState(prefs, current);
-    if (next === prefs) return;
-    state.prefs = next;
-    rpc<PrefsResult>("prefs_set", next).then(({ prefs: saved }) => {
-      if (signal.aborted) return;
-      state.prefs = saved;
-    }, warn);
-  }
-
-  /** A toolbar not seen before is a fresh mount of bb's own state. */
-  function onToolbar(toolbar: Element | null): void {
-    if (toolbar === watchedToolbar) return;
-    watchedToolbar = toolbar;
-    state.applied = false;
-    state.toolbar = null;
-  }
-
   function decorate(cards: readonly DiffCard[]): void {
     writing = true;
     try {
@@ -260,8 +189,6 @@ export function startEngine(deps: EngineDeps): Engine {
     // to test, and scanning the whole document on every pass would be wasteful
     // on the many screens that have no diff at all.
     const toolbar = findToolbar(doc);
-    onToolbar(toolbar);
-    if (toolbar !== null) syncToolbar(toolbar);
     if (toolbar === null || threadId === null) {
       writing = true;
       undecorate(doc.body);
@@ -291,16 +218,6 @@ export function startEngine(deps: EngineDeps): Engine {
     }
   }
 
-  /**
-   * Toolbar preferences are global, so they load once per mount rather than per
-   * thread. Until they arrive the toolbar is left exactly as bb rendered it.
-   */
-  rpc<PrefsResult>("prefs_get", null).then(({ prefs }) => {
-    if (signal.aborted) return;
-    state.prefs = prefs;
-    schedule();
-  }, warn);
-
   // bb re-renders constantly, so the decoration is re-applied from whatever the
   // DOM currently says rather than assumed to survive. Passes are deferred and
   // coalesced, and edits this engine makes itself are skipped.
@@ -312,7 +229,7 @@ export function startEngine(deps: EngineDeps): Engine {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["aria-expanded", "aria-label", "aria-pressed"],
+    attributeFilter: ["aria-expanded", "aria-label"],
   });
 
   schedule();

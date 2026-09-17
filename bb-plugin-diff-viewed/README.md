@@ -27,22 +27,6 @@ lines keeps the mark, since the counts carry no other per-file signal.
 
 Marks for files that leave the diff are pruned when the panel next loads.
 
-## Toolbar settings
-
-The toolbar's line-wrap toggle and stacked/split pair are stored once,
-globally, and restored on every diff. They are how you read a diff, not facts
-about one thread.
-
-They are restored by clicking bb's own buttons, because the state lives in
-React and there is nothing else to set. That also settles a conflict: bb picks
-stacked or split from the panel's width until you override it, and the click
-*is* that override, so bb stops second-guessing the restored choice. Applying
-once per toolbar mount is therefore enough. "Never chosen" is stored distinctly
-from "stacked", which is what keeps bb's width-driven default in charge until
-you actually pick something.
-
-Collapse all is deliberately left alone. It is an action, not a setting.
-
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -69,10 +53,7 @@ The script anchors only on things bb emits deliberately:
 | `[data-timeline-file-diff]` | Skipping timeline diffs |
 | `aria-label="Collapse <path>"` | Reading each card's file path |
 | `aria-expanded` | Reading and driving collapse |
-| `[data-testid="git-diff-toolbar-actions"]` | Finding the toolbar, and knowing the changes panel is open |
-| `aria-label="Wrap diff lines"` and `"Disable diff line wrap"` | The wrap button, whose label flips with its state |
-| `aria-label="Stacked diff view"` / `"Split diff view"` | The view-mode pair |
-| `aria-pressed` | Reading every toolbar control's state |
+| `[data-testid="git-diff-toolbar-actions"]` | Knowing the changes panel is open |
 
 No minified class names. If bb changes the header and the anchors stop
 matching, the plugin decorates nothing and bb behaves exactly as it does
@@ -96,7 +77,6 @@ children and `justify-between`.
 | Path | Holds |
 | --- | --- |
 | `viewed/marks.ts` | Pure logic: keying, fingerprinting, record changes |
-| `viewed/prefs.ts` | Pure logic: which toolbar buttons to click, and when to save |
 | `viewed/dom.ts` | Reading and decorating bb's card headers |
 | `viewed/engine.ts` | The sync loop: passes, observers, click handling, cleanup |
 | `server.ts` | RPC contract and kv storage boundary |
@@ -117,10 +97,10 @@ split out of `app.tsx` precisely so it can be tested: every bug this plugin has
 shipped lived in that loop and survived a green run, because only the pure
 functions had tests.
 
-`viewed/dom.test.ts` holds fixtures of the header and toolbar DOM as bb renders
-them. After a bb upgrade, those are the tests that fail first; re-read
-`GitDiffCardHeader-*.js` and `ThreadSecondaryPanel-*.js` in bb's
-`app/dist/assets` and update the fixtures and `viewed/dom.ts` together.
+`viewed/dom.test.ts` holds a fixture of the card header DOM as bb renders it.
+After a bb upgrade, those are the tests that fail first; re-read
+`GitDiffCardHeader-*.js` in bb's `app/dist/assets` and update the fixture and
+`viewed/dom.ts` together.
 
 The RPC surface against a running server:
 

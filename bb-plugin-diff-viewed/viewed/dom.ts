@@ -1,9 +1,9 @@
 // Reading and decorating bb's diff card headers.
 //
 // bb owns this DOM. Everything here anchors on the most stable thing bb
-// actually emits — the toolbar's `data-testid`, accessible names,
-// `aria-expanded`/`aria-pressed`, and the header's two-child structure — and
-// never on a minified class name. Read GitDiffCardHeader in
+// actually emits — the toolbar's `data-testid`, the collapse button's
+// accessible name and `aria-expanded`, and the header's two-child structure —
+// and never on a minified class name. Read GitDiffCardHeader in
 // app/dist/assets before changing an assumption here; the header renders as:
 //
 //   <div class="… items-center justify-between …">        <- headerRow
@@ -20,7 +20,6 @@ import {
   pathFromToggleLabel,
   type FileMarkTarget,
 } from "./marks";
-import type { ToolbarClick, ToolbarState } from "./prefs";
 
 /** Marks a node this plugin created, so cleanup can find every one of them. */
 export const OWNED_ATTR = "data-diff-viewed-owned";
@@ -189,67 +188,16 @@ export const STYLE_TEXT = `
 `;
 
 /**
- * The changes-panel toolbar — the row holding collapse-all, wrap, and the
- * view-mode pair. Its presence is also how this plugin knows the changes panel
- * is open at all, since the file card list below it carries no attribute of
- * its own.
+ * The changes-panel toolbar. This plugin does not touch any of its controls;
+ * it looks for the toolbar only because its presence is how the plugin knows
+ * the changes panel is open at all, the file card list below it carrying no
+ * attribute of its own.
  */
 export const TOOLBAR_SELECTOR = '[data-testid="git-diff-toolbar-actions"]';
-
-/**
- * Each control's accessible name. bb flips the wrap button's label with its
- * state, so both readings have to match the same control.
- */
-const BUTTON_LABELS: Record<ToolbarClick, readonly string[]> = {
-  wrap: ["Wrap diff lines", "Disable diff line wrap"],
-  stacked: ["Stacked diff view"],
-  split: ["Split diff view"],
-};
 
 export function findToolbar(root: ParentNode): HTMLElement | null {
   const toolbar = root.querySelector(TOOLBAR_SELECTOR);
   return toolbar instanceof HTMLElement ? toolbar : null;
-}
-
-export function toolbarButton(
-  toolbar: HTMLElement,
-  click: ToolbarClick,
-): HTMLButtonElement | null {
-  for (const label of BUTTON_LABELS[click]) {
-    const button = toolbar.querySelector(
-      `button[aria-label="${CSS.escape(label)}"]`,
-    );
-    if (button instanceof HTMLButtonElement) return button;
-  }
-  return null;
-}
-
-function isPressed(button: HTMLButtonElement | null): boolean | null {
-  const pressed = button?.getAttribute("aria-pressed");
-  if (pressed !== "true" && pressed !== "false") return null;
-  return pressed === "true";
-}
-
-/**
- * Read the toolbar's current settings. Every control reports `aria-pressed`,
- * so nothing here has to infer state from an icon or a class. A control bb did
- * not render reads as null rather than a guess.
- */
-export function readToolbar(toolbar: HTMLElement): ToolbarState {
-  const stacked = isPressed(toolbarButton(toolbar, "stacked"));
-  const split = isPressed(toolbarButton(toolbar, "split"));
-  return {
-    wrap: isPressed(toolbarButton(toolbar, "wrap")),
-    view: stacked === true ? "unified" : split === true ? "split" : null,
-  };
-}
-
-/** Apply the clicks, skipping any control bb did not render. */
-export function applyClicks(
-  toolbar: HTMLElement,
-  clicks: readonly ToolbarClick[],
-): void {
-  for (const click of clicks) toolbarButton(toolbar, click)?.click();
 }
 
 /** Remove every node, attribute, and class this plugin added under `root`. */

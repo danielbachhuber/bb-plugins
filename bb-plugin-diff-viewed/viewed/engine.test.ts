@@ -67,16 +67,13 @@ let controller: AbortController;
 let started: Engine[] = [];
 
 function start(
-  options: { record?: Record<string, string>; prefs?: unknown; pathname?: string } = {},
+  options: { record?: Record<string, string>; pathname?: string } = {},
 ): Harness {
   const calls: { method: string; input: unknown }[] = [];
   const record: Record<string, string> = { ...(options.record ?? {}) };
 
   const rpc = async <Result,>(method: string, input: unknown): Promise<Result> => {
     calls.push({ method, input });
-    if (method === "prefs_get" || method === "prefs_set") {
-      return { prefs: options.prefs ?? {} } as Result;
-    }
     if (method === "viewed_set") {
       const { path, fingerprint, viewed } = input as {
         path: string;
