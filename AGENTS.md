@@ -22,6 +22,13 @@ Fixtures use invented names: `acme/widgets`, `acme/gadgets`, `octocat`,
 Scan the staged diff before committing. `git diff --cached` and read it, rather
 than trusting that you did not type anything private.
 
+## Push after you commit
+
+A commit stays local until it is pushed, so work that looks finished in this
+checkout is still invisible everywhere else. When you have been asked to
+commit, push the branch in the same step rather than leaving the commit sitting
+here.
+
 ## Anything personal is a setting, never a constant
 
 The board name, its status order, which statuses count, the repository list:
