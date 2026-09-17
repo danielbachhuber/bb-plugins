@@ -44,6 +44,31 @@ writing and the hack can be deleted. Because `localStorage` is per origin, the
 packaged app and a checkout's dev app on another port keep separate
 preferences.
 
+### Large diffs open their unread files
+
+bb folds every file in a diff of more than ten, and folds deleted files
+whatever the count: `resolveDiffFileCardInitialState` in `diffFilesStore.ts`
+collapses on `fileCount > GIT_DIFF_AUTO_COLLAPSE_FILE_THRESHOLD`, a hardcoded
+`10` with no setting behind it. On a forty-file review that folds away the files
+you have not read along with the ones you have, which is the one distinction
+worth keeping.
+
+This hack opens them again. A file is opened only if it is folded, not marked
+read by [Diff Viewed](../bb-plugin-diff-viewed), and not a deletion — bb's
+reason for folding those is its own and worth keeping. Nothing happens at ten
+files or fewer, because bb folded nothing there and a folded file is something
+you did.
+
+Each file is opened at most once per path and stat count. Collapse one by hand
+and it stays collapsed; collapse them all and they stay that way. A file whose
+diff has changed since is a different card, and gets one more chance to open.
+
+Whether a card is a deletion is inferred rather than declared: bb hides the zero
+side of the tally only for added and deleted files, so a deletion reads as `-12`
+where a file that merely removed every line still reads `+0 -12`. A header this
+cannot parse counts as not-a-deletion and opens, because that is the mistake you
+can undo with one click.
+
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -73,6 +98,21 @@ The view-preferences hack anchors only on things bb emits deliberately:
 | `aria-pressed` | Reading every toolbar control's state |
 | A capture-phase `click` on the document | Knowing the user chose something, rather than bb moving a control itself |
 
+The expand-unviewed hack anchors on the card headers instead:
+
+| Anchor | Used for |
+| --- | --- |
+| `aria-label="Collapse <path>"` / `"Expand <path>"` | Reading each card's file path |
+| `aria-expanded` | Reading and driving collapse |
+| `[data-timeline-file-diff]` | Skipping timeline diffs |
+| `data-diff-viewed="true"` | Leaving a file Diff Viewed has marked read folded |
+| `data-diff-viewed-owned` | Keeping Diff Viewed's own checkbox out of the stat reading |
+
+That card parsing is a trimmed copy of the same code in Diff Viewed. The two
+plugins ship separately, so sharing it would mean publishing and versioning a
+package for the benefit of two callers; the copy is the cheaper trade until a
+third one needs it.
+
 No minified class names. If bb changes the toolbar and the anchors stop
 matching, the hack does nothing and bb behaves exactly as it does without it.
 
@@ -85,6 +125,9 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/git-diff-view-preferences/storage.ts` | The `localStorage` boundary, in bb's own key format |
 | `hacks/git-diff-view-preferences/toolbar.ts` | Reading and driving bb's toolbar |
 | `hacks/git-diff-view-preferences/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/git-diff-expand-unviewed/cards.ts` | Reading bb's diff card headers |
+| `hacks/git-diff-expand-unviewed/rules.ts` | Pure logic: which cards to open, and which to leave folded |
+| `hacks/git-diff-expand-unviewed/engine.ts` | The sync loop: passes, observers, cleanup |
 | `app.tsx` | Wiring only: registers each hack's content script |
 | `server.ts` | Required backend entry, deliberately empty |
 
