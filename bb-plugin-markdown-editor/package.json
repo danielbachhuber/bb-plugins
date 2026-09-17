@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Markdown Editor",
-    "description": "Edit a markdown file in the tab you were reading it in, and save it with Cmd+S. Preview renders the file with bb's own markdown renderer and Raw gives you the source in an editable pane, with unsaved text carrying between the two. Every save checks the file's hash first, so an edit an agent made while you were typing gives you a choice instead of a silent overwrite. A pencil on markdown files in the changes panel opens the one you are reading a diff of. Covers md, mdx, markdown, and txt in a workspace, on a host, or in thread storage, with no account or external service.",
+    "description": "Edit a markdown file in the tab you were reading it in, and save it with Cmd+S. Preview renders the file with bb's own markdown renderer and Raw gives you the source in an editable pane, with unsaved text carrying between the two. Selecting text in Preview offers an Add to chat button that quotes it into the composer under the file's path. Every save checks the file's hash first, so an edit an agent made while you were typing gives you a choice instead of a silent overwrite. A pencil on markdown files in the changes panel opens the one you are reading a diff of. Covers md, mdx, markdown, and txt in a workspace, on a host, or in thread storage, with no account or external service.",
     "branding": {
       "icon": "EditFile"
     },

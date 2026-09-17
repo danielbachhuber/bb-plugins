@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import {
   Markdown,
   definePluginApp,
+  useComposer,
   useRpc,
   type PluginFileOpenerProps,
 } from "@get-bb/plugin-sdk/app";
@@ -27,6 +28,12 @@ import {
   isDirty,
   reduce,
 } from "./editor/save";
+import {
+  ANCHOR_HEIGHT,
+  ANCHOR_WIDTH,
+  anchorForSelection,
+  quoteForSelection,
+} from "./editor/selection";
 import { EDITABLE_EXTENSIONS } from "./diff/extensions";
 import { startEngine } from "./diff/engine";
 import {
@@ -97,11 +104,74 @@ function SegmentButton({
   );
 }
 
+/**
+ * The floating "Add to chat" button, positioned over the preview's scrolled
+ * content.
+ *
+ * `onMouseDown` has to be cancelled: a mousedown anywhere in the document
+ * collapses the selection, which unmounts this button before its click ever
+ * fires. Cancelling the default leaves the selection intact and lets the
+ * click through, and costs nothing else — the button has no drag or focus
+ * behavior worth keeping.
+ *
+ * The fill is an inline style, and the variant is `ghost` so that nothing
+ * else sets one. A button floating over a document needs an opaque background
+ * in every state, and no variant here offers that: `outline` is
+ * `bg-transparent`, and every variant's hover is a translucent tint. Adding an
+ * opaque `bg-*` class alongside one of those is two utilities competing for
+ * the same property, and which wins is decided by the order Tailwind happened
+ * to emit them in — `bg-transparent` beat `bg-background`, and the paragraph
+ * underneath read straight through the button. An inline style outranks every
+ * class, so the two states are named here instead.
+ */
+function AddToChatButton({
+  anchor,
+  onAdd,
+}: {
+  anchor: { left: number; top: number };
+  onAdd: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      style={{
+        left: anchor.left,
+        top: anchor.top,
+        width: ANCHOR_WIDTH,
+        height: ANCHOR_HEIGHT,
+        backgroundColor: hovered ? "var(--muted)" : "var(--background)",
+      }}
+      className="absolute z-10 gap-1.5 border border-border px-2 text-xs shadow-md"
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onAdd}
+    >
+      <Icon name="MessageSquarePlus" className="size-3.5" />
+      Add to chat
+    </Button>
+  );
+}
+
 function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   const rpc = useRpc<typeof rpcContract>();
+  const composer = useComposer();
   const [state, dispatch] = useReducer(reduce, initialState);
   const [view, setView] = useState<View>("preview");
   const rootRef = useRef<HTMLDivElement>(null);
+  /** The preview's scrolling box, which the selection button is placed inside. */
+  const previewRef = useRef<HTMLDivElement>(null);
+  /**
+   * Where the "Add to chat" button sits and what it would quote, or null when
+   * there is no selection in the preview worth offering.
+   */
+  const [selection, setSelection] = useState<{
+    left: number;
+    top: number;
+    quote: string;
+  } | null>(null);
   /** Path of the route that serves images, once the server has told us. */
   const [assetRoute, setAssetRoute] = useState<string | null>(null);
   /**
@@ -251,6 +321,94 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
     return () => window.clearTimeout(timer);
   }, [discardArmed]);
 
+  /**
+   * Track what is selected in the preview, so the button can be offered.
+   *
+   * Placement waits for the pointer to come up. `selectionchange` fires on
+   * every pixel of a drag, and a button re-anchored under the moving cursor
+   * would swallow the mouseup that finished the selection. Clearing does not
+   * wait, because a selection that has gone away should not keep a button
+   * pointing at it.
+   */
+  useEffect(() => {
+    if (view !== "preview") {
+      setSelection(null);
+      return;
+    }
+    let dragging = false;
+
+    const measure = () => {
+      const pane = previewRef.current;
+      const current = window.getSelection();
+      if (
+        pane === null ||
+        current === null ||
+        current.isCollapsed ||
+        current.rangeCount === 0
+      ) {
+        return null;
+      }
+      const range = current.getRangeAt(0);
+      // Both ends have to be in the preview. A selection that starts in the
+      // rendered file and ends somewhere in bb's own chrome is not a quote
+      // from this file, and its bounding box is not in this pane.
+      if (!pane.contains(range.startContainer) || !pane.contains(range.endContainer)) {
+        return null;
+      }
+      const quote = quoteForSelection(path, current.toString());
+      if (quote === null) return null;
+      const rect = range.getBoundingClientRect();
+      const paneRect = pane.getBoundingClientRect();
+      return {
+        ...anchorForSelection({
+          selection: { left: rect.left, top: rect.top, bottom: rect.bottom },
+          pane: { left: paneRect.left, top: paneRect.top, height: paneRect.height },
+          scroll: { left: pane.scrollLeft, top: pane.scrollTop },
+          clientWidth: pane.clientWidth,
+        }),
+        quote,
+      };
+    };
+
+    const onSelectionChange = () => {
+      const next = measure();
+      if (next === null) {
+        setSelection(null);
+        return;
+      }
+      if (!dragging) setSelection(next);
+    };
+    const onPointerDown = () => {
+      dragging = true;
+    };
+    const onPointerUp = () => {
+      dragging = false;
+      setSelection(measure());
+    };
+
+    document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointerup", onPointerUp);
+    return () => {
+      document.removeEventListener("selectionchange", onSelectionChange);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [view, path]);
+
+  /**
+   * Hand the selection to the composer and collapse it.
+   *
+   * Collapsing is what retires the button: leaving the range in place would
+   * have the next pointerup re-offer a quote that has already been added.
+   */
+  const addToChat = useCallback(() => {
+    if (selection === null) return;
+    composer.addQuote(selection.quote);
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
+  }, [composer, selection]);
+
   const status = (() => {
     if (state.status === "loading") return "Loading…";
     if (state.status === "saving") return "Saving…";
@@ -379,10 +537,16 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
         // The page is white (or the theme's background in a dark theme) while
         // the header above keeps the panel's own tint, which is how bb's
         // native file preview reads: a toolbar over a document.
-        <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+        <div
+          ref={previewRef}
+          className="relative min-h-0 flex-1 overflow-y-auto bg-background"
+        >
           <div className="mx-auto box-border w-full max-w-3xl px-4 py-4">
             <Markdown content={previewContent} />
           </div>
+          {selection === null ? null : (
+            <AddToChatButton anchor={selection} onAdd={addToChat} />
+          )}
         </div>
       ) : (
         <textarea

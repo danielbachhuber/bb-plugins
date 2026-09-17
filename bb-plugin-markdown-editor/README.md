@@ -19,6 +19,14 @@ file's own directory and is served from the host it lives on.
 ![The Preview view: the same file rendered, with the header reading
 Saved](screenshots/preview.png)
 
+Selecting text in Preview offers an **Add to chat** button under the selection.
+It appends the selection to the thread's composer draft as a blockquote whose
+first line is the file's path, so a paragraph lifted out of a document arrives
+with a note of where it came from. It writes to the same draft bb's own
+"Add to chat" affordances do, and it waits for the pointer to come up before
+placing itself — anchoring under a moving cursor would swallow the click that
+finished the selection.
+
 **Raw** is a plain textarea holding the markdown source. No syntax
 highlighting, on purpose: the alternative was a 510 KB editor bundle to
 re-color text that Preview is one click away from rendering properly. The two
@@ -103,6 +111,7 @@ choosing between them per extension.
 | --- | --- |
 | `editor/target.ts` | Turning a file's source and path into `bb.files` arguments, and the path rules that make that safe |
 | `editor/save.ts` | The save state machine: dirty, saving, conflict, error |
+| `editor/selection.ts` | What a preview selection quotes into the composer, and where the button that does it sits |
 | `editor/images.ts` | Finding image references, resolving them against the open file, and pointing them at the asset route |
 | `server.ts` | The `file_read` / `file_write` contract and the `bb.sdk.files` boundary |
 | `diff/` | The changes-panel pencil: which files it offers, how it finds bb's diff header, and the loop that keeps it there |
