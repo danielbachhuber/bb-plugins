@@ -91,6 +91,8 @@ export const syncInput = z.object({ repo: z.string() });
 export const researchInput = z.object({
   repo: z.string(),
   count: z.number().int().min(1).max(50),
+  /** Specific issues to research. Omitted means the next `count` by staleness. */
+  numbers: z.array(z.number()).optional(),
 });
 
 /** The environment shapes this plugin's own seeds produce, and no others. */

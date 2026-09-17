@@ -174,10 +174,21 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: error === null, error };
     },
 
-    async researchSeed({ repo, count }) {
-      const candidates = unresearchedRows(store.listRows(repo)).slice(0, count);
+    async researchSeed({ repo, count, numbers }) {
+      const rows = store.listRows(repo);
+      // A named set is taken as given, minus anything already decided: picking
+      // one row by hand should not be silently reordered by staleness.
+      const candidates = numbers?.length
+        ? rows.filter((r) => numbers.includes(r.number) && r.disposition.verdict === 'pending')
+        : unresearchedRows(rows).slice(0, count);
       if (candidates.length === 0) {
-        return { seed: null, numbers: [], reason: 'Every issue in this sweep already has a suggestion.' };
+        return {
+          seed: null,
+          numbers: [],
+          reason: numbers?.length
+            ? 'That issue has already been decided, or is no longer in the sweep.'
+            : 'Every issue in this sweep already has a suggestion.',
+        };
       }
 
       const project = await findProjectForRepo(repo);

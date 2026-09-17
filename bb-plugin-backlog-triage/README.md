@@ -36,6 +36,10 @@ Requires `gh` on PATH and authenticated.
 2. The sweep lists every open issue, ranked by staleness.
 3. **Research next N** spawns a thread for the N stalest issues that have no
    suggestion yet. The composer lets that one batch differ from the settings.
+   An unresearched row also carries its own **Research** button, which seeds a
+   thread for that issue alone. A named issue is taken as given rather than
+   reordered by staleness, and the dialog names the issue instead of a count,
+   since a batch of one has a title worth showing.
 4. Each researched row shows the suggested action, the agent's rationale, and an
    editable comment body. The box grows to fit the draft, because the text is
    the thing being approved and a clipped comment cannot be read.

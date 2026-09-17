@@ -30,3 +30,16 @@ describe('input schemas reject the wrong shape', () => {
     expect(schema.safeParse({ repo: 'acme/widgets', count: 51 }).success).toBe(false);
   });
 });
+
+describe('researchSeed accepts a named batch', () => {
+  const schema = (rpcContract as unknown as Record<string, { input: { safeParse(v: unknown): { success: boolean } } }>).researchSeed
+    .input;
+
+  it('takes explicit issue numbers for a one-off research', () => {
+    expect(schema.safeParse({ repo: 'acme/widgets', count: 10, numbers: [1434] }).success).toBe(true);
+  });
+
+  it('still accepts a plain next-N request', () => {
+    expect(schema.safeParse({ repo: 'acme/widgets', count: 10 }).success).toBe(true);
+  });
+})

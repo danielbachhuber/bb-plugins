@@ -276,7 +276,7 @@ function RepoPicker({ value, onChange }: { value: string | null; onChange: (repo
  * from the server, so an edit survives a background re-sweep and is only sent
  * when a decision is actually made.
  */
-function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
+function TriageRowView({ row, onDone, onResearch }: { row: Row; onDone: () => void; onResearch: (number: number) => void }) {
   const rpc = useRpc();
   const suggestion = row.suggestion;
   const [body, setBody] = useState(row.disposition.approvedBody || suggestion?.body || '');
@@ -358,7 +358,14 @@ function TriageRowView({ row, onDone }: { row: Row; onDone: () => void }) {
       </TableCell>
 
       <TableCell className="px-3 py-3 align-top min-w-0">
-        {!suggestion && <div className="text-xs text-muted-foreground">Not researched yet.</div>}
+        {!suggestion && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Not researched yet.</span>
+            <Button size="sm" variant="outline" onClick={() => onResearch(row.number)} className="cursor-pointer">
+              Research
+            </Button>
+          </div>
+        )}
 
         {suggestion && (
           <div className="space-y-2">
@@ -424,29 +431,42 @@ function Panel() {
   const [seed, setSeed] = useState<StartThreadSeed | null>(null);
   const [batch, setBatch] = useState<number[]>([]);
 
-  async function research() {
-    if (!repo || !listing) return;
-    const result = (await rpc.call('researchSeed', { repo, count: listing.batchSize })) as {
-      seed: Omit<StartThreadSeed, 'preview'> | null;
-      numbers: number[];
-      reason: string | null;
-    };
-    if (!result.seed) {
-      toast.error(result.reason ?? 'Nothing to research.');
-      return;
-    }
-    setBatch(result.numbers);
-    setSeed({
-      ...result.seed,
-      preview: {
-        title: `Research ${result.numbers.length} stale issue${result.numbers.length === 1 ? '' : 's'}`,
-        number: result.numbers.length,
-        url: `https://github.com/${repo}/issues`,
-        meta: result.numbers.map((n) => `#${n}`).join(' · '),
-      },
-    });
-    setDialogOpen(true);
-  }
+  const seedResearch = useCallback(
+    async (numbers?: number[]) => {
+      if (!repo || !listing) return;
+      const result = (await rpc.call('researchSeed', {
+        repo,
+        count: listing.batchSize,
+        ...(numbers ? { numbers } : {}),
+      })) as { seed: Omit<StartThreadSeed, 'preview'> | null; numbers: number[]; reason: string | null };
+
+      if (!result.seed) {
+        toast.error(result.reason ?? 'Nothing to research.');
+        return;
+      }
+
+      // A one-issue batch names the issue; a sweep-sized one names the count,
+      // because a list of ten numbers in a card heading reads as noise.
+      const single = result.numbers.length === 1 ? listing.rows.find((r) => r.number === result.numbers[0]) : undefined;
+      setBatch(result.numbers);
+      setSeed({
+        ...result.seed,
+        preview: single
+          ? { title: single.title, number: single.number, url: single.url, meta: stalenessLine(single) }
+          : {
+              title: `Research ${result.numbers.length} stale issues`,
+              number: result.numbers.length,
+              url: `https://github.com/${repo}/issues`,
+              meta: result.numbers.map((n) => `#${n}`).join(' · '),
+            },
+      });
+      setDialogOpen(true);
+    },
+    [listing, repo, rpc],
+  );
+
+  const research = useCallback(() => void seedResearch(), [seedResearch]);
+  const researchOne = useCallback((number: number) => void seedResearch([number]), [seedResearch]);
 
   async function submit(request: NewThreadRequest) {
     if (!repo) return;
@@ -522,7 +542,7 @@ function Panel() {
           </TableHeader>
           <TableBody>
             {listing.rows.map((row) => (
-              <TriageRowView key={`${row.repo}#${row.number}`} row={row} onDone={reload} />
+              <TriageRowView key={`${row.repo}#${row.number}`} row={row} onDone={reload} onResearch={researchOne} />
             ))}
           </TableBody>
         </Table>
@@ -532,9 +552,9 @@ function Panel() {
         <StartThreadDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          heading="Start a research batch"
+          heading={batch.length === 1 ? `Research #${batch[0]}` : `Research ${batch.length} stale issues`}
           description="Starts a thread that reads each issue and proposes what should happen to it."
-          draftKey={`${repo}:research`}
+          draftKey={`${repo}:research:${batch.join(',')}`}
           seed={seed}
           onSubmit={submit}
         />
