@@ -79,6 +79,15 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({ routePath: z.string() }),
   },
+  /**
+   * The directory a rooted file's path is relative to, which bb's `Markdown`
+   * needs to resolve the preview's relative links from the file's own
+   * folder. Null for a host file, which has no root.
+   */
+  document_root: {
+    input: z.object({ source: sourceSchema }).strict(),
+    output: z.object({ rootPath: z.string().nullable() }),
+  },
 });
 
 export type FileSource = z.infer<typeof sourceSchema>;
@@ -161,6 +170,16 @@ export default async function plugin(bb: BbPluginApi) {
     },
 
     asset_base: () => ({ routePath: `/api/v1/plugins/${bb.pluginId}/http/asset` }),
+
+    document_root: async ({ source }) => {
+      try {
+        const root = await resolveRoot(source);
+        return { rootPath: root?.rootPath ?? null };
+      } catch (cause) {
+        bb.log.warn(`document_root failed: ${describe(cause)}`);
+        throw new Error(describe(cause));
+      }
+    },
 
     file_write: async ({ path, source, content, expectedSha256 }) => {
       try {

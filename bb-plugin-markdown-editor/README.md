@@ -14,7 +14,9 @@ a Save button.
 **Preview** renders the buffer with bb's own chat-message markdown renderer, so
 a file looks the way the same text would look in a thread. Images the file
 points at are rendered too: `![](screenshots/a.png)` resolves against the
-file's own directory and is served from the host it lives on.
+file's own directory and is served from the host it lives on. Links resolve the
+same way, so a note at `docs/guides/index.md` linking to `setup/install.md`
+opens `docs/guides/setup/install.md` in a new tab, as GitHub would.
 
 ![The Preview view: the same file rendered, with the header reading
 Saved](screenshots/preview.png)
@@ -104,6 +106,10 @@ choosing between them per extension.
   formats a browser shows inline, up to 4 MB. A `https://` image loads as it
   always did. A root-relative `/logo.png` is left alone: on GitHub that means
   the repository root, which a host file does not have.
+- Preview links resolve from the open file's directory only for a workspace or
+  thread-storage file opened in a thread. A host file, or a project file opened
+  outside any thread, resolves relative links from the workspace root the way
+  a chat message does.
 
 ## Layout
 
@@ -113,7 +119,8 @@ choosing between them per extension.
 | `editor/save.ts` | The save state machine: dirty, saving, conflict, error |
 | `editor/selection.ts` | What a preview selection quotes into the composer, and where the button that does it sits |
 | `editor/images.ts` | Finding image references, resolving them against the open file, and pointing them at the asset route |
-| `server.ts` | The `file_read` / `file_write` contract and the `bb.sdk.files` boundary |
+| `editor/document.ts` | The file identity handed to bb's `Markdown`, so Preview links resolve from the open file |
+| `server.ts` | The `file_read` / `file_write` contract, the document root lookup, and the `bb.sdk.files` boundary |
 | `diff/` | The changes-panel pencil: which files it offers, how it finds bb's diff header, and the loop that keeps it there |
 | `app.tsx` | The file opener registration, the content script, and the tab's UI |
 

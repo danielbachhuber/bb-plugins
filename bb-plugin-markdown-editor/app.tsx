@@ -44,6 +44,7 @@ import {
   replaceImageUrls,
   resolveSibling,
 } from "./editor/images";
+import { buildMarkdownDocument } from "./editor/document";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -174,6 +175,8 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   } | null>(null);
   /** Path of the route that serves images, once the server has told us. */
   const [assetRoute, setAssetRoute] = useState<string | null>(null);
+  /** The directory a rooted file's path is relative to, once the server has said. */
+  const [documentRoot, setDocumentRoot] = useState<string | null>(null);
   /**
    * Whether Discard is one click from throwing the buffer away.
    *
@@ -283,6 +286,28 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
       () => {},
     );
   }, [rpc]);
+
+  useEffect(() => {
+    setDocumentRoot(null);
+    if (wireSource.kind === "host") return;
+    let current = true;
+    rpc.call("document_root", { source: wireSource }).then(
+      (result) => {
+        if (current) setDocumentRoot(result.rootPath);
+      },
+      // Without the root, links keep bb's message routing and the rest of
+      // the preview is unaffected.
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [rpc, wireSource]);
+
+  const markdownDocument = useMemo(
+    () => buildMarkdownDocument(path, wireSource, documentRoot),
+    [path, wireSource, documentRoot],
+  );
 
   /**
    * The buffer with every sibling image pointed at the plugin's own route.
@@ -542,7 +567,10 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
           className="relative min-h-0 flex-1 overflow-y-auto bg-background"
         >
           <div className="mx-auto box-border w-full max-w-3xl px-4 py-4">
-            <Markdown content={previewContent} />
+            <Markdown
+              content={previewContent}
+              experimental_document={markdownDocument}
+            />
           </div>
           {selection === null ? null : (
             <AddToChatButton anchor={selection} onAdd={addToChat} />
