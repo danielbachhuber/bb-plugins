@@ -29,6 +29,9 @@ with a note of where it came from. It writes to the same draft bb's own
 placing itself — anchoring under a moving cursor would swallow the click that
 finished the selection.
 
+![A selected paragraph in Preview with an Add to chat button under
+it](screenshots/add-to-chat.png)
+
 **Raw** is a plain textarea holding the markdown source. No syntax
 highlighting, on purpose: the alternative was a 510 KB editor bundle to
 re-color text that Preview is one click away from rendering properly. The two
@@ -40,6 +43,9 @@ are saved.
 A markdown file in a thread's changes panel gets a pencil in its card header,
 third in the strip after bb's copy and open-in-editor icons. It opens the file
 in this editor.
+
+![A markdown file's card header in the changes panel, with the pencil after
+bb's copy and open-in-editor icons](screenshots/changes-panel-pencil.png)
 
 Clicking the file's path in that header already did this, so the pencil is
 there to say so. It works by clicking bb's own path control rather than
