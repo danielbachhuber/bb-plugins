@@ -115,3 +115,7 @@ grep -h "plugin:<id>" ~/.bb/logs/server*.log | tail -20
 `building-bb-plugins` carries the authoring preferences for a new plugin —
 which of BB's own components to reuse, where logic goes relative to vendored
 shadcn source, and the testing-harness gotchas — and is not repeated here.
+
+The bb source is checked out at `~/projects/bb`. When a question is about how
+bb itself behaves (a UI element, a CLI command, the plugin SDK), read it there
+rather than guessing from `bb guide` or the minified bundle inside `bb.app`.
