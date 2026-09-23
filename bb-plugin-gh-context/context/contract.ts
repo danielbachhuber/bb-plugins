@@ -113,6 +113,7 @@ export const rpcContract = defineRpcContract({
     output: z.null(),
   },
   markPullRequestReady: { input: threadInput, output: z.null() },
+  archiveThread: { input: threadInput, output: z.null() },
   unarchiveThread: { input: threadInput, output: z.null() },
 
   /**

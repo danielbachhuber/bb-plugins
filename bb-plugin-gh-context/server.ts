@@ -365,6 +365,12 @@ export default async function plugin(bb: BbPluginApi) {
       return null;
     },
 
+    async archiveThread({ threadId }) {
+      await bb.sdk.threads.archive({ threadId });
+      publish(threadId);
+      return null;
+    },
+
     async unarchiveThread({ threadId }) {
       await bb.sdk.threads.unarchive({ threadId });
       publish(threadId);

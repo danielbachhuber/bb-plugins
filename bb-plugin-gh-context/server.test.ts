@@ -34,6 +34,7 @@ async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived
               : [{ data: { input: [{ type: "text", text: prompt }] } }],
         },
         list: async () => [],
+        archive: async () => makeThreadResponse({ id: "thr_one" }),
         unarchive: async () => makeThreadResponse({ id: "thr_one" }),
       },
       environments: {
@@ -219,6 +220,12 @@ describe("actions", () => {
       environmentId: "env_one",
       method: "squash",
     });
+  });
+
+  it("archives through bb", async () => {
+    const { harness } = await setup({ pullRequest: true });
+    await harness.behavior.callRpc("archiveThread", { threadId: "thr_one" });
+    expect(harness.inspection.sdk.callsTo("threads.archive")[0]![0]).toEqual({ threadId: "thr_one" });
   });
 
   it("unarchives through bb", async () => {

@@ -256,6 +256,8 @@ export interface ContextBannerProps {
   initialMergeMethod?: MergeMethod;
   onMerge?: (method: MergeMethod) => void;
   onMarkReady?: () => void;
+  /** Offered once the pull request has merged, when the thread's work is done. */
+  onArchive?: () => void;
   onUnarchive?: () => void;
   onOpenChanges?: () => void;
   /**
@@ -273,6 +275,7 @@ export function ContextBanner({
   initialMergeMethod = "squash",
   onMerge,
   onMarkReady,
+  onArchive,
   onUnarchive,
   onOpenChanges,
   measureRef,
@@ -284,6 +287,7 @@ export function ContextBanner({
   const changes = context?.changes ?? null;
   const canMerge = pullRequest?.canMerge === true && pullRequest.state === "open" && onMerge;
   const canMarkReady = pullRequest?.canMerge === true && pullRequest.state === "draft" && onMarkReady;
+  const canArchive = pullRequest?.state === "merged" && onArchive;
 
   let body: ReactNode = null;
   if (context === null) {
@@ -336,6 +340,11 @@ export function ContextBanner({
           {canMarkReady ? (
             <ActionButton disabled={pending} onClick={onMarkReady}>
               Mark ready
+            </ActionButton>
+          ) : null}
+          {canArchive ? (
+            <ActionButton disabled={pending} onClick={onArchive}>
+              {pending ? "Archiving…" : "Archive thread"}
             </ActionButton>
           ) : null}
         </div>

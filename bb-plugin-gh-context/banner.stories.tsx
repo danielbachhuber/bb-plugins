@@ -241,6 +241,7 @@ function OurBanner({
         harvestSlot={harvest ? <HarvestStandIn running={running} /> : undefined}
         onMerge={noop}
         onMarkReady={noop}
+        onArchive={noop}
         onUnarchive={noop}
         onOpenChanges={noop}
       />
@@ -305,7 +306,7 @@ export function States() {
           })}
         />
       </StoryRow>
-      <StoryRow label="merged PR" hint="No merge action.">
+      <StoryRow label="merged PR" hint="The work is done, so archiving the thread is the suggested action.">
         <Pair value={context({ pullRequest: { ...contextPullRequest, state: "merged", attention: "merged", checks: null } })} />
       </StoryRow>
       <StoryRow label="PR a sweep linked" hint="A review thread not on the PR's branch: no checks, no merge.">

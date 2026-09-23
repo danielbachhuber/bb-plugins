@@ -49,6 +49,10 @@ A first prompt never changes, so each is read once. A background pass reads
 threads nobody has opened, so the sweeps know about a thread started by hand
 before its banner has been drawn.
 
+Once the pull request has merged, the banner suggests **Archive thread** in
+place of the merge button, since the thread's work is done. An archived thread
+shows Unarchive instead.
+
 The pull request is bb's own lookup for the thread's branch. For a thread that
 is not on the branch, such as a review, it is the pull request a sweep linked
 the thread to; that one shows no checks and cannot be merged from the banner.
@@ -110,11 +114,11 @@ display-only.
 | `context/gh.ts` | The only place `gh` runs, with its cache |
 | `context/contract.ts` | The RPC contract, including the bridge's methods and Harvest's relayed ones |
 | `context/hide.ts` | The content script that hides bb's banner |
+| `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |
 | `components/context-banner.tsx` | The banner, drawn from props alone |
 | `links.ts` | The bridge the sweeps import |
 | `server.ts` | Assembles a thread's context, scans prompts, and serves the links |
 | `app.tsx` | Loads the context and registers the banner and the content script |
-| `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |
 | `banner.stories.tsx` | bb's banner and this one side by side, and one row per state |
 
 ## Working on it

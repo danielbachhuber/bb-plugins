@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
-import { waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { ThreadContext } from "./context/contract.js";
 
@@ -102,5 +102,27 @@ describe("loading", () => {
     answer(context());
     expect(await mounted.findByText("PR #128")).toBeInTheDocument();
     expect(mounted.queryByRole("status", { name: "Loading thread context" })).toBeNull();
+  });
+});
+
+describe("merged pull request", () => {
+  it("suggests archiving the thread, and archives it", async () => {
+    const slot = render(
+      context({
+        pullRequest: { ...context().pullRequest!, state: "merged", attention: "merged", checks: null },
+      }),
+    );
+    const archive = await slot.findByRole("button", { name: "Archive thread" });
+    expect(slot.queryByRole("button", { name: /merge/i })).toBeNull();
+    fireEvent.click(archive);
+    await waitFor(() =>
+      expect(slot.inspection.rpcCalls.map((call) => call.method)).toContain("archiveThread"),
+    );
+  });
+
+  it("does not offer it while the pull request is open", async () => {
+    const slot = render(context());
+    await slot.findByText("PR #128");
+    expect(slot.queryByRole("button", { name: "Archive thread" })).toBeNull();
   });
 });
