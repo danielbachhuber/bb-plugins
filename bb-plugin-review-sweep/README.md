@@ -17,6 +17,11 @@ bb plugin install . --yes
 
 ## Requirements
 
+- The [gh-context](../bb-plugin-gh-context) plugin, which keeps the record of
+  which threads belong to which pull requests. Without it the panel still lists
+  review requests, but none offers to start a thread, since a row cannot tell
+  whether it already has one; after a few sweeps without it the plugin reports
+  that it needs configuring.
 - `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
   missing or unauthenticated `gh` as a configuration state, not an error.
 - A bb project is needed only for the row action, which matches a PR's
@@ -140,13 +145,12 @@ all, and it has no way to express "may read GitHub, may not write to it". The
 no-posting rule lives in the prompt, not in the permission mode. Worth knowing
 before trusting it unattended.
 
-## In a spawned thread
+## Threads
 
-Threads this plugin starts carry an **Open pull request** control in the thread
-header, linking to the pull request in a real browser tab. It renders only on
-threads this plugin created: the server resolves the thread id against its own
-link table and returns null for anything else, so the control never appears on
-an unrelated thread.
+A thread started from a row is linked to its pull request in gh-context, and
+the row then opens that thread rather than starting another. A review thread
+is not on the pull request's branch, so bb itself finds no pull request for it;
+gh-context's banner above the composer shows the one this plugin linked.
 
 ## Relationship to pr-sweep
 

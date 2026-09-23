@@ -99,60 +99,25 @@ describe("store", () => {
     expect(store.readMeta().truncated).toBe(true);
   });
 
-  describe("thread links", () => {
-    it("links, reads back, and reverses", () => {
-      const store = freshStore();
-      store.linkThread("acme/widgets", 1, "thread-a", NOW);
-      expect(store.threadFor("acme/widgets", 1)).toBe("thread-a");
-      expect(store.threadLinks().get("acme/widgets#1")).toBe("thread-a");
-      expect(store.pullRequestForThread("thread-a")).toEqual({
-        repo: "acme/widgets",
-        number: 1,
-      });
+  describe("legacy thread links", () => {
+    function legacyStore() {
+      const db = new Database(":memory:");
+      for (const statement of MIGRATIONS) db.exec(statement);
+      db.prepare(
+        `INSERT INTO review_threads (repo, number, thread_id, created_at) VALUES (?, ?, ?, ?)`,
+      ).run("acme/widgets", 7, "thr_1", 1);
+      return { db, store: createStore(db as never) };
+    }
+
+    it("reads links recorded before gh-context, then drops their table", () => {
+      const { db, store } = legacyStore();
+      expect(store.legacyThreadLinks()).toEqual([
+        { repo: "acme/widgets", number: 7, threadId: "thr_1", createdAt: 1 },
+      ]);
+      store.dropLegacyThreadLinks();
+      expect(store.legacyThreadLinks()).toEqual([]);
+      expect(createStore(db as never).legacyThreadLinks()).toEqual([]);
     });
-
-    it("returns null for a thread it did not start, which is what scopes the header", () => {
-      expect(freshStore().pullRequestForThread("someone-elses-thread")).toBeNull();
-    });
-
-    it("keeps one thread per review, replacing on re-link", () => {
-      const store = freshStore();
-      store.linkThread("acme/widgets", 1, "thread-a", NOW);
-      store.linkThread("acme/widgets", 1, "thread-b", NOW + 1);
-      expect(store.threadFor("acme/widgets", 1)).toBe("thread-b");
-      expect(store.threadLinks().size).toBe(1);
-    });
-
-    it("unlinks by thread id, leaving other links alone", () => {
-      const store = freshStore();
-      store.linkThread("acme/widgets", 1, "thread-a", NOW);
-      store.linkThread("acme/widgets", 2, "thread-b", NOW);
-      store.unlinkThread("thread-a");
-      expect(store.threadFor("acme/widgets", 1)).toBeNull();
-      expect(store.threadFor("acme/widgets", 2)).toBe("thread-b");
-    });
-
-    it("survives a sweep that no longer carries the linked review", () => {
-      // Submitting the review drops the request out of the queue, but the
-      // thread is still yours to open.
-      const store = freshStore();
-      store.linkThread("acme/widgets", 1, "thread-a", NOW);
-      store.replaceAll(result([]));
-      expect(store.pullRequestForThread("thread-a")).toEqual({
-        repo: "acme/widgets",
-        number: 1,
-      });
-    });
-  });
-
-  it("hides a review until its deadline, then stops", () => {
-    const store = freshStore();
-    store.snooze("acme/widgets", 1, NOW + 3_600_000, NOW);
-
-    expect(store.snoozesUntil(NOW).get("acme/widgets#1")).toBe(NOW + 3_600_000);
-    // Read at the deadline, not before it: a snooze that has run out is not a
-    // snooze, whatever is still on disk.
-    expect(store.snoozesUntil(NOW + 3_600_000).size).toBe(0);
   });
 
   it("replaces a deadline rather than extending it, so a second click is idempotent", () => {

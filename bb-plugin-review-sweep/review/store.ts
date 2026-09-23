@@ -67,13 +67,13 @@ export interface Store {
   readRows(): ClassifiedRow[];
   readMeta(): SweepMeta;
   recordFailure(message: string): void;
-  linkThread(repo: string, number: number, threadId: string, createdAt: number): void;
-  threadFor(repo: string, number: number): string | null;
-  /** repo#number -> threadId, for stamping the whole listing in one read. */
-  threadLinks(): Map<string, string>;
-  unlinkThread(threadId: string): void;
-  /** The pull request a thread was started for, or null if it is not ours. */
-  pullRequestForThread(threadId: string): { repo: string; number: number } | null;
+  /**
+   * Links from a checkout that predates gh-context, for the one-time move of
+   * them into it. Empty once they have moved and the table is gone.
+   */
+  legacyThreadLinks(): Array<{ repo: string; number: number; threadId: string; createdAt: number }>;
+  /** Drops the legacy link table once gh-context holds its rows. */
+  dropLegacyThreadLinks(): void;
   /**
    * Hides a review until `until`. Snoozing an already-snoozed review replaces
    * the old deadline rather than extending it, so a second click is idempotent
@@ -114,19 +114,12 @@ export function createStore(db: DatabaseLike): Store {
      VALUES (1, NULL, '[]', 0, ?)
      ON CONFLICT(id) DO UPDATE SET last_error = excluded.last_error`,
   );
-  const insertLink = db.prepare(
-    `INSERT INTO review_threads (repo, number, thread_id, created_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(repo, number) DO UPDATE SET
-       thread_id = excluded.thread_id,
-       created_at = excluded.created_at`,
-  );
-  const selectLink = db.prepare(
-    `SELECT thread_id FROM review_threads WHERE repo = ? AND number = ?`,
-  );
-  const selectLinks = db.prepare(`SELECT repo, number, thread_id FROM review_threads`);
-  const deleteLink = db.prepare(`DELETE FROM review_threads WHERE thread_id = ?`);
-  const selectByThread = db.prepare(`SELECT repo, number FROM review_threads WHERE thread_id = ?`);
+  function hasTable(name: string): boolean {
+    return (
+      db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(name) !==
+      undefined
+    );
+  }
   const insertSnooze = db.prepare(
     `INSERT INTO snoozes (repo, number, until, created_at)
      VALUES (?, ?, ?, ?)
@@ -187,31 +180,24 @@ export function createStore(db: DatabaseLike): Store {
       upsertFailure.run(message);
     },
 
-    linkThread(repo, number, threadId, createdAt) {
-      insertLink.run(repo, number, threadId, createdAt);
+    legacyThreadLinks() {
+      // Prepared here rather than up front: the table is dropped once its rows
+      // have moved, and preparing against a missing table throws.
+      if (!hasTable("review_threads")) return [];
+      return (
+        db
+          .prepare(`SELECT repo, number, thread_id, created_at FROM review_threads ORDER BY created_at`)
+          .all() as Array<{ repo: string; number: number; thread_id: string; created_at: number }>
+      ).map((row) => ({
+        repo: row.repo,
+        number: row.number,
+        threadId: row.thread_id,
+        createdAt: row.created_at,
+      }));
     },
 
-    threadFor(repo, number) {
-      const link = selectLink.get(repo, number) as { thread_id: string } | undefined;
-      return link?.thread_id ?? null;
-    },
-
-    threadLinks() {
-      const links = selectLinks.all() as Array<{
-        repo: string;
-        number: number;
-        thread_id: string;
-      }>;
-      return new Map(links.map((link) => [`${link.repo}#${link.number}`, link.thread_id]));
-    },
-
-    unlinkThread(threadId) {
-      deleteLink.run(threadId);
-    },
-
-    pullRequestForThread(threadId) {
-      const link = selectByThread.get(threadId) as { repo: string; number: number } | undefined;
-      return link ?? null;
+    dropLegacyThreadLinks() {
+      db.exec(`DROP TABLE IF EXISTS review_threads`);
     },
 
     snooze(repo, number, until, now) {

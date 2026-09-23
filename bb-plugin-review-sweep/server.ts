@@ -18,10 +18,14 @@ import {
   type RepoFilter,
 } from "./review/spawn-target.js";
 import { MIGRATIONS, createStore } from "./review/store.js";
+import { createSweepLinks, createThreadLinksBridge } from "bb-plugin-gh-context/links";
 
 export { rpcContract };
 
 const REALTIME_CHANNEL = "reviews-updated";
+
+const GH_CONTEXT_REQUIRED =
+  "Review Sweep needs the gh-context plugin, which records which threads belong to which pull requests. Install it, then reload Review Sweep.";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
@@ -97,6 +101,34 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
+  // gh-context is the one record of which threads belong to which pull
+  // requests; this sweep reads and writes its own links through it.
+  const threadLinks = createThreadLinksBridge(bb);
+  // The move out of this plugin's own old tables writes through a wrapper with
+  // no hook, so the hook below cannot wait on itself.
+  const legacyLinks = createSweepLinks(threadLinks, bb.pluginId, "pull");
+  const links = createSweepLinks(threadLinks, bb.pluginId, "pull", {
+    before: () => ensureLegacyMoved(),
+  });
+
+  /**
+   * Finishes the one-time move of links this checkout kept before gh-context,
+   * ahead of anything that reads or writes links. Concurrent callers share one
+   * move; once the old tables are gone this is a flag check.
+   */
+  let legacyMoved = false;
+  let legacyMove: Promise<void> | null = null;
+  async function ensureLegacyMoved(): Promise<void> {
+    if (legacyMoved) return;
+    legacyMove ??= moveLegacyThreadLinks()
+      .then(() => {
+        legacyMoved = true;
+      })
+      .finally(() => {
+        legacyMove = null;
+      });
+    await legacyMove;
+  }
 
   /**
    * Drops links whose thread no longer exists or has been archived.
@@ -108,8 +140,10 @@ export default async function plugin(bb: BbPluginApi) {
    * link self-healing rather than dependent on having witnessed the event.
    */
   async function reconcileThreadLinks(): Promise<void> {
-    const links = store.threadLinks();
-    if (links.size === 0) return;
+    const rows = store.readRows();
+    if (rows.length === 0) return;
+    const linked = [...new Set([...(await links.threadMap(rows)).values()].flat())];
+    if (linked.length === 0) return;
 
     const live = new Set<string>();
     const pageSize = 100;
@@ -126,13 +160,47 @@ export default async function plugin(bb: BbPluginApi) {
     }
 
     let dropped = 0;
-    for (const threadId of links.values()) {
+    for (const threadId of linked) {
       if (!live.has(threadId)) {
-        store.unlinkThread(threadId);
+        await links.release(threadId);
         dropped += 1;
       }
     }
     if (dropped > 0) bb.log.info(`released ${dropped} review(s) from missing threads`);
+  }
+
+  /**
+   * Moves the links this checkout recorded before gh-context existed into it,
+   * once, then drops the table that held them. Every one was a thread this
+   * plugin started: it never adopted threads from the composer.
+   */
+  async function moveLegacyThreadLinks(): Promise<void> {
+    const legacy = store.legacyThreadLinks();
+    for (const link of legacy) {
+      await legacyLinks.link(link.repo, link.number, link.threadId, "spawned");
+    }
+    if (legacy.length > 0) bb.log.info(`moved ${legacy.length} thread link(s) into gh-context`);
+    store.dropLegacyThreadLinks();
+  }
+
+  /**
+   * Consecutive sweeps that found no gh-context. One is gh-context still
+   * loading after a restart; a run of them is a missing plugin, and
+   * needs-configuration is one-way until reload, so it waits for the run.
+   */
+  let linksUnavailableRuns = 0;
+
+  async function linksAvailable(): Promise<boolean> {
+    if (await threadLinks.available()) {
+      linksUnavailableRuns = 0;
+      return true;
+    }
+    linksUnavailableRuns += 1;
+    bb.log.warn(`gh-context unavailable (${linksUnavailableRuns} in a row)`);
+    if (linksUnavailableRuns >= UNAVAILABLE_RUNS_BEFORE_CONFIG) {
+      bb.status.needsConfiguration(GH_CONTEXT_REQUIRED);
+    }
+    return false;
   }
 
   /**
@@ -150,10 +218,17 @@ export default async function plugin(bb: BbPluginApi) {
     // nothing about whether a linked thread still exists, and a row stuck on
     // "Open thread" for a deleted thread should heal even while the sweep
     // itself is broken.
-    try {
-      await reconcileThreadLinks();
-    } catch (error) {
-      bb.log.warn(`could not reconcile thread links: ${String(error)}`);
+    if (await linksAvailable()) {
+      try {
+        await ensureLegacyMoved();
+      } catch (error) {
+        bb.log.warn(`could not move thread links into gh-context: ${String(error)}`);
+      }
+      try {
+        await reconcileThreadLinks();
+      } catch (error) {
+        bb.log.warn(`could not reconcile thread links: ${String(error)}`);
+      }
     }
 
     // Expired deadlines are already ignored on read; this is only so the table
@@ -293,20 +368,27 @@ export default async function plugin(bb: BbPluginApi) {
       const spawnable = new Set(
         rows.map((row) => row.repo).filter((repo) => matchProjectForRepo(repo, candidates)),
       );
-      const links = store.threadLinks();
+      // Without gh-context the rows cannot say which already have a thread, so
+      // none offers to start one: a duplicate thread is the worse mistake.
+      let threadMap: Map<string, string[]> | null = null;
+      try {
+        threadMap = await links.threadMap(rows);
+      } catch (error) {
+        bb.log.warn(`could not read thread links: ${String(error)}`);
+      }
       const snoozes = store.snoozesUntil(Date.now());
 
       return {
         rows: rows.map((row) => ({
           ...row,
-          canSpawn: spawnable.has(row.repo),
-          threadId: links.get(`${row.repo}#${row.number}`) ?? null,
+          canSpawn: threadMap !== null && spawnable.has(row.repo),
+          threadId: threadMap?.get(`${row.repo}#${row.number}`)?.[0] ?? null,
           snoozedUntil: snoozes.get(`${row.repo}#${row.number}`) ?? null,
         })),
         sweptAt: meta.sweptAt,
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
-        lastError: meta.lastError,
+        lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,
         harvest: await harvestListingState(),
         staleAfterDays: parseStaleAfterDays(staleAfterDays),
       };
@@ -316,40 +398,14 @@ export default async function plugin(bb: BbPluginApi) {
       return sweepNow();
     },
 
-    /**
-     * Scoped by construction: review_threads only holds threads this plugin
-     * started, so a thread it does not know returns null and the header renders
-     * nothing. What the frontend chooses to draw is not the authorization
-     * decision — this lookup is.
-     */
-    async pullRequestForThread({ threadId }) {
-      const link = store.pullRequestForThread(threadId);
-      if (!link) return null;
-
-      const row = store
-        .readRows()
-        .find((entry) => entry.repo === link.repo && entry.number === link.number);
-
-      return {
-        repo: link.repo,
-        number: link.number,
-        // The sweep may no longer carry the row — once you submit the review,
-        // the request leaves your queue — so fall back to the canonical URL
-        // shape rather than dropping the button on exactly the threads most
-        // likely to still be open.
-        url: row?.url ?? `https://github.com/${link.repo}/pull/${link.number}`,
-        title: row?.title ?? "",
-      };
-    },
-
     async archiveThread({ repo, number }) {
-      const threadId = store.threadFor(repo, number);
+      const threadId = await links.threadFor(repo, number);
       if (!threadId) return { ok: false, reason: "That review has no thread." };
 
       await bb.sdk.threads.archive({ threadId });
       // The thread.archived handler unlinks too, but doing it here means the row
       // updates even if the event is lost.
-      store.unlinkThread(threadId);
+      await links.release(threadId);
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`archived ${threadId} for ${repo}#${number}`);
       return { ok: true, reason: null };
@@ -372,7 +428,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
 
     async reviewThisDraft({ repo, number }) {
-      const existingThreadId = store.threadFor(repo, number);
+      const existingThreadId = await links.threadFor(repo, number);
       if (existingThreadId) return { existingThreadId, reason: null, seed: null };
 
       const row = store
@@ -443,7 +499,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
-        const existingThreadId = store.threadFor(repo, number);
+        const existingThreadId = await links.threadFor(repo, number);
         if (existingThreadId) {
           return { threadId: existingThreadId, existing: true, reason: null };
         }
@@ -481,7 +537,7 @@ export default async function plugin(bb: BbPluginApi) {
         } as Parameters<typeof bb.sdk.threads.spawn>[0]);
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
-        store.linkThread(repo, number, thread.id, Date.now());
+        await links.link(repo, number, thread.id, "spawned");
         bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
         return { threadId: thread.id, existing: false, reason: null };
       })();
@@ -498,8 +554,12 @@ export default async function plugin(bb: BbPluginApi) {
   // A thread the user archived or deleted should not keep its review pinned to
   // it, otherwise the row offers to open a thread that is gone.
   for (const event of ["thread.archived", "thread.deleted"] as const) {
-    bb.events.on(event, ({ thread }) => {
-      store.unlinkThread(thread.id);
+    bb.events.on(event, async ({ thread }) => {
+      try {
+        await links.release(thread.id);
+      } catch (error) {
+        bb.log.warn(`could not release ${thread.id}: ${String(error)}`);
+      }
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
     });
   }

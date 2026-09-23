@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import {
+  createFakePluginHost as createHost,
+  makeThreadResponse,
+} from "@get-bb/plugin-sdk/testing";
+import { createFakeGhContext, type FakeGhContext } from "bb-plugin-gh-context/links/testing";
 import { createStore } from "./review/store.js";
 import type { ClassifiedRow } from "./review/types.js";
 import plugin from "./server.js";
@@ -96,6 +100,24 @@ async function reviewThis(
       environment: { type: "project-default" },
       input: [{ type: "text", text: draft.seed.prompt, mentions: [] }],
     },
+  });
+}
+
+/**
+ * The newest host's gh-context. Every host gets its own, empty, so links never
+ * leak between tests.
+ */
+let ghContext: FakeGhContext = createFakeGhContext();
+
+function createFakePluginHost(options: Parameters<typeof createHost>[0] = {}) {
+  ghContext = createFakeGhContext();
+  const sdk = (options.sdk ?? {}) as Record<string, unknown>;
+  return createHost({
+    ...options,
+    sdk: {
+      ...sdk,
+      plugins: { callRpc: ghContext.callRpc, ...(sdk.plugins as object | undefined) },
+    } as never,
   });
 }
 
@@ -445,50 +467,6 @@ describe("archiveThread", () => {
   });
 });
 
-describe("pullRequestForThread", () => {
-  it("returns the pull request for a thread this plugin started", async () => {
-    const { harness } = await seededHost();
-    const spawn = await reviewThis(harness, { repo: "acme/widgets", number: 42 });
-
-    expect(
-      await harness.behavior.callRpc("pullRequestForThread", { threadId: spawn.threadId! }),
-    ).toMatchObject({
-      repo: "acme/widgets",
-      number: 42,
-      url: "https://github.com/acme/widgets/pull/42",
-    });
-  });
-
-  it("returns null for a thread it did not start", async () => {
-    // This is the authorization boundary for the header action: an unknown
-    // thread gets nothing, so the control never appears elsewhere.
-    const { harness } = await seededHost();
-    expect(
-      await harness.behavior.callRpc("pullRequestForThread", { threadId: "thr_someone_else" }),
-    ).toBeNull();
-  });
-
-  it("still resolves a URL after the review leaves the queue", async () => {
-    // Submitting the review drops the request out of the sweep, which is
-    // exactly when the thread is most likely to still be open.
-    const { bb, harness } = await seededHost();
-    const spawn = await reviewThis(harness, { repo: "acme/widgets", number: 42 });
-
-    createStore(bb.storage.database() as never).replaceAll({
-      rows: [],
-      skippedRepos: [],
-      truncated: false,
-      sweptAt: Date.now(),
-    });
-
-    const result = await harness.behavior.callRpc("pullRequestForThread", {
-      threadId: spawn.threadId!,
-    });
-    expect(result?.url).toBe("https://github.com/acme/widgets/pull/42");
-  });
-
-});
-
 describe("ignoring a review", () => {
   it("stamps a listing row with its deadline once it is ignored", async () => {
     const { harness } = await seededHost();
@@ -528,5 +506,41 @@ describe("ignoring a review", () => {
 
     const listing = await harness.behavior.callRpc("listRows", null);
     expect(listing.rows[0]?.snoozedUntil).not.toBeNull();
+  });
+});
+
+describe("gh-context", () => {
+  it("moves links recorded before gh-context into it, once", async () => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: PLUGIN_ID,
+      settings: { ghPath: "/nonexistent/gh-does-not-exist" },
+    });
+    const db = bb.storage.database();
+    await plugin(bb);
+    db.prepare(
+      `INSERT INTO review_threads (repo, number, thread_id, created_at) VALUES (?, ?, ?, ?)`,
+    ).run("acme/widgets", 7, "thr_1", 1);
+
+    await harness.behavior.callRpc("refresh", null);
+    await harness.behavior.callRpc("refresh", null);
+    expect(ghContext.links).toEqual([
+      { threadId: "thr_1", repo: "acme/widgets", kind: "pull", number: 7, source: "spawned:review-sweep" },
+    ]);
+  });
+
+  it("offers no thread starts while gh-context is missing, and says why", async () => {
+    const { bb, harness } = createFakePluginHost({ pluginId: PLUGIN_ID });
+    await plugin(bb);
+    createStore(bb.storage.database() as never).replaceAll({
+      rows: [seedRow()],
+      repos: ["acme/widgets"],
+      skippedRepos: [],
+      truncated: false,
+      sweptAt: 1,
+    } as never);
+    ghContext.setAvailable(false);
+    const listing = await harness.behavior.callRpc("listRows", null);
+    expect(listing.rows.every((row: { canSpawn: boolean }) => row.canSpawn === false)).toBe(true);
+    expect(listing.lastError).toMatch(/gh-context/);
   });
 });
