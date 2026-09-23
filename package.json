@@ -1,0 +1,9 @@
+{
+  "name": "bb-plugins",
+  "private": true,
+  "description": "Scripts for the whole checkout. Each plugin is its own package with its own dependencies; this one has none.",
+  "scripts": {
+    "storybook": "node scripts/ladle.mjs serve",
+    "storybook:build": "node scripts/ladle.mjs build"
+  }
+}

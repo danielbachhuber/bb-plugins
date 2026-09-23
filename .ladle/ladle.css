@@ -1,0 +1,7 @@
+@import "./bb-source/apps/app/.ladle/ladle.css";
+
+/* bb's stylesheet only generates the classes bb's own source uses. The real
+   app builds each plugin's CSS separately, so a class only a plugin uses would
+   render unstyled here and styled in bb. Tailwind skips gitignored paths, which
+   keeps node_modules, dist/, and the bb-source link out of the scan. */
+@source "..";

@@ -119,3 +119,20 @@ shadcn source, and the testing-harness gotchas — and is not repeated here.
 The bb source is checked out at `~/projects/bb`. When a question is about how
 bb itself behaves (a UI element, a CLI command, the plugin SDK), read it there
 rather than guessing from `bb guide` or the minified bundle inside `bb.app`.
+
+## Stories
+
+`npm run storybook` at the root serves every `*.stories.tsx` in the checkout
+through bb's own Ladle, so a plugin's UI renders with bb's real stylesheet and
+components. The root README covers the setup. What costs time:
+
+- A story shows bb's look only if it renders through the wrapper: import bb
+  components with `@bb-app/...` and bb's story helpers with `@bb-ladle/...`.
+  A plugin's own `@/` imports resolve to that plugin's directory as usual.
+- Stories render display components with fixture props. A component that
+  calls `useRpc` reaches for a server a story does not have, so split the
+  data loading from what it draws before writing the story.
+- Editing a story file reloads the page; editing a component it imports
+  updates in place.
+- Fixtures follow the public-repository rule above: `acme/widgets`, never a
+  real repository or PR.

@@ -95,3 +95,25 @@ tree and breaks every clock test; `harvest:sync` reinstates the copy with
 `--install-links`. `tsc --noEmit` is what catches a `file:` dependency that is
 still stale, a failure that otherwise reaches the panel as a runtime
 "is not a function".
+
+## Stories
+
+Plugin UI can be worked on in [Ladle](https://ladle.dev), the story viewer bb
+uses for its own components, without building or reloading a plugin:
+
+```sh
+npm run storybook          # http://localhost:61000
+npm run storybook:build    # static build in build/
+```
+
+Stories are `*.stories.tsx` files in any plugin directory. They render inside
+bb's own story wrapper, with bb's stylesheet and theme toggle, and can import
+bb's components through `@bb-app/...` to show a plugin's UI beside the part of
+bb it sits next to.
+
+That requires a bb checkout with its dependencies installed. The scripts look
+for it at `~/projects/bb`; set `BB_SOURCE_DIR` in `.env` (see `.env.example`)
+if it is somewhere else. They run the Ladle, Vite, and Tailwind bb already has
+installed, so nothing is installed here, and a checkout whose `node_modules`
+is older than its source fails on whichever package it is missing. Run
+`pnpm install` in bb when that happens.
