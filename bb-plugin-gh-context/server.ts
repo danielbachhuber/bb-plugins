@@ -281,6 +281,7 @@ export default async function plugin(bb: BbPluginApi) {
       }
     }
 
+    const viewer = await client.viewer();
     const seen = new Set<string>();
     const issues: ContextIssue[] = [];
     for (const link of store.itemsForThread(threadId)) {
@@ -297,6 +298,7 @@ export default async function plugin(bb: BbPluginApi) {
         state: fetched?.state ?? null,
         source: link.source,
         viaPullRequest: link.source === "via-pr" ? (pullRequest?.number ?? null) : null,
+        assignedToMe: viewer !== null && (fetched?.assignees.includes(viewer) ?? false),
       });
     }
     return issues;

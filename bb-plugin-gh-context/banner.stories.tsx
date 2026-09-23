@@ -170,6 +170,7 @@ const promptIssue: ContextIssue = {
   state: "open",
   source: "prompt",
   viaPullRequest: null,
+  assignedToMe: true,
 };
 
 const viaPrIssue: ContextIssue = {
@@ -180,6 +181,7 @@ const viaPrIssue: ContextIssue = {
   state: "open",
   source: "via-pr",
   viaPullRequest: 128,
+  assignedToMe: false,
 };
 
 const closedIssue: ContextIssue = {

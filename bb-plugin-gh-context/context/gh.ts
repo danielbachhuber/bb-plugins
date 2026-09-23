@@ -14,6 +14,8 @@ import type { IssueRef } from "./rules.js";
 export interface GhIssue {
   title: string;
   state: "open" | "closed";
+  /** Assignee logins, lowercased. */
+  assignees: string[];
 }
 
 export interface GhPullRequest {
@@ -26,6 +28,8 @@ export interface GhPullRequest {
 
 export interface Gh {
   issue(ref: IssueRef): Promise<GhIssue | null>;
+  /** The login `gh` is signed in as, lowercased; null when it cannot say. */
+  viewer(): Promise<string | null>;
   pullRequest(ref: IssueRef): Promise<GhPullRequest | null>;
 }
 
@@ -35,6 +39,7 @@ const FAILURE_TTL_MS = 60_000;
 interface IssueJson {
   title?: unknown;
   state?: unknown;
+  assignees?: Array<{ login?: unknown }>;
 }
 
 interface PullRequestJson {
@@ -51,7 +56,15 @@ interface PullRequestJson {
 
 function parseIssue(json: IssueJson): GhIssue | null {
   if (typeof json.title !== "string" || typeof json.state !== "string") return null;
-  return { title: json.title, state: json.state.toUpperCase() === "OPEN" ? "open" : "closed" };
+  const assignees = (json.assignees ?? [])
+    .map((assignee) => assignee.login)
+    .filter((login): login is string => typeof login === "string")
+    .map((login) => login.toLowerCase());
+  return {
+    title: json.title,
+    state: json.state.toUpperCase() === "OPEN" ? "open" : "closed",
+    assignees,
+  };
 }
 
 function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
@@ -110,11 +123,17 @@ export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
               "--repo",
               ref.repo,
               "--json",
-              "title,state",
+              "title,state,assignees",
             ]),
           ) as IssueJson,
         ),
       );
+    },
+    viewer() {
+      return cached("viewer", async () => {
+        const login = (await runner.run(["api", "user", "--jq", ".login"])).trim();
+        return login === "" ? null : login.toLowerCase();
+      });
     },
     pullRequest(ref) {
       return cached(`pull:${ref.repo}#${ref.number}`, async () =>

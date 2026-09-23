@@ -53,6 +53,8 @@ const issueSchema = z.object({
   source: z.string(),
   /** For `via-pr` links, the pull request that names it. */
   viaPullRequest: z.number().nullable(),
+  /** Whether it is assigned to the user `gh` is signed in as; false when unknown. */
+  assignedToMe: z.boolean(),
 });
 
 const changesSchema = z.object({

@@ -105,6 +105,7 @@ describe("threadContext", () => {
         state: null,
         source: "prompt",
         viaPullRequest: null,
+        assignedToMe: false,
       },
     ]);
     await harness.behavior.callRpc("threadContext", { threadId: "thr_one" });

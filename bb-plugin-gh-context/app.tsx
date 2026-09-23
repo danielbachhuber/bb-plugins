@@ -12,6 +12,7 @@ import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem, type GitHubItem } from "bb-plugin-harvest/github";
 import { ContextBanner } from "./components/context-banner";
 import type { MergeMethod, RunningReference, ThreadContext, rpcContract } from "./context/contract";
+import { harvestItem } from "./context/harvest-item";
 import * as hideDefaultBanner from "./context/hide";
 
 /** Must match `REALTIME_CHANNEL` in server.ts, which the app cannot import. */
@@ -43,20 +44,6 @@ function useHarvestClient(rpc: Rpc): HarvestTimerClient {
     }),
     [rpc],
   );
-}
-
-/**
- * The item a Harvest timer on this thread is for: its pull request, or the
- * first issue it works on when it has none yet.
- */
-function harvestItem(context: ThreadContext): GitHubItem | null {
-  if (context.pullRequest) {
-    const { repo, number, title, url } = context.pullRequest;
-    return { repo, number, title, url };
-  }
-  const issue = context.issues[0];
-  if (!issue) return null;
-  return { repo: issue.repo, number: issue.number, title: issue.title ?? `#${issue.number}`, url: issue.url };
 }
 
 function isRunningFor(running: RunningReference, item: GitHubItem): boolean {

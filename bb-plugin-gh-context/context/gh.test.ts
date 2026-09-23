@@ -19,8 +19,16 @@ function runner(answer: (args: string[]) => string | Error): GhRunner & { calls:
 
 describe("issue", () => {
   it("reads the title and state", async () => {
-    const gh = createGh(runner(() => JSON.stringify({ title: "Widgets drift", state: "OPEN" })));
-    expect(await gh.issue(ref)).toEqual({ title: "Widgets drift", state: "open" });
+    const gh = createGh(
+      runner(() =>
+        JSON.stringify({ title: "Widgets drift", state: "OPEN", assignees: [{ login: "Octocat" }] }),
+      ),
+    );
+    expect(await gh.issue(ref)).toEqual({
+      title: "Widgets drift",
+      state: "open",
+      assignees: ["octocat"],
+    });
   });
 
   it("asks gh once within the cache window, and again after it", async () => {
@@ -104,3 +112,16 @@ describe("pullRequest", () => {
   });
 });
 
+describe("viewer", () => {
+  it("reads the signed-in login once, lowercased", async () => {
+    const fake = runner(() => "Octocat\n");
+    const gh = createGh(fake);
+    expect(await gh.viewer()).toBe("octocat");
+    expect(await gh.viewer()).toBe("octocat");
+    expect(fake.calls).toEqual([["api", "user", "--jq", ".login"]]);
+  });
+
+  it("is null when gh cannot say", async () => {
+    expect(await createGh(runner(() => new Error("not logged in"))).viewer()).toBeNull();
+  });
+});

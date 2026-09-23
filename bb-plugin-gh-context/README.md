@@ -22,7 +22,10 @@ bb plugin install . --yes
 - `gh` on PATH and authenticated as you (`gh auth login`), for issue titles and
   pull request bodies. Without it the banner still shows each issue's number.
 - [Harvest](../bb-plugin-harvest), optionally. With it installed and
-  configured, the banner draws its clock; without it, the banner has none.
+  configured, the banner draws its clock; without it, the banner has none. A
+  timer started there is recorded against the first linked issue assigned to
+  you, which is the work being billed; without one, against the pull request,
+  and without that, the first linked issue.
 
 ## Which issues a thread is about
 
@@ -111,6 +114,7 @@ display-only.
 | `links.ts` | The bridge the sweeps import |
 | `server.ts` | Assembles a thread's context, scans prompts, and serves the links |
 | `app.tsx` | Loads the context and registers the banner and the content script |
+| `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |
 | `banner.stories.tsx` | bb's banner and this one side by side, and one row per state |
 
 ## Working on it
