@@ -328,7 +328,6 @@ export function ContextBanner({
           <ChangesSegment changes={changes} compact={compact} onOpen={onOpenChanges} />
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-1 pr-1">
-          {harvestSlot}
           {canMerge ? (
             <MergeSplitButton
               disabled={pending}
@@ -347,6 +346,8 @@ export function ContextBanner({
               {pending ? "Archiving…" : "Archive thread"}
             </ActionButton>
           ) : null}
+          {/* Always rightmost, whatever actions sit beside it. */}
+          {harvestSlot}
         </div>
       </div>
     );
