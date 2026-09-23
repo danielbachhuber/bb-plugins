@@ -9,8 +9,13 @@ import {
   worktreePlan,
   type WorktreePlan,
 } from "./sweep/open-pr.js";
-import { isAdoptable, solePullRequestReference } from "./sweep/adopt.js";
+import { isAdoptable } from "./sweep/adopt.js";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
+import {
+  createSweepLinks,
+  createThreadLinksBridge,
+  unclaimedPromptThreadIds,
+} from "bb-plugin-gh-context/links";
 import { rpcContract } from "./sweep/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./sweep/gh.js";
 import { buildPromptParts, headerItem, trailerItem } from "./sweep/prompt.js";
@@ -37,6 +42,9 @@ import { MIGRATIONS, createStore } from "./sweep/store.js";
 export { rpcContract };
 
 const REALTIME_CHANNEL = "prs-updated";
+
+const GH_CONTEXT_REQUIRED =
+  "PR Sweep needs the gh-context plugin, which records which threads belong to which pull requests. Install it, then reload PR Sweep.";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
@@ -136,6 +144,34 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
+  // gh-context is the one record of which threads belong to which pull
+  // requests; this sweep reads and writes its own links through it.
+  const threadLinks = createThreadLinksBridge(bb);
+  // The move out of this plugin's own old tables writes through a wrapper with
+  // no hook, so the hook below cannot wait on itself.
+  const legacyLinks = createSweepLinks(threadLinks, bb.pluginId, "pull");
+  const links = createSweepLinks(threadLinks, bb.pluginId, "pull", {
+    before: () => ensureLegacyMoved(),
+  });
+
+  /**
+   * Finishes the one-time move of links this checkout kept before gh-context,
+   * ahead of anything that reads or writes links. Concurrent callers share one
+   * move; once the old tables are gone this is a flag check.
+   */
+  let legacyMoved = false;
+  let legacyMove: Promise<void> | null = null;
+  async function ensureLegacyMoved(): Promise<void> {
+    if (legacyMoved) return;
+    legacyMove ??= moveLegacyThreadLinks()
+      .then(() => {
+        legacyMoved = true;
+      })
+      .finally(() => {
+        legacyMove = null;
+      });
+    await legacyMove;
+  }
 
   /**
    * Drops links whose thread no longer exists or has been archived.
@@ -177,31 +213,6 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
-   * The text of a thread's first prompt, or "" when it has none.
-   *
-   * Read from the thread's own event log rather than its `titleFallback`,
-   * which is the same text truncated to a sidebar's width — a prompt that
-   * mentions the pull request after a sentence of context would have the URL
-   * cut off.
-   */
-  async function firstPromptText(threadId: string): Promise<string> {
-    const events = await bb.sdk.threads.events.list({
-      threadId,
-      types: ["client/turn/requested"],
-      order: "asc",
-      limit: "1",
-    });
-    const input = (
-      events[0]?.data as { input?: Array<{ type?: string; text?: string }> } | undefined
-    )?.input;
-    if (!Array.isArray(input)) return "";
-    return input
-      .filter((part) => part?.type === "text" && typeof part.text === "string")
-      .map((part) => part.text)
-      .join("\n");
-  }
-
-  /**
    * The title for a new thread on `row`, avoiding one a live thread already has.
    *
    * Checked against the world rather than against the link table, because the
@@ -234,10 +245,10 @@ export default async function plugin(bb: BbPluginApi) {
    * Adopts threads started from the composer for a pull request this sweep
    * knows.
    *
-   * Every thread's first prompt is read at most once ever, which is what makes
-   * this affordable on a five-minute timer: the answer cannot change, so a
-   * thread that named no pull request is remembered as scanned and never read
-   * again.
+   * gh-context reads every thread's first prompt once and links the pull
+   * request a prompt names; this claims those links for the rows in the sweep,
+   * then gives each newly claimed thread this sweep's title. Recording
+   * `adopted:` is what makes the rename happen once.
    */
   async function adoptHandStartedThreads(): Promise<void> {
     const { adoptHandStartedThreads: enabled } = await settings.get();
@@ -246,35 +257,27 @@ export default async function plugin(bb: BbPluginApi) {
     const rows = store.readRows();
     if (rows.length === 0) return;
 
-    const scanned = store.scannedThreads();
-    const linked = new Set([...store.allThreadLinks().values()].flat());
+    const entries = await links.entries(rows);
+    const candidates = rows.flatMap((row, index) => {
+      const entry = entries[index];
+      return entry ? unclaimedPromptThreadIds(entry, bb.pluginId).map((threadId) => ({ row, threadId })) : [];
+    });
+    if (candidates.length === 0) return;
+
     const threads = await everyThread();
+    const byId = new Map(threads.map((thread) => [thread.id, thread]));
     // Every title currently in the sidebar, so a rename cannot manufacture a
     // duplicate. Mutated as titles are assigned, so two adoptions in one pass
     // cannot collide with each other either.
     const titlesInUse = new Set(threads.map((thread) => thread.title));
 
-    for (const thread of threads) {
-      if (scanned.has(thread.id) || linked.has(thread.id)) continue;
-      if (!isAdoptable(thread, bb.pluginId)) continue;
+    for (const { row, threadId } of candidates) {
+      const thread = byId.get(threadId);
+      // Not listed means archived or gone; not adoptable means another
+      // plugin's thread, which is that plugin's business.
+      if (!thread || !isAdoptable(thread, bb.pluginId)) continue;
 
-      const reference = solePullRequestReference(await firstPromptText(thread.id));
-      // Marked either way. A prompt that named no pull request never will, and
-      // one that named a pull request is about to be handled, so neither needs
-      // re-reading.
-      store.markThreadScanned(thread.id, Date.now());
-      if (!reference) continue;
-
-      const row = rows.find(
-        (entry) => entry.repo.toLowerCase() === reference.repo && entry.number === reference.number,
-      );
-      // Not in the sweep means not an open pull request of mine. Not this
-      // plugin's business.
-      if (!row) continue;
-
-      // Linked either way, because a pull request may have several threads and
-      // the store now keeps them all. Renaming is the conditional part.
-      store.linkThread(row.repo, row.number, thread.id, Date.now());
+      await links.link(row.repo, row.number, thread.id, "adopted");
 
       // One of this plugin's own, restored after being archived: it already
       // has the title this pass would give it, and its own scope in the title
@@ -309,25 +312,67 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function reconcileThreadLinks(): Promise<void> {
-    const links = store.threadLinks();
-    if (links.size === 0) return;
+  /**
+   * Moves the links this checkout recorded before gh-context existed into it,
+   * once, then drops the tables that held them. A thread this plugin started
+   * is recorded as spawned; one it adopted from the composer, as adopted.
+   */
+  async function moveLegacyThreadLinks(): Promise<void> {
+    const legacy = store.legacyThreadLinks();
+    if (legacy.length > 0) {
+      const origins = new Map(
+        (await everyThread({ includeHidden: true })).map((thread) => [thread.id, thread.originPluginId]),
+      );
+      for (const link of legacy) {
+        const how = origins.get(link.threadId) === bb.pluginId ? "spawned" : "adopted";
+        await legacyLinks.link(link.repo, link.number, link.threadId, how);
+      }
+      bb.log.info(`moved ${legacy.length} thread link(s) into gh-context`);
+    }
+    store.dropLegacyThreadLinks();
+  }
 
-    // Every thread, not just this plugin's own. A link can now point at a
-    // thread someone started from the composer that the sweep adopted, and
-    // filtering by originPluginId made every one of those look deleted — the
-    // link would be dropped on the sweep after the one that created it, and
-    // the row would go back to offering to start a thread for work underway.
+  async function reconcileThreadLinks(): Promise<void> {
+    const rows = store.readRows();
+    if (rows.length === 0) return;
+    const linked = [...new Set([...(await links.threadMap(rows)).values()].flat())];
+    if (linked.length === 0) return;
+
+    // Every thread, not just this plugin's own. A link can point at a thread
+    // someone started from the composer that the sweep adopted, and filtering
+    // by originPluginId made every one of those look deleted — the link would
+    // be dropped on the sweep after the one that created it, and the row would
+    // go back to offering to start a thread for work underway.
     const live = new Set((await everyThread({ includeHidden: true })).map((thread) => thread.id));
 
     let dropped = 0;
-    for (const threadId of links.values()) {
+    for (const threadId of linked) {
       if (!live.has(threadId)) {
-        store.unlinkThread(threadId);
+        await links.release(threadId);
         dropped += 1;
       }
     }
     if (dropped > 0) bb.log.info(`released ${dropped} pull request(s) from missing threads`);
+  }
+
+  /**
+   * Consecutive sweeps that found no gh-context. One is gh-context still
+   * loading after a restart; a run of them is a missing plugin, and
+   * needs-configuration is one-way until reload, so it waits for the run.
+   */
+  let linksUnavailableRuns = 0;
+
+  async function linksAvailable(): Promise<boolean> {
+    if (await threadLinks.available()) {
+      linksUnavailableRuns = 0;
+      return true;
+    }
+    linksUnavailableRuns += 1;
+    bb.log.warn(`gh-context unavailable (${linksUnavailableRuns} in a row)`);
+    if (linksUnavailableRuns >= UNAVAILABLE_RUNS_BEFORE_CONFIG) {
+      bb.status.needsConfiguration(GH_CONTEXT_REQUIRED);
+    }
+    return false;
   }
 
   async function sweepNow(): Promise<{ ok: boolean; error: string | null }> {
@@ -339,6 +384,14 @@ export default async function plugin(bb: BbPluginApi) {
     // while the sweep itself is broken.
     // Before reconciliation, so a link made here is seen as live rather than
     // being created and dropped within the same sweep.
+    if (!(await linksAvailable())) return outcome;
+
+    try {
+      await ensureLegacyMoved();
+    } catch (error) {
+      bb.log.warn(`could not move thread links into gh-context: ${String(error)}`);
+    }
+
     try {
       await adoptHandStartedThreads();
     } catch (error) {
@@ -663,14 +716,21 @@ export default async function plugin(bb: BbPluginApi) {
       const spawnable = new Set(
         rows.map((row) => row.repo).filter((repo) => matchProjectForRepo(repo, candidates)),
       );
-      const links = store.allThreadLinks();
+      // Without gh-context the rows cannot say which already have a thread, so
+      // none offers to start one: a duplicate thread is the worse mistake.
+      let threadMap: Map<string, string[]> | null = null;
+      try {
+        threadMap = await links.threadMap(rows);
+      } catch (error) {
+        bb.log.warn(`could not read thread links: ${String(error)}`);
+      }
 
       return {
         rows: rows.map((row) => {
-          const threadIds = links.get(`${row.repo}#${row.number}`) ?? [];
+          const threadIds = threadMap?.get(`${row.repo}#${row.number}`) ?? [];
           return {
             ...row,
-            canSpawn: spawnable.has(row.repo),
+            canSpawn: threadMap !== null && spawnable.has(row.repo),
             threadId: threadIds[0] ?? null,
             threadIds,
           };
@@ -679,38 +739,13 @@ export default async function plugin(bb: BbPluginApi) {
         failedRepos: meta.failedRepos,
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
-        lastError: meta.lastError,
+        lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,
         harvest: await harvestListingState(),
       };
     },
 
     async refresh() {
       return sweepNow();
-    },
-
-    /**
-     * Scoped by construction: pr_threads only holds threads this plugin
-     * started, so a thread it does not know returns null and the header
-     * renders nothing. What the frontend chooses to draw is not the
-     * authorization decision — this lookup is.
-     */
-    async pullRequestForThread({ threadId }) {
-      const link = store.pullRequestForThread(threadId);
-      if (!link) return null;
-
-      const row = store
-        .readRows()
-        .find((entry) => entry.repo === link.repo && entry.number === link.number);
-
-      return {
-        repo: link.repo,
-        number: link.number,
-        // The sweep may no longer carry the row (merged, closed, or beyond the
-        // 100 ceiling), so fall back to the canonical URL shape rather than
-        // dropping the button.
-        url: row?.url ?? `https://github.com/${link.repo}/pull/${link.number}`,
-        title: row?.title ?? "",
-      };
     },
 
     /**
@@ -823,28 +858,28 @@ export default async function plugin(bb: BbPluginApi) {
         };
       }
 
-      store.linkThread(pr.repo, pr.number, thread.id, Date.now());
+      await links.link(pr.repo, pr.number, thread.id, "spawned");
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`opened ${pr.repo}#${pr.number} at ${path} as ${thread.id}`);
       return { threadId: thread.id, worktree: path, error: null };
     },
 
     async archiveThread({ repo, number }) {
-      const threadId = store.threadFor(repo, number);
+      const threadId = await links.threadFor(repo, number);
       if (!threadId) return { ok: false, reason: "That pull request has no thread." };
 
       await bb.sdk.threads.archive({ threadId });
       // The thread.archived handler unlinks too, but doing it here means the
       // row updates even if the event is lost, and makes the rpc's effect
       // complete on its own.
-      store.unlinkThread(threadId);
+      await links.release(threadId);
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`archived ${threadId} for ${repo}#${number}`);
       return { ok: true, reason: null };
     },
 
     async workOnThisDraft({ repo, number }) {
-      const existingThreadId = store.threadFor(repo, number);
+      const existingThreadId = await links.threadFor(repo, number);
       if (existingThreadId) return { existingThreadId, reason: null, seed: null };
 
       const row = store
@@ -905,7 +940,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
-        const existingThreadId = store.threadFor(repo, number);
+        const existingThreadId = await links.threadFor(repo, number);
         if (existingThreadId) {
           return { threadId: existingThreadId, existing: true, reason: null };
         }
@@ -945,7 +980,7 @@ export default async function plugin(bb: BbPluginApi) {
         } as Parameters<typeof bb.sdk.threads.spawn>[0]);
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
-        store.linkThread(repo, number, thread.id, Date.now());
+        await links.link(repo, number, thread.id, "spawned");
         bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
         return { threadId: thread.id, existing: false, reason: null };
       })();
@@ -962,8 +997,12 @@ export default async function plugin(bb: BbPluginApi) {
   // A thread the user archived or deleted should not keep its PR pinned to it,
   // otherwise the row offers to open a thread that is gone.
   for (const event of ["thread.archived", "thread.deleted"] as const) {
-    bb.events.on(event, ({ thread }) => {
-      store.unlinkThread(thread.id);
+    bb.events.on(event, async ({ thread }) => {
+      try {
+        await links.release(thread.id);
+      } catch (error) {
+        bb.log.warn(`could not release ${thread.id}: ${String(error)}`);
+      }
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
     });
   }

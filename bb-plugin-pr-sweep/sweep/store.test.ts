@@ -110,85 +110,37 @@ describe("store", () => {
   });
 });
 
-describe("thread links", () => {
-  it("records and reads the thread started for a PR", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1_700_000_000_000);
-    expect(store.threadFor("acme/widgets", 42)).toBe("thr_1");
+describe("legacy thread links", () => {
+  function legacyStore() {
+    const db = new Database(":memory:");
+    for (const statement of MIGRATIONS) db.exec(statement);
+    db.prepare(
+      `INSERT INTO pr_thread_links (thread_id, repo, number, created_at) VALUES (?, ?, ?, ?)`,
+    ).run("thr_2", "acme/widgets", 42, 2);
+    db.prepare(
+      `INSERT INTO pr_thread_links (thread_id, repo, number, created_at) VALUES (?, ?, ?, ?)`,
+    ).run("thr_1", "acme/widgets", 42, 1);
+    return { db, store: createStore(db as never) };
+  }
+
+  it("reads the links a checkout recorded before gh-context, oldest first", () => {
+    expect(legacyStore().store.legacyThreadLinks()).toEqual([
+      { repo: "acme/widgets", number: 42, threadId: "thr_1", createdAt: 1 },
+      { repo: "acme/widgets", number: 42, threadId: "thr_2", createdAt: 2 },
+    ]);
   });
 
-  it("returns null for a PR with no thread", () => {
-    expect(freshStore().threadFor("acme/widgets", 42)).toBeNull();
-  });
-
-  it("keeps every thread a pull request has had, newest first", () => {
-    // One pull request genuinely has several threads over its life: a conflict
-    // thread, then a CI thread, then a merge thread. Keyed by pull request,
-    // the store could only remember the newest and quietly forgot the rest.
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.linkThread("acme/widgets", 42, "thr_2", 2);
-
-    expect(store.allThreadLinks().get("acme/widgets#42")).toEqual(["thr_2", "thr_1"]);
-  });
-
-  it("acts on the newest thread, which is the work in progress", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.linkThread("acme/widgets", 42, "thr_2", 2);
-
-    expect(store.threadFor("acme/widgets", 42)).toBe("thr_2");
-    expect(store.threadLinks().get("acme/widgets#42")).toBe("thr_2");
-  });
-
-  it("updates a thread rather than duplicating it when it is re-linked", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.linkThread("acme/widgets", 42, "thr_1", 5);
-
-    expect(store.allThreadLinks().get("acme/widgets#42")).toEqual(["thr_1"]);
-  });
-
-  it("drops one thread of several without disturbing the others", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.linkThread("acme/widgets", 42, "thr_2", 2);
-    store.unlinkThread("thr_2");
-
-    expect(store.allThreadLinks().get("acme/widgets#42")).toEqual(["thr_1"]);
-    expect(store.threadFor("acme/widgets", 42)).toBe("thr_1");
-  });
-
-  it("keys links by repo and number together", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.linkThread("acme/gadgets", 42, "thr_2", 1);
-    expect(store.threadLinks()).toEqual(
-      new Map([
-        ["acme/widgets#42", "thr_1"],
-        ["acme/gadgets#42", "thr_2"],
-      ]),
-    );
-  });
-
-  it("drops a link when its thread goes away", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.unlinkThread("thr_1");
-    expect(store.threadFor("acme/widgets", 42)).toBeNull();
-  });
-
-  it("survives a sweep that replaces every row", () => {
-    const store = freshStore();
-    store.linkThread("acme/widgets", 42, "thr_1", 1);
-    store.replaceAll({
-      rows: [row({ number: 42 })],
-      repos: ["acme/widgets"],
-      failedRepos: [],
-      skippedRepos: [],
-      truncated: false,
-      sweptAt: 2,
-    });
-    expect(store.threadFor("acme/widgets", 42)).toBe("thr_1");
+  it("drops the legacy tables, after which there is nothing left to move", () => {
+    const { db, store } = legacyStore();
+    store.dropLegacyThreadLinks();
+    expect(store.legacyThreadLinks()).toEqual([]);
+    const tables = db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table'`)
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(tables).not.toContain("pr_thread_links");
+    expect(tables).not.toContain("thread_scan");
+    // A store created afterwards does not trip over the missing tables.
+    expect(createStore(db as never).legacyThreadLinks()).toEqual([]);
   });
 });

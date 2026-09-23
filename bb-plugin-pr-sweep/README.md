@@ -17,6 +17,11 @@ bb plugin install . --yes
 
 ## Requirements
 
+- The [gh-context](../bb-plugin-gh-context) plugin, which keeps the record of
+  which threads belong to which pull requests. Without it the panel still lists
+  pull requests, but none offers to start a thread, since a row cannot tell
+  whether it already has one; after a few sweeps without it the plugin reports
+  that it needs configuring.
 - `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
   missing or unauthenticated `gh` as a configuration state, not an error.
 - A bb project is needed only for "Work on this", which matches a PR's
@@ -24,13 +29,20 @@ bb plugin install . --yes
   upstream counts as well as its origin. PRs in repositories with no matching
   project are still listed; their button is disabled.
 
-## In a spawned thread
+## Threads
 
-Threads this plugin starts carry an **Open pull request** control in the thread
-header, linking to the pull request in a real browser tab. It renders only on
-threads this plugin created: the server resolves the thread id against its own
-link table and returns null for anything else, so the control never appears on
-an unrelated thread.
+A thread started from a row is linked to its pull request in gh-context, and
+the row then opens that thread rather than starting another. gh-context's
+banner above the composer shows the pull request on every thread, so this
+plugin adds nothing to the thread itself.
+
+A thread started from the composer whose first prompt names exactly one pull
+request, and nothing else, is adopted on the next sweep when that pull request
+is in the list: linked to the row and given this plugin's title, unless
+another thread already has that title. gh-context reads the prompt; this
+plugin decides which of those threads are its own. Archiving a thread releases
+it, and unarchiving one gets it adopted again on the next sweep, as long as its
+first prompt names that pull request and nothing else.
 
 ## Settings
 

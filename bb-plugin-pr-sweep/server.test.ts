@@ -1,7 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import {
+  createFakePluginHost as createHost,
+  makeThreadResponse,
+} from "@get-bb/plugin-sdk/testing";
+import { createFakeGhContext, type FakeGhContext } from "bb-plugin-gh-context/links/testing";
 import { createStore } from "./sweep/store.js";
 import plugin from "./server.js";
+
+/**
+ * The newest host's gh-context. Every host gets its own, empty, so links never
+ * leak between tests; a test that needs one gh-context would have found in a
+ * prompt pushes it onto `ghContext.links`.
+ */
+let ghContext: FakeGhContext = createFakeGhContext();
+
+function createFakePluginHost(options: Parameters<typeof createHost>[0] = {}) {
+  ghContext = createFakeGhContext();
+  const sdk = (options.sdk ?? {}) as Record<string, unknown>;
+  return createHost({
+    ...options,
+    sdk: {
+      ...sdk,
+      plugins: { callRpc: ghContext.callRpc, ...(sdk.plugins as object | undefined) },
+    } as never,
+  });
+}
 
 describe("server", () => {
   it("registers the rpc methods, the service, and the settings", async () => {
@@ -561,8 +584,17 @@ describe("a restored thread", () => {
     ] as never);
 
     await workOnThis(harness, { repo: "acme/widgets", number: 42 });
-    // Archived, which drops the link, then restored: still live, still this
-    // plugin's own.
+    // What gh-context records on reading the thread's first prompt, which
+    // names the pull request. It keeps that link through an archive.
+    ghContext.links.push({
+      threadId: "thr_1",
+      repo: "acme/widgets",
+      kind: "pull",
+      number: 42,
+      source: "prompt",
+    });
+    // Archived, which drops the sweep's own link, then restored: still live,
+    // still this plugin's own.
     await harness.behavior.emitThreadEvent("thread.archived", {
       thread: makeThreadResponse({ id: "thr_1" }),
     });
@@ -577,10 +609,9 @@ describe("a restored thread", () => {
   });
 });
 
-describe("pullRequestForThread", () => {
-  async function host() {
-    spawnCount = 0;
-    const fixture = createFakePluginHost({
+describe("gh-context", () => {
+  it("offers no thread starts while gh-context is missing, and says why", async () => {
+    const { bb, harness } = createFakePluginHost({
       pluginId: "pr-sweep",
       sdk: {
         projects: {
@@ -588,49 +619,73 @@ describe("pullRequestForThread", () => {
             { id: "proj_a", gitRemoteUrl: "git@github.com:acme/widgets.git", sources: [] },
           ],
         },
-        threads: { spawn: async () => ({ id: `thr_${++spawnCount}` }), list: async () => [] },
       },
     });
-    await plugin(fixture.bb);
-    createStore(fixture.bb.storage.database() as never).replaceRepoRows("acme/widgets", [
+    await plugin(bb);
+    createStore(bb.storage.database() as never).replaceRepoRows("acme/widgets", [
       seedRow(),
     ] as never);
-    return fixture;
-  }
+    ghContext.setAvailable(false);
 
-  it("returns the pull request for a thread this plugin started", async () => {
-    const { harness } = await host();
-    const spawn = await workOnThis(harness, { repo: "acme/widgets", number: 42 });
-
-    const result = await harness.behavior.callRpc("pullRequestForThread", {
-      threadId: spawn.threadId!,
-    });
-    expect(result).toMatchObject({
-      repo: "acme/widgets",
-      number: 42,
-      url: "https://github.com/acme/widgets/pull/42",
-    });
+    const listing = await harness.behavior.callRpc("listRows", null);
+    // A row that cannot know whether it has a thread must not offer to start
+    // a second one.
+    expect(listing.rows[0]!.canSpawn).toBe(false);
+    expect(listing.lastError).toMatch(/gh-context/);
   });
 
-  it("returns null for a thread it did not start", async () => {
-    // This is the authorization boundary for the header action: an unknown
-    // thread gets nothing, so the control never appears elsewhere.
-    const { harness } = await host();
-    expect(
-      await harness.behavior.callRpc("pullRequestForThread", { threadId: "thr_someone_else" }),
-    ).toBeNull();
-  });
-
-  it("still resolves a URL after the pull request leaves the sweep", async () => {
-    const { bb, harness } = await host();
-    const spawn = await workOnThis(harness, { repo: "acme/widgets", number: 42 });
-
-    // The PR merges, so the next sweep drops its row while the link remains.
-    createStore(bb.storage.database() as never).replaceRepoRows("acme/widgets", []);
-
-    const result = await harness.behavior.callRpc("pullRequestForThread", {
-      threadId: spawn.threadId!,
+  it("moves links recorded before gh-context into it, once", async () => {
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "pr-sweep",
+      settings: { ghPath: "/nonexistent/gh-does-not-exist" },
+      sdk: {
+        threads: {
+          list: async () => [
+            makeThreadResponse({ id: "thr_mine", originPluginId: "pr-sweep" }),
+            makeThreadResponse({ id: "thr_typed", originPluginId: null }),
+          ],
+        },
+      },
     });
-    expect(result?.url).toBe("https://github.com/acme/widgets/pull/42");
+    const db = bb.storage.database();
+    await plugin(bb);
+    const insert = db.prepare(
+      `INSERT INTO pr_thread_links (thread_id, repo, number, created_at) VALUES (?, ?, ?, ?)`,
+    );
+    insert.run("thr_mine", "acme/widgets", 42, 1);
+    insert.run("thr_typed", "acme/widgets", 43, 2);
+
+    await harness.behavior.callRpc("refresh", null);
+    expect(ghContext.links).toEqual([
+      { threadId: "thr_mine", repo: "acme/widgets", kind: "pull", number: 42, source: "spawned:pr-sweep" },
+      { threadId: "thr_typed", repo: "acme/widgets", kind: "pull", number: 43, source: "adopted:pr-sweep" },
+    ]);
+
+    await harness.behavior.callRpc("refresh", null);
+    expect(ghContext.links).toHaveLength(2);
+  });
+});
+
+describe("upgrading from links kept here", () => {
+  it("shows a row's old thread before any sweep has moved it", async () => {
+    // Between installing this version and its first sweep, a row that already
+    // had a thread must not offer to start another.
+    const { bb, harness } = createFakePluginHost({
+      pluginId: "pr-sweep",
+      sdk: {
+        threads: {
+          list: async () => [makeThreadResponse({ id: "thr_mine", originPluginId: "pr-sweep" })],
+        },
+      },
+    });
+    const db = bb.storage.database();
+    await plugin(bb);
+    createStore(db as never).replaceRepoRows("acme/widgets", [seedRow()] as never);
+    db.prepare(
+      `INSERT INTO pr_thread_links (thread_id, repo, number, created_at) VALUES (?, ?, ?, ?)`,
+    ).run("thr_mine", "acme/widgets", 42, 1);
+
+    const listing = await harness.behavior.callRpc("listRows", null);
+    expect(listing.rows[0]!.threadId).toBe("thr_mine");
   });
 });
