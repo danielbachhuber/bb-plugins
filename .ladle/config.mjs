@@ -9,7 +9,12 @@ const fromBbApp = relative(process.cwd(), repoRoot);
 
 /** @type {import("@ladle/react").UserConfig} */
 export default {
-  stories: `${fromBbApp}/{bb-plugin-*,gh-shared}/**/*.stories.tsx`,
+  stories: [
+    `${fromBbApp}/{bb-plugin-*,gh-shared}/**/*.stories.tsx`,
+    // A plugin that depends on another installs a copy of it, stories and
+    // all, and two copies of one story is an error that blanks every story.
+    `!${fromBbApp}/**/node_modules/**`,
+  ],
   defaultStory: "",
   outDir: `${fromBbApp}/build`,
   addons: {
