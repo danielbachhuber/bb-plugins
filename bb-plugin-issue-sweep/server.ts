@@ -1,6 +1,11 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
-import { isAdoptable, soleIssueReference } from "./issues/adopt.js";
+import { isAdoptable } from "./issues/adopt.js";
+import {
+  createSweepLinks,
+  createThreadLinksBridge,
+  unclaimedPromptThreadIds,
+} from "bb-plugin-gh-context/links";
 import { rpcContract } from "./issues/contract.js";
 import { parseStatusOrder, shouldAutoApply } from "./issues/board.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./issues/gh.js";
@@ -33,6 +38,9 @@ import type { IssueRow } from "./issues/types.js";
 export { rpcContract };
 
 const REALTIME_CHANNEL = "issues-updated";
+
+const GH_CONTEXT_REQUIRED =
+  "Issue Sweep needs the gh-context plugin, which records which threads belong to which issues. Install it, then reload Issue Sweep.";
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
@@ -196,6 +204,34 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
+  // gh-context is the one record of which threads belong to which issues;
+  // this sweep reads and writes its own links through it.
+  const threadLinks = createThreadLinksBridge(bb);
+  // The move out of this plugin's own old tables writes through a wrapper with
+  // no hook, so the hook below cannot wait on itself.
+  const legacyLinks = createSweepLinks(threadLinks, bb.pluginId, "issue");
+  const links = createSweepLinks(threadLinks, bb.pluginId, "issue", {
+    before: () => ensureLegacyMoved(),
+  });
+
+  /**
+   * Finishes the one-time move of links this checkout kept before gh-context,
+   * ahead of anything that reads or writes links. Concurrent callers share one
+   * move; once the old tables are gone this is a flag check.
+   */
+  let legacyMoved = false;
+  let legacyMove: Promise<void> | null = null;
+  async function ensureLegacyMoved(): Promise<void> {
+    if (legacyMoved) return;
+    legacyMove ??= moveLegacyThreadLinks()
+      .then(() => {
+        legacyMoved = true;
+      })
+      .finally(() => {
+        legacyMove = null;
+      });
+    await legacyMove;
+  }
 
   /**
    * Consecutive sweeps that could not reach gh, and how many it takes before
@@ -247,12 +283,19 @@ export default async function plugin(bb: BbPluginApi) {
       // stored, so a promotion patches the stored row too and the moved cards
       // show their new status on this sweep rather than the next one.
       await promoteIssuesInReview(result.rows);
-      // Last, and inside the try: it reads every unscanned thread's first
-      // prompt, and a failure there must not lose the sweep that succeeded.
-      try {
-        await adoptHandStartedThreads(result.rows);
-      } catch (error) {
-        bb.log.warn(`could not adopt hand-started threads: ${String(error)}`);
+      // Last, and inside the try: a failure there must not lose the sweep that
+      // succeeded.
+      if (await linksAvailable()) {
+        try {
+          await ensureLegacyMoved();
+        } catch (error) {
+          bb.log.warn(`could not move thread links into gh-context: ${String(error)}`);
+        }
+        try {
+          await adoptHandStartedThreads(result.rows);
+        } catch (error) {
+          bb.log.warn(`could not adopt hand-started threads: ${String(error)}`);
+        }
       }
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: result.sweptAt });
       bb.log.info(
@@ -404,71 +447,47 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
-   * The text of a thread's first prompt, or "" when it has none.
-   *
-   * Read from the thread's own event log rather than its `titleFallback`,
-   * which is the same text truncated to a sidebar's width — a prompt that
-   * mentions the issue after a sentence of context would have the URL cut off.
-   */
-  async function firstPromptText(threadId: string): Promise<string> {
-    const events = await bb.sdk.threads.events.list({
-      threadId,
-      types: ["client/turn/requested"],
-      order: "asc",
-      limit: "1",
-    });
-    const input = (events[0]?.data as { input?: Array<{ type?: string; text?: string }> } | undefined)
-      ?.input;
-    if (!Array.isArray(input)) return "";
-    return input
-      .filter((part) => part?.type === "text" && typeof part.text === "string")
-      .map((part) => part.text)
-      .join("\n");
-  }
-
-  /**
    * Adopts threads started from the composer for an issue this sweep knows.
    *
    * Runs at the end of a sweep, on the rows just stored, so the title it
    * writes is built from the same row the panel is about to render.
    *
-   * Every thread's first prompt is read at most once ever, which is what makes
-   * this affordable on a five-minute timer: the answer cannot change, so a
-   * thread that named no issue is remembered as scanned and never read again.
+   * gh-context reads every thread's first prompt once and links the one issue
+   * it names; this claims those links for the rows in the sweep. Only a
+   * `prompt` link, not an opening-line one: a handoff thread that opens with
+   * "issue #N" was titled by the thread that handed it off, for the part of
+   * the issue it takes on. Recording `adopted:` makes the rename and the board
+   * move happen once.
    */
   async function adoptHandStartedThreads(rows: readonly IssueRow[]): Promise<boolean> {
     const { adoptHandStartedThreads: enabled, statusOnStart } = await settings.get();
     if (enabled !== "on" || rows.length === 0) return false;
 
-    const scanned = store.scannedThreads();
-    const linked = new Set([...store.allThreadLinks().values()].flat());
+    const entries = await links.entries(rows);
+    const candidates = rows.flatMap((row, index) => {
+      const entry = entries[index];
+      return entry ? unclaimedPromptThreadIds(entry, bb.pluginId).map((threadId) => ({ row, threadId })) : [];
+    });
+    if (candidates.length === 0) return false;
+
     const threads = await everyThread();
+    const byId = new Map(threads.map((thread) => [thread.id, thread]));
     // Every title currently in the sidebar, so a rename cannot manufacture a
     // duplicate. Mutated as titles are assigned, so two adoptions in one pass
     // cannot collide with each other either.
     const titlesInUse = new Set(threads.map((thread) => thread.title));
     let adopted = 0;
 
-    for (const thread of threads) {
-      if (scanned.has(thread.id) || linked.has(thread.id) || !isAdoptable(thread)) continue;
+    for (const { row, threadId } of candidates) {
+      const thread = byId.get(threadId);
+      // Not listed means archived or gone; not adoptable means a thread some
+      // plugin started, which is that plugin's business.
+      if (!thread || !isAdoptable(thread)) continue;
 
-      const reference = soleIssueReference(await firstPromptText(thread.id));
-      // Marked either way. A prompt that named no issue never will, and one
-      // that named an issue is about to be linked, so neither needs re-reading.
-      store.markThreadScanned(thread.id, Date.now());
-      if (!reference) continue;
-
-      const row = rows.find(
-        (entry) => entry.repo.toLowerCase() === reference.repo && entry.number === reference.number,
-      );
-      // Not in the sweep means not an open issue assigned to me — someone
-      // else's issue, or one already closed. Not this plugin's business.
-      if (!row) continue;
-
-      // Linked either way, because an issue may have several threads and the
-      // store now keeps them all. The board move is guarded by its own
-      // record, so a second thread on one issue does not move it twice.
-      store.linkThread(row.repo, row.number, thread.id, Date.now());
+      // Linked either way, because an issue may have several threads. The
+      // board move is guarded by its own record, so a second thread on one
+      // issue does not move it twice.
+      await links.link(row.repo, row.number, thread.id, "adopted");
       await autoSetStatus(row, statusOnStart);
       adopted += 1;
 
@@ -497,6 +516,46 @@ export default async function plugin(bb: BbPluginApi) {
     }
 
     return adopted > 0;
+  }
+
+  /**
+   * Moves the links this checkout recorded before gh-context existed into it,
+   * once, then drops the tables that held them. A thread this plugin started
+   * is recorded as spawned; one it adopted from the composer, as adopted.
+   */
+  async function moveLegacyThreadLinks(): Promise<void> {
+    const legacy = store.legacyThreadLinks();
+    if (legacy.length > 0) {
+      const origins = new Map(
+        (await everyThread()).map((thread) => [thread.id, thread.originPluginId]),
+      );
+      for (const link of legacy) {
+        const how = origins.get(link.threadId) === bb.pluginId ? "spawned" : "adopted";
+        await legacyLinks.link(link.repo, link.number, link.threadId, how);
+      }
+      bb.log.info(`moved ${legacy.length} thread link(s) into gh-context`);
+    }
+    store.dropLegacyThreadLinks();
+  }
+
+  /**
+   * Consecutive sweeps that found no gh-context. One is gh-context still
+   * loading after a restart; a run of them is a missing plugin, and
+   * needs-configuration is one-way until reload, so it waits for the run.
+   */
+  let linksUnavailableRuns = 0;
+
+  async function linksAvailable(): Promise<boolean> {
+    if (await threadLinks.available()) {
+      linksUnavailableRuns = 0;
+      return true;
+    }
+    linksUnavailableRuns += 1;
+    bb.log.warn(`gh-context unavailable (${linksUnavailableRuns} in a row)`);
+    if (linksUnavailableRuns >= UNAVAILABLE_RUNS_BEFORE_CONFIG) {
+      bb.status.needsConfiguration(GH_CONTEXT_REQUIRED);
+    }
+    return false;
   }
 
   /**
@@ -544,7 +603,14 @@ export default async function plugin(bb: BbPluginApi) {
       const spawnable = new Set(
         rows.map((row) => row.repo).filter((repo) => matchProjectForRepo(repo, candidates)),
       );
-      const links = store.threadLinks();
+      // Without gh-context the rows cannot say which already have a thread, so
+      // none offers to start one: a duplicate thread is the worse mistake.
+      let threadMap: Map<string, string[]> | null = null;
+      try {
+        threadMap = await links.threadMap(rows);
+      } catch (error) {
+        bb.log.warn(`could not read thread links: ${String(error)}`);
+      }
 
       return {
         // The panel groups by status but must not invent the order; the board's
@@ -558,13 +624,13 @@ export default async function plugin(bb: BbPluginApi) {
         boardName: projectBoard,
         rows: rows.map((row) => ({
           ...row,
-          canSpawn: spawnable.has(row.repo),
-          threadId: links.get(`${row.repo}#${row.number}`) ?? null,
+          canSpawn: threadMap !== null && spawnable.has(row.repo),
+          threadId: threadMap?.get(`${row.repo}#${row.number}`)?.[0] ?? null,
         })),
         sweptAt: meta.sweptAt,
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
-        lastError: meta.lastError,
+        lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,
         harvest: await harvestListingState(),
       };
     },
@@ -591,7 +657,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
 
     async startThreadDraft({ repo, number }) {
-      const existingThreadId = store.threadFor(repo, number);
+      const existingThreadId = await links.threadFor(repo, number);
       if (existingThreadId) return { existingThreadId, reason: null, seed: null };
 
       const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
@@ -654,7 +720,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
-        const existingThreadId = store.threadFor(repo, number);
+        const existingThreadId = await links.threadFor(repo, number);
         if (existingThreadId) {
           return { threadId: existingThreadId, existing: true, reason: null };
         }
@@ -683,7 +749,7 @@ export default async function plugin(bb: BbPluginApi) {
         } as Parameters<typeof bb.sdk.threads.spawn>[0]);
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
-        store.linkThread(repo, number, thread.id, Date.now());
+        await links.link(repo, number, thread.id, "spawned");
 
         // Starting work is the one moment the plugin knows more than the board
         // does, so it says so. After the spawn deliberately: a board that
@@ -751,8 +817,12 @@ export default async function plugin(bb: BbPluginApi) {
   // A thread the user archived or deleted should not keep its issue pinned to
   // it, otherwise the row offers to open a thread that is gone.
   for (const event of ["thread.archived", "thread.deleted"] as const) {
-    bb.events.on(event, ({ thread }) => {
-      store.unlinkThread(thread.id);
+    bb.events.on(event, async ({ thread }) => {
+      try {
+        await links.release(thread.id);
+      } catch (error) {
+        bb.log.warn(`could not release ${thread.id}: ${String(error)}`);
+      }
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
     });
   }

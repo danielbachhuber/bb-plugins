@@ -22,7 +22,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-gh-context` | `gh-context` | A banner above the composer showing the thread's pull request, the GitHub issues it works on, its changes, and a Harvest timer, in place of bb's own. |
 | `bb-plugin-hacks` | `hacks` | Local patches to bb's own UI, standing in for fixes that have not landed upstream. Currently remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads, opens the unread files bb folds away in a large diff, and adds a button to each sidebar project that opens its checkout in your editor. |
 | `bb-plugin-harvest` | `harvest` | Track time in Harvest from the thread header. |
-| `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. |
+| `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. Needs gh-context. |
 | `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab you were reading them in: a Preview/Raw toggle, an editable source pane, Cmd+S saving that refuses to clobber an edit made on disk while you typed, and an Add to chat button on a preview selection. Reachable from a pencil on markdown files in the changes panel. |
 | `bb-plugin-new-issue` | `new-issue` | Draft a GitHub issue from a few lines of notes, in a thread that runs the draft-issue-description skill. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. Needs gh-context. |
@@ -38,6 +38,11 @@ earlier attempt to merge the three into one plugin was reverted.
 
 `bb-plugin-harvest` is also a `file:` dependency of the three sweeps, which use
 its timer components to draw a clock on each row.
+
+`bb-plugin-gh-context` is a `file:` dependency of the three sweeps too, and a
+plugin they need installed. It holds the one record of which threads belong to
+which issues and pull requests; the sweeps read and write it through
+`bb-plugin-gh-context/links` rather than each keeping a table of their own.
 
 ## Setting up
 

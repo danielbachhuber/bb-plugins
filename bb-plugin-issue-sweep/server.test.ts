@@ -1,10 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import {
+  createFakePluginHost as createHost,
+} from "@get-bb/plugin-sdk/testing";
+import { createFakeGhContext, type FakeGhContext } from "bb-plugin-gh-context/links/testing";
 import plugin from "./server.js";
 import { createStore } from "./issues/store.js";
 
 /** A gh that is guaranteed not to exist, so a sweep fails the way it would. */
 const MISSING_GH = { ghPath: "/nonexistent/gh-does-not-exist" };
+
+/**
+ * The newest host's gh-context. Every host gets its own, empty, so links never
+ * leak between tests; a test that needs one gh-context would have found in a
+ * prompt pushes it onto `ghContext.links`.
+ */
+let ghContext: FakeGhContext = createFakeGhContext();
+
+function createFakePluginHost(options: Parameters<typeof createHost>[0] = {}) {
+  ghContext = createFakeGhContext();
+  const sdk = (options.sdk ?? {}) as Record<string, unknown>;
+  return createHost({
+    ...options,
+    sdk: {
+      ...sdk,
+      plugins: { callRpc: ghContext.callRpc, ...(sdk.plugins as object | undefined) },
+    } as never,
+  });
+}
 
 describe("server", () => {
   it("registers the rpc methods, the service, and the settings", async () => {

@@ -82,24 +82,13 @@ export interface Store {
   /** Notes why a sweep failed, leaving the last good rows in place. */
   recordFailure(message: string): void;
   /**
-   * Records a thread started for an issue. Keyed by thread, so a second thread
-   * on the same issue is added rather than replacing the first. Re-linking the
-   * same thread updates it.
+   * Links from a checkout that predates gh-context, for the one-time move of
+   * them into it: every issue thread this sweep ever recorded, oldest first.
+   * Empty once they have moved and the tables are gone.
    */
-  linkThread(repo: string, number: number, threadId: string, createdAt: number): void;
-  /**
-   * The issue's newest thread, which is the one its row acts on.
-   *
-   * Newest rather than first: the older threads are the finished work, and the
-   * one you want to open is the one started most recently.
-   */
-  threadFor(repo: string, number: number): string | null;
-  /** repo#number -> newest threadId, for stamping the whole listing in one read. */
-  threadLinks(): Map<string, string>;
-  /** repo#number -> every threadId, newest first. */
-  allThreadLinks(): Map<string, string[]>;
-  /** Drops the link when its thread is archived or deleted. */
-  unlinkThread(threadId: string): void;
+  legacyThreadLinks(): Array<{ repo: string; number: number; threadId: string; createdAt: number }>;
+  /** Drops the legacy link and scan tables once gh-context holds their rows. */
+  dropLegacyThreadLinks(): void;
   /**
    * The last board status this plugin moved an issue to on its own, or null.
    *
@@ -121,16 +110,6 @@ export interface Store {
    * learns the patch went nowhere.
    */
   setRowStatus(repo: string, number: number, status: string): boolean;
-  /**
-   * Threads already examined for an issue link, so a sweep reads each one's
-   * first prompt once rather than every five minutes.
-   *
-   * A first prompt never changes, so a thread that did not name an issue then
-   * will not name one later. The set is not pruned: a row per thread ever seen
-   * is cheaper than the read it saves, and a thread id is never reused.
-   */
-  scannedThreads(): Set<string>;
-  markThreadScanned(threadId: string, scannedAt: number): void;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -149,30 +128,12 @@ export function createStore(db: DatabaseLike): Store {
        truncated = excluded.truncated,
        last_error = NULL`,
   );
-  const insertLink = db.prepare(
-    `INSERT INTO issue_thread_links (repo, number, thread_id, created_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(thread_id) DO UPDATE SET
-       repo = excluded.repo,
-       number = excluded.number,
-       created_at = excluded.created_at`,
-  );
-  // Newest first, and by thread_id after that so a tie is at least stable
-  // rather than left to SQLite's scan order.
-  const selectLink = db.prepare(
-    `SELECT thread_id FROM issue_thread_links WHERE repo = ? AND number = ?
-     ORDER BY created_at DESC, thread_id DESC LIMIT 1`,
-  );
-  const selectLinks = db.prepare(
-    `SELECT repo, number, thread_id FROM issue_thread_links
-     ORDER BY created_at DESC, thread_id DESC`,
-  );
-  const deleteLink = db.prepare(`DELETE FROM issue_thread_links WHERE thread_id = ?`);
-  const selectScans = db.prepare(`SELECT thread_id FROM thread_scan`);
-  const insertScan = db.prepare(
-    `INSERT INTO thread_scan (thread_id, scanned_at) VALUES (?, ?)
-     ON CONFLICT(thread_id) DO UPDATE SET scanned_at = excluded.scanned_at`,
-  );
+  function hasTable(name: string): boolean {
+    return (
+      db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(name) !==
+      undefined
+    );
+  }
   const selectAuto = db.prepare(`SELECT status FROM board_auto WHERE repo = ? AND number = ?`);
   const upsertAuto = db.prepare(
     `INSERT INTO board_auto (repo, number, status, applied_at)
@@ -186,20 +147,6 @@ export function createStore(db: DatabaseLike): Store {
      VALUES (1, NULL, '[]', 0, ?)
      ON CONFLICT(id) DO UPDATE SET last_error = excluded.last_error`,
   );
-
-  /** Every link, grouped by issue, newest thread first. */
-  function groupedLinks(): Map<string, string[]> {
-    const links = selectLinks.all() as Array<{ repo: string; number: number; thread_id: string }>;
-    const byItem = new Map<string, string[]>();
-    // The query is already newest-first, so pushing preserves that order.
-    for (const link of links) {
-      const key = `${link.repo}#${link.number}`;
-      const existing = byItem.get(key);
-      if (existing) existing.push(link.thread_id);
-      else byItem.set(key, [link.thread_id]);
-    }
-    return byItem;
-  }
 
   const writeAll = db.transaction(((result: SweepResult) => {
     deleteRows.run();
@@ -248,27 +195,29 @@ export function createStore(db: DatabaseLike): Store {
       upsertFailure.run(message);
     },
 
-    linkThread(repo, number, threadId, createdAt) {
-      insertLink.run(repo, number, threadId, createdAt);
+    legacyThreadLinks() {
+      // Prepared here rather than up front: the table is dropped once its rows
+      // have moved, and preparing against a missing table throws.
+      if (!hasTable("issue_thread_links")) return [];
+      return (
+        db
+          .prepare(
+            `SELECT repo, number, thread_id, created_at FROM issue_thread_links
+             ORDER BY created_at, thread_id`,
+          )
+          .all() as Array<{ repo: string; number: number; thread_id: string; created_at: number }>
+      ).map((row) => ({
+        repo: row.repo,
+        number: row.number,
+        threadId: row.thread_id,
+        createdAt: row.created_at,
+      }));
     },
 
-    threadFor(repo, number) {
-      const link = selectLink.get(repo, number) as { thread_id: string } | undefined;
-      return link?.thread_id ?? null;
-    },
-
-    threadLinks() {
-      // Not `this.allThreadLinks()`: a store method taken off the object and
-      // called bare would lose `this`, and nothing stops a caller doing that.
-      return new Map([...groupedLinks()].map(([key, threadIds]) => [key, threadIds[0]!]));
-    },
-
-    allThreadLinks() {
-      return groupedLinks();
-    },
-
-    unlinkThread(threadId) {
-      deleteLink.run(threadId);
+    dropLegacyThreadLinks() {
+      db.exec(`DROP TABLE IF EXISTS issue_thread_links`);
+      db.exec(`DROP TABLE IF EXISTS issue_threads`);
+      db.exec(`DROP TABLE IF EXISTS thread_scan`);
     },
 
     autoAppliedStatus(repo, number) {
@@ -283,16 +232,6 @@ export function createStore(db: DatabaseLike): Store {
       if (row.boardStatus === status) return false;
       updateRow.run(JSON.stringify({ ...row, boardStatus: status }), repo, number);
       return true;
-    },
-
-    scannedThreads() {
-      return new Set(
-        (selectScans.all() as Array<{ thread_id: string }>).map((entry) => entry.thread_id),
-      );
-    },
-
-    markThreadScanned(threadId, scannedAt) {
-      insertScan.run(threadId, scannedAt);
     },
 
     recordAutoStatus(repo, number, status, appliedAt) {

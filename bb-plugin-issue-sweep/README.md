@@ -16,8 +16,13 @@ bb plugin install . --yes
 
 ## Requirements
 
-`gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
-missing or unauthenticated `gh` as a configuration state, not an error.
+- `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
+  missing or unauthenticated `gh` as a configuration state, not an error.
+- The [gh-context](../bb-plugin-gh-context) plugin, which keeps the record of
+  which threads belong to which issues. Without it the panel still lists
+  issues, but none offers to start a thread, since a row cannot tell whether it
+  already has one; after a few sweeps without it the plugin reports that it
+  needs configuring.
 
 ## What it lists
 
@@ -69,8 +74,16 @@ bb plugin dev     # rebuild and reload on save
 **All test fixtures are synthetic.** This repository is public. Never paste real
 issue titles, repository names, or URLs into a test.
 
-## Not here yet
+## Threads
 
-There is no "Work on this" action, no thread link, and no per-issue triage
-state. This is a read-only table by design; those are the obvious next steps if
-it earns them.
+A thread started from a row is linked to its issue in gh-context, and the row
+then opens that thread rather than starting another.
+
+A thread started from the composer whose first prompt links exactly one issue
+is adopted on the next successful sweep when that issue is in the list: linked
+to the row, moved on the board as a thread started here would be, and given
+this plugin's title unless another thread already has it. gh-context reads the
+prompt; this plugin decides which of those threads are its own. A handoff
+thread that only names the issue on its first line (`issue #N`) is left alone:
+gh-context's banner shows the issue, but the thread keeps the title it was
+handed off with.
