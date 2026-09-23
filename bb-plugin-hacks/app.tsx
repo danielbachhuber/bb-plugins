@@ -8,8 +8,13 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import * as gitDiffExpandUnviewed from "./hacks/git-diff-expand-unviewed";
 import * as gitDiffViewPreferences from "./hacks/git-diff-view-preferences";
+import * as projectOpenInEditor from "./hacks/project-open-in-editor";
 
-const HACKS = [gitDiffExpandUnviewed, gitDiffViewPreferences];
+const HACKS = [
+  gitDiffExpandUnviewed,
+  gitDiffViewPreferences,
+  projectOpenInEditor,
+];
 
 export default definePluginApp((app) => {
   for (const hack of HACKS) {

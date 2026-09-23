@@ -69,6 +69,29 @@ where a file that merely removed every line still reads `+0 -12`. A header this
 cannot parse counts as not-a-deletion and opens, because that is the mistake you
 can undo with one click.
 
+### Open a project in your editor
+
+Each project header in the sidebar gets a button beside New thread that opens
+the project's checkout in your editor.
+
+The editor is the one you chose in bb's own "Open in" menu, read from bb's
+`bb.workspaceOpenTarget` key in `localStorage`, when that choice is an editor.
+When it is Finder, a terminal, or nothing yet, the first editor the host
+daemon found is used, so the button always opens an editor. The button's
+tooltip names the editor it will use.
+
+The folder is the project's local path on the machine running this window's
+host daemon. A project with no checkout on that machine gets no button, and
+neither does the Personal project. A project whose folder is missing gets
+none either: bb hides New thread there, and this button is placed relative
+to that one.
+
+Opening goes through the host daemon's `/open-in-target` endpoint, the same
+one bb's own "Open in" menu calls, with project paths read from bb's
+`/api/v1/projects`. The daemon's local API accepts requests from bb's own
+origin, which is where a content script runs. A window that cannot reach a
+daemon, such as bb opened in a browser on another machine, shows no buttons.
+
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -108,6 +131,17 @@ The expand-unviewed hack anchors on the card headers instead:
 | `data-diff-viewed="true"` | Leaving a file Diff Viewed has marked read folded |
 | `data-diff-viewed-owned` | Keeping Diff Viewed's own checkbox out of the stat reading |
 
+The open-in-editor hack anchors on the sidebar project row:
+
+| Anchor | Used for |
+| --- | --- |
+| `data-sidebar-project-id` | Finding each project row, and which project it is |
+| `data-sidebar-row-controls` | The row's hover controls, which the button joins |
+| `aria-label="New thread in <project>"` | Telling the project header's controls apart from a nested environment group's, and where the button goes |
+
+The button copies its classes from the New thread button beside it, so it
+picks up bb's hover reveal and sizing without naming a class itself.
+
 That card parsing is a trimmed copy of the same code in Diff Viewed. The two
 plugins ship separately, so sharing it would mean publishing and versioning a
 package for the benefit of two callers; the copy is the cheaper trade until a
@@ -128,6 +162,10 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/git-diff-expand-unviewed/cards.ts` | Reading bb's diff card headers |
 | `hacks/git-diff-expand-unviewed/rules.ts` | Pure logic: which cards to open, and which to leave folded |
 | `hacks/git-diff-expand-unviewed/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/project-open-in-editor/rules.ts` | Pure logic: which editor, and which folder |
+| `hacks/project-open-in-editor/sidebar.ts` | Reading bb's project headers and building the button |
+| `hacks/project-open-in-editor/api.ts` | The network boundary: bb's projects and the host daemon |
+| `hacks/project-open-in-editor/engine.ts` | The sync loop: passes, observers, cleanup |
 | `app.tsx` | Wiring only: registers each hack's content script |
 | `server.ts` | Required backend entry, deliberately empty |
 
