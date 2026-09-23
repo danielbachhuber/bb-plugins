@@ -65,6 +65,11 @@ still stale, a failure that otherwise reaches the panel as a runtime
 `./sync.sh --check` reports which plugins have drifted from this checkout;
 `./sync.sh` runs the sequence above for each of them.
 
+For visual work, run `npm run storybook` at the root instead of rebuilding and
+reloading after every change. It renders a plugin's stories with bb's own
+stylesheet and components, and an edit to a component shows up without a
+reload. The Stories section below covers what a story needs.
+
 Run npm with the Node version in `.nvmrc` (`nvm use`). Another npm version
 rewrites every `package-lock.json`. A scheduled `update.sh` keeps each machine's
 checkout current by pulling `main` and running `sync.sh`, and it skips a
