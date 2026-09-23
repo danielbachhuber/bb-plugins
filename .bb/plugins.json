@@ -16,6 +16,10 @@
       "source": "./bb-plugin-diff-viewed"
     },
     {
+      "name": "gh-context",
+      "source": "./bb-plugin-gh-context"
+    },
+    {
       "name": "hacks",
       "source": "./bb-plugin-hacks"
     },
