@@ -167,8 +167,22 @@ bb plugin config now set ghPath /opt/homebrew/bin/gh   # when gh is not on bb's 
 bb plugin config now set threadProjectId <project-id>  # where Start thread opens
 ```
 
+Google's comment notifications, from `comments-noreply@docs.google.com`, are
+gathered the same way into one row per Google Docs, Slides, or Sheets file.
+Their headers say little, so these threads, and only these, are read again
+with their bodies, whose HTML has a fixed layout: a headline, the document,
+and each discussion's posts with the author and a "New" badge. The row's
+title is the document's, its link opens the newest discussion, and its
+description is the latest headline and what is new: "Octocat mentioned you in
+a comment · 2 new comments from Octocat, Hubber · 1 resolved". Below that it
+quotes each new comment, from the unread emails, or from the latest one once
+they are all read, with an action in words ("resolved the comment"). A
+**Mentioned** label shows when one of them mentioned you or assigned you
+something.
+
 One sync runs `gws gmail users threads list` with the search, then
-`threads get` for each thread's headers, five at a time. The signed-in
+`threads get` for each thread's headers, five at a time, and once more in full
+for each thread of Google comment notifications. The signed-in
 address is asked for once per plugin load, for the links. If `gws` is
 missing, the page says how to set it up; if it fails (an expired sign-in, for
 example), its error shows above the list and the Todoist tasks still load.
@@ -199,7 +213,7 @@ list `server.ts` passes to `loadSources`.
 | `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
 | `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
-| `now/brand-icon.tsx` | The source icons: bb's GitHub and Mail outlines, and a Todoist mark drawn to match |
+| `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
 | `now/sections.ts` | Which section a row goes in, and the short date each row shows |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
@@ -210,10 +224,11 @@ list `server.ts` passes to `loadSources`.
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |
 | `gmail/source.ts` | Gmail as a `Source`: the thread search and each thread's headers |
-| `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue |
+| `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue and Google comment notifications per document |
 | `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
 | `github/state.ts` | The GraphQL query for every reference's state, and reading its answer |
 | `github/gh.ts` | The only module that runs `gh`: the state query and posting a comment |
+| `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page and its title-bar sync control, which read the stored list and sync on open |

@@ -44,6 +44,7 @@ export interface RowActions {
 /** Which source a row came from, drawn at the head of its row. */
 function brandOf(item: Item): Brand | null {
   if (item.github !== null) return "github";
+  if (item.doc != null) return "gdocs";
   if (item.source === "todoist") return "todoist";
   if (item.source === "gmail") return "gmail";
   return null;
@@ -342,7 +343,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   // Every unread message when there are any, else the latest thing written.
   const unreadQuotes = item.github?.unreadQuotes ?? [];
   const latest = item.github?.comment ?? null;
-  const quotes = unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest];
+  const quotes = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
   const unread = item.gmail?.unread === true;
   // A row of several messages says how many are new; the dot alone would not.
   const unreadMessages = item.gmail?.unreadMessages ?? 0;
@@ -367,6 +368,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
               {item.title}
             </UrlLink>
             {item.github === null ? null : <GitHubState github={item.github} />}
+            {item.doc?.mentioned === true ? <Chip className={GITHUB_REVIEW.requested}>Mentioned</Chip> : null}
             {item.priority === null ? null : (
               <Chip className={cn("font-mono", PRIORITY[item.priority])}>P{item.priority}</Chip>
             )}

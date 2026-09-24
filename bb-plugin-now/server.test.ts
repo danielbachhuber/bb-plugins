@@ -257,6 +257,41 @@ describe("items_list with Gmail", () => {
     expect(gws.calls.filter((args) => args.includes("getProfile"))).toHaveLength(1);
   });
 
+  test("reads a Google comment email in full, and only that one", async () => {
+    const docsHeaders = [
+      { name: "Subject", value: "Widget plan - comment" },
+      { name: "From", value: '"Hubber (Google Docs)" <comments-noreply@docs.google.com>' },
+    ];
+    const html =
+      `<h1>Hubber added a comment to the following document</h1>` +
+      `<a href="https://docs.google.com/document/d/doc9/edit">Widget plan</a>` +
+      `<div class="document-content-snippet"><span class="notranslate">Widgets</span></div>` +
+      `<div class="non-tombstone-post"><h3>Hubber</h3><h4>New</h4><div class="notranslate">Looks right</div></div>` +
+      `<div class="posts-section-end"></div>`;
+    const gws = fakeGws({
+      "threads list": () => ({ threads: [{ id: "t1" }, { id: "d1" }] }),
+      "threads get": (params) => {
+        if (params.id === "t1") return thread("t1", "Widget launch", "1790200000000");
+        const payload =
+          params.format === "full"
+            ? { headers: docsHeaders, parts: [{ mimeType: "text/html", body: { data: Buffer.from(html).toString("base64url") } }] }
+            : { headers: docsHeaders };
+        return { id: "d1", messages: [{ id: "d1-1", internalDate: "1790237080000", snippet: "Hubber added a comment", payload }] };
+      },
+      getProfile: () => ({ emailAddress: "hubber@example.com" }),
+    });
+    const { bb, harness, plugin } = host({}, { gmailEnabled: true }, gws.run);
+    await plugin(bb);
+
+    const list = await syncAndRead(harness);
+    expect(list.items.find((item) => item.id === "gdocs:doc9")).toMatchObject({
+      title: "Widget plan",
+      doc: { quotes: [{ author: "Hubber", text: "Looks right" }] },
+    });
+    const full = gws.calls.filter((args) => args.includes("get") && args.some((part) => part.includes('"format":"full"')));
+    expect(full.map((args) => JSON.parse(args[args.indexOf("--params") + 1]!).id)).toEqual(["d1"]);
+  });
+
   test("says how to set gws up when it is not installed", async () => {
     const missing: GwsRunner = async () => {
       throw new GwsMissingError("gws");

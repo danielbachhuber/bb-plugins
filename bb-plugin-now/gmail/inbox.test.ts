@@ -93,6 +93,56 @@ describe("inboxItems", () => {
     expect(inboxItems([{ id: "t1", messages: [notification(T, "octocat left a comment (acme/widgets#128) Hi", "octocat")] }], null)[0]?.github?.reviewRequested).toBeNull();
   });
 
+  test("gathers Google's comment emails about one document into one row, quoting what is new", () => {
+    const body = (text: string, author: string) =>
+      Buffer.from(
+        `<h1>${author} added a comment to the following document</h1>` +
+          `<a href="https://docs.google.com/presentation/d/deck42/edit?usp=comment_email_document">Widget roadmap</a>` +
+          `<div class="document-content-snippet"><span class="notranslate">Q4 widgets</span></div>` +
+          `<div class="non-tombstone-post"><h3>${author}</h3> <span>• 9:00 AM, Sep 24 (PDT)</span><h4>New</h4><div class="notranslate">${text}</div></div>` +
+          `<div class="posts-section-end"></div><a href="https://docs.google.com/presentation/d/deck42/edit?disco=D1">Open</a>`,
+      ).toString("base64url");
+    const docsMessage = (at: number, text: string, author: string, labels: string[]) => ({
+      internalDate: String(at),
+      labelIds: labels,
+      snippet: `${author} added a comment`,
+      payload: {
+        mimeType: "multipart/alternative",
+        headers: [
+          { name: "From", value: `"${author} (Google Slides)" <comments-noreply@docs.google.com>` },
+          { name: "Subject", value: "Widget roadmap - comment" },
+        ],
+        parts: [{ mimeType: "text/html", body: { data: body(text, author) } }],
+      },
+    });
+
+    const items = inboxItems(
+      [
+        { id: "d2", messages: [docsMessage(T + 1000, "Agreed, ship it", "Hubber", ["UNREAD", "INBOX"])] },
+        { id: "d1", messages: [docsMessage(T, "Can we move this to Q1?", "Octocat", ["UNREAD", "INBOX"])] },
+      ],
+      null,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "gdocs:deck42",
+      title: "Widget roadmap",
+      description: "Hubber added a comment · 2 new comments from Octocat, Hubber",
+      context: "Google Slides",
+      url: "https://docs.google.com/presentation/d/deck42/edit?disco=D1",
+      gmail: { threadIds: ["d2", "d1"], unread: true, messages: 2, unreadMessages: 2 },
+      doc: {
+        app: "slides",
+        documentId: "deck42",
+        mentioned: false,
+        quotes: [
+          { author: "Octocat", text: "Can we move this to Q1?" },
+          { author: "Hubber", text: "Agreed, ship it" },
+        ],
+      },
+    });
+  });
+
   test("prefers gh's state to the email header", () => {
     const thread = { id: "t1", messages: [notification(T, "Merged #128 into main.", "octocat", { "X-GitHub-PullRequestStatus": "open" })] };
 

@@ -29,6 +29,8 @@
     "now",
     "todoist",
     "gmail",
+    "github",
+    "gdocs",
     "*.test.ts"
   ]
 }

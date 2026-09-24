@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Now",
-    "description": "One list of what needs doing now, from Todoist and your Gmail inbox, with GitHub notifications gathered per pull request or issue. Complete tasks, archive email, snooze anything, reply on GitHub, and start a thread from any row.",
+    "description": "One list of what needs doing now, from Todoist and your Gmail inbox, with GitHub notifications gathered per pull request or issue and Google Docs comments per document. Complete tasks, archive email, snooze anything, reply on GitHub, and start a thread from any row.",
     "branding": {
       "icon": "Target"
     },

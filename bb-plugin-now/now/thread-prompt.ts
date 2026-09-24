@@ -9,6 +9,7 @@ export function itemOrigin(item: Item): string {
     const kind = item.github.kind === "pull" ? "pull request" : "issue";
     return `GitHub ${kind} ${item.github.repo}#${item.github.number}`;
   }
+  if (item.doc != null) return `Comments on ${item.context ?? "a Google document"}`;
   const source = SOURCE_NAME[item.source] ?? item.source;
   if (item.source === "todoist") return item.context === null ? "Todoist task" : `Todoist task in ${item.context}`;
   if (item.source === "gmail") return item.context === null ? "Email" : `Email from ${item.context}`;
@@ -26,5 +27,6 @@ export function threadPrompt(item: Item): string {
   if (item.description !== "") lines.push("", item.description);
   const comment = item.github?.comment ?? null;
   if (comment !== null) lines.push("", `Latest comment${comment.author === null ? "" : ` from ${comment.author}`}: ${comment.text}`);
+  for (const quote of item.doc?.quotes ?? []) lines.push("", `${quote.author ?? "Someone"}: ${quote.text}`);
   return `${lines.join("\n")}\n\n`;
 }

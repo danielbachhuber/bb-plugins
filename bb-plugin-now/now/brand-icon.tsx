@@ -1,13 +1,14 @@
 // Where a row came from, drawn the way bb draws its own icons: Hugeicons
 // outlines at a 1.5 stroke, in the muted text color. GitHub and Gmail use the
-// outline icons bb already has. Hugeicons has no Todoist mark, so it is drawn
-// here: Hugeicons' own rounded square with Todoist's three stacked checks.
+// outline icons bb already has, and comments on a Google document use its
+// file icon. Hugeicons has no Todoist mark, so it is drawn here: Hugeicons'
+// own rounded square with Todoist's three stacked checks.
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
-export type Brand = "todoist" | "gmail" | "github";
+export type Brand = "todoist" | "gmail" | "github" | "gdocs";
 
-const TITLE: Record<Brand, string> = { todoist: "Todoist", gmail: "Gmail", github: "GitHub" };
+const TITLE: Record<Brand, string> = { todoist: "Todoist", gmail: "Gmail", github: "GitHub", gdocs: "Google Docs" };
 
 /** Hugeicons' SquareIcon outline, so the mark sits in the same family. */
 const SQUARE =
@@ -38,5 +39,6 @@ function TodoistMark({ className }: { className?: string }) {
 export function BrandIcon({ brand, className }: { brand: Brand; className?: string }) {
   const classes = cn("shrink-0 text-muted-foreground", className);
   if (brand === "todoist") return <TodoistMark className={classes} />;
-  return <Icon name={brand === "github" ? "Github" : "Mail"} className={classes} aria-label={TITLE[brand]} />;
+  const name = brand === "github" ? "Github" : brand === "gdocs" ? "FileText" : "Mail";
+  return <Icon name={name} className={classes} aria-label={TITLE[brand]} />;
 }

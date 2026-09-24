@@ -13,6 +13,7 @@ import {
   type GitHubRef,
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
+import { APP_NAMES, DOCS_SENDER, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
 import type { Item } from "../now/types.js";
 import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
 
@@ -43,6 +44,77 @@ export function githubRefOf(thread: unknown): GitHubRef | null {
     if (ref !== null) return ref;
   }
   return null;
+}
+
+/** Whether a thread holds Google's comment notifications, whose bodies are worth fetching. */
+export function isDocsThread(thread: unknown): boolean {
+  return messagesOf(thread).some((message) => header(message, "From")?.toLowerCase().includes(DOCS_SENDER) === true);
+}
+
+/** A message's HTML body, when the thread was fetched in full. */
+function htmlBody(message: Raw): string | null {
+  let found: string | null = null;
+  const walk = (part: unknown) => {
+    if (found !== null || !isRecord(part)) return;
+    const body = part.body;
+    if (part.mimeType === "text/html" && isRecord(body) && typeof body.data === "string") {
+      found = Buffer.from(body.data, "base64url").toString("utf8");
+      return;
+    }
+    if (Array.isArray(part.parts)) part.parts.forEach(walk);
+  };
+  walk(message.payload);
+  return found;
+}
+
+/** The comment notifications in a thread, oldest first, each with its message. */
+function docsEmailsOf(thread: unknown): Array<{ message: Raw; email: DocsEmail }> {
+  const emails: Array<{ message: Raw; email: DocsEmail }> = [];
+  for (const message of messagesOf(thread)) {
+    if (header(message, "From")?.toLowerCase().includes(DOCS_SENDER) !== true) continue;
+    const html = htmlBody(message);
+    const email = html === null ? null : parseDocsEmail(html);
+    if (email !== null) emails.push({ message, email });
+  }
+  return emails;
+}
+
+function isUnreadMessage(message: Raw): boolean {
+  return Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD");
+}
+
+/** Every thread about one document, as its one row. */
+function docsItem(threads: readonly Raw[]): Item {
+  const found = threads.flatMap(docsEmailsOf).sort((a, b) => time(a.message) - time(b.message));
+  const latest = found[found.length - 1]!;
+  const unread = found.filter(({ message }) => isUnreadMessage(message));
+  // What is new in the unread emails, or in the latest one once they are all read.
+  const posts = newPosts((unread.length > 0 ? unread : [latest]).map(({ email }) => email));
+  const discussion = [...latest.email.discussions].reverse().find((each) => each.posts.some((post) => post.isNew));
+  const latestTime = time(latest.message);
+  const messages = threads.flatMap(messagesOf);
+
+  return {
+    id: `gdocs:${latest.email.documentId}`,
+    source: SOURCE_ID,
+    title: latest.email.title,
+    description: summarizeDocs(latest.email, posts),
+    priority: null,
+    due: null,
+    deadline: null,
+    activityAt: latestTime > 0 ? new Date(latestTime).toISOString() : null,
+    context: APP_NAMES[latest.email.app],
+    tags: [],
+    url: discussion?.url ?? latest.email.url,
+    gmail: { threadIds: threads.map((thread) => thread.id as string), ...unreadOf(messages) },
+    github: null,
+    doc: {
+      app: latest.email.app,
+      documentId: latest.email.documentId,
+      mentioned: found.some(({ email }) => email.mentioned),
+      quotes: posts.map((post) => ({ author: post.author, text: postLine(post) })),
+    },
+  };
 }
 
 function time(message: Raw): number {
@@ -132,10 +204,22 @@ export function inboxItems(
   states: ReadonlyMap<string, GitHubState> = new Map(),
 ): Item[] {
   const groups = new Map<string, { ref: GitHubRef; threads: Raw[] }>();
-  const rows: Array<Item | { group: string }> = [];
+  const documents = new Map<string, Raw[]>();
+  const rows: Array<Item | { group: string } | { document: string }> = [];
 
   for (const thread of threads) {
     if (!isRecord(thread) || typeof thread.id !== "string") continue;
+    const documentId = docsEmailsOf(thread)[0]?.email.documentId;
+    if (documentId !== undefined) {
+      const group = documents.get(documentId);
+      if (group === undefined) {
+        documents.set(documentId, [thread]);
+        rows.push({ document: documentId });
+      } else {
+        group.push(thread);
+      }
+      continue;
+    }
     const ref = githubRefOf(thread);
     if (ref === null) {
       const item = normalizeThread(thread, account);
@@ -153,6 +237,7 @@ export function inboxItems(
   }
 
   return rows.map((row) => {
+    if ("document" in row) return docsItem(documents.get(row.document)!);
     if (!("group" in row)) return row;
     const group = groups.get(row.group)!;
     return githubItem(group.ref, group.threads, states.get(row.group) ?? null);

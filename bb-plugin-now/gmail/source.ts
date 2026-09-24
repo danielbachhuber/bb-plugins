@@ -3,7 +3,7 @@ import type { GitHubRef } from "../github/notifications.js";
 import type { GitHubState } from "../github/state.js";
 import type { Source, SourceResult } from "../now/sources.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
-import { githubRefs, inboxItems, METADATA_HEADERS } from "./inbox.js";
+import { githubRefs, inboxItems, isDocsThread, METADATA_HEADERS } from "./inbox.js";
 import { SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_QUERY = "in:inbox";
@@ -82,6 +82,23 @@ export function gmailSource(options: GmailSourceOptions): Source {
         ]),
       ),
     ]);
+
+    // Google's comment notifications say who wrote what only in their bodies,
+    // so those threads, and only those, are fetched again in full.
+    await mapLimit(
+      threads.map((thread, index) => ({ thread, index })).filter(({ thread }) => isDocsThread(thread)),
+      CONCURRENCY,
+      async ({ thread, index }) => {
+        try {
+          threads[index] = await runJson<unknown>(options.run, [
+            "gmail", "users", "threads", "get",
+            "--params", JSON.stringify({ userId: "me", id: (thread as { id: string }).id, format: "full" }),
+          ]);
+        } catch (error) {
+          options.onWarn?.(`Could not read a Google comment email: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+    );
 
     const refs = githubRefs(threads);
     let states = new Map<string, GitHubState>();

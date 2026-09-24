@@ -44,6 +44,17 @@ export const githubPartSchema = z.object({
 });
 export type GitHubPart = z.infer<typeof githubPartSchema>;
 
+/** The Google Docs, Slides, or Sheets file a row of comment notifications is about. */
+export const docPartSchema = z.object({
+  app: z.enum(["docs", "slides", "sheets"]),
+  documentId: z.string(),
+  /** Whether any of the emails mentioned you or assigned you something. */
+  mentioned: z.boolean(),
+  /** The new comments, oldest first: from the unread emails, or the latest one when all are read. */
+  quotes: z.array(z.object({ author: z.string().nullable(), text: z.string() })),
+});
+export type DocPart = z.infer<typeof docPartSchema>;
+
 /** One thing that needs doing, from whichever source it came from. */
 export const itemSchema = z.object({
   /** Unique across sources: `<source>:<the source's own id>`. */
@@ -67,5 +78,6 @@ export const itemSchema = z.object({
   url: z.string(),
   gmail: gmailPartSchema.nullable(),
   github: githubPartSchema.nullable(),
+  doc: docPartSchema.nullable().optional(),
 });
 export type Item = z.infer<typeof itemSchema>;

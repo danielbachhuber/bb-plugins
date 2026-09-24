@@ -192,10 +192,37 @@ const items: Item[] = [
   item({ id: "a9", title: "Look into gadget insurance", context: "Inbox", inbox: true }),
 ];
 
+const docComments: Item = {
+  id: "gdocs:deck42",
+  source: "gmail",
+  title: "Widget roadmap",
+  description: "Octocat mentioned you in a comment · 2 new comments from Hubber, Octocat · 1 resolved",
+  priority: null,
+  due: null,
+  deadline: null,
+  activityAt: new Date(2026, 8, 24, 8, 50).toISOString(),
+  context: "Google Slides",
+  tags: [],
+  url: "https://docs.google.com/presentation/d/deck42/edit",
+  gmail: { threadIds: ["d1", "d2"], unread: true, messages: 2, unreadMessages: 2 },
+  github: null,
+  doc: {
+    app: "slides",
+    documentId: "deck42",
+    mentioned: true,
+    quotes: [
+      { author: "Hubber", text: "Should gadgets move to Q1? The supplier slipped again." },
+      { author: "Hubber", text: "resolved the comment" },
+      { author: "Octocat", text: "@hubber Fair to say this shifted to the gadget roadmap?" },
+    ],
+  },
+};
+
 const emails: Item[] = [
   email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true),
   email("t2", "Re: Gadget invoice for September", "Hubber", new Date(2026, 8, 23, 20, 9), "Thanks! I have attached the corrected invoice."),
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
+  docComments,
 ];
 
 const todoistOk: LoadedSource = {
