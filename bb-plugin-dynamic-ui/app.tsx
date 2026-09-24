@@ -5,7 +5,7 @@
 // composer: one row per item with its main button. Clicking a row opens that
 // item in the side panel, with its details and every button. The panel keeps
 // one tab per view and switches the item it shows as rows are clicked.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   definePluginApp,
   useBbNavigate,
@@ -17,10 +17,10 @@ import {
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
 import { ViewBanner } from "./view/banner.js";
-import { setFocus, useFocus } from "./view/focus.js";
+import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import { usesDraft, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
-import { ViewPanel } from "./view/view-panel.js";
+import { firstOpenItem, ViewPanel } from "./view/view-panel.js";
 
 const PANEL_ACTION = "view";
 
@@ -117,6 +117,25 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   );
 }
 
+/**
+ * Opens the side panel on a view's first open item, unless the item already
+ * picked in it is still open: a republish after the user acts moves on to the
+ * next item, but does not pull them away from one they are reading.
+ */
+function showFirstOpen(threadId: string, stored: StoredView, navigate: ReturnType<typeof useBbNavigate>) {
+  const current = focusOf(threadId);
+  const keep =
+    current?.viewId === stored.id &&
+    current.itemId !== null &&
+    (stored.items[current.itemId]?.state ?? "open") === "open";
+  if (!keep) {
+    const first = firstOpenItem(stored);
+    if (first === null) return;
+    setFocus(threadId, { viewId: stored.id, itemId: first.id });
+  }
+  navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
+}
+
 function Banner() {
   const composer = useComposerView();
   const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : null;
@@ -126,18 +145,34 @@ function Banner() {
   const [collapsed, setCollapsed] = useState(false);
   const { busyItem, run } = useRunAction(setStored);
   const focus = useFocus(threadId ?? "");
+  // Set by a publish, so the load that follows it opens the side panel.
+  const openOnLoad = useRef(false);
+  // Read through a ref so the fetch below does not re-run whenever the host
+  // hands back a new navigate object.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   const refetch = useCallback(() => {
     if (threadId === null) return;
-    rpc.call("thread_views", { threadId }).then(({ views }) => setStored(views[0] ?? null), () => undefined);
+    rpc.call("thread_views", { threadId }).then(({ views }) => {
+      const view = views[0] ?? null;
+      setStored(view);
+      if (view !== null && openOnLoad.current) {
+        openOnLoad.current = false;
+        showFirstOpen(threadId, view, navigateRef.current);
+      }
+    }, () => undefined);
   }, [rpc, threadId]);
   useEffect(refetch, [refetch]);
   useThreadSignal(threadId, refetch);
-  // A newly published view opens expanded, even if the last one was collapsed.
+  // A newly published view opens expanded, even if the last one was collapsed,
+  // and opens the side panel on its first open item.
   useRealtime(
     "dynamic-ui-published",
     useCallback((payload: unknown) => {
-      if ((payload as { threadId?: string } | null)?.threadId === threadId) setCollapsed(false);
+      if ((payload as { threadId?: string } | null)?.threadId !== threadId) return;
+      setCollapsed(false);
+      openOnLoad.current = true;
     }, [threadId]),
   );
 
@@ -156,7 +191,7 @@ function Banner() {
       collapsed={collapsed}
       onToggle={() => setCollapsed((c) => !c)}
       busyItem={busyItem}
-      focusedItem={focus?.viewId === stored.id ? focus.itemId : null}
+      focusedItem={(focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored)?.id ?? null}
       onOpenItem={(item) => openItem(item)}
       onRun={(item, index) => {
         // A command, or a button that sends the item's draft, opens the item:

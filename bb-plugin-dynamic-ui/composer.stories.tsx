@@ -16,7 +16,7 @@ import { ViewBanner } from "./view/banner";
 import { dependabotConflictView, dependabotView, selfImproveView, triageView } from "./view/fixtures";
 import type { View } from "./view/schema";
 import type { ItemRecord, StoredView } from "./view/store";
-import { ViewPanel } from "./view/view-panel";
+import { firstOpenItem, ViewPanel } from "./view/view-panel";
 
 export default {
   title: "dynamic-ui/Thread",
@@ -118,7 +118,8 @@ function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView 
 /**
  * A thread at a typical window width with its side panel open: the
  * conversation scrolls, the banner, the Uncommitted row, and the composer sit
- * at the bottom, and the panel shows whichever item was clicked.
+ * at the bottom, and the panel shows whichever item was clicked, or the first
+ * open one before any is.
  */
 function ThreadStage({
   turns,
@@ -154,7 +155,7 @@ function ThreadStage({
                   collapsed={collapsed}
                   onToggle={() => setCollapsed((c) => !c)}
                   busyItem={null}
-                  focusedItem={focus}
+                  focusedItem={focus ?? firstOpenItem(view)?.id ?? null}
                   onOpenItem={(item) => setFocus(item.id)}
                   onRun={(item) => setFocus(item.id)}
                   onGoToThread={noop}

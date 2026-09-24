@@ -51,9 +51,25 @@ function Panel(props: Partial<ViewPanelProps>) {
   );
 }
 
-/** Nothing picked yet: the panel asks for an entry from the list above the composer. */
+/** Nothing picked yet: the panel starts on the first open entry. */
 export function NothingPicked() {
   return <Panel />;
+}
+
+/** Every entry handled and none picked: the panel asks for one from the list above the composer. */
+export function AllHandled() {
+  return (
+    <Panel
+      stored={{
+        ...fresh,
+        items: {
+          "issue-101": { state: "done", result: { label: "Post and close", at: "2026-03-12T12:05:00Z" } },
+          "issue-117": { state: "done", result: { label: "Fix in a new thread", at: "2026-03-12T12:06:00Z", threadId: "thr_fix0117" } },
+          "issue-123": { state: "dismissed", result: null },
+        },
+      }}
+    />
+  );
 }
 
 /** An entry picked: its summary, details, the draft to edit, and every button. */

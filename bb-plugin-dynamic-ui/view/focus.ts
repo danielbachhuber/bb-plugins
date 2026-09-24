@@ -22,6 +22,10 @@ export function setFocus(threadId: string, focus: Focus): void {
   for (const listener of listeners) listener();
 }
 
+export function focusOf(threadId: string): Focus | undefined {
+  return focusByThread.get(threadId);
+}
+
 export function useFocus(threadId: string): Focus | undefined {
   return useSyncExternalStore(
     (listener) => {

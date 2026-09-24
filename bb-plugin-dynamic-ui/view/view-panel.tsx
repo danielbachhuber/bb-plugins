@@ -18,7 +18,7 @@ export interface ViewPanelProps {
   onGoToThread: (threadId: string) => void;
   /** An item whose command confirmation starts open, as `itemId:index`. */
   confirming?: string;
-  /** The item picked in the list above the composer. None picked shows a prompt to pick one. */
+  /** The item picked in the list above the composer. None picked shows the first open item. */
   focusItemId?: string | null;
   /** Whether the draft starts rendered or as source. Preview unless a story says otherwise. */
   draftMode?: "preview" | "raw";
@@ -31,6 +31,16 @@ export const TONE_CLASS: Record<string, string> = {
   warning: "border-warning/40 text-warning",
   danger: "border-destructive/40 text-destructive",
 };
+
+/** The item shown when none is picked: the first one still open, or null once all are handled. */
+export function firstOpenItem(stored: StoredView): Item | null {
+  for (const section of stored.view.sections) {
+    for (const item of section.items) {
+      if ((stored.items[item.id]?.state ?? "open") === "open") return item;
+    }
+  }
+  return null;
+}
 
 function Result({ record, onGo }: { record: ItemRecord; onGo: (id: string) => void }) {
   const result = record.result;
@@ -236,9 +246,11 @@ function ItemCard({
 export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
-  const focused = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
+  const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
+  // The list lives above the composer; the panel shows one entry from it,
+  // starting on the first open one.
+  const focused = picked ?? firstOpenItem(stored) ?? undefined;
 
-  // The list lives above the composer; the panel shows one entry from it.
   if (focused === undefined) {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 text-center">

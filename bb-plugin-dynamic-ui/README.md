@@ -35,7 +35,7 @@ up to six buttons:
 
 An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Those buttons open the item from the list above the composer instead of sending. Commands cannot use `{draft}`, so edited text never reaches a shell.
 
-With no entry picked, the side panel says to click one; the list itself lives above the composer.
+Publishing opens the side panel on the first item still open. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
 Every card can be dismissed and restored. The agent reads back what the user
 did with `bb dynamic-ui state`.

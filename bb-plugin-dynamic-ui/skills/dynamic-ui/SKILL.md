@@ -25,7 +25,7 @@ Write the view to a file and publish it from this thread:
 bb dynamic-ui publish --file /tmp/<name>/view.json [--key <name>]
 ```
 
-The list appears above the composer by itself. Publishing again with the same key (default `default`) replaces the view and keeps what the user already did to each item, matched by item `id`. Use a different key for a second, separate view in the same thread. A validation error names the field to fix.
+The list appears above the composer by itself, and the side panel opens on the first open item, so put the item that most needs a decision first. Publishing again with the same key (default `default`) replaces the view and keeps what the user already did to each item, matched by item `id`. Use a different key for a second, separate view in the same thread. A validation error names the field to fix.
 
 After publishing, say in chat how many items there are and that they are above the composer. Do not repeat the list in chat.
 

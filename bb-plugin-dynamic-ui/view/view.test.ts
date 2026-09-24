@@ -7,7 +7,8 @@ import { firstLine, mainAction } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
-import { MIGRATIONS, createStore, describeItems } from "./store.js";
+import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
+import { firstOpenItem } from "./view-panel.js";
 
 function store() {
   const db = new Database(":memory:");
@@ -153,5 +154,34 @@ describe("item drafts", () => {
     const command = { type: "command", label: "Comment", command: "gh issue comment 7 --body '{draft}'" };
     expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command cannot use \{draft\}/);
     expect(() => parseView(viewWith({ actions: [post] }))).toThrow(/uses \{draft\} but the item has no draft/);
+  });
+});
+
+describe("firstOpenItem", () => {
+  const stored = (items: StoredView["items"]): StoredView => ({
+    id: 1,
+    threadId: "thr_test",
+    key: "default",
+    view: triageView,
+    cwd: "/tmp",
+    publishedAt: "2026-03-12T12:00:00Z",
+    items,
+  });
+
+  it("starts on the first item, across sections", () => {
+    expect(firstOpenItem(stored({}))?.id).toBe("issue-101");
+    expect(firstOpenItem(stored({ "issue-101": { state: "done", result: null } }))?.id).toBe("issue-117");
+  });
+
+  it("skips dismissed items and returns null once all are handled", () => {
+    expect(
+      firstOpenItem(
+        stored({
+          "issue-101": { state: "done", result: null },
+          "issue-117": { state: "dismissed", result: null },
+          "issue-123": { state: "done", result: null },
+        }),
+      ),
+    ).toBeNull();
   });
 });
