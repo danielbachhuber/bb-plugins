@@ -146,3 +146,79 @@ export const selfImproveView: View = viewSchema.parse({
     },
   ],
 });
+
+/** A Dependabot-review-shaped view: one invented pull request, safe to merge. */
+export const dependabotView: View = viewSchema.parse({
+  title: "Dependabot #412: prettier",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "pr-412",
+          title: "#412 prettier 3.6.1 → 3.6.2",
+          badges: [
+            { label: "Safe to merge", tone: "success" },
+            { label: "dev-only", tone: "neutral" },
+            { label: "patch", tone: "neutral" },
+          ],
+          summary:
+            "Safe to merge: dev-only patch bump, one formatter fix for a syntax we don't use, CI green.\n\n- **Changed:** a fix for decorators in class expressions\n- **Blast radius:** `npm run format` and the lint job only\n- **CI:** 12 of 12 passing",
+          details: "The diff touches `package.json` and `package-lock.json` only.",
+          draft:
+            "Safe to merge. Prettier is a dev dependency here, used only by `npm run format` and the lint job.\n\n- 3.6.2 fixes formatting of decorators in class expressions, which acme/widgets doesn't use\n- No output changes on this repository: `npm run format -- --check` is clean on the branch\n- CI is green, 12 of 12",
+          draftLabel: "Assessment to post",
+          actions: [
+            {
+              type: "message",
+              label: "Post, approve, and merge",
+              text: "Post this assessment on #412, approve the PR, and turn on auto-merge (squash):\n\n{draft}",
+              primary: true,
+            },
+            { type: "message", label: "Post only", text: "Post this assessment on #412 and stop there:\n\n{draft}" },
+            { type: "link", label: "Open #412", url: "https://github.com/acme/widgets/pull/412" },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+/** The same review for a conflicted runtime bump: the rebase is the likely next step. */
+export const dependabotConflictView: View = viewSchema.parse({
+  title: "Dependabot #418: date-fns",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "pr-418",
+          title: "#418 date-fns 4.1.0 → 4.2.0",
+          badges: [
+            { label: "Needs a look", tone: "warning" },
+            { label: "runtime", tone: "neutral" },
+            { label: "minor", tone: "neutral" },
+          ],
+          summary:
+            "Needs a rebase first: the lockfile conflicts with main, and the diff shows an unrelated downgrade from the stale base.\n\n- **Changed:** new `formatISODuration` options, no breaking changes\n- **Blast radius:** 14 files import it, all through `lib/dates.ts`\n- **CI:** not run since the conflict",
+          details: "The downgrade of `zod` in the diff comes from the stale base, not from this bump.",
+          draft:
+            "Safe once rebased. The bump adds options and changes nothing this repository calls.\n\n- Every import goes through `lib/dates.ts`, which uses `format` and `parseISO` only\n- The `zod` downgrade in the diff is a stale-base artifact",
+          draftLabel: "Assessment to post",
+          actions: [
+            {
+              type: "command",
+              label: "Ask Dependabot to rebase",
+              command: 'gh pr comment 418 --repo acme/widgets --body "@dependabot rebase"',
+              primary: true,
+            },
+            { type: "message", label: "Post only", text: "Post this assessment on #418 and stop there:\n\n{draft}" },
+            { type: "link", label: "Open #418", url: "https://github.com/acme/widgets/pull/418" },
+          ],
+        },
+      ],
+    },
+  ],
+});

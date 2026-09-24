@@ -13,7 +13,7 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { ViewBanner } from "./view/banner";
-import { selfImproveView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, selfImproveView, triageView } from "./view/fixtures";
 import type { View } from "./view/schema";
 import type { ItemRecord, StoredView } from "./view/store";
 import { ViewPanel } from "./view/view-panel";
@@ -303,6 +303,58 @@ export function SelfImproveCollapsed() {
         "finding-1": { state: "done", result: { label: "Open thread", at: "t", threadId: "thr_imp0001" } },
         "finding-2": { state: "done", result: { label: "Open thread", at: "t", threadId: "thr_imp0002" } },
       })}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dependabot                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const dependabotTurns: Turn[] = [
+  { kind: "user", text: "acme/widgets#412 is a Dependabot pull request. Assess it and draft a comment." },
+  { kind: "work", text: "Read the PR, its changelog, and 3 files that use prettier" },
+  {
+    kind: "assistant",
+    text: "Safe to merge: a dev-only patch bump whose one fix doesn't reach this repository. The assessment is above the composer, ready to post.",
+  },
+];
+
+/** One pull request above the composer, with its main button. */
+export function Dependabot() {
+  return <ThreadStage turns={dependabotTurns} view={stored(dependabotView)} />;
+}
+
+/** The pull request opened: the evidence, the assessment to edit, and every button. */
+export function DependabotItemOpen() {
+  return <ThreadStage turns={dependabotTurns} view={stored(dependabotView)} initialFocus="pr-412" />;
+}
+
+/** A conflicted bump: the rebase is the main button, and it asks before running. */
+export function DependabotConflict() {
+  return (
+    <ThreadStage
+      turns={[
+        { kind: "user", text: "acme/widgets#418 is a Dependabot pull request. Assess it and draft a comment." },
+        { kind: "work", text: "Read the PR, its changelog, and 14 files that use date-fns" },
+        { kind: "assistant", text: "This one needs a rebase before it can merge. The assessment is above the composer." },
+      ]}
+      view={stored(dependabotConflictView)}
+      initialFocus="pr-418"
+      confirming="pr-418:0"
+    />
+  );
+}
+
+/** After "Post, approve, and merge": the row is done and the panel shows the draft as posted. */
+export function DependabotAfter() {
+  return (
+    <ThreadStage
+      turns={dependabotTurns}
+      view={stored(dependabotView, {
+        "pr-412": { state: "done", result: { label: "Post, approve, and merge", at: "2026-03-12T12:05:00Z" } },
+      })}
+      initialFocus="pr-412"
     />
   );
 }
