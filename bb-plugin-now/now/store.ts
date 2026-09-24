@@ -27,6 +27,13 @@ export const MIGRATIONS = [
      activity_at TEXT,
      snoozed_at TEXT NOT NULL
    )`,
+  // The thread started from a row, so its button opens that thread rather than
+  // starting a second. Released when the thread is archived or deleted.
+  `CREATE TABLE IF NOT EXISTS item_threads (
+     item_id TEXT PRIMARY KEY,
+     thread_id TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   )`,
 ];
 
 export interface Snooze {
@@ -66,6 +73,11 @@ export interface Store {
   snoozes(): Map<string, Snooze>;
   /** Drops snoozes that have run out. Returns how many went. */
   pruneSnoozes(now: Date): number;
+  /** Item id to the thread started from it. */
+  threads(): Map<string, string>;
+  linkThread(itemId: string, threadId: string, now: Date): void;
+  /** Forgets every row linked to this thread. Returns how many were. */
+  releaseThread(threadId: string): number;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -86,6 +98,12 @@ export function createStore(db: DatabaseLike): Store {
   const deleteSnooze = db.prepare(`DELETE FROM snoozes WHERE item_id = ?`);
   const selectSnoozes = db.prepare(`SELECT item_id, until, activity_at FROM snoozes`);
   const deleteExpired = db.prepare(`DELETE FROM snoozes WHERE until <= ?`);
+  const selectThreads = db.prepare(`SELECT item_id, thread_id FROM item_threads`);
+  const upsertThread = db.prepare(
+    `INSERT INTO item_threads (item_id, thread_id, created_at) VALUES (?, ?, ?)
+     ON CONFLICT(item_id) DO UPDATE SET thread_id = excluded.thread_id, created_at = excluded.created_at`,
+  );
+  const deleteThread = db.prepare(`DELETE FROM item_threads WHERE thread_id = ?`);
 
   const writeAll = db.transaction(((list: NowList) => {
     deleteItems.run();
@@ -129,6 +147,17 @@ export function createStore(db: DatabaseLike): Store {
     snoozes() {
       const rows = selectSnoozes.all() as Array<{ item_id: string; until: string; activity_at: string | null }>;
       return new Map(rows.map((row) => [row.item_id, { until: row.until, activityAt: row.activity_at }]));
+    },
+    threads() {
+      const rows = selectThreads.all() as Array<{ item_id: string; thread_id: string }>;
+      return new Map(rows.map((row) => [row.item_id, row.thread_id]));
+    },
+    linkThread(itemId, threadId, now) {
+      upsertThread.run(itemId, threadId, now.toISOString());
+    },
+    releaseThread(threadId) {
+      const result = deleteThread.run(threadId) as { changes?: number };
+      return result.changes ?? 0;
     },
     pruneSnoozes(now) {
       const result = deleteExpired.run(now.toISOString()) as { changes?: number };

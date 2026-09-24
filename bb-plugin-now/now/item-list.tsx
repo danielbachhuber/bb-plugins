@@ -95,6 +95,7 @@ export interface ItemListViewProps {
 export function ItemListView({ listing, now, actions }: ItemListViewProps) {
   const [showSnoozed, setShowSnoozed] = useState(false);
   const snoozed = listing?.snoozed ?? [];
+  const threads = listing?.threads ?? {};
   const list = listing?.list ?? null;
   const sources = list?.sources ?? [];
   const loaded = sources.filter((source): source is LoadedSource => source.state === "ok");
@@ -131,7 +132,7 @@ export function ItemListView({ listing, now, actions }: ItemListViewProps) {
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
             {list.items.map((item) => (
-              <ItemRow key={item.id} item={item} now={now} actions={actions} />
+              <ItemRow key={item.id} item={item} now={now} actions={actions} threadId={threads[item.id] ?? null} />
             ))}
           </ul>
         )}
@@ -152,7 +153,14 @@ export function ItemListView({ listing, now, actions }: ItemListViewProps) {
           {showSnoozed ? (
             <ul className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4 opacity-80">
               {snoozed.map(({ item, until }) => (
-                <ItemRow key={item.id} item={item} now={now} actions={actions} snoozedUntil={until} />
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  now={now}
+                  actions={actions}
+                  snoozedUntil={until}
+                  threadId={threads[item.id] ?? null}
+                />
               ))}
             </ul>
           ) : null}

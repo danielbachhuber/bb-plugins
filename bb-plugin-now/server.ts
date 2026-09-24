@@ -94,6 +94,11 @@ export function createPlugin(deps: PluginDeps = {}) {
         description: "Used for the state of pull requests and issues GitHub emails about, and for replying to them.",
         default: "gh",
       },
+      threadProjectId: {
+        type: "project",
+        label: "Project for new threads",
+        description: "Where Start thread's composer opens. You can pick another in the composer.",
+      },
       syncIntervalMinutes: {
         type: "select",
         label: "Sync interval (minutes)",
@@ -210,6 +215,8 @@ export function createPlugin(deps: PluginDeps = {}) {
       }
     }
 
+    const starting = new Map<string, Promise<{ threadId: string | null; existing: boolean; error: string | null }>>();
+
     function findItem(id: string) {
       return store.read()?.items.find((item) => item.id === id) ?? null;
     }
@@ -217,9 +224,20 @@ export function createPlugin(deps: PluginDeps = {}) {
     bb.rpc.register(rpcContract, {
       items_list: async () => {
         const stored = store.read();
-        if (stored === null) return { list: null, snoozed: [], syncing: running !== null };
+        const threads = Object.fromEntries(store.threads());
+        const { threadProjectId } = await settings.get();
+        const project = threadProjectId?.trim() || null;
+        if (stored === null) {
+          return { list: null, snoozed: [], threads, threadProjectId: project, syncing: running !== null };
+        }
         const { active, snoozed } = partitionSnoozed(stored.items, store.snoozes(), now());
-        return { list: { ...stored, items: active }, snoozed, syncing: running !== null };
+        return {
+          list: { ...stored, items: active },
+          snoozed,
+          threads,
+          threadProjectId: project,
+          syncing: running !== null,
+        };
       },
       items_snooze: async ({ id, until }) => {
         store.snooze(id, { until, activityAt: findItem(id)?.activityAt ?? null }, now());
@@ -284,6 +302,41 @@ export function createPlugin(deps: PluginDeps = {}) {
         announce();
         return { restored: true, error: null };
       },
+      items_start_thread: async ({ id, request }) => {
+        const existing = store.threads().get(id);
+        if (existing !== undefined) return { threadId: existing, existing: true, error: null };
+
+        // One thread per row, even when two submits race before the first
+        // spawn returns and the link above is still empty.
+        const inFlight = starting.get(id);
+        if (inFlight !== undefined) return inFlight;
+
+        const attempt = (async () => {
+          const item = findItem(id) ?? store.read()?.items.find((kept) => kept.id === id) ?? null;
+          if (item === null) return { threadId: null, existing: false, error: "That row is no longer on the page." };
+          try {
+            // Everything the composer resolved goes through unchanged; the
+            // title is the one thing it has no field for.
+            const thread = await bb.sdk.threads.spawn({
+              ...request,
+              title: item.title,
+            } as Parameters<typeof bb.sdk.threads.spawn>[0]);
+            store.linkThread(id, thread.id, now());
+            announce();
+            bb.log.info(`Started ${thread.id} for ${id}`);
+            return { threadId: thread.id, existing: false, error: null };
+          } catch (error) {
+            bb.log.warn(`Could not start a thread for ${id}: ${messageOf(error)}`);
+            return { threadId: null, existing: false, error: messageOf(error) };
+          }
+        })();
+        starting.set(id, attempt);
+        try {
+          return await attempt;
+        } finally {
+          starting.delete(id);
+        }
+      },
       items_reply: async ({ id, body }) => {
         const item = findItem(id);
         if (item?.github == null) return { url: null, error: "Only a GitHub row can be replied to." };
@@ -310,6 +363,14 @@ export function createPlugin(deps: PluginDeps = {}) {
         }
       },
     });
+
+    // A row whose thread has been archived or deleted offers to start a new
+    // one rather than opening a thread that is gone.
+    for (const event of ["thread.archived", "thread.deleted"] as const) {
+      bb.events.on(event, async ({ thread }) => {
+        if (store.releaseThread(thread.id) > 0) announce();
+      });
+    }
 
     bb.background.service("sync", {
       async start(signal) {

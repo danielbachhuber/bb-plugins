@@ -297,7 +297,13 @@ describe("stored list", () => {
     const { bb, harness, plugin, fetchImpl } = host(ROUTES);
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("items_list", null)).resolves.toEqual({ list: null, snoozed: [], syncing: false });
+    await expect(harness.behavior.callRpc("items_list", null)).resolves.toEqual({
+      list: null,
+      snoozed: [],
+      threads: {},
+      threadProjectId: null,
+      syncing: false,
+    });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -587,3 +593,81 @@ describe("completing a task", () => {
     await expect(harness.behavior.callRpc("items_complete", { id: "gmail:x" })).resolves.toMatchObject({ completed: false });
   });
 });
+
+describe("starting a thread", () => {
+  const ROUTES = {
+    [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a")], next_cursor: null },
+    [PROJECTS_PATH]: PROJECTS,
+  };
+  const REQUEST = { projectId: "proj_1", input: [{ type: "text", text: "Order widget samples", mentions: [] }] };
+
+  function threadHost() {
+    let spawned = 0;
+    const created = createFakePluginHost({
+      pluginId: "now",
+      settings: TODOIST_ONLY,
+      sdk: {
+        threads: {
+          spawn: async () => {
+            spawned += 1;
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            return { id: `thr_${spawned}` } as never;
+          },
+        },
+      } as never,
+    });
+    const plugin = createPlugin({
+      fetch: routedFetch(ROUTES) as unknown as typeof fetch,
+      gws: () => fakeGws({}).run,
+      gh: () => noGh,
+    });
+    return { ...created, plugin };
+  }
+
+  test("spawns what the composer resolved, titled for the row, and links it", async () => {
+    const { bb, harness, plugin } = threadHost();
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_start_thread", { id: "todoist:a", request: REQUEST })).resolves.toEqual({
+      threadId: "thr_1",
+      existing: false,
+      error: null,
+    });
+
+    const [[args]] = harness.inspection.sdk.callsTo("threads.spawn") as [[Record<string, unknown>]];
+    expect(args).toMatchObject({ ...REQUEST, title: "Task a" });
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.threads).toEqual({ "todoist:a": "thr_1" });
+  });
+
+  test("starts one thread when two submits race, and returns it after", async () => {
+    const { bb, harness, plugin } = threadHost();
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    const [first, second] = await Promise.all([
+      harness.behavior.callRpc("items_start_thread", { id: "todoist:a", request: REQUEST }),
+      harness.behavior.callRpc("items_start_thread", { id: "todoist:a", request: REQUEST }),
+    ]);
+    expect(first).toEqual(second);
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+    await expect(harness.behavior.callRpc("items_start_thread", { id: "todoist:a", request: REQUEST })).resolves.toMatchObject({
+      threadId: "thr_1",
+      existing: true,
+    });
+  });
+
+  test("forgets the link once the thread is archived", async () => {
+    const { bb, harness, plugin } = threadHost();
+    await plugin(bb);
+    await syncAndRead(harness);
+    await harness.behavior.callRpc("items_start_thread", { id: "todoist:a", request: REQUEST });
+
+    await harness.behavior.emitThreadEvent("thread.archived", { thread: { id: "thr_1" } } as never);
+
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.threads).toEqual({});
+  });
+});
+

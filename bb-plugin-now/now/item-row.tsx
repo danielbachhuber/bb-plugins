@@ -14,6 +14,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+import { BrandIcon, type Brand } from "./brand-icon.js";
 import { describeActivity, describeDue, type DueTone } from "./due.js";
 import { snoozeChoices } from "./snooze.js";
 import type { GitHubPart, Item } from "./types.js";
@@ -25,6 +26,8 @@ export interface RowActions {
   onComplete: (item: Item) => void;
   /** Resolves true once the comment is posted, so the box can close. */
   onReply: (item: Item, body: string) => Promise<boolean>;
+  onStartThread: (item: Item) => void;
+  onOpenThread: (threadId: string) => void;
 }
 
 const DUE_TONE: Record<DueTone, string> = {
@@ -33,11 +36,11 @@ const DUE_TONE: Record<DueTone, string> = {
   upcoming: "text-muted-foreground",
 };
 
-/** Which source a row came from, drawn ahead of its details. */
-function sourceIcon(item: Item): IconName | null {
-  if (item.github !== null) return "Github";
-  if (item.source === "todoist") return "CircleCheck";
-  if (item.source === "gmail") return "Mail";
+/** Which source a row came from, drawn at the head of its row. */
+function brandOf(item: Item): Brand | null {
+  if (item.github !== null) return "github";
+  if (item.source === "todoist") return "todoist";
+  if (item.source === "gmail") return "gmail";
   return null;
 }
 
@@ -207,6 +210,8 @@ export interface ItemRowProps {
   actions?: RowActions;
   /** When a snooze is hiding the row, its end. */
   snoozedUntil?: string | null;
+  /** The thread already started from this row. */
+  threadId?: string | null;
 }
 
 /** A small labelled button in the details line, for the row's own action. */
@@ -264,13 +269,13 @@ function leadingDate(item: Item, now: Date): { text: string; className: string; 
   return null;
 }
 
-export function ItemRow({ item, now, actions, snoozedUntil = null }: ItemRowProps) {
+export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null }: ItemRowProps) {
   const [replying, setReplying] = useState(false);
   const date = leadingDate(item, now);
   // Shown in the details line only when the left column is showing the due date instead.
   const deadline =
     item.due !== null && item.deadline !== null ? describeDue({ date: item.deadline, recurring: false }, now) : null;
-  const icon = sourceIcon(item);
+  const brand = brandOf(item);
   const archiveSuggested = suggestsArchive(item);
   const comment = item.github?.comment ?? null;
 
@@ -278,10 +283,10 @@ export function ItemRow({ item, now, actions, snoozedUntil = null }: ItemRowProp
     <li className="py-3.5 text-sm">
       <div className="flex items-start gap-3">
         {/* Where it is from and when it is for, in a column of its own so every title starts at one edge. */}
-        <div className="flex w-24 shrink-0 flex-col gap-1 pt-0.5 text-xs text-muted-foreground">
-          {icon === null ? <span className="size-4" /> : <Icon name={icon} className="size-4" aria-label={item.source} />}
+        <div className="flex w-14 shrink-0 flex-col gap-1 pt-0.5 text-xs leading-tight text-muted-foreground">
+          {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
           {date === null ? null : (
-            <span className={cn("inline-flex items-center gap-1 whitespace-nowrap", date.className)}>
+            <span className={cn("inline-flex flex-wrap items-center gap-x-1", date.className)}>
               {date.icon === "Target" ? <Icon name="Target" className="size-3 shrink-0" aria-label="Deadline" /> : null}
               {date.text}
               {date.icon === "Repeat" ? <Icon name="Repeat" className="size-3 shrink-0" aria-label="Recurring" /> : null}
@@ -333,6 +338,11 @@ export function ItemRow({ item, now, actions, snoozedUntil = null }: ItemRowProp
                 expanded={replying}
                 onClick={() => setReplying((open) => !open)}
               />
+            )}
+            {actions === undefined ? null : threadId === null ? (
+              <LineAction label="Start thread" icon="MessageSquarePlus" onClick={() => actions.onStartThread(item)} />
+            ) : (
+              <LineAction label="Open thread" icon="MessageSquare" onClick={() => actions.onOpenThread(threadId)} />
             )}
             {deadline === null ? null : (
               <span className={cn("inline-flex items-center gap-1", DUE_TONE[deadline.tone])}>

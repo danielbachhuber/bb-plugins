@@ -11,12 +11,13 @@ action: everything the last sync found, less what is snoozed. It loads every
 configured source at once and merges their items into one list: soonest due
 first (by due date or deadline, whichever is sooner), most urgent first within
 a day, and undated items last, newest activity first. Each row starts with a
-column holding its source's icon and its date: when it is due, else its
-deadline, else when its latest email arrived. Beside that are the item's title
-(linking to it in its source), description, and a details line with the row's
-own action, tags, and where it came from (a Todoist project, or an email's
-sender), with a P1–P3 tag beside the title. Overdue dates are red and today's
-are green; a recurring item has a repeat icon.
+narrow column holding its source's own mark (Todoist, Gmail, or GitHub) and
+its date: when it is due, else its deadline, else when its latest email
+arrived. Beside that are the item's title (linking to it in its source),
+description, and a details line with the row's actions, tags, and where it
+came from (a Todoist project, or an email's sender), with a P1–P3 tag beside
+the title. Overdue dates are red and today's are green; a recurring item has a
+repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last
 sync's items at once instead of waiting on Todoist and Gmail. It syncs in the
@@ -51,6 +52,13 @@ row to where it was. A recurring task is the exception: completing it moves
 it to its next date, and Todoist cannot move it back, so its toast says so
 instead of offering Undo. Undo is for the moment after the click; it does not
 survive a reload of the plugin.
+
+Every row also has **Start thread** in its details line, which opens bb's
+new-thread composer in a dialog, with the row's facts already in the prompt
+(its title, link, dates, description, and latest comment) and room for what
+the thread should do. The composer's project defaults to the
+`threadProjectId` setting when it is set. Once a thread is started, the row
+offers **Open thread** instead, until that thread is archived or deleted.
 
 A GitHub row also has **Reply** in its details line, which opens a box under
 the row that comments on the pull request or issue through the GitHub API, as
@@ -130,6 +138,7 @@ read as open. When `gh` is missing or fails, the row uses the
 
 ```sh
 bb plugin config now set ghPath /opt/homebrew/bin/gh   # when gh is not on bb's PATH
+bb plugin config now set threadProjectId <project-id>  # where Start thread opens
 ```
 
 One sync runs `gws gmail users threads list` with the search, then
@@ -161,9 +170,12 @@ list `server.ts` passes to `loadSources`.
 | `now/items.ts` | The order the merged list is in |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
-| `now/store.ts` | The database tables: the stored list, and snoozes |
+| `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
 | `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
+| `now/brand-icon.tsx` | The Todoist, Gmail, and GitHub marks (Simple Icons, CC0) |
+| `now/thread-prompt.ts` | What Start thread's composer opens with |
+| `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items |

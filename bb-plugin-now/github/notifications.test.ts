@@ -79,6 +79,12 @@ describe("commentText", () => {
     );
   });
 
+  test("stops where a review comment's diff begins", () => {
+    expect(
+      commentText("@hubber commented on this pull request. Looks great other than one nit. In src/widget.ts: > +export function widget() {"),
+    ).toBe("Looks great other than one nit.");
+  });
+
   test("is empty when nothing was written in words", () => {
     expect(commentText("Merged #128 into main. — Reply to this email directly")).toBe("");
     expect(commentText("@hubber approved this pull request. — Reply to this email directly")).toBe("");

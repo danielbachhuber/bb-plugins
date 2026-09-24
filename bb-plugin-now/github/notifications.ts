@@ -121,9 +121,9 @@ export function commentText(snippet: string): string {
     /^@?[A-Za-z0-9-]+(\[bot\])? (commented on|approved|requested changes on) this pull request\.?\s*/i,
     "",
   );
-  // A review comment on a line leads with the file and its diff hunk, which
-  // reads as noise in a one-line quote.
-  if (/^In [^\s:]+:\s*>/.test(text)) return "";
+  // A review comment on a line carries the file and its diff hunk, which read
+  // as noise in a quote: keep what came before them, if anything did.
+  text = text.replace(/(^|\s)In [^\s:]+:\s*>[\s\S]*$/, "");
   if (/^(Merged|Closed|Reopened) #\d+/i.test(text)) return "";
   return text.trim();
 }

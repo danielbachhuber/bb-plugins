@@ -46,9 +46,23 @@ export const listingSchema = z.object({
   list: nowListSchema.nullable(),
   /** What a snooze is hiding, and until when. */
   snoozed: z.array(z.object({ item: itemSchema, until: z.string() })),
+  /** Item id to the thread started from it. */
+  threads: z.record(z.string(), z.string()),
+  /** The project a new thread starts in unless the composer picks another. */
+  threadProjectId: z.string().nullable(),
   syncing: z.boolean(),
 });
 export type Listing = z.infer<typeof listingSchema>;
+
+/**
+ * What bb's new-thread composer hands back, checked only as far as the plugin
+ * relies on it: a project and some input. Everything else passes to
+ * `threads.spawn` unchanged, where bb validates it.
+ */
+const newThreadRequestSchema = z.looseObject({
+  projectId: z.string().min(1),
+  input: z.array(z.looseObject({ type: z.string() })).min(1),
+});
 
 export const rpcContract = defineRpcContract({
   /** The stored list. Reads the database only; never calls a source. */
@@ -100,6 +114,14 @@ export const rpcContract = defineRpcContract({
   items_undo: {
     input: z.object({ id: z.string() }),
     output: z.object({ restored: z.boolean(), error: z.string().nullable() }),
+  },
+  /**
+   * Start a thread about a row, from what bb's composer resolved, or return the
+   * one already started from it.
+   */
+  items_start_thread: {
+    input: z.object({ id: z.string(), request: newThreadRequestSchema }),
+    output: z.object({ threadId: z.string().nullable(), existing: z.boolean(), error: z.string().nullable() }),
   },
   /** Comment on a GitHub row's pull request or issue, as you. */
   items_reply: {

@@ -230,7 +230,8 @@ function Frame({ listing }: { listing: Listing | null }) {
 }
 
 function stored(list: NowList, syncing = false, snoozed: Listing["snoozed"] = []): Listing {
-  return { list, snoozed, syncing };
+  // One row already has its thread, so the story shows Open thread beside Start thread.
+  return { list, snoozed, threads: { "github:acme/widgets#128": "thread-1" }, threadProjectId: null, syncing };
 }
 
 const actions = {
@@ -239,6 +240,8 @@ const actions = {
   onArchive: noop,
   onComplete: noop,
   onReply: async () => true,
+  onStartThread: noop,
+  onOpenThread: noop,
 };
 
 export function Default() {
@@ -261,7 +264,7 @@ export function States() {
         <Frame listing={null} />
       </StoryRow>
       <StoryRow label="First sync" hint="Nothing stored yet, and the first sync is running.">
-        <Frame listing={{ list: null, snoozed: [], syncing: true }} />
+        <Frame listing={{ list: null, snoozed: [], threads: {}, threadProjectId: null, syncing: true }} />
       </StoryRow>
       <StoryRow label="Syncing" hint="The stored list shows while a sync runs behind it.">
         <Frame listing={stored(ok, true)} />
