@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { classifyEvent, commentText, parseRef, parseTitle, summarize, type GitHubEvent } from "./notifications.js";
+import { classifyEvent, commentText, eventLine, parseRef, parseTitle, summarize, type GitHubEvent } from "./notifications.js";
 
 describe("parseRef", () => {
   test("reads the pull request or issue from a notification's message ids", () => {
@@ -84,6 +84,17 @@ describe("summarize", () => {
 
   test("says nothing for events it does not know", () => {
     expect(summarize([{ type: "other", actor: "octocat" }])).toBe("");
+  });
+});
+
+describe("eventLine", () => {
+  test("gives what was written, or what happened when nothing was", () => {
+    const line = (snippet: string) => eventLine(classifyEvent(snippet, "octocat"), snippet);
+    expect(line("octocat left a comment (acme/widgets#128) Looks good — Reply to this email directly")).toBe("Looks good");
+    expect(line("@octocat approved this pull request. — Reply to this email directly")).toBe("approved");
+    expect(line("@octocat approved this pull request. Ship it.")).toBe("approved: Ship it.");
+    expect(line("@octocat requested review from @acme/reviewers on: acme/widgets#128")).toBe("requested review of acme/reviewers");
+    expect(line("Merged #128 into main.")).toBe("merged");
   });
 });
 

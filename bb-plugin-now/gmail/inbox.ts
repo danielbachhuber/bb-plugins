@@ -3,6 +3,7 @@
 import {
   classifyEvent,
   commentText,
+  eventLine,
   githubUrl,
   parseRef,
   parseTitle,
@@ -68,6 +69,14 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
     const text = commentText(snippets[index]!);
     if (text !== "") comment = { author: header(messages[index]!, "X-GitHub-Sender"), text };
   }
+  // A line for each unread message, so a row with three new says what all three were.
+  const unreadQuotes: { author: string | null; text: string }[] = [];
+  messages.forEach((message, index) => {
+    if (!(Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD"))) return;
+    const text = eventLine(events[index]!, snippets[index]!);
+    if (text !== "") unreadQuotes.push({ author: header(message, "X-GitHub-Sender"), text });
+  });
+
   const requests = events.filter((event) => event.type === "review_requested");
   const reviewRequested =
     requests.length === 0 ? null : requests.some((event) => event.requestedOf === "you") ? "you" : "others";
@@ -96,6 +105,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
       closedAs: known?.closedAs ?? null,
       reason: latest === undefined ? null : header(latest, "X-GitHub-Reason"),
       reviewRequested,
+      unreadQuotes,
       comment,
     },
   };

@@ -79,7 +79,10 @@ A GitHub row also has **Reply** in its details line, which opens a box under
 the row that comments on the pull request or issue through the GitHub API, as
 you. ⌘↩ sends it. Above the details line, the row quotes the most recent thing
 someone wrote, taken from its email's snippet, so a long comment arrives
-already cut short.
+already cut short. When some of its messages are unread, it quotes each of
+those instead, oldest first, with what happened for one that has no words
+("approved", "requested review of acme/reviewers"), up to five and then a
+count of the rest.
 
 Completing or editing a Todoist task still happens in Todoist, and replying
 to an email that is not from GitHub still happens in Gmail.

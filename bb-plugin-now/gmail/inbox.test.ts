@@ -69,6 +69,21 @@ describe("inboxItems", () => {
     )[0];
     expect(team?.gmail).toMatchObject({ unread: true, messages: 3, unreadMessages: 1 });
     expect(team?.github?.reviewRequested).toBe("others");
+    expect(team?.github?.unreadQuotes).toEqual([{ author: "hubber", text: "Merging soon" }]);
+
+    const allNew = inboxItems(
+      [{ id: "t1", messages: [
+        unread(notification(T, "@octocat requested review from @acme/reviewers on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" })),
+        unread(notification(T + 1000, "@hubber approved this pull request.", "hubber")),
+        unread(notification(T + 2000, "hubber left a comment (acme/widgets#128) Merging soon", "hubber")),
+      ] }],
+      null,
+    )[0];
+    expect(allNew?.github?.unreadQuotes).toEqual([
+      { author: "octocat", text: "requested review of acme/reviewers" },
+      { author: "hubber", text: "approved" },
+      { author: "hubber", text: "Merging soon" },
+    ]);
 
     const yours = inboxItems(
       [{ id: "t1", messages: [notification(T, "@octocat requested your review on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" })] }],

@@ -36,6 +36,11 @@ export const githubPartSchema = z.object({
   reviewRequested: z.enum(["you", "others"]).nullable().optional(),
   /** The most recent thing someone wrote, from its email's snippet, so it may be cut short. */
   comment: z.object({ author: z.string().nullable(), text: z.string() }).nullable().default(null),
+  /**
+   * One line for each unread message, oldest first: what was written, or what
+   * happened when nothing was ("approved"). Empty when all are read.
+   */
+  unreadQuotes: z.array(z.object({ author: z.string().nullable(), text: z.string() })).optional(),
 });
 export type GitHubPart = z.infer<typeof githubPartSchema>;
 

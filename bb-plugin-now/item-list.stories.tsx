@@ -75,6 +75,13 @@ const notifications: Item[] = [
     reason: "review_requested",
     review: "review_required",
     reviewRequested: "you",
+    unreadQuotes: [
+      { author: "octocat", text: "requested your review" },
+      {
+        author: "hubber",
+        text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
+      },
+    ],
     comment: {
       author: "hubber",
       text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
@@ -84,6 +91,7 @@ const notifications: Item[] = [
     reason: "review_requested",
     review: "approved",
     reviewRequested: "others",
+    unreadQuotes: [{ author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." }],
     comment: { author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." },
   }),
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {

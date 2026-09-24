@@ -152,6 +152,32 @@ export function commentText(snippet: string): string {
   return text.trim();
 }
 
+/**
+ * One line for a notification in a list of what is new: what was written, or
+ * what happened when nothing was.
+ */
+export function eventLine(event: GitHubEvent, snippet: string): string {
+  const written = commentText(snippet);
+  switch (event.type) {
+    case "approved":
+      return written === "" ? "approved" : `approved: ${written}`;
+    case "changes_requested":
+      return written === "" ? "requested changes" : `requested changes: ${written}`;
+    case "review_requested":
+      return event.requestedOf === undefined || event.requestedOf === "you"
+        ? "requested your review"
+        : `requested review of ${event.requestedOf}`;
+    case "merged":
+      return "merged";
+    case "closed":
+      return "closed";
+    case "reopened":
+      return "reopened";
+    default:
+      return written;
+  }
+}
+
 /** The pull request or issue page on GitHub. */
 export function githubUrl(ref: GitHubRef): string {
   return `https://github.com/${ref.repo}/${ref.kind === "pull" ? "pull" : "issues"}/${ref.number}`;

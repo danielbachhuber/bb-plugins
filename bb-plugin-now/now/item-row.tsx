@@ -102,6 +102,9 @@ const GITHUB_REVIEW = {
   approved: "border-[#1a7f37]/40 text-[#1a7f37] dark:border-[#3fb950]/40 dark:text-[#3fb950]",
 } as const;
 
+/** Unread messages quoted on a row before the rest are counted instead. */
+const MAX_QUOTES = 5;
+
 /** The merged-purple an Archive suggestion is tinted with. */
 const SUGGESTED = "text-[#8250df] hover:text-[#8250df] dark:text-[#a371f7] dark:hover:text-[#a371f7]";
 
@@ -336,7 +339,10 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   const brand = brandOf(item);
   const archiveSuggestion = archiveReason(item);
   const archiveSuggested = archiveSuggestion !== null;
-  const comment = item.github?.comment ?? null;
+  // Every unread message when there are any, else the latest thing written.
+  const unreadQuotes = item.github?.unreadQuotes ?? [];
+  const latest = item.github?.comment ?? null;
+  const quotes = unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest];
   const unread = item.gmail?.unread === true;
   // A row of several messages says how many are new; the dot alone would not.
   const unreadMessages = item.gmail?.unreadMessages ?? 0;
@@ -385,11 +391,18 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
           {item.description === "" ? null : (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
           )}
-          {comment === null ? null : (
-            <p className="mt-1 line-clamp-2 border-l-2 border-border pl-2 text-xs text-foreground/80">
-              {comment.author === null ? null : <span className="font-medium">{comment.author}: </span>}
-              {comment.text}
-            </p>
+          {quotes.length === 0 ? null : (
+            <div className="mt-1 space-y-1 border-l-2 border-border pl-2 text-xs text-foreground/80">
+              {quotes.slice(0, MAX_QUOTES).map((quote, index) => (
+                <p key={index} className="line-clamp-2">
+                  {quote.author === null ? null : <span className="font-medium">{quote.author}: </span>}
+                  {quote.text}
+                </p>
+              ))}
+              {quotes.length > MAX_QUOTES ? (
+                <p className="text-muted-foreground">and {quotes.length - MAX_QUOTES} more</p>
+              ) : null}
+            </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {actions === undefined ? null : item.source === "todoist" ? (
