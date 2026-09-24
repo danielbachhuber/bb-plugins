@@ -76,6 +76,7 @@ const notifications: Item[] = [
     review: "review_required",
     checks: "pending",
     reviewRequested: "you",
+    myReview: "requested",
     unreadQuotes: [
       { author: "octocat", text: "requested your review" },
       {
@@ -108,6 +109,14 @@ const notifications: Item[] = [
     review: "review_required",
     checks: "passing",
     reviewRequested: "team",
+    myReview: "requested",
+  }),
+  pull(143, "Log widget cache misses", "review requested of acme/reviewers by octocat · approved by you", new Date(2026, 8, 23, 16, 40), {
+    reason: "review_requested",
+    review: "approved",
+    checks: "passing",
+    reviewRequested: "you",
+    myReview: "approved",
   }),
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
     state: "merged",
