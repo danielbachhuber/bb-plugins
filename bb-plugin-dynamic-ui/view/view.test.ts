@@ -9,6 +9,7 @@ import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
+import { shortLabel } from "./review-panel.js";
 import { firstOpenItem } from "./view-panel.js";
 
 function store() {
@@ -212,6 +213,13 @@ describe("visual review", () => {
     expect(item().variations).toHaveLength(3);
     const one = { ...review, sections: [{ items: [{ ...review.sections[0]!.items[0]!, variations: [review.sections[0]!.items[0]!.variations[0]!] }] }] };
     expect(() => parseView(JSON.stringify(one))).toThrow(/at least two variations/);
+  });
+
+  it("shortens labels for the filmstrip", () => {
+    expect(shortLabel("A. Sections")).toBe("A");
+    expect(shortLabel("B) Dates right")).toBe("B");
+    expect(shortLabel("Original")).toBe("Original");
+    expect(shortLabel("Compact rows")).toBe("Compact");
   });
 
   it("knows which files the panel can show", () => {

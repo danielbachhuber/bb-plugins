@@ -2,7 +2,7 @@
 // first, with a pick toggle and a note box under it, and one Send feedback
 // button for all of it. Kept free of RPC so a story can render it with
 // fixture images.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -37,6 +37,73 @@ function VariationImage({ url, label, onZoom }: { url: string | null | undefined
   );
 }
 
+/** "A. Sections" becomes "A"; a label with no letter keeps its first word. */
+export function shortLabel(label: string): string {
+  const lettered = /^([A-Za-z0-9]{1,3})[.):]\s/.exec(label);
+  return lettered ? lettered[1]! : (label.split(/\s+/)[0] ?? label);
+}
+
+/**
+ * A strip of thumbnails that stays at the top of the panel while the review
+ * scrolls under it: how many variations there are, which is on screen, which
+ * is picked, which have notes, and a click to jump to any of them.
+ */
+function Filmstrip({
+  item,
+  imageUrl,
+  active,
+  pick,
+  notes,
+  onJump,
+}: {
+  item: Item;
+  imageUrl: (index: number) => string | null | undefined;
+  active: number;
+  pick: number | null;
+  notes: string[];
+  onJump: (index: number) => void;
+}) {
+  return (
+    <nav
+      aria-label="Variations"
+      className="sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto border-b border-border bg-card/95 px-4 py-2 backdrop-blur"
+    >
+      {item.variations.map((variation, index) => {
+        const url = imageUrl(index);
+        return (
+          <button
+            key={`${index}:${variation.label}`}
+            type="button"
+            onClick={() => onJump(index)}
+            aria-current={active === index ? "true" : undefined}
+            title={variation.label}
+            className={cn(
+              "relative flex w-16 shrink-0 flex-col items-center gap-1 rounded-md p-1 text-[11px]",
+              active === index ? "bg-state-active text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "block h-10 w-full overflow-hidden rounded border bg-muted",
+                pick === index ? "border-foreground ring-1 ring-foreground" : "border-border",
+              )}
+            >
+              {url ? <img src={url} alt="" className="h-full w-full object-cover object-left-top" /> : null}
+            </span>
+            <span className="max-w-full truncate">
+              {pick === index ? "✓ " : ""}
+              {shortLabel(variation.label)}
+            </span>
+            {notes[index]?.trim() ? (
+              <span className="absolute right-1 top-1 size-1.5 rounded-full bg-foreground" aria-label="Has a note" />
+            ) : null}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function ReviewPanel({ item, record, imageUrl, busy, onSubmit, initial }: ReviewPanelProps) {
   const sent = record?.state === "done" ? record.result?.feedback : undefined;
   const start = sent ?? record?.result?.feedback ?? initial;
@@ -47,13 +114,53 @@ export function ReviewPanel({ item, record, imageUrl, busy, onSubmit, initial }:
   const locked = sent !== undefined || record?.state === "dismissed";
   const feedback: Feedback = { pick, notes, overall };
   const zoomedVariation = zoomed === null ? undefined : item.variations[zoomed];
+  const sections = useRef<Array<HTMLElement | null>>([]);
+  const [active, setActive] = useState(0);
+  // A jump keeps its target highlighted while the scroll settles; the last
+  // variation may never reach the band, because the panel runs out of room.
+  const jumpedAt = useRef(0);
+
+  // The variation on screen is the topmost one whose section crosses the band
+  // just under the filmstrip.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const visible = new Set<number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const index = Number((entry.target as HTMLElement).dataset.index);
+          if (entry.isIntersecting) visible.add(index);
+          else visible.delete(index);
+        }
+        if (visible.size > 0 && Date.now() - jumpedAt.current > 1_000) setActive(Math.min(...visible));
+      },
+      { rootMargin: "-90px 0px -55% 0px" },
+    );
+    for (const section of sections.current) if (section) observer.observe(section);
+    return () => observer.disconnect();
+  }, [item.variations.length]);
+
+  const jump = (index: number) => {
+    jumpedAt.current = Date.now();
+    setActive(index);
+    const section = sections.current[index];
+    if (!section) return;
+    // Leave room for the filmstrip, which covers the top of the panel.
+    section.style.scrollMarginTop = "88px";
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="mt-3 flex flex-col gap-4">
+      <Filmstrip item={item} imageUrl={imageUrl} active={active} pick={pick} notes={notes} onJump={jump} />
       {item.variations.map((variation, index) => {
         const picked = pick === index;
         return (
           <section
+            ref={(element) => {
+              sections.current[index] = element;
+            }}
+            data-index={index}
             key={`${index}:${variation.label}`}
             aria-label={variation.label}
             className={cn("rounded-lg border p-3", picked ? "border-foreground/60 bg-state-active" : "border-border")}
