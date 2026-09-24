@@ -57,3 +57,9 @@ describe("parseCommand", () => {
     }
   });
 });
+
+describe("parseCommand last-used", () => {
+  it("asks when the stub was last called", () => {
+    expect(parseCommand(["last-used"])).toEqual({ kind: "last-used" });
+  });
+});

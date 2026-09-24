@@ -12,6 +12,7 @@ export type TodoCommand =
   | { kind: "list" }
   | { kind: "add"; texts: string[] }
   | { kind: "status"; refs: string[]; status: "open" | "done" }
+  | { kind: "last-used" }
   | { kind: "help" }
   | { kind: "error"; message: string };
 
@@ -21,6 +22,9 @@ const USAGE = [
   '  bb todo add "step" ["step"]  Append one or more steps',
   '  bb todo done "step or id"    Mark items done',
   '  bb todo reopen "step or id"  Mark items open again',
+  "  bb todo last-used            When a thread last called bb todo",
+  "",
+  "Thread Todos now forwards to Thread Overview. New threads use bb overview.",
   "",
   "Items are matched by id or by their own text. The list is append-only:",
   "a superseded step is completed, not deleted.",
@@ -41,6 +45,8 @@ export function parseCommand(argv: readonly string[]): TodoCommand {
   switch (verb) {
     case "list":
       return { kind: "list" };
+    case "last-used":
+      return { kind: "last-used" };
     case "help":
     case "--help":
     case "-h":
