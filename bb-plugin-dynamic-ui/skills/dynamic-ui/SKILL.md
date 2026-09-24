@@ -98,6 +98,7 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 ```
 
 - The first variation is always the original, as it is now. Then 1 to 5 alternatives, labelled with a letter and a few words.
+- Each variation is a different design, because the user picks one of them. To show one design in several states (another tab selected, a filter on, a menu open), put the states side by side in that design's one image, and say in its description what each shows. Never make the states separate variations: "C. Widgets tab", "C. Gadgets tab", and "C. Gadgets, filtered" ask the user to pick between screens of the same thing. A round with one direction left is the original and that direction, two variations.
 - Take every image the same way: the same story or screen, the same data, width, and crop, so only the design differs. Build each alternative as a story or behind a flag and screenshot it; do not draw mockups by hand. PNG, JPEG, WebP, or GIF, up to 8 MB each.
 - Capture the element itself (Playwright's `locator.screenshot()`) rather than cropping a full-page capture afterwards. If you must crop, use `magick in.png -crop <w>x<h>+0+0 +repage out.png`, not `sips`: `sips -c` crops around the centre, and its `--cropOffset` does not pin the crop to the top-left, so the left and top edges are lost. Read each image back before publishing to check nothing is cut off.
 - `publish` copies the images, so moving or deleting the files afterwards is fine.

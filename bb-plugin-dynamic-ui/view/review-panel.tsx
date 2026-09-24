@@ -44,6 +44,20 @@ export function shortLabel(label: string): string {
 }
 
 /**
+ * The filmstrip's labels: each one short, unless that would name two
+ * variations the same. "C. Widgets tab" and "C. Gadgets tab" both shorten to "C",
+ * so those show "Widgets tab" and "Gadgets tab" instead.
+ */
+export function filmstripLabels(labels: string[]): string[] {
+  const short = labels.map(shortLabel);
+  return labels.map((label, index) =>
+    short.filter((other) => other === short[index]).length === 1
+      ? short[index]!
+      : label.replace(/^[A-Za-z0-9]{1,3}[.):]\s+/, ""),
+  );
+}
+
+/**
  * A strip of thumbnails that stays at the top of the panel: how many
  * variations there are, which is showing, which is picked, which have notes,
  * and a click to show any of them.
@@ -63,6 +77,7 @@ function Filmstrip({
   notes: string[];
   onJump: (index: number) => void;
 }) {
+  const labels = filmstripLabels(item.variations.map((variation) => variation.label));
   return (
     <nav
       aria-label="Variations"
@@ -93,7 +108,7 @@ function Filmstrip({
             </span>
             <span className="max-w-full truncate">
               {pick === index ? "✓ " : ""}
-              {shortLabel(variation.label)}
+              {labels[index]}
             </span>
             {notes[index]?.trim() ? (
               <span className="absolute right-1 top-1 size-1.5 rounded-full bg-foreground" aria-label="Has a note" />

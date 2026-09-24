@@ -9,7 +9,7 @@ import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
-import { shortLabel } from "./review-panel.js";
+import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { firstOpenItem } from "./view-panel.js";
 
 function store() {
@@ -240,6 +240,8 @@ describe("visual review", () => {
     expect(shortLabel("B) Dates right")).toBe("B");
     expect(shortLabel("Original")).toBe("Original");
     expect(shortLabel("Compact rows")).toBe("Compact");
+    // Two that would both read "C" keep the words after the letter.
+    expect(filmstripLabels(["Original", "C. Widgets tab", "C. Gadgets tab", "D. Tabs"])).toEqual(["Original", "Widgets tab", "Gadgets tab", "D"]);
   });
 
   it("knows which files the panel can show", () => {
