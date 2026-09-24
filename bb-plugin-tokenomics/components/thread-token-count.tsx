@@ -34,6 +34,7 @@ function Spark({
   width,
   height,
   gap,
+  maxSlot = Infinity,
   active,
   onHover,
 }: {
@@ -41,12 +42,15 @@ function Spark({
   width: number;
   height: number;
   gap: number;
+  /** The widest a turn's slot gets; fewer turns than fill the width sit at the right, newest last. */
+  maxSlot?: number;
   active?: number | null;
   onHover?: (index: number | null) => void;
 }) {
   const most = Math.max(1, ...turns.map(totalOf));
-  const slot = turns.length === 0 ? 0 : width / turns.length;
+  const slot = turns.length === 0 ? 0 : Math.min(maxSlot, width / turns.length);
   const barWidth = Math.max(1, slot - gap);
+  const offset = width - slot * turns.length;
   return (
     <svg width={width} height={height} aria-hidden className="shrink-0" onMouseLeave={() => onHover?.(null)}>
       {turns.map((turn, index) => {
@@ -55,7 +59,7 @@ function Spark({
         return (
           <g key={`${turn.at}-${index}`}>
             <rect
-              x={index * slot}
+              x={offset + index * slot}
               y={height - barHeight}
               width={barWidth}
               height={barHeight}
@@ -65,7 +69,7 @@ function Spark({
             />
             {onHover === undefined ? null : (
               <rect
-                x={index * slot}
+                x={offset + index * slot}
                 y={0}
                 width={slot}
                 height={height}
@@ -159,7 +163,7 @@ export function ThreadTokenSummary({ usage, onOpenPage }: { usage: ThreadTokens;
             ) : null}
           </p>
           <div className="text-foreground/70">
-            <Spark turns={usage.recent} width={336} height={56} gap={usage.recent.length > 80 ? 0.5 : 2} active={hovered} onHover={setHovered} />
+            <Spark turns={usage.recent} width={336} height={56} gap={usage.recent.length > 80 ? 0.5 : 2} maxSlot={24} active={hovered} onHover={setHovered} />
           </div>
           {shown === undefined ? null : (
             <p className="flex text-xs">
@@ -205,7 +209,7 @@ export function ThreadTokenCount({
         >
           {isCompactViewport ? null : (
             <span className="text-muted-foreground">
-              <Spark turns={usage.recent.slice(-SPARK_TURNS)} width={40} height={14} gap={1} />
+              <Spark turns={usage.recent.slice(-SPARK_TURNS)} width={40} height={14} gap={1} maxSlot={4} />
             </span>
           )}
           <span>{formatTokens(usage.total)}</span>
