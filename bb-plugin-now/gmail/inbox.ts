@@ -14,7 +14,7 @@ import {
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
 import { CALENDAR_HEADER, eventIdFromBody, notificationKind } from "../calendar/invite.js";
-import { APP_NAMES, DOCS_SENDER, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
+import { APP_NAMES, DOCS_SENDER, documentUrl, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
 import type { Item } from "../now/types.js";
 import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
 
@@ -140,6 +140,7 @@ function docsItem(threads: readonly Raw[]): Item {
     doc: {
       app: latest.email.app,
       documentId: latest.email.documentId,
+      url: documentUrl(latest.email.app, latest.email.documentId),
       mentioned: found.some(({ email }) => email.mentioned),
       quotes: posts.map((post) => ({ author: post.author, text: postLine(post) })),
     },

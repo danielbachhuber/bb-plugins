@@ -182,8 +182,9 @@ gathered the same way into one row per Google Docs, Slides, or Sheets file.
 Their headers say little, so these threads, and only these, are read again
 with their bodies, whose HTML has a fixed layout: a headline, the document,
 and each discussion's posts with the author and a "New" badge. The row's
-title is the document's, its link opens the newest discussion, and its
-description is the latest headline and what is new: "Octocat mentioned you in
+title is the document's, its link opens the newest discussion, **Open in
+Google Docs** (or Slides, or Sheets) in its details line opens the document
+itself, and its description is the latest headline and what is new: "Octocat mentioned you in
 a comment · 2 new comments from Octocat, Hubber · 1 resolved". Below that it
 quotes each new comment, from the unread emails, or from the latest one once
 they are all read, with an action in words ("resolved the comment"). A

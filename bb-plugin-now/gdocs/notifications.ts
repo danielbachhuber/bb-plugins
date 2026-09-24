@@ -48,6 +48,12 @@ const APPS: Record<string, DocsApp> = { document: "docs", presentation: "slides"
 
 export const APP_NAMES: Record<DocsApp, string> = { docs: "Google Docs", slides: "Google Slides", sheets: "Google Sheets" };
 
+/** The document itself, without the email's tracking parameters or a discussion to jump to. */
+export function documentUrl(app: DocsApp, documentId: string): string {
+  const path = app === "docs" ? "document" : app === "slides" ? "presentation" : "spreadsheets";
+  return `https://docs.google.com/${path}/d/${documentId}/edit`;
+}
+
 /**
  * Markup to plain text: tags dropped (a block's edge becomes a space, an inline
  * tag nothing, so "@<a>octocat</a>" stays "@octocat"), entities decoded, and

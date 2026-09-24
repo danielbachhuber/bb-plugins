@@ -138,6 +138,7 @@ describe("inboxItems", () => {
       doc: {
         app: "slides",
         documentId: "deck42",
+        url: "https://docs.google.com/presentation/d/deck42/edit",
         mentioned: false,
         quotes: [
           { author: "Octocat", text: "Can we move this to Q1?" },

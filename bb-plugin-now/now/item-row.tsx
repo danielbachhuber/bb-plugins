@@ -506,6 +506,15 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
+            {item.doc?.url == null ? null : (
+              <UrlLink
+                href={item.doc.url}
+                className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground"
+              >
+                <Icon name="ExternalLink" className="size-3" />
+                Open in {item.context ?? "Google Docs"}
+              </UrlLink>
+            )}
             {actions === undefined || item.github === null ? null : (
               <LineAction
                 label="Reply"

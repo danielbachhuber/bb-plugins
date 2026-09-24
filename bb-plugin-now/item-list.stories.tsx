@@ -214,6 +214,7 @@ const docComments: Item = {
   doc: {
     app: "slides",
     documentId: "deck42",
+    url: "https://docs.google.com/presentation/d/deck42/edit",
     mentioned: true,
     quotes: [
       { author: "Hubber", text: "Should gadgets move to Q1? The supplier slipped again." },

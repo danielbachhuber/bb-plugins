@@ -50,6 +50,8 @@ export type GitHubPart = z.infer<typeof githubPartSchema>;
 export const docPartSchema = z.object({
   app: z.enum(["docs", "slides", "sheets"]),
   documentId: z.string(),
+  /** The document itself; the row's own link opens its newest discussion. */
+  url: z.string().optional(),
   /** Whether any of the emails mentioned you or assigned you something. */
   mentioned: z.boolean(),
   /** The new comments, oldest first: from the unread emails, or the latest one when all are read. */
