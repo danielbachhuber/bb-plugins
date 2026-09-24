@@ -61,12 +61,17 @@ export function Picked() {
   return <Panel focusItemId="issue-101" />;
 }
 
+/** The draft as source, after Raw is picked or its preview double-clicked. */
+export function EditingDraft() {
+  return <Panel focusItemId="issue-101" draftMode="raw" />;
+}
+
 /** A command button asks before it runs, showing the command. */
 export function ConfirmCommand() {
   return <Panel focusItemId="issue-101" confirming="issue-101:2" />;
 }
 
-/** After a command ran: its output on the entry. */
+/** After a command ran: its output on the entry, and the draft as a preview only. */
 export function AfterCommand() {
   return <Panel stored={worked} focusItemId="issue-101" />;
 }

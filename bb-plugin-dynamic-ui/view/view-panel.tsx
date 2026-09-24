@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
+import { DraftEditor } from "./draft-editor.js";
 
 export interface ViewPanelProps {
   stored: StoredView;
@@ -19,6 +20,8 @@ export interface ViewPanelProps {
   confirming?: string;
   /** The item picked in the list above the composer. None picked shows a prompt to pick one. */
   focusItemId?: string | null;
+  /** Whether the draft starts rendered or as source. Preview unless a story says otherwise. */
+  draftMode?: "preview" | "raw";
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -99,6 +102,7 @@ function ItemCard({
   busy,
   initiallyExpanded,
   initiallyConfirming,
+  initialDraftMode,
   onRun,
   onDismiss,
   onGo,
@@ -108,6 +112,7 @@ function ItemCard({
   busy: boolean;
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
+  initialDraftMode?: "preview" | "raw";
   onRun: (index: number, draft?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
@@ -176,27 +181,14 @@ function ItemCard({
       {record === undefined ? null : <Result record={record} onGo={onGo} />}
 
       {/* One box for the item's draft: every button that says {draft} sends it as left here. */}
-      {item.draft === "" || state !== "open" ? null : (
-        <div className="mt-3">
-          <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
-            <span>
-              {item.draftLabel}
-              {draftChanged ? " · edited" : ""}
-            </span>
-            {draftChanged ? (
-              <button type="button" className="hover:text-foreground hover:underline" onClick={() => setDraft(item.draft)}>
-                Reset
-              </button>
-            ) : null}
-          </div>
-          <textarea
-            aria-label={item.draftLabel}
-            className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            rows={Math.min(16, Math.max(4, draft.split("\n").length + Math.ceil(draft.length / 90)))}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-        </div>
+      {item.draft === "" ? null : (
+        <DraftEditor
+          label={item.draftLabel}
+          value={state === "open" ? draft : item.draft}
+          original={item.draft}
+          onChange={state === "open" ? setDraft : undefined}
+          initialMode={initialDraftMode}
+        />
       )}
 
       {pending !== undefined && pending !== null && pending.type === "command" ? (
@@ -241,7 +233,7 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId }: ViewPanelProps) {
+export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const focused = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
@@ -273,6 +265,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             busy={busyItem === focused.id}
             initiallyExpanded
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
+            initialDraftMode={draftMode}
             onRun={(index, draft) => onRun(focused, index, draft)}
             onDismiss={(dismissed) => onDismiss(focused, dismissed)}
             onGo={onGoToThread}

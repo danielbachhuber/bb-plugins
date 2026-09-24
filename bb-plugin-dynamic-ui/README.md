@@ -33,7 +33,7 @@ up to six buttons:
 | `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output; a command button in the list above the composer opens the item to ask. A failed command leaves the item open. |
 | `link` | Opens a URL. |
 
-An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, in a box the user can edit, and every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Those buttons open the item from the list above the composer instead of sending. Commands cannot use `{draft}`, so edited text never reaches a shell.
+An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Those buttons open the item from the list above the composer instead of sending. Commands cannot use `{draft}`, so edited text never reaches a shell.
 
 With no entry picked, the side panel says to click one; the list itself lives above the composer.
 
@@ -78,7 +78,7 @@ this checkout.
 |---|---|
 | `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
 | `app.tsx` | The list above the composer and the side-panel tab it opens |
-| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, and the item the panel shows |
+| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, and its draft editor |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/dynamic-ui/` | How an agent publishes a view |
 
