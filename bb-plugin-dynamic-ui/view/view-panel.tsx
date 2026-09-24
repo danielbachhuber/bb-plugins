@@ -72,6 +72,7 @@ function ActionButton({
   action,
   openedThread,
   busy,
+  used,
   onRun,
   onConfirm,
   onGo,
@@ -80,6 +81,8 @@ function ActionButton({
   /** The thread this action already opened, so a second click does not open another. */
   openedThread: string | null;
   busy: boolean;
+  /** An action on this item already went through, so the rest are spent. */
+  used: boolean;
   onRun: () => void;
   onConfirm: () => void;
   onGo: (id: string) => void;
@@ -100,7 +103,7 @@ function ActionButton({
     );
   }
   return (
-    <Button size="sm" variant={variant} disabled={busy} onClick={action.type === "command" ? onConfirm : onRun}>
+    <Button size="sm" variant={variant} disabled={busy || used} onClick={action.type === "command" ? onConfirm : onRun}>
       {action.label}
     </Button>
   );
@@ -231,6 +234,7 @@ function ItemCard({
                 action.type === "thread" && record?.result?.label === action.label ? (record.result.threadId ?? null) : null
               }
               busy={busy}
+              used={state === "done"}
               onRun={() => run(index)}
               onConfirm={() => setConfirming(index)}
               onGo={onGo}

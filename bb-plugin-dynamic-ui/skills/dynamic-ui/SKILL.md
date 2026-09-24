@@ -74,7 +74,7 @@ After publishing, say in chat how many items there are and that they are above t
 | `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. Use it for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
 
-Every card also has Dismiss. Buttons stay available after one is used, so a card can offer "Post comment" and then "Close issue".
+Every card also has Dismiss. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post and keep open" as alternatives, not "Post comment" then "Close issue" as steps. A command that fails leaves the card open to try again.
 
 ## Read back what the user did
 

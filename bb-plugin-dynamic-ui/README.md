@@ -37,7 +37,7 @@ An item can carry a `draft`, such as a comment to post or a new thread's task. T
 
 The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
-Every card can be dismissed and restored. The agent reads back what the user
+Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. Every card can be dismissed and restored. The agent reads back what the user
 did with `bb dynamic-ui state`.
 
 The view file's shape, and when a skill should use it, are in
