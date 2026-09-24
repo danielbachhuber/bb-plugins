@@ -30,10 +30,12 @@ export const githubPartSchema = z.object({
   /** Why GitHub notified you, from the latest email: `review_requested`, `mention`, `author`, … */
   reason: z.string().nullable(),
   /**
-   * Whose review the emails asked for: yours, or only others' (a team you are
-   * in, or someone else). Null when no email asked for a review.
+   * Whose review the emails asked for: yours; a team's you are in that is
+   * still waiting on one of its members, so yours to pick up; or only
+   * others', because the team has been reviewed for or someone else was
+   * asked. Null when no email asked for a review.
    */
-  reviewRequested: z.enum(["you", "others"]).nullable().optional(),
+  reviewRequested: z.enum(["you", "team", "others"]).nullable().optional(),
   /** The most recent thing someone wrote, from its email's snippet, so it may be cut short. */
   comment: z.object({ author: z.string().nullable(), text: z.string() }).nullable().default(null),
   /**

@@ -54,21 +54,25 @@ describe("inboxItems", () => {
 
   test("counts unread messages and tells a review asked of you from one asked of a team", () => {
     const unread = (item: ReturnType<typeof notification>) => ({ ...item, labelIds: ["UNREAD", "INBOX"] });
-    const team = inboxItems(
-      [
-        {
-          id: "t1",
-          messages: [
-            notification(T, "@octocat requested review from @acme/reviewers on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" }),
-            notification(T + 1000, "@hubber approved this pull request.", "hubber", { "X-GitHub-Reason": "review_requested" }),
-            unread(notification(T + 2000, "hubber left a comment (acme/widgets#128) Merging soon", "hubber", { "X-GitHub-Reason": "review_requested" })),
-          ],
-        },
-      ],
-      null,
-    )[0];
+    const teamThreads = [
+      {
+        id: "t1",
+        messages: [
+          notification(T, "@octocat requested review from @acme/reviewers on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" }),
+          notification(T + 1000, "@hubber approved this pull request.", "hubber", { "X-GitHub-Reason": "review_requested" }),
+          unread(notification(T + 2000, "hubber left a comment (acme/widgets#128) Merging soon", "hubber", { "X-GitHub-Reason": "review_requested" })),
+        ],
+      },
+    ];
+    const withPending = (pendingReviewers: string[]) =>
+      new Map([["acme/widgets#128", { state: "open" as const, review: null, pendingReviewers }]]);
+    const team = inboxItems(teamThreads, null, withPending([]))[0];
     expect(team?.gmail).toMatchObject({ unread: true, messages: 3, unreadMessages: 1 });
+    // The team is no longer pending: someone in it reviewed.
     expect(team?.github?.reviewRequested).toBe("others");
+    // Still pending on the team, so yours to pick up; and without GitHub's answer, assumed so.
+    expect(inboxItems(teamThreads, null, withPending(["Acme/Reviewers"]))[0]?.github?.reviewRequested).toBe("team");
+    expect(inboxItems(teamThreads, null)[0]?.github?.reviewRequested).toBe("team");
     expect(team?.github?.unreadQuotes).toEqual([{ author: "hubber", text: "Merging soon" }]);
 
     const allNew = inboxItems(

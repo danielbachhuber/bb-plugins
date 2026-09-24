@@ -148,6 +148,9 @@ function GitHubState({ github }: { github: GitHubPart }) {
       {reviewIsYours(github) && !settled ? (
         <Chip className={GITHUB_REVIEW.requested}>Review requested</Chip>
       ) : null}
+      {github.reviewRequested === "team" && !settled ? (
+        <Chip className={GITHUB_REVIEW.requested}>Team review requested</Chip>
+      ) : null}
       {github.review === "changes_requested" ? <Chip className={GITHUB_REVIEW.changes}>Changes requested</Chip> : null}
       {github.review === "approved" ? <Chip className={GITHUB_REVIEW.approved}>Approved</Chip> : null}
       {state === null ? null : (

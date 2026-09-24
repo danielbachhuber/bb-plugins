@@ -94,6 +94,11 @@ const notifications: Item[] = [
     unreadQuotes: [{ author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." }],
     comment: { author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." },
   }),
+  pull(139, "Split the gadget cache by region", "1 comment from github-actions[bot] · review requested of acme/reviewers by octocat", new Date(2026, 8, 23, 17, 20), {
+    reason: "review_requested",
+    review: "review_required",
+    reviewRequested: "team",
+  }),
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
     state: "merged",
     reason: "review_requested",

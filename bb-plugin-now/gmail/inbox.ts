@@ -151,6 +151,23 @@ function time(message: Raw): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+/**
+ * Whose review the requests asked for. A team's request is yours to pick up
+ * while GitHub still lists the team as pending; once a member has reviewed,
+ * or when GitHub could not be asked about a closed one, it is others'.
+ * Without an answer from GitHub, a team's request stays yours, since
+ * suggesting Archive on a review you owe is the worse mistake.
+ */
+function whoseReview(requests: readonly GitHubEvent[], pending: readonly string[] | undefined): "you" | "team" | "others" | null {
+  if (requests.length === 0) return null;
+  if (requests.some((event) => event.requestedOf === "you")) return "you";
+  const teams = requests.flatMap((event) => (event.requestedOf?.includes("/") ? [event.requestedOf.toLowerCase()] : []));
+  if (teams.length === 0) return "others";
+  if (pending === undefined) return "team";
+  const waiting = new Set(pending.map((name) => name.toLowerCase()));
+  return teams.some((team) => waiting.has(team)) ? "team" : "others";
+}
+
 /** Every thread about one pull request or issue, as its one row. */
 function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState | null): Item {
   const messages = threads.flatMap(messagesOf).sort((a, b) => time(a) - time(b));
@@ -179,8 +196,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
   });
 
   const requests = events.filter((event) => event.type === "review_requested");
-  const reviewRequested =
-    requests.length === 0 ? null : requests.some((event) => event.requestedOf === "you") ? "you" : "others";
+  const reviewRequested = whoseReview(requests, state?.pendingReviewers);
   const latestTime = latest === undefined ? 0 : time(latest);
   const known = state ?? stateFromHeader(latest === undefined ? null : header(latest, "X-GitHub-PullRequestStatus"));
 

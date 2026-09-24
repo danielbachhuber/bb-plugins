@@ -45,8 +45,9 @@ good sync, with a note saying how many.
   out of the Gmail inbox and the row off the page. On a GitHub row whose pull
   request has merged or closed, or whose issue has closed, it is tinted purple
   and says so, to suggest it. It does the same, saying "not your review", on
-  a pull request you are notified about only because a team you are in, or
-  someone else, was asked to review it.
+  a pull request you are notified about only because someone else was asked
+  to review it, or a team you are in was and one of its members has since
+  reviewed.
 - **Yes, No, Maybe** (under a calendar invitation's snippet, after "Going?")
   replies to the event in Google Calendar as you, the way the same links in
   the email do. Your current reply is the one marked, read from Calendar on
@@ -156,9 +157,12 @@ summarizes the notifications from their fixed phrasings: "3 comments from
 octocat, hubber · review requested by octocat · approved by hubber · merged".
 A review asked of a team or of someone else says whose ("review requested of
 acme/reviewers by octocat"), since GitHub notifies you of a request of your
-team with the same reason as a request of you. Beside the title it shows what
-the pull request is waiting on (review requested of you, changes requested,
-approved) and its state in GitHub's own colors:
+team with the same reason as a request of you. A team's request stays yours
+to pick up, labelled **Team review requested**, while `gh` still lists the
+team among the pull request's pending reviewers; GitHub drops the team once
+one of its members reviews, and then the row suggests Archive. Beside the
+title it shows what the pull request is waiting on (review requested of you,
+changes requested, approved) and its state in GitHub's own colors:
 open, draft, merged, or closed, and for an issue, closed as completed or as not
 planned.
 

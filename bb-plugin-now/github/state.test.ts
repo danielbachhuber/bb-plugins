@@ -39,6 +39,31 @@ describe("parseStateResponse", () => {
     expect(states.get("acme/gadgets#42")).toEqual({ state: "closed", review: null, closedAs: "completed" });
   });
 
+  test("reads whose review is still pending, teams by their org/team slug", () => {
+    const states = parseStateResponse(
+      {
+        data: {
+          r0: {
+            issueOrPullRequest: {
+              __typename: "PullRequest",
+              state: "OPEN",
+              isDraft: false,
+              reviewDecision: "REVIEW_REQUIRED",
+              reviewRequests: {
+                nodes: [
+                  { requestedReviewer: { __typename: "Team", combinedSlug: "acme/reviewers" } },
+                  { requestedReviewer: { __typename: "User", login: "hubber" } },
+                ],
+              },
+            },
+          },
+        },
+      },
+      aliases,
+    );
+    expect(states.get("acme/widgets#128")?.pendingReviewers).toEqual(["acme/reviewers", "hubber"]);
+  });
+
   test("drops the review decision once a pull request has merged", () => {
     const states = parseStateResponse(
       { data: { r0: { issueOrPullRequest: { __typename: "PullRequest", state: "MERGED", isDraft: false, reviewDecision: "APPROVED" } } } },

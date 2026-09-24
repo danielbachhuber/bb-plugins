@@ -12,6 +12,12 @@ export interface GitHubState {
   review: ReviewDecision | null;
   /** Closed issues only. */
   closedAs?: "completed" | "not_planned" | null;
+  /**
+   * Whose review is still pending on an open pull request: logins and
+   * `org/team` slugs. GitHub drops a team once one of its members reviews.
+   * Undefined when it was not asked.
+   */
+  pendingReviewers?: string[];
 }
 
 /** GitHub logins and repository names: letters, digits, `-`, `_`, `.`. */
@@ -34,7 +40,9 @@ export function buildStateQuery(refs: readonly GitHubRef[]): { query: string; al
     aliases.set(alias, ref);
     fields.push(
       `${alias}: repository(owner: "${owner}", name: "${name}") { issueOrPullRequest(number: ${ref.number}) { ` +
-        `__typename ... on PullRequest { state isDraft reviewDecision } ... on Issue { state stateReason } } }`,
+        `__typename ... on PullRequest { state isDraft reviewDecision ` +
+        `reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on Team { combinedSlug } ... on User { login } } } } } ` +
+        `... on Issue { state stateReason } } }`,
     );
   });
 
@@ -68,7 +76,16 @@ export function parseStateResponse(body: unknown, aliases: ReadonlyMap<string, G
     else state = "open";
 
     const pull = node.__typename === "PullRequest";
+    const requests = (node.reviewRequests as { nodes?: unknown } | undefined)?.nodes;
+    const pendingReviewers = Array.isArray(requests)
+      ? requests.flatMap((request) => {
+          const reviewer = (request as { requestedReviewer?: { combinedSlug?: unknown; login?: unknown } } | null)?.requestedReviewer;
+          const name = reviewer?.combinedSlug ?? reviewer?.login;
+          return typeof name === "string" ? [name] : [];
+        })
+      : undefined;
     states.set(`${ref.repo}#${ref.number}`, {
+      ...(pull && pendingReviewers !== undefined ? { pendingReviewers } : {}),
       state,
       review: pull && state !== "merged" && state !== "closed" ? review(node.reviewDecision) : null,
       closedAs:
