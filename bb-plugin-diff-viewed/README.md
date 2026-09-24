@@ -39,6 +39,14 @@ bb plugin install git:https://github.com/danielbachhuber/bb-plugins.git@^0.1.0 \
 
 Needs bb 0.41 or later. No account, external service, or separate install.
 
+## Related plugins
+
+- **Guided Review** (`guided-review`) also tracks viewed files, inside its own
+  reading guide for a GitHub pull request or a local Git range. Diff Viewed
+  puts the mark on bb's own changes panel for the thread you are in, needs no
+  GitHub sign-in or agent provider, and clears a mark when that file's diff
+  changes.
+
 ## How it works
 
 bb owns the diff card header. `experimental_diffRenderer` replaces a diff's

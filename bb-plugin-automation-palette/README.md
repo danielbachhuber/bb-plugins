@@ -77,6 +77,15 @@ started run logs to the browser console, and the run itself shows up where
 every other run does, on the Automations page and in
 `bb automation runs <id> --project <id>`.
 
+## Related plugins
+
+- **Automations** (bundled with bb) owns the automations this plugin lists. Its
+  panel creates, edits, and runs them. Automation Palette adds only the palette
+  rows, so a run is a few keystrokes from whichever window you are in.
+- **Autopilots** (`automation-groups`) sorts automations into folders on its own
+  page, and pauses, resumes, or runs a folder together. Automation Palette has
+  no page or groups: one row per automation, in the palette you already use.
+
 ## Layout
 
 | Path | What it holds |

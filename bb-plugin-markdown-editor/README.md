@@ -94,10 +94,6 @@ bb picks one opener per extension under **Settings → Files**, and the tab's
 **Open with** menu overrides that for a single open. Pin this plugin for `md`
 to get it by default; bb's read-only preview stays available in the same menu.
 
-bb also ships a disabled builtin **File Editor** plugin that puts Monaco behind
-every code extension. It has no markdown preview, and enabling both means
-choosing between them per extension.
-
 ## Limits
 
 - UTF-8 text only, up to 2 MB. A binary renamed to `.md` is refused rather
@@ -116,6 +112,22 @@ choosing between them per extension.
   thread-storage file opened in a thread. A host file, or a project file opened
   outside any thread, resolves relative links from the workspace root the way
   a chat message does.
+
+## Related plugins
+
+- **Docs** (bundled with bb) edits documents as rich text, and is built around
+  vaults of notes and changes an agent proposes for you to accept or reject.
+  Markdown Editor edits the source in a plain pane, previews it with the
+  renderer bb uses for chat messages, and saves only when you ask it to.
+- **File Editor** (bundled with bb, off by default) puts Monaco behind every
+  code extension. It has no markdown preview, and enabling both means choosing
+  between them per extension.
+- **Markdown PRO** (`md-editor`) edits markdown as a formatted document with a
+  style toolbar, and renders Mermaid diagrams, LaTeX, and callouts. Markdown
+  Editor is smaller: the source and a preview, explicit saves, and a pencil on
+  markdown files in the changes panel.
+- **Obsidian at Home** (`wikilinks`) is for linked notes, with wikilinks and
+  backlinks. Markdown Editor has neither, and treats each file on its own.
 
 ## Layout
 
