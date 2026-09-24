@@ -103,6 +103,8 @@ export const itemSchema = z.object({
   /** Stable across republishing, so a decision on the item survives it. */
   id: itemId,
   title: z.string().trim().min(1).max(300),
+  /** What the item is about on the web (an issue, a PR, a review comment); the opened item's title links to it. */
+  url: z.string().trim().url().optional(),
   badges: z.array(badgeSchema).max(8).default([]),
   /** Always shown. */
   summary: markdown.default(""),

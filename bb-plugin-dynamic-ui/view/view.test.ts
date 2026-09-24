@@ -51,6 +51,14 @@ describe("parseView", () => {
   });
 });
 
+describe("item url", () => {
+  it("takes a web address and rejects anything else", () => {
+    const view = (url: string) => JSON.stringify({ title: "t", sections: [{ items: [{ id: "a", title: "A", url }] }] });
+    expect(parseView(view("https://github.com/acme/widgets/pull/412#discussion_r1")).sections[0]!.items[0]!.url).toContain("discussion_r1");
+    expect(() => parseView(view("not a url"))).toThrow(/url/);
+  });
+});
+
 describe("store", () => {
   it("replaces a view published again under the same key, keeping item decisions", () => {
     const s = store();

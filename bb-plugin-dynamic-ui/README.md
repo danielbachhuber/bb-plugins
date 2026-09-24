@@ -24,7 +24,7 @@ with the same key replaces the view and keeps what the user already did to
 each item.
 
 A view is a title, a markdown summary, and cards grouped into sections. A card
-has a title, badges, a markdown summary, markdown details behind a toggle, and
+has a title (linked, when the card names a `url` such as the issue or comment it is about), badges, a markdown summary, markdown details behind a toggle, and
 up to six buttons:
 
 | Button | What it does |

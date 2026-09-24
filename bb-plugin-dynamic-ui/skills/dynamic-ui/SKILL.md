@@ -42,6 +42,7 @@ After publishing, say in chat how many items there are and that they are above t
         {
           "id": "issue-101",
           "title": "#101 Export widgets as CSV",
+          "url": "https://github.com/acme/widgets/issues/101",
           "badges": [{ "label": "Done", "tone": "success" }],
           "summary": "Markdown, always shown.",
           "details": "Markdown behind a Details toggle.",
@@ -62,6 +63,7 @@ After publishing, say in chat how many items there are and that they are above t
 ```
 
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
+- `url` is what the item is about on the web (the issue, the PR, the review comment's `html_url`). The opened item's title links to it, so set it whenever there is one; a separate `link` button for the same page is then unnecessary.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
 - `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons (post and close, post and keep open) share one draft, and each sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.

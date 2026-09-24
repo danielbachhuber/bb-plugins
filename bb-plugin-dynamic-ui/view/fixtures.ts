@@ -11,6 +11,7 @@ export const triageView: View = viewSchema.parse({
         {
           id: "issue-101",
           title: "#101 Export widgets as CSV",
+          url: "https://github.com/acme/widgets/issues/101",
           badges: [
             { label: "Done", tone: "success" },
             { label: "enhancement", tone: "neutral" },
@@ -34,6 +35,7 @@ export const triageView: View = viewSchema.parse({
         {
           id: "issue-117",
           title: "#117 Gadget sync drops the last row",
+          url: "https://github.com/acme/widgets/issues/117",
           badges: [
             { label: "Still needed", tone: "warning" },
             { label: "bug", tone: "danger" },
@@ -158,6 +160,7 @@ export const dependabotView: View = viewSchema.parse({
         {
           id: "pr-412",
           title: "#412 prettier 3.6.1 → 3.6.2",
+          url: "https://github.com/acme/widgets/pull/412",
           badges: [
             { label: "Safe to merge", tone: "success" },
             { label: "dev-only", tone: "neutral" },
@@ -196,6 +199,7 @@ export const dependabotConflictView: View = viewSchema.parse({
         {
           id: "pr-418",
           title: "#418 date-fns 4.1.0 → 4.2.0",
+          url: "https://github.com/acme/widgets/pull/418",
           badges: [
             { label: "Needs a look", tone: "warning" },
             { label: "runtime", tone: "neutral" },

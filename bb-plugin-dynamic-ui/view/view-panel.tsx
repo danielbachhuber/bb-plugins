@@ -184,7 +184,16 @@ function ItemCard({
     <li className={cn("rounded-lg border border-border bg-card px-4 py-3", state === "dismissed" && "opacity-60")}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-foreground">{item.title}</div>
+          <div className="text-sm font-medium text-foreground">
+            {item.url === undefined ? (
+              item.title
+            ) : (
+              <UrlLink href={item.url} className="hover:underline" title={item.url}>
+                {item.title}
+                <span aria-hidden className="ml-1 text-xs text-muted-foreground">↗</span>
+              </UrlLink>
+            )}
+          </div>
           {item.badges.length === 0 && state !== "dismissed" ? null : (
             <div className="mt-1 flex flex-wrap gap-1.5">
               {/* A done item shows what happened in its result, not a tag. */}
