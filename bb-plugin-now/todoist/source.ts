@@ -2,7 +2,7 @@
 import type { Source } from "../now/sources.js";
 import { unconfiguredSource } from "../now/sources.js";
 import { createTodoistApi } from "./api.js";
-import { normalizeTasks, projectNameMap, SOURCE_ID } from "./normalize.js";
+import { normalizeTasks, projectMap, SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_FILTER = "today | overdue";
 const NAME = "Todoist";
@@ -29,7 +29,7 @@ export function todoistSource(options: TodoistSourceOptions): Source {
     query: filter,
     async load() {
       const [tasks, projects] = await Promise.all([api.filterTasks(filter), api.projects()]);
-      const items = normalizeTasks(tasks, projectNameMap(projects));
+      const items = normalizeTasks(tasks, projectMap(projects));
       return {
         status: { id: SOURCE_ID, name: NAME, state: "ok", query: filter, count: items.length },
         items,

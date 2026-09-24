@@ -8,10 +8,12 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows how many rows need
 action: everything the last sync found, less what is snoozed. It loads every
-configured source at once and merges their items into one list, in sections:
-Overdue, Today, Upcoming, Inbox (the emails, newest first), and No date. A
-task goes in the section of its due date or its deadline, whichever is sooner,
-and within a section the soonest and most urgent come first. Each row starts
+configured source at once and merges their items into one list, in sections.
+Inbox comes first, with what has not been looked at yet: tasks in Todoist's
+Inbox project, whatever their date, and unread email. Then come Overdue, Today,
+and Upcoming, Email (read email, newest first), and No date. Any other task
+goes in the section of its due date or its deadline, whichever is sooner, and
+within a section the soonest and most urgent come first. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
@@ -106,7 +108,8 @@ missed deadlines) has no due date, and sorts by the deadline instead.
 
 One sync makes two requests to the Todoist API v1, in parallel:
 `GET /api/v1/tasks/filter` with the saved query, and `GET /api/v1/projects` to
-name each task's project. Both follow `next_cursor` 200 items at a time.
+name each task's project and find the Inbox. Both follow `next_cursor` 200
+items at a time.
 Nothing runs in the background, and nothing is requested until a token is set.
 
 ### Gmail

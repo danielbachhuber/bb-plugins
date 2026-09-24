@@ -3,7 +3,7 @@ import { localDay } from "./due.js";
 import { sortDate } from "./items.js";
 import type { Item } from "./types.js";
 
-export type SectionId = "overdue" | "today" | "upcoming" | "inbox" | "undated";
+export type SectionId = "inbox" | "overdue" | "today" | "upcoming" | "email" | "undated";
 
 export interface Section {
   id: SectionId;
@@ -12,14 +12,15 @@ export interface Section {
 }
 
 const TITLES: Record<SectionId, string> = {
+  inbox: "Inbox",
   overdue: "Overdue",
   today: "Today",
   upcoming: "Upcoming",
-  inbox: "Inbox",
+  email: "Email",
   undated: "No date",
 };
 
-const ORDER: SectionId[] = ["overdue", "today", "upcoming", "inbox", "undated"];
+const ORDER: SectionId[] = ["inbox", "overdue", "today", "upcoming", "email", "undated"];
 
 /** The local day a date or date-time falls on; a trailing `Z` is converted. */
 function dayOf(date: string): string {
@@ -28,13 +29,17 @@ function dayOf(date: string): string {
 }
 
 /**
- * Which section a row belongs in, by the date it sorts by (its due date or
- * its deadline, whichever is sooner). A row with no date is an email, which
- * goes in Inbox, or an undated task.
+ * Which section a row belongs in. Inbox comes first and holds what has not
+ * been looked at yet: tasks in Todoist's Inbox, whatever their date, and
+ * unread email. Every other task goes by the date it sorts by (its due date
+ * or its deadline, whichever is sooner), or in No date. Read email goes in
+ * Email.
  */
 export function sectionOf(item: Item, now: Date): SectionId {
+  if (item.inbox === true || item.gmail?.unread === true) return "inbox";
+  if (item.gmail !== null) return "email";
   const date = sortDate(item);
-  if (date === null) return item.gmail !== null ? "inbox" : "undated";
+  if (date === null) return "undated";
   const day = dayOf(date);
   const today = localDay(now);
   if (day < today) return "overdue";

@@ -48,6 +48,8 @@ export const itemSchema = z.object({
   activityAt: z.string().nullable(),
   /** Where it lives in its source, such as a Todoist project. */
   context: z.string().nullable(),
+  /** In its source's inbox, not yet sorted: a task in Todoist's Inbox project. */
+  inbox: z.boolean().optional(),
   tags: z.array(z.string()),
   url: z.string(),
   gmail: gmailPartSchema.nullable(),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { normalizeTask, normalizeTasks, plainContent, projectNameMap } from "./normalize.js";
+import { normalizeTask, normalizeTasks, plainContent, projectMap } from "./normalize.js";
 
 /** The fields the v1 `tasks/filter` endpoint returns that normalization reads. */
 function rawTask(overrides: Record<string, unknown> = {}) {
@@ -19,9 +19,10 @@ function rawTask(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const projects = projectNameMap([
+const projects = projectMap([
   { id: "p1", name: "Widgets" },
   { id: "p2", name: "Gadgets" },
+  { id: "p0", name: "Inbox", inbox_project: true },
 ]);
 
 describe("plainContent", () => {
@@ -56,6 +57,7 @@ describe("normalizeTask", () => {
       deadline: "2026-09-30",
       activityAt: null,
       context: "Widgets",
+      inbox: false,
       tags: ["email"],
       url: "https://app.todoist.com/app/task/6XGgmFVcrG5RRjVr",
       gmail: null,
@@ -70,6 +72,11 @@ describe("normalizeTask", () => {
 
   test("leaves the project name empty for a project it does not know", () => {
     expect(normalizeTask(rawTask({ project_id: "unknown" }), projects)?.context).toBeNull();
+  });
+
+  test("marks a task in Todoist's Inbox project", () => {
+    expect(normalizeTask(rawTask({ project_id: "p0" }), projects)?.inbox).toBe(true);
+    expect(normalizeTask(rawTask(), projects)?.inbox).toBe(false);
   });
 
   test("keeps the deadline of a task with no due date", () => {

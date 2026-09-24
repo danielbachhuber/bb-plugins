@@ -24,8 +24,10 @@ describe("sectionOf", () => {
     expect(sectionOf(item("a", { ...due("2026-10-01"), deadline: "2026-09-24" }), now)).toBe("today");
   });
 
-  test("puts an email in Inbox and an undated task in No date", () => {
-    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }), now)).toBe("inbox");
+  test("puts Todoist's Inbox and unread email in Inbox, read email in Email, an undated task in No date", () => {
+    expect(sectionOf(item("a", { inbox: true, ...due("2026-09-21") }), now)).toBe("inbox");
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }), now)).toBe("inbox");
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }), now)).toBe("email");
     expect(sectionOf(item("a"), now)).toBe("undated");
   });
 });
@@ -36,15 +38,17 @@ describe("groupIntoSections", () => {
       [
         item("late", due("2026-09-20")),
         item("mail", { gmail: { threadIds: ["t1"], unread: false } }),
+        item("new-mail", { gmail: { threadIds: ["t2"], unread: true } }),
         item("later", due("2026-09-30")),
         item("later-still", due("2026-10-02")),
       ],
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
+      ["Inbox", ["new-mail"]],
       ["Overdue", ["late"]],
       ["Upcoming", ["later", "later-still"]],
-      ["Inbox", ["mail"]],
+      ["Email", ["mail"]],
     ]);
   });
 });

@@ -44,11 +44,11 @@ export function taskUrl(id: string): string {
 }
 
 /** One task, or null when the payload lacks what a row needs. */
-export function normalizeTask(raw: unknown, projectNames: ReadonlyMap<string, string>): Item | null {
+export function normalizeTask(raw: unknown, projects: ReadonlyMap<string, Project>): Item | null {
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.content !== "string") return null;
   if (raw.checked === true || raw.is_deleted === true) return null;
 
-  const projectId = typeof raw.project_id === "string" ? raw.project_id : null;
+  const project = typeof raw.project_id === "string" ? projects.get(raw.project_id) : undefined;
 
   return {
     id: `${SOURCE_ID}:${raw.id}`,
@@ -59,7 +59,8 @@ export function normalizeTask(raw: unknown, projectNames: ReadonlyMap<string, st
     due: normalizeDue(raw.due),
     deadline: isRecord(raw.deadline) && typeof raw.deadline.date === "string" ? raw.deadline.date : null,
     activityAt: null,
-    context: projectId === null ? null : (projectNames.get(projectId) ?? null),
+    context: project?.name ?? null,
+    inbox: project?.inbox === true,
     tags: Array.isArray(raw.labels) ? raw.labels.filter((label) => typeof label === "string") : [],
     url: taskUrl(raw.id),
     gmail: null,
@@ -67,19 +68,25 @@ export function normalizeTask(raw: unknown, projectNames: ReadonlyMap<string, st
   };
 }
 
-export function normalizeTasks(raw: readonly unknown[], projectNames: ReadonlyMap<string, string>): Item[] {
+export function normalizeTasks(raw: readonly unknown[], projects: ReadonlyMap<string, Project>): Item[] {
   return raw
-    .map((task) => normalizeTask(task, projectNames))
+    .map((task) => normalizeTask(task, projects))
     .filter((item): item is Item => item !== null);
 }
 
-/** Project id to name, from the projects endpoint's payload. */
-export function projectNameMap(raw: readonly unknown[]): Map<string, string> {
-  const names = new Map<string, string>();
+export interface Project {
+  name: string;
+  /** Todoist's Inbox, where a task lands before it is sorted into a project. */
+  inbox: boolean;
+}
+
+/** Project id to its name and whether it is the Inbox, from the projects endpoint's payload. */
+export function projectMap(raw: readonly unknown[]): Map<string, Project> {
+  const projects = new Map<string, Project>();
   for (const project of raw) {
     if (isRecord(project) && typeof project.id === "string" && typeof project.name === "string") {
-      names.set(project.id, project.name);
+      projects.set(project.id, { name: project.name, inbox: project.inbox_project === true });
     }
   }
-  return names;
+  return projects;
 }

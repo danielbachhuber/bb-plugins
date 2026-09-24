@@ -152,7 +152,6 @@ const items: Item[] = [
     title: "Weekly planning",
     priority: 3,
     due: { date: "2026-09-24T14:00:00", recurring: true },
-    context: "Inbox",
     tags: ["routine", "planning"],
   }),
   item({
@@ -175,6 +174,7 @@ const items: Item[] = [
   }),
   item({ id: "a8", title: "Submit the widget grant report", priority: 1, deadline: "2026-09-16", context: "Admin" }),
   item({ id: "a7", title: "Someday: rewrite the widget docs", context: null }),
+  item({ id: "a9", title: "Look into gadget insurance", context: "Inbox", inbox: true }),
 ];
 
 const emails: Item[] = [
@@ -256,7 +256,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="Sections for overdue, today, and upcoming tasks, then the inbox newest first (GitHub notifications gathered per pull request or issue, and plain emails), then undated tasks."
+        hint="Inbox first (Todoist's Inbox and unread email), then sections for overdue, today, and upcoming tasks, then read email newest first (GitHub notifications gathered per pull request or issue, and plain emails), then undated tasks."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
