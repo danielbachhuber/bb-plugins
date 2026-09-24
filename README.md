@@ -28,7 +28,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-now` | `now` | One list of what needs doing now, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you, oldest request first. Needs gh-context. |
-| `bb-plugin-self-improve` | `self-improve` | Reviews the past week of bb threads for changes that would have needed less correction, and opens a thread for each one you pick. |
+| `bb-plugin-self-improve` | `self-improve` | Reviews the past week of bb threads, their tool calls, and their token usage for changes that would have needed less correction or fewer tokens, and opens a thread for each one you pick. |
 | `bb-plugin-thread-todos` | `thread-todos` | A shared per-thread checklist the agent builds as it plans and you edit as you go, with a count in the thread header and a glyph on the sidebar row. |
 | `bb-plugin-weekly-review` | `weekly-review` | One page of what you actually did this week, to write the journal entry from. |
 
@@ -127,6 +127,8 @@ on whichever package it is missing. Run `pnpm install` in bb when that happens.
 
 `npm run screenshots` captures every story in the light theme and commits the
 images to a separate checkout of `bb-plugins-screenshots`, so there is a
-visual history of each plugin without images in this repository's history. It
+visual history of each plugin without images in this repository's history.
+It lists the images it changed and leaves the push to you, once you have
+checked them for anything private. It
 needs `npm install` at the root, for Playwright, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.

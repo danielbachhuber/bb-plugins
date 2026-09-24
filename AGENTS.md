@@ -43,10 +43,17 @@ npm run screenshots
 ```
 
 It builds the stories, captures each one in the light theme, and commits the
-images there with a message naming this repository's commit, then pushes.
-When nothing looks different it says so and commits nothing. Run it after
-every commit, not only visual ones: a change to a shared component alters
-stories that its commit never touched.
+images there with a message naming this repository's commit. When nothing
+looks different it says so and commits nothing. Run it after every commit,
+not only visual ones: a change to a shared component alters stories that its
+commit never touched.
+
+It does not push. That repository is public too, and an image can carry what
+a text scan of the diff misses, so read every image the run lists, with the
+same rule as the top of this file, before pushing it with the command it
+prints. If one shows something private, fix the fixture here, drop the local
+commit there with `git -C ../bb-plugins-screenshots reset --hard HEAD~1`, and
+run it again. That repository's AGENTS.md says the same.
 
 It expects that checkout at `../bb-plugins-screenshots`, or wherever
 `BB_PLUGINS_SCREENSHOTS_DIR` in `.env` points. Clone it there on a new

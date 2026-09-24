@@ -3,9 +3,12 @@
 // the result there, so each commit here has a picture of what it looked like
 // without the images living in this repository's history.
 //
-//   npm run screenshots                 build, capture, commit, push
-//   npm run screenshots -- --no-push    commit but leave it local
-//   npm run screenshots -- --no-commit  capture only, to look before committing
+//   npm run screenshots                 build, capture, commit locally
+//   npm run screenshots -- --no-commit  capture only
+//
+// It never pushes. That checkout's history is public, so every image a run
+// changed is read for private information first; the run lists them, and
+// the push is a separate step once they have been read.
 //
 // The checkout is BB_PLUGINS_SCREENSHOTS_DIR, from the environment or .env,
 // and defaults to a sibling directory named bb-plugins-screenshots.
@@ -20,7 +23,6 @@ import { chromium } from "playwright";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const flags = new Set(process.argv.slice(2));
 const commit = !flags.has("--no-commit");
-const push = commit && !flags.has("--no-push");
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -167,9 +169,13 @@ const message = [
   `danielbachhuber/bb-plugins@${sha}`,
   ...(dirty ? ["", "Captured with uncommitted changes in the bb-plugins checkout."] : []),
 ].join("\n");
+const changed = git(outDir, "diff", "--cached", "--name-only", "--diff-filter=AM")
+  .split("\n")
+  .filter(Boolean);
 execFileSync("git", ["commit", "-q", "-F", "-"], { cwd: outDir, input: message });
-console.log(`\nCommitted ${git(outDir, "rev-parse", "--short", "HEAD")} in ${outDir}`);
-
-if (push) {
-  execFileSync("git", ["push", "-q", "-u", "origin", "HEAD"], { cwd: outDir, stdio: "inherit" });
+console.log(`\nCommitted ${git(outDir, "rev-parse", "--short", "HEAD")} in ${outDir}, not pushed.`);
+if (changed.length) {
+  console.log("\nRead each of these for private information before pushing:");
+  for (const file of changed) console.log(`  ${join(outDir, file)}`);
 }
+console.log(`\nThen: git -C ${outDir} push`);
