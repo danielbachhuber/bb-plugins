@@ -1,9 +1,13 @@
 {
   "name": "bb-plugins",
   "private": true,
-  "description": "Scripts for the whole checkout. Each plugin is its own package with its own dependencies; this one has none.",
+  "description": "Scripts for the whole checkout. Each plugin is its own package with its own dependencies; this one has only Playwright, for the story screenshots.",
   "scripts": {
     "storybook": "node scripts/ladle.mjs serve",
-    "storybook:build": "node scripts/ladle.mjs build"
+    "storybook:build": "node scripts/ladle.mjs build",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
   }
 }

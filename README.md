@@ -122,6 +122,11 @@ bb it sits next to.
 That requires a bb checkout with its dependencies installed. The scripts look
 for it at `~/projects/bb`; set `BB_SOURCE_DIR` in `.env` (see `.env.example`)
 if it is somewhere else. They run the Ladle, Vite, and Tailwind bb already has
-installed, so nothing is installed here, and a checkout whose `node_modules`
-is older than its source fails on whichever package it is missing. Run
-`pnpm install` in bb when that happens.
+installed, and a checkout whose `node_modules` is older than its source fails
+on whichever package it is missing. Run `pnpm install` in bb when that happens.
+
+`npm run screenshots` captures every story in the light theme and commits the
+images to a separate checkout of `bb-plugins-screenshots`, so there is a
+visual history of each plugin without images in this repository's history. It
+needs `npm install` at the root, for Playwright, and that checkout at
+`../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.

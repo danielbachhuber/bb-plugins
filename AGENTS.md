@@ -31,6 +31,32 @@ here.
 
 Commit one logical change at a time rather than one commit at the end.
 
+## Screenshot the stories after you commit
+
+Every story is photographed into a separate repository,
+`danielbachhuber/bb-plugins-screenshots`, so the history of how each plugin
+looks lives there instead of bloating this one. After you push a commit here,
+run:
+
+```sh
+npm run screenshots
+```
+
+It builds the stories, captures each one in the light theme, and commits the
+images there with a message naming this repository's commit, then pushes.
+When nothing looks different it says so and commits nothing. Run it after
+every commit, not only visual ones: a change to a shared component alters
+stories that its commit never touched.
+
+It expects that checkout at `../bb-plugins-screenshots`, or wherever
+`BB_PLUGINS_SCREENSHOTS_DIR` in `.env` points. Clone it there on a new
+machine. A story that throws stops the run before anything is committed, so
+fix the story rather than committing around it. Use `--no-commit` to look at
+the images before they are committed.
+
+Do not add a `screenshots/` directory to a plugin for design history. The
+screenshots a README embeds are the exception, because the README needs them.
+
 ## Anything personal is a setting, never a constant
 
 The board name, its status order, which statuses count, the repository list:
@@ -217,4 +243,7 @@ components. The root README covers the setup. What costs time:
 - Editing a story file reloads the page; editing a component it imports
   updates in place.
 - Fixtures follow the public-repository rule above: `acme/widgets`, never a
-  real repository or PR.
+  real repository or PR. When a fixture copies the layout of a real screen,
+  invent every field: titles, PR numbers, line counts, and ages as well as
+  the names. Swapping the names and lightly rewording a real title still
+  identifies the real pull request.
