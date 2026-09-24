@@ -346,7 +346,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: tasks overdue or due today. The header picks the section on the left and narrows it to one source on the right, each with its counts."
+        hint="The page opens on Now: tasks overdue or due today, then read mail still in the inbox. The header picks the section on the left and narrows it to one source on the right, each with its counts."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -360,7 +360,7 @@ export function Sections() {
     <StoryCard>
       <StoryRow
         label="Inbox"
-        hint="Every Gmail row, read or not, newest first (GitHub notifications gathered per pull request or issue, document comments, invitations, plain email), then the tasks in Todoist's Inbox."
+        hint="Unread Gmail rows, newest first (GitHub notifications gathered per pull request or issue, document comments, invitations, plain email), then the tasks in Todoist's Inbox."
       >
         <Frame listing={stored(ok)} section="inbox" />
       </StoryRow>
