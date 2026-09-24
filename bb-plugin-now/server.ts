@@ -2,7 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
-import { createGhRunner, fetchStates, postComment, type GhRunner } from "./github/gh.js";
+import { createGhRunner, fetchStates, mergePullRequest, postComment, type GhRunner } from "./github/gh.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
@@ -389,6 +389,35 @@ export function createPlugin(deps: PluginDeps = {}) {
         } catch (error) {
           bb.log.warn(`Could not reply to ${id}: ${messageOf(error)}`);
           return { response: null, error: messageOf(error) };
+        }
+      },
+      items_merge: async ({ id, method }) => {
+        const item = findItem(id);
+        const github = item?.github;
+        if (item == null || github == null || github.kind !== "pull") return { merged: false, error: "Only a pull request can be merged." };
+        const ref = { repo: github.repo, number: github.number, kind: github.kind };
+        try {
+          const run = await gh();
+          await mergePullRequest(run, ref, method);
+          bb.log.info(`Merged ${github.repo}#${github.number} (${method})`);
+          // Read it back rather than assume: a merge queue takes it without merging yet.
+          const state = (await fetchStates(run, [ref]).catch(() => null))?.get(`${ref.repo}#${ref.number}`);
+          const next = state ?? { state: "merged" as const, review: null };
+          updateRow({
+            ...item,
+            github: {
+              ...github,
+              state: next.state,
+              review: next.review,
+              checks: next.checks ?? null,
+              mergeMethods: next.mergeMethods ?? [],
+            },
+          });
+          announce();
+          return { merged: next.state === "merged", error: null };
+        } catch (error) {
+          bb.log.warn(`Could not merge ${github.repo}#${github.number}: ${messageOf(error)}`);
+          return { merged: false, error: messageOf(error) };
         }
       },
       items_reply: async ({ id, body }) => {

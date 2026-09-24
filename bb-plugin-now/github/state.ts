@@ -5,6 +5,8 @@ import type { GitHubRef } from "./notifications.js";
 
 export type GitHubStateName = "open" | "draft" | "merged" | "closed";
 export type ReviewDecision = "approved" | "changes_requested" | "review_required";
+export type CheckState = "passing" | "failing" | "pending";
+export type MergeMethod = "merge" | "squash" | "rebase";
 
 export interface GitHubState {
   state: GitHubStateName;
@@ -18,6 +20,16 @@ export interface GitHubState {
    * Undefined when it was not asked.
    */
   pendingReviewers?: string[];
+  /** The latest commit's checks, on an open pull request that has any. */
+  checks?: CheckState | null;
+  /**
+   * The methods you can merge an open pull request with right now, as the
+   * repository allows them. Empty when it cannot be merged: it is a draft,
+   * conflicts, is blocked by a required review or check, GitHub has not
+   * worked it out yet, you cannot write to the repository, or it is not
+   * yours: a pull request you only watch or review is its author's to merge.
+   */
+  mergeMethods?: MergeMethod[];
 }
 
 /** GitHub logins and repository names: letters, digits, `-`, `_`, `.`. */
@@ -39,8 +51,11 @@ export function buildStateQuery(refs: readonly GitHubRef[]): { query: string; al
     const alias = `r${index}`;
     aliases.set(alias, ref);
     fields.push(
-      `${alias}: repository(owner: "${owner}", name: "${name}") { issueOrPullRequest(number: ${ref.number}) { ` +
-        `__typename ... on PullRequest { state isDraft reviewDecision ` +
+      `${alias}: repository(owner: "${owner}", name: "${name}") { ` +
+        `viewerPermission mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed ` +
+        `issueOrPullRequest(number: ${ref.number}) { ` +
+        `__typename ... on PullRequest { state isDraft reviewDecision mergeStateStatus viewerDidAuthor ` +
+        `commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } ` +
         `reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on Team { combinedSlug } ... on User { login } } } } } ` +
         `... on Issue { state stateReason } } }`,
     );
@@ -56,6 +71,34 @@ function review(value: unknown): ReviewDecision | null {
   return null;
 }
 
+function checks(node: Record<string, unknown>): CheckState | null {
+  const commits = (node.commits as { nodes?: Array<{ commit?: { statusCheckRollup?: { state?: unknown } | null } }> } | undefined)?.nodes;
+  const state = commits?.[commits.length - 1]?.commit?.statusCheckRollup?.state;
+  if (state === "SUCCESS") return "passing";
+  if (state === "FAILURE" || state === "ERROR") return "failing";
+  if (state === "PENDING" || state === "EXPECTED") return "pending";
+  return null;
+}
+
+/**
+ * GitHub's own merge box allows a merge in these states. UNSTABLE is a
+ * failing check that is not required; HAS_HOOKS is a clean one on GitHub
+ * Enterprise. BLOCKED, BEHIND (when the branch must be up to date), DIRTY,
+ * DRAFT, and UNKNOWN (not worked out yet) do not.
+ */
+const MERGEABLE = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE"]);
+const CAN_WRITE = new Set(["ADMIN", "MAINTAIN", "WRITE"]);
+
+function mergeMethods(repository: Record<string, unknown>, node: Record<string, unknown>): MergeMethod[] {
+  if (node.state !== "OPEN" || node.isDraft === true || node.viewerDidAuthor !== true) return [];
+  if (!MERGEABLE.has(String(node.mergeStateStatus)) || !CAN_WRITE.has(String(repository.viewerPermission))) return [];
+  const methods: MergeMethod[] = [];
+  if (repository.mergeCommitAllowed === true) methods.push("merge");
+  if (repository.squashMergeAllowed === true) methods.push("squash");
+  if (repository.rebaseMergeAllowed === true) methods.push("rebase");
+  return methods;
+}
+
 /**
  * The answer, keyed by `repo#number`. A repository you cannot see comes back
  * null with an error beside it; that reference is simply missing here.
@@ -66,7 +109,8 @@ export function parseStateResponse(body: unknown, aliases: ReadonlyMap<string, G
   if (data === undefined || data === null) return states;
 
   for (const [alias, ref] of aliases) {
-    const node = (data[alias] as { issueOrPullRequest?: Record<string, unknown> } | null)?.issueOrPullRequest;
+    const repository = (data[alias] as Record<string, unknown> | null) ?? {};
+    const node = (repository as { issueOrPullRequest?: Record<string, unknown> | null }).issueOrPullRequest;
     if (node === undefined || node === null) continue;
 
     let state: GitHubStateName;
@@ -86,6 +130,9 @@ export function parseStateResponse(body: unknown, aliases: ReadonlyMap<string, G
       : undefined;
     states.set(`${ref.repo}#${ref.number}`, {
       ...(pull && pendingReviewers !== undefined ? { pendingReviewers } : {}),
+      ...(pull && (state === "open" || state === "draft")
+        ? { checks: checks(node), mergeMethods: mergeMethods(repository, node) }
+        : {}),
       state,
       review: pull && state !== "merged" && state !== "closed" ? review(node.reviewDecision) : null,
       closedAs:

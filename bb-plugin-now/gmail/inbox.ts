@@ -220,6 +220,8 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
       kind: ref.kind,
       state: known?.state ?? null,
       review: known?.review ?? null,
+      ...(state?.checks === undefined ? {} : { checks: state.checks }),
+      ...(state?.mergeMethods === undefined ? {} : { mergeMethods: state.mergeMethods }),
       closedAs: known?.closedAs ?? null,
       reason: latest === undefined ? null : header(latest, "X-GitHub-Reason"),
       reviewRequested,

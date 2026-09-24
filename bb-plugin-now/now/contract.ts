@@ -134,6 +134,11 @@ export const rpcContract = defineRpcContract({
       error: z.string().nullable(),
     }),
   },
+  /** Merge a GitHub row's pull request, as you. */
+  items_merge: {
+    input: z.object({ id: z.string(), method: z.enum(["merge", "squash", "rebase"]) }),
+    output: z.object({ merged: z.boolean(), error: z.string().nullable() }),
+  },
   /** Comment on a GitHub row's pull request or issue, as you. */
   items_reply: {
     input: z.object({ id: z.string(), body: z.string().trim().min(1).max(65_000) }),

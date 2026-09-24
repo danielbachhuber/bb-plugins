@@ -2,7 +2,7 @@
 import { execFile } from "node:child_process";
 
 import type { GitHubRef } from "./notifications.js";
-import { buildStateQuery, parseStateResponse, type GitHubState } from "./state.js";
+import { buildStateQuery, parseStateResponse, type GitHubState, type MergeMethod } from "./state.js";
 
 /** Runs `gh` with arguments and resolves to its stdout. */
 export type GhRunner = (args: string[]) => Promise<string>;
@@ -48,6 +48,14 @@ export async function fetchStates(run: GhRunner, refs: readonly GitHubRef[]): Pr
     stdout = body;
   }
   return parseStateResponse(JSON.parse(stdout), aliases);
+}
+
+/**
+ * Merges a pull request, as you, with the method given. Where the repository
+ * uses a merge queue, gh adds it to the queue instead.
+ */
+export async function mergePullRequest(run: GhRunner, ref: GitHubRef, method: MergeMethod): Promise<void> {
+  await run(["pr", "merge", String(ref.number), "--repo", ref.repo, `--${method}`]);
 }
 
 /** Comments on a pull request or issue, as you. Resolves to the comment's URL. */

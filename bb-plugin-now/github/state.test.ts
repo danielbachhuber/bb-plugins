@@ -10,8 +10,8 @@ const refs = [
 describe("buildStateQuery", () => {
   test("asks for every reference in one query", () => {
     const { query, aliases } = buildStateQuery(refs);
-    expect(query).toContain('r0: repository(owner: "acme", name: "widgets") { issueOrPullRequest(number: 128)');
-    expect(query).toContain('r1: repository(owner: "acme", name: "gadgets") { issueOrPullRequest(number: 42)');
+    expect(query).toMatch(/r0: repository\(owner: "acme", name: "widgets"\) \{ viewerPermission [^{]*issueOrPullRequest\(number: 128\)/);
+    expect(query).toMatch(/r1: repository\(owner: "acme", name: "gadgets"\) \{ viewerPermission [^{]*issueOrPullRequest\(number: 42\)/);
     expect([...aliases.keys()]).toEqual(["r0", "r1"]);
   });
 
@@ -35,7 +35,13 @@ describe("parseStateResponse", () => {
       },
       aliases,
     );
-    expect(states.get("acme/widgets#128")).toEqual({ state: "open", review: "changes_requested", closedAs: null });
+    expect(states.get("acme/widgets#128")).toEqual({
+      state: "open",
+      review: "changes_requested",
+      closedAs: null,
+      checks: null,
+      mergeMethods: [],
+    });
     expect(states.get("acme/gadgets#42")).toEqual({ state: "closed", review: null, closedAs: "completed" });
   });
 
@@ -78,6 +84,50 @@ describe("parseStateResponse", () => {
       aliases,
     );
     expect(states.get("acme/gadgets#42")).toEqual({ state: "closed", review: null, closedAs: "not_planned" });
+  });
+
+  describe("checks and merging", () => {
+    const answer = (repository: Record<string, unknown>, pull: Record<string, unknown>) =>
+      parseStateResponse(
+        {
+          data: {
+            r0: {
+              viewerPermission: "WRITE",
+              mergeCommitAllowed: true,
+              squashMergeAllowed: true,
+              rebaseMergeAllowed: false,
+              ...repository,
+              issueOrPullRequest: {
+                __typename: "PullRequest",
+                state: "OPEN",
+                isDraft: false,
+                reviewDecision: "APPROVED",
+                mergeStateStatus: "CLEAN",
+                viewerDidAuthor: true,
+                commits: { nodes: [{ commit: { statusCheckRollup: { state: "SUCCESS" } } }] },
+                ...pull,
+              },
+            },
+          },
+        },
+        aliases,
+      ).get("acme/widgets#128");
+
+    test("reads the latest commit's checks and the methods the repository allows", () => {
+      expect(answer({}, {})).toMatchObject({ checks: "passing", mergeMethods: ["merge", "squash"] });
+      expect(answer({}, { commits: { nodes: [{ commit: { statusCheckRollup: { state: "ERROR" } } }] } })?.checks).toBe("failing");
+      expect(answer({}, { commits: { nodes: [{ commit: { statusCheckRollup: null } }] } })?.checks).toBeNull();
+    });
+
+    test("offers a merge where GitHub's own merge box would, and not otherwise", () => {
+      expect(answer({}, { mergeStateStatus: "UNSTABLE" })?.mergeMethods).toEqual(["merge", "squash"]);
+      for (const status of ["BLOCKED", "BEHIND", "DIRTY", "UNKNOWN"]) {
+        expect(answer({}, { mergeStateStatus: status })?.mergeMethods).toEqual([]);
+      }
+      expect(answer({}, { isDraft: true })?.mergeMethods).toEqual([]);
+      expect(answer({ viewerPermission: "READ" }, {})?.mergeMethods).toEqual([]);
+      expect(answer({}, { viewerDidAuthor: false })?.mergeMethods).toEqual([]);
+    });
   });
 
   test("skips a repository gh could not see", () => {

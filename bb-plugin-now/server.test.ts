@@ -637,6 +637,37 @@ describe("row actions", () => {
     ]);
   });
 
+  test("merges the pull request through gh, and reads its state back", async () => {
+    const merges: string[][] = [];
+    const gh: GhRunner = async (args) => {
+      if (args[1] === "graphql") {
+        const state = merges.length > 0 ? "MERGED" : "OPEN";
+        return JSON.stringify({ data: { r0: { issueOrPullRequest: { __typename: "PullRequest", state, isDraft: false } } } });
+      }
+      merges.push(args);
+      return "";
+    };
+    const { harness } = await loaded(gh);
+
+    await expect(harness.behavior.callRpc("items_merge", { id: "github:acme/widgets#128", method: "squash" })).resolves.toEqual({
+      merged: true,
+      error: null,
+    });
+    expect(merges).toEqual([["pr", "merge", "128", "--repo", "acme/widgets", "--squash"]]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.find((item) => item.id === "github:acme/widgets#128")?.github).toMatchObject({
+      state: "merged",
+      mergeMethods: [],
+    });
+  });
+
+  test("will not merge a plain email", async () => {
+    const { harness } = await loaded();
+    await expect(harness.behavior.callRpc("items_merge", { id: "gmail:mail1", method: "merge" })).resolves.toMatchObject({
+      merged: false,
+    });
+  });
+
   test("will not reply to a plain email", async () => {
     const { harness } = await loaded();
     await expect(harness.behavior.callRpc("items_reply", { id: "gmail:mail1", body: "Sure" })).resolves.toMatchObject({

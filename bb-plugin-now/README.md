@@ -91,6 +91,18 @@ those instead, oldest first, with what happened for one that has no words
 ("approved", "requested review of acme/reviewers"), up to five and then a
 count of the rest.
 
+A pull request you opened that GitHub would let you merge now has **Merge**
+at the start of its details line: GitHub Context's split button, which merges
+with the method it names (squash merge unless the repository does not allow
+it) and whose menu picks another of the methods the repository allows. It
+merges through `gh pr merge`, as you, and then reads the pull request back,
+so a repository with a merge queue shows it still open and queued rather
+than merged. The button shows only when the pull request is open and not a
+draft, you can write to the repository, and GitHub's merge state is clean or
+has only non-required checks failing. It does not show on someone else's
+pull request, even where you could merge it, since that merge is theirs to
+make. Once merged, the row suggests Archive.
+
 Completing or editing a Todoist task still happens in Todoist, and replying
 to an email that is not from GitHub still happens in Gmail.
 
@@ -164,7 +176,9 @@ one of its members reviews, and then the row suggests Archive. Beside the
 title it shows what the pull request is waiting on (review requested of you,
 changes requested, approved) and its state in GitHub's own colors:
 open, draft, merged, or closed, and for an issue, closed as completed or as not
-planned.
+planned. An open pull request with checks on its latest commit shows the
+GitHub mark with bb's check-status dot after its state, as GitHub Context's
+banner does: a check for passing, a cross for failing, a dot for pending.
 
 That state comes from `gh`, asked about every pull request and issue in one
 GraphQL query per sync, because an email only says what was true when it was
@@ -235,6 +249,8 @@ list `server.ts` passes to `loadSources`.
 | `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
 | `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
+| `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
+| `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
 | `now/sections.ts` | Which section a row goes in, and the short date each row shows |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
@@ -248,8 +264,8 @@ list `server.ts` passes to `loadSources`.
 | `gmail/source.ts` | Gmail as a `Source`: the thread search and each thread's headers |
 | `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue and Google comment notifications per document |
 | `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
-| `github/state.ts` | The GraphQL query for every reference's state, and reading its answer |
-| `github/gh.ts` | The only module that runs `gh`: the state query and posting a comment |
+| `github/state.ts` | The GraphQL query for every reference's state, checks, and whether you can merge it, and reading its answer |
+| `github/gh.ts` | The only module that runs `gh`: the state query, merging, and posting a comment |
 | `calendar/invite.ts` | Which event an invitation is about, your reply to it, and the guest list that changes it |
 | `calendar/api.ts` | The only module that asks Google Calendar: each event's reply, and replying |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |

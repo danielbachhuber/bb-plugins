@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { BrandIcon, type Brand } from "./brand-icon.js";
+import { GithubFaviconIcon, type GithubCheckStatus } from "./github-favicon-icon.js";
+import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { describeActivity, describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
 import { snoozeChoices } from "./snooze.js";
@@ -23,13 +25,14 @@ import type { GitHubPart, Item } from "./types.js";
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze" | "merge" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
   archive: "Archiving…",
   snooze: "Snoozing…",
   unsnooze: "Unsnoozing…",
+  merge: "Merging…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
   "rsvp:tentative": "Replying…",
@@ -41,6 +44,7 @@ export interface RowActions {
   onArchive: (item: Item) => void;
   onComplete: (item: Item) => void;
   onRsvp: (item: Item, response: Reply) => void;
+  onMerge: (item: Item, method: MergeMethod) => void;
   /** Resolves true once the comment is posted, so the box can close. */
   onReply: (item: Item, body: string) => Promise<boolean>;
   onStartThread: (item: Item) => void;
@@ -139,6 +143,12 @@ function stateLabel(github: GitHubPart): { label: string; icon: IconName; classN
   }
 }
 
+const CHECKS: Record<NonNullable<GitHubPart["checks"]>, { status: GithubCheckStatus; label: string }> = {
+  passing: { status: "success", label: "Checks passing" },
+  failing: { status: "failure", label: "Checks failing" },
+  pending: { status: "pending", label: "Checks pending" },
+};
+
 /** The pull request or issue's state now, and what it is waiting on. */
 function GitHubState({ github }: { github: GitHubPart }) {
   const state = stateLabel(github);
@@ -162,6 +172,11 @@ function GitHubState({ github }: { github: GitHubPart }) {
         >
           <Icon name={state.icon} className="size-3" />
           {state.label}
+        </span>
+      )}
+      {github.checks == null || settled ? null : (
+        <span className="mt-0.5 inline-flex shrink-0 text-muted-foreground" title={CHECKS[github.checks].label} role="img" aria-label={CHECKS[github.checks].label}>
+          <GithubFaviconIcon status={CHECKS[github.checks].status} />
         </span>
       )}
     </>
@@ -494,6 +509,14 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {actions === undefined || !(item.github?.mergeMethods?.length) ? null : (
+              <MergeSplitButton
+                methods={item.github.mergeMethods}
+                disabled={busy}
+                working={pending === "merge"}
+                onMerge={(method) => actions.onMerge(item, method)}
+              />
+            )}
             {actions === undefined ? null : item.source === "todoist" ? (
               <LineAction
                 label="Complete"

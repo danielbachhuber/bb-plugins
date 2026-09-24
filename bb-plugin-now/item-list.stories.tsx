@@ -55,7 +55,7 @@ function pull(
     context: `acme/widgets#${number}`,
     tags: [],
     url: `https://github.com/acme/widgets/pull/${number}`,
-    gmail: { threadIds: [`t${number}`], unread: number === 128 || number === 137, messages: 4, unreadMessages: number === 128 ? 2 : 1 },
+    gmail: { threadIds: [`t${number}`], unread: number === 128 || number === 137 || number === 141, messages: 4, unreadMessages: number === 128 ? 2 : 1 },
     github: {
       repo: "acme/widgets",
       number,
@@ -74,6 +74,7 @@ const notifications: Item[] = [
   pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
     reason: "review_requested",
     review: "review_required",
+    checks: "pending",
     reviewRequested: "you",
     unreadQuotes: [
       { author: "octocat", text: "requested your review" },
@@ -90,13 +91,22 @@ const notifications: Item[] = [
   pull(137, "Tidy the widget cache", "1 comment from hubber · review requested of acme/reviewers by octocat · approved by hubber", new Date(2026, 8, 24, 6, 15), {
     reason: "review_requested",
     review: "approved",
+    checks: "passing",
     reviewRequested: "others",
     unreadQuotes: [{ author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." }],
     comment: { author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." },
   }),
+  pull(141, "Cache widget lookups per request", "1 comment from hubber · approved by hubber", new Date(2026, 8, 24, 5, 50), {
+    reason: "author",
+    review: "approved",
+    checks: "passing",
+    mergeMethods: ["merge", "squash", "rebase"],
+    unreadQuotes: [{ author: "hubber", text: "approved" }],
+  }),
   pull(139, "Split the gadget cache by region", "1 comment from github-actions[bot] · review requested of acme/reviewers by octocat", new Date(2026, 8, 23, 17, 20), {
     reason: "review_requested",
     review: "review_required",
+    checks: "passing",
     reviewRequested: "team",
   }),
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
@@ -105,6 +115,7 @@ const notifications: Item[] = [
   }),
   pull(133, "Read empty widgets back as absent", "1 comment from octocat · changes requested by hubber", new Date(2026, 8, 22, 11, 0), {
     review: "changes_requested",
+    checks: "failing",
     reason: "author",
     comment: { author: "octocat", text: "Can we add a test for an empty gadget list too?" },
   }),
@@ -297,6 +308,7 @@ function stored(list: NowList, syncing = false, snoozed: Listing["snoozed"] = []
 
 const actions = {
   onRsvp: noop,
+  onMerge: noop,
   onSnooze: noop,
   onUnsnooze: noop,
   onArchive: noop,
@@ -333,7 +345,7 @@ export function States() {
       </StoryRow>
       <StoryRow
         label="Working"
-        hint="A task completing, an email archiving, a pull request snoozing, and an invitation being accepted: each row is disabled until its request lands."
+        hint="A task completing, an email archiving, a pull request snoozing, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
       >
         <Frame
           listing={stored(ok)}
@@ -343,6 +355,7 @@ export function States() {
               ["gmail:t1", "archive"],
               ["github:acme/widgets#128", "snooze"],
               ["gmail:t4", "rsvp:accepted"],
+              ["github:acme/widgets#141", "merge"],
             ])
           }
         />

@@ -180,6 +180,15 @@ function useRowActions(
           else toast.success(`Replied ${response === "accepted" ? "yes" : response === "declined" ? "no" : "maybe"}`);
         }).catch(fail);
       },
+      onMerge: (item, method) => {
+        void run(item.id, "merge", async () => {
+          const result = await rpc.call("items_merge", { id: item.id, method });
+          const name = `${item.github?.repo}#${item.github?.number}`;
+          if (result.error !== null) toast.error(result.error);
+          else if (result.merged) toast.success(`Merged ${name}`);
+          else toast.success(`${name} is queued to merge`);
+        }).catch(fail);
+      },
       onReply: async (item, body) => {
         try {
           const result = await rpc.call("items_reply", { id: item.id, body });
