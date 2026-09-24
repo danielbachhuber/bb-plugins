@@ -20,14 +20,19 @@ import { shortDate } from "./sections.js";
 import { snoozeChoices } from "./snooze.js";
 import type { GitHubPart, Item } from "./types.js";
 
+export type Reply = "accepted" | "declined" | "tentative";
+
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze";
+export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
   archive: "Archiving…",
   snooze: "Snoozing…",
   unsnooze: "Unsnoozing…",
+  "rsvp:accepted": "Replying…",
+  "rsvp:declined": "Replying…",
+  "rsvp:tentative": "Replying…",
 };
 
 export interface RowActions {
@@ -35,6 +40,7 @@ export interface RowActions {
   onUnsnooze: (item: Item) => void;
   onArchive: (item: Item) => void;
   onComplete: (item: Item) => void;
+  onRsvp: (item: Item, response: Reply) => void;
   /** Resolves true once the comment is posted, so the box can close. */
   onReply: (item: Item, body: string) => Promise<boolean>;
   onStartThread: (item: Item) => void;
@@ -64,7 +70,12 @@ const PRIORITY: Record<1 | 2 | 3, string> = {
  */
 export function archiveReason(item: Item): string | null {
   const github = item.github;
-  if (item.gmail === null || github === null) return null;
+  if (item.gmail === null) return null;
+  if (item.invite?.cancelled === true) return "it's canceled";
+  if (item.invite?.response === "accepted" || item.invite?.response === "declined" || item.invite?.response === "tentative") {
+    return "you replied";
+  }
+  if (github === null) return null;
   if (github.state === "merged" || github.state === "closed") return `it's ${github.state}`;
   if (github.reason === "review_requested" && github.reviewRequested === "others") return "not your review";
   return null;
@@ -258,6 +269,62 @@ export interface ItemRowProps {
 }
 
 /** A small labelled button in the details line, for the row's own action. */
+const REPLIES: Array<{ response: Reply; label: string }> = [
+  { response: "accepted", label: "Yes" },
+  { response: "declined", label: "No" },
+  { response: "tentative", label: "Maybe" },
+];
+
+/**
+ * Yes, No, and Maybe for an invitation, as Gmail puts them under one: your
+ * reply now is the one marked, and clicking another replies in Calendar.
+ */
+function RsvpControl({
+  invite,
+  pending,
+  disabled,
+  onRsvp,
+}: {
+  invite: NonNullable<Item["invite"]>;
+  pending: PendingAction | null;
+  disabled: boolean;
+  onRsvp?: (response: Reply) => void;
+}) {
+  if (invite.cancelled) {
+    return <p className="mt-1.5 text-xs text-muted-foreground">This event was canceled.</p>;
+  }
+  if (invite.eventId === null) return null;
+  return (
+    <div className="mt-1.5 flex items-center gap-2 text-xs">
+      <span className="text-muted-foreground">Going?</span>
+      <div className="inline-flex overflow-hidden rounded-md border border-border" role="group" aria-label="Reply to the invitation">
+        {REPLIES.map(({ response, label }, index) => {
+          const chosen = invite.response === response;
+          const working = pending === `rsvp:${response}`;
+          return (
+            <button
+              key={response}
+              type="button"
+              aria-pressed={chosen}
+              disabled={disabled || onRsvp === undefined}
+              onClick={chosen ? undefined : () => onRsvp?.(response)}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5",
+                index > 0 && "border-l border-border",
+                chosen ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                "disabled:pointer-events-none disabled:opacity-60",
+              )}
+            >
+              {working ? <Icon name="Loading" className="size-3 animate-spin" /> : chosen ? <Icon name="Check" className="size-3" /> : null}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LineAction({
   label,
   icon,
@@ -392,6 +459,14 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
           </div>
           {item.description === "" ? null : (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+          )}
+          {item.invite == null ? null : (
+            <RsvpControl
+              invite={item.invite}
+              pending={pending}
+              disabled={busy}
+              onRsvp={actions === undefined ? undefined : (response) => actions.onRsvp(item, response)}
+            />
           )}
           {quotes.length === 0 ? null : (
             <div className="mt-1 space-y-1 border-l-2 border-border pl-2 text-xs text-foreground/80">

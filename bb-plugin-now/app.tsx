@@ -173,6 +173,13 @@ function useRowActions(
           else toast.success(`Completed "${item.title}". It recurs, so Todoist moved it to its next date.`);
         }).catch(fail);
       },
+      onRsvp: (item, response) => {
+        void run(item.id, `rsvp:${response}`, async () => {
+          const result = await rpc.call("items_rsvp", { id: item.id, response });
+          if (result.error !== null) toast.error(result.error);
+          else toast.success(`Replied ${response === "accepted" ? "yes" : response === "declined" ? "no" : "maybe"}`);
+        }).catch(fail);
+      },
       onReply: async (item, body) => {
         try {
           const result = await rpc.call("items_reply", { id: item.id, body });

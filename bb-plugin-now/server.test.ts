@@ -292,6 +292,87 @@ describe("items_list with Gmail", () => {
     expect(full.map((args) => JSON.parse(args[args.indexOf("--params") + 1]!).id)).toEqual(["d1"]);
   });
 
+  test("shows your reply to an invitation, and replies in Calendar", async () => {
+    const eid = Buffer.from("evt1 hubber@example.com").toString("base64url");
+    const headers = [
+      { name: "Subject", value: "Invitation: Widget review @ Fri Sep 25" },
+      { name: "From", value: "Octocat <octocat@example.com>" },
+      { name: "X-Google-Calendar-Notification", value: "eventCreated" },
+    ];
+    const html = `<a href="https://calendar.google.com/calendar/event?action=RESPOND&amp;eid=${eid}&amp;rst=1">Yes</a>`;
+    let event = {
+      id: "evt1",
+      status: "confirmed",
+      attendees: [
+        { email: "octocat@example.com", responseStatus: "accepted", organizer: true },
+        { email: "hubber@example.com", responseStatus: "needsAction", self: true },
+      ],
+    };
+    const patches: unknown[] = [];
+    const gws = fakeGws({
+      "threads list": () => ({ threads: [{ id: "i1" }] }),
+      "threads get": (params) => ({
+        id: "i1",
+        messages: [
+          {
+            id: "i1-1",
+            internalDate: "1790237080000",
+            snippet: "You have been invited",
+            payload:
+              params.format === "full"
+                ? { headers, parts: [{ mimeType: "text/html", body: { data: Buffer.from(html).toString("base64url") } }] }
+                : { headers },
+          },
+        ],
+      }),
+      getProfile: () => ({ emailAddress: "hubber@example.com" }),
+      "calendar events get": () => event,
+    });
+    const run: GwsRunner = async (args) => {
+      if (args.slice(0, 3).join(" ") === "calendar events patch") {
+        const body = JSON.parse(args[args.indexOf("--json") + 1]!);
+        patches.push(body);
+        event = { ...event, ...body };
+        return JSON.stringify(event);
+      }
+      return gws.run(args);
+    };
+    const { bb, harness, plugin } = host({}, { gmailEnabled: true }, run);
+    await plugin(bb);
+
+    const list = await syncAndRead(harness);
+    expect(list.items[0]?.invite).toEqual({ eventId: "evt1", response: "needsAction", cancelled: false });
+
+    await expect(harness.behavior.callRpc("items_rsvp", { id: "gmail:i1", response: "accepted" })).resolves.toEqual({
+      response: "accepted",
+      error: null,
+    });
+    expect(patches).toEqual([
+      {
+        attendees: [
+          { email: "octocat@example.com", responseStatus: "accepted", organizer: true },
+          { email: "hubber@example.com", responseStatus: "accepted", self: true },
+        ],
+      },
+    ]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items[0]?.invite?.response).toBe("accepted");
+  });
+
+  test("will not reply to an email that is not an invitation", async () => {
+    const gws = fakeGws({
+      "threads list": () => ({ threads: [{ id: "t1" }] }),
+      "threads get": () => thread("t1", "Widget launch", "1790200000000"),
+      getProfile: () => ({ emailAddress: "hubber@example.com" }),
+    });
+    const { bb, harness, plugin } = host({}, { gmailEnabled: true }, gws.run);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.callRpc("items_rsvp", { id: "gmail:t1", response: "accepted" })).resolves.toMatchObject({
+      response: null,
+    });
+  });
+
   test("says how to set gws up when it is not installed", async () => {
     const missing: GwsRunner = async () => {
       throw new GwsMissingError("gws");

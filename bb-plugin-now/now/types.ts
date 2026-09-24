@@ -55,6 +55,16 @@ export const docPartSchema = z.object({
 });
 export type DocPart = z.infer<typeof docPartSchema>;
 
+/** The Google Calendar event an invitation email is about, and your reply to it. */
+export const invitePartSchema = z.object({
+  /** Null when the email did not say, which leaves nothing to reply to. */
+  eventId: z.string().nullable(),
+  /** Your reply now, from Calendar. Null when Calendar could not be asked, or you are not a guest. */
+  response: z.enum(["accepted", "declined", "tentative", "needsAction"]).nullable(),
+  cancelled: z.boolean(),
+});
+export type InvitePart = z.infer<typeof invitePartSchema>;
+
 /** One thing that needs doing, from whichever source it came from. */
 export const itemSchema = z.object({
   /** Unique across sources: `<source>:<the source's own id>`. */
@@ -79,5 +89,6 @@ export const itemSchema = z.object({
   gmail: gmailPartSchema.nullable(),
   github: githubPartSchema.nullable(),
   doc: docPartSchema.nullable().optional(),
+  invite: invitePartSchema.nullable().optional(),
 });
 export type Item = z.infer<typeof itemSchema>;

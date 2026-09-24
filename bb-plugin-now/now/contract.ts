@@ -123,6 +123,17 @@ export const rpcContract = defineRpcContract({
     input: z.object({ id: z.string(), request: newThreadRequestSchema }),
     output: z.object({ threadId: z.string().nullable(), existing: z.boolean(), error: z.string().nullable() }),
   },
+  /**
+   * Reply to a calendar invitation's event as you: yes, no, or maybe. The row
+   * keeps its place and shows the reply.
+   */
+  items_rsvp: {
+    input: z.object({ id: z.string(), response: z.enum(["accepted", "declined", "tentative"]) }),
+    output: z.object({
+      response: z.enum(["accepted", "declined", "tentative", "needsAction"]).nullable(),
+      error: z.string().nullable(),
+    }),
+  },
   /** Comment on a GitHub row's pull request or issue, as you. */
   items_reply: {
     input: z.object({ id: z.string(), body: z.string().trim().min(1).max(65_000) }),

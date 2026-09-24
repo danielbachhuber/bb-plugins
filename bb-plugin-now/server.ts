@@ -1,6 +1,7 @@
 // bb-plugin-now — what needs doing now, gathered from every configured source.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
+import { fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
 import { createGhRunner, fetchStates, postComment, type GhRunner } from "./github/gh.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
@@ -148,6 +149,7 @@ export function createPlugin(deps: PluginDeps = {}) {
             query: values.gmailQuery,
             maxThreads: values.gmailMaxThreads,
             githubStates: (refs) => fetchStates(ghRun, refs),
+            inviteStates: (eventIds) => fetchInviteStates(run, eventIds),
             onWarn: (message) => bb.log.warn(message),
           }),
         );
@@ -163,7 +165,7 @@ export function createPlugin(deps: PluginDeps = {}) {
      * sources. What the sync read can predate them, so they are applied again
      * over what it stores; otherwise a task completed mid-sync comes back.
      */
-    type Change = { removed: string } | { restored: Item; position: number };
+    type Change = { removed: string } | { restored: Item; position: number } | { updated: Item };
     let changesDuringSync: Change[] | null = null;
 
     function removeRow(id: string) {
@@ -174,6 +176,14 @@ export function createPlugin(deps: PluginDeps = {}) {
     function restoreRow(item: Item, position: number) {
       store.restoreItem(item, position);
       changesDuringSync?.push({ restored: item, position });
+    }
+
+    /** Replaces a row where it is, as a reply to an invitation does. */
+    function updateRow(item: Item) {
+      const position = store.positionOf(item.id);
+      if (position === -1) return;
+      store.restoreItem(item, position);
+      changesDuringSync?.push({ updated: item });
     }
 
     function sync(): Promise<void> {
@@ -188,7 +198,10 @@ export function createPlugin(deps: PluginDeps = {}) {
           store.replace(keepFailedSources(store.read(), loaded));
           for (const change of changes) {
             if ("removed" in change) store.removeItem(change.removed);
-            else if (store.positionOf(change.restored.id) === -1) store.restoreItem(change.restored, change.position);
+            else if ("updated" in change) {
+              const position = store.positionOf(change.updated.id);
+              if (position !== -1) store.restoreItem(change.updated, position);
+            } else if (store.positionOf(change.restored.id) === -1) store.restoreItem(change.restored, change.position);
           }
           store.pruneSnoozes(now());
         } finally {
@@ -360,6 +373,22 @@ export function createPlugin(deps: PluginDeps = {}) {
           return await attempt;
         } finally {
           starting.delete(id);
+        }
+      },
+      items_rsvp: async ({ id, response }) => {
+        const item = findItem(id);
+        const eventId = item?.invite?.eventId;
+        if (item == null || !eventId) return { response: null, error: "Only a calendar invitation can be replied to." };
+        try {
+          const { gwsPath } = await settings.get();
+          const state = await replyToInvite(gwsFor(gwsPath.trim() || "gws").run, eventId, response);
+          updateRow({ ...item, invite: { ...item.invite!, response: state.response, cancelled: state.cancelled } });
+          announce();
+          bb.log.info(`Replied ${response} to ${id}`);
+          return { response: state.response, error: null };
+        } catch (error) {
+          bb.log.warn(`Could not reply to ${id}: ${messageOf(error)}`);
+          return { response: null, error: messageOf(error) };
         }
       },
       items_reply: async ({ id, body }) => {

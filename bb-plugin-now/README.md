@@ -47,6 +47,12 @@ good sync, with a note saying how many.
   and says so, to suggest it. It does the same, saying "not your review", on
   a pull request you are notified about only because a team you are in, or
   someone else, was asked to review it.
+- **Yes, No, Maybe** (under a calendar invitation's snippet, after "Going?")
+  replies to the event in Google Calendar as you, the way the same links in
+  the email do. Your current reply is the one marked, read from Calendar on
+  each sync, so a reply made in Calendar or Gmail shows here too. The row
+  stays where it is, and once you have replied its Archive is tinted and says
+  "you replied". A canceled event says so instead, and suggests Archive.
 - **Snooze** (the pause icon, at the right of every row) hides the row until
   later today (three hours), tomorrow at 8:00, or next Monday at 8:00. The
   snooze is kept in this plugin's database; nothing changes in Todoist or
@@ -180,9 +186,19 @@ they are all read, with an action in words ("resolved the comment"). A
 **Mentioned** label shows when one of them mentioned you or assigned you
 something.
 
+Calendar's invitations carry an `X-Google-Calendar-Notification` header
+(`eventCreated`, `timeOrRecurrenceUpdated`, `eventCancelled`, and so on;
+someone else's reply, `rsvpAccepted`, asks nothing of you). The event is
+named only in the body's links, whose `eid` decodes to the event's id and your
+address, so those threads are read in full too. Each sync then asks Calendar
+for every invitation's event (`gws calendar events get`) and reads your reply
+from its guest list. Replying sends that guest list back with your entry
+changed (`gws calendar events patch`), since Calendar replaces the whole list
+on a patch.
+
 One sync runs `gws gmail users threads list` with the search, then
 `threads get` for each thread's headers, five at a time, and once more in full
-for each thread of Google comment notifications. The signed-in
+for each thread of Google comment notifications or calendar invitations. The signed-in
 address is asked for once per plugin load, for the links. If `gws` is
 missing, the page says how to set it up; if it fails (an expired sign-in, for
 example), its error shows above the list and the Todoist tasks still load.
@@ -228,6 +244,8 @@ list `server.ts` passes to `loadSources`.
 | `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
 | `github/state.ts` | The GraphQL query for every reference's state, and reading its answer |
 | `github/gh.ts` | The only module that runs `gh`: the state query and posting a comment |
+| `calendar/invite.ts` | Which event an invitation is about, your reply to it, and the guest list that changes it |
+| `calendar/api.ts` | The only module that asks Google Calendar: each event's reply, and replying |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |

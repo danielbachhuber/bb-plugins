@@ -13,6 +13,7 @@ import {
   type GitHubRef,
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
+import { CALENDAR_HEADER, eventIdFromBody, notificationKind } from "../calendar/invite.js";
 import { APP_NAMES, DOCS_SENDER, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
 import type { Item } from "../now/types.js";
 import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
@@ -26,6 +27,7 @@ export const METADATA_HEADERS = [
   "X-GitHub-Sender",
   "X-GitHub-Reason",
   "X-GitHub-PullRequestStatus",
+  CALENDAR_HEADER,
 ];
 
 function messagesOf(thread: unknown): Raw[] {
@@ -49,6 +51,33 @@ export function githubRefOf(thread: unknown): GitHubRef | null {
 /** Whether a thread holds Google's comment notifications, whose bodies are worth fetching. */
 export function isDocsThread(thread: unknown): boolean {
   return messagesOf(thread).some((message) => header(message, "From")?.toLowerCase().includes(DOCS_SENDER) === true);
+}
+
+/** The latest calendar notification in a thread that asks something of you, with what it is. */
+function calendarNotification(thread: unknown): { message: Raw; kind: "invitation" | "cancelled" } | null {
+  const messages = messagesOf(thread);
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const kind = notificationKind(header(messages[index]!, CALENDAR_HEADER));
+    if (kind !== null) return { message: messages[index]!, kind };
+  }
+  return null;
+}
+
+/** Whether a thread's body is worth fetching: Google's comment emails, and calendar invitations. */
+export function needsBody(thread: unknown): boolean {
+  return isDocsThread(thread) || calendarNotification(thread) !== null;
+}
+
+/** The event an invitation thread is about, read from its body when it was fetched in full. */
+function inviteOf(thread: unknown): Item["invite"] {
+  const found = calendarNotification(thread);
+  if (found === null) return null;
+  const body = htmlBody(found.message);
+  return {
+    eventId: body === null ? null : eventIdFromBody(body),
+    response: null,
+    cancelled: found.kind === "cancelled",
+  };
 }
 
 /** A message's HTML body, when the thread was fetched in full. */
@@ -223,7 +252,10 @@ export function inboxItems(
     const ref = githubRefOf(thread);
     if (ref === null) {
       const item = normalizeThread(thread, account);
-      if (item !== null) rows.push(item);
+      if (item !== null) {
+        const invite = inviteOf(thread);
+        rows.push(invite === null ? item : { ...item, invite });
+      }
       continue;
     }
     const key = refKey(ref);

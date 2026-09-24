@@ -3,7 +3,8 @@ import type { GitHubRef } from "../github/notifications.js";
 import type { GitHubState } from "../github/state.js";
 import type { Source, SourceResult } from "../now/sources.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
-import { githubRefs, inboxItems, isDocsThread, METADATA_HEADERS } from "./inbox.js";
+import type { InviteState } from "../calendar/invite.js";
+import { githubRefs, inboxItems, METADATA_HEADERS, needsBody } from "./inbox.js";
 import { SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_QUERY = "in:inbox";
@@ -30,6 +31,8 @@ export interface GmailSourceOptions {
    * email reported.
    */
   githubStates?: (refs: GitHubRef[]) => Promise<Map<string, GitHubState>>;
+  /** Your reply to each invitation's event, from Calendar. Optional, and allowed to fail. */
+  inviteStates?: (eventIds: string[]) => Promise<Map<string, InviteState>>;
   onWarn?: (message: string) => void;
 }
 
@@ -84,9 +87,10 @@ export function gmailSource(options: GmailSourceOptions): Source {
     ]);
 
     // Google's comment notifications say who wrote what only in their bodies,
-    // so those threads, and only those, are fetched again in full.
+    // and an invitation names its event only there, so those threads, and
+    // only those, are fetched again in full.
     await mapLimit(
-      threads.map((thread, index) => ({ thread, index })).filter(({ thread }) => isDocsThread(thread)),
+      threads.map((thread, index) => ({ thread, index })).filter(({ thread }) => needsBody(thread)),
       CONCURRENCY,
       async ({ thread, index }) => {
         try {
@@ -95,7 +99,7 @@ export function gmailSource(options: GmailSourceOptions): Source {
             "--params", JSON.stringify({ userId: "me", id: (thread as { id: string }).id, format: "full" }),
           ]);
         } catch (error) {
-          options.onWarn?.(`Could not read a Google comment email: ${error instanceof Error ? error.message : String(error)}`);
+          options.onWarn?.(`Could not read an email in full: ${error instanceof Error ? error.message : String(error)}`);
         }
       },
     );
@@ -109,7 +113,21 @@ export function gmailSource(options: GmailSourceOptions): Source {
         options.onWarn?.(`Could not look up GitHub states: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    const items = inboxItems(threads, account, states);
+    let items = inboxItems(threads, account, states);
+
+    const eventIds = [...new Set(items.flatMap((item) => (item.invite?.eventId ? [item.invite.eventId] : [])))];
+    if (eventIds.length > 0 && options.inviteStates !== undefined) {
+      try {
+        const replies = await options.inviteStates(eventIds);
+        items = items.map((item) => {
+          const state = item.invite?.eventId ? replies.get(item.invite.eventId) : undefined;
+          if (state === undefined || !item.invite) return item;
+          return { ...item, invite: { ...item.invite, response: state.response, cancelled: item.invite.cancelled || state.cancelled } };
+        });
+      } catch (error) {
+        options.onWarn?.(`Could not look up invitations: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
 
     return { status: { id: SOURCE_ID, name: NAME, state: "ok", query, count: items.length }, items };
   }
