@@ -61,10 +61,13 @@ const dirty = git(repoRoot, "status", "--porcelain") !== "";
 const build = spawnSync("node", [join(repoRoot, "scripts/ladle.mjs"), "build"], {
   cwd: repoRoot,
   encoding: "utf8",
+  // Rollup's warnings run to megabytes, past spawnSync's 1 MB default.
+  maxBuffer: 256 * 1024 * 1024,
 });
 // Rollup warns about every icon module on stderr, so it is shown only when
 // the build fails.
 if (build.status !== 0) {
+  if (build.error) console.error(build.error);
   process.stderr.write(build.stdout + build.stderr);
   process.exit(build.status ?? 1);
 }
@@ -101,8 +104,10 @@ function outputPath(id) {
 }
 
 const browser = await chromium.launch();
-// Reduced motion, so a loading animation settles on the same frame each run
-// rather than showing a new diff in the history every time.
+// Reduced motion, and animations disabled at capture, so a loading animation
+// or a spinner is on the same frame each run rather than showing a new diff
+// in the history every time. The second catches what the first does not:
+// `animate-spin` ignores the reduced-motion preference.
 const context = await browser.newContext({
   viewport: { width: 1400, height: 900 },
   deviceScaleFactor: 2,
@@ -124,7 +129,7 @@ for (const id of stories) {
   } else {
     const file = outputPath(id);
     mkdirSync(dirname(file), { recursive: true });
-    await page.screenshot({ path: file, fullPage: true });
+    await page.screenshot({ path: file, fullPage: true, animations: "disabled" });
     written.add(file);
     console.log(relative(outDir, file));
   }
