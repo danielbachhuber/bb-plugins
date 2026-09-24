@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import type { rpcContract } from "./server";
 import { ViewBanner } from "./view/banner.js";
 import { setFocus, useFocus } from "./view/focus.js";
-import { editableText, type Item } from "./view/schema.js";
+import { usesDraft, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { ViewPanel } from "./view/view-panel.js";
 
@@ -54,10 +54,10 @@ function useRunAction(setStored: (view: StoredView) => void) {
   const fail = useFail();
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const run = useCallback(
-    (stored: StoredView, item: Item, index: number, text?: string) => {
+    (stored: StoredView, item: Item, index: number, draft?: string) => {
       setBusyItem(item.id);
       rpc
-        .call("action_run", { viewId: stored.id, itemId: item.id, index, ...(text === undefined ? {} : { text }) })
+        .call("action_run", { viewId: stored.id, itemId: item.id, index, ...(draft === undefined ? {} : { draft }) })
         .then((updated) => {
           setStored(updated);
           const result = updated.items[item.id]?.result;
@@ -104,9 +104,8 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
       confirming={
         focusHere?.itemId && focusHere.confirmIndex !== undefined ? `${focusHere.itemId}:${focusHere.confirmIndex}` : undefined
       }
-      onShowAll={() => setFocus(threadId, { viewId: stored.id, itemId: null })}
       onGoToThread={(id) => navigate.toThread(id)}
-      onRun={(item, index, text) => run(stored, item, index, text)}
+      onRun={(item, index, draft) => run(stored, item, index, draft)}
       onDismiss={(item, dismissed) => {
         setBusyItem(item.id);
         rpc
@@ -160,11 +159,11 @@ function Banner() {
       focusedItem={focus?.viewId === stored.id ? focus.itemId : null}
       onOpenItem={(item) => openItem(item)}
       onRun={(item, index) => {
-        // A command, or a button whose text the user may want to edit, opens
-        // the item: the panel shows the command or the text before anything runs.
+        // A command, or a button that sends the item's draft, opens the item:
+        // the panel shows the command or the draft before anything runs.
         const action = item.actions[index];
         if (action?.type === "command") openItem(item, index);
-        else if (action !== undefined && editableText(action) !== null) openItem(item);
+        else if (action !== undefined && usesDraft(action)) openItem(item);
         else run(stored, item, index);
       }}
       onGoToThread={(id) => navigate.toThread(id)}

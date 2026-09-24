@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { firstLine, mainAction } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
-import { applyEdit, parseView } from "./schema.js";
+import { fillDraft, parseView, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems } from "./store.js";
 
 function store() {
@@ -114,42 +114,44 @@ describe("banner rows", () => {
     const [issue101] = triageView.sections[0]!.items;
     expect(mainAction(issue101!)?.action.label).toBe("Post and close");
     const noPrimary = { ...issue101!, actions: issue101!.actions.map((a) => ({ ...a, primary: false })) };
-    expect(mainAction({ ...noPrimary, actions: [noPrimary.actions[2]!, noPrimary.actions[1]!] })).toMatchObject({ index: 1 });
+    expect(mainAction({ ...noPrimary, actions: [noPrimary.actions[3]!, noPrimary.actions[2]!] })).toMatchObject({ index: 1 });
     expect(mainAction({ ...issue101!, actions: [] })).toBeNull();
   });
 });
 
-describe("editable actions", () => {
-  const thread = {
-    type: "thread" as const,
-    label: "Open thread",
-    project: "widgets",
-    title: "Fix it",
-    prompt: "Do the thing.",
-    primary: true,
-    editable: true,
-  };
+describe("item drafts", () => {
+  const post = { type: "message" as const, label: "Post and close", text: "Post on #7, then close:\n\n{draft}", primary: true };
+  const keep = { type: "message" as const, label: "Post and keep open", text: "Post on #7, leave it open:\n\n{draft}", primary: false };
 
-  it("defaults to not editable", () => {
-    const view = parseView(
-      JSON.stringify({ title: "T", sections: [{ items: [{ id: "a", title: "A", actions: [{ type: "message", label: "Go", text: "hi" }] }] }] }),
-    );
-    expect(view.sections[0]!.items[0]!.actions[0]).toMatchObject({ editable: false });
+  function viewWith(item: Record<string, unknown>) {
+    return JSON.stringify({ title: "T", sections: [{ items: [{ id: "a", title: "A", ...item }] }] });
+  }
+
+  it("lets several buttons share one draft", () => {
+    const view = parseView(viewWith({ draft: "Done in #9.", draftLabel: "Comment to post", actions: [post, keep] }));
+    const item = view.sections[0]!.items[0]!;
+    expect(item.draft).toBe("Done in #9.");
+    expect(item.actions.every(usesDraft)).toBe(true);
   });
 
-  it("swaps in the user's text for an editable thread or message", () => {
-    expect(applyEdit(thread, "Do the other thing.")).toEqual({ action: { ...thread, prompt: "Do the other thing." }, edited: true });
-    const message = { type: "message" as const, label: "Post", text: "Post it.", primary: false, editable: true };
-    expect(applyEdit(message, "Post it now.").action).toMatchObject({ text: "Post it now." });
+  it("fills {draft} with the user's edit, or the original when unchanged", () => {
+    expect(fillDraft(post, "Done in #9.", "Done in #9 and #10.")).toEqual({
+      action: { ...post, text: "Post on #7, then close:\n\nDone in #9 and #10." },
+      edited: true,
+    });
+    expect(fillDraft(keep, "Done in #9.", undefined)).toEqual({
+      action: { ...keep, text: "Post on #7, leave it open:\n\nDone in #9." },
+      edited: false,
+    });
   });
 
-  it("treats unchanged or absent text as no edit", () => {
-    expect(applyEdit(thread, "Do the thing.")).toEqual({ action: thread, edited: false });
-    expect(applyEdit(thread, undefined)).toEqual({ action: thread, edited: false });
+  it("keeps a $ in the user's text as written", () => {
+    expect(fillDraft(post, "x", "costs $1 and $&").action).toMatchObject({ text: "Post on #7, then close:\n\ncosts $1 and $&" });
   });
 
-  it("refuses text for an action the skill did not mark editable", () => {
-    expect(() => applyEdit({ ...thread, editable: false }, "sneaky")).toThrow(/not editable/);
-    expect(() => applyEdit({ type: "command", label: "Close", command: "gh issue close 1", primary: false }, "rm -rf /")).toThrow(/not editable/);
+  it("refuses {draft} in a command, and {draft} on an item with no draft", () => {
+    const command = { type: "command", label: "Comment", command: "gh issue comment 7 --body '{draft}'" };
+    expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command cannot use \{draft\}/);
+    expect(() => parseView(viewWith({ actions: [post] }))).toThrow(/uses \{draft\} but the item has no draft/);
   });
 });

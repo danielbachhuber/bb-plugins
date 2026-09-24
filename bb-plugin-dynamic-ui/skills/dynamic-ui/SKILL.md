@@ -45,8 +45,11 @@ After publishing, say in chat how many items there are and that they are above t
           "badges": [{ "label": "Done", "tone": "success" }],
           "summary": "Markdown, always shown.",
           "details": "Markdown behind a Details toggle.",
+          "draft": "This is done. #140 added Export.",
+          "draftLabel": "Comment to post",
           "actions": [
-            { "type": "message", "label": "Post and close", "text": "Post this comment on #101, then close it:\n\nThis is done. #140 added Export.", "primary": true, "editable": true },
+            { "type": "message", "label": "Post and close", "text": "Post this comment on #101, then close it:\n\n{draft}", "primary": true },
+            { "type": "message", "label": "Post and keep open", "text": "Post this comment on #101 and leave it open:\n\n{draft}" },
             { "type": "command", "label": "Close only", "command": "gh issue close 101 --repo acme/widgets" },
             { "type": "thread", "label": "Fix in a new thread", "project": "widgets", "title": "Fix #101", "prompt": "..." },
             { "type": "link", "label": "Open #101", "url": "https://github.com/acme/widgets/issues/101" }
@@ -61,7 +64,7 @@ After publishing, say in chat how many items there are and that they are above t
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
-- `editable: true` on a `message` or `thread` action shows its `text` or `prompt` in a box the user can edit before sending, and its button in the list opens the item instead of sending. Use it when the text is a draft the user may want to change: a comment to post, the task a new thread gets. Do not repeat that text in `summary` or `details`, since the box already shows it.
+- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. The opened item shows it once, in a box labelled `draftLabel`. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons (post and close, post and keep open) share one draft, and each sends its own instruction with the draft as the user left it. A button that uses `{draft}` opens the item from the list instead of sending. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
 - The row above the composer shows only the first line of `summary` and the item's main button (the `primary` one, else the first that is not a link). Make the first line the gist, and mark the likely choice `primary`. Put evidence and drafts further down the summary or in `details`, which show when the item is opened.
 
 | Action | What the button does |

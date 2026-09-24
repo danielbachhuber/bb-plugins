@@ -33,7 +33,9 @@ up to six buttons:
 | `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output; a command button in the list above the composer opens the item to ask. A failed command leaves the item open. |
 | `link` | Opens a URL. |
 
-A `message` or `thread` button marked `editable` shows the text it sends, the message or the new thread's prompt, in a box the user can edit first; its button in the list above the composer opens the item instead of sending.
+An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, in a box the user can edit, and every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Those buttons open the item from the list above the composer instead of sending. Commands cannot use `{draft}`, so edited text never reaches a shell.
+
+With no entry picked, the side panel says to click one; the list itself lives above the composer.
 
 Every card can be dismissed and restored. The agent reads back what the user
 did with `bb dynamic-ui state`.

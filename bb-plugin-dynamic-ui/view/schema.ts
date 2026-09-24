@@ -32,8 +32,6 @@ export const actionSchema = z.discriminatedUnion("type", [
     type: z.literal("message"),
     /** Sent to the thread that published the view, as if the user typed it. */
     text: z.string().trim().min(1).max(20_000),
-    /** The opened item shows `text` in a box the user can edit before sending. */
-    editable: z.boolean().default(false),
   }),
   z.object({
     ...actionBase,
@@ -42,8 +40,6 @@ export const actionSchema = z.discriminatedUnion("type", [
     project: z.string().trim().min(1).max(200),
     title: z.string().trim().min(1).max(200),
     prompt: z.string().trim().min(1).max(50_000),
-    /** The opened item shows `prompt` in a box the user can edit before the thread starts. */
-    editable: z.boolean().default(false),
   }),
   z.object({
     ...actionBase,
@@ -61,24 +57,27 @@ export const actionSchema = z.discriminatedUnion("type", [
 ]);
 export type Action = z.infer<typeof actionSchema>;
 
-/** The text an editable action sends, or null for an action that has none to edit. */
-export function editableText(action: Action): string | null {
-  if (action.type === "message" && action.editable) return action.text;
-  if (action.type === "thread" && action.editable) return action.prompt;
-  return null;
+/** Where a button's text takes the item's draft, as the user left it. */
+export const DRAFT = "{draft}";
+
+/** Whether a button sends the item's draft, so the user should see it first. */
+export function usesDraft(action: Action): boolean {
+  if (action.type === "message") return action.text.includes(DRAFT);
+  if (action.type === "thread") return action.prompt.includes(DRAFT);
+  return false;
 }
 
 /**
- * The action to run once the user's edit is applied. Only an action the skill
- * marked editable takes one; text equal to the original is not an edit.
+ * The action to run, with `{draft}` replaced by the draft as the user left it.
+ * `edited` says whether they changed it from what the skill wrote.
  */
-export function applyEdit(action: Action, text: string | undefined): { action: Action; edited: boolean } {
-  if (text === undefined) return { action, edited: false };
-  const original = editableText(action);
-  if (original === null) throw new Error(`"${action.label}" is not editable.`);
-  if (text === original) return { action, edited: false };
-  if (action.type === "message") return { action: { ...action, text }, edited: true };
-  if (action.type === "thread") return { action: { ...action, prompt: text }, edited: true };
+export function fillDraft(action: Action, original: string, draft: string | undefined): { action: Action; edited: boolean } {
+  const text = draft ?? original;
+  const edited = draft !== undefined && draft !== original;
+  // Split and join, so a "$" in the user's text is not read as a replace pattern.
+  const fill = (template: string) => template.split(DRAFT).join(text);
+  if (action.type === "message") return { action: { ...action, text: fill(action.text) }, edited };
+  if (action.type === "thread") return { action: { ...action, prompt: fill(action.prompt) }, edited };
   return { action, edited: false };
 }
 
@@ -96,6 +95,14 @@ export const itemSchema = z.object({
   summary: markdown.default(""),
   /** Shown behind a "Details" toggle. */
   details: markdown.default(""),
+  /**
+   * Text the user can edit before a button sends it: a comment to post, the
+   * task for a new thread. A `message` or `thread` button puts `{draft}` in
+   * its text where the draft goes, so several buttons share one draft.
+   */
+  draft: z.string().max(50_000).default(""),
+  /** The label over the draft's box: "Comment to post", "Task for the new thread". */
+  draftLabel: z.string().trim().max(80).default("Draft"),
   actions: z.array(actionSchema).max(6).default([]),
 });
 export type Item = z.infer<typeof itemSchema>;
@@ -115,6 +122,15 @@ export const viewSchema = z
     const seen = new Set<string>();
     view.sections.forEach((section, s) =>
       section.items.forEach((item, i) => {
+        item.actions.forEach((action, a) => {
+          const path = ["sections", s, "items", i, "actions", a];
+          if (action.type === "command" && action.command.includes(DRAFT)) {
+            ctx.addIssue({ code: "custom", path: [...path, "command"], message: "a command cannot use {draft}; use a message button" });
+          }
+          if (usesDraft(action) && item.draft.trim() === "") {
+            ctx.addIssue({ code: "custom", path: [...path, "type"], message: "uses {draft} but the item has no draft" });
+          }
+        });
         if (seen.has(item.id)) {
           ctx.addIssue({
             code: "custom",

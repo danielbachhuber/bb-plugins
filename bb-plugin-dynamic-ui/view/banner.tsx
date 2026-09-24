@@ -5,7 +5,7 @@
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { editableText, type Action, type Item } from "./schema.js";
+import { usesDraft, type Action, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
 import { TONE_CLASS } from "./view-panel.js";
 
@@ -18,7 +18,7 @@ export interface ViewBannerProps {
   /** The item the side panel shows, highlighted here. */
   focusedItem: string | null;
   onOpenItem: (item: Item) => void;
-  /** The row's main button. The app opens the item instead for a command or editable text. */
+  /** The row's main button. The app opens the item instead for a command or a draft. */
   onRun: (item: Item, index: number) => void;
   onGoToThread: (threadId: string) => void;
 }
@@ -126,8 +126,8 @@ export function ViewBanner({
                   >
                     {busyItem === item.id
                       ? "Working…"
-                      : // "…" marks a button that opens the item to show a command or editable text first.
-                        `${main.action.label}${main.action.type === "command" || editableText(main.action) !== null ? "…" : ""}`}
+                      : // "…" marks a button that opens the item to show a command or a draft first.
+                        `${main.action.label}${main.action.type === "command" || usesDraft(main.action) ? "…" : ""}`}
                   </Button>
                 )}
               </li>

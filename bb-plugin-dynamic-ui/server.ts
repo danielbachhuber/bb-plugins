@@ -12,7 +12,7 @@ import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
-import { applyEdit, parseView, type Action } from "./view/schema.js";
+import { fillDraft, parseView, usesDraft, type Action } from "./view/schema.js";
 import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredView } from "./view/store.js";
 
 export { rpcContract };
@@ -112,12 +112,14 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function runAction(viewId: number, itemId: string, index: number, text?: string): Promise<StoredView> {
+  async function runAction(viewId: number, itemId: string, index: number, draft?: string): Promise<StoredView> {
     const stored = requireView(viewId);
     const item = findItem(stored, itemId);
     const original = item.actions[index];
     if (original === undefined) throw new Error(`Item ${itemId} has no action ${index}.`);
-    const { action, edited } = applyEdit(original, text);
+    // Only a button that sends the draft takes the user's version of it.
+    if (draft !== undefined && !usesDraft(original)) throw new Error(`"${original.label}" does not send the draft.`);
+    const { action, edited } = fillDraft(original, item.draft, draft);
     let result: ActionResult;
     try {
       result = { label: action.label, at: now(), ...(edited ? { edited: true } : {}), ...(await perform(stored, action)) };
@@ -144,7 +146,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
-    action_run: ({ viewId, itemId, index, text }) => runAction(viewId, itemId, index, text),
+    action_run: ({ viewId, itemId, index, draft }) => runAction(viewId, itemId, index, draft),
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
   });
 

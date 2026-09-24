@@ -44,8 +44,8 @@ export const rpcContract = defineRpcContract({
   action_run: {
     input: itemRefSchema.extend({
       index: z.number().int().min(0).max(5),
-      /** The user's edit of an editable action's text; refused on any other action. */
-      text: z.string().trim().min(1).max(50_000).optional(),
+      /** The item's draft as the user left it; goes where the button's text says `{draft}`. */
+      draft: z.string().trim().min(1).max(50_000).optional(),
     }),
     output: storedViewSchema,
   },

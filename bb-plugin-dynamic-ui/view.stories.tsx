@@ -51,27 +51,37 @@ function Panel(props: Partial<ViewPanelProps>) {
   );
 }
 
-/** A freshly published view: sections, badges, and every kind of button. */
-export function Published() {
-  return <Panel expandedItems={["issue-101"]} />;
+/** Nothing picked yet: the panel asks for an entry from the list above the composer. */
+export function NothingPicked() {
+  return <Panel />;
+}
+
+/** An entry picked: its summary, details, the draft to edit, and every button. */
+export function Picked() {
+  return <Panel focusItemId="issue-101" />;
 }
 
 /** A command button asks before it runs, showing the command. */
 export function ConfirmCommand() {
-  return <Panel confirming="issue-101:1" />;
+  return <Panel focusItemId="issue-101" confirming="issue-101:2" />;
 }
 
-/** After the user acted: a command's output, an opened thread, a dismissed item. */
-export function AfterActions() {
-  return <Panel stored={worked} />;
+/** After a command ran: its output on the entry. */
+export function AfterCommand() {
+  return <Panel stored={worked} focusItemId="issue-101" />;
 }
 
-/** A command that failed leaves the item open with the output on it. */
+/** After opening a thread: the button becomes Go to thread. */
+export function AfterThread() {
+  return <Panel stored={worked} focusItemId="issue-117" />;
+}
+
+/** A command that failed leaves the entry open with the output on it. */
 export function CommandFailed() {
-  return <Panel stored={failed} />;
+  return <Panel stored={failed} focusItemId="issue-101" />;
 }
 
 /** An action in flight. */
 export function Working() {
-  return <Panel busyItem="issue-117" />;
+  return <Panel busyItem="issue-117" focusItemId="issue-117" />;
 }

@@ -4,25 +4,21 @@ import { useState } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { editableText, type Action, type Item } from "./schema.js";
+import { usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 
 export interface ViewPanelProps {
   stored: StoredView;
   /** Which item has an action in flight. */
   busyItem: string | null;
-  /** `text` is the user's edit of an editable action; absent when unchanged. */
-  onRun: (item: Item, index: number, text?: string) => void;
+  /** `draft` is the item's draft as the user edited it; absent when unchanged. */
+  onRun: (item: Item, index: number, draft?: string) => void;
   onDismiss: (item: Item, dismissed: boolean) => void;
   onGoToThread: (threadId: string) => void;
-  /** Items whose details start expanded. Stories use it; the panel does not. */
-  expandedItems?: string[];
   /** An item whose command confirmation starts open, as `itemId:index`. */
   confirming?: string;
-  /** Show only this item, picked from the banner above the composer. */
+  /** The item picked in the list above the composer. None picked shows a prompt to pick one. */
   focusItemId?: string | null;
-  /** Back from one item to the whole view. */
-  onShowAll?: () => void;
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -112,20 +108,17 @@ function ItemCard({
   busy: boolean;
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
-  onRun: (index: number, text?: string) => void;
+  onRun: (index: number, draft?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
-  const [edits, setEdits] = useState<Record<number, string>>({});
-  /** An action already used shows its result, not its text. */
-  const used = (action: Action) => record?.result?.label === action.label && record.state === "done";
+  const [draft, setDraft] = useState(item.draft);
+  const draftChanged = draft.trim() !== item.draft.trim();
   const run = (index: number) => {
     const action = item.actions[index]!;
-    const original = editableText(action);
-    const edit = edits[index];
-    onRun(index, original !== null && edit !== undefined && edit.trim() !== original ? edit.trim() : undefined);
+    onRun(index, usesDraft(action) && draftChanged && draft.trim() !== "" ? draft.trim() : undefined);
   };
   const state = record?.state ?? "open";
   const pending = confirming === null ? null : item.actions[confirming];
@@ -182,36 +175,29 @@ function ItemCard({
 
       {record === undefined ? null : <Result record={record} onGo={onGo} />}
 
-      {state === "dismissed"
-        ? null
-        : item.actions.map((action, index) => {
-            const original = editableText(action);
-            if (original === null || used(action)) return null;
-            const value = edits[index] ?? original;
-            const changed = value.trim() !== original;
-            return (
-              <div key={`edit:${index}`} className="mt-3">
-                <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
-                  <span>
-                    {action.type === "thread" ? `The new thread's prompt, in ${action.project}` : "What this sends to the thread"}
-                    {changed ? " · edited" : ""}
-                  </span>
-                  {changed ? (
-                    <button type="button" className="hover:text-foreground hover:underline" onClick={() => setEdits((e) => ({ ...e, [index]: original }))}>
-                      Reset
-                    </button>
-                  ) : null}
-                </div>
-                <textarea
-                  aria-label={`${action.label}: text to send`}
-                  className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={Math.min(16, Math.max(4, value.split("\n").length + Math.ceil(value.length / 90)))}
-                  value={value}
-                  onChange={(event) => setEdits((e) => ({ ...e, [index]: event.target.value }))}
-                />
-              </div>
-            );
-          })}
+      {/* One box for the item's draft: every button that says {draft} sends it as left here. */}
+      {item.draft === "" || state !== "open" ? null : (
+        <div className="mt-3">
+          <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
+            <span>
+              {item.draftLabel}
+              {draftChanged ? " · edited" : ""}
+            </span>
+            {draftChanged ? (
+              <button type="button" className="hover:text-foreground hover:underline" onClick={() => setDraft(item.draft)}>
+                Reset
+              </button>
+            ) : null}
+          </div>
+          <textarea
+            aria-label={item.draftLabel}
+            className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            rows={Math.min(16, Math.max(4, draft.split("\n").length + Math.ceil(draft.length / 90)))}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </div>
+      )}
 
       {pending !== undefined && pending !== null && pending.type === "command" ? (
         <div className="mt-3 rounded-md border border-border px-3 py-2">
@@ -255,94 +241,43 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({
-  stored,
-  busyItem,
-  onRun,
-  onDismiss,
-  onGoToThread,
-  expandedItems,
-  confirming,
-  focusItemId,
-  onShowAll,
-}: ViewPanelProps) {
+export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId }: ViewPanelProps) {
   const { view } = stored;
-  const all = view.sections.flatMap((section) => section.items);
-  const open = all.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
+  const focused = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
 
-  const focused = focusItemId ? all.find((item) => item.id === focusItemId) : undefined;
-  if (focused !== undefined) {
-    const section = view.sections.find((candidate) => candidate.items.includes(focused));
+  // The list lives above the composer; the panel shows one entry from it.
+  if (focused === undefined) {
     return (
-      <div className="h-full min-h-0 overflow-y-auto">
-        <div className="flex flex-col gap-3 px-4 py-4">
-          <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
-            <button type="button" className="hover:text-foreground hover:underline" onClick={onShowAll}>
-              ← All {all.length} items
-            </button>
-            <span className="truncate">
-              {view.title}
-              {section?.title ? ` · ${section.title}` : ""}
-            </span>
-          </div>
-          <ol>
-            {/* Keyed on the confirmation too, so a command clicked in the banner opens asking. */}
-            <ItemCard
-              key={`${focused.id}:${confirming ?? ""}`}
-              item={focused}
-              record={stored.items[focused.id]}
-              busy={busyItem === focused.id}
-              initiallyExpanded
-              initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
-              onRun={(index, text) => onRun(focused, index, text)}
-              onDismiss={(dismissed) => onDismiss(focused, dismissed)}
-              onGo={onGoToThread}
-            />
-          </ol>
-        </div>
+      <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 text-center">
+        <div className="text-sm font-medium text-foreground">{view.title}</div>
+        <div className="mt-1 text-sm text-muted-foreground">Click on an entry to see its full details.</div>
       </div>
     );
   }
 
+  const section = view.sections.find((candidate) => candidate.items.includes(focused));
   return (
     <div className="h-full min-h-0 overflow-y-auto">
-      <div className="flex flex-col gap-4 px-4 py-4">
-        <div>
-          <h1 className="text-base font-semibold text-foreground">{view.title}</h1>
-          <div className="mt-0.5 text-xs text-muted-foreground">
-            {all.length} items, {open} open
-          </div>
-          {view.summary === "" ? null : (
-            <div className="mt-2 text-sm">
-              <Markdown content={view.summary} />
-            </div>
-          )}
+      <div className="flex flex-col gap-3 px-4 py-4">
+        <div className="truncate text-xs text-muted-foreground">
+          {view.title}
+          {section?.title ? ` · ${section.title}` : ""}
         </div>
-        {view.sections.map((section, s) => (
-          <section key={`${s}:${section.title}`}>
-            {section.title === "" ? null : (
-              <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{section.title}</h2>
-            )}
-            <ol className="flex flex-col gap-2">
-              {section.items.map((item) => {
-                return (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    record={stored.items[item.id]}
-                    busy={busyItem === item.id}
-                    initiallyExpanded={expandedItems?.includes(item.id) ?? false}
-                    initiallyConfirming={confirmItem === item.id ? Number(confirmIndex) : null}
-                    onRun={(index, text) => onRun(item, index, text)}
-                    onDismiss={(dismissed) => onDismiss(item, dismissed)}
-                    onGo={onGoToThread}
-                  />
-                );
-              })}
-            </ol>
-          </section>
-        ))}
+        <ol>
+          {/* Keyed on the confirmation too, so a command clicked in the list opens asking. */}
+          <ItemCard
+            key={`${focused.id}:${confirming ?? ""}`}
+            item={focused}
+            record={stored.items[focused.id]}
+            busy={busyItem === focused.id}
+            initiallyExpanded
+            initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
+            onRun={(index, draft) => onRun(focused, index, draft)}
+            onDismiss={(dismissed) => onDismiss(focused, dismissed)}
+            onGo={onGoToThread}
+          />
+        </ol>
       </div>
     </div>
   );

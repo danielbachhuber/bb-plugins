@@ -195,15 +195,12 @@ function ThreadStage({
       </div>
     </div>
     <aside className="w-[440px] shrink-0 border-l border-border">
-      {focus === null ? (
-        <div className="px-4 py-6 text-sm text-muted-foreground">Click a row above the composer to open it here.</div>
-      ) : (
+      {(
         <ViewPanel
           stored={view}
           busyItem={null}
           focusItemId={focus}
           confirming={confirming}
-          onShowAll={() => setFocus(null)}
           onRun={noop}
           onDismiss={noop}
           onGoToThread={noop}
@@ -239,7 +236,7 @@ export function TriageItemOpen() {
 
 /** "Close only" is a command, so clicking it opens the item asking first. */
 export function TriageConfirmCommand() {
-  return <ThreadStage turns={triageTurns} view={stored(triageView)} initialFocus="issue-101" confirming="issue-101:1" />;
+  return <ThreadStage turns={triageTurns} view={stored(triageView)} initialFocus="issue-101" confirming="issue-101:2" />;
 }
 
 /** After acting: one closed, one opened as a thread, one dismissed. */
