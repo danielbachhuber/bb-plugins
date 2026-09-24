@@ -52,14 +52,19 @@ export function sectionOf(item: Item, now: Date): SectionId {
  * The rows grouped into sections, every section kept even when empty so the
  * header can count it. Now and Anytime keep the list's order (soonest first,
  * then priority, undated last). Inbox is newest first, as Gmail is, with
- * Todoist's Inbox tasks after the mail.
+ * Todoist's Inbox tasks after the mail: dated ones soonest first, then
+ * undated ones newest added first.
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
   const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
   for (const item of items) groups.get(sectionOf(item, now))!.push(item);
   const inbox = groups.get("inbox")!;
-  const mail = inbox.filter((item) => item.gmail !== null).sort((a, b) => (b.activityAt ?? "").localeCompare(a.activityAt ?? ""));
-  groups.set("inbox", [...mail, ...inbox.filter((item) => item.gmail === null)]);
+  const newestFirst = (a: string | null | undefined, b: string | null | undefined) => (b ?? "").localeCompare(a ?? "");
+  const mail = inbox.filter((item) => item.gmail !== null).sort((a, b) => newestFirst(a.activityAt, b.activityAt));
+  const tasks = inbox.filter((item) => item.gmail === null);
+  // Dated tasks keep the list's order; undated ones, which it can only order by priority, go newest added first.
+  const undated = tasks.filter((item) => sortDate(item) === null).sort((a, b) => newestFirst(a.createdAt, b.createdAt));
+  groups.set("inbox", [...mail, ...tasks.filter((item) => sortDate(item) !== null), ...undated]);
   return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));
 }
 

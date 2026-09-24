@@ -43,6 +43,7 @@ describe("normalizeTask", () => {
         labels: ["email"],
         due: { date: "2026-09-24", string: "every day", is_recurring: true, lang: "en", timezone: null },
         deadline: { date: "2026-09-30", lang: "en" },
+        added_at: "2026-09-20T15:04:05.123456Z",
       }),
       projects,
     );
@@ -56,6 +57,7 @@ describe("normalizeTask", () => {
       due: { date: "2026-09-24", recurring: true },
       deadline: "2026-09-30",
       activityAt: null,
+      createdAt: "2026-09-20T15:04:05.123456Z",
       context: "Widgets",
       inbox: false,
       tags: ["email"],

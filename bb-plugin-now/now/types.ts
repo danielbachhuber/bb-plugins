@@ -104,6 +104,8 @@ export const itemSchema = z.object({
   deadline: z.string().nullable(),
   /** When it last changed in its source, such as an email's arrival. ISO 8601. */
   activityAt: z.string().nullable(),
+  /** When a task was added to Todoist, which orders the undated tasks in Todoist's Inbox. ISO 8601. */
+  createdAt: z.string().nullable().optional(),
   /** Where it lives in its source, such as a Todoist project. */
   context: z.string().nullable(),
   /** In its source's inbox, not yet sorted: a task in Todoist's Inbox project. */

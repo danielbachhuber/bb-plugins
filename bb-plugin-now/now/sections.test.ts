@@ -55,6 +55,19 @@ describe("groupIntoSections", () => {
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0, 0]);
   });
+
+  test("orders Todoist's Inbox by date, then the undated tasks newest added first", () => {
+    const inbox = groupIntoSections(
+      [
+        item("old", { inbox: true, createdAt: "2026-09-01T10:00:00.000000Z" }),
+        item("dated", { inbox: true, ...due("2026-09-30") }),
+        item("new", { inbox: true, createdAt: "2026-09-23T10:00:00.000000Z", priority: 3 }),
+        item("urgent-but-older", { inbox: true, createdAt: "2026-09-10T10:00:00.000000Z", priority: 1 }),
+      ],
+      now,
+    ).find((section) => section.id === "inbox")!;
+    expect(inbox.items.map((kept) => kept.id)).toEqual(["dated", "new", "urgent-but-older", "old"]);
+  });
 });
 
 describe("shortDate", () => {

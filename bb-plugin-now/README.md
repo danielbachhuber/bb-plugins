@@ -19,7 +19,8 @@ section, checked in this order:
   row, read or not, since each is a thread still in the Gmail inbox (email,
   GitHub notifications, document comments, invitations); and every task in
   Todoist's Inbox project, whatever its date. Mail comes first, newest first,
-  then the Todoist Inbox tasks.
+  then the Todoist Inbox tasks: those with a date soonest first, then the
+  undated ones newest added first.
 - **Now**: any other task overdue or due today, by its due date or its
   deadline, whichever is sooner.
 - **Anytime**: every other task, dated later or not at all.
