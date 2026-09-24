@@ -88,14 +88,13 @@ export function archiveReason(item: Item): string | null {
 }
 
 /**
- * A row that mentions you by name: a Google document comment that mentions
- * or assigns you, or a GitHub notification for an @mention of you (not of a
- * team you are on). Once you have read it there is nothing to come back for,
- * so opening it and archiving it are one action.
+ * A Google document comment that mentions or assigns you. Once you have read
+ * it there is nothing to come back for, so opening it and archiving it are
+ * one action. A GitHub mention is not one of these: its row has more to do
+ * there, such as a reply or a review.
  */
 export function mentionsYou(item: Item): boolean {
-  if (item.gmail === null) return false;
-  return item.doc?.mentioned === true || item.github?.reason === "mention";
+  return item.gmail !== null && item.doc?.mentioned === true;
 }
 
 /** Whether the row asks for your review, for its label. */

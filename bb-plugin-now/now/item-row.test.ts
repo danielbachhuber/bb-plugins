@@ -32,8 +32,8 @@ describe("archiveReason", () => {
 });
 
 describe("mentionsYou", () => {
-  test("is a GitHub @mention of you, or a document comment that mentions you", () => {
-    expect(mentionsYou(pullRow({ reason: "mention" }))).toBe(true);
+  test("is a document comment that mentions you, and never a GitHub notification", () => {
+    expect(mentionsYou(pullRow({ reason: "mention" }))).toBe(false);
     expect(mentionsYou(pullRow({ reason: "team_mention" }))).toBe(false);
     expect(mentionsYou(pullRow({ reason: "review_requested" }))).toBe(false);
     const doc = { ...pullRow({}), github: null, doc: { app: "slides" as const, documentId: "deck42", mentioned: true, quotes: [] } };
