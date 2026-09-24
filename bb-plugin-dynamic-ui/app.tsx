@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
 import { ViewBanner } from "./view/banner.js";
+import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import { usesDraft, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
@@ -122,7 +123,7 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
  * picked in it is still open: a republish after the user acts moves on to the
  * next item, but does not pull them away from one they are reading.
  */
-function showFirstOpen(threadId: string, stored: StoredView, navigate: ReturnType<typeof useBbNavigate>) {
+function showFirstOpen(threadId: string, stored: StoredView, navigate: ReturnType<typeof useBbNavigate>): boolean {
   const current = focusOf(threadId);
   const keep =
     current?.viewId === stored.id &&
@@ -130,10 +131,10 @@ function showFirstOpen(threadId: string, stored: StoredView, navigate: ReturnTyp
     (stored.items[current.itemId]?.state ?? "open") === "open";
   if (!keep) {
     const first = firstOpenItem(stored);
-    if (first === null) return;
+    if (first === null) return false;
     setFocus(threadId, { viewId: stored.id, itemId: first.id });
   }
-  navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
+  return navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title }) !== false;
 }
 
 function Banner() {
@@ -145,8 +146,6 @@ function Banner() {
   const [collapsed, setCollapsed] = useState(false);
   const { busyItem, run } = useRunAction(setStored);
   const focus = useFocus(threadId ?? "");
-  // Set by a publish, so the load that follows it opens the side panel.
-  const openOnLoad = useRef(false);
   // Read through a ref so the fetch below does not re-run whenever the host
   // hands back a new navigate object.
   const navigateRef = useRef(navigate);
@@ -154,25 +153,25 @@ function Banner() {
 
   const refetch = useCallback(() => {
     if (threadId === null) return;
-    rpc.call("thread_views", { threadId }).then(({ views }) => {
-      const view = views[0] ?? null;
+    rpc.call("thread_views", { threadId }).then((views) => {
+      const view = views.views[0] ?? null;
       setStored(view);
-      if (view !== null && openOnLoad.current) {
-        openOnLoad.current = false;
-        showFirstOpen(threadId, view, navigateRef.current);
-      }
+      // The first load after each publish opens the side panel on the first
+      // open item, whether the publish happened while the thread was on
+      // screen or before it was visited.
+      if (view === null) return;
+      const stamp = publishStamp(view.id, view.publishedAt);
+      if (alreadyAutoOpened(threadId, stamp)) return;
+      if (showFirstOpen(threadId, view, navigateRef.current)) markAutoOpened(threadId, stamp);
     }, () => undefined);
   }, [rpc, threadId]);
   useEffect(refetch, [refetch]);
   useThreadSignal(threadId, refetch);
-  // A newly published view opens expanded, even if the last one was collapsed,
-  // and opens the side panel on its first open item.
+  // A newly published view opens expanded, even if the last one was collapsed.
   useRealtime(
     "dynamic-ui-published",
     useCallback((payload: unknown) => {
-      if ((payload as { threadId?: string } | null)?.threadId !== threadId) return;
-      setCollapsed(false);
-      openOnLoad.current = true;
+      if ((payload as { threadId?: string } | null)?.threadId === threadId) setCollapsed(false);
     }, [threadId]),
   );
 
