@@ -187,3 +187,33 @@ describe("sync and store", () => {
     expect(store.startedAt(T0 + HOUR)).toBe(T0);
   });
 });
+
+describe("archived threads", () => {
+  it("records when a thread was archived and clears it when unarchived", async () => {
+    const store = openStore();
+    const archived: ThreadLike = { ...thread, archivedAt: T0 };
+    await createSync(store, fakeSource([usageEvent(1, T0, 1_000, 1_000)]).source).syncThread(archived);
+    expect(store.threadsSince(0)[0]!.archivedAt).toBe(T0);
+    store.setArchived(thread.id, null);
+    expect(store.threadsSince(0)[0]!.archivedAt).toBeNull();
+  });
+
+  it("counts a deleted thread as archived", async () => {
+    const store = openStore();
+    const deleted: ThreadLike = { ...thread, archivedAt: null, deletedAt: T0 + HOUR };
+    await createSync(store, fakeSource([usageEvent(1, T0, 1_000, 1_000)]).source).syncThread(deleted);
+    expect(store.threadsSince(0)[0]!.archivedAt).toBe(T0 + HOUR);
+  });
+
+  it("sums each thread's usage by hour", async () => {
+    const store = openStore();
+    await createSync(
+      store,
+      fakeSource([usageEvent(1, T0 + 60_000, 1_000, 1_000), usageEvent(2, T0 + 120_000, 500, 1_500), usageEvent(3, T0 + HOUR, 200, 1_700)]).source,
+    ).syncThread(thread);
+    expect(store.threadHoursSince(T0)).toEqual([
+      { threadId: "thr_widgets", hour: T0, total: 1_500 },
+      { threadId: "thr_widgets", hour: T0 + HOUR, total: 200 },
+    ]);
+  });
+});

@@ -37,26 +37,52 @@ function fixtureHours(since: number) {
   return hours;
 }
 
-function thread(threadId: string, title: string | null, projectName: string, turns: number, cacheRead: number): ThreadUsage {
+/** The hour that began `hoursAgo` hours before NOW's. */
+function hourAgo(hoursAgo: number): number {
+  const hour = new Date(NOW);
+  hour.setMinutes(0, 0, 0);
+  return hour.getTime() - hoursAgo * HOUR;
+}
+
+function thread(
+  threadId: string,
+  title: string | null,
+  projectName: string,
+  turns: number,
+  cacheRead: number,
+  /** How many hours before NOW each hour of its use began. */
+  busyHoursAgo: number[],
+  archived = false,
+): ThreadUsage {
+  const input = Math.round(cacheRead * 0.02);
+  const output = Math.round(cacheRead * 0.006);
+  const total = input + cacheRead + output;
+  const weights = busyHoursAgo.map((_, index) => 0.5 + ((index * 7919) % 97) / 97);
+  const sum = weights.reduce((a, b) => a + b, 0);
   return {
     threadId,
     title,
     projectId: `prj_${projectName}`,
     projectName,
     providerId: threadId.endsWith("x") ? "codex" : "claude-code",
+    archivedAt: archived ? hourAgo(2) : null,
     turns,
-    input: Math.round(cacheRead * 0.02),
+    hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
+    input,
     cacheRead,
-    output: Math.round(cacheRead * 0.006),
+    output,
   };
 }
 
+const range = (from: number, to: number) => Array.from({ length: from - to + 1 }, (_, index) => from - index);
+
 const THREADS: ThreadUsage[] = [
-  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000),
-  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000),
-  thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000),
-  thread("thr_a4", null, "gadgets", 3, 2_100_000),
-  thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000),
+  // Busy all day and still going in the latest hour.
+  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)]),
+  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2)),
+  thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), true),
+  thread("thr_a4", null, "gadgets", 3, 2_100_000, [3]),
+  thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000, [20], true),
 ];
 
 function dataFor(range: RangeId, recordingSince?: number): UsageData {
@@ -101,6 +127,18 @@ export const PastDayHovered = () => <Page initial="day" initialHovered={20} />;
 export const PastThreeDays = () => <Page initial="three-days" />;
 
 export const PastWeek = () => <Page initial="week" recordingSince={NOW.getTime() - 4 * 24 * HOUR} />;
+
+/** Every thread listed, so archived rows sit among active ones. */
+export const AllThreads = () => (
+  <UsageView
+    range="day"
+    onRange={() => undefined}
+    data={dataFor("day")}
+    error={null}
+    onOpenThread={() => undefined}
+    initialLifecycle="all"
+  />
+);
 
 export const Empty = () => (
   <UsageView

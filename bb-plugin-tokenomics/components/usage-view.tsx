@@ -2,12 +2,12 @@
 // Display only; app.tsx loads the data.
 import { useState } from "react";
 
-import { cn } from "@/lib/utils";
 import { addTokens, totalOf, ZERO_TOKENS } from "@/usage/breakdown";
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, RANGES, type Bar, type RangeId } from "@/usage/series";
 
-import { ThreadUsageList } from "./thread-usage-list";
+import { Segmented } from "./segmented";
+import { LIFECYCLES, ThreadUsageList, threadsIn, type Lifecycle } from "./thread-usage-list";
 import { PARTS, UsageChart, UsageLegend, type PartKey } from "./usage-chart";
 
 export interface UsageData {
@@ -16,28 +16,6 @@ export interface UsageData {
   unit: "hour" | "day";
   threads: ThreadUsage[];
   recordingSince: number;
-}
-
-function RangePicker({ range, onRange }: { range: RangeId; onRange: (range: RangeId) => void }) {
-  return (
-    <div role="radiogroup" aria-label="Period" className="inline-flex rounded-md border border-border p-0.5">
-      {RANGES.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          role="radio"
-          aria-checked={option.id === range}
-          onClick={() => onRange(option.id)}
-          className={cn(
-            "rounded px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground",
-            option.id === range && "bg-muted font-medium text-foreground",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 function recordingNote(data: UsageData): string | null {
@@ -59,6 +37,7 @@ export function UsageView({
   error,
   onOpenThread,
   initialHovered,
+  initialLifecycle = "active",
 }: {
   range: RangeId;
   onRange: (range: RangeId) => void;
@@ -67,7 +46,9 @@ export function UsageView({
   onOpenThread: (threadId: string) => void;
   /** A bar to show hovered on first render, for stories. */
   initialHovered?: number;
+  initialLifecycle?: Lifecycle;
 }) {
+  const [lifecycle, setLifecycle] = useState<Lifecycle>(initialLifecycle);
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
   const toggle = (key: PartKey) =>
     setHidden((current) => {
@@ -92,7 +73,7 @@ export function UsageView({
               {PARTS.map((part) => `${formatTokens(sum[part.key])} ${part.label.toLowerCase()}`).join(" · ")}
             </p>
           </div>
-          <RangePicker range={range} onRange={onRange} />
+          <Segmented label="Period" options={RANGES} value={range} onChange={onRange} />
         </div>
 
         {error === null ? null : (
@@ -113,10 +94,25 @@ export function UsageView({
         </div>
         {note === null ? null : <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
 
-        <h2 className="mb-2 mt-6 text-sm font-medium">
-          Threads{data === null ? null : <span className="ml-1.5 font-normal text-muted-foreground">{data.threads.length}</span>}
-        </h2>
-        {data === null ? null : <ThreadUsageList threads={data.threads} onOpen={onOpenThread} />}
+        <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium">Threads</h2>
+          {data === null ? null : (
+            <Segmented
+              label="Threads to list"
+              options={LIFECYCLES.map((option) => ({ ...option, count: threadsIn(data.threads, option.id).length }))}
+              value={lifecycle}
+              onChange={setLifecycle}
+            />
+          )}
+        </div>
+        {data === null ? null : (
+          <ThreadUsageList
+            threads={threadsIn(data.threads, lifecycle)}
+            bars={data.bars}
+            lifecycle={lifecycle}
+            onOpen={onOpenThread}
+          />
+        )}
       </div>
     </div>
   );

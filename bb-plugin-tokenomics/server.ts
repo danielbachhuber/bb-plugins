@@ -56,6 +56,16 @@ export default async function plugin(bb: BbPluginApi) {
     onError: warn,
   });
 
+  // Archiving writes no thread events, so these keep the page's Active and
+  // Archived lists right without waiting for the next load's backfill.
+  const markArchived = (threadId: string, at: number | null) => {
+    store.setArchived(threadId, at);
+    bb.realtime.publish(USAGE_CHANNEL, { threadIds: [threadId] });
+  };
+  bb.events.on("thread.archived", ({ thread }) => markArchived(thread.id, thread.archivedAt ?? Date.now()));
+  bb.events.on("thread.unarchived", ({ thread }) => markArchived(thread.id, null));
+  bb.events.on("thread.deleted", ({ thread }) => markArchived(thread.id, thread.deletedAt ?? Date.now()));
+
   bb.events.on("experimental_thread.events", ({ thread }) => {
     sync.syncThread(thread).catch((error: unknown) => warn(thread.id, error));
   });
@@ -89,11 +99,18 @@ export default async function plugin(bb: BbPluginApi) {
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
       const names = await projectNames();
+      const hoursByThread = new Map<string, Array<{ hour: number; total: number }>>();
+      for (const { threadId, hour, total } of store.threadHoursSince(floor)) {
+        const hours = hoursByThread.get(threadId) ?? [];
+        hours.push({ hour, total });
+        hoursByThread.set(threadId, hours);
+      }
       return {
         hours: store.hoursSince(floor),
         threads: store.threadsSince(floor).map((thread) => ({
           ...thread,
           projectName: names.get(thread.projectId) ?? null,
+          hours: hoursByThread.get(thread.threadId) ?? [],
         })),
         recordingSince,
       };

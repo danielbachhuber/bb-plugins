@@ -17,9 +17,14 @@ which of your messages used the most.
   Hover a bar for its numbers. Click a legend entry to hide that part and
   rescale the chart. Cache reads are usually most of the total, so hiding them
   shows the other two.
-- **The thread list** has every thread that used tokens in the period, most
-  first, with its project, provider, number of turns, and total. Click a row to
-  open the thread.
+- **The thread list** has the threads that used tokens in the period, most
+  first, with each one's project, provider, number of turns, and total. Above
+  it, "Active | Archived | All" picks which threads it lists, with a count on
+  each; it starts on Active. Archived threads, and deleted ones, are dimmed and
+  labeled "Archived". Beside each total is a sparkline of when that thread used
+  its tokens, on the same hours or days as the chart and scaled to the thread's
+  own busiest one, so a thread still running when you expected it to stop shows
+  bars at the right end. Click a row to open the thread.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
@@ -104,7 +109,8 @@ page and header read from that copy.
 
 On each load it also reads every thread, archived and hidden ones included, to
 pick up turns bb still has from before the plugin was installed or that ran
-while it was not loaded. It reads only events newer than the last one it saw
+while it was not loaded, and to refresh which threads are archived. Archiving,
+unarchiving, or deleting a thread between loads updates it straight away. It reads only events newer than the last one it saw
 for each thread.
 
 Turns bb had already deleted before the plugin first loaded cannot be
@@ -129,18 +135,19 @@ before it.
 | Path | What it holds |
 | --- | --- |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
-| `usage/store.ts` | The only module that touches SQLite: the ledger, per-thread cursors, and the hourly and per-thread sums |
+| `usage/store.ts` | The only module that touches SQLite: the ledger, per-thread cursors and archive state, and the hourly and per-thread sums |
 | `usage/sync.ts` | The only module that reads from bb: copying new usage events into the ledger, one thread at a time, and reading a thread's turn events and outline |
 | `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
 | `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |
 | `usage/contract.ts` | The RPC contract and the realtime channel |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
-| `components/thread-usage-list.tsx` | The thread list under the chart |
+| `components/thread-usage-list.tsx` | The thread list under the chart, its Active and Archived filter, and each row's sparkline |
+| `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page and the header |
-| `tokenomics.stories.tsx` | Each range, the empty page, the header button, and its summary, including the hovered and open states the README shows |
+| `tokenomics.stories.tsx` | Each range, every thread listed, the empty page, the header button, and its summary, including the hovered and open states the README shows |
 
 ## Working on it
 

@@ -17,6 +17,8 @@ export interface ThreadLike {
   titleFallback?: string | null;
   projectId: string;
   providerId: string;
+  archivedAt?: number | null;
+  deletedAt?: number | null;
 }
 
 /** The fields of a token usage event row this module reads. */
@@ -66,6 +68,7 @@ export function threadInfoOf(thread: ThreadLike): ThreadInfo {
     title: thread.title ?? thread.titleFallback ?? null,
     projectId: thread.projectId,
     providerId: thread.providerId,
+    archivedAt: thread.deletedAt ?? thread.archivedAt ?? null,
   };
 }
 

@@ -38,6 +38,9 @@ export const MIGRATIONS = [
      key TEXT PRIMARY KEY,
      value TEXT NOT NULL
    )`,
+  // When the thread was archived or deleted, or null while it is active, so
+  // the page can list active and archived threads apart.
+  `ALTER TABLE threads ADD COLUMN archived_at INTEGER`,
 ];
 
 export interface ThreadInfo {
@@ -45,6 +48,8 @@ export interface ThreadInfo {
   title: string | null;
   projectId: string;
   providerId: string;
+  /** When it was archived or deleted; null while it is active. */
+  archivedAt: number | null;
 }
 
 export interface UsageRow {
@@ -64,7 +69,15 @@ export interface ThreadUsage extends Tokens {
   title: string | null;
   projectId: string;
   providerId: string;
+  archivedAt: number | null;
   turns: number;
+}
+
+export interface ThreadHour {
+  threadId: string;
+  /** Start of the hour, in epoch milliseconds. */
+  hour: number;
+  total: number;
 }
 
 export interface UsageAt extends Tokens {
@@ -93,13 +106,21 @@ export function createStore(db: Database) {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   const upsertThread = db.prepare(
-    `INSERT INTO threads (thread_id, title, project_id, provider_id, last_seq)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO threads (thread_id, title, project_id, provider_id, last_seq, archived_at)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT (thread_id) DO UPDATE SET
        title = excluded.title,
        project_id = excluded.project_id,
        provider_id = excluded.provider_id,
-       last_seq = max(threads.last_seq, excluded.last_seq)`,
+       last_seq = max(threads.last_seq, excluded.last_seq),
+       archived_at = excluded.archived_at`,
+  );
+  const updateArchived = db.prepare(`UPDATE threads SET archived_at = ? WHERE thread_id = ?`);
+  const selectThreadHours = db.prepare(
+    `SELECT thread_id AS threadId, (created_at / ${HOUR_MS}) * ${HOUR_MS} AS hour,
+            sum(input + cache_read + output) AS total
+     FROM usage WHERE created_at >= ?
+     GROUP BY thread_id, hour ORDER BY hour`,
   );
   const selectCursor = db.prepare(`SELECT last_seq FROM threads WHERE thread_id = ?`);
   const selectMeta = db.prepare(`SELECT value FROM meta WHERE key = ?`);
@@ -113,6 +134,7 @@ export function createStore(db: Database) {
   const selectThreads = db.prepare(
     `SELECT u.thread_id AS threadId, t.title AS title,
             coalesce(t.project_id, '') AS projectId, coalesce(t.provider_id, '') AS providerId,
+            t.archived_at AS archivedAt,
             sum(u.input) AS input, sum(u.cache_read) AS cacheRead, sum(u.output) AS output,
             count(*) AS turns
      FROM usage u LEFT JOIN threads t ON t.thread_id = u.thread_id
@@ -149,7 +171,7 @@ export function createStore(db: Database) {
       );
       inserted += Number(result.changes);
     }
-    upsertThread.run(thread.threadId, thread.title, thread.projectId, thread.providerId, lastSeq);
+    upsertThread.run(thread.threadId, thread.title, thread.projectId, thread.providerId, lastSeq, thread.archivedAt);
     return inserted;
   });
 
@@ -178,6 +200,16 @@ export function createStore(db: Database) {
 
     threadsSince(since: number): ThreadUsage[] {
       return selectThreads.all(since) as ThreadUsage[];
+    },
+
+    /** Each thread's tokens per hour since `since`, for the page's sparklines. */
+    threadHoursSince(since: number): ThreadHour[] {
+      return selectThreadHours.all(since) as ThreadHour[];
+    },
+
+    /** Marks a thread archived or deleted at `at`, or active again when null. */
+    setArchived(threadId: string, at: number | null): void {
+      updateArchived.run(at, threadId);
     },
 
     /** The thread's most recent usage rows, oldest first. */

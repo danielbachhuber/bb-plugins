@@ -22,7 +22,11 @@ export const threadUsageSchema = z.object({
   projectId: z.string(),
   projectName: z.string().nullable(),
   providerId: z.string(),
+  /** When it was archived or deleted; null while it is active. */
+  archivedAt: z.number().nullable(),
   turns: z.number(),
+  /** Its tokens per hour in the window, for its sparkline. */
+  hours: z.array(z.object({ hour: z.number(), total: z.number() })),
   ...tokens,
 });
 
