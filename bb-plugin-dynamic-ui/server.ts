@@ -1,17 +1,18 @@
-// bb-plugin-dynamic-ui — lets a skill show its results as cards with buttons
-// in a tab beside the thread, instead of as a list in chat.
+// bb-plugin-dynamic-ui — lets a skill show its results as a list above the
+// thread's composer, instead of as a list in chat.
 //
 // The skill writes a view file and runs `bb dynamic-ui publish --file`. The
-// view belongs to the thread that published it and appears in that thread's
-// side panel. Each button sends a message back to that thread, opens a new
-// thread, runs a shell command the user has confirmed, or opens a link.
+// view belongs to the thread that published it and appears above that
+// thread's composer; each item opens in the side panel. Each button sends a
+// message back to that thread, opens a new thread, runs a shell command the
+// user has confirmed, or opens a link.
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
-import { parseView, type Action } from "./view/schema.js";
+import { applyEdit, parseView, type Action } from "./view/schema.js";
 import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredView } from "./view/store.js";
 
 export { rpcContract };
@@ -111,16 +112,17 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function runAction(viewId: number, itemId: string, index: number): Promise<StoredView> {
+  async function runAction(viewId: number, itemId: string, index: number, text?: string): Promise<StoredView> {
     const stored = requireView(viewId);
     const item = findItem(stored, itemId);
-    const action = item.actions[index];
-    if (action === undefined) throw new Error(`Item ${itemId} has no action ${index}.`);
+    const original = item.actions[index];
+    if (original === undefined) throw new Error(`Item ${itemId} has no action ${index}.`);
+    const { action, edited } = applyEdit(original, text);
     let result: ActionResult;
     try {
-      result = { label: action.label, at: now(), ...(await perform(stored, action)) };
+      result = { label: action.label, at: now(), ...(edited ? { edited: true } : {}), ...(await perform(stored, action)) };
     } catch (error) {
-      result = { label: action.label, at: now(), error: error instanceof Error ? error.message : String(error) };
+      result = { label: action.label, at: now(), ...(edited ? { edited: true } : {}), error: error instanceof Error ? error.message : String(error) };
     }
     // A failed command or spawn leaves the item open, with the failure on it.
     const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);
@@ -142,7 +144,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
-    action_run: ({ viewId, itemId, index }) => runAction(viewId, itemId, index),
+    action_run: ({ viewId, itemId, index, text }) => runAction(viewId, itemId, index, text),
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
   });
 
@@ -152,8 +154,8 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb dynamic-ui state [--key <name>]",
     "  bb dynamic-ui list",
     "",
-    "Run these from the thread the view belongs to. `publish` shows the view in",
-    "that thread's side panel; publishing again with the same key replaces it and",
+    "Run these from the thread the view belongs to. `publish` shows the view above",
+    "that thread's composer; publishing again with the same key replaces it and",
     "keeps what the user already did to each item. `state` prints each item's",
     "state and the result of the last button pressed on it. The view file's shape",
     "is in the dynamic-ui skill.",
@@ -166,7 +168,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   bb.cli.register({
     name: "dynamic-ui",
-    summary: "Show a skill's results as cards with buttons beside the thread",
+    summary: "Show a skill's results above the thread's composer, with buttons",
     commands: [
       {
         name: "publish",
@@ -205,7 +207,7 @@ export default async function plugin(bb: BbPluginApi) {
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
             return {
               exitCode: 0,
-              stdout: `Published "${view.title}" (${count} items) as view ${stored.id}. It is open in this thread's side panel.`,
+              stdout: `Published "${view.title}" (${count} items) as view ${stored.id}. It is above this thread's composer.`,
             };
           } catch (error) {
             // The agent reads this and fixes its file.

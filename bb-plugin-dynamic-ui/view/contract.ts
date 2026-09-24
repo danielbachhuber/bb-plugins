@@ -9,6 +9,7 @@ const resultSchema = z.object({
   exitCode: z.number().int().optional(),
   output: z.string().optional(),
   error: z.string().optional(),
+  edited: z.boolean().optional(),
 });
 
 const storedViewSchema = z.object({
@@ -41,7 +42,11 @@ export const rpcContract = defineRpcContract({
   },
   /** Runs one of an item's actions, by its index in the item's `actions`. */
   action_run: {
-    input: itemRefSchema.extend({ index: z.number().int().min(0).max(5) }),
+    input: itemRefSchema.extend({
+      index: z.number().int().min(0).max(5),
+      /** The user's edit of an editable action's text; refused on any other action. */
+      text: z.string().trim().min(1).max(50_000).optional(),
+    }),
     output: storedViewSchema,
   },
   item_dismiss: {

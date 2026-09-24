@@ -1,7 +1,8 @@
 # Dynamic UI
 
-Lets a skill show its results as cards with buttons in a tab beside the
-thread, instead of as a numbered list in chat that the user answers by typing.
+Lets a skill show its results as a list right above the thread's composer,
+instead of as a numbered list in chat that the user answers by typing. Each
+item opens in the side panel with its details and every button.
 
 ## How it works
 
@@ -13,10 +14,13 @@ thread:
 bb dynamic-ui publish --file view.json [--key <name>]
 ```
 
-The view opens in a tab in that thread's side panel. A **View** button in the
-thread header reopens it later, and appears only in threads that have one.
-Publishing again with the same key replaces the view and keeps what the user
-already did to each item.
+The thread's newest view appears above its composer, one row per item: the
+title, up to two badges, a line of summary, and the item's main button. The
+list collapses to one line from its header. Clicking a row opens that item in
+the side panel, with its full summary, its details, and every button; the panel
+keeps one tab per view and switches items as rows are clicked. Publishing again
+with the same key replaces the view and keeps what the user already did to
+each item.
 
 A view is a title, a markdown summary, and cards grouped into sections. A card
 has a title, badges, a markdown summary, markdown details behind a toggle, and
@@ -26,8 +30,10 @@ up to six buttons:
 |---|---|
 | `message` | Sends text to the thread that published the view, as if the user typed it. The agent does the work with its own permissions and context. |
 | `thread` | Starts a new thread in a named project with a prompt and title. The button then becomes **Go to thread**. |
-| `command` | Runs a shell command in the user's login shell. The card shows the command and asks before running it, then shows the exit code and the tail of the output. A failed command leaves the card open. |
+| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output; a command button in the list above the composer opens the item to ask. A failed command leaves the item open. |
 | `link` | Opens a URL. |
+
+A `message` or `thread` button marked `editable` shows the text it sends, the message or the new thread's prompt, in a box the user can edit first; its button in the list above the composer opens the item instead of sending.
 
 Every card can be dismissed and restored. The agent reads back what the user
 did with `bb dynamic-ui state`.
@@ -69,9 +75,9 @@ this checkout.
 | Path | What |
 |---|---|
 | `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
-| `app.tsx` | The view tab and the header button that opens it |
-| `view/` | The view schema, the SQLite store, the command runner, and the tab's view |
-| `view.stories.tsx` | The tab's states with invented fixtures, for `npm run storybook` at the root |
+| `app.tsx` | The list above the composer and the side-panel tab it opens |
+| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, and the item the panel shows |
+| `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/dynamic-ui/` | How an agent publishes a view |
 
 ## Development

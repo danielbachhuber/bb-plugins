@@ -1,13 +1,13 @@
 ---
 name: dynamic-ui
-description: Use when a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post) and `bb dynamic-ui` is available, to show them as cards with buttons in a tab beside the thread instead of as a list in chat.
+description: Use when a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post) and `bb dynamic-ui` is available, to show them as a list with buttons above the thread's composer instead of as a list in chat.
 ---
 
 # Dynamic UI
 
 ## Overview
 
-`bb dynamic-ui publish` shows a view in a tab in this thread's side panel: a title, a summary, and cards grouped into sections, each with badges, a markdown summary, details behind a toggle, and buttons. The user acts from the cards instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and its main button. Clicking a row opens the item in the side panel with its full summary, details, and every button. The user acts from the cards instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
 
 ## Is it available?
 
@@ -25,9 +25,9 @@ Write the view to a file and publish it from this thread:
 bb dynamic-ui publish --file /tmp/<name>/view.json [--key <name>]
 ```
 
-The tab opens by itself. Publishing again with the same key (default `default`) replaces the view and keeps what the user already did to each item, matched by item `id`. Use a different key for a second, separate view in the same thread. A validation error names the field to fix.
+The list appears above the composer by itself. Publishing again with the same key (default `default`) replaces the view and keeps what the user already did to each item, matched by item `id`. Use a different key for a second, separate view in the same thread. A validation error names the field to fix.
 
-After publishing, say in chat how many items there are and that they are in the side panel. Do not repeat the list in chat.
+After publishing, say in chat how many items there are and that they are above the composer. Do not repeat the list in chat.
 
 ## The view file
 
@@ -46,7 +46,7 @@ After publishing, say in chat how many items there are and that they are in the 
           "summary": "Markdown, always shown.",
           "details": "Markdown behind a Details toggle.",
           "actions": [
-            { "type": "message", "label": "Post and close", "text": "Post the triage comment on #101 and close it.", "primary": true },
+            { "type": "message", "label": "Post and close", "text": "Post this comment on #101, then close it:\n\nThis is done. #140 added Export.", "primary": true, "editable": true },
             { "type": "command", "label": "Close only", "command": "gh issue close 101 --repo acme/widgets" },
             { "type": "thread", "label": "Fix in a new thread", "project": "widgets", "title": "Fix #101", "prompt": "..." },
             { "type": "link", "label": "Open #101", "url": "https://github.com/acme/widgets/issues/101" }
@@ -61,6 +61,8 @@ After publishing, say in chat how many items there are and that they are in the 
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
+- `editable: true` on a `message` or `thread` action shows its `text` or `prompt` in a box the user can edit before sending, and its button in the list opens the item instead of sending. Use it when the text is a draft the user may want to change: a comment to post, the task a new thread gets. Do not repeat that text in `summary` or `details`, since the box already shows it.
+- The row above the composer shows only the first line of `summary` and the item's main button (the `primary` one, else the first that is not a link). Make the first line the gist, and mark the likely choice `primary`. Put evidence and drafts further down the summary or in `details`, which show when the item is opened.
 
 | Action | What the button does |
 |---|---|

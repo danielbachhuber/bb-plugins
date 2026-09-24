@@ -3,9 +3,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { firstLine, mainAction } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
-import { parseView } from "./schema.js";
+import { applyEdit, parseView } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems } from "./store.js";
 
 function store() {
@@ -98,5 +99,57 @@ describe("runCommand", () => {
   it("keeps only the tail of long output", () => {
     const kept = tail("x".repeat(10) + "end", 5);
     expect(kept).toBe("…xend");
+  });
+});
+
+describe("banner rows", () => {
+  it("takes one plain line from a markdown summary", () => {
+    expect(firstLine("\n- Shipped in [#140](https://x/140), with **Export** and `--archived`\n\nMore")).toBe(
+      "Shipped in #140, with Export and --archived",
+    );
+    expect(firstLine("")).toBe("");
+  });
+
+  it("shows the primary action, else the first that is not a link", () => {
+    const [issue101] = triageView.sections[0]!.items;
+    expect(mainAction(issue101!)?.action.label).toBe("Post and close");
+    const noPrimary = { ...issue101!, actions: issue101!.actions.map((a) => ({ ...a, primary: false })) };
+    expect(mainAction({ ...noPrimary, actions: [noPrimary.actions[2]!, noPrimary.actions[1]!] })).toMatchObject({ index: 1 });
+    expect(mainAction({ ...issue101!, actions: [] })).toBeNull();
+  });
+});
+
+describe("editable actions", () => {
+  const thread = {
+    type: "thread" as const,
+    label: "Open thread",
+    project: "widgets",
+    title: "Fix it",
+    prompt: "Do the thing.",
+    primary: true,
+    editable: true,
+  };
+
+  it("defaults to not editable", () => {
+    const view = parseView(
+      JSON.stringify({ title: "T", sections: [{ items: [{ id: "a", title: "A", actions: [{ type: "message", label: "Go", text: "hi" }] }] }] }),
+    );
+    expect(view.sections[0]!.items[0]!.actions[0]).toMatchObject({ editable: false });
+  });
+
+  it("swaps in the user's text for an editable thread or message", () => {
+    expect(applyEdit(thread, "Do the other thing.")).toEqual({ action: { ...thread, prompt: "Do the other thing." }, edited: true });
+    const message = { type: "message" as const, label: "Post", text: "Post it.", primary: false, editable: true };
+    expect(applyEdit(message, "Post it now.").action).toMatchObject({ text: "Post it now." });
+  });
+
+  it("treats unchanged or absent text as no edit", () => {
+    expect(applyEdit(thread, "Do the thing.")).toEqual({ action: thread, edited: false });
+    expect(applyEdit(thread, undefined)).toEqual({ action: thread, edited: false });
+  });
+
+  it("refuses text for an action the skill did not mark editable", () => {
+    expect(() => applyEdit({ ...thread, editable: false }, "sneaky")).toThrow(/not editable/);
+    expect(() => applyEdit({ type: "command", label: "Close", command: "gh issue close 1", primary: false }, "rm -rf /")).toThrow(/not editable/);
   });
 });

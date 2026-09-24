@@ -45,6 +45,8 @@ export interface ActionResult {
   exitCode?: number;
   output?: string;
   error?: string;
+  /** The user changed the text before sending it. */
+  edited?: boolean;
 }
 
 export interface ItemRecord {
@@ -158,7 +160,7 @@ export function describeItems(stored: StoredView): string[] {
       const detail =
         result === null || result === undefined
           ? ""
-          : `  (${result.label}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
+          : `  (${result.label}${result.edited ? ", edited" : ""}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
               result.exitCode === undefined ? "" : `, exit ${result.exitCode}`
             }${result.error === undefined ? "" : `, failed: ${result.error}`})`;
       return `[${state}] ${item.id}  ${item.title}${detail}`;

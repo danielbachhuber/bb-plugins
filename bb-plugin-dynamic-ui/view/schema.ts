@@ -32,6 +32,8 @@ export const actionSchema = z.discriminatedUnion("type", [
     type: z.literal("message"),
     /** Sent to the thread that published the view, as if the user typed it. */
     text: z.string().trim().min(1).max(20_000),
+    /** The opened item shows `text` in a box the user can edit before sending. */
+    editable: z.boolean().default(false),
   }),
   z.object({
     ...actionBase,
@@ -40,6 +42,8 @@ export const actionSchema = z.discriminatedUnion("type", [
     project: z.string().trim().min(1).max(200),
     title: z.string().trim().min(1).max(200),
     prompt: z.string().trim().min(1).max(50_000),
+    /** The opened item shows `prompt` in a box the user can edit before the thread starts. */
+    editable: z.boolean().default(false),
   }),
   z.object({
     ...actionBase,
@@ -56,6 +60,27 @@ export const actionSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type Action = z.infer<typeof actionSchema>;
+
+/** The text an editable action sends, or null for an action that has none to edit. */
+export function editableText(action: Action): string | null {
+  if (action.type === "message" && action.editable) return action.text;
+  if (action.type === "thread" && action.editable) return action.prompt;
+  return null;
+}
+
+/**
+ * The action to run once the user's edit is applied. Only an action the skill
+ * marked editable takes one; text equal to the original is not an edit.
+ */
+export function applyEdit(action: Action, text: string | undefined): { action: Action; edited: boolean } {
+  if (text === undefined) return { action, edited: false };
+  const original = editableText(action);
+  if (original === null) throw new Error(`"${action.label}" is not editable.`);
+  if (text === original) return { action, edited: false };
+  if (action.type === "message") return { action: { ...action, text }, edited: true };
+  if (action.type === "thread") return { action: { ...action, prompt: text }, edited: true };
+  return { action, edited: false };
+}
 
 const itemId = z
   .string()

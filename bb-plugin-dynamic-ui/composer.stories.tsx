@@ -1,8 +1,7 @@
-// A skill's results shown right above the thread composer, in the slot
-// `app.composer.customize({ banners })` gives a plugin. Each story is a whole
-// thread: the conversation, the plugin's banner in bb's own card, bb's
-// Uncommitted row, and bb's real composer. The banners can write into the
-// composer, as a plugin can with `useComposer()`. Invented data throughout.
+// A thread's view above its composer and in its side panel. Each story is a
+// whole thread: the conversation, the banner in bb's own card, bb's
+// Uncommitted row, bb's real composer, and the side panel beside it. Clicking
+// a row opens that item in the panel, as it does in bb. Invented data.
 import { useState, type ReactNode } from "react";
 import type { PermissionMode, PromptTextMention, WorkspaceStatus } from "@bb/domain";
 import { Markdown } from "@get-bb/plugin-sdk/app";
@@ -13,11 +12,14 @@ import { ThreadPromptContextBanner } from "@bb-app/components/promptbox/banner/T
 import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace/workspace-change-summary";
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
-import { SelfImproveBanner } from "./composer/self-improve-banner";
-import { TriageBanner } from "./composer/triage-banner";
+import { ViewBanner } from "./view/banner";
+import { selfImproveView, triageView } from "./view/fixtures";
+import type { View } from "./view/schema";
+import type { ItemRecord, StoredView } from "./view/store";
+import { ViewPanel } from "./view/view-panel";
 
 export default {
-  title: "dynamic-ui/Above the composer",
+  title: "dynamic-ui/Thread",
 };
 
 const noop = () => {};
@@ -109,23 +111,35 @@ const execution = makeExecutionControlsProps({
   model: { ...baseExecution.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
 });
 
+function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView {
+  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", items };
+}
+
 /**
- * A thread at a typical window width: the conversation scrolls, and the
- * banner, the Uncommitted row, and the composer sit at the bottom.
+ * A thread at a typical window width with its side panel open: the
+ * conversation scrolls, the banner, the Uncommitted row, and the composer sit
+ * at the bottom, and the panel shows whichever item was clicked.
  */
 function ThreadStage({
   turns,
-  banner,
-  initialDraft = "",
+  view,
+  initialFocus = null,
+  initialCollapsed = false,
+  confirming,
 }: {
   turns: Turn[];
-  banner: (setDraft: (text: string) => void) => ReactNode;
-  initialDraft?: string;
+  view: StoredView;
+  initialFocus?: string | null;
+  initialCollapsed?: boolean;
+  confirming?: string;
 }) {
-  const [draft, setDraft] = useState(initialDraft);
+  const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
+  const [focus, setFocus] = useState<string | null>(initialFocus);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   return (
-    <div className="flex h-[860px] w-[900px] flex-col overflow-hidden border border-border bg-background">
+    <div className="flex h-[860px] w-[1320px] overflow-hidden border border-border bg-background">
+    <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <Conversation turns={turns} />
       </div>
@@ -134,7 +148,18 @@ function ThreadStage({
           attachments={{ items: [], projectId: "proj_demo", isAttaching: false, error: null, onAttachFiles: noop, onRemove: noop }}
           stack={
             <>
-              <PromptStackCard ariaLabel="dynamic-ui">{banner((text) => { setDraft(text); setMentions([]); })}</PromptStackCard>
+              <PromptStackCard ariaLabel="dynamic-ui">
+                <ViewBanner
+                  stored={view}
+                  collapsed={collapsed}
+                  onToggle={() => setCollapsed((c) => !c)}
+                  busyItem={null}
+                  focusedItem={focus}
+                  onOpenItem={(item) => setFocus(item.id)}
+                  onRun={(item) => setFocus(item.id)}
+                  onGoToThread={noop}
+                />
+              </PromptStackCard>
               <UncommittedRow />
             </>
           }
@@ -169,6 +194,82 @@ function ThreadStage({
         />
       </div>
     </div>
+    <aside className="w-[440px] shrink-0 border-l border-border">
+      {focus === null ? (
+        <div className="px-4 py-6 text-sm text-muted-foreground">Click a row above the composer to open it here.</div>
+      ) : (
+        <ViewPanel
+          stored={view}
+          busyItem={null}
+          focusItemId={focus}
+          confirming={confirming}
+          onShowAll={() => setFocus(null)}
+          onRun={noop}
+          onDismiss={noop}
+          onGoToThread={noop}
+        />
+      )}
+    </aside>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Triage                                                                     */
+/* -------------------------------------------------------------------------- */
+
+const triageTurns: Turn[] = [
+  { kind: "user", text: "Triage milestone 4.2 in acme/widgets" },
+  { kind: "work", text: "Read 3 issues, their timelines, and 4 linked pull requests" },
+  {
+    kind: "assistant",
+    text: "Milestone 4.2 has **3 open issues**: one done and ready to close, one still needed, one duplicate. They're above the composer; click one to see its evidence and the drafted comment.",
+  },
+];
+
+/** The view above the composer, before anything is opened. */
+export function Triage() {
+  return <ThreadStage turns={triageTurns} view={stored(triageView)} />;
+}
+
+/** A row clicked: the side panel shows that issue with its details and every button. */
+export function TriageItemOpen() {
+  return <ThreadStage turns={triageTurns} view={stored(triageView)} initialFocus="issue-101" />;
+}
+
+/** "Close only" is a command, so clicking it opens the item asking first. */
+export function TriageConfirmCommand() {
+  return <ThreadStage turns={triageTurns} view={stored(triageView)} initialFocus="issue-101" confirming="issue-101:1" />;
+}
+
+/** After acting: one closed, one opened as a thread, one dismissed. */
+export function TriageAfter() {
+  return (
+    <ThreadStage
+      turns={triageTurns}
+      view={stored(triageView, {
+        "issue-101": { state: "done", result: { label: "Post and close", at: "2026-03-12T12:05:00Z" } },
+        "issue-117": { state: "done", result: { label: "Fix in a new thread", at: "2026-03-12T12:06:00Z", threadId: "thr_fix0117" } },
+        "issue-123": { state: "dismissed", result: null },
+      })}
+      initialFocus="issue-117"
+    />
+  );
+}
+
+/** A command that failed: the row says so, and the panel shows the output. */
+export function TriageFailed() {
+  return (
+    <ThreadStage
+      turns={triageTurns}
+      view={stored(triageView, {
+        "issue-101": {
+          state: "open",
+          result: { label: "Close only", at: "2026-03-12T12:05:00Z", exitCode: 1, output: "GraphQL: Could not resolve to an issue with the number of 101." },
+        },
+      })}
+      initialFocus="issue-101"
+    />
   );
 }
 
@@ -181,129 +282,30 @@ const selfImproveTurns: Turn[] = [
   { kind: "work", text: "Collected 94 threads, ran 13 reviewers, merged 41 reports" },
   {
     kind: "assistant",
-    text:
-      "I read 94 threads from the past week and found **5 changes** that would have saved you time. They're above the composer, most important first.\n\n" +
-      "The biggest is the same correction in 18 threads: you asked for the path to a draft because the link wasn't clickable. " +
-      "The costliest in tokens: 9 of the 10 largest threads never used a subagent.\n\n" +
-      "I ticked the three I'd fix first. Untick any you'd rather leave, or use **Discuss** on a row to ask me about it.",
+    text: "I found **5 changes** that would have saved you time, most important first. They're above the composer: open a thread for any you want fixed.",
   },
 ];
 
-/** The review is back: findings above the composer, three picked. */
+/** Five findings above the composer. */
 export function SelfImprove() {
-  return <ThreadStage turns={selfImproveTurns} banner={(setDraft) => <SelfImproveBanner onDraft={setDraft} />} />;
+  return <ThreadStage turns={selfImproveTurns} view={stored(selfImproveView)} />;
 }
 
-/** One finding opened to show the evidence behind it. */
-export function SelfImproveEvidence() {
-  return (
-    <ThreadStage turns={selfImproveTurns} banner={(setDraft) => <SelfImproveBanner onDraft={setDraft} initialExpanded="f2" />} />
-  );
+/** A finding opened: the evidence and the task in the side panel. */
+export function SelfImproveItemOpen() {
+  return <ThreadStage turns={selfImproveTurns} view={stored(selfImproveView)} initialFocus="finding-1" />;
 }
 
-/** "Discuss" on a finding starts a message about it in the composer. */
-export function SelfImproveDiscuss() {
+/** Collapsed to one line once two threads are open. */
+export function SelfImproveCollapsed() {
   return (
     <ThreadStage
       turns={selfImproveTurns}
-      initialDraft={'About "Delegate repository surveys to subagents": is 150k the right threshold?'}
-      banner={(setDraft) => <SelfImproveBanner onDraft={setDraft} />}
-    />
-  );
-}
-
-/** Collapsed to one line, so the conversation has the room. */
-export function SelfImproveCollapsed() {
-  return <ThreadStage turns={selfImproveTurns} banner={(setDraft) => <SelfImproveBanner onDraft={setDraft} initialCollapsed />} />;
-}
-
-/** After opening three threads. */
-export function SelfImproveOpened() {
-  return (
-    <ThreadStage
-      turns={[
-        ...selfImproveTurns,
-        { kind: "work", text: "Opened 3 threads" },
-        { kind: "assistant", text: "Opened a thread for each of the three. Two findings are left if you want them later." },
-      ]}
-      banner={(setDraft) => <SelfImproveBanner onDraft={setDraft} initialPicked={[]} opened={["f1", "f2", "f3"]} initialCollapsed />}
-    />
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Triage                                                                     */
-/* -------------------------------------------------------------------------- */
-
-const triageTurns: Turn[] = [
-  { kind: "user", text: "Triage milestone 4.2 in acme/widgets" },
-  { kind: "work", text: "Read 6 issues, their timelines, and 9 linked pull requests" },
-  {
-    kind: "assistant",
-    text:
-      "Milestone 4.2 has **6 open issues**. Three are done and can close, two still need work, and one should move to 4.3 because nobody has picked it up.\n\n" +
-      "I drafted a comment for each. They're above the composer one at a time: check what each issue asked for, change the outcome if you disagree, then post.",
-  },
-];
-
-/** The first issue: what it asked for, the recommended outcome, and the drafted comment. */
-export function Triage() {
-  return <ThreadStage turns={triageTurns} banner={(setDraft) => <TriageBanner onDraft={setDraft} />} />;
-}
-
-/** An issue that's only partly done, three issues in. */
-export function TriagePartlyDone() {
-  return (
-    <ThreadStage
-      turns={triageTurns}
-      banner={(setDraft) => (
-        <TriageBanner onDraft={setDraft} start={3} initialDone={{ 101: "posted, close", 117: "posted, keep open", 123: "posted, close as not planned" }} />
-      )}
-    />
-  );
-}
-
-/** "Edit comment" moves the draft into the composer; sending it posts with the chosen outcome. */
-export function TriageEditInComposer() {
-  return (
-    <ThreadStage
-      turns={triageTurns}
-      initialDraft="Progress on this: #152 batched the inserts and added a progress bar. A 10k-row import now takes about 2 minutes, down from 9, so the one-minute target is still open."
-      banner={(setDraft) => (
-        <TriageBanner
-          onDraft={setDraft}
-          start={3}
-          initialEditing
-          initialDone={{ 101: "posted, close", 117: "posted, keep open", 123: "posted, close as not planned" }}
-        />
-      )}
-    />
-  );
-}
-
-/** Every issue handled. */
-export function TriageDone() {
-  return (
-    <ThreadStage
-      turns={[
-        ...triageTurns,
-        { kind: "work", text: "Posted 6 comments, closed 3 issues, moved 1" },
-        { kind: "assistant", text: "Done. Two issues stay open in 4.2: #117 still reproduces, and #126 is faster but not yet under a minute." },
-      ]}
-      banner={(setDraft) => (
-        <TriageBanner
-          onDraft={setDraft}
-          start={6}
-          initialDone={{
-            101: "posted, close",
-            117: "posted, keep open",
-            123: "posted, close as not planned",
-            126: "posted, keep open",
-            130: "posted, move to 4.3",
-            134: "posted, close",
-          }}
-        />
-      )}
+      initialCollapsed
+      view={stored(selfImproveView, {
+        "finding-1": { state: "done", result: { label: "Open thread", at: "t", threadId: "thr_imp0001" } },
+        "finding-2": { state: "done", result: { label: "Open thread", at: "t", threadId: "thr_imp0002" } },
+      })}
     />
   );
 }

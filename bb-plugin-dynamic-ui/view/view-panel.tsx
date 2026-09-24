@@ -4,23 +4,28 @@ import { useState } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { Action, Item } from "./schema.js";
+import { editableText, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 
 export interface ViewPanelProps {
   stored: StoredView;
   /** Which item has an action in flight. */
   busyItem: string | null;
-  onRun: (item: Item, index: number) => void;
+  /** `text` is the user's edit of an editable action; absent when unchanged. */
+  onRun: (item: Item, index: number, text?: string) => void;
   onDismiss: (item: Item, dismissed: boolean) => void;
   onGoToThread: (threadId: string) => void;
   /** Items whose details start expanded. Stories use it; the panel does not. */
   expandedItems?: string[];
-  /** An item whose command confirmation starts open, as `itemId:index`. Stories use it. */
+  /** An item whose command confirmation starts open, as `itemId:index`. */
   confirming?: string;
+  /** Show only this item, picked from the banner above the composer. */
+  focusItemId?: string | null;
+  /** Back from one item to the whole view. */
+  onShowAll?: () => void;
 }
 
-const TONE_CLASS: Record<string, string> = {
+export const TONE_CLASS: Record<string, string> = {
   neutral: "border-border text-muted-foreground",
   info: "border-border text-foreground",
   success: "border-success/40 text-success",
@@ -107,12 +112,21 @@ function ItemCard({
   busy: boolean;
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
-  onRun: (index: number) => void;
+  onRun: (index: number, text?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
+  const [edits, setEdits] = useState<Record<number, string>>({});
+  /** An action already used shows its result, not its text. */
+  const used = (action: Action) => record?.result?.label === action.label && record.state === "done";
+  const run = (index: number) => {
+    const action = item.actions[index]!;
+    const original = editableText(action);
+    const edit = edits[index];
+    onRun(index, original !== null && edit !== undefined && edit.trim() !== original ? edit.trim() : undefined);
+  };
   const state = record?.state ?? "open";
   const pending = confirming === null ? null : item.actions[confirming];
 
@@ -168,6 +182,37 @@ function ItemCard({
 
       {record === undefined ? null : <Result record={record} onGo={onGo} />}
 
+      {state === "dismissed"
+        ? null
+        : item.actions.map((action, index) => {
+            const original = editableText(action);
+            if (original === null || used(action)) return null;
+            const value = edits[index] ?? original;
+            const changed = value.trim() !== original;
+            return (
+              <div key={`edit:${index}`} className="mt-3">
+                <div className="mb-1 flex items-baseline justify-between text-xs text-muted-foreground">
+                  <span>
+                    {action.type === "thread" ? `The new thread's prompt, in ${action.project}` : "What this sends to the thread"}
+                    {changed ? " · edited" : ""}
+                  </span>
+                  {changed ? (
+                    <button type="button" className="hover:text-foreground hover:underline" onClick={() => setEdits((e) => ({ ...e, [index]: original }))}>
+                      Reset
+                    </button>
+                  ) : null}
+                </div>
+                <textarea
+                  aria-label={`${action.label}: text to send`}
+                  className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={Math.min(16, Math.max(4, value.split("\n").length + Math.ceil(value.length / 90)))}
+                  value={value}
+                  onChange={(event) => setEdits((e) => ({ ...e, [index]: event.target.value }))}
+                />
+              </div>
+            );
+          })}
+
       {pending !== undefined && pending !== null && pending.type === "command" ? (
         <div className="mt-3 rounded-md border border-border px-3 py-2">
           <div className="text-xs text-muted-foreground">Run this command{pending.cwd ? ` in ${pending.cwd}` : ""}?</div>
@@ -198,7 +243,7 @@ function ItemCard({
                 action.type === "thread" && record?.result?.label === action.label ? (record.result.threadId ?? null) : null
               }
               busy={busy}
-              onRun={() => onRun(index)}
+              onRun={() => run(index)}
               onConfirm={() => setConfirming(index)}
               onGo={onGo}
             />
@@ -210,10 +255,55 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, expandedItems, confirming }: ViewPanelProps) {
+export function ViewPanel({
+  stored,
+  busyItem,
+  onRun,
+  onDismiss,
+  onGoToThread,
+  expandedItems,
+  confirming,
+  focusItemId,
+  onShowAll,
+}: ViewPanelProps) {
   const { view } = stored;
   const all = view.sections.flatMap((section) => section.items);
   const open = all.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
+  const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
+
+  const focused = focusItemId ? all.find((item) => item.id === focusItemId) : undefined;
+  if (focused !== undefined) {
+    const section = view.sections.find((candidate) => candidate.items.includes(focused));
+    return (
+      <div className="h-full min-h-0 overflow-y-auto">
+        <div className="flex flex-col gap-3 px-4 py-4">
+          <div className="flex items-baseline justify-between gap-3 text-xs text-muted-foreground">
+            <button type="button" className="hover:text-foreground hover:underline" onClick={onShowAll}>
+              ← All {all.length} items
+            </button>
+            <span className="truncate">
+              {view.title}
+              {section?.title ? ` · ${section.title}` : ""}
+            </span>
+          </div>
+          <ol>
+            {/* Keyed on the confirmation too, so a command clicked in the banner opens asking. */}
+            <ItemCard
+              key={`${focused.id}:${confirming ?? ""}`}
+              item={focused}
+              record={stored.items[focused.id]}
+              busy={busyItem === focused.id}
+              initiallyExpanded
+              initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
+              onRun={(index, text) => onRun(focused, index, text)}
+              onDismiss={(dismissed) => onDismiss(focused, dismissed)}
+              onGo={onGoToThread}
+            />
+          </ol>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full min-h-0 overflow-y-auto">
@@ -236,7 +326,6 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, ex
             )}
             <ol className="flex flex-col gap-2">
               {section.items.map((item) => {
-                const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
                 return (
                   <ItemCard
                     key={item.id}
@@ -245,7 +334,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, ex
                     busy={busyItem === item.id}
                     initiallyExpanded={expandedItems?.includes(item.id) ?? false}
                     initiallyConfirming={confirmItem === item.id ? Number(confirmIndex) : null}
-                    onRun={(index) => onRun(item, index)}
+                    onRun={(index, text) => onRun(item, index, text)}
                     onDismiss={(dismissed) => onDismiss(item, dismissed)}
                     onGo={onGoToThread}
                   />
