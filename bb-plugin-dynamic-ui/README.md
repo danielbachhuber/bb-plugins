@@ -37,7 +37,11 @@ An item can carry a `draft`, such as a comment to post or a new thread's task. T
 
 The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
-Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. Every card can be dismissed and restored. The agent reads back what the user
+Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. Every card can be dismissed and restored.
+
+## Visual review
+
+An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item stacks them at the panel's width, and clicking one shows it full size. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. The row above the composer offers **Review…**, and once feedback is sent it says which variation was picked. The agent reads back what the user
 did with `bb dynamic-ui state`.
 
 The view file's shape, and when a skill should use it, are in
@@ -68,7 +72,7 @@ that published it.
 
 ## Storage
 
-Views and item states live in the plugin's own database, which bb keeps under
+Views, item states, and visual review images live in the plugin's own database, which bb keeps under
 its data directory. Views quote your work, so none of it is written inside
 this checkout.
 
@@ -78,7 +82,7 @@ this checkout.
 |---|---|
 | `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
 | `app.tsx` | The list above the composer and the side-panel tab it opens |
-| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, and when the panel opens by itself |
+| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the visual review and its feedback message, and when the panel opens by itself |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/dynamic-ui/` | How an agent publishes a view |
 

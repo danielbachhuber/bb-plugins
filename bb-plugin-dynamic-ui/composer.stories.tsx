@@ -13,7 +13,8 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, selfImproveView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, reviewImages, reviewView, selfImproveView, triageView } from "./view/fixtures";
+import type { Feedback } from "./view/review";
 import type { View } from "./view/schema";
 import type { ItemRecord, StoredView } from "./view/store";
 import { firstOpenItem, ViewPanel } from "./view/view-panel";
@@ -127,12 +128,14 @@ function ThreadStage({
   initialFocus = null,
   initialCollapsed = false,
   confirming,
+  reviewInitial,
 }: {
   turns: Turn[];
   view: StoredView;
   initialFocus?: string | null;
   initialCollapsed?: boolean;
   confirming?: string;
+  reviewInitial?: Feedback;
 }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
@@ -205,6 +208,8 @@ function ThreadStage({
           onRun={noop}
           onDismiss={noop}
           onGoToThread={noop}
+          imageUrl={(_, index) => reviewImages[index] ?? null}
+          reviewInitial={reviewInitial}
         />
       )}
     </aside>
@@ -356,6 +361,49 @@ export function DependabotAfter() {
         "pr-412": { state: "done", result: { label: "Post, approve, and merge", at: "2026-03-12T12:05:00Z" } },
       })}
       initialFocus="pr-412"
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Visual review                                                              */
+/* -------------------------------------------------------------------------- */
+
+const reviewTurns: Turn[] = [
+  { kind: "user", text: "These rows look kinda messy. How might we improve this?" },
+  { kind: "work", text: "Built two variations in the story and took screenshots of each" },
+  {
+    kind: "assistant",
+    text: "Too much color and dates that change shape from row to row. I've put the current rows and **2 directions** above the composer: pick one and note anything to change.",
+  },
+];
+
+/** A fresh review: the original on top, two directions under it. */
+export function VisualReview() {
+  return <ThreadStage turns={reviewTurns} view={stored(reviewView)} />;
+}
+
+/** One picked, with notes, ready to send. */
+export function VisualReviewFilledIn() {
+  return (
+    <ThreadStage
+      turns={reviewTurns}
+      view={stored(reviewView)}
+      reviewInitial={{ pick: 2, notes: ["", "Headings are good but too tall", "Keep the overdue date red"], overall: "" }}
+    />
+  );
+}
+
+/** After sending: the pick and notes stay as what was sent, and the row says which was picked. */
+export function VisualReviewSent() {
+  const feedback = { pick: 2, notes: ["", "Headings are good but too tall", "Keep the overdue date red"], overall: "" };
+  return (
+    <ThreadStage
+      turns={reviewTurns}
+      view={stored(reviewView, {
+        "review-rows": { state: "done", result: { label: "Send feedback", at: "2026-03-12T12:05:00Z", feedback } },
+      })}
+      initialFocus="review-rows"
     />
   );
 }

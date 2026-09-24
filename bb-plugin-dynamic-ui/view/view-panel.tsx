@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 import { DraftEditor } from "./draft-editor.js";
+import type { Feedback } from "./review.js";
+import { ReviewPanel } from "./review-panel.js";
 
 export interface ViewPanelProps {
   stored: StoredView;
@@ -22,6 +24,11 @@ export interface ViewPanelProps {
   focusItemId?: string | null;
   /** Whether the draft starts rendered or as source. Preview unless a story says otherwise. */
   draftMode?: "preview" | "raw";
+  /** A visual review's image as a URL; undefined while it loads. */
+  imageUrl?: (itemId: string, index: number) => string | null | undefined;
+  onSubmitReview?: (item: Item, feedback: Feedback) => void;
+  /** A visual review's starting pick and notes, for a story. */
+  reviewInitial?: Feedback;
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -45,6 +52,8 @@ export function firstOpenItem(stored: StoredView): Item | null {
 function Result({ record, onGo }: { record: ItemRecord; onGo: (id: string) => void }) {
   const result = record.result;
   if (result === null) return null;
+  // A sent review shows its pick and notes in place instead.
+  if (result.feedback !== undefined && result.error === undefined) return null;
   const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);
   return (
     <div className={cn("mt-2 rounded-md px-3 py-2 text-xs", failed ? "bg-destructive/10" : "bg-muted/40")}>
@@ -116,6 +125,7 @@ function ItemCard({
   initiallyExpanded,
   initiallyConfirming,
   initialDraftMode,
+  review,
   onRun,
   onDismiss,
   onGo,
@@ -126,6 +136,7 @@ function ItemCard({
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
   initialDraftMode?: "preview" | "raw";
+  review?: { imageUrl: (index: number) => string | null | undefined; onSubmit: (feedback: Feedback) => void; initial?: Feedback };
   onRun: (index: number, draft?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
@@ -193,6 +204,17 @@ function ItemCard({
 
       {record === undefined ? null : <Result record={record} onGo={onGo} />}
 
+      {item.variations.length === 0 || review === undefined ? null : (
+        <ReviewPanel
+          item={item}
+          record={record}
+          imageUrl={review.imageUrl}
+          busy={busy}
+          onSubmit={review.onSubmit}
+          initial={review.initial}
+        />
+      )}
+
       {/* One box for the item's draft: every button that says {draft} sends it as left here. */}
       {item.draft === "" ? null : (
         <DraftEditor
@@ -247,7 +269,7 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode }: ViewPanelProps) {
+export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, imageUrl, onSubmitReview, reviewInitial }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
@@ -282,6 +304,11 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             initiallyExpanded
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
             initialDraftMode={draftMode}
+            review={{
+              imageUrl: (index) => imageUrl?.(focused.id, index),
+              onSubmit: (feedback) => onSubmitReview?.(focused, feedback),
+              initial: reviewInitial,
+            }}
             onRun={(index, draft) => onRun(focused, index, draft)}
             onDismiss={(dismissed) => onDismiss(focused, dismissed)}
             onGo={onGoToThread}

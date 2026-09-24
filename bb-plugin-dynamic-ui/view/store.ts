@@ -11,6 +11,7 @@
  * keeps under its data directory and never in a file inside this checkout.
  */
 import type { Database } from "better-sqlite3";
+import type { Feedback } from "./review.js";
 import type { View } from "./schema.js";
 
 export const MIGRATIONS = [
@@ -31,6 +32,16 @@ export const MIGRATIONS = [
      updated_at TEXT NOT NULL,
      PRIMARY KEY (view_id, item_id)
    )`,
+  // A visual review's images, copied at publish so the review keeps showing
+  // what was proposed.
+  `CREATE TABLE images (
+     view_id  INTEGER NOT NULL REFERENCES views(id) ON DELETE CASCADE,
+     item_id  TEXT NOT NULL,
+     idx      INTEGER NOT NULL,
+     mime     TEXT NOT NULL,
+     data     BLOB NOT NULL,
+     PRIMARY KEY (view_id, item_id, idx)
+   )`,
 ];
 
 export type ItemState = "open" | "done" | "dismissed";
@@ -47,6 +58,13 @@ export interface ActionResult {
   error?: string;
   /** The user changed the text before sending it. */
   edited?: boolean;
+  /** What a visual review sent back. */
+  feedback?: Feedback;
+}
+
+export interface StoredImage {
+  mime: string;
+  data: Buffer;
 }
 
 export interface ItemRecord {
@@ -70,6 +88,9 @@ export interface Store {
   get(id: number): StoredView | null;
   forThread(threadId: string): StoredView[];
   setItem(viewId: number, itemId: string, record: ItemRecord, now: string): StoredView | null;
+  /** Replaces every image a view holds, as one publish's set. */
+  putImages(viewId: number, images: Array<{ itemId: string; index: number } & StoredImage>): void;
+  image(viewId: number, itemId: string, index: number): StoredImage | null;
 }
 
 type ViewRow = {
@@ -147,6 +168,21 @@ export function createStore(db: Database): Store {
       ).run(viewId, itemId, record.state, record.result === null ? null : JSON.stringify(record.result), now);
       return get(viewId);
     },
+
+    putImages(viewId, images) {
+      const insert = db.prepare("INSERT INTO images (view_id, item_id, idx, mime, data) VALUES (?, ?, ?, ?, ?)");
+      db.transaction(() => {
+        db.prepare("DELETE FROM images WHERE view_id = ?").run(viewId);
+        for (const image of images) insert.run(viewId, image.itemId, image.index, image.mime, image.data);
+      })();
+    },
+
+    image(viewId, itemId, index) {
+      const row = db
+        .prepare("SELECT mime, data FROM images WHERE view_id = ? AND item_id = ? AND idx = ?")
+        .get(viewId, itemId, index) as StoredImage | undefined;
+      return row ?? null;
+    },
   };
 }
 
@@ -162,7 +198,9 @@ export function describeItems(stored: StoredView): string[] {
           ? ""
           : `  (${result.label}${result.edited ? ", edited" : ""}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
               result.exitCode === undefined ? "" : `, exit ${result.exitCode}`
-            }${result.error === undefined ? "" : `, failed: ${result.error}`})`;
+            }${result.error === undefined ? "" : `, failed: ${result.error}`}${
+              result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`
+            })`;
       return `[${state}] ${item.id}  ${item.title}${detail}`;
     }),
   );

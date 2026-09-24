@@ -8,6 +8,7 @@ import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
+import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { firstOpenItem } from "./view-panel.js";
 
 function store() {
@@ -183,5 +184,79 @@ describe("firstOpenItem", () => {
         }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("visual review", () => {
+  const review = {
+    title: "Rows",
+    sections: [
+      {
+        items: [
+          {
+            id: "review-rows",
+            title: "Row layout: 3 directions",
+            variations: [
+              { label: "Original", image: "shots/original.png" },
+              { label: "A. Sections", description: "Headings", image: "shots/a.png" },
+              { label: "B. Dates right", image: "/tmp/b.webp" },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const item = () => parseView(JSON.stringify(review)).sections[0]!.items[0]!;
+
+  it("needs the original and at least one alternative", () => {
+    expect(item().variations).toHaveLength(3);
+    const one = { ...review, sections: [{ items: [{ ...review.sections[0]!.items[0]!, variations: [review.sections[0]!.items[0]!.variations[0]!] }] }] };
+    expect(() => parseView(JSON.stringify(one))).toThrow(/at least two variations/);
+  });
+
+  it("knows which files the panel can show", () => {
+    expect(imageMime("a.PNG")).toBe("image/png");
+    expect(imageMime("a.jpeg")).toBe("image/jpeg");
+    expect(imageMime("a.svg")).toBeNull();
+  });
+
+  it("writes the pick and every note into one message", () => {
+    const message = feedbackMessage(item(), {
+      pick: 2,
+      notes: ["", "headings good,\n but too tall", "use A's headings"],
+      overall: " keep overdue red ",
+    });
+    expect(message).toBe(
+      [
+        'Visual review feedback on "Row layout: 3 directions":',
+        "",
+        "Pick: **B. Dates right**",
+        "",
+        "- A. Sections: headings good, but too tall",
+        "- B. Dates right: use A's headings",
+        "",
+        "Overall: keep overdue red",
+      ].join("\n"),
+    );
+    expect(feedbackMessage(item(), { pick: null, notes: ["too busy"], overall: "" })).toContain("Pick: none of them yet.");
+  });
+
+  it("has nothing to send until something is picked or written", () => {
+    expect(hasFeedback({ pick: null, notes: ["", " "], overall: "" })).toBe(false);
+    expect(hasFeedback({ pick: 0, notes: [], overall: "" })).toBe(true);
+    expect(hasFeedback({ pick: null, notes: ["", "x"], overall: "" })).toBe(true);
+  });
+
+  it("stores a publish's images and replaces them on the next", () => {
+    const s = store();
+    const stored = s.publish("thr_one", "review", parseView(JSON.stringify(review)), "/tmp", "t");
+    s.putImages(stored.id, [
+      { itemId: "review-rows", index: 0, mime: "image/png", data: Buffer.from("one") },
+      { itemId: "review-rows", index: 1, mime: "image/png", data: Buffer.from("two") },
+    ]);
+    expect(Buffer.from(s.image(stored.id, "review-rows", 1)!.data).toString()).toBe("two");
+    s.putImages(stored.id, [{ itemId: "review-rows", index: 0, mime: "image/webp", data: Buffer.from("new") }]);
+    expect(s.image(stored.id, "review-rows", 1)).toBeNull();
+    expect(s.image(stored.id, "review-rows", 0)!.mime).toBe("image/webp");
   });
 });

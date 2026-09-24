@@ -71,6 +71,35 @@ function useRunAction(setStored: (view: StoredView) => void) {
   return { busyItem, setBusyItem, run };
 }
 
+/**
+ * A visual review's images, fetched once per view and item as the panel shows
+ * them. Keyed by publish time too, so a republish with new images refetches.
+ */
+function useReviewImages(stored: StoredView | null | undefined, itemId: string | null) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [urls, setUrls] = useState<Record<string, string | null>>({});
+  const item =
+    stored && itemId ? stored.view.sections.flatMap((section) => section.items).find((candidate) => candidate.id === itemId) : undefined;
+  const prefix = stored && item ? `${stored.id}@${stored.publishedAt}:${item.id}:` : null;
+  const count = item?.variations.length ?? 0;
+  useEffect(() => {
+    if (!stored || !item || prefix === null) return;
+    item.variations.forEach((_, index) => {
+      const key = prefix + index;
+      rpc.call("image_get", { viewId: stored.id, itemId: item.id, index }).then(
+        ({ dataUrl }) => setUrls((current) => (key in current ? current : { ...current, [key]: dataUrl })),
+        () => setUrls((current) => ({ ...current, [key]: null })),
+      );
+    });
+    // The prefix names the view, its publish, and the item.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rpc, prefix, count]);
+  return useCallback(
+    (forItem: string, index: number) => (prefix !== null && forItem === itemId ? urls[prefix + index] : undefined),
+    [urls, prefix, itemId],
+  );
+}
+
 function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
@@ -91,12 +120,15 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   useEffect(refetch, [refetch]);
   useThreadSignal(threadId, refetch);
 
+  const focusHere = stored && focus?.viewId === stored.id ? focus : undefined;
+  const shownItem = focusHere?.itemId ?? (stored ? (firstOpenItem(stored)?.id ?? null) : null);
+  const imageUrl = useReviewImages(stored, shownItem);
+
   if (stored === undefined) return null;
   if (stored === null) {
     return <div className="px-4 py-6 text-sm text-muted-foreground">This thread has not published a view.</div>;
   }
 
-  const focusHere = focus?.viewId === stored.id ? focus : undefined;
   return (
     <ViewPanel
       stored={stored}
@@ -106,6 +138,18 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
         focusHere?.itemId && focusHere.confirmIndex !== undefined ? `${focusHere.itemId}:${focusHere.confirmIndex}` : undefined
       }
       onGoToThread={(id) => navigate.toThread(id)}
+      imageUrl={imageUrl}
+      onSubmitReview={(item, feedback) => {
+        setBusyItem(item.id);
+        rpc
+          .call("review_submit", { viewId: stored.id, itemId: item.id, ...feedback })
+          .then((updated) => {
+            setStored(updated);
+            const result = updated.items[item.id]?.result;
+            if (result?.error !== undefined) toast.error(result.error);
+          }, fail)
+          .finally(() => setBusyItem(null));
+      }}
       onRun={(item, index, draft) => run(stored, item, index, draft)}
       onDismiss={(item, dismissed) => {
         setBusyItem(item.id);

@@ -81,6 +81,19 @@ export function fillDraft(action: Action, original: string, draft: string | unde
   return { action, edited: false };
 }
 
+/**
+ * One way a piece of UI could look, as an image: the first in a list is the
+ * original, the rest the alternatives. `publish` reads the file and keeps a
+ * copy, so the review shows what was proposed even after the code moves on.
+ */
+export const variationSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  description: markdown.default(""),
+  /** A PNG, JPEG, WebP, or GIF, absolute or relative to where `publish` runs. */
+  image: z.string().trim().min(1).max(1_000),
+});
+export type Variation = z.infer<typeof variationSchema>;
+
 const itemId = z
   .string()
   .trim()
@@ -104,6 +117,12 @@ export const itemSchema = z.object({
   /** The label over the draft's box: "Comment to post", "Task for the new thread". */
   draftLabel: z.string().trim().max(80).default("Draft"),
   actions: z.array(actionSchema).max(6).default([]),
+  /**
+   * Makes the item a visual review: the original first, then the
+   * alternatives. The user picks one, notes on any, and sends it all back to
+   * the thread as one message.
+   */
+  variations: z.array(variationSchema).max(6).default([]),
 });
 export type Item = z.infer<typeof itemSchema>;
 
@@ -131,6 +150,13 @@ export const viewSchema = z
             ctx.addIssue({ code: "custom", path: [...path, "type"], message: "uses {draft} but the item has no draft" });
           }
         });
+        if (item.variations.length === 1) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["sections", s, "items", i, "variations"],
+            message: "a visual review needs at least two variations: the original and an alternative",
+          });
+        }
         if (seen.has(item.id)) {
           ctx.addIssue({
             code: "custom",

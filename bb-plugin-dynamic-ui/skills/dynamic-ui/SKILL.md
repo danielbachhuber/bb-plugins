@@ -1,6 +1,6 @@
 ---
 name: dynamic-ui
-description: Use when a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post) and `bb dynamic-ui` is available, to show them as a list with buttons above the thread's composer instead of as a list in chat.
+description: Use when `bb dynamic-ui` is available and either a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post), or you are proposing two or more visual directions for a UI, to show screenshots of each with the original first for the user to pick from and comment on. Shows either above the thread's composer instead of in chat.
 ---
 
 # Dynamic UI
@@ -74,7 +74,31 @@ After publishing, say in chat how many items there are and that they are above t
 | `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. Use it for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
 
+An item with `variations` is a visual review instead: see below.
+
 Every card also has Dismiss. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post and keep open" as alternatives, not "Post comment" then "Close issue" as steps. A command that fails leaves the card open to try again.
+
+## Visual review
+
+When you would otherwise describe two or more ways a piece of UI could look ("how might we improve this?"), show them instead. Give an item `variations` in place of `actions`, or alongside a link:
+
+```json
+{
+  "id": "review-rows-1",
+  "title": "Task rows: 2 directions",
+  "summary": "What reads as wrong now, in a sentence.",
+  "variations": [
+    { "label": "Original", "description": "As it is now.", "image": "/tmp/review/original.png" },
+    { "label": "A. Sections", "description": "Overdue / Today headings, grey icons.", "image": "/tmp/review/a.png" },
+    { "label": "B. Dates right", "description": "Sections, plus a short date on the right.", "image": "/tmp/review/b.png" }
+  ]
+}
+```
+
+- The first variation is always the original, as it is now. Then 1 to 5 alternatives, labelled with a letter and a few words.
+- Take every image the same way: the same story or screen, the same data, width, and crop, so only the design differs. Build each alternative as a story or behind a flag and screenshot it; do not draw mockups by hand. PNG, JPEG, WebP, or GIF, up to 8 MB each.
+- `publish` copies the images, so moving or deleting the files afterwards is fine.
+- The user picks one (or none), notes on any, and presses Send feedback. You receive one message: `Visual review feedback on "<title>":`, the pick, and each note. Build what it says, then publish the next round as a new item with a new `id` (`review-rows-2`) if another round is needed. A sent review cannot be sent again.
 
 ## Read back what the user did
 

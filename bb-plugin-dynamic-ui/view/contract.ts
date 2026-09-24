@@ -10,6 +10,9 @@ const resultSchema = z.object({
   output: z.string().optional(),
   error: z.string().optional(),
   edited: z.boolean().optional(),
+  feedback: z
+    .object({ pick: z.number().int().nullable(), notes: z.array(z.string()), overall: z.string() })
+    .optional(),
 });
 
 const storedViewSchema = z.object({
@@ -48,6 +51,20 @@ export const rpcContract = defineRpcContract({
       draft: z.string().trim().min(1).max(50_000).optional(),
     }),
     output: storedViewSchema,
+  },
+  /** Sends a visual review's pick and notes to the thread as one message. */
+  review_submit: {
+    input: itemRefSchema.extend({
+      pick: z.number().int().min(0).max(5).nullable(),
+      notes: z.array(z.string().max(5_000)).max(6),
+      overall: z.string().max(10_000),
+    }),
+    output: storedViewSchema,
+  },
+  /** One of a visual review's images, as a data URL. */
+  image_get: {
+    input: itemRefSchema.extend({ index: z.number().int().min(0).max(5) }),
+    output: z.object({ dataUrl: z.string().nullable() }),
   },
   item_dismiss: {
     input: itemRefSchema.extend({ dismissed: z.boolean() }),

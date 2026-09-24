@@ -222,3 +222,90 @@ export const dependabotConflictView: View = viewSchema.parse({
     },
   ],
 });
+
+/** A visual-review-shaped view: three invented directions for a task list's rows. */
+export const reviewView: View = viewSchema.parse({
+  title: "Visual review: task rows",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "review-rows",
+          title: "Task rows: 2 directions",
+          badges: [{ label: "Visual review", tone: "info" }],
+          summary: "The rows read as messy: a bright icon on every row, and red dates that wrap.",
+          variations: [
+            { label: "Original", description: "As it is now.", image: "shots/original.png" },
+            { label: "A. Sections", description: "Overdue / Today headings, grey outline icons.", image: "shots/a.png" },
+            { label: "B. Dates right", description: "Sections, plus one short date on the right of each title.", image: "shots/b.png" },
+          ],
+          actions: [{ type: "link", label: "Open the story", url: "http://localhost:61000/?story=acme--rows" }],
+        },
+      ],
+    },
+  ],
+});
+
+type MockRow = { title: string; detail: string; date: string; overdue: boolean };
+
+const MOCK_ROWS: MockRow[] = [
+  { title: "Renew the widget license", detail: "Acme Board · octocat", date: "Sep 9", overdue: true },
+  { title: "Reply to hubber about gadgets", detail: "Inbox", date: "Today 09:30", overdue: true },
+  { title: "Review acme/widgets#412", detail: "acme/widgets", date: "Sep 21", overdue: false },
+  { title: "Plan the gadget launch", detail: "Acme Board", date: "Sep 28", overdue: false },
+];
+
+function svgUrl(body: string, height: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="${height}" viewBox="0 0 640 ${height}" font-family="Inter, system-ui, sans-serif"><rect width="640" height="${height}" fill="#ffffff"/>${body}</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function heading(y: number, text: string, red: boolean): string {
+  return `<text x="24" y="${y}" font-size="11" font-weight="600" letter-spacing="1" fill="${red ? "#dc2626" : "#737373"}">${text}</text>`;
+}
+
+/** Invented screenshots for `reviewView`, drawn as SVG so no image file enters the repository. */
+export const reviewImages: string[] = [
+  // Original: bright filled icons, red two-line dates on the left.
+  svgUrl(
+    MOCK_ROWS.map((row, i) => {
+      const y = 20 + i * 64;
+      const colors = ["#e44332", "#ea4335", "#24292f", "#e44332"];
+      const [day, time] = row.date.split(" ");
+      return `<rect x="20" y="${y + 6}" width="22" height="22" rx="5" fill="${colors[i]}"/>
+        <text x="54" y="${y + 16}" font-size="12" fill="${row.overdue ? "#dc2626" : "#525252"}">${day}</text>
+        ${time ? `<text x="54" y="${y + 32}" font-size="12" fill="#dc2626">${time}</text>` : ""}
+        <text x="128" y="${y + 18}" font-size="14" fill="#171717">${row.title}</text>
+        <text x="128" y="${y + 38}" font-size="12" fill="#737373">${row.detail}</text>
+        <line x1="20" y1="${y + 56}" x2="620" y2="${y + 56}" stroke="#e5e5e5"/>`;
+    }).join(""),
+    276,
+  ),
+  // A: section headings, grey outline icons, dates still on the left.
+  svgUrl(
+    [heading(26, "OVERDUE · 2", true), heading(174, "UPCOMING · 2", false)].join("") +
+      MOCK_ROWS.map((row, i) => {
+        const y = (i < 2 ? 40 : 188) + (i % 2) * 60;
+        return `<rect x="24" y="${y + 6}" width="18" height="18" rx="4" fill="none" stroke="#737373" stroke-width="1.5"/>
+          <text x="56" y="${y + 19}" font-size="12" fill="#525252">${row.date}</text>
+          <text x="140" y="${y + 18}" font-size="14" fill="#171717">${row.title}</text>
+          <text x="140" y="${y + 38}" font-size="12" fill="#737373">${row.detail}</text>`;
+      }).join(""),
+    316,
+  ),
+  // B: sections, grey icons, one short date on the right.
+  svgUrl(
+    [heading(26, "OVERDUE · 2", true), heading(174, "UPCOMING · 2", false)].join("") +
+      MOCK_ROWS.map((row, i) => {
+        const y = (i < 2 ? 40 : 188) + (i % 2) * 60;
+        const short = row.date.startsWith("Today") ? "09:30" : row.date;
+        return `<rect x="24" y="${y + 6}" width="18" height="18" rx="4" fill="none" stroke="#737373" stroke-width="1.5"/>
+          <text x="56" y="${y + 18}" font-size="14" fill="#171717">${row.title}</text>
+          <text x="56" y="${y + 38}" font-size="12" fill="#737373">${row.detail}</text>
+          <text x="616" y="${y + 18}" font-size="12" text-anchor="end" fill="${row.overdue && i === 1 ? "#dc2626" : "#737373"}">${short}</text>`;
+      }).join(""),
+    316,
+  ),
+];

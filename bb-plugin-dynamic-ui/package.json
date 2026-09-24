@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Dynamic UI",
-    "description": "Lets a skill show its results as a list above the thread's composer, each item opening in the side panel with its details and buttons: send a reply to the thread, open a new thread, run a confirmed command, or open a link.",
+    "description": "Lets a skill show its results as a list above the thread's composer, each item opening in the side panel with its details and buttons: send a reply to the thread, open a new thread, run a confirmed command, or open a link. A visual review shows screenshots of a UI's original and its variations, for you to pick one and note on each.",
     "branding": {
       "icon": "GridView"
     },

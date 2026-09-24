@@ -6,14 +6,15 @@
 // thread's composer; each item opens in the side panel. Each button sends a
 // message back to that thread, opens a new thread, runs a shell command the
 // user has confirmed, or opens a link.
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
-import { fillDraft, parseView, usesDraft, type Action } from "./view/schema.js";
-import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredView } from "./view/store.js";
+import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
+import { fillDraft, parseView, usesDraft, type Action, type View } from "./view/schema.js";
+import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -143,11 +144,63 @@ export default async function plugin(bb: BbPluginApi) {
     return updated;
   }
 
+  /** Reads every visual review image a view names, so a bad path fails the publish. */
+  async function loadImages(view: View, cwd: string | undefined) {
+    const images: Array<{ itemId: string; index: number } & StoredImage> = [];
+    for (const item of view.sections.flatMap((section) => section.items)) {
+      for (const [index, variation] of item.variations.entries()) {
+        const where = `${item.id}, variation ${index + 1} ("${variation.label}")`;
+        const mime = imageMime(variation.image);
+        if (mime === null) throw new Error(`${where}: ${variation.image} is not a PNG, JPEG, WebP, or GIF.`);
+        const path = cwd === undefined || isAbsolute(variation.image) ? variation.image : resolve(cwd, variation.image);
+        let size: number;
+        try {
+          size = (await stat(path)).size;
+        } catch {
+          throw new Error(`${where}: no image at ${path}.`);
+        }
+        if (size > MAX_IMAGE_BYTES) {
+          throw new Error(`${where}: ${path} is ${Math.round(size / 1024 / 1024)} MB; the limit is 8 MB. Crop it or take it at a lower scale.`);
+        }
+        images.push({ itemId: item.id, index, mime, data: await readFile(path) });
+      }
+    }
+    return images;
+  }
+
+  async function submitReview(viewId: number, itemId: string, feedback: Feedback): Promise<StoredView> {
+    const stored = requireView(viewId);
+    const item = findItem(stored, itemId);
+    if (item.variations.length === 0) throw new Error(`Item ${itemId} is not a visual review.`);
+    if (feedback.pick !== null && item.variations[feedback.pick] === undefined) throw new Error(`Item ${itemId} has no variation ${feedback.pick}.`);
+    if (!hasFeedback(feedback)) throw new Error("Pick a variation or write a note first.");
+    if ((stored.items[itemId]?.state ?? "open") === "done") throw new Error("This review's feedback was already sent.");
+    let result: ActionResult = { label: "Send feedback", at: now(), feedback };
+    try {
+      await bb.sdk.threads.send({
+        threadId: stored.threadId,
+        mode: "auto",
+        input: [{ type: "text", text: feedbackMessage(item, feedback), mentions: [] }],
+      });
+    } catch (error) {
+      result = { ...result, error: error instanceof Error ? error.message : String(error) };
+    }
+    const updated = store.setItem(viewId, itemId, { state: result.error === undefined ? "done" : "open", result }, now())!;
+    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    bb.log.info(`sent visual review feedback on ${itemId} in view ${viewId}${result.error === undefined ? "" : ", failed"}`);
+    return updated;
+  }
+
   bb.rpc.register(rpcContract, {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft }) => runAction(viewId, itemId, index, draft),
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
+    review_submit: ({ viewId, itemId, pick, notes, overall }) => submitReview(viewId, itemId, { pick, notes, overall }),
+    image_get: ({ viewId, itemId, index }) => {
+      const image = store.image(viewId, itemId, index);
+      return { dataUrl: image === null ? null : `data:${image.mime};base64,${Buffer.from(image.data).toString("base64")}` };
+    },
   });
 
   const usage = [
@@ -204,7 +257,9 @@ export default async function plugin(bb: BbPluginApi) {
             // The server's working directory is not the caller's.
             const path = ctx.cwd === undefined || isAbsolute(file) ? file : resolve(ctx.cwd, file);
             const view = parseView(await readFile(path, "utf8"));
+            const images = await loadImages(view, ctx.cwd);
             const stored = store.publish(threadId, key, view, ctx.cwd ?? null, now());
+            store.putImages(stored.id, images);
             bb.realtime.publish(PUBLISHED, { threadId, viewId: stored.id, title: view.title });
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
             return {

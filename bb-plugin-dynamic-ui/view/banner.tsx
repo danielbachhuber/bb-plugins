@@ -102,7 +102,15 @@ export function ViewBanner({
                   </span>
                   {failed || state !== "open" || summary ? (
                     <span className="block truncate text-xs text-muted-foreground">
-                      {failed ? `${result!.label} failed` : state === "done" && result ? result.label : summary}
+                      {failed
+                        ? `${result!.label} failed`
+                        : state === "done" && result?.feedback
+                          ? result.feedback.pick === null
+                            ? "Feedback sent"
+                            : `Picked ${item.variations[result.feedback.pick]?.label ?? "one"}`
+                          : state === "done" && result
+                            ? result.label
+                            : summary}
                     </span>
                   ) : null}
                 </button>
@@ -112,6 +120,10 @@ export function ViewBanner({
                       Go to thread
                     </Button>
                   ) : null
+                ) : item.variations.length > 0 ? (
+                  <Button size="sm" variant="default" className="h-6 shrink-0 px-2 text-xs" onClick={() => onOpenItem(item)}>
+                    Review…
+                  </Button>
                 ) : main === null ? null : main.action.type === "link" ? (
                   <Button size="sm" variant="outline" className="h-6 shrink-0 px-2 text-xs" asChild>
                     <UrlLink href={main.action.url}>{main.action.label}</UrlLink>
