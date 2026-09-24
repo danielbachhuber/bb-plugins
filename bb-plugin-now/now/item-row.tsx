@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { BrandIcon, type Brand } from "./brand-icon.js";
-import { describeActivity, describeDue, type DueTone } from "./due.js";
+import { describeActivity, describeDue } from "./due.js";
+import { shortDate } from "./sections.js";
 import { snoozeChoices } from "./snooze.js";
 import type { GitHubPart, Item } from "./types.js";
 
@@ -39,12 +40,6 @@ export interface RowActions {
   onStartThread: (item: Item) => void;
   onOpenThread: (threadId: string) => void;
 }
-
-const DUE_TONE: Record<DueTone, string> = {
-  overdue: "text-destructive-text",
-  today: "text-success",
-  upcoming: "text-muted-foreground",
-};
 
 /** Which source a row came from, drawn at the head of its row. */
 function brandOf(item: Item): Brand | null {
@@ -295,31 +290,34 @@ function LineAction({
   );
 }
 
+/** A deadline that is today or already past: the one date the page colors. */
+function deadlineDue(deadline: string, now: Date): boolean {
+  return describeDue({ date: deadline, recurring: false }, now).tone !== "upcoming";
+}
+
 /**
- * The one date the left column shows under the source's icon: when it is
- * due, else its deadline, else when it last had activity, such as an email's
- * arrival.
+ * The date at the right of the title line, in one short form: when it is
+ * due, else its deadline, else when its latest email arrived. The section
+ * heading says whether it is overdue, so only a deadline that is today or past
+ * is colored.
  */
-function leadingDate(item: Item, now: Date): { text: string; className: string; icon: IconName | null } | null {
+function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: IconName | null } | null {
   if (item.due !== null) {
-    const due = describeDue(item.due, now);
-    return { text: due.text, className: DUE_TONE[due.tone], icon: item.due.recurring ? "Repeat" : null };
+    return { text: shortDate(item.due.date, now), urgent: false, icon: item.due.recurring ? "Repeat" : null };
   }
   if (item.deadline !== null) {
-    const deadline = describeDue({ date: item.deadline, recurring: false }, now);
-    return { text: deadline.text, className: DUE_TONE[deadline.tone], icon: "Target" };
+    return { text: shortDate(item.deadline, now), urgent: deadlineDue(item.deadline, now), icon: "Target" };
   }
-  if (item.activityAt !== null) return { text: describeActivity(item.activityAt, now), className: "", icon: null };
+  if (item.activityAt !== null) return { text: shortDate(item.activityAt, now), urgent: false, icon: null };
   return null;
 }
 
 export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null, pending = null }: ItemRowProps) {
   const busy = pending !== null;
   const [replying, setReplying] = useState(false);
-  const date = leadingDate(item, now);
-  // Shown in the details line only when the left column is showing the due date instead.
-  const deadline =
-    item.due !== null && item.deadline !== null ? describeDue({ date: item.deadline, recurring: false }, now) : null;
+  const date = rowDate(item, now);
+  // Shown in the details line only when the title line is showing the due date instead.
+  const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
   const brand = brandOf(item);
   const archiveSuggested = suggestsArchive(item);
   const comment = item.github?.comment ?? null;
@@ -328,20 +326,11 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   return (
     <li className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60")} aria-busy={busy}>
       <div className="flex items-start gap-3">
-        {/* Where it is from and when it is for, in a column of its own so every title starts at one edge. */}
-        <div className="flex w-14 shrink-0 flex-col gap-1 pt-0.5 text-xs leading-tight text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
-            {/* Gmail's own unread blue. */}
-            {unread ? <span className="size-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" aria-label="Unread" /> : null}
-          </span>
-          {date === null ? null : (
-            <span className={cn("inline-flex flex-wrap items-center gap-x-1", date.className)}>
-              {date.icon === "Target" ? <Icon name="Target" className="size-3 shrink-0" aria-label="Deadline" /> : null}
-              {date.text}
-              {date.icon === "Repeat" ? <Icon name="Repeat" className="size-3 shrink-0" aria-label="Recurring" /> : null}
-            </span>
-          )}
+        {/* Where it is from, in a column of its own so every title starts at one edge. */}
+        <div className="flex w-5 shrink-0 flex-col items-center gap-1.5 pt-0.5">
+          {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
+          {/* Gmail's own unread blue. */}
+          {unread ? <span className="size-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" aria-label="Unread" /> : null}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -355,6 +344,18 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             {item.github === null ? null : <GitHubState github={item.github} />}
             {item.priority === null ? null : (
               <Chip className={cn("font-mono", PRIORITY[item.priority])}>P{item.priority}</Chip>
+            )}
+            {date === null ? null : (
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs tabular-nums",
+                  date.urgent ? "text-destructive-text" : "text-muted-foreground",
+                )}
+              >
+                {date.icon === "Target" ? <Icon name="Target" className="size-3" aria-label="Deadline" /> : null}
+                {date.text}
+                {date.icon === "Repeat" ? <Icon name="Repeat" className="size-3" aria-label="Recurring" /> : null}
+              </span>
             )}
           </div>
           {item.description === "" ? null : (
@@ -413,9 +414,11 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
               />
             )}
             {deadline === null ? null : (
-              <span className={cn("inline-flex items-center gap-1", DUE_TONE[deadline.tone])}>
+              <span
+                className={cn("inline-flex items-center gap-1", deadlineDue(deadline, now) && "text-destructive-text")}
+              >
                 <Icon name="Target" className="size-3" />
-                Deadline {deadline.text}
+                Deadline {shortDate(deadline, now)}
               </span>
             )}
             {item.tags.map((tag) => (

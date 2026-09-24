@@ -256,7 +256,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="Todoist tasks that are overdue, today, timed and recurring, this week, next year, and undated, then the inbox newest first: GitHub notifications gathered per pull request or issue, with a suggested Archive on the merged and closed ones, and plain emails."
+        hint="Sections for overdue, today, and upcoming tasks, then the inbox newest first (GitHub notifications gathered per pull request or issue, and plain emails), then undated tasks."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>

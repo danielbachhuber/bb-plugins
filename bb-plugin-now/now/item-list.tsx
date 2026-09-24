@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
+import { groupIntoSections } from "./sections.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
@@ -132,18 +133,35 @@ export function ItemListView({ listing, now, actions, pending = new Map() }: Ite
             <EmptyState>Nothing needs doing now.</EmptyState>
           )
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-            {list.items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                now={now}
-                actions={actions}
-                threadId={threads[item.id] ?? null}
-                pending={pending.get(item.id) ?? null}
-              />
+          <div className="space-y-5">
+            {groupIntoSections(list.items, now).map((section) => (
+              <section key={section.id} aria-labelledby={`now-section-${section.id}`}>
+                {/* The same small uppercase heading bb's sweeps give their sections. */}
+                <h2
+                  id={`now-section-${section.id}`}
+                  className={cn(
+                    "mb-1.5 flex items-center gap-2 px-1 text-[0.6875rem] font-medium uppercase tracking-wider",
+                    section.id === "overdue" ? "text-destructive-text" : "text-muted-foreground",
+                  )}
+                >
+                  {section.title}
+                  <span className="tabular-nums text-muted-foreground">{section.items.length}</span>
+                </h2>
+                <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+                  {section.items.map((item) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      now={now}
+                      actions={actions}
+                      threadId={threads[item.id] ?? null}
+                      pending={pending.get(item.id) ?? null}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 

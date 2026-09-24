@@ -8,16 +8,18 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows how many rows need
 action: everything the last sync found, less what is snoozed. It loads every
-configured source at once and merges their items into one list: soonest due
-first (by due date or deadline, whichever is sooner), most urgent first within
-a day, and undated items last, newest activity first. Each row starts with a
-narrow column holding its source's own mark (Todoist, Gmail, or GitHub) and
-its date: when it is due, else its deadline, else when its latest email
-arrived. Beside that are the item's title (linking to it in its source),
-description, and a details line with the row's actions, tags, and where it
-came from (a Todoist project, or an email's sender), with a P1–P3 tag beside
-the title. Overdue dates are red and today's are green; a recurring item has a
-repeat icon.
+configured source at once and merges their items into one list, in sections:
+Overdue, Today, Upcoming, Inbox (the emails, newest first), and No date. A
+task goes in the section of its due date or its deadline, whichever is sooner,
+and within a section the soonest and most urgent come first. Each row starts
+with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
+Todoist mark in the same style), then the item's title (linking to it in its
+source) with its date at the right in one short form ("Sep 21", or the time
+for today), its description, and a details line with the row's actions, tags,
+and where it came from (a Todoist project, or an email's sender), with a P1–P3
+tag beside the title. The Overdue heading is red, and so is a deadline that is
+today or already past; nothing else is colored for its date. A recurring item
+has a repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last
 sync's items at once instead of waiting on Todoist and Gmail. It syncs in the
@@ -182,7 +184,8 @@ list `server.ts` passes to `loadSources`.
 | `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
 | `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
-| `now/brand-icon.tsx` | The Todoist, Gmail, and GitHub marks (Simple Icons, CC0) |
+| `now/brand-icon.tsx` | The source icons: bb's GitHub and Mail outlines, and a Todoist mark drawn to match |
+| `now/sections.ts` | Which section a row goes in, and the short date each row shows |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |

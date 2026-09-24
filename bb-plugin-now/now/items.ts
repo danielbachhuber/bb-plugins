@@ -10,7 +10,7 @@ function rank(item: Item): number {
  * The date an item sorts by: its due date or its deadline, whichever is
  * sooner. A task matched only by its deadline would otherwise sort as undated.
  */
-function sortDate(item: Item): string | null {
+export function sortDate(item: Item): string | null {
   const due = item.due?.date ?? null;
   if (due === null || item.deadline === null) return due ?? item.deadline;
   return item.deadline < due.slice(0, 10) ? item.deadline : due;
