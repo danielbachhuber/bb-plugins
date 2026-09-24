@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { firstLine, mainAction } from "./banner.js";
+import { firstLine } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
@@ -113,13 +113,6 @@ describe("banner rows", () => {
     expect(firstLine("")).toBe("");
   });
 
-  it("shows the primary action, else the first that is not a link", () => {
-    const [issue101] = triageView.sections[0]!.items;
-    expect(mainAction(issue101!)?.action.label).toBe("Post and close");
-    const noPrimary = { ...issue101!, actions: issue101!.actions.map((a) => ({ ...a, primary: false })) };
-    expect(mainAction({ ...noPrimary, actions: [noPrimary.actions[3]!, noPrimary.actions[2]!] })).toMatchObject({ index: 1 });
-    expect(mainAction({ ...issue101!, actions: [] })).toBeNull();
-  });
 });
 
 describe("item drafts", () => {

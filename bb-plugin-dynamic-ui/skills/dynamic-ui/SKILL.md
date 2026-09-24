@@ -7,7 +7,7 @@ description: Use when `bb dynamic-ui` is available and either a skill or task pr
 
 ## Overview
 
-`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and its main button. Clicking a row opens the item in the side panel with its full summary, details, and every button. The user acts from the cards instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. Nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. The user acts from the cards instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
 
 ## Is it available?
 
@@ -64,8 +64,8 @@ After publishing, say in chat how many items there are and that they are above t
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
-- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons (post and close, post and keep open) share one draft, and each sends its own instruction with the draft as the user left it. A button that uses `{draft}` opens the item from the list instead of sending. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
-- The row above the composer shows only the first line of `summary` and the item's main button (the `primary` one, else the first that is not a link). Make the first line the gist, and mark the likely choice `primary`. Put evidence and drafts further down the summary or in `details`, which show when the item is opened.
+- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons (post and close, post and keep open) share one draft, and each sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
+- The row above the composer shows only the title, two badges, and the first line of `summary`. Make the first line the gist, and mark the likely choice `primary` so it stands out in the opened item. Put evidence and drafts further down the summary or in `details`.
 
 | Action | What the button does |
 |---|---|

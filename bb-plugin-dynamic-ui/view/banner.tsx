@@ -1,11 +1,10 @@
 // A thread's view as a compact list right above the composer. Each row is one
-// item: its title, badges, one line of summary, and its main button. Clicking
+// item: its title, badges, one line of summary, and a Review button. Clicking
 // the row opens the item in the side panel with everything else. Kept free of
 // RPC so a story can render it with fixture props.
-import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usesDraft, type Action, type Item } from "./schema.js";
+import type { Item } from "./schema.js";
 import type { StoredView } from "./store.js";
 import { TONE_CLASS } from "./view-panel.js";
 
@@ -18,8 +17,6 @@ export interface ViewBannerProps {
   /** The item the side panel shows, highlighted here. */
   focusedItem: string | null;
   onOpenItem: (item: Item) => void;
-  /** The row's main button. The app opens the item instead for a command or a draft. */
-  onRun: (item: Item, index: number) => void;
   onGoToThread: (threadId: string) => void;
 }
 
@@ -33,15 +30,6 @@ export function firstLine(markdown: string): string {
     .trim();
 }
 
-/** The button a row shows: the primary action, or the first one that is not a link. */
-export function mainAction(item: Item): { action: Action; index: number } | null {
-  const index = item.actions.findIndex((a) => a.primary);
-  const chosen = index >= 0 ? index : item.actions.findIndex((a) => a.type !== "link");
-  const at = chosen >= 0 ? chosen : 0;
-  const action = item.actions[at];
-  return action === undefined ? null : { action, index: at };
-}
-
 export function ViewBanner({
   stored,
   collapsed,
@@ -49,7 +37,6 @@ export function ViewBanner({
   busyItem,
   focusedItem,
   onOpenItem,
-  onRun,
   onGoToThread,
 }: ViewBannerProps) {
   const items = stored.view.sections.flatMap((section) => section.items);
@@ -72,7 +59,6 @@ export function ViewBanner({
           {items.map((item) => {
             const record = stored.items[item.id];
             const state = record?.state ?? "open";
-            const main = mainAction(item);
             const result = record?.result;
             const failed = result?.error !== undefined || (result?.exitCode !== undefined && result.exitCode !== 0);
             const summary = firstLine(item.summary);
@@ -120,26 +106,17 @@ export function ViewBanner({
                       Go to thread
                     </Button>
                   ) : null
-                ) : item.variations.length > 0 ? (
-                  <Button size="sm" variant="default" className="h-6 shrink-0 px-2 text-xs" onClick={() => onOpenItem(item)}>
-                    Review…
-                  </Button>
-                ) : main === null ? null : main.action.type === "link" ? (
-                  <Button size="sm" variant="outline" className="h-6 shrink-0 px-2 text-xs" asChild>
-                    <UrlLink href={main.action.url}>{main.action.label}</UrlLink>
-                  </Button>
                 ) : (
+                  // Always opens the item: nothing runs from the list, so every
+                  // action is taken with its details, draft, or command in view.
                   <Button
                     size="sm"
-                    variant={main.action.primary ? "default" : "outline"}
+                    variant="default"
                     className="h-6 shrink-0 px-2 text-xs"
                     disabled={busyItem === item.id}
-                    onClick={() => onRun(item, main.index)}
+                    onClick={() => onOpenItem(item)}
                   >
-                    {busyItem === item.id
-                      ? "Working…"
-                      : // "…" marks a button that opens the item to show a command or a draft first.
-                        `${main.action.label}${main.action.type === "command" || usesDraft(main.action) ? "…" : ""}`}
+                    {busyItem === item.id ? "Working…" : "Review…"}
                   </Button>
                 )}
               </li>

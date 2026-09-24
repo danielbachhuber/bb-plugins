@@ -160,7 +160,6 @@ function ThreadStage({
                   busyItem={null}
                   focusedItem={focus ?? firstOpenItem(view)?.id ?? null}
                   onOpenItem={(item) => setFocus(item.id)}
-                  onRun={(item) => setFocus(item.id)}
                   onGoToThread={noop}
                 />
               </PromptStackCard>

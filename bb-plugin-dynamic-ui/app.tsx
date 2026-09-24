@@ -2,7 +2,7 @@
 // panel.
 //
 // The newest view a thread published shows as a compact list right above the
-// composer: one row per item with its main button. Clicking a row opens that
+// composer: one row per item with a Review button. Clicking a row opens that
 // item in the side panel, with its details and every button. The panel keeps
 // one tab per view and switches the item it shows as rows are clicked.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +19,7 @@ import type { rpcContract } from "./server";
 import { ViewBanner } from "./view/banner.js";
 import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
-import { usesDraft, type Item } from "./view/schema.js";
+import type { Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { firstOpenItem, ViewPanel } from "./view/view-panel.js";
 
@@ -188,7 +188,6 @@ function Banner() {
   const navigate = useBbNavigate();
   const [stored, setStored] = useState<StoredView | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const { busyItem, run } = useRunAction(setStored);
   const focus = useFocus(threadId ?? "");
   // Read through a ref so the fetch below does not re-run whenever the host
   // hands back a new navigate object.
@@ -222,8 +221,8 @@ function Banner() {
   // Rendering nothing lets the host's card hide itself.
   if (threadId === null || stored === null) return null;
 
-  const openItem = (item: Item, confirmIndex?: number) => {
-    setFocus(threadId, { viewId: stored.id, itemId: item.id, ...(confirmIndex === undefined ? {} : { confirmIndex }) });
+  const openItem = (item: Item) => {
+    setFocus(threadId, { viewId: stored.id, itemId: item.id });
     // Same params as an open tab focuses that tab, which then shows the item.
     navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
   };
@@ -233,17 +232,9 @@ function Banner() {
       stored={stored}
       collapsed={collapsed}
       onToggle={() => setCollapsed((c) => !c)}
-      busyItem={busyItem}
+      busyItem={null}
       focusedItem={(focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored)?.id ?? null}
       onOpenItem={(item) => openItem(item)}
-      onRun={(item, index) => {
-        // A command, or a button that sends the item's draft, opens the item:
-        // the panel shows the command or the draft before anything runs.
-        const action = item.actions[index];
-        if (action?.type === "command") openItem(item, index);
-        else if (action !== undefined && usesDraft(action)) openItem(item);
-        else run(stored, item, index);
-      }}
       onGoToThread={(id) => navigate.toThread(id)}
     />
   );

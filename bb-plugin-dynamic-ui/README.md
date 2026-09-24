@@ -15,7 +15,8 @@ bb dynamic-ui publish --file view.json [--key <name>]
 ```
 
 The thread's newest view appears above its composer, one row per item: the
-title, up to two badges, a line of summary, and the item's main button. The
+title, up to two badges, a line of summary, and a **Review…** button. Nothing
+runs from the list: the button and the row both open the item. The
 list collapses to one line from its header. Clicking a row opens that item in
 the side panel, with its full summary, its details, and every button; the panel
 keeps one tab per view and switches items as rows are clicked. Publishing again
@@ -30,10 +31,10 @@ up to six buttons:
 |---|---|
 | `message` | Sends text to the thread that published the view, as if the user typed it. The agent does the work with its own permissions and context. |
 | `thread` | Starts a new thread in a named project with a prompt and title. The button then becomes **Go to thread**. |
-| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output; a command button in the list above the composer opens the item to ask. A failed command leaves the item open. |
+| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A failed command leaves the item open. |
 | `link` | Opens a URL. |
 
-An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Those buttons open the item from the list above the composer instead of sending. Commands cannot use `{draft}`, so edited text never reaches a shell.
+An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`, so edited text never reaches a shell.
 
 The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
@@ -41,7 +42,7 @@ Once one of a card's buttons goes through, the card is done and its other button
 
 ## Visual review
 
-An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item shows them side by side, one at a time at the panel's width, with every image in the same place: flip between them with the arrow keys, the ‹ › buttons, or a swipe, and what changed is what moves. Clicking an image shows it full size. A filmstrip of thumbnails stays at the top of the panel: it shows how many variations there are, highlights the one showing, marks the pick and any variation with a note, and flips to a variation when you click it. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. The row above the composer offers **Review…**, and once feedback is sent it says which variation was picked. The agent reads back what the user
+An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item shows them side by side, one at a time at the panel's width, with every image in the same place: flip between them with the arrow keys, the ‹ › buttons, or a swipe, and what changed is what moves. Clicking an image shows it full size. A filmstrip of thumbnails stays at the top of the panel: it shows how many variations there are, highlights the one showing, marks the pick and any variation with a note, and flips to a variation when you click it. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. Once feedback is sent, the row above the composer says which variation was picked. The agent reads back what the user
 did with `bb dynamic-ui state`.
 
 The view file's shape, and when a skill should use it, are in
