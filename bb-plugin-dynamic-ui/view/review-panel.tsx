@@ -1,8 +1,8 @@
-// A visual review inside an opened item: each variation's image, original
-// first, with a pick toggle and a note box under it, and one Send feedback
-// button for all of it. Kept free of RPC so a story can render it with
-// fixture images.
-import { useEffect, useRef, useState } from "react";
+// A visual review inside an opened item: the variations side by side, one
+// per screen with the original first, each with a pick toggle and a note box,
+// and one Send feedback button for all of it. Kept free of RPC so a story can
+// render it with fixture images.
+import { useRef, useState, type KeyboardEvent } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -44,9 +44,9 @@ export function shortLabel(label: string): string {
 }
 
 /**
- * A strip of thumbnails that stays at the top of the panel while the review
- * scrolls under it: how many variations there are, which is on screen, which
- * is picked, which have notes, and a click to jump to any of them.
+ * A strip of thumbnails that stays at the top of the panel: how many
+ * variations there are, which is showing, which is picked, which have notes,
+ * and a click to show any of them.
  */
 function Filmstrip({
   item,
@@ -78,7 +78,8 @@ function Filmstrip({
             aria-current={active === index ? "true" : undefined}
             title={variation.label}
             className={cn(
-              "relative flex w-16 shrink-0 flex-col items-center gap-1 rounded-md p-1 text-[11px]",
+              // No focus ring: the highlight already says which is showing.
+              "relative flex w-16 shrink-0 flex-col items-center gap-1 rounded-md p-1 text-[11px] outline-none",
               active === index ? "bg-state-active text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -111,94 +112,103 @@ export function ReviewPanel({ item, record, imageUrl, busy, onSubmit, initial }:
   const [notes, setNotes] = useState<string[]>(item.variations.map((_, index) => start?.notes[index] ?? ""));
   const [overall, setOverall] = useState(start?.overall ?? "");
   const [zoomed, setZoomed] = useState<number | null>(null);
+  const [active, setActive] = useState(0);
+  const track = useRef<HTMLDivElement | null>(null);
   const locked = sent !== undefined || record?.state === "dismissed";
   const feedback: Feedback = { pick, notes, overall };
   const zoomedVariation = zoomed === null ? undefined : item.variations[zoomed];
-  const sections = useRef<Array<HTMLElement | null>>([]);
-  const [active, setActive] = useState(0);
-  // A jump keeps its target highlighted while the scroll settles; the last
-  // variation may never reach the band, because the panel runs out of room.
-  const jumpedAt = useRef(0);
+  const count = item.variations.length;
 
-  // The variation on screen is the topmost one whose section crosses the band
-  // just under the filmstrip.
-  useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const visible = new Set<number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const index = Number((entry.target as HTMLElement).dataset.index);
-          if (entry.isIntersecting) visible.add(index);
-          else visible.delete(index);
-        }
-        if (visible.size > 0 && Date.now() - jumpedAt.current > 1_000) setActive(Math.min(...visible));
-      },
-      { rootMargin: "-90px 0px -55% 0px" },
-    );
-    for (const section of sections.current) if (section) observer.observe(section);
-    return () => observer.disconnect();
-  }, [item.variations.length]);
+  // One variation per screen, side by side: flipping between them keeps each
+  // image in the same place, so what changed is what moves.
+  const show = (index: number) => {
+    const next = Math.max(0, Math.min(count - 1, index));
+    setActive(next);
+    const element = track.current;
+    // Instant rather than sliding: a cut between two images makes what
+    // changed jump out, where a slide smears it.
+    if (element) element.scrollTo({ left: next * element.clientWidth, behavior: "instant" });
+  };
 
-  const jump = (index: number) => {
-    jumpedAt.current = Date.now();
-    setActive(index);
-    const section = sections.current[index];
-    if (!section) return;
-    // Leave room for the filmstrip, which covers the top of the panel.
-    section.style.scrollMarginTop = "88px";
-    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === "TEXTAREA" || target.tagName === "INPUT") return;
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      show(active + (event.key === "ArrowRight" ? 1 : -1));
+    }
   };
 
   return (
-    <div className="mt-3 flex flex-col gap-4">
-      <Filmstrip item={item} imageUrl={imageUrl} active={active} pick={pick} notes={notes} onJump={jump} />
-      {item.variations.map((variation, index) => {
-        const picked = pick === index;
-        return (
-          <section
-            ref={(element) => {
-              sections.current[index] = element;
-            }}
-            data-index={index}
-            key={`${index}:${variation.label}`}
-            aria-label={variation.label}
-            className={cn("rounded-lg border p-3", picked ? "border-foreground/60 bg-state-active" : "border-border")}
-          >
-            <div className="mb-2 flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground">{variation.label}</div>
+    <div className="mt-3 flex flex-col gap-3" onKeyDown={onKeyDown}>
+      <Filmstrip item={item} imageUrl={imageUrl} active={active} pick={pick} notes={notes} onJump={show} />
+
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="ghost" className="h-7 px-2" disabled={active === 0} onClick={() => show(active - 1)} aria-label="Previous variation">
+          ‹
+        </Button>
+        <span className="min-w-0 flex-1 truncate text-center text-xs text-muted-foreground">
+          {active + 1} of {count} · ← → to flip
+        </span>
+        <Button size="sm" variant="ghost" className="h-7 px-2" disabled={active === count - 1} onClick={() => show(active + 1)} aria-label="Next variation">
+          ›
+        </Button>
+      </div>
+
+      <div
+        ref={track}
+        tabIndex={0}
+        aria-label="Variations, one at a time"
+        className="-mx-4 flex snap-x snap-mandatory overflow-x-auto outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          if (element.clientWidth > 0) setActive(Math.round(element.scrollLeft / element.clientWidth));
+        }}
+      >
+        {item.variations.map((variation, index) => {
+          const picked = pick === index;
+          return (
+            <section
+              key={`${index}:${variation.label}`}
+              aria-label={variation.label}
+              className="w-full shrink-0 snap-start px-4"
+            >
+              <div className={cn("rounded-lg border p-3", picked ? "border-foreground/60 bg-state-active" : "border-border")}>
+                {/* One line above the image, so every image starts at the same height. */}
+                <div className="mb-2 flex h-8 items-center gap-2">
+                  <div className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{variation.label}</div>
+                  <Button
+                    size="sm"
+                    variant={picked ? "default" : "outline"}
+                    aria-pressed={picked}
+                    disabled={locked || busy}
+                    onClick={() => setPick(picked ? null : index)}
+                  >
+                    {picked ? "Picked" : "Pick this one"}
+                  </Button>
+                </div>
+                <VariationImage url={imageUrl(index)} label={variation.label} onZoom={() => setZoomed(index)} />
                 {variation.description === "" ? null : (
-                  <div className="text-xs text-muted-foreground [&_*]:!text-xs [&_p]:!my-0">
+                  <div className="mt-2 text-xs text-muted-foreground [&_*]:!text-xs [&_p]:!my-0">
                     <Markdown content={variation.description} />
                   </div>
                 )}
+                {locked && notes[index]?.trim() === "" ? null : (
+                  <textarea
+                    aria-label={`Note on ${variation.label}`}
+                    placeholder="Note (optional)"
+                    className={cn(noteClass, "mt-2")}
+                    rows={2}
+                    value={notes[index] ?? ""}
+                    disabled={locked || busy}
+                    onChange={(event) => setNotes((current) => current.map((note, at) => (at === index ? event.target.value : note)))}
+                  />
+                )}
               </div>
-              <Button
-                size="sm"
-                variant={picked ? "default" : "outline"}
-                aria-pressed={picked}
-                disabled={locked || busy}
-                onClick={() => setPick(picked ? null : index)}
-              >
-                {picked ? "Picked" : "Pick this one"}
-              </Button>
-            </div>
-            <VariationImage url={imageUrl(index)} label={variation.label} onZoom={() => setZoomed(index)} />
-            {locked && notes[index]?.trim() === "" ? null : (
-              <textarea
-                aria-label={`Note on ${variation.label}`}
-                placeholder="Note (optional)"
-                className={cn(noteClass, "mt-2")}
-                rows={2}
-                value={notes[index] ?? ""}
-                disabled={locked || busy}
-                onChange={(event) => setNotes((current) => current.map((note, at) => (at === index ? event.target.value : note)))}
-              />
-            )}
-          </section>
-        );
-      })}
+            </section>
+          );
+        })}
+      </div>
 
       {locked && overall.trim() === "" ? null : (
         <textarea
