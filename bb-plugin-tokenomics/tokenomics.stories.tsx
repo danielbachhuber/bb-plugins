@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { ThreadTokenCount, ThreadTokenSummary, type ThreadTokens } from "./components/thread-token-count";
+import {
+  ThreadTokenCount,
+  ThreadTokenSummary,
+  type InitialHover,
+  type ThreadTokens,
+} from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
 import type { ThreadUsage, TurnDetail } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
@@ -65,7 +70,15 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
   };
 }
 
-function Page({ initial, recordingSince }: { initial: RangeId; recordingSince?: number }) {
+function Page({
+  initial,
+  recordingSince,
+  initialHovered,
+}: {
+  initial: RangeId;
+  recordingSince?: number;
+  initialHovered?: number;
+}) {
   const [range, setRange] = useState<RangeId>(initial);
   return (
     <UsageView
@@ -74,11 +87,15 @@ function Page({ initial, recordingSince }: { initial: RangeId; recordingSince?: 
       data={dataFor(range, recordingSince)}
       error={null}
       onOpenThread={() => undefined}
+      initialHovered={initialHovered}
     />
   );
 }
 
 export const PastDay = () => <Page initial="day" />;
+
+/** The past day with a busy hour hovered, so its tooltip shows. The README embeds this one. */
+export const PastDayHovered = () => <Page initial="day" initialHovered={20} />;
 
 export const PastThreeDays = () => <Page initial="three-days" />;
 
@@ -167,10 +184,18 @@ export const HeaderCount = () => (
   </StoryCard>
 );
 
-function Summary({ usage, turns }: { usage: ThreadTokens; turns: TurnDetail[] | null }) {
+function Summary({
+  usage,
+  turns,
+  initialHovered,
+}: {
+  usage: ThreadTokens;
+  turns: TurnDetail[] | null;
+  initialHovered?: InitialHover;
+}) {
   return (
     <div className="w-[400px] rounded-md border border-border bg-popover p-4">
-      <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={() => undefined} />
+      <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={() => undefined} initialHovered={initialHovered} />
     </div>
   );
 }
@@ -181,6 +206,9 @@ export const HeaderSummary = () => (
     <StoryRow label="a long thread" hint="hover a bar for the messages behind it">
       <Summary usage={LONG} turns={LONG_TURNS} />
     </StoryRow>
+    <StoryRow label="the busiest stretch hovered" hint="the readout names the messages behind it">
+      <Summary usage={LONG} turns={LONG_TURNS} initialHovered="largest" />
+    </StoryRow>
     <StoryRow label="loading the turns" hint="the chart draws the recorded usage until the messages arrive">
       <Summary usage={LONG} turns={null} />
     </StoryRow>
@@ -190,12 +218,15 @@ export const HeaderSummary = () => (
   </StoryCard>
 );
 
-/** The button where bb draws it, in a thread header's action row, for the README. */
-export const HeaderInContext = () => (
-  <div className="w-[720px] border-b border-border">
-    <div className="flex h-12 items-center gap-3 px-4">
+/**
+ * The button where bb draws it, in a thread header's action row, with its
+ * summary open on the busiest stretch. The README embeds this one.
+ */
+export const HeaderOpen = () => (
+  <div className="h-[760px] w-full">
+    <div className="flex h-12 items-center gap-3 border-b border-border px-4">
       <span className="min-w-0 flex-1 truncate text-sm font-medium">Add a CSV export to the widgets report</span>
-      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} />
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} defaultOpen initialHovered="largest" />
     </div>
   </div>
 );

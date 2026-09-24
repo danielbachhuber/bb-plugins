@@ -7,7 +7,7 @@ which of your messages used the most.
 
 ## The page
 
-![The Tokenomics page for the past day: 110M tokens, an hourly stacked bar chart with one hour hovered, and five threads listed by tokens used](screenshots/page.png)
+![The Tokenomics page for the past day: 110M tokens, an hourly stacked bar chart with one hour hovered, and five threads listed by tokens used](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--past-day-hovered.png)
 
 - **The headline** is the period's total, with its three parts beneath it:
   new input, cache reads, and output.
@@ -26,7 +26,7 @@ bar fills in while a thread runs.
 
 ## The header
 
-![A thread header with a sparkline and "28M tokens", its summary open below: tokens over time with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](screenshots/header-summary.png)
+![A thread header with a sparkline and "28M tokens", its summary open below: tokens over time with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
 
 A thread with recorded usage shows a button in the header's action row: a
 sparkline of its token use over time and its lifetime total, such as
@@ -138,8 +138,7 @@ before it.
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page and the header |
-| `tokenomics.stories.tsx` | Each range, the empty page, the header button, its summary, and the button in a header |
-| `screenshots/` | The README's images, captured from the stories |
+| `tokenomics.stories.tsx` | Each range, the empty page, the header button, and its summary, including the hovered and open states the README shows |
 
 ## Working on it
 
@@ -152,3 +151,9 @@ bb plugin build . && bb plugin reload tokenomics
 
 `npm run storybook` at the root of this repository renders the page and the
 header button and its summary with invented data.
+
+The README's images are the `PastDayHovered` and `HeaderOpen` stories, as
+`npm run screenshots` captures them into `bb-plugins-screenshots`. They render
+with a bar hovered and the summary open from the start, because the capture
+takes each story as it first renders. Change those stories and the README's
+images follow on the next capture.

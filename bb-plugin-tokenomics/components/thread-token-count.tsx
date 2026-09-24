@@ -153,17 +153,23 @@ function TurnLine({ turn, total, reference }: { turn: TurnDetail; total: number;
   );
 }
 
+/** A bucket to show hovered on first render: an index, or the one that used the most. */
+export type InitialHover = number | "largest" | null;
+
 export function ThreadTokenSummary({
   usage,
   turns,
   onOpenPage,
+  initialHovered = null,
 }: {
   usage: ThreadTokens;
   /** Null while the turns are loading. */
   turns: TurnDetail[] | null;
   onOpenPage?: () => void;
+  /** For stories, so the readout under the chart can be drawn filled in. */
+  initialHovered?: InitialHover;
 }) {
-  const [hovered, setHovered] = useState<number | null>(null);
+  const [hoverState, setHovered] = useState<InitialHover>(initialHovered);
   const recorded = totalOf(usage);
   const unrecorded = usage.total - recorded;
   const first = usage.recent[0];
@@ -179,6 +185,10 @@ export function ThreadTokenSummary({
       : turns === null
         ? timeBuckets(usage.recent, (row) => row.at, from, to, CHART_BUCKETS)
         : timeBuckets(turns, (turn) => turn.usageAt, from, to, CHART_BUCKETS);
+  const hovered =
+    hoverState === "largest"
+      ? buckets.reduce((best, bucket, index) => (totalOf(bucket) > totalOf(buckets[best]!) ? index : best), 0)
+      : hoverState;
   const hoveredBucket = hovered === null ? undefined : buckets[hovered];
   const biggest = turns === null ? [] : [...turns].sort((a, b) => totalOf(b) - totalOf(a)).slice(0, BIGGEST);
   const inBucket =
@@ -298,6 +308,8 @@ export function ThreadTokenCount({
   onOpen,
   onOpenPage,
   isCompactViewport = false,
+  defaultOpen = false,
+  initialHovered,
 }: {
   usage: ThreadTokens;
   turns: TurnDetail[] | null;
@@ -305,9 +317,12 @@ export function ThreadTokenCount({
   onOpen?: () => void;
   onOpenPage?: () => void;
   isCompactViewport?: boolean;
+  /** Open on first render, for stories. */
+  defaultOpen?: boolean;
+  initialHovered?: InitialHover;
 }) {
   return (
-    <Popover onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
+    <Popover defaultOpen={defaultOpen} onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -325,7 +340,7 @@ export function ThreadTokenCount({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[400px] p-4">
-        <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={onOpenPage} />
+        <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={onOpenPage} initialHovered={initialHovered} />
       </PopoverContent>
     </Popover>
   );

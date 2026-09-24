@@ -58,12 +58,15 @@ export function UsageView({
   data,
   error,
   onOpenThread,
+  initialHovered,
 }: {
   range: RangeId;
   onRange: (range: RangeId) => void;
   data: UsageData | null;
   error: string | null;
   onOpenThread: (threadId: string) => void;
+  /** A bar to show hovered on first render, for stories. */
+  initialHovered?: number;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
   const toggle = (key: PartKey) =>
@@ -102,7 +105,7 @@ export function UsageView({
           {data === null ? (
             <div className="h-[230px]" role="status" aria-label="Loading usage" />
           ) : (
-            <UsageChart bars={data.bars} unit={data.unit} hidden={hidden} />
+            <UsageChart bars={data.bars} unit={data.unit} hidden={hidden} initialHovered={initialHovered} />
           )}
           <div className="mt-1 pl-[44px]">
             <UsageLegend hidden={hidden} onToggle={toggle} />

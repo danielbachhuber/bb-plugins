@@ -110,13 +110,16 @@ export function UsageChart({
   bars,
   unit,
   hidden,
+  initialHovered = null,
 }: {
   bars: readonly Bar[];
   unit: "hour" | "day";
   hidden: ReadonlySet<PartKey>;
+  /** A bar to show hovered on first render, so a story can draw the tooltip. */
+  initialHovered?: number | null;
 }) {
   const { ref, width } = useWidth();
-  const [hovered, setHovered] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(initialHovered);
   const parts = PARTS.filter((part) => !hidden.has(part.key));
   const shownTotal = (bar: Bar) => parts.reduce((sum, part) => sum + bar[part.key], 0);
 
