@@ -571,6 +571,62 @@ describe("completing a task", () => {
     expect(posts).toEqual(["/api/v1/tasks/a/close", "/api/v1/tasks/a/reopen"]);
   });
 
+  /** Hold the next Todoist task read until `release` is called, so a sync can be caught mid-flight. */
+  function holdNextRead(fetchImpl: ReturnType<typeof host>["fetchImpl"]) {
+    const original = fetchImpl.getMockImplementation()!;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let reads = 0;
+    fetchImpl.mockImplementation(async (url, init) => {
+      const response = await original(url, init);
+      if (url.includes("/tasks/filter") && reads++ === 0) await held;
+      return response;
+    });
+    return release;
+  }
+
+  test("keeps a row completed while a sync was reading off the page", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    const release = holdNextRead(fetchImpl);
+    const syncing = harness.behavior.callRpc("items_sync", null);
+    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2));
+    await harness.behavior.callRpc("items_complete", { id: "todoist:a" });
+    release();
+    await syncing;
+
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:b"]);
+  });
+
+  test("keeps a row undone while a sync was reading on the page", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await harness.behavior.callRpc("items_complete", { id: "todoist:a" });
+
+    // This sync's read is from before the undo, so it would not have the task.
+    const original = fetchImpl.getMockImplementation()!;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    fetchImpl.mockImplementation(async (url, init) => {
+      if (!url.includes("/tasks/filter")) return original(url, init);
+      await held;
+      return jsonResponse({ results: [rawTask("b")], next_cursor: null });
+    });
+    const syncing = harness.behavior.callRpc("items_sync", null);
+    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2));
+    fetchImpl.mockImplementation(async (url, init) => original(url, init));
+    await harness.behavior.callRpc("items_undo", { id: "todoist:a" });
+    release();
+    await syncing;
+
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:a", "todoist:b"]);
+  });
+
   test("offers no undo for a recurring task, which moved to its next date", async () => {
     const { bb, harness, plugin } = host({
       ...ROUTES,

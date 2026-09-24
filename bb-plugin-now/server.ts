@@ -158,16 +158,41 @@ export function createPlugin(deps: PluginDeps = {}) {
     /** The sync running now, which every caller joins rather than starting a second. */
     let running: Promise<void> | null = null;
 
+    /**
+     * Rows taken off or put back on the page while a sync is reading its
+     * sources. What the sync read can predate them, so they are applied again
+     * over what it stores; otherwise a task completed mid-sync comes back.
+     */
+    type Change = { removed: string } | { restored: Item; position: number };
+    let changesDuringSync: Change[] | null = null;
+
+    function removeRow(id: string) {
+      store.removeItem(id);
+      changesDuringSync?.push({ removed: id });
+    }
+
+    function restoreRow(item: Item, position: number) {
+      store.restoreItem(item, position);
+      changesDuringSync?.push({ restored: item, position });
+    }
+
     function sync(): Promise<void> {
       running ??= (async () => {
         bb.realtime.publish(SYNC_CHANNEL, { syncing: true });
+        const changes: Change[] = [];
+        changesDuringSync = changes;
         try {
           const loaded = await loadSources(await sources(), now(), (source, message) => {
             bb.log.warn(`Could not load ${source.name}: ${message}`);
           });
           store.replace(keepFailedSources(store.read(), loaded));
+          for (const change of changes) {
+            if ("removed" in change) store.removeItem(change.removed);
+            else if (store.positionOf(change.restored.id) === -1) store.restoreItem(change.restored, change.position);
+          }
           store.pruneSnoozes(now());
         } finally {
+          changesDuringSync = null;
           running = null;
           bb.realtime.publish(SYNC_CHANNEL, { syncing: false });
         }
@@ -259,7 +284,7 @@ export function createPlugin(deps: PluginDeps = {}) {
           return { archived: false, error: messageOf(error) };
         }
         remember(item, "archive");
-        store.removeItem(id);
+        removeRow(id);
         announce();
         return { archived: true, error: null };
       },
@@ -278,7 +303,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         }
         const recurring = item.due?.recurring === true;
         if (!recurring) remember(item, "complete");
-        store.removeItem(id);
+        removeRow(id);
         announce();
         return { completed: true, undoable: !recurring, error: null };
       },
@@ -298,7 +323,7 @@ export function createPlugin(deps: PluginDeps = {}) {
           return { restored: false, error: messageOf(error) };
         }
         undoable.delete(id);
-        store.restoreItem(entry.item, entry.position);
+        restoreRow(entry.item, entry.position);
         announce();
         return { restored: true, error: null };
       },

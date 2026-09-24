@@ -27,7 +27,9 @@ The list is stored in the plugin's database, so the page opens with the last
 sync's items at once instead of waiting on Todoist and Gmail. It syncs in the
 background every 15 minutes, and opening the page syncs a list older than a
 minute. The page's title bar says when it last synced and has a Refresh
-button that syncs now. Syncs that overlap share one run.
+button that syncs now. Syncs that overlap share one run. A row completed,
+archived, or restored with Undo while a sync is running stays that way when
+the sync finishes, even though what the sync read predates it.
 
 Above the list, each source that loaded shows its name, what it was asked for,
 and how many items it returned. A source that is not set up shows what to
