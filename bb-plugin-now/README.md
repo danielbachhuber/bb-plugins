@@ -44,10 +44,10 @@ good sync, with a note saying how many.
 - **Archive** (on an email row, in its details line) takes the row's threads
   out of the Gmail inbox and the row off the page. On a GitHub row whose pull
   request has merged or closed, or whose issue has closed, it is tinted purple
-  and says so, to suggest it. It does the same, saying "not your review", on
-  a pull request you are notified about only because someone else was asked
-  to review it, or a team you are in was and one of its members has since
-  reviewed.
+  and says so, to suggest it. It does the same, saying "you reviewed", on a
+  pull request whose review you have given and nobody has asked for again,
+  and saying "not your review" on one you are notified about only because
+  someone else, or a team you are not on, was asked to review it.
 - **Yes, No, Maybe** (under a calendar invitation's snippet, after "Going?")
   replies to the event in Google Calendar as you, the way the same links in
   the email do. Your current reply is the one marked, read from Calendar on
@@ -169,17 +169,24 @@ summarizes the notifications from their fixed phrasings: "3 comments from
 octocat, hubber · review requested by octocat · approved by hubber · merged".
 A review asked of a team or of someone else says whose ("review requested of
 acme/reviewers by octocat"), since GitHub notifies you of a request of your
-team with the same reason as a request of you. A team's request stays yours
-to pick up, labelled **Team review requested**, while `gh` still lists the
-team among the pull request's pending reviewers; GitHub drops the team once
-one of its members reviews, and then the row suggests Archive.
+team with the same reason as a request of you. Whose it is comes from
+GitHub, which works out team membership itself: a request still waiting on
+you, directly or through a team you are on (labelled **Team review
+requested**), is yours to pick up; a review you have given makes it yours
+and done, including a team's request that your review answered; anything
+else is someone else's. GitHub counts an author's replies to review comments
+as reviews, so your own pull request never counts as reviewed by you. When
+`gh` cannot be asked, a team's request stays yours while the team is still
+among the pending reviewers the emails named.
 
 The row ends in GitHub Context's banner card, below its details line: the
 pull request or issue's state icon, then for an open pull request with checks
 on its latest commit the GitHub mark with bb's check-status dot (a check for
 passing, a cross for failing, a dot for pending), then `acme/widgets#141` and
-what it is waiting on ("Approved", "Review requested", "Team review
-requested", "Changes requested") or its state once it is not open ("Draft",
+your review in GitHub Context's words ("Review requested", "Team review
+requested", "Re-review requested", "You approved", "You requested changes",
+"You commented"), or else what it is waiting on ("Approved", "Changes
+requested"), or its state once it is not open ("Draft",
 "Merged", "Closed", "Not planned"). The segment links to it on GitHub.
 
 That state comes from `gh`, asked about every pull request and issue in one

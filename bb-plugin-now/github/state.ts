@@ -7,6 +7,12 @@ export type GitHubStateName = "open" | "draft" | "merged" | "closed";
 export type ReviewDecision = "approved" | "changes_requested" | "review_required";
 export type CheckState = "passing" | "failing" | "pending";
 export type MergeMethod = "merge" | "squash" | "rebase";
+/**
+ * Where your own review of a pull request stands, as GitHub Context's banner
+ * says it: asked for and not yet given, asked for again after you gave one,
+ * or the review you gave.
+ */
+export type MyReview = "requested" | "re-requested" | "approved" | "changes_requested" | "commented" | "dismissed";
 
 export interface GitHubState {
   state: GitHubStateName;
@@ -30,6 +36,13 @@ export interface GitHubState {
    * yours: a pull request you only watch or review is its author's to merge.
    */
   mergeMethods?: MergeMethod[];
+  /** Your review of an open pull request; null when you are not a reviewer. */
+  myReview?: MyReview | null;
+  /**
+   * Whom the request still waiting on you named: you, or a team you are on.
+   * GitHub resolves the team membership. Null when nothing waits on you.
+   */
+  requestedVia?: "you" | "team" | null;
 }
 
 /** GitHub logins and repository names: letters, digits, `-`, `_`, `.`. */
@@ -55,6 +68,7 @@ export function buildStateQuery(refs: readonly GitHubRef[]): { query: string; al
         `viewerPermission mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed ` +
         `issueOrPullRequest(number: ${ref.number}) { ` +
         `__typename ... on PullRequest { state isDraft reviewDecision mergeStateStatus viewerDidAuthor ` +
+        `viewerLatestReview { state } viewerLatestReviewRequest { requestedReviewer { __typename } } ` +
         `commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } ` +
         `reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on Team { combinedSlug } ... on User { login } } } } } ` +
         `... on Issue { state stateReason } } }`,
@@ -78,6 +92,30 @@ function checks(node: Record<string, unknown>): CheckState | null {
   if (state === "FAILURE" || state === "ERROR") return "failing";
   if (state === "PENDING" || state === "EXPECTED") return "pending";
   return null;
+}
+
+const VERDICTS: Record<string, MyReview> = {
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  COMMENTED: "commented",
+  DISMISSED: "dismissed",
+};
+
+/**
+ * Your review, from the latest one you submitted (a PENDING draft does not
+ * count) and the request still waiting on you. GitHub removes a request, a
+ * team's included, once you review, and adds one back on a re-request.
+ *
+ * The author is never a reviewer: GitHub records their replies to review
+ * comments as COMMENTED reviews.
+ */
+function myReview(node: Record<string, unknown>): { myReview: MyReview | null; requestedVia: "you" | "team" | null } {
+  if (node.viewerDidAuthor === true) return { myReview: null, requestedVia: null };
+  const request = node.viewerLatestReviewRequest as { requestedReviewer?: { __typename?: unknown } | null } | null | undefined;
+  const requestedVia = request == null ? null : request.requestedReviewer?.__typename === "Team" ? "team" : "you";
+  const verdict = VERDICTS[String((node.viewerLatestReview as { state?: unknown } | null | undefined)?.state)];
+  if (verdict !== undefined) return { myReview: requestedVia === null ? verdict : "re-requested", requestedVia };
+  return { myReview: requestedVia === null ? null : "requested", requestedVia };
 }
 
 /**
@@ -131,7 +169,7 @@ export function parseStateResponse(body: unknown, aliases: ReadonlyMap<string, G
     states.set(`${ref.repo}#${ref.number}`, {
       ...(pull && pendingReviewers !== undefined ? { pendingReviewers } : {}),
       ...(pull && (state === "open" || state === "draft")
-        ? { checks: checks(node), mergeMethods: mergeMethods(repository, node) }
+        ? { checks: checks(node), mergeMethods: mergeMethods(repository, node), ...myReview(node) }
         : {}),
       state,
       review: pull && state !== "merged" && state !== "closed" ? review(node.reviewDecision) : null,

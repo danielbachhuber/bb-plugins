@@ -41,6 +41,8 @@ describe("parseStateResponse", () => {
       closedAs: null,
       checks: null,
       mergeMethods: [],
+      myReview: null,
+      requestedVia: null,
     });
     expect(states.get("acme/gadgets#42")).toEqual({ state: "closed", review: null, closedAs: "completed" });
   });
@@ -127,6 +129,20 @@ describe("parseStateResponse", () => {
       expect(answer({}, { isDraft: true })?.mergeMethods).toEqual([]);
       expect(answer({ viewerPermission: "READ" }, {})?.mergeMethods).toEqual([]);
       expect(answer({}, { viewerDidAuthor: false })?.mergeMethods).toEqual([]);
+    });
+
+    test("reads your review and the request still waiting on you, a team's included", () => {
+      const team = { viewerDidAuthor: false, viewerLatestReviewRequest: { requestedReviewer: { __typename: "Team" } } };
+      const you = { viewerDidAuthor: false, viewerLatestReviewRequest: { requestedReviewer: { __typename: "User" } } };
+      const approved = { viewerDidAuthor: false, viewerLatestReview: { state: "APPROVED" } };
+      expect(answer({}, {})).toMatchObject({ myReview: null, requestedVia: null });
+      expect(answer({}, team)).toMatchObject({ myReview: "requested", requestedVia: "team" });
+      expect(answer({}, approved)).toMatchObject({ myReview: "approved", requestedVia: null });
+      expect(answer({}, { ...approved, ...you })).toMatchObject({ myReview: "re-requested", requestedVia: "you" });
+      // Your own pull request: a reply to a review comment is not a review.
+      expect(answer({}, { viewerDidAuthor: true, viewerLatestReview: { state: "COMMENTED" } })?.myReview).toBeNull();
+      // A review you have started and not submitted is not a review yet.
+      expect(answer({}, { viewerDidAuthor: false, viewerLatestReview: { state: "PENDING" } })?.myReview).toBeNull();
     });
   });
 

@@ -38,9 +38,19 @@ function issueIcon(github: GitHubPart): { icon: IconName; className: string; lab
   return { icon: "Circle", className: "text-success", label: "Open" };
 }
 
+/** GitHub Context's words for your review. */
+const MY_REVIEW_LABEL: Record<Exclude<NonNullable<GitHubPart["myReview"]>, "requested">, string> = {
+  "re-requested": "Re-review requested",
+  approved: "You approved",
+  changes_requested: "You requested changes",
+  commented: "You commented",
+  dismissed: "Your review was dismissed",
+};
+
 /** What the pull request is waiting on, in the banner's words. */
 function reviewLabel(github: GitHubPart, yours: boolean): string | null {
   if (github.state === "merged" || github.state === "closed") return null;
+  if (github.myReview != null && github.myReview !== "requested") return MY_REVIEW_LABEL[github.myReview];
   if (yours) return "Review requested";
   if (github.reviewRequested === "team") return "Team review requested";
   if (github.review === "changes_requested") return "Changes requested";

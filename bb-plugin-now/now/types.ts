@@ -32,6 +32,12 @@ export const githubPartSchema = z.object({
    * allows. Empty when it cannot be merged yet, or by you.
    */
   mergeMethods: z.array(z.enum(["merge", "squash", "rebase"])).optional(),
+  /**
+   * An open pull request's review from you, from gh: asked for, asked for
+   * again, or the review you gave. Null when you are not a reviewer; absent
+   * when gh was not asked.
+   */
+  myReview: z.enum(["requested", "re-requested", "approved", "changes_requested", "commented", "dismissed"]).nullable().optional(),
   /** A closed issue's reason, which GitHub colors differently: done, or not planned. */
   closedAs: z.enum(["completed", "not_planned"]).nullable().default(null),
   /** Why GitHub notified you, from the latest email: `review_requested`, `mention`, `author`, … */

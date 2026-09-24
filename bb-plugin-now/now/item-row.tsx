@@ -69,8 +69,9 @@ const PRIORITY: Record<1 | 2 | 3, string> = {
 /**
  * Why a GitHub row can be archived, or null when it still wants something of
  * you: a merged or closed pull request, or a closed issue, has nothing left to
- * do, and neither does one you hear about only because a team you are in, or
- * someone else, was asked to review it.
+ * do, and neither does one whose review you have given and nobody has asked
+ * for again, or one you hear about only because someone else, or a team you
+ * are not on, was asked to review it.
  */
 export function archiveReason(item: Item): string | null {
   const github = item.github;
@@ -81,12 +82,14 @@ export function archiveReason(item: Item): string | null {
   }
   if (github === null) return null;
   if (github.state === "merged" || github.state === "closed") return `it's ${github.state}`;
+  if (github.myReview != null && github.myReview !== "requested" && github.myReview !== "re-requested") return "you reviewed";
   if (github.reason === "review_requested" && github.reviewRequested === "others") return "not your review";
   return null;
 }
 
 /** Whether the row asks for your review, for its label. */
 function reviewIsYours(github: GitHubPart): boolean {
+  if (github.myReview !== undefined) return github.myReview === "requested" && github.reviewRequested === "you";
   if (github.reviewRequested !== undefined && github.reviewRequested !== null) return github.reviewRequested === "you";
   return github.reason === "review_requested";
 }

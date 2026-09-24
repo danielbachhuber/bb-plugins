@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import type { GitHubState } from "../github/state.js";
 import { githubRefs, inboxItems } from "./inbox.js";
 
 function message(internalDate: number, snippet: string, headers: Record<string, string>) {
@@ -74,6 +75,16 @@ describe("inboxItems", () => {
     expect(inboxItems(teamThreads, null, withPending(["Acme/Reviewers"]))[0]?.github?.reviewRequested).toBe("team");
     expect(inboxItems(teamThreads, null)[0]?.github?.reviewRequested).toBe("team");
     expect(team?.github?.unreadQuotes).toEqual([{ author: "hubber", text: "Merging soon" }]);
+
+    // GitHub's own answer about you wins over the team list: a team's request
+    // you answered was yours, one still waiting on a team you are on is yours
+    // to pick up, and one on a team you are not on is others'.
+    const withMine = (mine: Pick<GitHubState, "myReview" | "requestedVia">) =>
+      new Map([["acme/widgets#128", { state: "open" as const, review: null, pendingReviewers: [], ...mine }]]);
+    const answered = inboxItems(teamThreads, null, withMine({ myReview: "approved", requestedVia: null }))[0]?.github;
+    expect(answered).toMatchObject({ reviewRequested: "you", myReview: "approved" });
+    expect(inboxItems(teamThreads, null, withMine({ myReview: "requested", requestedVia: "team" }))[0]?.github?.reviewRequested).toBe("team");
+    expect(inboxItems(teamThreads, null, withMine({ myReview: null, requestedVia: null }))[0]?.github?.reviewRequested).toBe("others");
 
     const allNew = inboxItems(
       [{ id: "t1", messages: [

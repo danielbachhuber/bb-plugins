@@ -153,14 +153,22 @@ function time(message: Raw): number {
 }
 
 /**
- * Whose review the requests asked for. A team's request is yours to pick up
- * while GitHub still lists the team as pending; once a member has reviewed,
- * or when GitHub could not be asked about a closed one, it is others'.
- * Without an answer from GitHub, a team's request stays yours, since
- * suggesting Archive on a review you owe is the worse mistake.
+ * Whose review the requests asked for. On an open pull request GitHub says:
+ * a request still waiting on you, directly or through a team you are on, or
+ * a review you gave, makes it yours, since a team's request you answered was
+ * yours too; anything else is others'. Otherwise the emails say: a team's
+ * request is yours to pick up while GitHub still lists the team as pending,
+ * and others' once it does not. Without any answer from GitHub, a team's
+ * request stays yours, since suggesting Archive on a review you owe is the
+ * worse mistake.
  */
-function whoseReview(requests: readonly GitHubEvent[], pending: readonly string[] | undefined): "you" | "team" | "others" | null {
+function whoseReview(requests: readonly GitHubEvent[], state: GitHubState | null): "you" | "team" | "others" | null {
   if (requests.length === 0) return null;
+  if (state?.myReview !== undefined) {
+    if (state.requestedVia != null) return state.requestedVia;
+    return state.myReview === null ? "others" : "you";
+  }
+  const pending = state?.pendingReviewers;
   if (requests.some((event) => event.requestedOf === "you")) return "you";
   const teams = requests.flatMap((event) => (event.requestedOf?.includes("/") ? [event.requestedOf.toLowerCase()] : []));
   if (teams.length === 0) return "others";
@@ -197,7 +205,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
   });
 
   const requests = events.filter((event) => event.type === "review_requested");
-  const reviewRequested = whoseReview(requests, state?.pendingReviewers);
+  const reviewRequested = whoseReview(requests, state);
   const latestTime = latest === undefined ? 0 : time(latest);
   const known = state ?? stateFromHeader(latest === undefined ? null : header(latest, "X-GitHub-PullRequestStatus"));
 
@@ -222,6 +230,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
       review: known?.review ?? null,
       ...(state?.checks === undefined ? {} : { checks: state.checks }),
       ...(state?.mergeMethods === undefined ? {} : { mergeMethods: state.mergeMethods }),
+      ...(state?.myReview === undefined ? {} : { myReview: state.myReview }),
       closedAs: known?.closedAs ?? null,
       reason: latest === undefined ? null : header(latest, "X-GitHub-Reason"),
       reviewRequested,
