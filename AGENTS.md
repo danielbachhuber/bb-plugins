@@ -276,3 +276,9 @@ components. The root README covers the setup. What costs time:
   invent every field: titles, PR numbers, line counts, and ages as well as
   the names. Swapping the names and lightly rewording a real title still
   identifies the real pull request.
+- The capture also writes a README for each plugin in the screenshots
+  repository: the plugin's `bb.description`, then each story under a heading
+  for its title's component, in the order the file declares them. The
+  `/** ... */` comment directly above a story's export is its caption there,
+  so write it for someone looking at the picture, and put a note meant only
+  for this repository in a `//` comment above it instead.

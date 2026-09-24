@@ -130,7 +130,9 @@ on whichever package it is missing. Run `pnpm install` in bb when that happens.
 `npm run screenshots` captures every story in the light theme and commits the
 images to a separate checkout of `bb-plugins-screenshots`, so there is a
 visual history of each plugin without images in this repository's history.
-It lists the images that changed without committing them;
+It also writes that repository's READMEs: a table of the plugins, and a page
+per plugin with its description and every story, captioned with the comment
+above the story. It lists the files that changed without committing them;
 `npm run screenshots:commit` commits and pushes them once you have checked
 them for anything private. It
 needs `npm install` at the root, for Playwright, and that checkout at

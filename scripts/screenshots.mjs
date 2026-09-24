@@ -10,6 +10,11 @@
 // changed is read for private information while it is still only in the
 // working tree, where a bad one can be thrown away without touching history.
 //
+// It also writes that checkout's READMEs: a table of the plugins at the root,
+// and one per plugin directory with the plugin's bb.description and each
+// story under a heading for its component, captioned with the doc comment
+// above the story's export.
+//
 // The checkout is BB_PLUGINS_SCREENSHOTS_DIR, from the environment or .env,
 // and defaults to a sibling directory named bb-plugins-screenshots.
 import { execFileSync, spawnSync } from "node:child_process";
@@ -111,7 +116,8 @@ if (build.status !== 0) {
 }
 
 const buildDir = join(repoRoot, "build");
-const stories = Object.keys(JSON.parse(readFileSync(join(buildDir, "meta.json"), "utf8")).stories);
+const storyMeta = JSON.parse(readFileSync(join(buildDir, "meta.json"), "utf8")).stories;
+const stories = Object.keys(storyMeta);
 
 const TYPES = {
   ".html": "text/html",
@@ -190,6 +196,128 @@ for (const entry of readdirSync(outDir, { withFileTypes: true })) {
     if (name.endsWith(".png") && !written.has(file)) rmSync(file);
   }
 }
+
+const REPO_URL = "https://github.com/danielbachhuber/bb-plugins";
+
+/** The `/** ... *\/` comment directly above line `line` of `source`, as one paragraph. */
+function docCommentAbove(source, line) {
+  const lines = source.split("\n").slice(0, line - 1);
+  if (!lines.at(-1)?.trim().endsWith("*/")) return "";
+  const start = lines.findLastIndex((text) => text.trim().startsWith("/**"));
+  if (start === -1) return "";
+  return lines
+    .slice(start)
+    .join("\n")
+    .replace(/^\s*\/\*\*|\*\/\s*$/g, "")
+    .split("\n")
+    .map((text) => text.replace(/^\s*\* ?/, "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** The first sentence, for the root table, where a paragraph-long description would crowd the row. */
+function firstSentence(text) {
+  return text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+}
+
+// Stories grouped by output directory, in the order their files and exports
+// are written, which is the order their authors meant them to be read in.
+const plugins = new Map();
+for (const id of stories) {
+  const story = storyMeta[id];
+  const dir = id.split("--")[0];
+  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+)\//)?.[1];
+  if (!sourceDir) throw new Error(`Cannot tell which plugin ${story.filePath} belongs to.`);
+  const file = join(repoRoot, sourceDir, story.filePath.split(`${sourceDir}/`)[1]);
+  if (!plugins.has(dir)) {
+    const bb = JSON.parse(readFileSync(join(repoRoot, sourceDir, "package.json"), "utf8")).bb ?? {};
+    plugins.set(dir, { dir, sourceDir, name: bb.name ?? dir, description: bb.description ?? "", stories: [] });
+  }
+  plugins.get(dir).stories.push({
+    id,
+    name: story.name,
+    section: story.levels.at(-1),
+    file,
+    line: story.locStart,
+    caption: docCommentAbove(readFileSync(file, "utf8"), story.locStart),
+  });
+}
+
+const GENERATED = "<!-- Written by `npm run screenshots` in bb-plugins. Edit the stories there, not this file. -->";
+
+for (const plugin of plugins.values()) {
+  plugin.stories.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  const lines = [
+    GENERATED,
+    "",
+    `# ${plugin.name}`,
+    "",
+    plugin.description,
+    "",
+    `Source: [\`${plugin.sourceDir}\`](${REPO_URL}/tree/main/${plugin.sourceDir})`,
+  ];
+  let section = null;
+  for (const story of plugin.stories) {
+    if (story.section !== section) {
+      section = story.section;
+      lines.push("", `## ${section}`);
+    }
+    const image = relative(join(outDir, plugin.dir), outputPath(story.id));
+    lines.push("", `### ${story.name}`, "");
+    if (story.caption) lines.push(story.caption, "");
+    lines.push(`![${story.name}](${image})`);
+  }
+  writeFileSync(join(outDir, plugin.dir, "README.md"), `${lines.join("\n")}\n`);
+}
+
+// A plugin whose stories are all gone takes its README with it.
+for (const entry of readdirSync(outDir, { withFileTypes: true })) {
+  if (!entry.isDirectory() || entry.name.startsWith(".") || plugins.has(entry.name)) continue;
+  rmSync(join(outDir, entry.name, "README.md"), { force: true });
+}
+
+const pluginRows = [...plugins.values()]
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map((plugin) => {
+    const count = plugin.stories.length;
+    return `| [${plugin.name}](${plugin.dir}/) | ${firstSentence(plugin.description)} | ${count} ${count === 1 ? "story" : "stories"} |`;
+  });
+
+writeFileSync(
+  join(outDir, "README.md"),
+  `${GENERATED}
+
+# bb-plugins-screenshots
+
+A picture of every story in [bb-plugins](${REPO_URL}),
+taken after each commit there. The images live here so bb-plugins keeps a
+small history while the visual history is still available.
+
+## The plugins
+
+| Plugin | What it does | Screenshots |
+| --- | --- | --- |
+${pluginRows.join("\n")}
+
+Each directory is a plugin, named for the first part of its story titles.
+Its README describes the plugin and shows each story, in the light theme,
+under a heading for the part of the plugin it draws. Each commit message
+starts with the bb-plugins commit it was taken from and links to it.
+
+To see how a story changed, look at the history of its file:
+
+\`\`\`sh
+git log -p --follow review-sweep/review-list--baseline.png
+\`\`\`
+
+Nothing here is edited by hand. \`npm run screenshots\` in bb-plugins writes
+every image and README, and removes the images of stories that no longer
+exist. A plugin's description comes from its \`bb.description\`, and a
+story's caption from the doc comment above it. Its changes are committed only
+after each changed file has been checked for private information, as
+AGENTS.md describes.
+`,
+);
 
 writeFileSync(capturePath, JSON.stringify({ sha, subject, dirty }));
 

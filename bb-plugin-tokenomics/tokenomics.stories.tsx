@@ -94,7 +94,8 @@ function Page({
 
 export const PastDay = () => <Page initial="day" />;
 
-/** The past day with a busy hour hovered, so its tooltip shows. The README embeds this one. */
+// The plugin's README embeds this one.
+/** The past day with a busy hour hovered, so its tooltip shows. */
 export const PastDayHovered = () => <Page initial="day" initialHovered={20} />;
 
 export const PastThreeDays = () => <Page initial="three-days" />;
@@ -218,9 +219,10 @@ export const HeaderSummary = () => (
   </StoryCard>
 );
 
+// The plugin's README embeds this one.
 /**
  * The button where bb draws it, in a thread header's action row, with its
- * summary open on the busiest stretch. The README embeds this one.
+ * summary open on the busiest stretch.
  */
 export const HeaderOpen = () => (
   <div className="h-[760px] w-full">
