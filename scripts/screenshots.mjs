@@ -280,7 +280,7 @@ const pluginRows = [...plugins.values()]
   .sort((a, b) => a.name.localeCompare(b.name))
   .map((plugin) => {
     const count = plugin.stories.length;
-    return `| [${plugin.name}](${plugin.dir}/) | ${firstSentence(plugin.description)} | ${count} ${count === 1 ? "story" : "stories"} |`;
+    return `| [${plugin.name}](${plugin.dir}/README.md) | ${firstSentence(plugin.description)} | ${count} ${count === 1 ? "story" : "stories"} |`;
   });
 
 writeFileSync(
