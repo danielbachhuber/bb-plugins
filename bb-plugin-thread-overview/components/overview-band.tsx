@@ -358,7 +358,7 @@ export function OverviewBand({
         <button
           type="button"
           onClick={onToggle}
-          className="-mb-2 mt-1 flex w-full cursor-pointer items-center justify-center gap-1 py-1 text-xs text-muted-foreground/70 hover:text-foreground"
+          className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 py-1.5 text-xs text-muted-foreground/70 hover:text-foreground"
         >
           <Icon name="ChevronDown" className="size-3.5 rotate-180" />
           Collapse
