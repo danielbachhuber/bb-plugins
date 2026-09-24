@@ -127,7 +127,7 @@ export const States = () => (
     <StoryRow className={ROW} label="collapsed" hint="the summary on the left; the step count and current step on the right">
       <Band initial={planned} expanded={false} />
     </StoryRow>
-    <StoryRow className={ROW} label="imported from Thread Todos" hint="unfinished steps on top; the finished list scrolls below them">
+    <StoryRow className={ROW} label="imported from Thread Todos" hint="unfinished steps first; finished ones wait behind Show 14 completed">
       <Band initial={imported} />
     </StoryRow>
     <StoryRow className={ROW} label="no overview yet" hint="one faint line, so a thread without one still has a way in">
