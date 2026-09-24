@@ -141,8 +141,8 @@ describe("inboxItems", () => {
         url: "https://docs.google.com/presentation/d/deck42/edit",
         mentioned: false,
         quotes: [
-          { author: "Octocat", text: "Can we move this to Q1?" },
-          { author: "Hubber", text: "Agreed, ship it" },
+          { author: "Octocat", text: "Can we move this to Q1?", url: "https://docs.google.com/presentation/d/deck42/edit?disco=D1" },
+          { author: "Hubber", text: "Agreed, ship it", url: "https://docs.google.com/presentation/d/deck42/edit?disco=D1" },
         ],
       },
     });

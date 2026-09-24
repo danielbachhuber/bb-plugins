@@ -187,7 +187,8 @@ Google Docs** (or Slides, or Sheets) in its details line opens the document
 itself, and its description is the latest headline and what is new: "Octocat mentioned you in
 a comment · 2 new comments from Octocat, Hubber · 1 resolved". Below that it
 quotes each new comment, from the unread emails, or from the latest one once
-they are all read, with an action in words ("resolved the comment"). A
+they are all read, with an action in words ("resolved the comment"), and an
+external-link icon after each that opens the document at that comment. A
 **Mentioned** label shows when one of them mentioned you or assigned you
 something.
 

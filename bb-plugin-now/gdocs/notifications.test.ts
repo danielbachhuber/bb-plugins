@@ -83,6 +83,8 @@ describe("summarizeDocs", () => {
     const posts = newPosts([parsed]);
     expect(summarizeDocs(parsed, posts)).toBe("New activity · 1 new comment from Octocat · 1 resolved");
     expect(posts.map(postLine)).toEqual(["Yes, updated!", "resolved the comment", "rejected a suggestion"]);
+    // Each keeps the link to its own discussion.
+    expect(posts.map((post) => post.url?.match(/disco=(\w+)/)?.[1])).toEqual(["A", "A", "B"]);
   });
 
   test("does not repeat a post that two emails both call new", () => {

@@ -55,7 +55,14 @@ export const docPartSchema = z.object({
   /** Whether any of the emails mentioned you or assigned you something. */
   mentioned: z.boolean(),
   /** The new comments, oldest first: from the unread emails, or the latest one when all are read. */
-  quotes: z.array(z.object({ author: z.string().nullable(), text: z.string() })),
+  quotes: z.array(
+    z.object({
+      author: z.string().nullable(),
+      text: z.string(),
+      /** Opens the document at this comment's discussion. */
+      url: z.string().nullable().optional(),
+    }),
+  ),
 });
 export type DocPart = z.infer<typeof docPartSchema>;
 

@@ -136,17 +136,20 @@ export function parseDocsEmail(html: string): DocsEmail | null {
   };
 }
 
+/** A post with the link to its discussion, or null when the email has none. */
+export type LinkedPost = DocsPost & { url: string | null };
+
 /** The new posts across a set of emails, oldest email first, without repeats. */
-export function newPosts(emails: readonly DocsEmail[]): DocsPost[] {
+export function newPosts(emails: readonly DocsEmail[]): LinkedPost[] {
   const seen = new Set<string>();
-  const posts: DocsPost[] = [];
+  const posts: LinkedPost[] = [];
   for (const email of emails) {
     for (const discussion of email.discussions) {
       for (const post of discussion.posts) {
         const key = `${post.author}\n${post.text}`;
         if (!post.isNew || seen.has(key)) continue;
         seen.add(key);
-        posts.push(post);
+        posts.push({ ...post, url: discussion.url });
       }
     }
   }

@@ -413,7 +413,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   // Every unread message when there are any, else the latest thing written.
   const unreadQuotes = item.github?.unreadQuotes ?? [];
   const latest = item.github?.comment ?? null;
-  const quotes = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
+  const quotes: ReadonlyArray<{ author: string | null; text: string; url?: string | null }> = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
   const unread = item.gmail?.unread === true;
   // A row of several messages says how many are new; the dot alone would not.
   const unreadMessages = item.gmail?.unreadMessages ?? 0;
@@ -477,6 +477,15 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 <p key={index} className="line-clamp-2">
                   {quote.author === null ? null : <span className="font-medium">{quote.author}: </span>}
                   {quote.text}
+                  {quote.url != null ? (
+                    <UrlLink
+                      href={quote.url}
+                      className="ml-1 inline-flex align-[-2px] text-muted-foreground hover:text-foreground"
+                      aria-label="Open this comment"
+                    >
+                      <Icon name="ExternalLink" className="size-3" />
+                    </UrlLink>
+                  ) : null}
                 </p>
               ))}
               {quotes.length > MAX_QUOTES ? (

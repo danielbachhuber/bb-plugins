@@ -217,9 +217,9 @@ const docComments: Item = {
     url: "https://docs.google.com/presentation/d/deck42/edit",
     mentioned: true,
     quotes: [
-      { author: "Hubber", text: "Should gadgets move to Q1? The supplier slipped again." },
-      { author: "Hubber", text: "resolved the comment" },
-      { author: "Octocat", text: "@hubber Fair to say this shifted to the gadget roadmap?" },
+      { author: "Hubber", text: "Should gadgets move to Q1? The supplier slipped again.", url: "https://docs.google.com/presentation/d/deck42/edit?disco=A1" },
+      { author: "Hubber", text: "resolved the comment", url: "https://docs.google.com/presentation/d/deck42/edit?disco=A1" },
+      { author: "Octocat", text: "@hubber Fair to say this shifted to the gadget roadmap?", url: "https://docs.google.com/presentation/d/deck42/edit?disco=A2" },
     ],
   },
 };

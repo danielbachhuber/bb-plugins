@@ -142,7 +142,7 @@ function docsItem(threads: readonly Raw[]): Item {
       documentId: latest.email.documentId,
       url: documentUrl(latest.email.app, latest.email.documentId),
       mentioned: found.some(({ email }) => email.mentioned),
-      quotes: posts.map((post) => ({ author: post.author, text: postLine(post) })),
+      quotes: posts.map((post) => ({ author: post.author, text: postLine(post), url: post.url })),
     },
   };
 }
