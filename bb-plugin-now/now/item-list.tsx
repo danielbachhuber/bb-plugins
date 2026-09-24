@@ -1,4 +1,4 @@
-// What the Next page draws, given a loaded list. It loads nothing itself, so
+// What the Now page draws, given a loaded list. It loads nothing itself, so
 // the story can render it with fixtures.
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
@@ -194,7 +194,7 @@ export function ItemListView({ listing, now }: ItemListViewProps) {
           <EmptyState>{listing.syncing ? "Syncing for the first time…" : "Not synced yet."}</EmptyState>
         ) : list.items.length === 0 ? (
           loaded.length === 0 ? null : (
-            <EmptyState>Nothing to do next.</EmptyState>
+            <EmptyState>Nothing needs doing now.</EmptyState>
           )
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">

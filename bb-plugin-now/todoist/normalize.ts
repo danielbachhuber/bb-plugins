@@ -1,5 +1,5 @@
-// Turn Todoist's task payloads into Next items. No I/O here.
-import type { Due, Item } from "../next/types.js";
+// Turn Todoist's task payloads into Now items. No I/O here.
+import type { Due, Item } from "../now/types.js";
 
 type Raw = Record<string, unknown>;
 
@@ -29,7 +29,7 @@ function normalizeDue(value: unknown): Due | null {
 
 /**
  * Todoist's API counts priority up, 4 being what its app calls P1 and 1 being
- * no priority at all. Next counts down from 1.
+ * no priority at all. Now counts down from 1.
  */
 function normalizePriority(value: unknown): Item["priority"] {
   if (value === 4) return 1;

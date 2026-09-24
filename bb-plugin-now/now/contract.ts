@@ -32,18 +32,18 @@ export const sourceStatusSchema = z.discriminatedUnion("state", [
 ]);
 export type SourceStatus = z.infer<typeof sourceStatusSchema>;
 
-export const nextListSchema = z.object({
+export const nowListSchema = z.object({
   items: z.array(itemSchema),
   sources: z.array(sourceStatusSchema),
   /** When this sync finished. ISO 8601. */
   fetchedAt: z.string(),
 });
-export type NextList = z.infer<typeof nextListSchema>;
+export type NowList = z.infer<typeof nowListSchema>;
 
 /** The stored list, and whether a sync is running now. */
 export const listingSchema = z.object({
   /** Null until the first sync finishes. */
-  list: nextListSchema.nullable(),
+  list: nowListSchema.nullable(),
   syncing: z.boolean(),
 });
 export type Listing = z.infer<typeof listingSchema>;
@@ -66,4 +66,4 @@ export const rpcContract = defineRpcContract({
 });
 
 /** Published after a sync starts or finishes; the page re-reads the listing. */
-export const SYNC_CHANNEL = "next-synced";
+export const SYNC_CHANNEL = "now-synced";

@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, test } from "vitest";
 
-import type { NextList } from "./contract.js";
+import type { NowList } from "./contract.js";
 import { createStore, MIGRATIONS } from "./store.js";
 import type { Item } from "./types.js";
 
@@ -27,7 +27,7 @@ function item(id: string): Item {
   };
 }
 
-function list(ids: string[], fetchedAt: string): NextList {
+function list(ids: string[], fetchedAt: string): NowList {
   return {
     items: ids.map(item),
     sources: [{ id: "todoist", name: "Todoist", state: "ok", query: "today", count: ids.length }],

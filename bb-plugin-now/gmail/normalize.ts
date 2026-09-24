@@ -1,5 +1,5 @@
-// Turn Gmail thread payloads into Next items. No I/O here.
-import type { Item } from "../next/types.js";
+// Turn Gmail thread payloads into Now items. No I/O here.
+import type { Item } from "../now/types.js";
 
 export const SOURCE_ID = "gmail";
 

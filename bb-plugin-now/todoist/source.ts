@@ -1,6 +1,6 @@
-// Todoist as a Next source: the open tasks matching one filter query.
-import type { Source } from "../next/sources.js";
-import { unconfiguredSource } from "../next/sources.js";
+// Todoist as a Now source: the open tasks matching one filter query.
+import type { Source } from "../now/sources.js";
+import { unconfiguredSource } from "../now/sources.js";
 import { createTodoistApi } from "./api.js";
 import { normalizeTasks, projectNameMap, SOURCE_ID } from "./normalize.js";
 
@@ -14,7 +14,7 @@ export interface TodoistSourceOptions {
 }
 
 export const CONFIGURE_HINT =
-  "Set todoistApiToken with `bb plugin config next set todoistApiToken <token>`. " +
+  "Set todoistApiToken with `bb plugin config now set todoistApiToken <token>`. " +
   "Find the token in Todoist under Settings → Integrations → Developer.";
 
 export function todoistSource(options: TodoistSourceOptions): Source {

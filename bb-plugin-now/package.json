@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-next",
+  "name": "bb-plugin-now",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -7,8 +7,8 @@
     "bbPluginSdk": ">=0.5.9"
   },
   "bb": {
-    "name": "Next",
-    "description": "One list of what to do next, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data.",
+    "name": "Now",
+    "description": "One list of what needs doing now, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data.",
     "branding": {
       "icon": "Target"
     },

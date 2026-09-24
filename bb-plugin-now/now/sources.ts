@@ -1,5 +1,5 @@
 // What a source is, and loading every source into one list.
-import type { NextList, SourceStatus } from "./contract.js";
+import type { NowList, SourceStatus } from "./contract.js";
 import { mergeItems } from "./items.js";
 import type { Item } from "./types.js";
 
@@ -38,7 +38,7 @@ export async function loadSources(
   sources: readonly Source[],
   now: Date,
   onError: (source: Source, message: string) => void = () => {},
-): Promise<NextList> {
+): Promise<NowList> {
   const results = await Promise.all(
     sources.map(async (source): Promise<SourceResult> => {
       try {
@@ -66,7 +66,7 @@ export async function loadSources(
  * expired sign-in should leave yesterday's emails on the page with an error
  * above them, not empty the list; each failed source says how many it kept.
  */
-export function keepFailedSources(previous: NextList | null, next: NextList): NextList {
+export function keepFailedSources(previous: NowList | null, next: NowList): NowList {
   if (previous === null) return next;
 
   const failed = new Set(next.sources.filter((source) => source.state === "error").map((source) => source.id));

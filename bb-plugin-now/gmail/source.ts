@@ -1,6 +1,6 @@
-// Gmail as a Next source: the threads matching one search, read through gws.
-import type { Source, SourceResult } from "../next/sources.js";
-import type { Item } from "../next/types.js";
+// Gmail as a Now source: the threads matching one search, read through gws.
+import type { Source, SourceResult } from "../now/sources.js";
+import type { Item } from "../now/types.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
 import { normalizeThread, SOURCE_ID } from "./normalize.js";
 
@@ -14,7 +14,7 @@ const NAME = "Gmail";
 
 export const MISSING_HINT =
   "Install the `gws` CLI and sign in with `gws auth login`, or point `gwsPath` at it with " +
-  "`bb plugin config next set gwsPath <path>`.";
+  "`bb plugin config now set gwsPath <path>`.";
 
 export interface GmailSourceOptions {
   run: GwsRunner;

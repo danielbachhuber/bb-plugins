@@ -1,6 +1,6 @@
 // The last synced list, kept in the plugin's database so the page opens with
 // data. Written whole after each sync; read on every page load.
-import type { NextList, SourceStatus } from "./contract.js";
+import type { NowList, SourceStatus } from "./contract.js";
 import type { Item } from "./types.js";
 
 /**
@@ -34,9 +34,9 @@ export interface DatabaseLike {
 
 export interface Store {
   /** Replaces the stored list with this one, in its order. */
-  replace(list: NextList): void;
+  replace(list: NowList): void;
   /** The stored list, or null before the first sync has finished. */
-  read(): NextList | null;
+  read(): NowList | null;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -49,13 +49,13 @@ export function createStore(db: DatabaseLike): Store {
   const selectItems = db.prepare(`SELECT payload FROM items ORDER BY position`);
   const selectSync = db.prepare(`SELECT synced_at, sources FROM sync WHERE id = 1`);
 
-  const writeAll = db.transaction(((list: NextList) => {
+  const writeAll = db.transaction(((list: NowList) => {
     deleteItems.run();
     list.items.forEach((item, position) => {
       insertItem.run(item.id, item.source, position, JSON.stringify(item));
     });
     upsertSync.run(list.fetchedAt, JSON.stringify(list.sources));
-  }) as (list: NextList) => void);
+  }) as (list: NowList) => void);
 
   return {
     replace(list) {

@@ -2,13 +2,13 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
 import { SyncStatus } from "./components/ui/sync-status";
 
-import type { Listing, NextList, SourceStatus } from "./next/contract";
-import { ItemListView } from "./next/item-list";
-import { mergeItems } from "./next/items";
-import type { Item } from "./next/types";
+import type { Listing, NowList, SourceStatus } from "./now/contract";
+import { ItemListView } from "./now/item-list";
+import { mergeItems } from "./now/items";
+import type { Item } from "./now/types";
 
 export default {
-  title: "next/Item list",
+  title: "now/Item list",
 };
 
 /** Thursday morning, so the fixtures cover overdue, today, this week, and later. */
@@ -112,7 +112,7 @@ const gmailOk: SourceStatus = { id: "gmail", name: "Gmail", state: "ok", query: 
 /** Synced four minutes before `now`, so the header reads "synced 4m ago". */
 const syncedAt = new Date(now.getTime() - 4 * 60_000).toISOString();
 
-const ok: NextList = {
+const ok: NowList = {
   // Sorted the way the server sorts, so the story shows the real order.
   items: mergeItems([items, emails]),
   sources: [todoistOk, gmailOk],
@@ -128,7 +128,7 @@ function Frame({ listing }: { listing: Listing | null }) {
   return (
     <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <span className="text-sm font-medium text-foreground">Next</span>
+        <span className="text-sm font-medium text-foreground">Now</span>
         <SyncStatus
           sweptAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
           busy={listing?.syncing === true}
@@ -140,7 +140,7 @@ function Frame({ listing }: { listing: Listing | null }) {
   );
 }
 
-function stored(list: NextList, syncing = false): Listing {
+function stored(list: NowList, syncing = false): Listing {
   return { list, syncing };
 }
 
@@ -209,7 +209,7 @@ export function States() {
                 id: "gmail",
                 name: "Gmail",
                 state: "unconfigured",
-                hint: "Install the `gws` CLI and sign in with `gws auth login`, or point `gwsPath` at it with `bb plugin config next set gwsPath <path>`.",
+                hint: "Install the `gws` CLI and sign in with `gws auth login`, or point `gwsPath` at it with `bb plugin config now set gwsPath <path>`.",
               },
             ],
             fetchedAt: syncedAt,
@@ -225,7 +225,7 @@ export function States() {
                 id: "todoist",
                 name: "Todoist",
                 state: "unconfigured",
-                hint: "Set todoistApiToken with `bb plugin config next set todoistApiToken <token>`.",
+                hint: "Set todoistApiToken with `bb plugin config now set todoistApiToken <token>`.",
               },
               gmailOk,
             ],

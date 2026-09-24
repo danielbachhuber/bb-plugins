@@ -7,7 +7,7 @@ export const dueSchema = z.object({
 });
 export type Due = z.infer<typeof dueSchema>;
 
-/** One thing to do next, from whichever source it came from. */
+/** One thing that needs doing, from whichever source it came from. */
 export const itemSchema = z.object({
   /** Unique across sources: `<source>:<the source's own id>`. */
   id: z.string(),

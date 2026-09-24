@@ -1,4 +1,4 @@
-// bb-plugin-next — the Next page: what to do next, from every source.
+// bb-plugin-now — the Now page: what needs doing now, from every source.
 import { useCallback, useEffect, useState } from "react";
 import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { SyncStatus } from "@/components/ui/sync-status";
 
 import type { rpcContract } from "./server";
-import { SYNC_CHANNEL, type Listing } from "./next/contract.js";
-import { ItemListView } from "./next/item-list.js";
+import { SYNC_CHANNEL, type Listing } from "./now/contract.js";
+import { ItemListView } from "./now/item-list.js";
 
 /** Opening the page syncs a stored list older than this. */
 const STALE_ON_OPEN_MS = 60_000;
@@ -58,7 +58,7 @@ function SyncHeader() {
   );
 }
 
-function NextPage() {
+function NowPage() {
   const { listing, rpc } = useListing();
 
   // Shows what is stored at once, and brings it up to date behind it. The
@@ -76,11 +76,11 @@ function NextPage() {
 
 export default definePluginApp((app) => {
   app.slots.navPanel({
-    id: "next",
-    title: "Next",
+    id: "now",
+    title: "Now",
     icon: "Target",
-    path: "next",
-    component: NextPage,
+    path: "now",
+    component: NowPage,
     headerContent: SyncHeader,
   });
 });

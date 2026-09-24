@@ -1,14 +1,14 @@
-// bb-plugin-next — what to do next, gathered from every configured source.
+// bb-plugin-now — what needs doing now, gathered from every configured source.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { createGwsRunner, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
-import { rpcContract, SYNC_CHANNEL } from "./next/contract.js";
-import { keepFailedSources, loadSources, type Source } from "./next/sources.js";
-import { createStore, MIGRATIONS } from "./next/store.js";
+import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
+import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
+import { createStore, MIGRATIONS } from "./now/store.js";
 import { CONFIGURE_HINT, DEFAULT_FILTER, todoistSource } from "./todoist/source.js";
 
-export { rpcContract } from "./next/contract.js";
+export { rpcContract } from "./now/contract.js";
 
 export interface PluginDeps {
   fetch?: typeof fetch;

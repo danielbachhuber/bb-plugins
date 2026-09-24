@@ -1,12 +1,12 @@
-# bb-plugin-next
+# bb-plugin-now
 
-A [bb](https://getbb.app) plugin that puts what you have to do next on one
+A [bb](https://getbb.app) plugin that puts what needs doing now on one
 page, gathered from your sources: [Todoist](https://todoist.com) tasks and your
 Gmail inbox.
 
 ## What it adds
 
-A **Next** page in the left sidebar. It loads every configured source at once
+A **Now** page in the left sidebar. It loads every configured source at once
 and merges their items into one list: soonest due first (by due date or
 deadline, whichever is sooner), most urgent first within a day, and undated
 items last, newest activity first. Each row has an icon for its source, the
@@ -40,13 +40,13 @@ Copy your API token from Todoist under Settings → Integrations → Developer,
 then save it:
 
 ```sh
-bb plugin config next set todoistApiToken <token>
+bb plugin config now set todoistApiToken <token>
 ```
 
 The filter defaults to `today | overdue`. To change it:
 
 ```sh
-bb plugin config next set todoistFilter "#Work & (today | overdue | p1)"
+bb plugin config now set todoistFilter "#Work & (today | overdue | p1)"
 ```
 
 Settings are read on every sync, so a change shows up on the next one; press
@@ -69,10 +69,10 @@ Google credentials of its own. Sign `gws` in once with `gws auth login`. Gmail
 is on by default and reads `in:inbox`, the 25 most recent threads:
 
 ```sh
-bb plugin config next set gmailQuery "in:inbox is:unread"
-bb plugin config next set gmailMaxThreads 50
-bb plugin config next set gmailEnabled false    # hide Gmail
-bb plugin config next set gwsPath /opt/homebrew/bin/gws   # when gws is not on bb's PATH
+bb plugin config now set gmailQuery "in:inbox is:unread"
+bb plugin config now set gmailMaxThreads 50
+bb plugin config now set gmailEnabled false    # hide Gmail
+bb plugin config now set gwsPath /opt/homebrew/bin/gws   # when gws is not on bb's PATH
 ```
 
 Each thread is one row: the first message's subject, and the latest
@@ -88,14 +88,14 @@ example), its error shows above the list and the Todoist tasks still load.
 ### Sync interval
 
 ```sh
-bb plugin config next set syncIntervalMinutes 30   # 5, 15 (the default), 30, or 60
+bb plugin config now set syncIntervalMinutes 30   # 5, 15 (the default), 30, or 60
 ```
 
 ## Adding a source
 
-A source is a `Source` from `next/sources.ts`: an id, a name, the query it
+A source is a `Source` from `now/sources.ts`: an id, a name, the query it
 reports, and a `load()` that returns its status and its items as `Item`s
-(`next/types.ts`). Give it a directory of its own beside `todoist/`, add its
+(`now/types.ts`). Give it a directory of its own beside `todoist/`, add its
 settings to `server.ts` with the source's name as a prefix, and add it to the
 list `server.ts` passes to `loadSources`.
 
@@ -103,13 +103,13 @@ list `server.ts` passes to `loadSources`.
 
 | Path | What it holds |
 | --- | --- |
-| `next/types.ts` | The `Item` shape every source produces |
-| `next/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
-| `next/items.ts` | The order the merged list is in |
-| `next/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
-| `next/contract.ts` | The RPC contract: `items_list` reads the stored list, `items_sync` syncs |
-| `next/store.ts` | The database tables and the stored list's reads and writes |
-| `next/item-list.tsx` | The page's display component, which loads nothing itself |
+| `now/types.ts` | The `Item` shape every source produces |
+| `now/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
+| `now/items.ts` | The order the merged list is in |
+| `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
+| `now/contract.ts` | The RPC contract: `items_list` reads the stored list, `items_sync` syncs |
+| `now/store.ts` | The database tables and the stored list's reads and writes |
+| `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items |
 | `todoist/source.ts` | Todoist as a `Source`, built from its settings |
@@ -127,8 +127,8 @@ list `server.ts` passes to `loadSources`.
 npm install
 npx tsc --noEmit -p tsconfig.json
 npm test
-bb plugin build . && bb plugin reload next
+bb plugin build . && bb plugin reload now
 ```
 
 For visual changes, run `npm run storybook` at the repository root and open
-**next / Item list**.
+**now / Item list**.

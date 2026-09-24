@@ -2,7 +2,7 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, test, vi } from "vitest";
 
 import { GwsMissingError, type GwsRunner } from "./gmail/gws.js";
-import type { Listing, NextList } from "./next/contract.js";
+import type { Listing, NowList } from "./now/contract.js";
 import { createPlugin } from "./server.js";
 import { DEFAULT_FILTER } from "./todoist/source.js";
 
@@ -64,7 +64,7 @@ function fakeGws(answers: Record<string, (params: Record<string, unknown>) => un
 
 function host(routes: Record<string, Route>, settings: Settings = TODOIST_ONLY, gws: GwsRunner = fakeGws({}).run) {
   const fetchImpl = routedFetch(routes);
-  const created = createFakePluginHost({ pluginId: "next", settings });
+  const created = createFakePluginHost({ pluginId: "now", settings });
   const gwsPaths: string[] = [];
   const plugin = createPlugin({
     fetch: fetchImpl as unknown as typeof fetch,
@@ -80,7 +80,7 @@ function host(routes: Record<string, Route>, settings: Settings = TODOIST_ONLY, 
 type Harness = ReturnType<typeof host>["harness"];
 
 /** Sync, then read the stored list, the way the page does. */
-async function syncAndRead(harness: Harness): Promise<NextList> {
+async function syncAndRead(harness: Harness): Promise<NowList> {
   await harness.behavior.callRpc("items_sync", null);
   const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
   if (listing.list === null) throw new Error("nothing stored after a sync");
@@ -92,7 +92,7 @@ describe("configuration", () => {
     const { bb, harness, plugin, fetchImpl } = host({}, { gmailEnabled: false });
     await plugin(bb);
 
-    expect(harness.needsConfigurationMessages.join(" ")).toContain("bb plugin config next set todoistApiToken");
+    expect(harness.needsConfigurationMessages.join(" ")).toContain("bb plugin config now set todoistApiToken");
     await expect(syncAndRead(harness)).resolves.toMatchObject({
       items: [],
       sources: [{ id: "todoist", state: "unconfigured" }],
@@ -344,7 +344,7 @@ describe("stored list", () => {
     await plugin(bb);
     await harness.behavior.callRpc("items_sync", null);
 
-    expect(harness.realtimeSignals.filter((signal) => signal.channel === "next-synced").map((signal) => signal.payload)).toEqual([
+    expect(harness.realtimeSignals.filter((signal) => signal.channel === "now-synced").map((signal) => signal.payload)).toEqual([
       { syncing: true },
       { syncing: false },
     ]);
@@ -353,7 +353,7 @@ describe("stored list", () => {
   test("syncs in the background on start, then waits the interval", async () => {
     const waits: number[] = [];
     const fetchImpl = routedFetch(ROUTES);
-    const created = createFakePluginHost({ pluginId: "next", settings: { ...TODOIST_ONLY, syncIntervalMinutes: "30" } });
+    const created = createFakePluginHost({ pluginId: "now", settings: { ...TODOIST_ONLY, syncIntervalMinutes: "30" } });
     let service: ReturnType<typeof created.harness.runService> | null = null;
     const plugin = createPlugin({
       fetch: fetchImpl as unknown as typeof fetch,

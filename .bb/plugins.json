@@ -40,8 +40,8 @@
       "source": "./bb-plugin-new-issue"
     },
     {
-      "name": "next",
-      "source": "./bb-plugin-next"
+      "name": "now",
+      "source": "./bb-plugin-now"
     },
     {
       "name": "pr-sweep",
@@ -50,6 +50,10 @@
     {
       "name": "review-sweep",
       "source": "./bb-plugin-review-sweep"
+    },
+    {
+      "name": "self-improve",
+      "source": "./bb-plugin-self-improve"
     },
     {
       "name": "thread-todos",
