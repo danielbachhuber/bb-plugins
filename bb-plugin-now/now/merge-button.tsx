@@ -72,7 +72,7 @@ export function MergeSplitButton({
               <Icon name="ChevronDown" className="size-3" aria-hidden="true" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" sideOffset={2}>
+          <DropdownMenuContent align="end" sideOffset={2}>
             {methods.map((each) => (
               <DropdownMenuItem
                 key={each}

@@ -15,8 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { BrandIcon, type Brand } from "./brand-icon.js";
-import { GithubFaviconIcon, type GithubCheckStatus } from "./github-favicon-icon.js";
 import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
+import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { describeActivity, describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
 import { snoozeChoices } from "./snooze.js";
@@ -97,91 +97,14 @@ function Chip({ className, children }: { className: string; children: ReactNode 
   );
 }
 
-/**
- * GitHub's own state colors, light and dark, so a label reads the way it does
- * on github.com. bb's theme has no purple, and these are GitHub's meaning
- * rather than the app's, so they are GitHub's values rather than bb tokens.
- */
-const GITHUB_STATE = {
-  open: "bg-[#1f883d] dark:bg-[#238636]",
-  draft: "bg-[#59636e] dark:bg-[#656c76]",
-  merged: "bg-[#8250df] dark:bg-[#8957e5]",
-  closed: "bg-[#cf222e] dark:bg-[#da3633]",
-  done: "bg-[#8250df] dark:bg-[#8957e5]",
-  notPlanned: "bg-[#59636e] dark:bg-[#656c76]",
-} as const;
-
-/** GitHub's text colors for review states, which it draws as outlined labels. */
-const GITHUB_REVIEW = {
-  requested: "border-[#9a6700]/40 text-[#9a6700] dark:border-[#d29922]/40 dark:text-[#d29922]",
-  changes: "border-[#cf222e]/40 text-[#cf222e] dark:border-[#f85149]/40 dark:text-[#f85149]",
-  approved: "border-[#1a7f37]/40 text-[#1a7f37] dark:border-[#3fb950]/40 dark:text-[#3fb950]",
-} as const;
+/** GitHub's review-requested amber, for a mention, which asks something of you too. */
+const MENTIONED = "border-[#9a6700]/40 text-[#9a6700] dark:border-[#d29922]/40 dark:text-[#d29922]";
 
 /** Unread messages quoted on a row before the rest are counted instead. */
 const MAX_QUOTES = 5;
 
 /** The merged-purple an Archive suggestion is tinted with. */
 const SUGGESTED = "text-[#8250df] hover:text-[#8250df] dark:text-[#a371f7] dark:hover:text-[#a371f7]";
-
-function stateLabel(github: GitHubPart): { label: string; icon: IconName; className: string } | null {
-  const pull = github.kind === "pull";
-  switch (github.state) {
-    case "open":
-      return { label: "Open", icon: pull ? "GitPullRequest" : "Circle", className: GITHUB_STATE.open };
-    case "draft":
-      return { label: "Draft", icon: "GitPullRequestDraft", className: GITHUB_STATE.draft };
-    case "merged":
-      return { label: "Merged", icon: "GitMerge", className: GITHUB_STATE.merged };
-    case "closed":
-      if (pull) return { label: "Closed", icon: "GitPullRequestClosed", className: GITHUB_STATE.closed };
-      return github.closedAs === "not_planned"
-        ? { label: "Not planned", icon: "CircleX", className: GITHUB_STATE.notPlanned }
-        : { label: "Closed", icon: "CircleCheck", className: GITHUB_STATE.done };
-    default:
-      return null;
-  }
-}
-
-const CHECKS: Record<NonNullable<GitHubPart["checks"]>, { status: GithubCheckStatus; label: string }> = {
-  passing: { status: "success", label: "Checks passing" },
-  failing: { status: "failure", label: "Checks failing" },
-  pending: { status: "pending", label: "Checks pending" },
-};
-
-/** The pull request or issue's state now, and what it is waiting on. */
-function GitHubState({ github }: { github: GitHubPart }) {
-  const state = stateLabel(github);
-  const settled = github.state === "merged" || github.state === "closed";
-  return (
-    <>
-      {reviewIsYours(github) && !settled ? (
-        <Chip className={GITHUB_REVIEW.requested}>Review requested</Chip>
-      ) : null}
-      {github.reviewRequested === "team" && !settled ? (
-        <Chip className={GITHUB_REVIEW.requested}>Team review requested</Chip>
-      ) : null}
-      {github.review === "changes_requested" ? <Chip className={GITHUB_REVIEW.changes}>Changes requested</Chip> : null}
-      {github.review === "approved" ? <Chip className={GITHUB_REVIEW.approved}>Approved</Chip> : null}
-      {state === null ? null : (
-        <span
-          className={cn(
-            "mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-medium leading-4 text-white",
-            state.className,
-          )}
-        >
-          <Icon name={state.icon} className="size-3" />
-          {state.label}
-        </span>
-      )}
-      {github.checks == null || settled ? null : (
-        <span className="mt-0.5 inline-flex shrink-0 text-muted-foreground" title={CHECKS[github.checks].label} role="img" aria-label={CHECKS[github.checks].label}>
-          <GithubFaviconIcon status={CHECKS[github.checks].status} />
-        </span>
-      )}
-    </>
-  );
-}
 
 function SnoozeMenu({
   item,
@@ -418,6 +341,16 @@ function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: 
 
 export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null, pending = null }: ItemRowProps) {
   const busy = pending !== null;
+  const mergeMethods = actions === undefined ? [] : (item.github?.mergeMethods ?? []);
+  const merge =
+    mergeMethods.length === 0 || actions === undefined ? null : (
+      <MergeSplitButton
+        methods={mergeMethods}
+        disabled={busy}
+        working={pending === "merge"}
+        onMerge={(method) => actions.onMerge(item, method)}
+      />
+    );
   const [replying, setReplying] = useState(false);
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
@@ -433,6 +366,18 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   // A row of several messages says how many are new; the dot alone would not.
   const unreadMessages = item.gmail?.unreadMessages ?? 0;
   const newCount = unread && (item.gmail?.messages ?? 1) > 1 && unreadMessages > 0 ? unreadMessages : null;
+
+  const github = item.github;
+  // The pull request or issue, in GitHub Context's banner card, closing the row.
+  const card =
+    github === null ? null : (
+      <div className="mt-2">
+        <PullRequestBar
+          left={<PullRequestSegment github={github} url={item.url} yours={reviewIsYours(github)} />}
+          right={merge}
+        />
+      </div>
+    );
 
   return (
     <li className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60")} aria-busy={busy}>
@@ -452,8 +397,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             >
               {item.title}
             </UrlLink>
-            {item.github === null ? null : <GitHubState github={item.github} />}
-            {item.doc?.mentioned === true ? <Chip className={GITHUB_REVIEW.requested}>Mentioned</Chip> : null}
+            {item.doc?.mentioned === true ? <Chip className={MENTIONED}>Mentioned</Chip> : null}
             {item.priority === null ? null : (
               <Chip className={cn("font-mono", PRIORITY[item.priority])}>P{item.priority}</Chip>
             )}
@@ -509,14 +453,6 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            {actions === undefined || !(item.github?.mergeMethods?.length) ? null : (
-              <MergeSplitButton
-                methods={item.github.mergeMethods}
-                disabled={busy}
-                working={pending === "merge"}
-                onMerge={(method) => actions.onMerge(item, method)}
-              />
-            )}
             {actions === undefined ? null : item.source === "todoist" ? (
               <LineAction
                 label="Complete"
@@ -588,8 +524,9 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 until {describeActivity(snoozedUntil, now)}
               </span>
             )}
-            {item.context === null ? null : <span className="ml-auto truncate">{item.context}</span>}
+            {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
+          {card}
           {replying && actions !== undefined && item.github !== null ? (
             <ReplyBox item={item} onReply={actions.onReply} onClose={() => setReplying(false)} />
           ) : null}

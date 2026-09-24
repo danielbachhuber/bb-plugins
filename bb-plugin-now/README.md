@@ -92,7 +92,7 @@ those instead, oldest first, with what happened for one that has no words
 count of the rest.
 
 A pull request you opened that GitHub would let you merge now has **Merge**
-at the start of its details line: GitHub Context's split button, which merges
+at the right of the card that ends the row: GitHub Context's split button, which merges
 with the method it names (squash merge unless the repository does not allow
 it) and whose menu picks another of the methods the repository allows. It
 merges through `gh pr merge`, as you, and then reads the pull request back,
@@ -172,13 +172,15 @@ acme/reviewers by octocat"), since GitHub notifies you of a request of your
 team with the same reason as a request of you. A team's request stays yours
 to pick up, labelled **Team review requested**, while `gh` still lists the
 team among the pull request's pending reviewers; GitHub drops the team once
-one of its members reviews, and then the row suggests Archive. Beside the
-title it shows what the pull request is waiting on (review requested of you,
-changes requested, approved) and its state in GitHub's own colors:
-open, draft, merged, or closed, and for an issue, closed as completed or as not
-planned. An open pull request with checks on its latest commit shows the
-GitHub mark with bb's check-status dot after its state, as GitHub Context's
-banner does: a check for passing, a cross for failing, a dot for pending.
+one of its members reviews, and then the row suggests Archive.
+
+The row ends in GitHub Context's banner card, below its details line: the
+pull request or issue's state icon, then for an open pull request with checks
+on its latest commit the GitHub mark with bb's check-status dot (a check for
+passing, a cross for failing, a dot for pending), then `acme/widgets#141` and
+what it is waiting on ("Approved", "Review requested", "Team review
+requested", "Changes requested") or its state once it is not open ("Draft",
+"Merged", "Closed", "Not planned"). The segment links to it on GitHub.
 
 That state comes from `gh`, asked about every pull request and issue in one
 GraphQL query per sync, because an email only says what was true when it was
@@ -249,6 +251,7 @@ list `server.ts` passes to `loadSources`.
 | `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
 | `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
+| `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
