@@ -3,6 +3,7 @@
 // the row opens the item in the side panel with everything else. Kept free of
 // RPC so a story can render it with fixture props.
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { Item } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -12,6 +13,8 @@ export interface ViewBannerProps {
   stored: StoredView;
   collapsed: boolean;
   onToggle: () => void;
+  /** Hides the view from above the composer until the thread publishes again. */
+  onHide: () => void;
   /** Which item has an action in flight. */
   busyItem: string | null;
   /** The item the side panel shows, highlighted here. */
@@ -30,10 +33,18 @@ export function firstLine(markdown: string): string {
     .trim();
 }
 
+/** Every item is done or dismissed. */
+export function allHandled(stored: StoredView): boolean {
+  return stored.view.sections.every((section) =>
+    section.items.every((item) => (stored.items[item.id]?.state ?? "open") !== "open"),
+  );
+}
+
 export function ViewBanner({
   stored,
   collapsed,
   onToggle,
+  onHide,
   busyItem,
   focusedItem,
   onOpenItem,
@@ -44,16 +55,27 @@ export function ViewBanner({
 
   return (
     <div>
-      <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={onToggle} aria-expanded={!collapsed}>
-        <span className="text-xs text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
-        <span className="min-w-0 flex-1 truncate text-sm">
-          <b className="font-medium text-foreground">{stored.view.title}</b>
-          <span className="text-muted-foreground">
-            {" "}
-            · {open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`}
+      <div className="flex items-center pr-1.5">
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left" onClick={onToggle} aria-expanded={!collapsed}>
+          <span className="text-xs text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
+          <span className="min-w-0 flex-1 truncate text-sm">
+            <b className="font-medium text-foreground">{stored.view.title}</b>
+            <span className="text-muted-foreground">
+              {" "}
+              · {open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+        <button
+          type="button"
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground"
+          onClick={onHide}
+          aria-label="Hide"
+          title="Hide until this thread publishes again"
+        >
+          <Icon name="X" className="size-3.5" />
+        </button>
+      </div>
       {collapsed ? null : (
         <ul className="max-h-72 overflow-y-auto border-t border-border">
           {items.map((item) => {

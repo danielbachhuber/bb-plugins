@@ -12,7 +12,7 @@ import { ThreadPromptContextBanner } from "@bb-app/components/promptbox/banner/T
 import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace/workspace-change-summary";
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
-import { ViewBanner } from "./view/banner";
+import { allHandled, ViewBanner } from "./view/banner";
 import { dependabotConflictView, dependabotView, reviewImages, reviewView, selfImproveView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { View } from "./view/schema";
@@ -113,7 +113,7 @@ const execution = makeExecutionControlsProps({
 });
 
 function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView {
-  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", items };
+  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items };
 }
 
 /**
@@ -126,7 +126,7 @@ function ThreadStage({
   turns,
   view,
   initialFocus = null,
-  initialCollapsed = false,
+  initialCollapsed,
   confirming,
   reviewInitial,
 }: {
@@ -140,7 +140,9 @@ function ThreadStage({
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
   const [focus, setFocus] = useState<string | null>(initialFocus);
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
+  const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(initialCollapsed ?? null);
+  const [hidden, setHidden] = useState(false);
+  const collapsed = collapsedByUser ?? allHandled(view);
   return (
     <div className="flex h-[860px] w-[1320px] overflow-hidden border border-border bg-background">
     <div className="flex min-w-0 flex-1 flex-col">
@@ -152,17 +154,20 @@ function ThreadStage({
           attachments={{ items: [], projectId: "proj_demo", isAttaching: false, error: null, onAttachFiles: noop, onRemove: noop }}
           stack={
             <>
+              {hidden ? null : (
               <PromptStackCard ariaLabel="dynamic-ui">
                 <ViewBanner
                   stored={view}
                   collapsed={collapsed}
-                  onToggle={() => setCollapsed((c) => !c)}
+                  onToggle={() => setCollapsedByUser(!collapsed)}
+                  onHide={() => setHidden(true)}
                   busyItem={null}
                   focusedItem={focus ?? firstOpenItem(view)?.id ?? null}
                   onOpenItem={(item) => setFocus(item.id)}
                   onGoToThread={noop}
                 />
               </PromptStackCard>
+              )}
               <UncommittedRow />
             </>
           }
@@ -351,7 +356,11 @@ export function DependabotConflict() {
   );
 }
 
-/** After "Post, approve, and merge": the row is done and the panel shows the draft as posted. */
+/**
+ * After "Post, approve, and merge": with nothing left open, the list above the
+ * composer collapses to its header, and the × there hides it. The panel shows
+ * the draft as posted.
+ */
 export function DependabotAfter() {
   return (
     <ThreadStage

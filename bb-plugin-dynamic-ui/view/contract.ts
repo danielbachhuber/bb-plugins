@@ -22,6 +22,7 @@ const storedViewSchema = z.object({
   view: viewSchema,
   cwd: z.string().nullable(),
   publishedAt: z.string(),
+  hiddenAt: z.string().nullable(),
   items: z.record(
     z.string(),
     z.object({ state: z.enum(["open", "done", "dismissed"]), result: resultSchema.nullable() }),
@@ -65,6 +66,11 @@ export const rpcContract = defineRpcContract({
   image_get: {
     input: itemRefSchema.extend({ index: z.number().int().min(0).max(5) }),
     output: z.object({ dataUrl: z.string().nullable() }),
+  },
+  /** Hides a view from above the composer, or shows it again. */
+  view_hide: {
+    input: z.object({ viewId: z.number().int().positive(), hidden: z.boolean() }),
+    output: storedViewSchema,
   },
   item_dismiss: {
     input: itemRefSchema.extend({ dismissed: z.boolean() }),

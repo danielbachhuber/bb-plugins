@@ -16,7 +16,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
-import { ViewBanner } from "./view/banner.js";
+import { allHandled, ViewBanner } from "./view/banner.js";
 import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import type { Item } from "./view/schema.js";
@@ -187,7 +187,9 @@ function Banner() {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [stored, setStored] = useState<StoredView | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  // Unset, the list collapses by itself once every item is handled; a click on
+  // the header overrides that until the next publish.
+  const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(null);
   const focus = useFocus(threadId ?? "");
   // Read through a ref so the fetch below does not re-run whenever the host
   // hands back a new navigate object.
@@ -197,7 +199,7 @@ function Banner() {
   const refetch = useCallback(() => {
     if (threadId === null) return;
     rpc.call("thread_views", { threadId }).then((views) => {
-      const view = views.views[0] ?? null;
+      const view = views.views.find((candidate) => candidate.hiddenAt === null) ?? null;
       setStored(view);
       // The first load after each publish opens the side panel on the first
       // open item, whether the publish happened while the thread was on
@@ -214,12 +216,13 @@ function Banner() {
   useRealtime(
     "dynamic-ui-published",
     useCallback((payload: unknown) => {
-      if ((payload as { threadId?: string } | null)?.threadId === threadId) setCollapsed(false);
+      if ((payload as { threadId?: string } | null)?.threadId === threadId) setCollapsedByUser(null);
     }, [threadId]),
   );
 
   // Rendering nothing lets the host's card hide itself.
   if (threadId === null || stored === null) return null;
+  const collapsed = collapsedByUser ?? allHandled(stored);
 
   const openItem = (item: Item) => {
     setFocus(threadId, { viewId: stored.id, itemId: item.id });
@@ -231,7 +234,12 @@ function Banner() {
     <ViewBanner
       stored={stored}
       collapsed={collapsed}
-      onToggle={() => setCollapsed((c) => !c)}
+      onToggle={() => setCollapsedByUser(!collapsed)}
+      onHide={() => {
+        rpc.call("view_hide", { viewId: stored.id, hidden: true }).then(refetch, (error: unknown) => {
+          toast.error(error instanceof Error ? error.message : String(error));
+        });
+      }}
       busyItem={null}
       focusedItem={(focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored)?.id ?? null}
       onOpenItem={(item) => openItem(item)}

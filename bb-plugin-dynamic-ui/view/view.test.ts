@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { firstLine } from "./banner.js";
+import { allHandled, firstLine } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
@@ -93,6 +93,14 @@ describe("store", () => {
     ]);
   });
 
+  it("hides a view until the next publish under its key", () => {
+    const s = store();
+    const view = s.publish("thr_one", "default", triageView, null, "2026-01-05T10:00:00Z");
+    expect(view.hiddenAt).toBeNull();
+    expect(s.setHidden(view.id, true, "2026-01-05T10:30:00Z")?.hiddenAt).toBe("2026-01-05T10:30:00Z");
+    expect(s.publish("thr_one", "default", triageView, null, "2026-01-05T11:00:00Z").hiddenAt).toBeNull();
+  });
+
   it("returns null when setting an item on a view that does not exist", () => {
     expect(store().setItem(99, "a", { state: "done", result: null }, "t")).toBeNull();
   });
@@ -119,6 +127,16 @@ describe("banner rows", () => {
       "Shipped in #140, with Export and --archived",
     );
     expect(firstLine("")).toBe("");
+  });
+
+  it("counts a view as handled once no item is open", () => {
+    const s = store();
+    const view = s.publish("thr_one", "default", triageView, null, "t");
+    s.setItem(view.id, "issue-101", { state: "done", result: null }, "t");
+    s.setItem(view.id, "issue-117", { state: "dismissed", result: null }, "t");
+    expect(allHandled(s.get(view.id)!)).toBe(false);
+    s.setItem(view.id, "issue-123", { state: "done", result: null }, "t");
+    expect(allHandled(s.get(view.id)!)).toBe(true);
   });
 
 });
@@ -168,6 +186,7 @@ describe("firstOpenItem", () => {
     view: triageView,
     cwd: "/tmp",
     publishedAt: "2026-03-12T12:00:00Z",
+  hiddenAt: null,
     items,
   });
 

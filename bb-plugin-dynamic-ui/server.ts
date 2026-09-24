@@ -195,6 +195,12 @@ export default async function plugin(bb: BbPluginApi) {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft }) => runAction(viewId, itemId, index, draft),
+    view_hide: ({ viewId, hidden }) => {
+      const stored = requireView(viewId);
+      const updated = store.setHidden(viewId, hidden, now())!;
+      bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+      return updated;
+    },
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
     review_submit: ({ viewId, itemId, pick, notes, overall }) => submitReview(viewId, itemId, { pick, notes, overall }),
     image_get: ({ viewId, itemId, index }) => {
@@ -283,7 +289,8 @@ export default async function plugin(bb: BbPluginApi) {
             stdout:
               views.length === 0
                 ? "This thread has no views."
-                : views.map((v) => `${v.id}  ${v.key}  ${v.publishedAt.slice(0, 16).replace("T", " ")}  ${v.view.title}`).join("\n"),
+                : views
+                    .map((v) => `${v.id}  ${v.key}  ${v.publishedAt.slice(0, 16).replace("T", " ")}  ${v.view.title}${v.hiddenAt === null ? "" : "  (hidden)"}`).join("\n"),
           };
         }
       }

@@ -15,6 +15,7 @@ const fresh: StoredView = {
   view: triageView,
   cwd: "/tmp",
   publishedAt: "2026-03-12T12:00:00Z",
+  hiddenAt: null,
   items: {},
 };
 
