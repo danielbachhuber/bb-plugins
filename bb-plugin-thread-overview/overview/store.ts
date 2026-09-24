@@ -31,6 +31,12 @@ export const MIGRATIONS: string[] = [
    )`,
   `CREATE INDEX IF NOT EXISTS steps_thread ON steps (threadId, position)`,
   `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  // The band starts collapsed. Its open state is now your choice alone, so the
+  // columns that reopened it after an agent change go.
+  `ALTER TABLE overviews ADD COLUMN expanded INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE overviews DROP COLUMN collapsed`,
+  `ALTER TABLE overviews DROP COLUMN seenAt`,
+  `ALTER TABLE overviews DROP COLUMN agentUpdatedAt`,
 ];
 
 type StepRow = Omit<Step, "status" | "source"> & { status: string; source: string };
@@ -39,9 +45,7 @@ type OverviewRow = {
   threadId: string;
   summary: string;
   updatedAt: number;
-  agentUpdatedAt: number;
-  seenAt: number;
-  collapsed: number;
+  expanded: number;
 };
 
 function toStep(row: StepRow): Step {
@@ -86,22 +90,18 @@ export class OverviewStore {
       summary: row?.summary ?? "",
       steps: this.steps(threadId),
       updatedAt: row?.updatedAt ?? 0,
-      agentUpdatedAt: row?.agentUpdatedAt ?? 0,
-      seenAt: row?.seenAt ?? 0,
-      collapsed: (row?.collapsed ?? 0) === 1,
+      expanded: (row?.expanded ?? 0) === 1,
     };
   }
 
-  /** Record a change: `updatedAt` always, `agentUpdatedAt` when the agent made it. */
-  private touch(threadId: string, source: StepSource, at: number): void {
+  /** Record a change, by anyone, for "updated 12 min ago". */
+  private touch(threadId: string, at: number): void {
     this.db
       .prepare(
-        `INSERT INTO overviews (threadId, updatedAt, agentUpdatedAt) VALUES (?, ?, ?)
-         ON CONFLICT (threadId) DO UPDATE SET
-           updatedAt = excluded.updatedAt,
-           agentUpdatedAt = CASE WHEN ? = 'agent' THEN excluded.agentUpdatedAt ELSE agentUpdatedAt END`,
+        `INSERT INTO overviews (threadId, updatedAt) VALUES (?, ?)
+         ON CONFLICT (threadId) DO UPDATE SET updatedAt = excluded.updatedAt`,
       )
-      .run(threadId, at, source === "agent" ? at : 0, source);
+      .run(threadId, at);
   }
 
   /** Set or replace the summary. Returns false when nothing changed. */
@@ -110,7 +110,7 @@ export class OverviewStore {
     if (summary === this.get(threadId).summary) return false;
     const at = this.now();
     this.db.transaction(() => {
-      this.touch(threadId, source, at);
+      this.touch(threadId, at);
       this.db.prepare(`UPDATE overviews SET summary = ? WHERE threadId = ?`).run(summary, threadId);
     })();
     return true;
@@ -142,7 +142,7 @@ export class OverviewStore {
       };
     });
     this.insertSteps(created);
-    this.touch(threadId, source, at);
+    this.touch(threadId, at);
     return created;
   }
 
@@ -179,7 +179,7 @@ export class OverviewStore {
       );
       this.db.transaction(() => {
         for (const change of changes) update.run(change.status, at, change.id, threadId);
-        this.touch(threadId, source, at);
+        this.touch(threadId, at);
       })();
     }
     const changedIds = new Set(changes.map((change) => change.id));
@@ -194,23 +194,18 @@ export class OverviewStore {
     const result = this.db
       .prepare(`DELETE FROM steps WHERE id = ? AND threadId = ? AND source = 'user'`)
       .run(id, threadId);
-    if (result.changes > 0) this.touch(threadId, "user", this.now());
+    if (result.changes > 0) this.touch(threadId, this.now());
     return result.changes > 0;
   }
 
-  /** Your view of the band: whether it is collapsed, and when you last saw it open. */
-  setView(threadId: string, view: { collapsed?: boolean; seen?: boolean }): void {
+  /** Whether you opened this thread's band. It is yours alone, so no change is recorded. */
+  setExpanded(threadId: string, expanded: boolean): void {
     this.db
-      .prepare(`INSERT INTO overviews (threadId) VALUES (?) ON CONFLICT (threadId) DO NOTHING`)
-      .run(threadId);
-    if (view.collapsed !== undefined) {
-      this.db
-        .prepare(`UPDATE overviews SET collapsed = ? WHERE threadId = ?`)
-        .run(view.collapsed ? 1 : 0, threadId);
-    }
-    if (view.seen) {
-      this.db.prepare(`UPDATE overviews SET seenAt = ? WHERE threadId = ?`).run(this.now(), threadId);
-    }
+      .prepare(
+        `INSERT INTO overviews (threadId, expanded) VALUES (?, ?)
+         ON CONFLICT (threadId) DO UPDATE SET expanded = excluded.expanded`,
+      )
+      .run(threadId, expanded ? 1 : 0);
   }
 
   /** Called when bb says a thread is gone. */

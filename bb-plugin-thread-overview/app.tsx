@@ -11,7 +11,7 @@ import { HeaderFallback } from "./components/header-fallback";
 import { OverviewBand, type OverviewHandlers } from "./components/overview-band";
 import { findHeader, insertBandContainer } from "./overview/attach";
 import { REALTIME_CHANNEL } from "./overview/contract";
-import { nextStatus, opensExpanded } from "./overview/steps";
+import { nextStatus } from "./overview/steps";
 import type { Overview } from "./overview/types";
 import type { rpcContract } from "./server";
 
@@ -90,15 +90,15 @@ function useOverview(threadId: string) {
       void run(() => rpc.call("overview_remove", { threadId, id: step.id }), "Could not remove that step"),
   };
 
-  const setView = useCallback(
-    (view: { collapsed?: boolean; seen?: boolean }) =>
-      rpc.call("overview_set_view", { threadId, ...view }).catch((error: unknown) => {
+  const setExpanded = useCallback(
+    (expanded: boolean) =>
+      rpc.call("overview_set_view", { threadId, expanded }).catch((error: unknown) => {
         console.error("thread-overview: saving the band's view failed", error);
       }),
     [rpc, threadId],
   );
 
-  return { overview, handlers, setView };
+  return { overview, handlers, setExpanded };
 }
 
 /** The current time, to the minute, for "updated 12 min ago". */
@@ -112,22 +112,15 @@ function useNow(): number {
 }
 
 function Band({ threadId }: { threadId: string }) {
-  const { overview, handlers, setView } = useOverview(threadId);
+  const { overview, handlers, setExpanded } = useOverview(threadId);
   const now = useNow();
-  // Decided once per visit, from the first read: your last choice, unless the
-  // agent changed something since you last looked.
-  const [expanded, setExpanded] = useState<boolean | null>(null);
+  // Collapsed until you open it; after that, your choice for this thread.
+  // Read once per visit, so a realtime re-read does not undo a click.
+  const [expanded, setLocalExpanded] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (overview !== null && expanded === null) setExpanded(opensExpanded(overview));
+    if (overview !== null && expanded === null) setLocalExpanded(overview.expanded);
   }, [overview, expanded]);
-
-  // Looking at the expanded band counts as seeing it, including a change the
-  // agent makes while you watch.
-  const agentUpdatedAt = overview?.agentUpdatedAt;
-  useEffect(() => {
-    if (expanded) void setView({ seen: true });
-  }, [expanded, agentUpdatedAt, setView]);
 
   if (overview === null || expanded === null) return null;
   return (
@@ -136,8 +129,8 @@ function Band({ threadId }: { threadId: string }) {
       now={now}
       expanded={expanded}
       onToggle={() => {
-        setExpanded(!expanded);
-        void setView({ collapsed: expanded });
+        setLocalExpanded(!expanded);
+        void setExpanded(!expanded);
       }}
       {...handlers}
     />

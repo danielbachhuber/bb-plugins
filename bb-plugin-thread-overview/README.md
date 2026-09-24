@@ -7,21 +7,21 @@ a thread is doing when you come back to it, without reading the transcript.
 
 ## The band
 
+- **Collapsed**, which is how it starts: one line, the summary on the left and
+  the step count and current step (`2/4 Write the export`) on the right.
 - **Expanded:** the summary on the left, capped at 72 characters a line, with
   when it last changed. The steps are a column on the right, about seven rows
   tall and scrolling past that: unfinished steps in plan order, then
   "+ Add step", then finished steps, most recently finished first. The current
   step is highlighted. In a narrow pane the column wraps below the summary.
-- **Collapsed:** one line, laid out the same way: the summary on the left, and
-  the step count and current step (`2/4 Write the export`) on the right.
 - **Nothing to tell you:** a thread with no summary and nothing left to do gets
   one faint line, "No overview yet · 26 steps done earlier", with "Write one".
 - **Editing:** click a step to move it from not started, to current, to done.
   Only one step is current at a time. The pencil beside the summary edits it
   in place. "+ Add step" adds one of yours. Steps you added can be removed on
   hover; the agent's steps cannot, only marked done.
-- **Open or collapsed:** your choice is remembered per thread, but the band
-  opens again when the agent has changed the overview since you last saw it.
+- **Open or collapsed:** opening a thread's band is remembered for that thread,
+  and so is collapsing it again.
 
 Changes arrive live: the band re-reads whenever the agent or another window
 changes the thread's overview.

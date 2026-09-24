@@ -29,23 +29,17 @@ describe("OverviewStore", () => {
       summary: "",
       steps: [],
       updatedAt: 0,
-      agentUpdatedAt: 0,
-      seenAt: 0,
-      collapsed: false,
+      expanded: false,
     });
   });
 
-  it("sets the summary and records who changed it", () => {
+  it("sets the summary and records when it changed", () => {
     expect(store.setSummary("t1", "Add a CSV export.", "agent")).toBe(true);
-    expect(store.get("t1")).toMatchObject({
-      summary: "Add a CSV export.",
-      updatedAt: 1_000,
-      agentUpdatedAt: 1_000,
-    });
+    expect(store.get("t1")).toMatchObject({ summary: "Add a CSV export.", updatedAt: 1_000 });
 
     tick();
     store.setSummary("t1", "Add a CSV and a PDF export.", "user");
-    expect(store.get("t1")).toMatchObject({ updatedAt: 1_001, agentUpdatedAt: 1_000 });
+    expect(store.get("t1").updatedAt).toBe(1_001);
   });
 
   it("reports an unchanged summary as no change", () => {
@@ -95,11 +89,13 @@ describe("OverviewStore", () => {
     expect(store.steps("t1").map((s) => s.text)).toEqual(["Agent step"]);
   });
 
-  it("remembers your view of the band", () => {
-    store.setView("t1", { collapsed: true });
-    tick(5);
-    store.setView("t1", { seen: true });
-    expect(store.get("t1")).toMatchObject({ collapsed: true, seenAt: 1_005 });
+  it("starts collapsed and remembers when you open the band", () => {
+    store.setSummary("t1", "x", "agent");
+    expect(store.get("t1").expanded).toBe(false);
+    store.setExpanded("t1", true);
+    expect(store.get("t1")).toMatchObject({ expanded: true, updatedAt: 1_000 });
+    store.setExpanded("t2", true);
+    expect(store.get("t2").expanded).toBe(true);
   });
 
   it("drops a deleted thread", () => {
@@ -123,7 +119,7 @@ describe("OverviewStore", () => {
       ["a", "todo", "user", 4],
       ["b", "done", "agent", 7],
     ]);
-    expect(overview).toMatchObject({ summary: "", updatedAt: 30, agentUpdatedAt: 0 });
+    expect(overview).toMatchObject({ summary: "", updatedAt: 30 });
 
     // New steps land after the imported ones.
     store.addSteps("t1", ["New"], "agent");

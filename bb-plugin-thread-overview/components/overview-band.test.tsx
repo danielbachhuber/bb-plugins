@@ -21,9 +21,7 @@ const overview: Overview = {
     step("s3", "Ask finance which months they need", "todo", "user"),
   ],
   updatedAt: NOW - 12 * 60_000,
-  agentUpdatedAt: NOW - 12 * 60_000,
-  seenAt: 0,
-  collapsed: false,
+  expanded: true,
 };
 
 function renderBand(props: Partial<Parameters<typeof OverviewBand>[0]> = {}) {

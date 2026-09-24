@@ -228,10 +228,9 @@ export default async function plugin(bb: BbPluginApi) {
       if (store.removeStep(threadId, id)) announce(threadId);
       return { overview: store.get(threadId) };
     },
-    // View state is yours alone and changes nothing another band shows, so it
-    // does not announce.
-    overview_set_view: ({ threadId, collapsed, seen }) => {
-      store.setView(threadId, { collapsed, seen });
+    // Whether the band is open is yours alone, so it does not announce.
+    overview_set_view: ({ threadId, expanded }) => {
+      store.setExpanded(threadId, expanded);
       return { overview: store.get(threadId) };
     },
   });

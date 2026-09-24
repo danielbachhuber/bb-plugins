@@ -27,9 +27,7 @@ const planned: Overview = {
     step(5, "Ask finance which months they need first", "todo", "user"),
   ],
   updatedAt: NOW - 12 * 60_000,
-  agentUpdatedAt: NOW - 12 * 60_000,
-  seenAt: 0,
-  collapsed: false,
+  expanded: true,
 };
 
 /** A thread imported from Thread Todos: a long list, nearly all finished. */
@@ -44,7 +42,7 @@ const imported: Overview = {
   updatedAt: NOW - 3 * 24 * 3_600_000,
 };
 
-const empty: Overview = { ...planned, summary: "", steps: [], updatedAt: 0, agentUpdatedAt: 0 };
+const empty: Overview = { ...planned, summary: "", steps: [], updatedAt: 0 };
 
 /** Local state standing in for the RPC calls, so every control works. */
 function useLocalOverview(initial: Overview): [Overview, OverviewHandlers] {

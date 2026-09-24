@@ -7,7 +7,6 @@ import {
   nextStatus,
   normalizeSummary,
   normalizeText,
-  opensExpanded,
   progress,
   renderForAgent,
   resolveRefs,
@@ -134,14 +133,6 @@ describe("progress", () => {
     expect(progress(steps).number).toBeNull();
     expect(stepCount(steps)).toBe("2/2");
     expect(collapsedLine({ summary: "", steps }).step).toBe("All steps done");
-  });
-});
-
-describe("opensExpanded", () => {
-  it("honours a collapse until the agent changes something", () => {
-    expect(opensExpanded({ collapsed: true, agentUpdatedAt: 10, seenAt: 20 })).toBe(false);
-    expect(opensExpanded({ collapsed: true, agentUpdatedAt: 30, seenAt: 20 })).toBe(true);
-    expect(opensExpanded({ collapsed: false, agentUpdatedAt: 0, seenAt: 0 })).toBe(true);
   });
 });
 

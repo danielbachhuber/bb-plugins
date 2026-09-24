@@ -209,16 +209,6 @@ export function isQuiet(overview: Pick<Overview, "summary" | "steps">): boolean 
   return overview.summary === "" && overview.steps.every((step) => step.status === "done");
 }
 
-/**
- * Whether the band opens expanded when you arrive. Your last choice holds,
- * except that a change the agent made since you last looked opens it again,
- * so a collapsed band never hides news.
- */
-export function opensExpanded(overview: Pick<Overview, "collapsed" | "agentUpdatedAt" | "seenAt">): boolean {
-  if (!overview.collapsed) return true;
-  return overview.agentUpdatedAt > overview.seenAt;
-}
-
 /** "just now", "12 min ago", "3 h ago", "2 days ago". */
 export function updatedLabel(at: number, now: number): string {
   if (at <= 0) return "";
