@@ -4,6 +4,7 @@ import { SyncStatus } from "./components/ui/sync-status";
 
 import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView } from "./now/item-list";
+import type { PendingAction } from "./now/item-row";
 import { mergeItems } from "./now/items";
 import type { Item } from "./now/types";
 
@@ -212,7 +213,13 @@ const ok: NowList = {
  * The page with its title bar, where the sync control lives. `listing` null is
  * the moment before the stored list has been read.
  */
-function Frame({ listing }: { listing: Listing | null }) {
+function Frame({
+  listing,
+  pending,
+}: {
+  listing: Listing | null;
+  pending?: ReadonlyMap<string, PendingAction>;
+}) {
   const fetchedAt = listing?.list?.fetchedAt;
   return (
     <div className="w-full overflow-hidden rounded-lg border border-border bg-background">
@@ -224,7 +231,7 @@ function Frame({ listing }: { listing: Listing | null }) {
           onRefresh={noop}
         />
       </div>
-      <ItemListView listing={listing} now={now} actions={actions} />
+      <ItemListView listing={listing} now={now} actions={actions} pending={pending} />
     </div>
   );
 }
@@ -268,6 +275,21 @@ export function States() {
       </StoryRow>
       <StoryRow label="Syncing" hint="The stored list shows while a sync runs behind it.">
         <Frame listing={stored(ok, true)} />
+      </StoryRow>
+      <StoryRow
+        label="Working"
+        hint="A task completing, an email archiving, and a pull request snoozing: each row is disabled until its request lands."
+      >
+        <Frame
+          listing={stored(ok)}
+          pending={
+            new Map<string, PendingAction>([
+              ["todoist:a2", "complete"],
+              ["gmail:t1", "archive"],
+              ["github:acme/widgets#128", "snooze"],
+            ])
+          }
+        />
       </StoryRow>
       <StoryRow label="Snoozed" hint="Two items punted to tomorrow and next week, listed under the rest when opened.">
         <Frame

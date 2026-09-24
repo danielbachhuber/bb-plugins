@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
-import { ItemRow, type RowActions } from "./item-row.js";
+import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
@@ -86,13 +86,15 @@ export interface ItemListViewProps {
   now: Date;
   /** Without them the rows draw no action buttons. */
   actions?: RowActions;
+  /** Rows waiting on an action, by item id. */
+  pending?: ReadonlyMap<string, PendingAction>;
 }
 
 /**
  * The list as stored after the last sync. Refreshing lives in the page's
  * title bar, so this only draws.
  */
-export function ItemListView({ listing, now, actions }: ItemListViewProps) {
+export function ItemListView({ listing, now, actions, pending = new Map() }: ItemListViewProps) {
   const [showSnoozed, setShowSnoozed] = useState(false);
   const snoozed = listing?.snoozed ?? [];
   const threads = listing?.threads ?? {};
@@ -132,7 +134,14 @@ export function ItemListView({ listing, now, actions }: ItemListViewProps) {
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
             {list.items.map((item) => (
-              <ItemRow key={item.id} item={item} now={now} actions={actions} threadId={threads[item.id] ?? null} />
+              <ItemRow
+                key={item.id}
+                item={item}
+                now={now}
+                actions={actions}
+                threadId={threads[item.id] ?? null}
+                pending={pending.get(item.id) ?? null}
+              />
             ))}
           </ul>
         )}
@@ -160,6 +169,7 @@ export function ItemListView({ listing, now, actions }: ItemListViewProps) {
                   actions={actions}
                   snoozedUntil={until}
                   threadId={threads[item.id] ?? null}
+                  pending={pending.get(item.id) ?? null}
                 />
               ))}
             </ul>

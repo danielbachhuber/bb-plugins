@@ -46,12 +46,19 @@ good sync, with a note saying how many.
   new comment on a snoozed pull request. Snoozed rows are listed, closed, under
   the rest, where each can be unsnoozed.
 
+While one of these waits on Todoist, Gmail, or the plugin's server, its row
+dims and its buttons are disabled, and the button says what it is doing
+("Completing…", "Archiving…", "Snoozing…") beside a spinner. The row stays
+that way until the refreshed list arrives, so it goes straight to gone rather
+than flashing back first.
+
 Each of these says what it did in a toast with **Undo**, which reopens the
 task, puts the threads back in the inbox, or ends the snooze, and returns the
 row to where it was. A recurring task is the exception: completing it moves
 it to its next date, and Todoist cannot move it back, so its toast says so
 instead of offering Undo. Undo is for the moment after the click; it does not
-survive a reload of the plugin.
+survive a reload of the plugin. Undo shows "Restoring…" in the toast until it
+has finished.
 
 Every row also has **Start thread** in its details line, which opens bb's
 new-thread composer in a dialog, with the row's facts already in the prompt

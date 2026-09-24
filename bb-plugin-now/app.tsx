@@ -14,7 +14,7 @@ import { SyncStatus } from "@/components/ui/sync-status";
 import type { rpcContract } from "./server";
 import { SYNC_CHANNEL, type Listing } from "./now/contract.js";
 import { ItemListView } from "./now/item-list.js";
-import type { RowActions } from "./now/item-row.js";
+import type { PendingAction, RowActions } from "./now/item-row.js";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item } from "./now/types.js";
@@ -31,14 +31,18 @@ function useListing() {
   const rpc = useRpc<typeof rpcContract>();
   const [listing, setListing] = useState<Listing | null>(null);
 
-  const load = useCallback(() => {
-    rpc.call("items_list", null).then(setListing, () => undefined);
-  }, [rpc]);
+  /** Resolves once the listing has been re-read, so a row can wait on it. */
+  const load = useCallback(
+    () => rpc.call("items_list", null).then(setListing, () => undefined),
+    [rpc],
+  );
 
-  useEffect(load, [load]);
-  useRealtime(SYNC_CHANNEL, load);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useRealtime(SYNC_CHANNEL, () => void load());
 
-  return { listing, rpc };
+  return { listing, rpc, load };
 }
 
 /** When the list last synced, and the Refresh button, in the page's title bar. */
@@ -77,51 +81,97 @@ function messageOf(cause: unknown): string {
  * with Undo, since a click can land on the wrong row. The page re-reads on the
  * server's signal, so none of them touch local state.
  */
+/**
+ * Which rows are waiting on a request, and a way to run one. A row stays
+ * pending until the re-read listing has landed, so it goes straight from
+ * "Completing…" to gone instead of flashing back to its normal state first.
+ */
+function usePending(load: () => Promise<unknown>) {
+  const [pending, setPending] = useState<ReadonlyMap<string, PendingAction>>(() => new Map());
+
+  const run = useCallback(
+    async (id: string, action: PendingAction, request: () => Promise<void>) => {
+      setPending((current) => new Map(current).set(id, action));
+      try {
+        await request();
+        await load();
+      } finally {
+        setPending((current) => {
+          const next = new Map(current);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [load],
+  );
+
+  return { pending, run };
+}
+
+type Run = ReturnType<typeof usePending>["run"];
+
+/**
+ * Undo from a toast: a loading toast that becomes the result, since the row
+ * it restores is not on the page to show a pending state of its own.
+ */
+function undoAction(label: string, request: () => Promise<{ error: string | null } | void>) {
+  return {
+    label: "Undo",
+    onClick: () => {
+      const id = toast.loading(label);
+      request().then(
+        (result) => {
+          if (result && result.error !== null) toast.error(result.error, { id });
+          else toast.success("Restored", { id });
+        },
+        (cause) => toast.error(messageOf(cause), { id }),
+      );
+    },
+  };
+}
+
 function useRowActions(
   rpc: ReturnType<typeof useListing>["rpc"],
+  run: Run,
   threads: Pick<RowActions, "onStartThread" | "onOpenThread">,
 ): RowActions {
   return useMemo(() => {
     const fail = (cause: unknown) => toast.error(messageOf(cause));
-    const undo = (id: string) => ({
-      label: "Undo",
-      onClick: () => {
-        rpc.call("items_undo", { id }).then((result) => {
-          if (result.error !== null) toast.error(result.error);
-        }, fail);
-      },
-    });
+    const undo = (id: string) => undoAction("Restoring…", () => rpc.call("items_undo", { id }));
 
     return {
       ...threads,
       onSnooze: (item, until) => {
-        rpc.call("items_snooze", { id: item.id, until }).then(() => {
+        void run(item.id, "snooze", async () => {
+          await rpc.call("items_snooze", { id: item.id, until });
           const when = new Date(until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
           toast.success(`Snoozed until ${when}`, {
-            action: {
-              label: "Undo",
-              onClick: () => {
-                rpc.call("items_unsnooze", { id: item.id }).catch(fail);
-              },
-            },
+            action: undoAction("Unsnoozing…", async () => {
+              await rpc.call("items_unsnooze", { id: item.id });
+            }),
           });
-        }, fail);
+        }).catch(fail);
       },
       onUnsnooze: (item) => {
-        rpc.call("items_unsnooze", { id: item.id }).catch(fail);
+        void run(item.id, "unsnooze", async () => {
+          await rpc.call("items_unsnooze", { id: item.id });
+        }).catch(fail);
       },
       onArchive: (item) => {
-        rpc.call("items_archive", { id: item.id }).then((result) => {
+        void run(item.id, "archive", async () => {
+          const result = await rpc.call("items_archive", { id: item.id });
           if (result.error !== null) toast.error(result.error);
           else toast.success("Archived", { action: undo(item.id) });
-        }, fail);
+        }).catch(fail);
       },
       onComplete: (item) => {
-        rpc.call("items_complete", { id: item.id }).then((result) => {
+        void run(item.id, "complete", async () => {
+          const result = await rpc.call("items_complete", { id: item.id });
           if (result.error !== null) toast.error(result.error);
           else if (result.undoable) toast.success(`Completed "${item.title}"`, { action: undo(item.id) });
           else toast.success(`Completed "${item.title}". It recurs, so Todoist moved it to its next date.`);
-        }, fail);
+        }).catch(fail);
       },
       onReply: async (item, body) => {
         try {
@@ -138,11 +188,12 @@ function useRowActions(
         }
       },
     };
-  }, [rpc, threads]);
+  }, [rpc, run, threads]);
 }
 
 function NowPage() {
-  const { listing, rpc } = useListing();
+  const { listing, rpc, load } = useListing();
+  const { pending, run } = usePending(load);
   const navigate = useBbNavigate();
   // The row whose composer is open. Null when the dialog is closed.
   const [draft, setDraft] = useState<{ item: Item; seed: StartThreadSeed } | null>(null);
@@ -163,7 +214,7 @@ function NowPage() {
     }),
     [navigate, threadProjectId],
   );
-  const actions = useRowActions(rpc, threadActions);
+  const actions = useRowActions(rpc, run, threadActions);
 
   const onSubmitDraft = useCallback(
     async (request: NewThreadRequest) => {
@@ -189,7 +240,7 @@ function NowPage() {
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
-      <ItemListView listing={listing} now={new Date()} actions={actions} />
+      <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} />
       <StartThreadDialog
         open={draft !== null}
         onOpenChange={(open) => {

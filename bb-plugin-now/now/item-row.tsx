@@ -19,6 +19,16 @@ import { describeActivity, describeDue, type DueTone } from "./due.js";
 import { snoozeChoices } from "./snooze.js";
 import type { GitHubPart, Item } from "./types.js";
 
+/** An action a row is waiting on. The whole row is disabled until it lands. */
+export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze";
+
+const PENDING_LABEL: Record<PendingAction, string> = {
+  complete: "Completing…",
+  archive: "Archiving…",
+  snooze: "Snoozing…",
+  unsnooze: "Unsnoozing…",
+};
+
 export interface RowActions {
   onSnooze: (item: Item, until: string) => void;
   onUnsnooze: (item: Item) => void;
@@ -130,7 +140,20 @@ function GitHubState({ github }: { github: GitHubPart }) {
   );
 }
 
-function SnoozeMenu({ item, until, now, actions }: { item: Item; until: string | null; now: Date; actions: RowActions }) {
+function SnoozeMenu({
+  item,
+  until,
+  now,
+  actions,
+  pending,
+}: {
+  item: Item;
+  until: string | null;
+  now: Date;
+  actions: RowActions;
+  pending: PendingAction | null;
+}) {
+  const working = pending === "snooze" || pending === "unsnooze";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -138,9 +161,13 @@ function SnoozeMenu({ item, until, now, actions }: { item: Item; until: string |
           size="sm"
           variant="ghost"
           className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-          aria-label={until === null ? `Snooze "${item.title}"` : `Unsnooze "${item.title}"`}
+          disabled={pending !== null}
+          aria-busy={working}
+          aria-label={
+            working ? PENDING_LABEL[pending] : until === null ? `Snooze "${item.title}"` : `Unsnooze "${item.title}"`
+          }
         >
-          <Icon name="Pause" className="size-4" />
+          <Icon name={working ? "Loading" : "Pause"} className={cn("size-4", working && "animate-spin")} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -212,6 +239,8 @@ export interface ItemRowProps {
   snoozedUntil?: string | null;
   /** The thread already started from this row. */
   threadId?: string | null;
+  /** The action this row is waiting on, if any. */
+  pending?: PendingAction | null;
 }
 
 /** A small labelled button in the details line, for the row's own action. */
@@ -223,6 +252,8 @@ function LineAction({
   className,
   ariaLabel,
   expanded,
+  disabled = false,
+  working = null,
 }: {
   label: string;
   icon: IconName;
@@ -232,12 +263,25 @@ function LineAction({
   className?: string;
   ariaLabel?: string;
   expanded?: boolean;
+  disabled?: boolean;
+  /** While this button's own request runs: what it is doing, shown with a spinner. */
+  working?: string | null;
 }) {
+  if (working !== null) {
+    return (
+      <span className={cn("-mx-1 inline-flex items-center gap-1 px-1 text-foreground", className)} role="status">
+        <Icon name="Loading" className="size-3 animate-spin" />
+        {working}
+      </span>
+    );
+  }
   return (
     <button
       type="button"
+      disabled={disabled}
       className={cn(
         "group/action -mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground",
+        "disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       aria-label={ariaLabel}
@@ -269,7 +313,8 @@ function leadingDate(item: Item, now: Date): { text: string; className: string; 
   return null;
 }
 
-export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null }: ItemRowProps) {
+export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null, pending = null }: ItemRowProps) {
+  const busy = pending !== null;
   const [replying, setReplying] = useState(false);
   const date = leadingDate(item, now);
   // Shown in the details line only when the left column is showing the due date instead.
@@ -281,7 +326,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   const unread = item.gmail?.unread === true;
 
   return (
-    <li className="py-3.5 text-sm">
+    <li className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60")} aria-busy={busy}>
       <div className="flex items-start gap-3">
         {/* Where it is from and when it is for, in a column of its own so every title starts at one edge. */}
         <div className="flex w-14 shrink-0 flex-col gap-1 pt-0.5 text-xs leading-tight text-muted-foreground">
@@ -328,6 +373,8 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 icon="Circle"
                 hoverIcon="CircleCheck"
                 ariaLabel={`Complete "${item.title}"`}
+                disabled={busy}
+                working={pending === "complete" ? PENDING_LABEL.complete : null}
                 onClick={() => actions.onComplete(item)}
               />
             ) : item.gmail !== null ? (
@@ -336,6 +383,8 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 icon="Archive"
                 ariaLabel={`Archive "${item.title}"`}
                 className={archiveSuggested ? SUGGESTED : undefined}
+                disabled={busy}
+                working={pending === "archive" ? PENDING_LABEL.archive : null}
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
@@ -344,13 +393,24 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
                 label="Reply"
                 icon="ArrowTurnBackward"
                 expanded={replying}
+                disabled={busy}
                 onClick={() => setReplying((open) => !open)}
               />
             )}
             {actions === undefined ? null : threadId === null ? (
-              <LineAction label="Start thread" icon="MessageSquarePlus" onClick={() => actions.onStartThread(item)} />
+              <LineAction
+                label="Start thread"
+                icon="MessageSquarePlus"
+                disabled={busy}
+                onClick={() => actions.onStartThread(item)}
+              />
             ) : (
-              <LineAction label="Open thread" icon="MessageSquare" onClick={() => actions.onOpenThread(threadId)} />
+              <LineAction
+                label="Open thread"
+                icon="MessageSquare"
+                disabled={busy}
+                onClick={() => actions.onOpenThread(threadId)}
+              />
             )}
             {deadline === null ? null : (
               <span className={cn("inline-flex items-center gap-1", DUE_TONE[deadline.tone])}>
@@ -376,7 +436,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
 
         {actions === undefined ? null : (
           <div className="-mr-1.5 shrink-0">
-            <SnoozeMenu item={item} until={snoozedUntil} now={now} actions={actions} />
+            <SnoozeMenu item={item} until={snoozedUntil} now={now} actions={actions} pending={pending} />
           </div>
         )}
       </div>
