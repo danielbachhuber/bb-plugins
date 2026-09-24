@@ -29,6 +29,8 @@ checkout is still invisible everywhere else. When you have been asked to
 commit, push the branch in the same step rather than leaving the commit sitting
 here.
 
+Commit one logical change at a time rather than one commit at the end.
+
 ## Anything personal is a setting, never a constant
 
 The board name, its status order, which statuses count, the repository list:
@@ -115,11 +117,86 @@ failures where `bb plugin logs` does not show them:
 grep -h "plugin:<id>" ~/.bb/logs/server*.log | tail -20
 ```
 
+To call an RPC method directly, without the panel in between:
+
+```sh
+BASE=$(node -p "require(process.env.HOME+'/.bb/bb-app-runtime.json').serverUrl")
+curl -s -X POST -H "content-type: application/json" -H "origin: $BASE" \
+  -d 'null' "$BASE/api/v1/plugins/<id>/rpc/<method>"
+```
+
+## Use bb's components before building your own
+
+`@get-bb/plugin-sdk/app` exports bb's own version of most surfaces a plugin
+needs. A hand-built copy looks different, behaves differently, and gets
+replaced later. That has already happened once here.
+
+| Instead of building | Use |
+| --- | --- |
+| A textarea plus a "Start thread" button | `experimental_NewThreadComposer` |
+| A chat transcript or reply box | `ThreadChat` |
+| A provider, model, or reasoning picker | `experimental_ProviderModelPicker` |
+| A permission-mode dropdown | `experimental_PermissionModePicker` |
+| A syntax highlighter or diff view | `experimental_SourceCode`, `experimental_Diff` |
+| A markdown renderer | `Markdown` |
+| A provider name lookup | `experimental_useProviders()` |
+
+`NewThreadComposer` includes @-mentions, attachments, voice, the environment
+and branch pickers, permission mode, saved drafts, and the project's
+remembered defaults. A custom form has none of them. Its `onSubmit` returns a
+`NewThreadRequest` whose fields match `threads.spawn`, so pass it through
+unchanged and add only `title`, `sectionId`, `parentThreadId`, or
+`visibility`.
+
+Use a vendored shadcn component only for UI that bb does not provide.
+
+## Pin the provider for threads a plugin spawns
+
+Skills belong to one provider. A Claude Code skill in `~/.claude/skills/` is
+invisible to a thread running on Codex, and that thread reports the skill as
+missing and improvises the work instead, which is worse than failing.
+
+So a spawned thread must not quietly inherit bb's default provider. Either pin
+it with a setting, as pr-sweep's "Provider for spawned threads" does with a
+`claude-code` default, or let the user choose and say in the UI which provider
+the skill needs.
+
+## Show a plugin only in its own threads
+
+`threads.spawn` sets `originPluginId` on every thread a plugin starts. A
+composer action, thread-header action, or message action should check it and
+render nothing in other threads. Check it again in the handler, because what
+the frontend draws is not an authorization check.
+
+## Where code goes
+
+- Plugin logic goes in a directory named for the plugin's domain (`sweep/`,
+  `review/`, `todos/`), not `lib/`. The scaffold puts vendored shadcn support
+  files in `lib/`, and mixing owned code in there makes it unclear which files
+  are safe to regenerate.
+- Keep a core with no network, filesystem, bb API, or model calls, so it can be
+  tested alone, and put all I/O in one named module. Do not spend model tokens
+  on work a pure function can do.
+- Once the RPC contract has more than a few methods, move it to its own file
+  that `app.tsx` imports as a type.
+
+## Testing traps
+
+The authoring reference covers the harness API. These are the problems it
+does not mention:
+
+- Call `cleanup()` in `afterEach`. Otherwise slots from earlier tests stay
+  mounted and queries match twice.
+- Radix `Select` copies its value into a hidden native `<select>`, so its text
+  appears twice. Query the `combobox` role by its accessible name instead.
+- Radix opens on `pointerdown`, which jsdom does not send. Assert which RPC
+  fired for which id rather than trying to open the popup.
+
 ## Further reading
 
-`building-bb-plugins` carries the authoring preferences for a new plugin —
-which of BB's own components to reuse, where logic goes relative to vendored
-shadcn source, and the testing-harness gotchas — and is not repeated here.
+`bb-plugin-authoring`, which ships with bb, covers the plugin API surface,
+the harness, and dependency placement. This file covers only the preferences
+for this repository.
 
 The bb source is checked out at `~/projects/bb`. When a question is about how
 bb itself behaves (a UI element, a CLI command, the plugin SDK), read it there
