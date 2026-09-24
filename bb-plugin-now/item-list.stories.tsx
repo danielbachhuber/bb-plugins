@@ -7,6 +7,8 @@ import { ItemListView } from "./now/item-list";
 import { mergeItems } from "./now/items";
 import type { Item } from "./now/types";
 
+type LoadedSource = Extract<SourceStatus, { state: "ok" }>;
+
 export default {
   title: "now/Item list",
 };
@@ -28,8 +30,87 @@ function email(id: string, title: string, from: string, at: Date, snippet: strin
     context: from,
     tags: [],
     url: `https://mail.google.com/mail/#all/${id}`,
+    gmail: { threadIds: [id] },
+    github: null,
   };
 }
+
+function pull(
+  number: number,
+  title: string,
+  description: string,
+  at: Date,
+  github: Partial<NonNullable<Item["github"]>>,
+): Item {
+  return {
+    id: `github:acme/widgets#${number}`,
+    source: "gmail",
+    title,
+    description,
+    priority: null,
+    due: null,
+    deadline: null,
+    activityAt: at.toISOString(),
+    context: `acme/widgets#${number}`,
+    tags: [],
+    url: `https://github.com/acme/widgets/pull/${number}`,
+    gmail: { threadIds: [`t${number}`] },
+    github: {
+      repo: "acme/widgets",
+      number,
+      kind: "pull",
+      state: "open",
+      review: null,
+      closedAs: null,
+      reason: "mention",
+      comment: null,
+      ...github,
+    },
+  };
+}
+
+const notifications: Item[] = [
+  pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
+    reason: "review_requested",
+    review: "review_required",
+    comment: {
+      author: "hubber",
+      text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
+    },
+  }),
+  pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
+    state: "merged",
+    reason: "review_requested",
+  }),
+  pull(133, "Read empty widgets back as absent", "1 comment from octocat · changes requested by hubber", new Date(2026, 8, 22, 11, 0), {
+    review: "changes_requested",
+    reason: "author",
+    comment: { author: "octocat", text: "Can we add a test for an empty gadget list too?" },
+  }),
+  pull(135, "Sketch a widget plugin API", "1 comment from hubber", new Date(2026, 8, 22, 9, 30), { state: "draft", reason: "author" }),
+  {
+    ...pull(44, "Support gadgets on the moon", "2 comments from octocat", new Date(2026, 8, 21, 12, 0), {
+      kind: "issue",
+      state: "closed",
+      closedAs: "not_planned",
+      reason: "mention",
+    }),
+    id: "github:acme/gadgets#44",
+    context: "acme/gadgets#44",
+    url: "https://github.com/acme/gadgets/issues/44",
+  },
+  {
+    ...pull(42, "Gadgets break on Sundays", "4 comments from octocat, hubber", new Date(2026, 8, 21, 9, 0), {
+      kind: "issue",
+      state: "closed",
+      closedAs: "completed",
+      reason: "author",
+    }),
+    id: "github:acme/gadgets#42",
+    context: "acme/gadgets#42",
+    url: "https://github.com/acme/gadgets/issues/42",
+  },
+];
 
 function item(overrides: Partial<Item> & Pick<Item, "id" | "title">): Item {
   return {
@@ -42,6 +123,8 @@ function item(overrides: Partial<Item> & Pick<Item, "id" | "title">): Item {
     context: "Widgets",
     tags: [],
     url: `https://app.todoist.com/app/task/${overrides.id}`,
+    gmail: null,
+    github: null,
     ...overrides,
     id: `todoist:${overrides.id}`,
   };
@@ -99,7 +182,7 @@ const emails: Item[] = [
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
 ];
 
-const todoistOk: SourceStatus = {
+const todoistOk: LoadedSource = {
   id: "todoist",
   name: "Todoist",
   state: "ok",
@@ -107,14 +190,20 @@ const todoistOk: SourceStatus = {
   count: items.length,
 };
 
-const gmailOk: SourceStatus = { id: "gmail", name: "Gmail", state: "ok", query: "in:inbox", count: emails.length };
+const gmailOk: LoadedSource = {
+  id: "gmail",
+  name: "Gmail",
+  state: "ok",
+  query: "in:inbox",
+  count: emails.length + notifications.length,
+};
 
 /** Synced four minutes before `now`, so the header reads "synced 4m ago". */
 const syncedAt = new Date(now.getTime() - 4 * 60_000).toISOString();
 
 const ok: NowList = {
   // Sorted the way the server sorts, so the story shows the real order.
-  items: mergeItems([items, emails]),
+  items: mergeItems([items, emails, notifications]),
   sources: [todoistOk, gmailOk],
   fetchedAt: syncedAt,
 };
@@ -135,21 +224,29 @@ function Frame({ listing }: { listing: Listing | null }) {
           onRefresh={noop}
         />
       </div>
-      <ItemListView listing={listing} now={now} />
+      <ItemListView listing={listing} now={now} actions={actions} />
     </div>
   );
 }
 
-function stored(list: NowList, syncing = false): Listing {
-  return { list, syncing };
+function stored(list: NowList, syncing = false, snoozed: Listing["snoozed"] = []): Listing {
+  return { list, snoozed, syncing };
 }
+
+const actions = {
+  onSnooze: noop,
+  onUnsnooze: noop,
+  onArchive: noop,
+  onComplete: noop,
+  onReply: async () => true,
+};
 
 export function Default() {
   return (
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="Todoist tasks that are overdue, today, timed and recurring, this week, next year, and undated, then inbox threads newest first."
+        hint="Todoist tasks that are overdue, today, timed and recurring, this week, next year, and undated, then the inbox newest first: GitHub notifications gathered per pull request or issue, with a suggested Archive on the merged and closed ones, and plain emails."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -164,10 +261,22 @@ export function States() {
         <Frame listing={null} />
       </StoryRow>
       <StoryRow label="First sync" hint="Nothing stored yet, and the first sync is running.">
-        <Frame listing={{ list: null, syncing: true }} />
+        <Frame listing={{ list: null, snoozed: [], syncing: true }} />
       </StoryRow>
       <StoryRow label="Syncing" hint="The stored list shows while a sync runs behind it.">
         <Frame listing={stored(ok, true)} />
+      </StoryRow>
+      <StoryRow label="Snoozed" hint="Two items punted to tomorrow and next week, listed under the rest when opened.">
+        <Frame
+          listing={stored(
+            { ...ok, items: ok.items.filter((kept) => kept.id !== "gmail:t2" && kept.id !== "todoist:a5") },
+            false,
+            [
+              { item: emails[1]!, until: new Date(2026, 8, 25, 8, 0).toISOString() },
+              { item: items.find((kept) => kept.id === "todoist:a5")!, until: new Date(2026, 8, 28, 8, 0).toISOString() },
+            ],
+          )}
+        />
       </StoryRow>
       <StoryRow label="Empty" hint="Every source synced and nothing matched.">
         <Frame

@@ -2,6 +2,7 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, test, vi } from "vitest";
 
 import { GwsMissingError, type GwsRunner } from "./gmail/gws.js";
+import { GhMissingError, type GhRunner } from "./github/gh.js";
 import type { Listing, NowList } from "./now/contract.js";
 import { createPlugin } from "./server.js";
 import { DEFAULT_FILTER } from "./todoist/source.js";
@@ -23,7 +24,10 @@ function routedFetch(routes: Record<string, Route>) {
   return vi.fn(async (url: string, _init?: RequestInit) => {
     const target = new URL(url);
     const key = `${target.pathname}${target.search}`;
-    if (!(key in routes)) throw new Error(`unexpected GET ${key}`);
+    const method = (_init?.method ?? "GET").toUpperCase();
+    const routed = method === "GET" ? key : `${method} ${key}`;
+    if (!(routed in routes)) throw new Error(`unexpected ${method} ${key}`);
+    if (routed !== key) return jsonResponse(routes[routed]);
 
     const route = routes[key] as Record<string, unknown>;
     if (typeof route.status === "number") return jsonResponse(route.body, route.status);
@@ -62,7 +66,16 @@ function fakeGws(answers: Record<string, (params: Record<string, unknown>) => un
   return { run, calls };
 }
 
-function host(routes: Record<string, Route>, settings: Settings = TODOIST_ONLY, gws: GwsRunner = fakeGws({}).run) {
+const noGh: GhRunner = async () => {
+  throw new GhMissingError("gh");
+};
+
+function host(
+  routes: Record<string, Route>,
+  settings: Settings = TODOIST_ONLY,
+  gws: GwsRunner = fakeGws({}).run,
+  gh: GhRunner = noGh,
+) {
   const fetchImpl = routedFetch(routes);
   const created = createFakePluginHost({ pluginId: "now", settings });
   const gwsPaths: string[] = [];
@@ -72,6 +85,7 @@ function host(routes: Record<string, Route>, settings: Settings = TODOIST_ONLY, 
       gwsPaths.push(path);
       return gws;
     },
+    gh: () => gh,
     now: () => new Date("2026-09-24T09:30:00Z"),
   });
   return { ...created, plugin, fetchImpl, gwsPaths };
@@ -283,7 +297,7 @@ describe("stored list", () => {
     const { bb, harness, plugin, fetchImpl } = host(ROUTES);
     await plugin(bb);
 
-    await expect(harness.behavior.callRpc("items_list", null)).resolves.toEqual({ list: null, syncing: false });
+    await expect(harness.behavior.callRpc("items_list", null)).resolves.toEqual({ list: null, snoozed: [], syncing: false });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -372,5 +386,204 @@ describe("stored list", () => {
 
     expect(listing.list?.items).toHaveLength(1);
     expect(waits).toEqual([30 * 60_000]);
+  });
+});
+
+describe("row actions", () => {
+  /** One GitHub notification thread about acme/widgets#128, and one plain email. */
+  function inbox() {
+    const calls: string[][] = [];
+    const run: GwsRunner = async (args) => {
+      calls.push(args);
+      const params = JSON.parse(args[args.indexOf("--params") + 1] ?? "{}") as { id?: string };
+      if (args.includes("list")) return JSON.stringify({ threads: [{ id: "gh1" }, { id: "mail1" }] });
+      if (args.includes("getProfile")) return JSON.stringify({ emailAddress: "hubber@example.com" });
+      if (args.includes("modify")) return JSON.stringify({ id: params.id, messages: [] });
+      if (params.id === "gh1") {
+        return JSON.stringify({
+          id: "gh1",
+          messages: [
+            {
+              internalDate: "1790237080000",
+              snippet: "Merged #128 into main.",
+              payload: {
+                headers: [
+                  { name: "Subject", value: "Re: [acme/widgets] Promote widgets into core (PR #128)" },
+                  { name: "In-Reply-To", value: "<acme/widgets/pull/128@github.com>" },
+                  { name: "X-GitHub-Reason", value: "review_requested" },
+                  { name: "X-GitHub-Sender", value: "octocat" },
+                  { name: "X-GitHub-PullRequestStatus", value: "merged" },
+                ],
+              },
+            },
+          ],
+        });
+      }
+      return JSON.stringify({
+        id: "mail1",
+        messages: [{ internalDate: "1790200000000", snippet: "Hi", payload: { headers: [{ name: "Subject", value: "Lunch?" }] } }],
+      });
+    };
+    return { run, calls };
+  }
+
+  async function loaded(gh: GhRunner = noGh) {
+    const gws = inbox();
+    const created = host({}, { gmailEnabled: true }, gws.run, gh);
+    await created.plugin(created.bb);
+    const list = await syncAndRead(created.harness);
+    return { ...created, gws, list };
+  }
+
+  test("gathers GitHub notifications into one row, with the state from the email when gh is missing", async () => {
+    const { list } = await loaded();
+
+    expect(list.items.map((item) => item.id)).toEqual(["github:acme/widgets#128", "gmail:mail1"]);
+    expect(list.items[0]).toMatchObject({
+      title: "Promote widgets into core",
+      description: "merged",
+      url: "https://github.com/acme/widgets/pull/128",
+      gmail: { threadIds: ["gh1"] },
+      github: { repo: "acme/widgets", number: 128, kind: "pull", state: "merged", reason: "review_requested" },
+    });
+  });
+
+  test("uses gh for the state when it can", async () => {
+    const gh: GhRunner = async (args) => {
+      expect(args.slice(0, 2)).toEqual(["api", "graphql"]);
+      return JSON.stringify({ data: { r0: { issueOrPullRequest: { __typename: "PullRequest", state: "OPEN", isDraft: false, reviewDecision: "APPROVED" } } } });
+    };
+    const { list } = await loaded(gh);
+
+    expect(list.items[0]?.github).toMatchObject({ state: "open", review: "approved" });
+  });
+
+  test("archives every thread of a row, and takes the row off the page", async () => {
+    const { harness, gws } = await loaded();
+
+    await expect(harness.behavior.callRpc("items_archive", { id: "github:acme/widgets#128" })).resolves.toEqual({
+      archived: true,
+      error: null,
+    });
+
+    const modify = gws.calls.find((args) => args.includes("modify"))!;
+    expect(JSON.parse(modify[modify.indexOf("--params") + 1]!)).toEqual({ userId: "me", id: "gh1" });
+    expect(JSON.parse(modify[modify.indexOf("--json") + 1]!)).toEqual({ removeLabelIds: ["INBOX"] });
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["gmail:mail1"]);
+  });
+
+  test("will not archive a Todoist task", async () => {
+    const { bb, harness, plugin } = host({
+      [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a")], next_cursor: null },
+      [PROJECTS_PATH]: PROJECTS,
+    });
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_archive", { id: "todoist:a" })).resolves.toMatchObject({ archived: false });
+  });
+
+  test("snoozes a row until the time given, and unsnoozes it", async () => {
+    const { harness } = await loaded();
+
+    await harness.behavior.callRpc("items_snooze", { id: "gmail:mail1", until: "2026-09-25T08:00:00.000Z" });
+    let listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["github:acme/widgets#128"]);
+    expect(listing.snoozed).toEqual([expect.objectContaining({ until: "2026-09-25T08:00:00.000Z" })]);
+
+    await harness.behavior.callRpc("items_unsnooze", { id: "gmail:mail1" });
+    listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.snoozed).toEqual([]);
+    expect(listing.list?.items).toHaveLength(2);
+  });
+
+  test("comments on the pull request through gh", async () => {
+    const posted: string[][] = [];
+    const gh: GhRunner = async (args) => {
+      if (args[1] === "graphql") return JSON.stringify({ data: {} });
+      posted.push(args);
+      return "https://github.com/acme/widgets/pull/128#issuecomment-1\n";
+    };
+    const { harness } = await loaded(gh);
+
+    await expect(
+      harness.behavior.callRpc("items_reply", { id: "github:acme/widgets#128", body: "Thanks, octocat!" }),
+    ).resolves.toEqual({ url: "https://github.com/acme/widgets/pull/128#issuecomment-1", error: null });
+    expect(posted[0]).toEqual([
+      "api", "repos/acme/widgets/issues/128/comments", "--method", "POST", "-f", "body=Thanks, octocat!", "--jq", ".html_url",
+    ]);
+  });
+
+  test("will not reply to a plain email", async () => {
+    const { harness } = await loaded();
+    await expect(harness.behavior.callRpc("items_reply", { id: "gmail:mail1", body: "Sure" })).resolves.toMatchObject({
+      url: null,
+    });
+  });
+
+  test("puts an archived row back in the inbox and on the page on undo", async () => {
+    const { harness, gws } = await loaded();
+    await harness.behavior.callRpc("items_archive", { id: "gmail:mail1" });
+
+    await expect(harness.behavior.callRpc("items_undo", { id: "gmail:mail1" })).resolves.toEqual({ restored: true, error: null });
+
+    const modifies = gws.calls.filter((args) => args.includes("modify")).map((args) => JSON.parse(args[args.indexOf("--json") + 1]!));
+    expect(modifies).toEqual([{ removeLabelIds: ["INBOX"] }, { addLabelIds: ["INBOX"] }]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["github:acme/widgets#128", "gmail:mail1"]);
+    await expect(harness.behavior.callRpc("items_undo", { id: "gmail:mail1" })).resolves.toMatchObject({ restored: false });
+  });
+});
+
+describe("completing a task", () => {
+  const ROUTES = {
+    [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a"), rawTask("b")], next_cursor: null },
+    [PROJECTS_PATH]: PROJECTS,
+    "POST /api/v1/tasks/a/close": null,
+    "POST /api/v1/tasks/a/reopen": null,
+  };
+
+  test("closes it in Todoist and takes the row off the page, and undo reopens it", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_complete", { id: "todoist:a" })).resolves.toEqual({
+      completed: true,
+      undoable: true,
+      error: null,
+    });
+    let listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:b"]);
+
+    await harness.behavior.callRpc("items_undo", { id: "todoist:a" });
+    listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:a", "todoist:b"]);
+
+    const posts = fetchImpl.mock.calls.filter(([, init]) => init?.method === "POST").map(([url]) => new URL(url).pathname);
+    expect(posts).toEqual(["/api/v1/tasks/a/close", "/api/v1/tasks/a/reopen"]);
+  });
+
+  test("offers no undo for a recurring task, which moved to its next date", async () => {
+    const { bb, harness, plugin } = host({
+      ...ROUTES,
+      [filterPath(DEFAULT_FILTER)]: {
+        results: [rawTask("a", { due: { date: "2026-09-24", is_recurring: true } })],
+        next_cursor: null,
+      },
+    });
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_complete", { id: "todoist:a" })).resolves.toMatchObject({ undoable: false });
+    await expect(harness.behavior.callRpc("items_undo", { id: "todoist:a" })).resolves.toMatchObject({ restored: false });
+  });
+
+  test("will not complete an email", async () => {
+    const { bb, harness, plugin } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.callRpc("items_complete", { id: "gmail:x" })).resolves.toMatchObject({ completed: false });
   });
 });

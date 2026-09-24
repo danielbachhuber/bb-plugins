@@ -21,6 +21,9 @@ export interface TodoistApi {
   /** Every open task matching a Todoist filter query. */
   filterTasks(query: string): Promise<unknown[]>;
   projects(): Promise<unknown[]>;
+  /** Completes a task; a recurring one moves to its next date. */
+  close(taskId: string): Promise<void>;
+  reopen(taskId: string): Promise<void>;
 }
 
 export interface TodoistApiOptions {
@@ -74,8 +77,18 @@ export function createTodoistApi(options: TodoistApiOptions): TodoistApi {
     return results;
   }
 
+  async function post(path: string): Promise<void> {
+    const response = await fetchImpl(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${options.token}` },
+    });
+    if (!response.ok) throw new TodoistError(await errorMessage(response), response.status);
+  }
+
   return {
     filterTasks: (query) => paginate("/tasks/filter", { query }),
     projects: () => paginate("/projects"),
+    close: (taskId) => post(`/tasks/${encodeURIComponent(taskId)}/close`),
+    reopen: (taskId) => post(`/tasks/${encodeURIComponent(taskId)}/reopen`),
   };
 }

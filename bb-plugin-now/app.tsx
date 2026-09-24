@@ -1,5 +1,5 @@
 // bb-plugin-now — the Now page: what needs doing now, from every source.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import { SyncStatus } from "@/components/ui/sync-status";
 import type { rpcContract } from "./server";
 import { SYNC_CHANNEL, type Listing } from "./now/contract.js";
 import { ItemListView } from "./now/item-list.js";
+import type { RowActions } from "./now/item-row.js";
 
 /** Opening the page syncs a stored list older than this. */
 const STALE_ON_OPEN_MS = 60_000;
@@ -58,8 +59,78 @@ function SyncHeader() {
   );
 }
 
+function messageOf(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * The row buttons, each one RPC. The quick ones say what they did in a toast
+ * with Undo, since a click can land on the wrong row. The page re-reads on the
+ * server's signal, so none of them touch local state.
+ */
+function useRowActions(rpc: ReturnType<typeof useListing>["rpc"]): RowActions {
+  return useMemo(() => {
+    const fail = (cause: unknown) => toast.error(messageOf(cause));
+    const undo = (id: string) => ({
+      label: "Undo",
+      onClick: () => {
+        rpc.call("items_undo", { id }).then((result) => {
+          if (result.error !== null) toast.error(result.error);
+        }, fail);
+      },
+    });
+
+    return {
+      onSnooze: (item, until) => {
+        rpc.call("items_snooze", { id: item.id, until }).then(() => {
+          const when = new Date(until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+          toast.success(`Snoozed until ${when}`, {
+            action: {
+              label: "Undo",
+              onClick: () => {
+                rpc.call("items_unsnooze", { id: item.id }).catch(fail);
+              },
+            },
+          });
+        }, fail);
+      },
+      onUnsnooze: (item) => {
+        rpc.call("items_unsnooze", { id: item.id }).catch(fail);
+      },
+      onArchive: (item) => {
+        rpc.call("items_archive", { id: item.id }).then((result) => {
+          if (result.error !== null) toast.error(result.error);
+          else toast.success("Archived", { action: undo(item.id) });
+        }, fail);
+      },
+      onComplete: (item) => {
+        rpc.call("items_complete", { id: item.id }).then((result) => {
+          if (result.error !== null) toast.error(result.error);
+          else if (result.undoable) toast.success(`Completed "${item.title}"`, { action: undo(item.id) });
+          else toast.success(`Completed "${item.title}". It recurs, so Todoist moved it to its next date.`);
+        }, fail);
+      },
+      onReply: async (item, body) => {
+        try {
+          const result = await rpc.call("items_reply", { id: item.id, body });
+          if (result.error !== null) {
+            toast.error(result.error);
+            return false;
+          }
+          toast.success(`Commented on ${item.github?.repo}#${item.github?.number}`);
+          return true;
+        } catch (cause) {
+          fail(cause);
+          return false;
+        }
+      },
+    };
+  }, [rpc]);
+}
+
 function NowPage() {
   const { listing, rpc } = useListing();
+  const actions = useRowActions(rpc);
 
   // Shows what is stored at once, and brings it up to date behind it. The
   // server skips this when the list is fresh, and joins a sync already running.
@@ -69,9 +140,22 @@ function NowPage() {
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
-      <ItemListView listing={listing} now={new Date()} />
+      <ItemListView listing={listing} now={new Date()} actions={actions} />
     </div>
   );
+}
+
+/**
+ * How many rows the page has, beside its name in the sidebar: everything the
+ * last sync found, less what is snoozed, which is what needs action. It
+ * re-reads on the same signal as the page, so completing, archiving, or
+ * snoozing a row lowers it at once.
+ */
+function NeedsActionCount() {
+  const { listing } = useListing();
+  const count = listing?.list?.items.length ?? 0;
+  if (count === 0) return null;
+  return <span className="text-xs tabular-nums text-muted-foreground">{count}</span>;
 }
 
 export default definePluginApp((app) => {
@@ -82,5 +166,6 @@ export default definePluginApp((app) => {
     path: "now",
     component: NowPage,
     headerContent: SyncHeader,
+    experimental_sidebarAccessory: NeedsActionCount,
   });
 });

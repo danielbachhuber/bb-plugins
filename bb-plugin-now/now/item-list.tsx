@@ -1,14 +1,14 @@
 // What the Now page draws, given a loaded list. It loads nothing itself, so
 // the story can render it with fixtures.
-import type { ReactNode } from "react";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { useState, type ReactNode } from "react";
 
-import { Icon, type IconName } from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
-import { describeActivity, describeDue, type DueTone } from "./due.js";
-import type { Item } from "./types.js";
+import { ItemRow, type RowActions } from "./item-row.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
@@ -19,79 +19,6 @@ function EmptyState({ children }: { children: ReactNode }) {
     >
       {children}
     </div>
-  );
-}
-
-const DUE_TONE: Record<DueTone, string> = {
-  overdue: "text-destructive-text",
-  today: "text-success",
-  upcoming: "text-muted-foreground",
-};
-
-/** Which source a row came from, drawn ahead of its details. */
-const SOURCE_ICON: Record<string, IconName | undefined> = {
-  todoist: "CircleCheck",
-  gmail: "Mail",
-};
-
-const PRIORITY: Record<1 | 2 | 3, string> = {
-  1: "border-destructive/40 text-destructive-text",
-  2: "border-warning/40 text-warning-text",
-  3: "border-border text-foreground",
-};
-
-function ItemRow({ item, now }: { item: Item; now: Date }) {
-  const due = item.due === null ? null : describeDue(item.due, now);
-  const deadline = item.deadline === null ? null : describeDue({ date: item.deadline, recurring: false }, now);
-  const activity = due === null && item.activityAt !== null ? describeActivity(item.activityAt, now) : null;
-  const sourceIcon = SOURCE_ICON[item.source];
-
-  return (
-    <li className="py-2.5 text-sm">
-      <div className="flex items-start gap-3">
-        <UrlLink href={item.url} className="min-w-0 flex-1 text-foreground hover:underline">
-          {item.title}
-        </UrlLink>
-        {item.priority === null ? null : (
-          <span
-            className={cn(
-              "mt-0.5 shrink-0 rounded border px-1.5 font-mono text-[11px] leading-4",
-              PRIORITY[item.priority],
-            )}
-          >
-            P{item.priority}
-          </span>
-        )}
-      </div>
-      {item.description === "" ? null : (
-        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
-      )}
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        {sourceIcon === undefined ? null : (
-          <Icon name={sourceIcon} className="size-3" aria-label={item.source} />
-        )}
-        {due === null ? null : (
-          <span className={cn("inline-flex items-center gap-1", DUE_TONE[due.tone])}>
-            <Icon name="Calendar" className="size-3" />
-            {due.text}
-            {item.due?.recurring ? (
-              <Icon name="Repeat" className="size-3" aria-label="Recurring" />
-            ) : null}
-          </span>
-        )}
-        {deadline === null ? null : (
-          <span className={cn("inline-flex items-center gap-1", DUE_TONE[deadline.tone])}>
-            <Icon name="Target" className="size-3" />
-            Deadline {deadline.text}
-          </span>
-        )}
-        {item.tags.map((tag) => (
-          <span key={tag}>@{tag}</span>
-        ))}
-        {activity === null ? null : <span>{activity}</span>}
-        {item.context === null ? null : <span className="ml-auto truncate">{item.context}</span>}
-      </div>
-    </li>
   );
 }
 
@@ -157,20 +84,25 @@ export interface ItemListViewProps {
   listing: Listing | null;
   /** Due dates read relative to this. */
   now: Date;
+  /** Without them the rows draw no action buttons. */
+  actions?: RowActions;
 }
 
 /**
  * The list as stored after the last sync. Refreshing lives in the page's
  * title bar, so this only draws.
  */
-export function ItemListView({ listing, now }: ItemListViewProps) {
+export function ItemListView({ listing, now, actions }: ItemListViewProps) {
+  const [showSnoozed, setShowSnoozed] = useState(false);
+  const snoozed = listing?.snoozed ?? [];
   const list = listing?.list ?? null;
   const sources = list?.sources ?? [];
   const loaded = sources.filter((source): source is LoadedSource => source.state === "ok");
   const problems = sources.filter((source): source is ProblemSource => source.state !== "ok");
 
   return (
-    <div className="mx-auto box-border w-full max-w-3xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
+    <TooltipProvider delayDuration={300}>
+    <div className="mx-auto box-border w-full max-w-6xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
       {loaded.length === 0 ? null : (
         <p className="flex flex-wrap gap-x-4 text-sm text-muted-foreground">
           {loaded.map((source) => (
@@ -199,11 +131,34 @@ export function ItemListView({ listing, now }: ItemListViewProps) {
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
             {list.items.map((item) => (
-              <ItemRow key={item.id} item={item} now={now} />
+              <ItemRow key={item.id} item={item} now={now} actions={actions} />
             ))}
           </ul>
         )}
       </div>
+
+      {snoozed.length === 0 ? null : (
+        <div className="mt-4">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs text-muted-foreground"
+            aria-expanded={showSnoozed}
+            onClick={() => setShowSnoozed((open) => !open)}
+          >
+            <Icon name={showSnoozed ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
+            {snoozed.length} snoozed
+          </Button>
+          {showSnoozed ? (
+            <ul className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4 opacity-80">
+              {snoozed.map(({ item, until }) => (
+                <ItemRow key={item.id} item={item} now={now} actions={actions} snoozedUntil={until} />
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      )}
     </div>
+    </TooltipProvider>
   );
 }

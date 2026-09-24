@@ -16,6 +16,8 @@ function item(id: string, overrides: Partial<Item> = {}): Item {
     context: null,
     tags: [],
     url: `https://example.com/${id}`,
+    gmail: null,
+    github: null,
     ...overrides,
   };
 }

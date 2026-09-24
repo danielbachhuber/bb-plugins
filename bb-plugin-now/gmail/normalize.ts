@@ -3,9 +3,9 @@ import type { Item } from "../now/types.js";
 
 export const SOURCE_ID = "gmail";
 
-type Raw = Record<string, unknown>;
+export type Raw = Record<string, unknown>;
 
-function isRecord(value: unknown): value is Raw {
+export function isRecord(value: unknown): value is Raw {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -29,7 +29,7 @@ export function senderName(from: string): string {
   return match[1]!.trim() || match[2]!.trim();
 }
 
-function header(message: Raw, name: string): string | null {
+export function header(message: Raw, name: string): string | null {
   const payload = message.payload;
   if (!isRecord(payload) || !Array.isArray(payload.headers)) return null;
   for (const entry of payload.headers) {
@@ -76,5 +76,7 @@ export function normalizeThread(raw: unknown, account: string | null): Item | nu
     context: from === null ? null : senderName(from),
     tags: [],
     url: threadUrl(raw.id, account),
+    gmail: { threadIds: [raw.id] },
+    github: null,
   };
 }

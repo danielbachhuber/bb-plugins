@@ -73,6 +73,8 @@ describe("normalizeThread", () => {
       context: "Octocat",
       tags: [],
       url: "https://mail.google.com/mail/#all/t1",
+      gmail: { threadIds: ["t1"] },
+      github: null,
     });
   });
 

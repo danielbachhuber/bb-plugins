@@ -7,6 +7,26 @@ export const dueSchema = z.object({
 });
 export type Due = z.infer<typeof dueSchema>;
 
+/** The Gmail threads a row stands for, which Archive takes out of the inbox. */
+export const gmailPartSchema = z.object({ threadIds: z.array(z.string()).min(1) });
+
+/** The pull request or issue a row of GitHub notifications is about. */
+export const githubPartSchema = z.object({
+  repo: z.string(),
+  number: z.number().int(),
+  kind: z.enum(["pull", "issue"]),
+  /** Its state now, from gh, or from the latest email when gh could not be asked. Null if neither said. */
+  state: z.enum(["open", "draft", "merged", "closed"]).nullable(),
+  review: z.enum(["approved", "changes_requested", "review_required"]).nullable(),
+  /** A closed issue's reason, which GitHub colors differently: done, or not planned. */
+  closedAs: z.enum(["completed", "not_planned"]).nullable().default(null),
+  /** Why GitHub notified you, from the latest email: `review_requested`, `mention`, `author`, … */
+  reason: z.string().nullable(),
+  /** The most recent thing someone wrote, from its email's snippet, so it may be cut short. */
+  comment: z.object({ author: z.string().nullable(), text: z.string() }).nullable().default(null),
+});
+export type GitHubPart = z.infer<typeof githubPartSchema>;
+
 /** One thing that needs doing, from whichever source it came from. */
 export const itemSchema = z.object({
   /** Unique across sources: `<source>:<the source's own id>`. */
@@ -26,5 +46,7 @@ export const itemSchema = z.object({
   context: z.string().nullable(),
   tags: z.array(z.string()),
   url: z.string(),
+  gmail: gmailPartSchema.nullable(),
+  github: githubPartSchema.nullable(),
 });
 export type Item = z.infer<typeof itemSchema>;

@@ -1,8 +1,10 @@
 // Gmail as a Now source: the threads matching one search, read through gws.
+import type { GitHubRef } from "../github/notifications.js";
+import type { GitHubState } from "../github/state.js";
 import type { Source, SourceResult } from "../now/sources.js";
-import type { Item } from "../now/types.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
-import { normalizeThread, SOURCE_ID } from "./normalize.js";
+import { githubRefs, inboxItems, METADATA_HEADERS } from "./inbox.js";
+import { SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_QUERY = "in:inbox";
 export const DEFAULT_MAX_THREADS = 25;
@@ -22,6 +24,13 @@ export interface GmailSourceOptions {
   maxThreads: number | undefined;
   /** The signed-in address, for links that open the right account. Null if unknown. */
   account: () => Promise<string | null>;
+  /**
+   * The current state of the pull requests and issues GitHub emailed about.
+   * Optional, and allowed to fail: the rows then use the state the latest
+   * email reported.
+   */
+  githubStates?: (refs: GitHubRef[]) => Promise<Map<string, GitHubState>>;
+  onWarn?: (message: string) => void;
 }
 
 /** Run `task` over `values`, at most `limit` at a time, keeping their order. */
@@ -69,14 +78,21 @@ export function gmailSource(options: GmailSourceOptions): Source {
         runJson<unknown>(options.run, [
           "gmail", "users", "threads", "get",
           "--params",
-          JSON.stringify({ userId: "me", id, format: "metadata", metadataHeaders: ["From", "Subject"] }),
+          JSON.stringify({ userId: "me", id, format: "metadata", metadataHeaders: METADATA_HEADERS }),
         ]),
       ),
     ]);
 
-    const items = threads
-      .map((thread) => normalizeThread(thread, account))
-      .filter((item): item is Item => item !== null);
+    const refs = githubRefs(threads);
+    let states = new Map<string, GitHubState>();
+    if (refs.length > 0 && options.githubStates !== undefined) {
+      try {
+        states = await options.githubStates(refs);
+      } catch (error) {
+        options.onWarn?.(`Could not look up GitHub states: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    const items = inboxItems(threads, account, states);
 
     return { status: { id: SOURCE_ID, name: NAME, state: "ok", query, count: items.length }, items };
   }

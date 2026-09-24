@@ -58,6 +58,8 @@ describe("normalizeTask", () => {
       context: "Widgets",
       tags: ["email"],
       url: "https://app.todoist.com/app/task/6XGgmFVcrG5RRjVr",
+      gmail: null,
+      github: null,
     });
   });
 

@@ -62,6 +62,8 @@ export function normalizeTask(raw: unknown, projectNames: ReadonlyMap<string, st
     context: projectId === null ? null : (projectNames.get(projectId) ?? null),
     tags: Array.isArray(raw.labels) ? raw.labels.filter((label) => typeof label === "string") : [],
     url: taskUrl(raw.id),
+    gmail: null,
+    github: null,
   };
 }
 

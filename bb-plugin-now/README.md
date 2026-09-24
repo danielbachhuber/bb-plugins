@@ -6,14 +6,17 @@ Gmail inbox.
 
 ## What it adds
 
-A **Now** page in the left sidebar. It loads every configured source at once
-and merges their items into one list: soonest due first (by due date or
-deadline, whichever is sooner), most urgent first within a day, and undated
-items last, newest activity first. Each row has an icon for its source, the
-item's title (linking to it in its source), description, due date, deadline,
-tags, where it came from (a Todoist project, or an email's sender), and a
-P1–P3 tag. Overdue dates are red and today's are green; a recurring item has a
-repeat icon. An email shows when its latest message arrived.
+A **Now** page in the left sidebar, whose entry shows how many rows need
+action: everything the last sync found, less what is snoozed. It loads every
+configured source at once and merges their items into one list: soonest due
+first (by due date or deadline, whichever is sooner), most urgent first within
+a day, and undated items last, newest activity first. Each row starts with a
+column holding its source's icon and its date: when it is due, else its
+deadline, else when its latest email arrived. Beside that are the item's title
+(linking to it in its source), description, and a details line with the row's
+own action, tags, and where it came from (a Todoist project, or an email's
+sender), with a P1–P3 tag beside the title. Overdue dates are red and today's
+are green; a recurring item has a repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last
 sync's items at once instead of waiting on Todoist and Gmail. It syncs in the
@@ -27,8 +30,36 @@ configure, and a source that failed shows its error. Either way the other
 sources' items still appear, and a failed source keeps its items from the last
 good sync, with a note saying how many.
 
-The page only reads. Completing or editing an item still happens in its
-source.
+## Row actions
+
+- **Complete** (on a Todoist row, in its details line) completes the task in
+  Todoist and takes the row off the page.
+- **Archive** (on an email row, in its details line) takes the row's threads
+  out of the Gmail inbox and the row off the page. On a GitHub row whose pull
+  request has merged or closed, or whose issue has closed, it is tinted purple
+  and says so, to suggest it.
+- **Snooze** (the pause icon, at the right of every row) hides the row until
+  later today (three hours), tomorrow at 8:00, or next Monday at 8:00. The
+  snooze is kept in this plugin's database; nothing changes in Todoist or
+  Gmail. A snoozed row comes back early if it has newer activity, such as a
+  new comment on a snoozed pull request. Snoozed rows are listed, closed, under
+  the rest, where each can be unsnoozed.
+
+Each of these says what it did in a toast with **Undo**, which reopens the
+task, puts the threads back in the inbox, or ends the snooze, and returns the
+row to where it was. A recurring task is the exception: completing it moves
+it to its next date, and Todoist cannot move it back, so its toast says so
+instead of offering Undo. Undo is for the moment after the click; it does not
+survive a reload of the plugin.
+
+A GitHub row also has **Reply** in its details line, which opens a box under
+the row that comments on the pull request or issue through the GitHub API, as
+you. ⌘↩ sends it. Above the details line, the row quotes the most recent thing
+someone wrote, taken from its email's snippet, so a long comment arrives
+already cut short.
+
+Completing or editing a Todoist task still happens in Todoist, and replying
+to an email that is not from GitHub still happens in Gmail.
 
 ## Sources
 
@@ -79,6 +110,28 @@ Each thread is one row: the first message's subject, and the latest
 message's sender, snippet, and time. The link opens the thread in Gmail's web
 app, in the account `gws` is signed into.
 
+GitHub's notification emails are gathered into one row per pull request or
+issue, however many threads they arrive in. The row is recognized from the
+email's headers (`X-GitHub-Reason`, and the `owner/repo/pull/N` in
+`In-Reply-To`), so a person's email that only links to GitHub stays an email.
+Its title is the pull request's, its link goes to GitHub, and its description
+summarizes the notifications from their fixed phrasings: "3 comments from
+octocat, hubber · review requested by octocat · approved by hubber · merged".
+Beside the title it shows what the pull request is waiting on (review
+requested, changes requested, approved) and its state in GitHub's own colors:
+open, draft, merged, or closed, and for an issue, closed as completed or as not
+planned.
+
+That state comes from `gh`, asked about every pull request and issue in one
+GraphQL query per sync, because an email only says what was true when it was
+sent: a pull request merged without a "Merged" email would otherwise still
+read as open. When `gh` is missing or fails, the row uses the
+`X-GitHub-PullRequestStatus` of its latest email instead.
+
+```sh
+bb plugin config now set ghPath /opt/homebrew/bin/gh   # when gh is not on bb's PATH
+```
+
 One sync runs `gws gmail users threads list` with the search, then
 `threads get` for each thread's headers, five at a time. The signed-in
 address is asked for once per plugin load, for the links. If `gws` is
@@ -107,8 +160,10 @@ list `server.ts` passes to `loadSources`.
 | `now/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
 | `now/items.ts` | The order the merged list is in |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
-| `now/contract.ts` | The RPC contract: `items_list` reads the stored list, `items_sync` syncs |
-| `now/store.ts` | The database tables and the stored list's reads and writes |
+| `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
+| `now/store.ts` | The database tables: the stored list, and snoozes |
+| `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
+| `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items |
@@ -116,6 +171,10 @@ list `server.ts` passes to `loadSources`.
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |
 | `gmail/source.ts` | Gmail as a `Source`: the thread search and each thread's headers |
+| `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue |
+| `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
+| `github/state.ts` | The GraphQL query for every reference's state, and reading its answer |
+| `github/gh.ts` | The only module that runs `gh`: the state query and posting a comment |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page and its title-bar sync control, which read the stored list and sync on open |

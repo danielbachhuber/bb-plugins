@@ -18,6 +18,8 @@ function item(id: string, date: string): Item {
     context: null,
     tags: [],
     url: `https://example.com/${id}`,
+    gmail: null,
+    github: null,
   };
 }
 
