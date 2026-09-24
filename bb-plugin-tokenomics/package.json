@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "Graphs how many tokens your threads used over the past day, three days, or week, lists each thread's share, and puts a sparkline of each thread's turns in its header that opens a summary of where its tokens went.",
+    "description": "Graphs how many tokens your threads used over the past day, three days, or week, lists each thread's share, and puts a sparkline of each thread's token use over time in its header that opens a summary of which of your messages used the most.",
     "branding": {
       "icon": "ChartColumn"
     },

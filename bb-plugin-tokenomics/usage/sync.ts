@@ -1,7 +1,9 @@
-// Copies token usage from bb's thread events into the ledger. The only module
-// that talks to bb; the store and the arithmetic stay pure.
+// Copies token usage from bb's thread events into the ledger, and reads the
+// turns that usage belongs to. The only module that talks to bb; the store and
+// the arithmetic stay pure.
 import { splitBreakdown, type ProviderTokenBreakdown } from "./breakdown.js";
 import type { Store, ThreadInfo, UsageRow } from "./store.js";
+import type { OutlineItem, TurnEvent } from "./turns.js";
 
 export const TOKEN_USAGE_EVENT = "thread/tokenUsage/updated";
 
@@ -26,8 +28,17 @@ export interface UsageEventLike {
   data: unknown;
 }
 
+export type TurnEventType = "turn/started" | "turn/completed";
+
 export interface EventSource {
   listUsage(args: { threadId: string; afterSeq: number | null; limit: number }): Promise<UsageEventLike[]>;
+  listTurnEvents?(args: {
+    threadId: string;
+    type: TurnEventType;
+    afterSeq: number | null;
+    limit: number;
+  }): Promise<Array<{ seq: number; createdAt: number; scope: { kind: string; turnId?: string } }>>;
+  outline?(threadId: string): Promise<OutlineItem[]>;
   listThreads(args: { archived: boolean; offset: number; limit: number }): Promise<ThreadLike[]>;
 }
 
@@ -125,5 +136,30 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
     return changed;
   }
 
-  return { syncThread, syncAll };
+  /** Every start or end of a turn in the thread, oldest first. */
+  async function turnEvents(threadId: string, type: TurnEventType): Promise<TurnEvent[]> {
+    if (source.listTurnEvents === undefined) return [];
+    const found: TurnEvent[] = [];
+    let cursor: number | null = null;
+    for (;;) {
+      const events = await source.listTurnEvents({ threadId, type, afterSeq: cursor, limit: PAGE_SIZE });
+      for (const event of events) {
+        if (event.scope.turnId !== undefined) found.push({ turnId: event.scope.turnId, at: event.createdAt });
+      }
+      if (events.length < PAGE_SIZE) return found;
+      cursor = events.at(-1)!.seq;
+    }
+  }
+
+  /** What `attributeUsage` needs from bb for one thread. */
+  async function turnContext(threadId: string) {
+    const [started, completed, outline] = await Promise.all([
+      turnEvents(threadId, "turn/started"),
+      turnEvents(threadId, "turn/completed"),
+      source.outline?.(threadId) ?? Promise.resolve([]),
+    ]);
+    return { started, completed, outline };
+  }
+
+  return { syncThread, syncAll, turnContext };
 }

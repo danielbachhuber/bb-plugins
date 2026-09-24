@@ -30,7 +30,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you, oldest request first. Needs gh-context. |
 | `bb-plugin-thread-overview` | `thread-overview` | A band under each thread's header saying what the thread is for, what has been done so far, and which step it is on, written by the agent as it works and edited by you in place. |
-| `bb-plugin-tokenomics` | `tokenomics` | Graphs how many tokens your threads used over the past day, three days, or week, lists each thread's share, and puts a sparkline of each thread's turns in its header that opens a summary of where its tokens went. |
+| `bb-plugin-tokenomics` | `tokenomics` | Graphs how many tokens your threads used over the past day, three days, or week, lists each thread's share, and puts a sparkline of each thread's token use over time in its header that opens a summary of which of your messages used the most. |
 | `bb-plugin-thread-todos` | `thread-todos` | Forwards bb todo and the todo tools to Thread Overview for threads started before it replaced this plugin; uninstall once none of them are still running. |
 | `bb-plugin-weekly-review` | `weekly-review` | One page of what you actually did this week, to write the journal entry from. |
 

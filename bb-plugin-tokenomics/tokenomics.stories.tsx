@@ -3,7 +3,7 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
 import { ThreadTokenCount, ThreadTokenSummary, type ThreadTokens } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
-import type { ThreadUsage } from "./usage/contract";
+import type { ThreadUsage, TurnDetail } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
 export default {
@@ -94,14 +94,34 @@ export const Empty = () => (
   />
 );
 
-/** Invented turns: a slow start, a long stretch of heavy work, a quick finish. */
-function fixtureTurns(count: number, start: number) {
+/** Invented messages, one per turn, for the summary's hover and biggest turns. */
+const PROMPTS = [
+  "Add a CSV export to the widgets report",
+  "Run the whole test suite and fix whatever fails",
+  "Why is the export slow on big reports?",
+  "Rename exportRows to buildExportRows everywhere",
+  "Read every file under src/ and summarize the architecture",
+  "Looks good, commit it",
+  "2 images",
+  "Now do the same for the gadgets report",
+];
+
+/** Invented turns: a quick start, one heavy stretch after a lunch gap, a quick finish. */
+function fixtureTurns(count: number, start: number): TurnDetail[] {
+  let at = start;
   return Array.from({ length: count }, (_, index) => {
     const wobble = 0.35 + ((index * 7919) % 97) / 97;
-    const heavy = index > count * 0.3 && index < count * 0.8 ? 2.2 : 1;
-    const cacheRead = Math.round(1_600_000 * wobble * heavy);
+    const heavy = index === Math.floor(count * 0.6) ? 5 : index > count * 0.4 && index < count * 0.8 ? 2 : 1;
+    const minutes = heavy >= 2 ? 14 : 4;
+    const startedAt = at;
+    at += (minutes + (index === Math.floor(count / 3) ? 55 : 3)) * 60_000;
+    const cacheRead = Math.round(1_200_000 * wobble * heavy);
     return {
-      at: start + index * 11 * 60_000,
+      turnId: `t${index + 1}`,
+      startedAt,
+      endedAt: startedAt + minutes * 60_000,
+      usageAt: startedAt + minutes * 60_000,
+      prompt: index === count - 2 ? null : PROMPTS[index % PROMPTS.length]!,
       input: Math.round(cacheRead * 0.013),
       cacheRead,
       output: Math.round(cacheRead * 0.0037),
@@ -109,7 +129,7 @@ function fixtureTurns(count: number, start: number) {
   });
 }
 
-function usageOf(turns: ReturnType<typeof fixtureTurns>, pruned = 0): ThreadTokens {
+function usageOf(turns: TurnDetail[], pruned = 0): ThreadTokens {
   const sum = turns.reduce(
     (acc, turn) => ({
       input: acc.input + turn.input,
@@ -118,39 +138,54 @@ function usageOf(turns: ReturnType<typeof fixtureTurns>, pruned = 0): ThreadToke
     }),
     { input: 0, cacheRead: 0, output: 0 },
   );
-  return { ...sum, total: sum.input + sum.cacheRead + sum.output + pruned, turns: turns.length, recent: turns };
+  return {
+    ...sum,
+    total: sum.input + sum.cacheRead + sum.output + pruned,
+    turns: turns.length,
+    recent: turns.map((turn) => ({ at: turn.usageAt, input: turn.input, cacheRead: turn.cacheRead, output: turn.output })),
+  };
 }
 
-const LONG = usageOf(fixtureTurns(18, NOW.getTime() - 4 * HOUR));
-const PRUNED = usageOf(fixtureTurns(6, NOW.getTime() - HOUR), 12_480_000);
-const SHORT = usageOf(fixtureTurns(1, NOW.getTime() - 5 * 60_000));
+const LONG_TURNS = fixtureTurns(18, NOW.getTime() - 5 * HOUR);
+const LONG = usageOf(LONG_TURNS);
+const PRUNED_TURNS = fixtureTurns(6, NOW.getTime() - 2 * HOUR);
+const PRUNED = usageOf(PRUNED_TURNS, 12_480_000);
+const SHORT_TURNS = fixtureTurns(1, NOW.getTime() - 5 * 60_000);
+const SHORT = usageOf(SHORT_TURNS);
 
 export const HeaderCount = () => (
   <StoryCard>
-    <StoryRow label="a long thread" hint="click to open the summary">
-      <ThreadTokenCount usage={LONG} onOpenPage={() => undefined} />
+    <StoryRow label="a long thread" hint="token use over time; click to open the summary">
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} />
     </StoryRow>
-    <StoryRow label="a short thread">
-      <ThreadTokenCount usage={SHORT} onOpenPage={() => undefined} />
+    <StoryRow label="a short thread" hint="one turn, a thin bar at the right">
+      <ThreadTokenCount usage={SHORT} turns={SHORT_TURNS} onOpenPage={() => undefined} />
     </StoryRow>
     <StoryRow label="compact viewport" hint="the sparkline drops out">
-      <ThreadTokenCount usage={LONG} isCompactViewport onOpenPage={() => undefined} />
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} isCompactViewport onOpenPage={() => undefined} />
     </StoryRow>
   </StoryCard>
 );
 
+function Summary({ usage, turns }: { usage: ThreadTokens; turns: TurnDetail[] | null }) {
+  return (
+    <div className="w-[400px] rounded-md border border-border bg-popover p-4">
+      <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={() => undefined} />
+    </div>
+  );
+}
+
 /** The popover's contents, drawn open. */
 export const HeaderSummary = () => (
   <StoryCard>
-    <StoryRow label="a long thread" hint="hover the turns; the line below follows">
-      <div className="w-[368px] rounded-md border border-border bg-popover p-4">
-        <ThreadTokenSummary usage={LONG} onOpenPage={() => undefined} />
-      </div>
+    <StoryRow label="a long thread" hint="hover a bar for the messages behind it">
+      <Summary usage={LONG} turns={LONG_TURNS} />
+    </StoryRow>
+    <StoryRow label="loading the turns" hint="the chart draws the recorded usage until the messages arrive">
+      <Summary usage={LONG} turns={null} />
     </StoryRow>
     <StoryRow label="earlier turns pruned" hint="the provider's running total covers what bb deleted">
-      <div className="w-[368px] rounded-md border border-border bg-popover p-4">
-        <ThreadTokenSummary usage={PRUNED} onOpenPage={() => undefined} />
-      </div>
+      <Summary usage={PRUNED} turns={PRUNED_TURNS} />
     </StoryRow>
   </StoryCard>
 );

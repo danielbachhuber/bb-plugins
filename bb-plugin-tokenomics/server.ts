@@ -1,9 +1,10 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { MAX_TURNS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
+import { attributeUsage, promptsByTurn } from "./usage/turns.js";
 
 export { rpcContract } from "./usage/contract.js";
 
@@ -26,6 +27,18 @@ export default async function plugin(bb: BbPluginApi) {
         limit: String(limit),
         ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),
       });
+    },
+    async listTurnEvents({ threadId, type, afterSeq, limit }) {
+      return bb.sdk.threads.events.list({
+        threadId,
+        types: [type],
+        order: "asc",
+        limit: String(limit),
+        ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),
+      });
+    },
+    async outline(threadId) {
+      return (await bb.sdk.threads.conversationOutline({ threadId })).items;
     },
     async listThreads({ archived, offset, limit }) {
       return bb.sdk.threads.list({ archived, includeHidden: true, offset, limit });
@@ -87,7 +100,12 @@ export default async function plugin(bb: BbPluginApi) {
     },
     thread_usage: ({ threadId }) => {
       const { tokens, total, turns } = store.threadTotal(threadId);
-      return { ...tokens, total, turns, recent: store.threadTurns(threadId, MAX_TURNS) };
+      return { ...tokens, total, turns, recent: store.threadRows(threadId, MAX_ROWS) };
+    },
+    thread_turns: async ({ threadId }) => {
+      const { started, completed, outline } = await sync.turnContext(threadId);
+      const rows = store.threadRows(threadId, MAX_ROWS);
+      return { turns: attributeUsage(rows, started, completed, promptsByTurn(outline)) };
     },
   });
 }

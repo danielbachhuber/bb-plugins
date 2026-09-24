@@ -99,3 +99,47 @@ export function niceTicks(max: number, count = 4): number[] {
   while (ticks.at(-1)! < max) ticks.push(ticks.length * step);
   return ticks;
 }
+
+const MINUTE = 60_000;
+/** Bucket sizes a thread's chart picks from, smallest first. */
+const BUCKET_SIZES = [1, 5, 15, 30, 60, 180, 360, 720, 1440].map((minutes) => minutes * MINUTE);
+
+export interface TimeBucket extends Tokens {
+  start: number;
+  end: number;
+  /** Indexes into the items that fell in this bucket. */
+  items: number[];
+}
+
+/**
+ * Buckets items by time over [from, to], using the smallest round size that
+ * keeps the count at or under `maxBuckets`. Buckets start on local clock
+ * boundaries, so a 15-minute bucket starts at :00, :15, :30, or :45.
+ */
+export function timeBuckets<T extends Tokens>(
+  items: readonly T[],
+  timeOf: (item: T) => number,
+  from: number,
+  to: number,
+  maxBuckets: number,
+): TimeBucket[] {
+  const span = Math.max(0, to - from);
+  const size = BUCKET_SIZES.find((candidate) => span / candidate < maxBuckets) ?? BUCKET_SIZES.at(-1)!;
+  const offset = new Date(from).getTimezoneOffset() * MINUTE;
+  const floor = (time: number) => Math.floor((time - offset) / size) * size + offset;
+  const first = floor(from);
+  const count = Math.floor((floor(to) - first) / size) + 1;
+  const buckets: TimeBucket[] = Array.from({ length: count }, (_, index) => ({
+    start: first + index * size,
+    end: first + (index + 1) * size,
+    items: [],
+    ...ZERO_TOKENS,
+  }));
+  items.forEach((item, index) => {
+    const bucket = buckets[Math.floor((floor(timeOf(item)) - first) / size)];
+    if (bucket === undefined) return;
+    Object.assign(bucket, addTokens(bucket, item));
+    bucket.items.push(index);
+  });
+  return buckets;
+}

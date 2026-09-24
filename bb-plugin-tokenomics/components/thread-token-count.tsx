@@ -1,75 +1,77 @@
 // The thread header's token count: a button with a sparkline of the thread's
-// recent turns, opening a summary of where its tokens went. Display only.
+// token use over time, opening a summary of when its tokens went and which of
+// your messages set them off. Display only.
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { totalOf } from "@/usage/breakdown";
-import type { TurnUsage } from "@/usage/contract";
-import { formatTokens } from "@/usage/series";
+import { totalOf, type Tokens } from "@/usage/breakdown";
+import type { TurnDetail, UsageAt } from "@/usage/contract";
+import { formatTokens, timeBuckets, type TimeBucket } from "@/usage/series";
 
 import { PARTS } from "./usage-chart";
 
-export interface ThreadTokens {
-  input: number;
-  cacheRead: number;
-  output: number;
+export interface ThreadTokens extends Tokens {
   total: number;
   turns: number;
-  /** The latest turns, oldest first. */
-  recent: TurnUsage[];
+  /** The latest usage rows, oldest first. */
+  recent: UsageAt[];
 }
 
-/** Turns the header's sparkline draws; the summary draws all of `recent`. */
-const SPARK_TURNS = 24;
+/** Buckets in the header's sparkline and the summary's chart. */
+const SPARK_BUCKETS = 20;
+const CHART_BUCKETS = 36;
+/** Turns the summary names under "Biggest turns". */
+const BIGGEST = 3;
 
 /**
- * One bar per turn, scaled to the largest, in the current text color. It
- * draws each turn's total, so it stays neutral rather than taking the color of
- * one of the three parts.
+ * One bar per time bucket, scaled to the largest, in the current text color.
+ * It draws each bucket's total, so it stays neutral rather than taking the
+ * color of one of the three parts. An empty bucket draws nothing, so idle
+ * stretches read as gaps.
  */
 function Spark({
-  turns,
+  buckets,
   width,
   height,
   gap,
-  maxSlot = Infinity,
   active,
   onHover,
 }: {
-  turns: readonly TurnUsage[];
+  buckets: readonly TimeBucket[];
   width: number;
   height: number;
   gap: number;
-  /** The widest a turn's slot gets; fewer turns than fill the width sit at the right, newest last. */
-  maxSlot?: number;
   active?: number | null;
   onHover?: (index: number | null) => void;
 }) {
-  const most = Math.max(1, ...turns.map(totalOf));
-  const slot = turns.length === 0 ? 0 : Math.min(maxSlot, width / turns.length);
+  const most = Math.max(1, ...buckets.map(totalOf));
+  const slot = buckets.length === 0 ? 0 : width / buckets.length;
   const barWidth = Math.max(1, slot - gap);
-  const offset = width - slot * turns.length;
   return (
     <svg width={width} height={height} aria-hidden className="shrink-0" onMouseLeave={() => onHover?.(null)}>
-      {turns.map((turn, index) => {
-        // A turn too small to see still gets one pixel, so every turn shows.
-        const barHeight = Math.max(1, (totalOf(turn) / most) * height);
+      <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="currentColor" opacity={0.2} />
+      {buckets.map((bucket, index) => {
+        const total = totalOf(bucket);
+        // A bucket too small to see still gets one pixel, so every busy stretch shows.
+        const barHeight = total === 0 ? 0 : Math.max(1, (total / most) * height);
         return (
-          <g key={`${turn.at}-${index}`}>
-            <rect
-              x={offset + index * slot}
-              y={height - barHeight}
-              width={barWidth}
-              height={barHeight}
-              rx={Math.min(1, barWidth / 2)}
-              fill="currentColor"
-              opacity={active === undefined || active === null || active === index ? 1 : 0.45}
-            />
+          <g key={bucket.start}>
+            {barHeight === 0 ? null : (
+              <rect
+                x={index * slot}
+                y={height - barHeight}
+                width={barWidth}
+                height={barHeight}
+                rx={Math.min(1, barWidth / 2)}
+                fill="currentColor"
+                opacity={active === undefined || active === null || active === index ? 1 : 0.45}
+              />
+            )}
             {onHover === undefined ? null : (
               <rect
-                x={offset + index * slot}
+                x={index * slot}
                 y={0}
                 width={slot}
                 height={height}
@@ -84,16 +86,23 @@ function Spark({
   );
 }
 
-function when(time: number): string {
-  return new Date(time).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+function day(time: number): string {
+  return new Date(time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
+function clock(time: number): string {
+  return new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 /** "Thu, Sep 24, 10:20 AM to 1:27 PM", naming the day once when both fall on it. */
 export function spanLabel(first: number, last: number): string {
-  const day = (time: number) => new Date(time).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
-  const clock = (time: number) => new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   if (day(first) === day(last)) return `${day(first)}, ${clock(first)} to ${clock(last)}`;
   return `${day(first)}, ${clock(first)} to ${day(last)}, ${clock(last)}`;
+}
+
+/** A clock time, with the day in front when it is not the day `reference` falls on. */
+function timeLabel(time: number, reference: number): string {
+  return day(time) === day(reference) ? clock(time) : `${day(time)}, ${clock(time)}`;
 }
 
 function percent(part: number, total: number): string {
@@ -102,18 +111,84 @@ function percent(part: number, total: number): string {
   return value > 0 && value < 1 ? "<1%" : `${Math.round(value)}%`;
 }
 
-export function ThreadTokenSummary({ usage, onOpenPage }: { usage: ThreadTokens; onOpenPage?: () => void }) {
+function duration(turn: TurnDetail): string | null {
+  if (turn.endedAt === null) return "still running";
+  const minutes = Math.round((turn.endedAt - turn.startedAt) / 60_000);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hr ${minutes % 60} min`;
+}
+
+/**
+ * The start of a chart ending at `to`: `from`, or earlier when that would give
+ * fewer than `count` one-minute buckets. A thread whose usage all landed at
+ * once then draws a thin bar at the right, not one bar the chart's width.
+ */
+function paddedFrom(from: number, to: number, count: number): number {
+  return Math.min(from, to - (count - 1) * 60_000);
+}
+
+/** The header sparkline's buckets: the recorded rows, up to the last. */
+export function sparkBuckets(recent: readonly UsageAt[]): TimeBucket[] {
+  const first = recent[0];
+  const last = recent.at(-1);
+  if (first === undefined || last === undefined) return [];
+  return timeBuckets(recent, (row) => row.at, paddedFrom(first.at, last.at, SPARK_BUCKETS), last.at, SPARK_BUCKETS);
+}
+
+function TurnLine({ turn, total, reference }: { turn: TurnDetail; total: number; reference: number }) {
+  const tokens = totalOf(turn);
+  const meta = [timeLabel(turn.startedAt, reference), duration(turn), `${percent(tokens, total)} of the thread`];
+  return (
+    <li className="flex gap-3 text-xs">
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate", turn.prompt === null && "text-muted-foreground")}>
+          {turn.prompt ?? (turn.turnId === null ? "Before the first recorded turn" : "Continued without a new message")}
+        </span>
+        <span className="block truncate text-muted-foreground">{meta.join(" · ")}</span>
+      </span>
+      <span className="shrink-0 tabular-nums">{formatTokens(tokens)}</span>
+    </li>
+  );
+}
+
+export function ThreadTokenSummary({
+  usage,
+  turns,
+  onOpenPage,
+}: {
+  usage: ThreadTokens;
+  /** Null while the turns are loading. */
+  turns: TurnDetail[] | null;
+  onOpenPage?: () => void;
+}) {
   const [hovered, setHovered] = useState<number | null>(null);
   const recorded = totalOf(usage);
-  const largestIndex = usage.recent.reduce(
-    (best, turn, index) => (totalOf(turn) > totalOf(usage.recent[best]!) ? index : best),
-    0,
-  );
-  const shownIndex = hovered ?? largestIndex;
-  const shown = usage.recent[shownIndex];
   const unrecorded = usage.total - recorded;
   const first = usage.recent[0];
   const last = usage.recent.at(-1);
+
+  // Until the turns load, the chart draws the recorded rows on their own.
+  const start = turns?.[0]?.startedAt ?? first?.at;
+  const to = turns === null ? last?.at : turns.reduce((latest, turn) => Math.max(latest, turn.usageAt), start ?? 0);
+  const from = start === undefined || to === undefined ? undefined : paddedFrom(start, to, CHART_BUCKETS);
+  const buckets =
+    from === undefined || to === undefined
+      ? []
+      : turns === null
+        ? timeBuckets(usage.recent, (row) => row.at, from, to, CHART_BUCKETS)
+        : timeBuckets(turns, (turn) => turn.usageAt, from, to, CHART_BUCKETS);
+  const hoveredBucket = hovered === null ? undefined : buckets[hovered];
+  const biggest = turns === null ? [] : [...turns].sort((a, b) => totalOf(b) - totalOf(a)).slice(0, BIGGEST);
+  const inBucket =
+    hoveredBucket === undefined || turns === null
+      ? []
+      : hoveredBucket.items
+          .map((index) => turns[index]!)
+          .filter((turn) => totalOf(turn) > 0)
+          .sort((a, b) => totalOf(b) - totalOf(a))
+          .slice(0, BIGGEST);
 
   return (
     <div className="space-y-4 text-sm">
@@ -125,11 +200,65 @@ export function ThreadTokenSummary({ usage, onOpenPage }: { usage: ThreadTokens;
           </span>
         </p>
         {first === undefined || last === undefined ? null : (
-          <p className="text-xs text-muted-foreground">
-            {spanLabel(first.at, last.at)}
-          </p>
+          <p className="text-xs text-muted-foreground">{spanLabel(start ?? first.at, last.at)}</p>
         )}
       </div>
+
+      {buckets.length === 0 || from === undefined || to === undefined ? null : (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium">Tokens over time</p>
+          <div className="text-foreground/70">
+            <Spark
+              buckets={buckets}
+              width={368}
+              height={64}
+              gap={buckets.length > 24 ? 1 : 2}
+              active={hovered}
+              onHover={setHovered}
+            />
+          </div>
+          <p className="flex text-[11px] text-muted-foreground">
+            <span className="flex-1">{clock(from)}</span>
+            <span>{timeLabel(to, from)}</span>
+          </p>
+          <div className="min-h-[52px] rounded-md bg-muted/50 px-2.5 py-2">
+            {hoveredBucket === undefined ? (
+              <p className="text-xs text-muted-foreground">Hover a bar to see the messages behind it.</p>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="flex text-xs font-medium">
+                  <span className="flex-1">
+                    {timeLabel(hoveredBucket.start, from)} to {clock(hoveredBucket.end)}
+                  </span>
+                  <span className="tabular-nums">{formatTokens(totalOf(hoveredBucket))}</span>
+                </p>
+                {totalOf(hoveredBucket) === 0 ? (
+                  <p className="text-xs text-muted-foreground">No tokens used.</p>
+                ) : turns === null ? (
+                  <p className="text-xs text-muted-foreground">Loading the messages…</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {inBucket.map((turn) => (
+                      <TurnLine key={turn.turnId ?? "before"} turn={turn} total={usage.total} reference={from} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {turns === null || biggest.length < 2 ? null : (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium">Biggest turns</p>
+          <ul className="space-y-1.5">
+            {biggest.map((turn) => (
+              <TurnLine key={turn.turnId ?? "before"} turn={turn} total={usage.total} reference={from ?? turn.startedAt} />
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden>
@@ -154,32 +283,6 @@ export function ThreadTokenSummary({ usage, onOpenPage }: { usage: ThreadTokens;
         ) : null}
       </div>
 
-      {usage.recent.length === 0 ? null : (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium">
-            Tokens per turn
-            {usage.recent.length < usage.turns ? (
-              <span className="font-normal text-muted-foreground"> · latest {usage.recent.length}</span>
-            ) : null}
-          </p>
-          <div className="text-foreground/70">
-            <Spark turns={usage.recent} width={336} height={56} gap={usage.recent.length > 80 ? 0.5 : 2} maxSlot={24} active={hovered} onHover={setHovered} />
-          </div>
-          {shown === undefined ? null : (
-            <p className="flex text-xs">
-              <span className="flex-1 text-muted-foreground">
-                {hovered === null ? "Largest turn" : "Turn"} at {when(shown.at)}
-              </span>
-              <span className="tabular-nums">{formatTokens(totalOf(shown))}</span>
-            </p>
-          )}
-          <p className="flex text-xs">
-            <span className="flex-1 text-muted-foreground">Average per turn</span>
-            <span className="tabular-nums">{formatTokens(usage.turns === 0 ? 0 : recorded / usage.turns)}</span>
-          </p>
-        </div>
-      )}
-
       {onOpenPage === undefined ? null : (
         <Button variant="outline" size="sm" className="w-full" onClick={onOpenPage}>
           Open Tokenomics
@@ -191,15 +294,20 @@ export function ThreadTokenSummary({ usage, onOpenPage }: { usage: ThreadTokens;
 
 export function ThreadTokenCount({
   usage,
+  turns,
+  onOpen,
   onOpenPage,
   isCompactViewport = false,
 }: {
   usage: ThreadTokens;
+  turns: TurnDetail[] | null;
+  /** Called when the summary opens, so the turns load only when wanted. */
+  onOpen?: () => void;
   onOpenPage?: () => void;
   isCompactViewport?: boolean;
 }) {
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -209,15 +317,15 @@ export function ThreadTokenCount({
         >
           {isCompactViewport ? null : (
             <span className="text-muted-foreground">
-              <Spark turns={usage.recent.slice(-SPARK_TURNS)} width={40} height={14} gap={1} maxSlot={4} />
+              <Spark buckets={sparkBuckets(usage.recent)} width={40} height={14} gap={1} />
             </span>
           )}
           <span>{formatTokens(usage.total)}</span>
           <span className="text-muted-foreground">tokens</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[368px] p-4">
-        <ThreadTokenSummary usage={usage} onOpenPage={onOpenPage} />
+      <PopoverContent align="end" className="w-[400px] p-4">
+        <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={onOpenPage} />
       </PopoverContent>
     </Popover>
   );

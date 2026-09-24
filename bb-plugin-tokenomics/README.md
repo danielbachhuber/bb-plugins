@@ -2,8 +2,8 @@
 
 How many tokens your threads use, and when. A Tokenomics page in the sidebar
 graphs token use over time and lists the threads behind it, and each thread's
-header has a sparkline of its turns that opens a summary of where its tokens
-went.
+header has a sparkline of its token use over time that opens a summary of
+which of your messages used the most.
 
 ## The page
 
@@ -25,19 +25,33 @@ bar fills in while a thread runs.
 ## The header
 
 A thread with recorded usage shows a button in the header's action row: a
-sparkline of its last 24 turns, one bar per turn, and its lifetime total, such
-as `39.5M tokens`. In a narrow pane the sparkline drops out and the total stays.
-Click it for the thread's summary:
+sparkline of its token use over time and its lifetime total, such as
+`39.5M tokens`. The sparkline splits the thread's recorded life into up to 20
+equal stretches of time, so a quiet stretch reads as a gap and a burst reads as
+a spike. In a narrow pane the sparkline drops out and the total stays. Click it
+for the thread's summary, which is there to answer which of your messages set
+off the tokens:
 
-- the total, the number of turns, and when the first and last turns ran
+- the total, the number of turns, and when the thread's turns ran
+- **Tokens over time**: the same chart, larger, in up to 36 buckets of a round
+  size (1, 5, 15, or 30 minutes, or 1 to 24 hours) that start on clock
+  boundaries. Hover a bucket for its time, its tokens, and the messages whose
+  turns used them, with when each started, how long it ran, and its share of
+  the thread.
+- **Biggest turns**: the three turns that used the most, the same way
 - the split into new input, cache reads, and output, with each part's share
-- a larger chart of tokens per turn, up to the latest 200 turns; hover a turn
-  for when it ran and what it used, and otherwise the line under the chart
-  names the largest turn
-- the average per turn
 - how many of the total came from turns bb deleted before Tokenomics could
   record them, when there are any
 - "Open Tokenomics", which goes to the page
+
+A turn is one message of yours and everything the agent does in reply, so one
+turn can run for an hour and make dozens of model calls. A message with only
+attachments shows as "1 image" or "2 files". A turn you did not start, such as
+a retry after an error, shows as "Continued without a new message".
+
+The summary reads the messages from bb when it opens, not before, because that
+means reading the thread's turn events. Until they arrive the chart draws the
+recorded usage on its own.
 
 A thread with no usage yet shows nothing. Claude Code reports usage when a turn
 ends, so a thread still on its first turn has none.
@@ -95,19 +109,29 @@ provider's latest running total. The sum misses turns bb deleted before they
 were recorded. The running total misses turns from before the provider's last
 restart, because Claude Code starts its count over when its session restarts.
 
+## Matching usage to messages
+
+The plugin's copy of each usage row has no turn id, and bb deletes the usage
+events that had one. bb keeps every turn's start and end events, though, and
+its conversation outline lists each of your messages followed by the turn it
+started. So the summary gives each row to the latest turn that started at or
+before the row was recorded, and gives each turn the message listed just
+before it.
+
 ## Layout
 
 | Path | What it holds |
 | --- | --- |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
 | `usage/store.ts` | The only module that touches SQLite: the ledger, per-thread cursors, and the hourly and per-thread sums |
-| `usage/sync.ts` | The only module that reads from bb: copying new usage events into the ledger, one thread at a time |
-| `usage/series.ts` | The page's ranges, bars in the viewer's time zone, and number formatting |
+| `usage/sync.ts` | The only module that reads from bb: copying new usage events into the ledger, one thread at a time, and reading a thread's turn events and outline |
+| `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
+| `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |
 | `usage/contract.ts` | The RPC contract and the realtime channel |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
 | `components/thread-usage-list.tsx` | The thread list under the chart |
-| `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens |
+| `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page and the header |
 | `tokenomics.stories.tsx` | Each range, the empty page, the header button, and its summary |

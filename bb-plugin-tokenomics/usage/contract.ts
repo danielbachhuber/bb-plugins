@@ -26,10 +26,19 @@ export const threadUsageSchema = z.object({
   ...tokens,
 });
 
-/** How many of a thread's turns the header's sparkline and summary show. */
-export const MAX_TURNS = 200;
+/** How many of a thread's latest usage rows the header and its summary read. */
+export const MAX_ROWS = 1_000;
 
-export const turnUsageSchema = z.object({ at: z.number(), ...tokens });
+export const usageAtSchema = z.object({ at: z.number(), ...tokens });
+
+export const turnDetailSchema = z.object({
+  turnId: z.string().nullable(),
+  startedAt: z.number(),
+  endedAt: z.number().nullable(),
+  usageAt: z.number(),
+  prompt: z.string().nullable(),
+  ...tokens,
+});
 
 export const rpcContract = defineRpcContract({
   usage_window: {
@@ -49,12 +58,18 @@ export const rpcContract = defineRpcContract({
       output: z.number(),
       total: z.number(),
       turns: z.number(),
-      /** The latest turns, up to MAX_TURNS, oldest first. */
-      recent: z.array(turnUsageSchema),
+      /** The latest usage rows, up to MAX_ROWS, oldest first. */
+      recent: z.array(usageAtSchema),
     }),
+  },
+  /** The thread's usage by turn, with the message that began each. Reads bb, so it runs when the summary opens. */
+  thread_turns: {
+    input: z.object({ threadId: z.string().min(1).max(200) }),
+    output: z.object({ turns: z.array(turnDetailSchema) }),
   },
 });
 
 export type HourUsage = z.infer<typeof hourUsageSchema>;
 export type ThreadUsage = z.infer<typeof threadUsageSchema>;
-export type TurnUsage = z.infer<typeof turnUsageSchema>;
+export type UsageAt = z.infer<typeof usageAtSchema>;
+export type TurnDetail = z.infer<typeof turnDetailSchema>;

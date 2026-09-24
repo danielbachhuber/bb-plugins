@@ -12,7 +12,7 @@ import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-c
 import { UsageView, type UsageData } from "@/components/usage-view";
 
 import type { rpcContract } from "./server";
-import { USAGE_CHANNEL } from "./usage/contract.js";
+import { USAGE_CHANNEL, type TurnDetail } from "./usage/contract.js";
 import { fillBars, windowFor, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
@@ -81,19 +81,33 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [usage, setUsage] = useState<ThreadTokens | null>(null);
+  // Loaded when the summary first opens, because it reads bb's turn events.
+  const [turns, setTurns] = useState<TurnDetail[] | null>(null);
+  const [wantsTurns, setWantsTurns] = useState(false);
 
   const load = useCallback(() => {
     rpc.call("thread_usage", { threadId }).then(setUsage, () => undefined);
   }, [rpc, threadId]);
+  const loadTurns = useCallback(() => {
+    rpc.call("thread_turns", { threadId }).then(({ turns: loaded }) => setTurns(loaded), () => undefined);
+  }, [rpc, threadId]);
+
   useEffect(() => {
     setUsage(null);
+    setTurns(null);
+    setWantsTurns(false);
     load();
   }, [load]);
+  useEffect(() => {
+    if (wantsTurns) loadTurns();
+  }, [wantsTurns, loadTurns]);
   const onChange = useMemo(
     () => (payload: unknown) => {
-      if (isForThread(payload, threadId)) load();
+      if (!isForThread(payload, threadId)) return;
+      load();
+      if (wantsTurns) loadTurns();
     },
-    [load, threadId],
+    [load, loadTurns, threadId, wantsTurns],
   );
   useRealtime(USAGE_CHANNEL, onChange);
 
@@ -101,6 +115,8 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
   return (
     <ThreadTokenCount
       usage={usage}
+      turns={turns}
+      onOpen={() => setWantsTurns(true)}
       isCompactViewport={isCompactViewport}
       onOpenPage={() => navigate.toPluginPanel("tokenomics")}
     />

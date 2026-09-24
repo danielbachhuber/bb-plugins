@@ -67,8 +67,8 @@ export interface ThreadUsage extends Tokens {
   turns: number;
 }
 
-export interface TurnUsage extends Tokens {
-  /** When bb recorded the turn's usage, in epoch milliseconds. */
+export interface UsageAt extends Tokens {
+  /** When bb recorded the usage, in epoch milliseconds. */
   at: number;
 }
 
@@ -127,7 +127,7 @@ export function createStore(db: Database) {
      FROM usage WHERE thread_id = ?`,
   );
 
-  const selectTurns = db.prepare(
+  const selectRows = db.prepare(
     `SELECT at, input, cacheRead, output FROM (
        SELECT created_at AS at, input, cache_read AS cacheRead, output
        FROM usage WHERE thread_id = ?
@@ -180,9 +180,9 @@ export function createStore(db: Database) {
       return selectThreads.all(since) as ThreadUsage[];
     },
 
-    /** The thread's most recent turns, oldest first. */
-    threadTurns(threadId: string, limit: number): TurnUsage[] {
-      return selectTurns.all(threadId, limit) as TurnUsage[];
+    /** The thread's most recent usage rows, oldest first. */
+    threadRows(threadId: string, limit: number): UsageAt[] {
+      return selectRows.all(threadId, limit) as UsageAt[];
     },
 
     threadTotal(threadId: string): ThreadTotal {

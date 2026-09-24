@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fillBars, formatTokens, niceTicks, windowFor } from "./series.js";
+import { fillBars, formatTokens, niceTicks, timeBuckets, windowFor } from "./series.js";
 
 const HOUR = 3_600_000;
 
@@ -59,5 +59,26 @@ describe("niceTicks", () => {
   it("rounds the axis up to a step at or above the tallest bar", () => {
     expect(niceTicks(9_000_000)).toEqual([0, 2_500_000, 5_000_000, 7_500_000, 10_000_000]);
     expect(niceTicks(0)).toEqual([0]);
+  });
+});
+
+describe("timeBuckets", () => {
+  const at = (hour: number, minute: number) => new Date(2026, 8, 24, hour, minute).getTime();
+  const item = (time: number, tokens: number) => ({ time, input: tokens, cacheRead: 0, output: 0 });
+
+  it("picks a round size that keeps the count under the limit and starts on clock boundaries", () => {
+    const items = [item(at(10, 7), 5), item(at(10, 12), 3), item(at(12, 50), 9)];
+    const buckets = timeBuckets(items, (entry) => entry.time, at(10, 7), at(12, 50), 24);
+    // 2h43m over at most 24 buckets: 15 minutes each, from 10:00 to 12:45.
+    expect(buckets).toHaveLength(12);
+    expect(buckets[0]!.start).toBe(at(10, 0));
+    expect(buckets[0]).toMatchObject({ input: 8, items: [0, 1] });
+    expect(buckets.at(-1)).toMatchObject({ start: at(12, 45), input: 9, items: [2] });
+  });
+
+  it("draws one bucket when everything happened at once", () => {
+    const buckets = timeBuckets([item(at(9, 30), 4)], (entry) => entry.time, at(9, 30), at(9, 30), 24);
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({ input: 4, items: [0] });
   });
 });
