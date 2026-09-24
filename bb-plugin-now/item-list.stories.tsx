@@ -122,6 +122,7 @@ const notifications: Item[] = [
   pull(135, "Sketch a widget plugin API", "1 comment from hubber", new Date(2026, 8, 22, 9, 30), { state: "draft", reason: "author" }),
   {
     ...pull(44, "Support gadgets on the moon", "2 comments from octocat", new Date(2026, 8, 21, 12, 0), {
+      repo: "acme/gadgets",
       kind: "issue",
       state: "closed",
       closedAs: "not_planned",
@@ -133,6 +134,7 @@ const notifications: Item[] = [
   },
   {
     ...pull(42, "Gadgets break on Sundays", "4 comments from octocat, hubber", new Date(2026, 8, 21, 9, 0), {
+      repo: "acme/gadgets",
       kind: "issue",
       state: "closed",
       closedAs: "completed",
