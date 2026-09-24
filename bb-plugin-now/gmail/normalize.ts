@@ -40,6 +40,11 @@ export function header(message: Raw, name: string): string | null {
   return null;
 }
 
+/** Whether any of a thread's messages is still unread in Gmail. */
+export function hasUnread(messages: readonly Raw[]): boolean {
+  return messages.some((message) => Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD"));
+}
+
 /**
  * The thread in Gmail's web app. `authuser` picks the right account when
  * several are signed in, which `/u/0/` alone would not.
@@ -76,7 +81,7 @@ export function normalizeThread(raw: unknown, account: string | null): Item | nu
     context: from === null ? null : senderName(from),
     tags: [],
     url: threadUrl(raw.id, account),
-    gmail: { threadIds: [raw.id] },
+    gmail: { threadIds: [raw.id], unread: hasUnread(messages) },
     github: null,
   };
 }

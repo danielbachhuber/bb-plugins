@@ -278,13 +278,18 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   const brand = brandOf(item);
   const archiveSuggested = suggestsArchive(item);
   const comment = item.github?.comment ?? null;
+  const unread = item.gmail?.unread === true;
 
   return (
     <li className="py-3.5 text-sm">
       <div className="flex items-start gap-3">
         {/* Where it is from and when it is for, in a column of its own so every title starts at one edge. */}
         <div className="flex w-14 shrink-0 flex-col gap-1 pt-0.5 text-xs leading-tight text-muted-foreground">
-          {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
+          <span className="inline-flex items-center gap-1.5">
+            {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
+            {/* Gmail's own unread blue. */}
+            {unread ? <span className="size-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" aria-label="Unread" /> : null}
+          </span>
           {date === null ? null : (
             <span className={cn("inline-flex flex-wrap items-center gap-x-1", date.className)}>
               {date.icon === "Target" ? <Icon name="Target" className="size-3 shrink-0" aria-label="Deadline" /> : null}
@@ -296,7 +301,10 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <UrlLink href={item.url} className="min-w-0 flex-1 text-foreground hover:underline">
+            <UrlLink
+              href={item.url}
+              className={cn("min-w-0 flex-1 text-foreground hover:underline", unread && "font-semibold")}
+            >
               {item.title}
             </UrlLink>
             {item.github === null ? null : <GitHubState github={item.github} />}

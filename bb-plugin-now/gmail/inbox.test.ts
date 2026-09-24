@@ -39,7 +39,7 @@ describe("inboxItems", () => {
       description: "2 comments from octocat, hubber",
       context: "acme/widgets#128",
       activityAt: new Date(T + 2000).toISOString(),
-      gmail: { threadIds: ["t2", "t1"] },
+      gmail: { threadIds: ["t2", "t1"], unread: false },
       github: {
         repo: "acme/widgets",
         number: 128,

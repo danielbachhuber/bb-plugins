@@ -17,7 +17,7 @@ export default {
 const now = new Date(2026, 8, 24, 9, 30);
 const noop = () => {};
 
-function email(id: string, title: string, from: string, at: Date, snippet: string): Item {
+function email(id: string, title: string, from: string, at: Date, snippet: string, unread = false): Item {
   return {
     id: `gmail:${id}`,
     source: "gmail",
@@ -30,7 +30,7 @@ function email(id: string, title: string, from: string, at: Date, snippet: strin
     context: from,
     tags: [],
     url: `https://mail.google.com/mail/#all/${id}`,
-    gmail: { threadIds: [id] },
+    gmail: { threadIds: [id], unread },
     github: null,
   };
 }
@@ -54,7 +54,7 @@ function pull(
     context: `acme/widgets#${number}`,
     tags: [],
     url: `https://github.com/acme/widgets/pull/${number}`,
-    gmail: { threadIds: [`t${number}`] },
+    gmail: { threadIds: [`t${number}`], unread: number === 128 },
     github: {
       repo: "acme/widgets",
       number,
@@ -177,7 +177,7 @@ const items: Item[] = [
 ];
 
 const emails: Item[] = [
-  email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?"),
+  email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true),
   email("t2", "Re: Gadget invoice for September", "Hubber", new Date(2026, 8, 23, 20, 9), "Thanks! I have attached the corrected invoice."),
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
 ];

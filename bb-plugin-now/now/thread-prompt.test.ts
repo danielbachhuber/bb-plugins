@@ -36,7 +36,7 @@ describe("threadPrompt", () => {
       due: null,
       context: "acme/widgets#128",
       url: "https://github.com/acme/widgets/pull/128",
-      gmail: { threadIds: ["t1"] },
+      gmail: { threadIds: ["t1"], unread: false },
       github: {
         repo: "acme/widgets",
         number: 128,

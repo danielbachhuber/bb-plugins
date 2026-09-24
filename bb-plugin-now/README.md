@@ -115,7 +115,9 @@ bb plugin config now set gwsPath /opt/homebrew/bin/gws   # when gws is not on bb
 ```
 
 Each thread is one row: the first message's subject, and the latest
-message's sender, snippet, and time. The link opens the thread in Gmail's web
+message's sender, snippet, and time. A row with any unread message has a bold
+title and a blue dot beside its mark, as in Gmail; that holds for the GitHub
+rows below too. Reading it in Gmail clears it on the next sync. The link opens the thread in Gmail's web
 app, in the account `gws` is signed into.
 
 GitHub's notification emails are gathered into one row per pull request or

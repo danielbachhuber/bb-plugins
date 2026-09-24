@@ -8,7 +8,11 @@ export const dueSchema = z.object({
 export type Due = z.infer<typeof dueSchema>;
 
 /** The Gmail threads a row stands for, which Archive takes out of the inbox. */
-export const gmailPartSchema = z.object({ threadIds: z.array(z.string()).min(1) });
+export const gmailPartSchema = z.object({
+  threadIds: z.array(z.string()).min(1),
+  /** Whether any message behind the row still carries Gmail's `UNREAD` label. */
+  unread: z.boolean().default(false),
+});
 
 /** The pull request or issue a row of GitHub notifications is about. */
 export const githubPartSchema = z.object({

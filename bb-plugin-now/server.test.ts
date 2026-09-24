@@ -449,7 +449,7 @@ describe("row actions", () => {
       title: "Promote widgets into core",
       description: "merged",
       url: "https://github.com/acme/widgets/pull/128",
-      gmail: { threadIds: ["gh1"] },
+      gmail: { threadIds: ["gh1"], unread: false },
       github: { repo: "acme/widgets", number: 128, kind: "pull", state: "merged", reason: "review_requested" },
     });
   });
