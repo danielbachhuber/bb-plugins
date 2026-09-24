@@ -53,6 +53,16 @@ Once the pull request has merged, the banner suggests **Archive thread** in
 place of the merge button, since the thread's work is done. An archived thread
 shows Unarchive instead.
 
+When you are a reviewer, the pull request's label says where your review
+stands: "Review requested" before your first review, whether the request named
+you or a team you are on; "Re-review requested" when someone has asked you
+directly to look again; and otherwise your standing review ("You approved",
+"You requested changes", "You commented", or "Your review was dismissed"). A
+comment after an approval leaves it approved, as on GitHub. Once your review is
+in and nobody has asked for another, the banner suggests **Archive thread** too,
+since a review thread's work is done. The label drops once the pull request
+merges or closes.
+
 The pull request is bb's own lookup for the thread's branch. For a thread that
 is not on the branch, such as a review, it is the pull request a sweep linked
 the thread to; that one shows no checks and cannot be merged from the banner.

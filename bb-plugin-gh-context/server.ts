@@ -6,9 +6,10 @@ import {
   type ContextChanges,
   type ContextIssue,
   type ContextPullRequest,
+  type MyReview,
   type ThreadContext,
 } from "./context/contract.js";
-import { createGh, type Gh } from "./context/gh.js";
+import { createGh, myReview, type Gh } from "./context/gh.js";
 import {
   githubRepoFromRemote,
   openingLineIssueNumber,
@@ -174,6 +175,19 @@ export default async function plugin(bb: BbPluginApi) {
     return store.itemsForThread(thread.id).length > before;
   }
 
+  async function myReviewOf(ref: IssueRef): Promise<MyReview | null> {
+    const client = await ghClient();
+    const [fetched, viewer, requested] = await Promise.all([
+      client.pullRequest(ref),
+      client.viewer(),
+      // One search for every banner, cached: the only way to see a request
+      // that reached you through a team.
+      client.reviewRequested(),
+    ]);
+    if (!fetched) return null;
+    return myReview(fetched, viewer, requested?.includes(`${ref.repo}#${ref.number}`) ?? false);
+  }
+
   async function pullRequestFor(
     thread: ThreadLike,
     environment: EnvironmentLike | null,
@@ -198,6 +212,7 @@ export default async function plugin(bb: BbPluginApi) {
                 // What bb itself offers merge on. A conflicting or blocked pull
                 // request would only fail, so it gets no button.
                 canMerge: pr.mergeability.state === "mergeable",
+                myReview: await myReviewOf({ repo: ref.repo, number: pr.number }),
               },
             };
           }
@@ -225,6 +240,7 @@ export default async function plugin(bb: BbPluginApi) {
         attention: state === "open" ? "none" : state,
         checks: null,
         canMerge: false,
+        myReview: await myReviewOf(linked),
       },
     };
   }

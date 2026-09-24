@@ -160,6 +160,7 @@ const contextPullRequest: ContextPullRequest = {
   attention: "checks_pending",
   checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
   canMerge: true,
+  myReview: null,
 };
 
 const promptIssue: ContextIssue = {
@@ -320,6 +321,40 @@ export function States() {
       </StoryRow>
       <StoryRow label="nothing to show" hint="Renders nothing, not an empty card. bb's banner still hides.">
         <Pair value={context()} harvest={false} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** A review thread's PR, as a sweep links it: not on the thread's branch. */
+const reviewPullRequest = { ...contextPullRequest, attention: "none" as const, checks: null, canMerge: false };
+
+export function ReviewStates() {
+  return (
+    <StoryCard>
+      <StoryRow label="review requested" hint="Waiting on your first review, asked of you or a team you are on.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "requested" } })} />
+      </StoryRow>
+      <StoryRow label="re-review requested" hint="You reviewed, and someone asked you to look again.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "re-requested" } })} />
+      </StoryRow>
+      <StoryRow label="you approved" hint="Your review is in, so archiving the thread is the suggested action.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "approved" } })} />
+      </StoryRow>
+      <StoryRow label="you requested changes" hint="Also done until you are asked again.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "changes_requested" } })} />
+      </StoryRow>
+      <StoryRow label="you commented" hint="A comment-only review still answers the request.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "commented" } })} />
+      </StoryRow>
+      <StoryRow label="review dismissed" hint="Someone dismissed your review; nobody has asked for another.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, myReview: "dismissed" } })} />
+      </StoryRow>
+      <StoryRow label="draft you were asked to review" hint="Both labels, draft first.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, state: "draft", attention: "draft", myReview: "requested" } })} />
+      </StoryRow>
+      <StoryRow label="merged after you approved" hint="Merged is the news, so the review label drops.">
+        <Pair value={context({ pullRequest: { ...reviewPullRequest, state: "merged", attention: "merged", myReview: "approved" } })} />
       </StoryRow>
     </StoryCard>
   );

@@ -36,6 +36,7 @@ const pullRequest = {
   attention: "none" as const,
   checks: null,
   canMerge: true,
+  myReview: null,
 };
 
 describe("harvestItem", () => {

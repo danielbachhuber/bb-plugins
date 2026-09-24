@@ -6,6 +6,21 @@ const threadInput = z.object({ threadId: z.string() }).strict();
 const itemKind = z.enum(["issue", "pull"]);
 const itemKey = z.object({ repo: z.string(), kind: itemKind, number: z.number() }).strict();
 
+/**
+ * Where your review of the pull request stands: asked for, asked for again
+ * after an earlier review, or your standing review.
+ */
+const myReviewSchema = z.enum([
+  "requested",
+  "re-requested",
+  "approved",
+  "changes_requested",
+  "commented",
+  "dismissed",
+]);
+
+export type MyReview = z.infer<typeof myReviewSchema>;
+
 /** The thread's pull request, from bb's environment lookup or a sweep's link. */
 const pullRequestSchema = z.object({
   repo: z.string(),
@@ -40,6 +55,11 @@ const pullRequestSchema = z.object({
    * thread's own branch, because merging goes through bb's environment API.
    */
   canMerge: z.boolean(),
+  /**
+   * The review of the user `gh` is signed in as; null when they are not a
+   * reviewer, or `gh` cannot say.
+   */
+  myReview: myReviewSchema.nullable(),
 });
 
 const issueSchema = z.object({

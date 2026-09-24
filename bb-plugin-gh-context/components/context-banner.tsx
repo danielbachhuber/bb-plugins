@@ -14,6 +14,7 @@ import type {
   ContextIssue,
   ContextPullRequest,
   MergeMethod,
+  MyReview,
   ThreadContext,
 } from "../context/contract.js";
 
@@ -61,6 +62,18 @@ const ATTENTION_LABEL: Record<ContextPullRequest["attention"], string> = {
   review_requested: "Review requested",
 };
 
+const MY_REVIEW_LABEL: Record<MyReview, string> = {
+  requested: "Review requested",
+  "re-requested": "Re-review requested",
+  approved: "You approved",
+  changes_requested: "You requested changes",
+  commented: "You commented",
+  dismissed: "Your review was dismissed",
+};
+
+/** Reviews that answer the request: the thread's review is done. */
+const REVIEWED: ReadonlySet<MyReview> = new Set(["approved", "changes_requested", "commented", "dismissed"]);
+
 const MERGE_ACTIONS: readonly { method: MergeMethod; label: string }[] = [
   { method: "merge", label: "Merge" },
   { method: "squash", label: "Squash merge" },
@@ -88,12 +101,18 @@ function formatCount(count: number): string {
 function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPullRequest; compact: boolean }) {
   const state = PR_STATE_ICON[pullRequest.state];
   const status = checkStatus(pullRequest);
+  // Once merged or closed, that is the news; a review no longer is.
+  const review =
+    pullRequest.myReview && (pullRequest.state === "open" || pullRequest.state === "draft")
+      ? MY_REVIEW_LABEL[pullRequest.myReview]
+      : null;
+  const labels = [pullRequest.state !== "open" ? state.label : null, review].filter(Boolean);
   return (
     <UrlLink
       href={pullRequest.url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`Pull request ${pullRequest.number}: ${ATTENTION_LABEL[pullRequest.attention]}`}
+      aria-label={`Pull request ${pullRequest.number}: ${[ATTENTION_LABEL[pullRequest.attention], review].filter(Boolean).join(", ")}`}
       className={cn(SEGMENT_CLASS, "shrink-0")}
     >
       <span className="flex h-4 shrink-0 items-center gap-1" title={`${state.label} pull request`}>
@@ -103,7 +122,7 @@ function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPull
       {compact ? null : (
         <span className="truncate">
           PR #{pullRequest.number}
-          {pullRequest.state !== "open" ? ` · ${state.label}` : ""}
+          {labels.map((label) => ` · ${label}`).join("")}
         </span>
       )}
     </UrlLink>
@@ -256,7 +275,10 @@ export interface ContextBannerProps {
   initialMergeMethod?: MergeMethod;
   onMerge?: (method: MergeMethod) => void;
   onMarkReady?: () => void;
-  /** Offered once the pull request has merged, when the thread's work is done. */
+  /**
+   * Offered when the thread's work is done: the pull request has merged, or
+   * your review is in and nobody has asked for another.
+   */
   onArchive?: () => void;
   onUnarchive?: () => void;
   onOpenChanges?: () => void;
@@ -287,7 +309,9 @@ export function ContextBanner({
   const changes = context?.changes ?? null;
   const canMerge = pullRequest?.canMerge === true && pullRequest.state === "open" && onMerge;
   const canMarkReady = pullRequest?.canMerge === true && pullRequest.state === "draft" && onMarkReady;
-  const canArchive = pullRequest?.state === "merged" && onArchive;
+  const canArchive =
+    (pullRequest?.state === "merged" || (pullRequest?.myReview != null && REVIEWED.has(pullRequest.myReview))) &&
+    onArchive;
 
   let body: ReactNode = null;
   if (context === null) {

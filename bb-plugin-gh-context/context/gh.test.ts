@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GhUnavailableError, type GhRunner } from "@danielb/gh-shared/gh";
-import { createGh } from "./gh.js";
+import { createGh, myReview, type GhPullRequest } from "./gh.js";
 
 const ref = { repo: "acme/widgets", number: 12 };
 
@@ -86,6 +86,9 @@ describe("pullRequest", () => {
       body: "Part of #7",
       state: "open",
       closing: [{ repo: "acme/widgets", number: 12 }],
+      author: null,
+      latestReviews: {},
+      requestedReviewers: [],
     });
   });
 
@@ -95,6 +98,29 @@ describe("pullRequest", () => {
     expect((await shaped({ state: "OPEN", isDraft: true }))?.state).toBe("draft");
     expect((await shaped({ state: "MERGED" }))?.state).toBe("merged");
     expect((await shaped({ state: "CLOSED" }))?.state).toBe("closed");
+  });
+
+  it("reads who has reviewed and whose request is outstanding", async () => {
+    const pr = await createGh(
+      runner(() =>
+        JSON.stringify({
+          title: "t",
+          url: "u",
+          state: "OPEN",
+          reviews: [
+            { author: { login: "octocat" }, state: "COMMENTED", submittedAt: "2026-09-02T10:00:00Z" },
+            { author: { login: "Octocat" }, state: "APPROVED", submittedAt: "2026-09-01T10:00:00Z" },
+            { author: { login: "hubber" }, state: "PENDING", submittedAt: null },
+            { author: { login: "monalisa" }, state: "APPROVED", submittedAt: "2026-09-01T10:00:00Z" },
+            { author: { login: "monalisa" }, state: "DISMISSED", submittedAt: "2026-09-03T10:00:00Z" },
+          ],
+          reviewRequests: [{ login: "Hubber" }, { name: "Widget Team" }],
+        }),
+      ),
+    ).pullRequest(ref);
+    // A later comment leaves an approval standing; a pending draft is no review.
+    expect(pr?.latestReviews).toEqual({ octocat: "approved", monalisa: "dismissed" });
+    expect(pr?.requestedReviewers).toEqual(["hubber"]);
   });
 
   it("passes arguments as an array, never a shell string", async () => {
@@ -107,7 +133,68 @@ describe("pullRequest", () => {
       "--repo",
       "acme/widgets",
       "--json",
-      "title,url,body,state,isDraft,closingIssuesReferences",
+      "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests",
+    ]);
+  });
+});
+
+describe("myReview", () => {
+  const pr = (fields: Partial<GhPullRequest>): GhPullRequest => ({
+    title: "t",
+    url: "u",
+    body: "",
+    state: "open",
+    closing: [],
+    author: "hubber",
+    latestReviews: {},
+    requestedReviewers: [],
+    ...fields,
+  });
+
+  it("is the viewer's standing review", () => {
+    expect(myReview(pr({ latestReviews: { octocat: "commented" } }), "octocat", false)).toBe("commented");
+  });
+
+  it("is requested when asked directly, or through a team before a first review", () => {
+    expect(myReview(pr({ requestedReviewers: ["octocat"] }), "octocat", false)).toBe("requested");
+    expect(myReview(pr({}), "octocat", true)).toBe("requested");
+  });
+
+  it("is re-requested after a review only when asked directly", () => {
+    const reviewed = { latestReviews: { octocat: "approved" as const } };
+    expect(myReview(pr({ ...reviewed, requestedReviewers: ["octocat"] }), "octocat", true)).toBe("re-requested");
+    expect(myReview(pr(reviewed), "octocat", true)).toBe("approved");
+  });
+
+  it("ignores requests left on a merged pull request", () => {
+    expect(myReview(pr({ state: "merged", requestedReviewers: ["octocat"] }), "octocat", true)).toBeNull();
+  });
+
+  it("is null on the viewer's own pull request, where replies count as reviews", () => {
+    expect(myReview(pr({ author: "octocat", latestReviews: { octocat: "commented" } }), "octocat", false)).toBeNull();
+  });
+
+  it("is null for someone else's review, or without a viewer", () => {
+    expect(myReview(pr({ latestReviews: { hubber: "approved" } }), "octocat", false)).toBeNull();
+    expect(myReview(pr({ latestReviews: { octocat: "approved" } }), null, false)).toBeNull();
+  });
+});
+
+describe("reviewRequested", () => {
+  it("keys each pull request waiting on the viewer, lowercased", async () => {
+    const fake = runner(() =>
+      JSON.stringify([{ number: 128, repository: { nameWithOwner: "Acme/Widgets" } }, { number: "x" }]),
+    );
+    expect(await createGh(fake).reviewRequested()).toEqual(["acme/widgets#128"]);
+    expect(fake.calls[0]).toEqual([
+      "search",
+      "prs",
+      "--review-requested=@me",
+      "--state=open",
+      "--limit",
+      "100",
+      "--json",
+      "number,repository",
     ]);
   });
 });

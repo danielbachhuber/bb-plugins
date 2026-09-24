@@ -26,6 +26,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
       attention: "checks_pending",
       checks: { state: "pending", totalCount: 3, passedCount: 1, failedCount: 0, pendingCount: 2 },
       canMerge: true,
+      myReview: null,
     },
     issues: [],
     changes: null,
@@ -118,6 +119,26 @@ describe("merged pull request", () => {
     await waitFor(() =>
       expect(slot.inspection.rpcCalls.map((call) => call.method)).toContain("archiveThread"),
     );
+  });
+
+  it("suggests it for a pull request you have reviewed, and says how", async () => {
+    const slot = render(
+      context({
+        pullRequest: { ...context().pullRequest!, attention: "none", checks: null, canMerge: false, myReview: "approved" },
+      }),
+    );
+    expect(await slot.findByRole("button", { name: "Archive thread" })).toBeInTheDocument();
+    expect(slot.getByText("PR #128 · You approved")).toBeInTheDocument();
+  });
+
+  it("does not offer it while your review is requested again", async () => {
+    const slot = render(
+      context({
+        pullRequest: { ...context().pullRequest!, attention: "none", checks: null, canMerge: false, myReview: "re-requested" },
+      }),
+    );
+    expect(await slot.findByText("PR #128 · Re-review requested")).toBeInTheDocument();
+    expect(slot.queryByRole("button", { name: "Archive thread" })).toBeNull();
   });
 
   it("does not offer it while the pull request is open", async () => {

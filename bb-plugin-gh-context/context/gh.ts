@@ -1,4 +1,5 @@
 import type { GhRunner } from "@danielb/gh-shared/gh";
+import type { MyReview } from "./contract.js";
 import type { IssueRef } from "./rules.js";
 
 /**
@@ -24,13 +25,26 @@ export interface GhPullRequest {
   body: string;
   state: "open" | "draft" | "closed" | "merged";
   closing: IssueRef[];
+  /** The author's login, lowercased; null when GitHub does not say. */
+  author: string | null;
+  /** Each reviewer's standing review, by lowercased login. */
+  latestReviews: Record<string, ReviewVerdict>;
+  /** Logins, lowercased, of users whose review request is still outstanding. */
+  requestedReviewers: string[];
 }
+
+export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
 
 export interface Gh {
   issue(ref: IssueRef): Promise<GhIssue | null>;
   /** The login `gh` is signed in as, lowercased; null when it cannot say. */
   viewer(): Promise<string | null>;
   pullRequest(ref: IssueRef): Promise<GhPullRequest | null>;
+  /**
+   * `repo#number` keys, lowercased, of open pull requests waiting on the
+   * viewer's review, directly or through a team; null when `gh` cannot say.
+   */
+  reviewRequested(): Promise<string[] | null>;
 }
 
 const ANSWER_TTL_MS = 5 * 60_000;
@@ -48,10 +62,73 @@ interface PullRequestJson {
   body?: unknown;
   state?: unknown;
   isDraft?: unknown;
+  author?: { login?: unknown } | null;
   closingIssuesReferences?: Array<{
     number?: unknown;
     repository?: { name?: unknown; owner?: { login?: unknown } };
   }>;
+  reviews?: Array<{ author?: { login?: unknown } | null; state?: unknown; submittedAt?: unknown }>;
+  reviewRequests?: Array<{ login?: unknown }>;
+}
+
+/** A review that was actually submitted. PENDING reviews are drafts. */
+const VERDICTS: Record<string, ReviewVerdict> = {
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  COMMENTED: "commented",
+  DISMISSED: "dismissed",
+};
+
+/**
+ * Each reviewer's newest review, except that a comment does not replace an
+ * approval or a request for changes, as on GitHub: commenting after approving
+ * leaves the pull request approved.
+ */
+function latestReviews(reviews: NonNullable<PullRequestJson["reviews"]>): Record<string, ReviewVerdict> {
+  const latest: Record<string, ReviewVerdict> = {};
+  const ordered = [...reviews].sort((a, b) =>
+    String(a.submittedAt ?? "").localeCompare(String(b.submittedAt ?? "")),
+  );
+  for (const review of ordered) {
+    const login = review.author?.login;
+    const verdict = VERDICTS[String(review.state ?? "").toUpperCase()];
+    if (typeof login !== "string" || !verdict) continue;
+    const key = login.toLowerCase();
+    if (verdict === "commented" && latest[key] && latest[key] !== "commented") continue;
+    latest[key] = verdict;
+  }
+  return latest;
+}
+
+function logins(values: Array<unknown>): string[] {
+  return [
+    ...new Set(
+      values.filter((login): login is string => typeof login === "string").map((login) => login.toLowerCase()),
+    ),
+  ];
+}
+
+/**
+ * Where the viewer's review of a pull request stands, or null when they are
+ * not a reviewer.
+ *
+ * GitHub drops a reviewer from `reviewRequests` when they submit a review and
+ * adds them back on a re-request, so a login with a review that is also in
+ * that list owes another look. A request to a team names the team and not the
+ * viewer, so `requestedOfMe` (from a search, which does see team requests)
+ * counts only before their first review: after it, their review is the answer.
+ * Requests left on a merged or closed pull request are not waiting on anyone.
+ *
+ * The author is never a reviewer: GitHub records their replies to review
+ * comments as COMMENTED reviews.
+ */
+export function myReview(pr: GhPullRequest, viewer: string | null, requestedOfMe: boolean): MyReview | null {
+  if (viewer === null || pr.author === viewer) return null;
+  const open = pr.state === "open" || pr.state === "draft";
+  const direct = open && pr.requestedReviewers.includes(viewer);
+  const verdict = pr.latestReviews[viewer];
+  if (verdict) return direct ? "re-requested" : verdict;
+  return direct || (open && requestedOfMe) ? "requested" : null;
 }
 
 function parseIssue(json: IssueJson): GhIssue | null {
@@ -92,6 +169,9 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
             ? "draft"
             : "open",
     closing,
+    author: typeof json.author?.login === "string" ? json.author.login.toLowerCase() : null,
+    latestReviews: latestReviews(json.reviews ?? []),
+    requestedReviewers: logins((json.reviewRequests ?? []).map((request) => request.login)),
   };
 }
 
@@ -146,11 +226,30 @@ export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
               "--repo",
               ref.repo,
               "--json",
-              "title,url,body,state,isDraft,closingIssuesReferences",
+              "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests",
             ]),
           ) as PullRequestJson,
         ),
       );
+    },
+    reviewRequested() {
+      return cached("review-requested", async () => {
+        const found = JSON.parse(
+          await runner.run([
+            "search",
+            "prs",
+            "--review-requested=@me",
+            "--state=open",
+            "--limit",
+            "100",
+            "--json",
+            "number,repository",
+          ]),
+        ) as Array<{ number?: unknown; repository?: { nameWithOwner?: unknown } }>;
+        return found
+          .filter((pr) => typeof pr.number === "number" && typeof pr.repository?.nameWithOwner === "string")
+          .map((pr) => `${String(pr.repository!.nameWithOwner).toLowerCase()}#${String(pr.number)}`);
+      });
     },
   };
 }
