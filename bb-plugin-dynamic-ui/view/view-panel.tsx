@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
@@ -188,9 +189,14 @@ function ItemCard({
             {item.url === undefined ? (
               item.title
             ) : (
-              <UrlLink href={item.url} className="hover:underline" title={item.url}>
+              <UrlLink href={item.url} className="group hover:underline" title={item.url}>
                 {item.title}
-                <span aria-hidden className="ml-1 text-xs text-muted-foreground">↗</span>
+                {/* bb's own external-link icon, as its file and PR links use. */}
+                <Icon
+                  name="ExternalLink"
+                  aria-hidden
+                  className="ml-1 inline size-3.5 align-[-2px] text-muted-foreground group-hover:text-foreground"
+                />
               </UrlLink>
             )}
           </div>
