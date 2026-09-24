@@ -26,6 +26,12 @@ export function StepGlyph({ status }: { status: StepStatus }) {
   return <Icon name="Circle" className="size-3.5 shrink-0 text-muted-foreground/60" />;
 }
 
+/**
+ * The band spans the pane; its contents sit in a centred column, so on a wide
+ * screen the summary and the steps stay close together and near the transcript.
+ */
+const CONTENT_WIDTH = "mx-auto w-full max-w-[1040px]";
+
 const STATUS_WORD: Record<StepStatus, string> = {
   todo: "not started",
   current: "current",
@@ -270,7 +276,7 @@ export function OverviewBand({
     const done = overview.steps.length;
     return (
       <div className="border-b border-border px-4 py-1.5">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+        <div className={cn(CONTENT_WIDTH, "flex items-center gap-2 text-xs text-muted-foreground/70")}>
           <Icon name="ListTodo" className="size-3.5 shrink-0" />
           <span>No overview yet</span>
           {done > 0 ? (
@@ -296,7 +302,7 @@ export function OverviewBand({
       aria-label="Thread overview"
       className="border-b border-border bg-card/60 px-4 py-2"
     >
-      <div className="flex items-start gap-2">
+      <div className={cn(CONTENT_WIDTH, "flex items-start gap-2")}>
         <Icon name="ListTodo" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         {expanded || writing ? (
           <OverviewBody

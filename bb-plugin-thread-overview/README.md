@@ -23,6 +23,10 @@ a thread is doing when you come back to it, without reading the transcript.
 - **Open or collapsed:** opening a thread's band is remembered for that thread,
   and so is collapsing it again.
 
+The band's background spans the pane, and its contents sit in a centered column
+up to 1040px wide, so on a wide screen the summary and the steps stay near the
+transcript.
+
 Changes arrive live: the band re-reads whenever the agent or another window
 changes the thread's overview.
 
