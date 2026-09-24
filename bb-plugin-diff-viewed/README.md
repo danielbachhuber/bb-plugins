@@ -13,6 +13,14 @@ stays that way until the file's diff changes.
 - Check a file to fold it away. What is still expanded is what you have not
   read yet.
 - Uncheck it to bring it back. Nothing else about the panel changes.
+- To hide viewed files entirely, open the range dropdown at the top of the
+  panel ("All changes", "Uncommitted changes") and pick **Only unviewed** at
+  the bottom. Pick it again to show every file. The choice applies to every
+  thread and is remembered across restarts.
+
+The Only unviewed item is not in bb's keyboard navigation for that menu, so it
+takes a click. On a narrow window, where bb shows the menu as a sheet, the item
+is not offered.
 
 Marks are kept per thread and survive a reload and a restart of bb. Another
 open window picks up a change when it regains focus.
@@ -62,10 +70,19 @@ The script anchors only on things bb emits deliberately:
 | `aria-label="Collapse <path>"` | Reading each card's file path |
 | `aria-expanded` | Reading and driving collapse |
 | `[data-testid="git-diff-toolbar-actions"]` | Knowing the changes panel is open |
+| `[data-testid="git-diff-toolbar-selector-slot"]` and the trigger's `aria-controls` | Finding the open range dropdown to add Only unviewed |
+| `[data-index]` | The virtualized row to hide while Only unviewed is on |
 
 No minified class names. If bb changes the header and the anchors stop
 matching, the plugin decorates nothing and bb behaves exactly as it does
 without it.
+
+Only unviewed hides rows with CSS: an attribute on `<html>` turns on a rule
+that sets `display: none` on any row containing a header marked viewed. bb's
+file list is virtualized, and the virtualizer measures each row with a
+`ResizeObserver`, so a hidden row measures as zero height and the rows after it
+move up. Nothing else in bb's state changes, which is why the file count in the
+toolbar still counts every file.
 
 Marks live in the plugin's kv storage, which is what makes them survive a
 reload. Another window picks them up on focus rather than live, because
@@ -87,7 +104,7 @@ children and `justify-between`.
 | `viewed/marks.ts` | Pure logic: keying, fingerprinting, record changes |
 | `viewed/dom.ts` | Reading and decorating bb's card headers |
 | `viewed/engine.ts` | The sync loop: passes, observers, click handling, cleanup |
-| `server.ts` | RPC contract and kv storage boundary |
+| `server.ts` | RPC contract and kv storage for marks and the filter |
 | `app.tsx` | Wiring only: real fetch, real scheduler, real document |
 
 ## Development

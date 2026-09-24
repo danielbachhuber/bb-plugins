@@ -9,16 +9,22 @@
 import {
   cardForControl,
   createControl,
+  createFilterItem,
   existingControl,
+  existingFilterItem,
+  FILTER_ATTR,
   findCards,
+  findOpenSelectorMenu,
   findToolbar,
   paintCard,
+  paintFilterItem,
   undecorate,
   type DiffCard,
 } from "./dom";
 import { isViewed, threadIdFromPath, type ViewedRecord } from "./marks";
 
 export type RecordResult = { record: ViewedRecord };
+export type FilterResult = { onlyUnviewed: boolean };
 
 export interface EngineDeps {
   /** Calls one of the plugin's RPC methods. */
@@ -53,6 +59,8 @@ interface SyncState {
    */
   autoCollapsed: Set<string>;
   pruned: boolean;
+  /** Whether files marked viewed are hidden. Shared by every thread. */
+  onlyUnviewed: boolean;
 }
 
 function collapseKey(path: string, fingerprint: string): string {
@@ -66,6 +74,7 @@ export function startEngine(deps: EngineDeps): Engine {
     record: {},
     autoCollapsed: new Set(),
     pruned: false,
+    onlyUnviewed: false,
   };
   // True while this engine is writing to the DOM, so an observer driving
   // `schedule` does not treat its own edits as a reason to run again.
@@ -149,6 +158,61 @@ export function startEngine(deps: EngineDeps): Engine {
     }, fail);
   }
 
+  async function loadFilter(): Promise<void> {
+    try {
+      const { onlyUnviewed } = await rpc<FilterResult>("filter_get", null);
+      if (signal.aborted) return;
+      state.onlyUnviewed = onlyUnviewed;
+      schedule();
+    } catch (cause) {
+      warn(cause);
+    }
+  }
+
+  /** Handle a click on the Only unviewed item in the range dropdown. */
+  function setFilter(onlyUnviewed: boolean): void {
+    state.onlyUnviewed = onlyUnviewed;
+    // Close the menu the way bb's own items do once one is picked. Radix
+    // listens for Escape on the document, so a dispatched one is enough.
+    doc.dispatchEvent(
+      new doc.defaultView!.KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+      }),
+    );
+    schedule();
+    rpc<FilterResult>("filter_set", { onlyUnviewed }).then(
+      (result) => {
+        if (signal.aborted) return;
+        state.onlyUnviewed = result.onlyUnviewed;
+        schedule();
+      },
+      (cause: unknown) => {
+        warn(cause);
+        void loadFilter();
+      },
+    );
+  }
+
+  function applyFilter(active: boolean): void {
+    const root = doc.documentElement;
+    if (active && state.onlyUnviewed) {
+      if (!root.hasAttribute(FILTER_ATTR)) root.setAttribute(FILTER_ATTR, "");
+    } else if (root.hasAttribute(FILTER_ATTR)) {
+      root.removeAttribute(FILTER_ATTR);
+    }
+
+    const menu = active ? findOpenSelectorMenu(doc) : null;
+    if (menu === null) return;
+    let item = existingFilterItem(menu);
+    if (item === null) {
+      const nodes = createFilterItem(setFilter);
+      menu.append(...nodes);
+      item = nodes[nodes.length - 1]!;
+    }
+    paintFilterItem(item, state.onlyUnviewed);
+  }
+
   function decorate(cards: readonly DiffCard[]): void {
     writing = true;
     try {
@@ -192,12 +256,19 @@ export function startEngine(deps: EngineDeps): Engine {
     if (toolbar === null || threadId === null) {
       writing = true;
       undecorate(doc.body);
+      applyFilter(false);
       writing = false;
       return;
     }
 
     const visible = findCards(doc);
     decorate(visible);
+    writing = true;
+    try {
+      applyFilter(true);
+    } finally {
+      writing = false;
+    }
 
     // Prune once per thread, after the first pass that produced cards, so a
     // thread never accumulates marks for files that left its diff.
@@ -232,6 +303,7 @@ export function startEngine(deps: EngineDeps): Engine {
     attributeFilter: ["aria-expanded", "aria-label"],
   });
 
+  void loadFilter();
   schedule();
 
   return {
@@ -243,6 +315,7 @@ export function startEngine(deps: EngineDeps): Engine {
       cancel = null;
       writing = true;
       undecorate(doc.body);
+      applyFilter(false);
       writing = false;
     },
   };

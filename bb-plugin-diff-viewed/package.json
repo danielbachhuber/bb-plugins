@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Diff Viewed",
-    "description": "Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes.",
+    "description": "Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes, plus an Only unviewed filter that hides reviewed files.",
     "branding": {
       "icon": "CircleCheck"
     },

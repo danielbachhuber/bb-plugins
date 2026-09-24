@@ -42,7 +42,22 @@ export const rpcContract = defineRpcContract({
       .strict(),
     output: z.object({ record: recordSchema }),
   },
+  filter_get: {
+    input: z.null(),
+    output: z.object({ onlyUnviewed: z.boolean() }),
+  },
+  filter_set: {
+    input: z.object({ onlyUnviewed: z.boolean() }).strict(),
+    output: z.object({ onlyUnviewed: z.boolean() }),
+  },
 });
+
+/**
+ * Whether the changes panel hides files marked viewed. One setting for every
+ * thread, since it describes how you like to read a diff rather than anything
+ * about one diff.
+ */
+const FILTER_KEY = "filter:only-unviewed";
 
 /**
  * Realtime channel the content script listens on. The payload carries the
@@ -86,6 +101,13 @@ export default async function plugin(bb: BbPluginApi) {
       const before = await read(threadId);
       const after = prune(before, presentPaths);
       return { record: await commit(threadId, before, after) };
+    },
+    filter_get: async () => ({
+      onlyUnviewed: (await bb.storage.kv.get<boolean>(FILTER_KEY)) === true,
+    }),
+    filter_set: async ({ onlyUnviewed }) => {
+      await bb.storage.kv.set(FILTER_KEY, onlyUnviewed);
+      return { onlyUnviewed };
     },
   });
 

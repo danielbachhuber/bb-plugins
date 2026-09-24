@@ -6,7 +6,7 @@
 // that only show up once the pieces are wired together.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startEngine, type Engine } from "./engine";
-import { OWNED_ATTR, VIEWED_ATTR } from "./dom";
+import { FILTER_ATTR, OWNED_ATTR, VIEWED_ATTR } from "./dom";
 
 const THREAD = "/projects/proj_x/threads/thr_a";
 
@@ -45,6 +45,30 @@ function renderToolbar(): HTMLElement {
   return toolbar;
 }
 
+/**
+ * bb's range dropdown: the trigger in the toolbar's selector slot, and, when
+ * `open`, the Radix menu it points at through `aria-controls`.
+ */
+function renderSelector(open: boolean): HTMLElement {
+  const slot = document.createElement("div");
+  slot.setAttribute("data-testid", "git-diff-toolbar-selector-slot");
+  slot.innerHTML = `<button type="button" aria-haspopup="menu"
+    aria-expanded="${open}" aria-controls="radix-menu-1">All changes</button>`;
+  document.body.prepend(slot);
+  const menu = document.createElement("div");
+  menu.id = "radix-menu-1";
+  menu.setAttribute("role", "menu");
+  menu.innerHTML = `
+    <div role="menuitem">All changes</div>
+    <div role="menuitem">Uncommitted changes</div>`;
+  if (open) document.body.append(menu);
+  return menu;
+}
+
+function filterItem(): HTMLElement | null {
+  return document.querySelector('[role="menuitemcheckbox"]');
+}
+
 function checkboxFor(toggle: HTMLButtonElement): HTMLInputElement | null {
   const headerRow = toggle.parentElement?.parentElement;
   const input = headerRow?.querySelector(`label[${OWNED_ATTR}] input`);
@@ -67,13 +91,23 @@ let controller: AbortController;
 let started: Engine[] = [];
 
 function start(
-  options: { record?: Record<string, string>; pathname?: string } = {},
+  options: {
+    record?: Record<string, string>;
+    pathname?: string;
+    onlyUnviewed?: boolean;
+  } = {},
 ): Harness {
   const calls: { method: string; input: unknown }[] = [];
   const record: Record<string, string> = { ...(options.record ?? {}) };
+  let onlyUnviewed = options.onlyUnviewed ?? false;
 
   const rpc = async <Result,>(method: string, input: unknown): Promise<Result> => {
     calls.push({ method, input });
+    if (method === "filter_get") return { onlyUnviewed } as Result;
+    if (method === "filter_set") {
+      ({ onlyUnviewed } = input as { onlyUnviewed: boolean });
+      return { onlyUnviewed } as Result;
+    }
     if (method === "viewed_set") {
       const { path, fingerprint, viewed } = input as {
         path: string;
@@ -124,6 +158,7 @@ afterEach(() => {
   for (const engine of started) engine.dispose();
   controller.abort();
   document.body.innerHTML = "";
+  document.documentElement.removeAttribute(FILTER_ATTR);
   vi.restoreAllMocks();
 });
 
@@ -322,5 +357,92 @@ describe("scope", () => {
     harness.engine.dispose();
     expect(document.querySelectorAll(`[${OWNED_ATTR}]`)).toHaveLength(0);
     expect(document.querySelectorAll(`[${VIEWED_ATTR}]`)).toHaveLength(0);
+  });
+});
+
+describe("Only unviewed", () => {
+  it("adds an unchecked item to the open range dropdown", async () => {
+    renderToolbar();
+    const menu = renderSelector(true);
+    const harness = start();
+    await harness.settle();
+
+    const item = filterItem();
+    expect(item?.parentElement).toBe(menu);
+    expect(item?.textContent).toBe("Only unviewed");
+    expect(item?.getAttribute("aria-checked")).toBe("false");
+    expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(false);
+  });
+
+  it("adds the item only once across passes", async () => {
+    renderToolbar();
+    renderSelector(true);
+    const harness = start();
+    await harness.settle();
+    harness.engine.syncNow();
+
+    expect(document.querySelectorAll('[role="menuitemcheckbox"]')).toHaveLength(1);
+  });
+
+  it("leaves a closed dropdown alone", async () => {
+    renderToolbar();
+    renderSelector(false);
+    const harness = start();
+    await harness.settle();
+
+    expect(filterItem()).toBeNull();
+  });
+
+  it("turns the filter on, saves it, and closes the menu", async () => {
+    renderToolbar();
+    renderSelector(true);
+    const harness = start();
+    await harness.settle();
+    const escapes: string[] = [];
+    document.addEventListener("keydown", (event) => escapes.push(event.key));
+
+    filterItem()!.click();
+    await harness.settle();
+
+    expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(true);
+    expect(filterItem()?.getAttribute("aria-checked")).toBe("true");
+    expect(harness.calls).toContainEqual({
+      method: "filter_set",
+      input: { onlyUnviewed: true },
+    });
+    expect(escapes).toEqual(["Escape"]);
+  });
+
+  it("turns the filter off again", async () => {
+    renderToolbar();
+    renderSelector(true);
+    const harness = start({ onlyUnviewed: true });
+    await harness.settle();
+    expect(filterItem()?.getAttribute("aria-checked")).toBe("true");
+
+    filterItem()!.click();
+    await harness.settle();
+
+    expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(false);
+    expect(filterItem()?.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("applies a saved filter without opening the menu", async () => {
+    renderToolbar();
+    const harness = start({ onlyUnviewed: true });
+    await harness.settle();
+
+    expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(true);
+  });
+
+  it("stops hiding files when the changes panel closes", async () => {
+    const toolbar = renderToolbar();
+    const harness = start({ onlyUnviewed: true });
+    await harness.settle();
+
+    toolbar.remove();
+    harness.engine.syncNow();
+
+    expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(false);
   });
 });

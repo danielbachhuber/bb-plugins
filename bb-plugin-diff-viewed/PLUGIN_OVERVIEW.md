@@ -6,6 +6,10 @@ it stays folded away while you work through the rest of the diff. What is still
 expanded is what you have not read yet. Uncheck it to bring it back; nothing
 else about the panel changes.
 
+To hide reviewed files entirely, pick **Only unviewed** at the bottom of the
+panel's range dropdown ("All changes", "Uncommitted changes"). Pick it again to
+show every file. The choice applies to every thread.
+
 Marks are kept per thread. They survive a reload and a restart of bb, and
 another open window picks them up when it regains focus.
 

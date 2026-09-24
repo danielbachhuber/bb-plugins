@@ -25,6 +25,10 @@ import {
 export const OWNED_ATTR = "data-diff-viewed-owned";
 /** Set on a header row whose file is marked viewed. Drives the dimming. */
 export const VIEWED_ATTR = "data-diff-viewed";
+/** Set on `<html>` while Only unviewed is on. Drives the hiding. */
+export const FILTER_ATTR = "data-diff-viewed-only-unviewed";
+/** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
+const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
 /** Timeline diffs, which are deliberately out of scope: the same path recurs
  * once per message there, so one mark could not mean anything useful. */
 const TIMELINE_SELECTOR = "[data-timeline-file-diff]";
@@ -185,6 +189,9 @@ export const STYLE_TEXT = `
 [${VIEWED_ATTR}="true"] label[${OWNED_ATTR}] {
   color: var(--foreground);
 }
+[${FILTER_ATTR}] [data-index]:has([${VIEWED_ATTR}="true"]) {
+  display: none;
+}
 `;
 
 /**
@@ -198,6 +205,94 @@ export const TOOLBAR_SELECTOR = '[data-testid="git-diff-toolbar-actions"]';
 export function findToolbar(root: ParentNode): HTMLElement | null {
   const toolbar = root.querySelector(TOOLBAR_SELECTOR);
   return toolbar instanceof HTMLElement ? toolbar : null;
+}
+
+/**
+ * The range dropdown's menu ("All changes", "Uncommitted changes", …), when it
+ * is open. The menu is portaled out of the toolbar, so it is found through the
+ * trigger: Radix points the trigger's `aria-controls` at the menu's id and sets
+ * `aria-expanded` while it is open.
+ *
+ * On a narrow viewport bb renders the menu as a sheet of plain buttons with no
+ * such id, so this finds nothing there and the filter is not offered.
+ */
+export const SELECTOR_SLOT_SELECTOR =
+  '[data-testid="git-diff-toolbar-selector-slot"]';
+
+export function findOpenSelectorMenu(doc: Document): HTMLElement | null {
+  const trigger = doc.querySelector(
+    `${SELECTOR_SLOT_SELECTOR} button[aria-expanded="true"]`,
+  );
+  const menuId = trigger?.getAttribute("aria-controls");
+  if (menuId === null || menuId === undefined || menuId === "") return null;
+  const menu = doc.getElementById(menuId);
+  if (!(menu instanceof HTMLElement)) return null;
+  return menu.getAttribute("role") === "menu" ? menu : null;
+}
+
+/** This plugin's Only unviewed item inside the open menu, if it is there. */
+export function existingFilterItem(menu: HTMLElement): HTMLElement | null {
+  const item = menu.querySelector(`[${FILTER_ITEM_ATTR}]`);
+  return item instanceof HTMLElement ? item : null;
+}
+
+const CHECK_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+  'stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true">' +
+  '<path d="M20 6 9 17l-5-5"/></svg>';
+
+/**
+ * Build the separator and Only unviewed item that go at the bottom of the
+ * range dropdown, styled like bb's own items with the check on the right.
+ *
+ * Radix does not know about this item, so arrow keys skip it; it is reachable
+ * by pointer only. `onToggle` receives the user's intent.
+ */
+export function createFilterItem(
+  onToggle: (onlyUnviewed: boolean) => void,
+): HTMLElement[] {
+  const separator = document.createElement("div");
+  separator.setAttribute(OWNED_ATTR, "");
+  separator.setAttribute("role", "separator");
+  separator.className = "-mx-1 my-1 h-px bg-muted";
+
+  const item = document.createElement("div");
+  item.setAttribute(OWNED_ATTR, "");
+  item.setAttribute(FILTER_ITEM_ATTR, "");
+  item.setAttribute("role", "menuitemcheckbox");
+  item.setAttribute("aria-checked", "false");
+  item.className =
+    "relative flex cursor-default select-none items-center justify-between " +
+    "gap-2 rounded-sm px-2 py-[0.3125rem] text-xs outline-none " +
+    "hover:bg-state-hover hover:text-foreground";
+
+  const text = document.createElement("span");
+  text.textContent = "Only unviewed";
+  const check = document.createElement("span");
+  check.className = "flex items-center opacity-0";
+  check.innerHTML = CHECK_SVG;
+  item.append(text, check);
+
+  item.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onToggle(item.getAttribute("aria-checked") !== "true");
+  });
+
+  return [separator, item];
+}
+
+/** Reflect the filter onto its menu item. */
+export function paintFilterItem(item: HTMLElement, onlyUnviewed: boolean): void {
+  const value = String(onlyUnviewed);
+  if (item.getAttribute("aria-checked") !== value) {
+    item.setAttribute("aria-checked", value);
+  }
+  const check = item.lastElementChild;
+  if (check instanceof HTMLElement) {
+    check.classList.toggle("opacity-0", !onlyUnviewed);
+    check.classList.toggle("opacity-100", onlyUnviewed);
+  }
 }
 
 /** Remove every node, attribute, and class this plugin added under `root`. */

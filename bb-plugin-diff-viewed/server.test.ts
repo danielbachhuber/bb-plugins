@@ -102,3 +102,20 @@ describe("viewed_prune", () => {
     expect(harness.inspection.realtimeSignals).toHaveLength(before);
   });
 });
+
+describe("filter", () => {
+  it("starts off showing every file", async () => {
+    const { harness } = await start();
+    expect(await harness.behavior.callRpc("filter_get", null)).toEqual({
+      onlyUnviewed: false,
+    });
+  });
+
+  it("remembers Only unviewed", async () => {
+    const { harness } = await start();
+    await harness.behavior.callRpc("filter_set", { onlyUnviewed: true });
+    expect(await harness.behavior.callRpc("filter_get", null)).toEqual({
+      onlyUnviewed: true,
+    });
+  });
+});
