@@ -94,6 +94,14 @@ plugin would do, not only the name you have in mind. Report what you find
 before writing any code: a close match may be worth installing, extending, or
 borrowing from instead of building from scratch.
 
+A plugin listed in the marketplace keeps a **Related plugins** section in its
+README, after the sections on using it and before the ones on how it works.
+List each similar plugin, including the ones bundled with bb, and say in a sentence or two how this one differs. Name a plugin by its
+marketplace display name and entry id, such as **Markdown PRO** (`md-editor`),
+and leave out its author and repository link, following the public-repository
+rule above. Search again when you change what a published plugin does, since
+the list of similar plugins changes too.
+
 ## Working on a plugin
 
 ```sh
