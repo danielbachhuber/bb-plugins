@@ -64,6 +64,10 @@
       "source": "./bb-plugin-thread-todos"
     },
     {
+      "name": "tokenomics",
+      "source": "./bb-plugin-tokenomics"
+    },
+    {
       "name": "weekly-review",
       "source": "./bb-plugin-weekly-review"
     }
