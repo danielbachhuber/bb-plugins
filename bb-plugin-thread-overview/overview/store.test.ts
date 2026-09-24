@@ -29,7 +29,6 @@ describe("OverviewStore", () => {
       summary: "",
       steps: [],
       updatedAt: 0,
-      expanded: false,
     });
   });
 
@@ -87,15 +86,6 @@ describe("OverviewStore", () => {
     expect(store.removeStep("t1", agent!.id)).toBe(false);
     expect(store.removeStep("t1", yours!.id)).toBe(true);
     expect(store.steps("t1").map((s) => s.text)).toEqual(["Agent step"]);
-  });
-
-  it("starts collapsed and remembers when you open the band", () => {
-    store.setSummary("t1", "x", "agent");
-    expect(store.get("t1").expanded).toBe(false);
-    store.setExpanded("t1", true);
-    expect(store.get("t1")).toMatchObject({ expanded: true, updatedAt: 1_000 });
-    store.setExpanded("t2", true);
-    expect(store.get("t2").expanded).toBe(true);
   });
 
   it("drops a deleted thread", () => {

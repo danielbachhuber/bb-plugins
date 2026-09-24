@@ -90,15 +90,7 @@ function useOverview(threadId: string) {
       void run(() => rpc.call("overview_remove", { threadId, id: step.id }), "Could not remove that step"),
   };
 
-  const setExpanded = useCallback(
-    (expanded: boolean) =>
-      rpc.call("overview_set_view", { threadId, expanded }).catch((error: unknown) => {
-        console.error("thread-overview: saving the band's view failed", error);
-      }),
-    [rpc, threadId],
-  );
-
-  return { overview, handlers, setExpanded };
+  return { overview, handlers };
 }
 
 /** The current time, to the minute, for "updated 12 min ago". */
@@ -112,26 +104,18 @@ function useNow(): number {
 }
 
 function Band({ threadId }: { threadId: string }) {
-  const { overview, handlers, setExpanded } = useOverview(threadId);
+  const { overview, handlers } = useOverview(threadId);
   const now = useNow();
-  // Collapsed until you open it; after that, your choice for this thread.
-  // Read once per visit, so a realtime re-read does not undo a click.
-  const [expanded, setLocalExpanded] = useState<boolean | null>(null);
+  // Every visit starts collapsed: the one line is what you need on arriving.
+  const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    if (overview !== null && expanded === null) setLocalExpanded(overview.expanded);
-  }, [overview, expanded]);
-
-  if (overview === null || expanded === null) return null;
+  if (overview === null) return null;
   return (
     <OverviewBand
       overview={overview}
       now={now}
       expanded={expanded}
-      onToggle={() => {
-        setLocalExpanded(!expanded);
-        void setExpanded(!expanded);
-      }}
+      onToggle={() => setExpanded(!expanded)}
       {...handlers}
     />
   );

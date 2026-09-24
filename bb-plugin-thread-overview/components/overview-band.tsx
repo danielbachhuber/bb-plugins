@@ -50,7 +50,7 @@ function StepRow({ step, onCycle, onRemove }: { step: Step } & Pick<OverviewHand
           "flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 rounded px-1.5 py-0.5 text-left text-xs leading-5 hover:bg-state-hover",
           step.status === "current" && "bg-secondary font-medium text-foreground",
           step.status === "todo" && "text-foreground/80",
-          step.status === "done" && "text-muted-foreground",
+          step.status === "done" && "text-muted-foreground line-through",
         )}
       >
         <span className="flex h-5 items-center">

@@ -32,8 +32,6 @@ export type Overview = {
   steps: Step[];
   /** Latest change to the summary or any step, by anyone. 0 when nothing yet. */
   updatedAt: number;
-  /** Whether you opened this thread's band. It starts collapsed. */
-  expanded: boolean;
 };
 
 /** Longest step text we store. Longer arrives elided rather than rejected. */

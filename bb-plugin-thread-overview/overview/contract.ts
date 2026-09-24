@@ -23,7 +23,6 @@ export const overviewSchema = z.object({
   summary: z.string(),
   steps: z.array(stepSchema),
   updatedAt: z.number(),
-  expanded: z.boolean(),
 });
 
 const threadId = z.string().min(1);
@@ -64,12 +63,6 @@ export const rpcContract = defineRpcContract({
   },
   overview_remove: {
     input: z.object({ threadId, id: z.string().min(1) }).strict(),
-    output: overviewOutput,
-  },
-  overview_set_view: {
-    input: z
-      .object({ threadId, expanded: z.boolean() })
-      .strict(),
     output: overviewOutput,
   },
 });

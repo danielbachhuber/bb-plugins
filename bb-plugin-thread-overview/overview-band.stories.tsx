@@ -27,7 +27,6 @@ const planned: Overview = {
     step(5, "Ask finance which months they need first", "todo", "user"),
   ],
   updatedAt: NOW - 12 * 60_000,
-  expanded: true,
 };
 
 /** A thread imported from Thread Todos: a long list, nearly all finished. */

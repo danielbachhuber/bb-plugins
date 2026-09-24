@@ -21,7 +21,6 @@ const overview: Overview = {
     step("s3", "Ask finance which months they need", "todo", "user"),
   ],
   updatedAt: NOW - 12 * 60_000,
-  expanded: true,
 };
 
 function renderBand(props: Partial<Parameters<typeof OverviewBand>[0]> = {}) {
@@ -101,6 +100,9 @@ describe("OverviewBand", () => {
       "Find where the report builds its rows",
     ]);
     expect(screen.getByRole("button", { name: "Hide completed" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Find where the report builds its rows, done/ }).className,
+    ).toContain("line-through");
   });
 
   it("collapses from the bottom edge too", () => {

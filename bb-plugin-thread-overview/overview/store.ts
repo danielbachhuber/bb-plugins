@@ -37,6 +37,8 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE overviews DROP COLUMN collapsed`,
   `ALTER TABLE overviews DROP COLUMN seenAt`,
   `ALTER TABLE overviews DROP COLUMN agentUpdatedAt`,
+  // Every visit starts collapsed, so there is no open state to keep.
+  `ALTER TABLE overviews DROP COLUMN expanded`,
 ];
 
 type StepRow = Omit<Step, "status" | "source"> & { status: string; source: string };
@@ -45,7 +47,6 @@ type OverviewRow = {
   threadId: string;
   summary: string;
   updatedAt: number;
-  expanded: number;
 };
 
 function toStep(row: StepRow): Step {
@@ -90,7 +91,6 @@ export class OverviewStore {
       summary: row?.summary ?? "",
       steps: this.steps(threadId),
       updatedAt: row?.updatedAt ?? 0,
-      expanded: (row?.expanded ?? 0) === 1,
     };
   }
 
@@ -196,16 +196,6 @@ export class OverviewStore {
       .run(id, threadId);
     if (result.changes > 0) this.touch(threadId, this.now());
     return result.changes > 0;
-  }
-
-  /** Whether you opened this thread's band. It is yours alone, so no change is recorded. */
-  setExpanded(threadId: string, expanded: boolean): void {
-    this.db
-      .prepare(
-        `INSERT INTO overviews (threadId, expanded) VALUES (?, ?)
-         ON CONFLICT (threadId) DO UPDATE SET expanded = excluded.expanded`,
-      )
-      .run(threadId, expanded ? 1 : 0);
   }
 
   /** Called when bb says a thread is gone. */

@@ -229,11 +229,6 @@ export default async function plugin(bb: BbPluginApi) {
       if (store.removeStep(threadId, id)) announce(threadId);
       return { overview: store.get(threadId) };
     },
-    // Whether the band is open is yours alone, so it does not announce.
-    overview_set_view: ({ threadId, expanded }) => {
-      store.setExpanded(threadId, expanded);
-      return { overview: store.get(threadId) };
-    },
   });
 
   // Archiving is not a trigger: an archived thread can come back, and its

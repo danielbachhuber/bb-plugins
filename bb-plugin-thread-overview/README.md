@@ -7,12 +7,12 @@ a thread is doing when you come back to it, without reading the transcript.
 
 ## The band
 
-- **Collapsed**, which is how it starts: one line, the summary on the left and
+- **Collapsed**, which is how every visit to a thread starts: one line, the summary on the left and
   the step count and current step (`2/4 Write the export`) on the right.
 - **Expanded:** the summary on the left, capped at 72 characters a line, with
   when it last changed. The steps are a column on the right: "+ Add step",
   then unfinished steps in plan order, then "Show 14 completed", which lists
-  finished steps, most recently finished first. The current step is highlighted. In a narrow pane the column
+  finished steps, struck through, most recently finished first. The current step is highlighted. In a narrow pane the column
   wraps below the summary. "Collapse" runs along the bottom edge as well as the
   chevron in the corner.
 - **Nothing to tell you:** a thread with no summary and nothing left to do gets
@@ -21,8 +21,6 @@ a thread is doing when you come back to it, without reading the transcript.
   Only one step is current at a time. The pencil beside the summary edits it
   in place. "+ Add step" adds one of yours. Steps you added can be removed on
   hover; the agent's steps cannot, only marked done.
-- **Open or collapsed:** opening a thread's band is remembered for that thread,
-  and so is collapsing it again.
 
 The band's background spans the pane, and its contents sit in a centered column
 up to 1280px wide, so on a wide screen the summary and the steps stay near the
