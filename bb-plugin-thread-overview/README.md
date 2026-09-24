@@ -10,10 +10,9 @@ a thread is doing when you come back to it, without reading the transcript.
 - **Collapsed**, which is how it starts: one line, the summary on the left and
   the step count and current step (`2/4 Write the export`) on the right.
 - **Expanded:** the summary on the left, capped at 72 characters a line, with
-  when it last changed. The steps are a column on the right, about seven rows
-  tall and scrolling past that: "+ Add step", then unfinished steps in plan
-  order, then "Show 14 completed", which lists finished steps, most recently
-  finished first. The current step is highlighted. In a narrow pane the column
+  when it last changed. The steps are a column on the right: "+ Add step",
+  then unfinished steps in plan order, then "Show 14 completed", which lists
+  finished steps, most recently finished first. The current step is highlighted. In a narrow pane the column
   wraps below the summary. "Collapse" runs along the bottom edge as well as the
   chevron in the corner.
 - **Nothing to tell you:** a thread with no summary and nothing left to do gets

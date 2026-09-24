@@ -191,8 +191,9 @@ export function OverviewBody({
       </div>
 
       <div className="flex min-w-[14rem] flex-[1_1_20rem] flex-col">
-        {/* About seven rows; a longer plan scrolls rather than pushing the transcript down. */}
-        <ol className="flex max-h-40 flex-col gap-px overflow-y-auto" aria-label="Steps">
+        {/* No height cap: finished steps are hidden until asked for, so the
+            list is as long as the plan's unfinished part. */}
+        <ol className="flex flex-col gap-px" aria-label="Steps">
           <li className="px-1.5 py-0.5">
             {mode === "adding" ? (
               <form onSubmit={submitStep}>
