@@ -358,7 +358,7 @@ export function DependabotConflict() {
 
 /**
  * After "Post, approve, and merge": with nothing left open, the list above the
- * composer collapses to its header, and the Done checkbox there hides it. The panel shows
+ * composer collapses to its header, and the checkmark there hides it. The panel shows
  * the draft as posted.
  */
 export function DependabotAfter() {

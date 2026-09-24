@@ -2,9 +2,8 @@
 // item: its title, badges, one line of summary, and a Review button. Clicking
 // the row opens the item in the side panel with everything else. Kept free of
 // RPC so a story can render it with fixture props.
-import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { Item } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -52,21 +51,11 @@ export function ViewBanner({
   onGoToThread,
 }: ViewBannerProps) {
   const items = stored.view.sections.flatMap((section) => section.items);
-  // The tick shows for a moment before the view goes, so the click reads as
-  // finishing it rather than closing it.
-  const [checked, setChecked] = useState(false);
-  const hide = useRef(onHide);
-  hide.current = onHide;
-  useEffect(() => {
-    if (!checked) return;
-    const timer = setTimeout(() => hide.current(), 350);
-    return () => clearTimeout(timer);
-  }, [checked]);
   const open = items.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
 
   return (
     <div>
-      <div className="flex items-center pr-3">
+      <div className="flex items-center pr-1.5">
         <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left" onClick={onToggle} aria-expanded={!collapsed}>
           <span className="text-xs text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
           <span className="min-w-0 flex-1 truncate text-sm">
@@ -77,13 +66,15 @@ export function ViewBanner({
             </span>
           </span>
         </button>
-        <label
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          title="Mark done and hide until this thread publishes again"
+        <button
+          type="button"
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground"
+          onClick={onHide}
+          aria-label="Done"
+          title="Done: hide until this thread publishes again"
         >
-          <Checkbox checked={checked} onCheckedChange={(value) => setChecked(value === true)} aria-label="Done" />
-          Done
-        </label>
+          <Icon name="Check" className="size-4" />
+        </button>
       </div>
       {collapsed ? null : (
         <ul className="max-h-72 overflow-y-auto border-t border-border">
