@@ -8,19 +8,31 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows how many rows need
 action: everything the last sync found, less what is snoozed. It loads every
-configured source at once and merges their items into one list, in sections.
-Inbox comes first, with what has not been looked at yet: tasks in Todoist's
-Inbox project, whatever their date, and unread email. Then come Overdue, Today,
-and Upcoming, Email (read email, newest first), and No date. Any other task
-goes in the section of its due date or its deadline, whichever is sooner, and
-within a section the soonest and most urgent come first. Each row starts
+configured source at once and merges their items into one list, shown one
+section at a time. The header picks the section on the left (**Now**,
+**Inbox**, **Anytime**, each with its count) and narrows it to one source on
+the right (**Gmail**, **Todoist**, each with its count in that section; press
+one again to see both, and hover one for its query). Each row goes in one
+section, checked in this order:
+
+- **Inbox**: everything that needs a decision before it is work. Every Gmail
+  row, read or not, since each is a thread still in the Gmail inbox (email,
+  GitHub notifications, document comments, invitations); and every task in
+  Todoist's Inbox project, whatever its date. Mail comes first, newest first,
+  then the Todoist Inbox tasks.
+- **Now**: any other task overdue or due today, by its due date or its
+  deadline, whichever is sooner.
+- **Anytime**: every other task, dated later or not at all.
+
+The page opens on Now, from every source. In Now and Anytime the soonest come
+first, then the most urgent, and undated tasks last. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
 for today), its description, and a details line with the row's actions, tags,
 and where it came from (a Todoist project, or an email's sender), with a P1–P3
-tag beside the title. The Overdue heading is red, and so is a deadline that is
-today or already past; nothing else is colored for its date. A recurring item
+tag beside the title. A date or deadline that is today or already past is
+red; nothing else is colored for its date. A recurring item
 has a repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last

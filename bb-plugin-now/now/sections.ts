@@ -3,24 +3,25 @@ import { localDay } from "./due.js";
 import { sortDate } from "./items.js";
 import type { Item } from "./types.js";
 
-export type SectionId = "inbox" | "overdue" | "today" | "upcoming" | "email" | "undated";
+export type SectionId = "inbox" | "now" | "anytime";
 
 export interface Section {
   id: SectionId;
   title: string;
+  /** One line on what belongs here, for the header. */
+  hint: string;
   items: Item[];
 }
 
-const TITLES: Record<SectionId, string> = {
-  inbox: "Inbox",
-  overdue: "Overdue",
-  today: "Today",
-  upcoming: "Upcoming",
-  email: "Email",
-  undated: "No date",
+const TITLES: Record<SectionId, string> = { inbox: "Inbox", now: "Now", anytime: "Anytime" };
+
+const HINTS: Record<SectionId, string> = {
+  inbox: "Needs a decision: your Gmail inbox and Todoist's Inbox",
+  now: "Tasks overdue or due today",
+  anytime: "Every other task",
 };
 
-const ORDER: SectionId[] = ["inbox", "overdue", "today", "upcoming", "email", "undated"];
+export const SECTION_ORDER: readonly SectionId[] = ["now", "inbox", "anytime"];
 
 /** The local day a date or date-time falls on; a trailing `Z` is converted. */
 function dayOf(date: string): string {
@@ -29,29 +30,37 @@ function dayOf(date: string): string {
 }
 
 /**
- * Which section a row belongs in. Inbox comes first and holds what has not
- * been looked at yet: tasks in Todoist's Inbox, whatever their date, and
- * unread email. Every other task goes by the date it sorts by (its due date
- * or its deadline, whichever is sooner), or in No date. Read email goes in
- * Email.
+ * Which section a row belongs in, from what it is rather than how urgent it
+ * looks:
+ *
+ * - Inbox: everything that needs a decision before it is work. Every Gmail
+ *   row, since each is a thread still in the Gmail inbox (email, GitHub
+ *   notifications, document comments, invitations), read or not; and tasks
+ *   in Todoist's Inbox, whatever their date, since they have not been filed.
+ * - Now: every other task that is overdue or due today, by the date it sorts
+ *   by (its due date or its deadline, whichever is sooner).
+ * - Anytime: every other task, dated later or not at all.
  */
 export function sectionOf(item: Item, now: Date): SectionId {
-  if (item.inbox === true || item.gmail?.unread === true) return "inbox";
-  if (item.gmail !== null) return "email";
+  if (item.gmail !== null || item.inbox === true) return "inbox";
   const date = sortDate(item);
-  if (date === null) return "undated";
-  const day = dayOf(date);
-  const today = localDay(now);
-  if (day < today) return "overdue";
-  if (day === today) return "today";
-  return "upcoming";
+  if (date !== null && dayOf(date) <= localDay(now)) return "now";
+  return "anytime";
 }
 
-/** The rows grouped into sections, keeping their order; empty sections left out. */
+/**
+ * The rows grouped into sections, every section kept even when empty so the
+ * header can count it. Now and Anytime keep the list's order (soonest first,
+ * then priority, undated last). Inbox is newest first, as Gmail is, with
+ * Todoist's Inbox tasks after the mail.
+ */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
-  const groups = new Map<SectionId, Item[]>(ORDER.map((id) => [id, []]));
+  const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
   for (const item of items) groups.get(sectionOf(item, now))!.push(item);
-  return ORDER.filter((id) => groups.get(id)!.length > 0).map((id) => ({ id, title: TITLES[id], items: groups.get(id)! }));
+  const inbox = groups.get("inbox")!;
+  const mail = inbox.filter((item) => item.gmail !== null).sort((a, b) => (b.activityAt ?? "").localeCompare(a.activityAt ?? ""));
+  groups.set("inbox", [...mail, ...inbox.filter((item) => item.gmail === null)]);
+  return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

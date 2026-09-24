@@ -5,6 +5,7 @@ import { SyncStatus } from "./components/ui/sync-status";
 import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView } from "./now/item-list";
 import type { PendingAction } from "./now/item-row";
+import type { SectionId } from "./now/sections";
 import { mergeItems } from "./now/items";
 import type { Item } from "./now/types";
 
@@ -292,9 +293,13 @@ const ok: NowList = {
 function Frame({
   listing,
   pending,
+  section,
+  source,
 }: {
   listing: Listing | null;
   pending?: ReadonlyMap<string, PendingAction>;
+  section?: SectionId;
+  source?: string | null;
 }) {
   const fetchedAt = listing?.list?.fetchedAt;
   return (
@@ -307,7 +312,14 @@ function Frame({
           onRefresh={noop}
         />
       </div>
-      <ItemListView listing={listing} now={now} actions={actions} pending={pending} />
+      <ItemListView
+        listing={listing}
+        now={now}
+        actions={actions}
+        pending={pending}
+        initialSection={section}
+        initialSource={source}
+      />
     </div>
   );
 }
@@ -334,9 +346,29 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="Inbox first (Todoist's Inbox and unread email), then sections for overdue, today, and upcoming tasks, then read email newest first (GitHub notifications gathered per pull request or issue, and plain emails), then undated tasks."
+        hint="The page opens on Now: tasks overdue or due today. The header picks the section on the left and narrows it to one source on the right, each with its counts."
       >
         <Frame listing={stored(ok)} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** The other two sections, and a section narrowed to one source. */
+export function Sections() {
+  return (
+    <StoryCard>
+      <StoryRow
+        label="Inbox"
+        hint="Every Gmail row, read or not, newest first (GitHub notifications gathered per pull request or issue, document comments, invitations, plain email), then the tasks in Todoist's Inbox."
+      >
+        <Frame listing={stored(ok)} section="inbox" />
+      </StoryRow>
+      <StoryRow label="Inbox, Gmail only" hint="Gmail pressed on the right: only its rows, and the sections on the left count only its rows too.">
+        <Frame listing={stored(ok)} section="inbox" source="gmail" />
+      </StoryRow>
+      <StoryRow label="Anytime" hint="Every other task: dated later, soonest first, then undated.">
+        <Frame listing={stored(ok)} section="anytime" />
       </StoryRow>
     </StoryCard>
   );
@@ -356,13 +388,14 @@ export function States() {
       </StoryRow>
       <StoryRow
         label="Working"
-        hint="A task completing, an email archiving, a pull request snoozing, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
+        hint="In Inbox, a Todoist Inbox task completing, an email archiving, a pull request snoozing, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
       >
         <Frame
           listing={stored(ok)}
+          section="inbox"
           pending={
             new Map<string, PendingAction>([
-              ["todoist:a2", "complete"],
+              ["todoist:a9", "complete"],
               ["gmail:t1", "archive"],
               ["github:acme/widgets#128", "snooze"],
               ["gmail:t4", "rsvp:accepted"],
@@ -445,6 +478,7 @@ export function States() {
             ],
             fetchedAt: syncedAt,
           })}
+          section="inbox"
         />
       </StoryRow>
     </StoryCard>

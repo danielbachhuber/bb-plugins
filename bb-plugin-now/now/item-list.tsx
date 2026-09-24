@@ -9,7 +9,10 @@ import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
-import { groupIntoSections } from "./sections.js";
+import { SegmentedToggle, Segmented } from "@/components/segmented";
+
+import { groupIntoSections, type SectionId } from "./sections.js";
+import type { Item } from "./types.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
@@ -25,22 +28,6 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 type LoadedSource = Extract<SourceStatus, { state: "ok" }>;
 type ProblemSource = Extract<SourceStatus, { state: "error" | "unconfigured" }>;
-
-/** "Todoist · today | overdue · 7", one per loaded source. */
-function SourceSummary({ source }: { source: LoadedSource }) {
-  return (
-    <span>
-      {source.name}
-      {source.query === null ? null : (
-        <>
-          {" · "}
-          <code className="text-foreground">{source.query}</code>
-        </>
-      )}
-      {` · ${source.count}`}
-    </span>
-  );
-}
 
 /** Source text with `backticked` spans drawn as code. */
 function WithCode({ text }: { text: string }) {
@@ -89,14 +76,96 @@ export interface ItemListViewProps {
   actions?: RowActions;
   /** Rows waiting on an action, by item id. */
   pending?: ReadonlyMap<string, PendingAction>;
+  /** The section and source the page opens on, for the stories: Now, from every source. */
+  initialSection?: SectionId;
+  initialSource?: string | null;
+}
+
+/** Gmail before Todoist in the source picker, whatever order they sync in. */
+const SOURCE_ORDER = ["gmail", "todoist"];
+
+function sourceRank(id: string): number {
+  const index = SOURCE_ORDER.indexOf(id);
+  return index === -1 ? SOURCE_ORDER.length : index;
+}
+
+/**
+ * One section at a time, picked on the left, with the sources on the right to
+ * narrow it to one. Each group's counts are within the other's choice: the
+ * sections count the chosen source's rows, and the sources count the chosen
+ * section's.
+ */
+function SectionedList({
+  items,
+  sources,
+  now,
+  section,
+  onSection,
+  source,
+  onSource,
+  renderRow,
+}: {
+  items: readonly Item[];
+  sources: readonly SourceStatus[];
+  now: Date;
+  section: SectionId;
+  onSection: (id: SectionId) => void;
+  source: string | null;
+  onSource: (id: string | null) => void;
+  renderRow: (item: Item) => ReactNode;
+}) {
+  const sections = groupIntoSections(source === null ? items : items.filter((item) => item.source === source), now);
+  const inSection = groupIntoSections(items, now).find((each) => each.id === section)!.items;
+  const shown = sections.find((each) => each.id === section)!;
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented
+          label="Section"
+          options={sections.map((each) => ({ id: each.id, label: each.title, count: each.items.length, title: each.hint }))}
+          value={section}
+          onChange={onSection}
+        />
+        <SegmentedToggle
+          label="Source"
+          options={[...sources].sort((a, b) => sourceRank(a.id) - sourceRank(b.id)).map((each) => ({
+            id: each.id,
+            label: each.name,
+            count: inSection.filter((item) => item.source === each.id).length,
+            title: each.state === "ok" && each.query !== null ? each.query : undefined,
+          }))}
+          value={source}
+          onChange={onSource}
+        />
+      </div>
+      <div className="mt-3">
+        {shown.items.length === 0 ? (
+          <EmptyState>{section === "inbox" ? "Inbox zero." : "Nothing here."}</EmptyState>
+        ) : (
+          <ul aria-label={shown.title} className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+            {shown.items.map(renderRow)}
+          </ul>
+        )}
+      </div>
+    </>
+  );
 }
 
 /**
  * The list as stored after the last sync. Refreshing lives in the page's
  * title bar, so this only draws.
  */
-export function ItemListView({ listing, now, actions, pending = new Map() }: ItemListViewProps) {
+export function ItemListView({
+  listing,
+  now,
+  actions,
+  pending = new Map(),
+  initialSection = "now",
+  initialSource = null,
+}: ItemListViewProps) {
   const [showSnoozed, setShowSnoozed] = useState(false);
+  const [section, setSection] = useState<SectionId>(initialSection);
+  const [source, setSource] = useState<string | null>(initialSource);
   const snoozed = listing?.snoozed ?? [];
   const threads = listing?.threads ?? {};
   const list = listing?.list ?? null;
@@ -107,14 +176,6 @@ export function ItemListView({ listing, now, actions, pending = new Map() }: Ite
   return (
     <TooltipProvider delayDuration={300}>
     <div className="mx-auto box-border w-full max-w-6xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
-      {loaded.length === 0 ? null : (
-        <p className="flex flex-wrap gap-x-4 text-sm text-muted-foreground">
-          {loaded.map((source) => (
-            <SourceSummary key={source.id} source={source} />
-          ))}
-        </p>
-      )}
-
       {problems.length === 0 ? null : (
         <div className="mt-3 space-y-2 first:mt-0">
           {problems.map((source) => (
@@ -123,7 +184,7 @@ export function ItemListView({ listing, now, actions, pending = new Map() }: Ite
         </div>
       )}
 
-      <div className="mt-3">
+      <div className="mt-3 first:mt-0">
         {listing === null ? (
           <EmptyState>Loading…</EmptyState>
         ) : list === null ? (
@@ -133,35 +194,25 @@ export function ItemListView({ listing, now, actions, pending = new Map() }: Ite
             <EmptyState>Nothing needs doing now.</EmptyState>
           )
         ) : (
-          <div className="space-y-5">
-            {groupIntoSections(list.items, now).map((section) => (
-              <section key={section.id} aria-labelledby={`now-section-${section.id}`}>
-                {/* The same small uppercase heading bb's sweeps give their sections. */}
-                <h2
-                  id={`now-section-${section.id}`}
-                  className={cn(
-                    "mb-1.5 flex items-center gap-2 px-1 text-[0.6875rem] font-medium uppercase tracking-wider",
-                    section.id === "overdue" ? "text-destructive-text" : "text-muted-foreground",
-                  )}
-                >
-                  {section.title}
-                  <span className="tabular-nums text-muted-foreground">{section.items.length}</span>
-                </h2>
-                <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-                  {section.items.map((item) => (
-                    <ItemRow
-                      key={item.id}
-                      item={item}
-                      now={now}
-                      actions={actions}
-                      threadId={threads[item.id] ?? null}
-                      pending={pending.get(item.id) ?? null}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+          <SectionedList
+            items={list.items}
+            sources={sources}
+            now={now}
+            section={section}
+            onSection={setSection}
+            source={source}
+            onSource={setSource}
+            renderRow={(item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                now={now}
+                actions={actions}
+                threadId={threads[item.id] ?? null}
+                pending={pending.get(item.id) ?? null}
+              />
+            )}
+          />
         )}
       </div>
 
