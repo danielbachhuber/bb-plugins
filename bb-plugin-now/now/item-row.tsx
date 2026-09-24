@@ -87,6 +87,17 @@ export function archiveReason(item: Item): string | null {
   return null;
 }
 
+/**
+ * A row that mentions you by name: a Google document comment that mentions
+ * or assigns you, or a GitHub notification for an @mention of you (not of a
+ * team you are on). Once you have read it there is nothing to come back for,
+ * so opening it and archiving it are one action.
+ */
+export function mentionsYou(item: Item): boolean {
+  if (item.gmail === null) return false;
+  return item.doc?.mentioned === true || item.github?.reason === "mention";
+}
+
 /** Whether the row asks for your review, for its label. */
 function reviewIsYours(github: GitHubPart): boolean {
   if (github.myReview !== undefined) return github.myReview === "requested" && github.reviewRequested === "you";
@@ -456,6 +467,22 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {actions === undefined || !mentionsYou(item) ? null : (
+              <UrlLink
+                href={item.url}
+                onClick={() => {
+                  if (!busy) actions.onArchive(item);
+                }}
+                aria-disabled={busy || undefined}
+                className={cn(
+                  "inline-flex items-center gap-1 whitespace-nowrap rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground shadow-xs transition-colors hover:bg-state-hover",
+                  busy && "pointer-events-none opacity-60",
+                )}
+              >
+                <Icon name="ExternalLink" className="size-3" />
+                Open and archive
+              </UrlLink>
+            )}
             {actions === undefined ? null : item.source === "todoist" ? (
               <LineAction
                 label="Complete"

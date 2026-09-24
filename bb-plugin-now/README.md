@@ -48,6 +48,11 @@ good sync, with a note saying how many.
   pull request whose review you have given and nobody has asked for again,
   and saying "not your review" on one you are notified about only because
   someone else, or a team you are not on, was asked to review it.
+- **Open and archive** (first in the details line of a row that mentions you
+  by name: a GitHub @mention of you, not of a team you are on, or a Google
+  document comment that mentions or assigns you) opens the row's link, the
+  newest discussion for a document, and archives the row in the same click,
+  since once it is read there is nothing to come back for.
 - **Yes, No, Maybe** (under a calendar invitation's snippet, after "Going?")
   replies to the event in Google Calendar as you, the way the same links in
   the email do. Your current reply is the one marked, read from Calendar on

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { archiveReason } from "./item-row.js";
+import { archiveReason, mentionsYou } from "./item-row.js";
 import type { Item } from "./types.js";
 
 function pullRow(github: Partial<NonNullable<Item["github"]>>): Item {
@@ -28,5 +28,16 @@ describe("archiveReason", () => {
 
   test("suggests it for a review that was only ever someone else's", () => {
     expect(archiveReason(pullRow({ reviewRequested: "others", myReview: null }))).toBe("not your review");
+  });
+});
+
+describe("mentionsYou", () => {
+  test("is a GitHub @mention of you, or a document comment that mentions you", () => {
+    expect(mentionsYou(pullRow({ reason: "mention" }))).toBe(true);
+    expect(mentionsYou(pullRow({ reason: "team_mention" }))).toBe(false);
+    expect(mentionsYou(pullRow({ reason: "review_requested" }))).toBe(false);
+    const doc = { ...pullRow({}), github: null, doc: { app: "slides" as const, documentId: "deck42", mentioned: true, quotes: [] } };
+    expect(mentionsYou(doc)).toBe(true);
+    expect(mentionsYou({ ...doc, doc: { ...doc.doc, mentioned: false } })).toBe(false);
   });
 });
