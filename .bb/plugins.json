@@ -40,6 +40,10 @@
       "source": "./bb-plugin-new-issue"
     },
     {
+      "name": "next",
+      "source": "./bb-plugin-next"
+    },
+    {
       "name": "pr-sweep",
       "source": "./bb-plugin-pr-sweep"
     },
