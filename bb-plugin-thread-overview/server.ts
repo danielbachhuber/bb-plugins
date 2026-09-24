@@ -86,8 +86,9 @@ export default async function plugin(bb: BbPluginApi) {
     name: "overview_summary",
     description:
       "Set or replace this thread's summary, shown to the user in a band under " +
-      "the thread's header: 2 to 4 sentences on what the thread is for, what has " +
-      "been done so far, and any open question. Rewrite it as each step lands.",
+      "the thread's header: 2 or 3 short sentences, under 300 characters, on " +
+      "what the thread is for, what has been done so far, and any open question. " +
+      "Rewrite it as each step lands.",
     parameters: z.object({
       summary: z.string().min(1).max(SUMMARY_MAX * 2).describe("The whole summary."),
     }),

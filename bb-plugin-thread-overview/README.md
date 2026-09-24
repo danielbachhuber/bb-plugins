@@ -11,9 +11,11 @@ a thread is doing when you come back to it, without reading the transcript.
   the step count and current step (`2/4 Write the export`) on the right.
 - **Expanded:** the summary on the left, capped at 72 characters a line, with
   when it last changed. The steps are a column on the right, about seven rows
-  tall and scrolling past that: unfinished steps in plan order, then
-  "+ Add step", then finished steps, most recently finished first. The current
-  step is highlighted. In a narrow pane the column wraps below the summary.
+  tall and scrolling past that: "+ Add step", then unfinished steps in plan
+  order, then "Show 14 completed", which lists finished steps, most recently
+  finished first. The current step is highlighted. In a narrow pane the column
+  wraps below the summary. "Collapse" runs along the bottom edge as well as the
+  chevron in the corner.
 - **Nothing to tell you:** a thread with no summary and nothing left to do gets
   one faint line, "No overview yet · 26 steps done earlier", with "Write one".
 - **Editing:** click a step to move it from not started, to current, to done.
@@ -24,7 +26,7 @@ a thread is doing when you come back to it, without reading the transcript.
   and so is collapsing it again.
 
 The band's background spans the pane, and its contents sit in a centered column
-up to 1040px wide, so on a wide screen the summary and the steps stay near the
+up to 1280px wide, so on a wide screen the summary and the steps stay near the
 transcript.
 
 Changes arrive live: the band re-reads whenever the agent or another window
@@ -62,8 +64,9 @@ bb overview done "step or id"             # mark steps done
 bb overview reopen "step or id"           # mark steps not started again
 ```
 
-The summary is 2 to 4 sentences: what the thread is for, what has been done so
-far (the result, not the activity), and any open question. Steps are 3 to 7
+The summary is 2 or 3 short sentences, under 300 characters: what the thread is
+for, what has been done so far (the result, not the activity), and any open
+question. Steps are 3 to 7
 high-level parts of the plan, not individual edits. The agent writes both on
 its first turn that does real work and rewrites the summary as steps land.
 

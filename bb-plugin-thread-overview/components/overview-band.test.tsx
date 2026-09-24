@@ -54,6 +54,7 @@ describe("OverviewBand", () => {
 
   it("cycles a step when clicked", () => {
     const handlers = renderBand();
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 completed" }));
     fireEvent.click(screen.getByRole("button", { name: /Find where the report builds its rows, done/ }));
     expect(handlers.onCycle).toHaveBeenCalledWith(overview.steps[0]);
   });
@@ -83,16 +84,29 @@ describe("OverviewBand", () => {
     expect(handlers.onAdd).toHaveBeenCalledWith("Update the help text");
   });
 
-  it("lists unfinished steps above finished ones", () => {
+  it("puts Add step first, then unfinished steps, with completed ones behind a toggle", () => {
     renderBand();
-    const names = screen
-      .getAllByRole("button", { name: /Click to change/ })
-      .map((button) => button.getAttribute("aria-label")!.split(",")[0]);
-    expect(names).toEqual([
+    const names = () =>
+      screen
+        .getAllByRole("button", { name: /Click to change/ })
+        .map((button) => button.getAttribute("aria-label")!.split(",")[0]);
+    expect(names()).toEqual(["Write the export and its tests", "Ask finance which months they need"]);
+    const list = screen.getByRole("list", { name: "Steps" });
+    expect(list.firstElementChild?.textContent).toBe("+ Add step");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show 1 completed" }));
+    expect(names()).toEqual([
       "Write the export and its tests",
       "Ask finance which months they need",
       "Find where the report builds its rows",
     ]);
+    expect(screen.getByRole("button", { name: "Hide completed" })).toBeTruthy();
+  });
+
+  it("collapses from the bottom edge too", () => {
+    const handlers = renderBand();
+    fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    expect(handlers.onToggle).toHaveBeenCalled();
   });
 
   it("keeps a thread with no summary and nothing left to one quiet line", () => {

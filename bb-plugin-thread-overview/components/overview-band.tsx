@@ -30,7 +30,7 @@ export function StepGlyph({ status }: { status: StepStatus }) {
  * The band spans the pane; its contents sit in a centred column, so on a wide
  * screen the summary and the steps stay close together and near the transcript.
  */
-const CONTENT_WIDTH = "mx-auto w-full max-w-[1040px]";
+const CONTENT_WIDTH = "mx-auto w-full max-w-[1280px]";
 
 const STATUS_WORD: Record<StepStatus, string> = {
   todo: "not started",
@@ -96,6 +96,7 @@ export function OverviewBody({
   const [mode, setMode] = useState(initialMode);
   const [draft, setDraft] = useState(overview.summary);
   const [newStep, setNewStep] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
   const { unfinished, finished } = stepColumn(overview.steps);
   const updated = updatedLabel(overview.updatedAt, now);
 
@@ -148,7 +149,7 @@ export function OverviewBody({
               rows={3}
               aria-label="Thread summary"
               placeholder="What this thread is for, and any open question"
-              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm leading-snug focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <div className="flex gap-1.5">
               <Button type="submit" size="sm" className="h-7 cursor-pointer">
@@ -175,7 +176,7 @@ export function OverviewBody({
           </button>
         ) : (
           <div className="group/summary flex items-start gap-1">
-            <p className="min-w-0 text-sm leading-relaxed break-words">{overview.summary}</p>
+            <p className="min-w-0 text-sm leading-snug break-words">{overview.summary}</p>
             <button
               type="button"
               aria-label="Edit summary"
@@ -192,9 +193,6 @@ export function OverviewBody({
       <div className="flex min-w-[14rem] flex-[1_1_20rem] flex-col">
         {/* About seven rows; a longer plan scrolls rather than pushing the transcript down. */}
         <ol className="flex max-h-40 flex-col gap-px overflow-y-auto" aria-label="Steps">
-          {unfinished.map((step) => (
-            <StepRow key={step.id} step={step} onCycle={onCycle} onRemove={onRemove} />
-          ))}
           <li className="px-1.5 py-0.5">
             {mode === "adding" ? (
               <form onSubmit={submitStep}>
@@ -223,9 +221,26 @@ export function OverviewBody({
               </button>
             )}
           </li>
-          {finished.map((step) => (
+          {unfinished.map((step) => (
             <StepRow key={step.id} step={step} onCycle={onCycle} onRemove={onRemove} />
           ))}
+          {finished.length > 0 ? (
+            <li className="px-1.5 py-0.5">
+              <button
+                type="button"
+                onClick={() => setShowCompleted(!showCompleted)}
+                aria-expanded={showCompleted}
+                className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+              >
+                {showCompleted ? "Hide completed" : `Show ${finished.length} completed`}
+              </button>
+            </li>
+          ) : null}
+          {showCompleted
+            ? finished.map((step) => (
+                <StepRow key={step.id} step={step} onCycle={onCycle} onRemove={onRemove} />
+              ))
+            : null}
         </ol>
       </div>
     </div>
@@ -337,6 +352,18 @@ export function OverviewBand({
           </button>
         ) : null}
       </div>
+      {/* The corner chevron is far from where you finish reading, so the
+          expanded band also closes from its bottom edge. */}
+      {expanded && !writing ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="-mb-2 mt-1 flex w-full cursor-pointer items-center justify-center gap-1 py-1 text-xs text-muted-foreground/70 hover:text-foreground"
+        >
+          <Icon name="ChevronDown" className="size-3.5 rotate-180" />
+          Collapse
+        </button>
+      ) : null}
     </div>
   );
 }
