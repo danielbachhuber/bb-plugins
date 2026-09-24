@@ -41,6 +41,7 @@ describe("normalizeTask", () => {
         priority: 4,
         labels: ["email"],
         due: { date: "2026-09-24", string: "every day", is_recurring: true, lang: "en", timezone: null },
+        deadline: { date: "2026-09-30", lang: "en" },
       }),
       projects,
     );
@@ -52,6 +53,8 @@ describe("normalizeTask", () => {
       description: "",
       priority: 1,
       due: { date: "2026-09-24", recurring: true },
+      deadline: "2026-09-30",
+      activityAt: null,
       context: "Widgets",
       tags: ["email"],
       url: "https://app.todoist.com/app/task/6XGgmFVcrG5RRjVr",
@@ -65,6 +68,12 @@ describe("normalizeTask", () => {
 
   test("leaves the project name empty for a project it does not know", () => {
     expect(normalizeTask(rawTask({ project_id: "unknown" }), projects)?.context).toBeNull();
+  });
+
+  test("keeps the deadline of a task with no due date", () => {
+    // What a task matched by "overdue" through its deadline alone looks like.
+    const item = normalizeTask(rawTask({ due: null, deadline: { date: "2026-09-09", lang: "en" } }), projects);
+    expect(item).toMatchObject({ due: null, deadline: "2026-09-09" });
   });
 
   test("skips completed and deleted tasks", () => {

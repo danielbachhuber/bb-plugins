@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { loadSources, unconfiguredSource, type Source } from "./sources.js";
+import { keepFailedSources, loadSources, unconfiguredSource, type Source } from "./sources.js";
 import type { Item } from "./types.js";
 
 const now = new Date("2026-09-24T09:30:00Z");
@@ -12,7 +12,9 @@ function item(id: string, date: string): Item {
     title: id,
     description: "",
     priority: null,
+    activityAt: null,
     due: { date, recurring: false },
+    deadline: null,
     context: null,
     tags: [],
     url: `https://example.com/${id}`,
@@ -60,6 +62,7 @@ describe("loadSources", () => {
       state: "error",
       query: "everything",
       message: "offline",
+      kept: 0,
     });
     expect(onError).toHaveBeenCalledWith(failing, "offline");
   });
@@ -72,5 +75,39 @@ describe("loadSources", () => {
       sources: [{ id: "todoist", name: "Todoist", state: "unconfigured", hint: "Set a token." }],
       fetchedAt: "2026-09-24T09:30:00.000Z",
     });
+  });
+});
+
+describe("keepFailedSources", () => {
+  const previous = {
+    items: [
+      { ...item("mail-1", "2026-09-20"), source: "gmail" },
+      { ...item("task-old", "2026-09-21"), source: "todoist" },
+    ],
+    sources: [],
+    fetchedAt: "2026-09-24T09:00:00.000Z",
+  };
+
+  test("keeps a failed source's last items, and only that source's", () => {
+    const next = {
+      items: [{ ...item("task-new", "2026-09-22"), source: "todoist" }],
+      sources: [
+        { id: "todoist", name: "Todoist", state: "ok" as const, query: null, count: 1 },
+        { id: "gmail", name: "Gmail", state: "error" as const, query: "in:inbox", message: "expired", kept: 0 },
+      ],
+      fetchedAt: "2026-09-24T09:30:00.000Z",
+    };
+
+    const merged = keepFailedSources(previous, next);
+
+    expect(merged.items.map((kept) => kept.id)).toEqual(["mail-1", "task-new"]);
+    expect(merged.sources[1]).toMatchObject({ state: "error", kept: 1 });
+    expect(merged.fetchedAt).toBe("2026-09-24T09:30:00.000Z");
+  });
+
+  test("changes nothing when every source loaded, or there was no earlier list", () => {
+    const next = { items: [], sources: [], fetchedAt: "2026-09-24T09:30:00.000Z" };
+    expect(keepFailedSources(previous, next)).toBe(next);
+    expect(keepFailedSources(null, next)).toBe(next);
   });
 });

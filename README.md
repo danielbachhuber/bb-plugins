@@ -25,7 +25,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. Needs gh-context. |
 | `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab you were reading them in: a Preview/Raw toggle, an editable source pane, Cmd+S saving that refuses to clobber an edit made on disk while you typed, and an Add to chat button on a preview selection. Reachable from a pencil on markdown files in the changes panel. |
 | `bb-plugin-new-issue` | `new-issue` | Draft a GitHub issue from a few lines of notes, in a thread that runs the draft-issue-description skill. |
-| `bb-plugin-next` | `next` | One list of what to do next, gathered from your sources. Todoist is the first. |
+| `bb-plugin-next` | `next` | One list of what to do next, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you, oldest request first. Needs gh-context. |
 | `bb-plugin-thread-todos` | `thread-todos` | A shared per-thread checklist the agent builds as it plans and you edit as you go, with a count in the thread header and a glyph on the sidebar row. |

@@ -57,6 +57,8 @@ export function normalizeTask(raw: unknown, projectNames: ReadonlyMap<string, st
     description: typeof raw.description === "string" ? raw.description : "",
     priority: normalizePriority(raw.priority),
     due: normalizeDue(raw.due),
+    deadline: isRecord(raw.deadline) && typeof raw.deadline.date === "string" ? raw.deadline.date : null,
+    activityAt: null,
     context: projectId === null ? null : (projectNames.get(projectId) ?? null),
     tags: Array.isArray(raw.labels) ? raw.labels.filter((label) => typeof label === "string") : [],
     url: taskUrl(raw.id),

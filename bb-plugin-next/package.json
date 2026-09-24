@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Next",
-    "description": "One list of what to do next, gathered from your sources. Todoist is the first.",
+    "description": "One list of what to do next, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data.",
     "branding": {
       "icon": "Target"
     },

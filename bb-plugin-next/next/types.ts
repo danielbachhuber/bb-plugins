@@ -18,6 +18,10 @@ export const itemSchema = z.object({
   /** 1 is the most urgent. Null when the source gives it no priority. */
   priority: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
   due: dueSchema.nullable(),
+  /** `YYYY-MM-DD`: the date it has to be done by, which can differ from when it is due. */
+  deadline: z.string().nullable(),
+  /** When it last changed in its source, such as an email's arrival. ISO 8601. */
+  activityAt: z.string().nullable(),
   /** Where it lives in its source, such as a Todoist project. */
   context: z.string().nullable(),
   tags: z.array(z.string()),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { describeDue } from "./due.js";
+import { describeActivity, describeDue } from "./due.js";
 
 /** Thursday, September 24, 2026, mid-morning local time. */
 const now = new Date(2026, 8, 24, 9, 30);
@@ -33,5 +33,14 @@ describe("describeDue", () => {
   test("converts a time fixed to a timezone into local time", () => {
     const fixed = new Date(2026, 8, 25, 8, 15);
     expect(due(fixed.toISOString().replace(/\.\d{3}Z$/, "Z")).text).toBe("Tomorrow 08:15");
+  });
+});
+
+describe("describeActivity", () => {
+  test("gives the time today, then Yesterday, then the date", () => {
+    expect(describeActivity(new Date(2026, 8, 24, 8, 4).toISOString(), now)).toBe("08:04");
+    expect(describeActivity(new Date(2026, 8, 23, 20, 9).toISOString(), now)).toBe("Yesterday");
+    expect(describeActivity(new Date(2026, 8, 20, 12, 0).toISOString(), now)).toBe("Sep 20");
+    expect(describeActivity(new Date(2025, 11, 31, 12, 0).toISOString(), now)).toBe("Dec 31, 2025");
   });
 });

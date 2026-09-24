@@ -3,12 +3,11 @@
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconName } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
-import type { NextList, SourceStatus } from "./contract.js";
-import { describeDue, type DueTone } from "./due.js";
+import type { Listing, SourceStatus } from "./contract.js";
+import { describeActivity, describeDue, type DueTone } from "./due.js";
 import type { Item } from "./types.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
@@ -29,6 +28,12 @@ const DUE_TONE: Record<DueTone, string> = {
   upcoming: "text-muted-foreground",
 };
 
+/** Which source a row came from, drawn ahead of its details. */
+const SOURCE_ICON: Record<string, IconName | undefined> = {
+  todoist: "CircleCheck",
+  gmail: "Mail",
+};
+
 const PRIORITY: Record<1 | 2 | 3, string> = {
   1: "border-destructive/40 text-destructive-text",
   2: "border-warning/40 text-warning-text",
@@ -37,6 +42,9 @@ const PRIORITY: Record<1 | 2 | 3, string> = {
 
 function ItemRow({ item, now }: { item: Item; now: Date }) {
   const due = item.due === null ? null : describeDue(item.due, now);
+  const deadline = item.deadline === null ? null : describeDue({ date: item.deadline, recurring: false }, now);
+  const activity = due === null && item.activityAt !== null ? describeActivity(item.activityAt, now) : null;
+  const sourceIcon = SOURCE_ICON[item.source];
 
   return (
     <li className="py-2.5 text-sm">
@@ -58,23 +66,31 @@ function ItemRow({ item, now }: { item: Item; now: Date }) {
       {item.description === "" ? null : (
         <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
       )}
-      {due === null && item.context === null && item.tags.length === 0 ? null : (
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          {due === null ? null : (
-            <span className={cn("inline-flex items-center gap-1", DUE_TONE[due.tone])}>
-              <Icon name="Calendar" className="size-3" />
-              {due.text}
-              {item.due?.recurring ? (
-                <Icon name="Repeat" className="size-3" aria-label="Recurring" />
-              ) : null}
-            </span>
-          )}
-          {item.tags.map((tag) => (
-            <span key={tag}>@{tag}</span>
-          ))}
-          {item.context === null ? null : <span className="ml-auto truncate">{item.context}</span>}
-        </div>
-      )}
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        {sourceIcon === undefined ? null : (
+          <Icon name={sourceIcon} className="size-3" aria-label={item.source} />
+        )}
+        {due === null ? null : (
+          <span className={cn("inline-flex items-center gap-1", DUE_TONE[due.tone])}>
+            <Icon name="Calendar" className="size-3" />
+            {due.text}
+            {item.due?.recurring ? (
+              <Icon name="Repeat" className="size-3" aria-label="Recurring" />
+            ) : null}
+          </span>
+        )}
+        {deadline === null ? null : (
+          <span className={cn("inline-flex items-center gap-1", DUE_TONE[deadline.tone])}>
+            <Icon name="Target" className="size-3" />
+            Deadline {deadline.text}
+          </span>
+        )}
+        {item.tags.map((tag) => (
+          <span key={tag}>@{tag}</span>
+        ))}
+        {activity === null ? null : <span>{activity}</span>}
+        {item.context === null ? null : <span className="ml-auto truncate">{item.context}</span>}
+      </div>
     </li>
   );
 }
@@ -126,48 +142,45 @@ function SourceProblem({ source }: { source: ProblemSource }) {
       )}
     >
       <span className="font-medium">{source.name}:</span> <WithCode text={error ? source.message : source.hint} />
+      {error && source.kept > 0 ? (
+        <span className="text-muted-foreground">
+          {" "}
+          Showing {source.kept} from the last sync.
+        </span>
+      ) : null}
     </div>
   );
 }
 
 export interface ItemListViewProps {
-  /** Null while the first load is in flight. */
-  list: NextList | null;
+  /** Null until the stored list has been read. */
+  listing: Listing | null;
   /** Due dates read relative to this. */
   now: Date;
-  refreshing?: boolean;
-  onRefresh?: () => void;
 }
 
-export function ItemListView({ list, now, refreshing = false, onRefresh }: ItemListViewProps) {
+/**
+ * The list as stored after the last sync. Refreshing lives in the page's
+ * title bar, so this only draws.
+ */
+export function ItemListView({ listing, now }: ItemListViewProps) {
+  const list = listing?.list ?? null;
   const sources = list?.sources ?? [];
   const loaded = sources.filter((source): source is LoadedSource => source.state === "ok");
   const problems = sources.filter((source): source is ProblemSource => source.state !== "ok");
 
   return (
     <div className="mx-auto box-border w-full max-w-3xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
-      <div className="flex items-center gap-2">
-        <p className="flex min-w-0 flex-1 flex-wrap gap-x-4 text-sm text-muted-foreground">
-          {loaded.length === 0
-            ? "Next"
-            : loaded.map((source) => <SourceSummary key={source.id} source={source} />)}
+      {loaded.length === 0 ? null : (
+        <p className="flex flex-wrap gap-x-4 text-sm text-muted-foreground">
+          {loaded.map((source) => (
+            <SourceSummary key={source.id} source={source} />
+          ))}
         </p>
-        {onRefresh === undefined ? null : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-foreground"
-            aria-label="Refresh"
-            disabled={refreshing}
-            onClick={onRefresh}
-          >
-            <Icon name={refreshing ? "Spinner" : "ArrowReloadHorizontal"} className="size-4" />
-          </Button>
-        )}
-      </div>
+      )}
 
       {problems.length === 0 ? null : (
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-2 first:mt-0">
           {problems.map((source) => (
             <SourceProblem key={source.id} source={source} />
           ))}
@@ -175,10 +188,14 @@ export function ItemListView({ list, now, refreshing = false, onRefresh }: ItemL
       )}
 
       <div className="mt-3">
-        {list === null ? (
+        {listing === null ? (
           <EmptyState>Loading…</EmptyState>
-        ) : loaded.length === 0 ? null : list.items.length === 0 ? (
-          <EmptyState>Nothing to do next.</EmptyState>
+        ) : list === null ? (
+          <EmptyState>{listing.syncing ? "Syncing for the first time…" : "Not synced yet."}</EmptyState>
+        ) : list.items.length === 0 ? (
+          loaded.length === 0 ? null : (
+            <EmptyState>Nothing to do next.</EmptyState>
+          )
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
             {list.items.map((item) => (
