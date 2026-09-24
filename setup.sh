@@ -16,6 +16,11 @@ if ! command -v bb >/dev/null 2>&1; then
   exit 1
 fi
 
+# Install with the Node that .nvmrc pins; use-pinned-node.sh says why.
+# shellcheck source=use-pinned-node.sh
+. "$DIR/use-pinned-node.sh"
+use_pinned_node || exit 1
+
 installed="$(bb plugin list --json 2>/dev/null || echo '[]')"
 
 for package in "$DIR"/*/; do
