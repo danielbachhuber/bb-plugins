@@ -79,6 +79,21 @@ Plugin settings, secrets, per-plugin HTTP tokens, and `data.db` all live there
 and all stay there. Read from them when you are verifying behavior; never copy
 from them into a file in this repository.
 
+## Search the marketplace before starting a new plugin
+
+Before running `bb plugin new`, check whether a plugin that does the same job
+already exists:
+
+```sh
+bb plugin search <keywords>
+```
+
+That searches the plugins bundled with bb, the bb-community marketplace, and
+any other marketplace added on this machine. Try a few phrasings of what the
+plugin would do, not only the name you have in mind. Report what you find
+before writing any code: a close match may be worth installing, extending, or
+borrowing from instead of building from scratch.
+
 ## Working on a plugin
 
 ```sh
