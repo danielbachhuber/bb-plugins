@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { totalOf, type Tokens } from "@/usage/breakdown";
 import type { TurnDetail, UsageAt } from "@/usage/contract";
-import { formatTokens, timeBuckets, type TimeBucket } from "@/usage/series";
+import { formatTokens, niceTicks, timeBuckets, type TimeBucket } from "@/usage/series";
 
 import { PARTS } from "./usage-chart";
 
@@ -31,11 +31,16 @@ const BIGGEST = 3;
  * color of one of the three parts. An empty bucket draws nothing, so idle
  * stretches read as gaps.
  */
+/** Room left of the summary chart for its axis labels, and above and below for the end labels. */
+const AXIS_WIDTH = 34;
+const AXIS_PAD = 6;
+
 function Spark({
   buckets,
   width,
   height,
   gap,
+  axis = false,
   active,
   onHover,
 }: {
@@ -43,25 +48,57 @@ function Spark({
   width: number;
   height: number;
   gap: number;
+  /** Draw gridlines and token labels on the left, scaled to a round top. */
+  axis?: boolean;
   active?: number | null;
   onHover?: (index: number | null) => void;
 }) {
-  const most = Math.max(1, ...buckets.map(totalOf));
-  const slot = buckets.length === 0 ? 0 : width / buckets.length;
+  const largest = Math.max(0, ...buckets.map(totalOf));
+  const ticks = axis ? niceTicks(largest, 2) : [];
+  const most = Math.max(1, axis ? ticks.at(-1)! : largest);
+  const left = axis ? AXIS_WIDTH : 0;
+  const top = axis ? AXIS_PAD : 0;
+  const plot = height - (axis ? 2 * AXIS_PAD : 0);
+  const slot = buckets.length === 0 ? 0 : (width - left) / buckets.length;
   const barWidth = Math.max(1, slot - gap);
+  const y = (value: number) => top + plot - (value / most) * plot;
   return (
     <svg width={width} height={height} aria-hidden className="shrink-0" onMouseLeave={() => onHover?.(null)}>
-      <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="currentColor" opacity={0.2} />
+      {axis ? (
+        ticks.map((tick) => (
+          <g key={tick}>
+            <line
+              x1={left}
+              x2={width}
+              y1={Math.round(y(tick)) - 0.5}
+              y2={Math.round(y(tick)) - 0.5}
+              stroke="currentColor"
+              opacity={tick === 0 ? 0.2 : 0.1}
+            />
+            <text
+              x={left - 6}
+              y={y(tick)}
+              dy="0.32em"
+              textAnchor="end"
+              className="fill-muted-foreground text-[10px] tabular-nums"
+            >
+              {formatTokens(tick)}
+            </text>
+          </g>
+        ))
+      ) : (
+        <line x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} stroke="currentColor" opacity={0.2} />
+      )}
       {buckets.map((bucket, index) => {
         const total = totalOf(bucket);
         // A bucket too small to see still gets one pixel, so every busy stretch shows.
-        const barHeight = total === 0 ? 0 : Math.max(1, (total / most) * height);
+        const barHeight = total === 0 ? 0 : Math.max(1, (total / most) * plot);
         return (
           <g key={bucket.start}>
             {barHeight === 0 ? null : (
               <rect
-                x={index * slot}
-                y={height - barHeight}
+                x={left + index * slot}
+                y={top + plot - barHeight}
                 width={barWidth}
                 height={barHeight}
                 rx={Math.min(1, barWidth / 2)}
@@ -71,7 +108,7 @@ function Spark({
             )}
             {onHover === undefined ? null : (
               <rect
-                x={index * slot}
+                x={left + index * slot}
                 y={0}
                 width={slot}
                 height={height}
@@ -84,6 +121,17 @@ function Spark({
       })}
     </svg>
   );
+}
+
+/** "15 minutes", "hour", "3 hours": the span one bar covers, for the chart's title. */
+export function bucketSpan(bucket: TimeBucket | undefined): string {
+  if (bucket === undefined) return "stretch";
+  const minutes = Math.round((bucket.end - bucket.start) / 60_000);
+  if (minutes === 1) return "minute";
+  if (minutes < 60) return `${minutes} minutes`;
+  if (minutes === 60) return "hour";
+  if (minutes === 1_440) return "day";
+  return `${minutes / 60} hours`;
 }
 
 function day(time: number): string {
@@ -216,18 +264,19 @@ export function ThreadTokenSummary({
 
       {buckets.length === 0 || from === undefined || to === undefined ? null : (
         <div className="space-y-1.5">
-          <p className="text-xs font-medium">Tokens over time</p>
+          <p className="text-xs font-medium">Tokens per {bucketSpan(buckets[0])}</p>
           <div className="text-foreground/70">
             <Spark
               buckets={buckets}
+              axis
               width={368}
-              height={64}
+              height={80}
               gap={buckets.length > 24 ? 1 : 2}
               active={hovered}
               onHover={setHovered}
             />
           </div>
-          <p className="flex text-[11px] text-muted-foreground">
+          <p className="flex pl-[34px] text-[11px] text-muted-foreground">
             <span className="flex-1">{clock(from)}</span>
             <span>{timeLabel(to, from)}</span>
           </p>

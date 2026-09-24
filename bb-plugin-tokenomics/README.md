@@ -26,7 +26,7 @@ bar fills in while a thread runs.
 
 ## The header
 
-![A thread header with a sparkline and "28M tokens", its summary open below: tokens over time with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
+![A thread header with a sparkline and "28M tokens", its summary open below: tokens per 15 minutes on a scale, with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
 
 A thread with recorded usage shows a button in the header's action row: a
 sparkline of its token use over time and its lifetime total, such as
@@ -37,11 +37,13 @@ for the thread's summary, which is there to answer which of your messages set
 off the tokens:
 
 - the total, the number of turns, and when the thread's turns ran
-- **Tokens over time**: the same chart, larger, in up to 36 buckets of a round
-  size (1, 5, 15, or 30 minutes, or 1 to 24 hours) that start on clock
-  boundaries. Hover a bucket for its time, its tokens, and the messages whose
-  turns used them, with when each started, how long it ran, and its share of
-  the thread.
+- **Tokens per 15 minutes** (or per minute, hour, or day): the same chart,
+  larger, in up to 36 buckets of a round size (1, 5, 15, or 30 minutes, or 1
+  to 24 hours) that start on clock boundaries. The title names the size and a
+  scale on the left gives the tokens, so a bar's height reads as tokens in that
+  stretch of time. Hover a bucket for its time, its tokens, and the messages
+  whose turns used them, with when each started, how long it ran, and its
+  share of the thread.
 - **Biggest turns**: the three turns that used the most, the same way
 - the split into new input, cache reads, and output, with each part's share
 - how many of the total came from turns bb deleted before Tokenomics could
