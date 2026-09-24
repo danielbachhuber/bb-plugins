@@ -77,8 +77,9 @@ function isForThread(payload: unknown, threadId: string): boolean {
   return Array.isArray(ids) && ids.includes(threadId);
 }
 
-function ThreadTokensAction({ threadId }: PluginThreadHeaderActionProps) {
+function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const [usage, setUsage] = useState<ThreadTokens | null>(null);
 
   const load = useCallback(() => {
@@ -97,7 +98,13 @@ function ThreadTokensAction({ threadId }: PluginThreadHeaderActionProps) {
   useRealtime(USAGE_CHANNEL, onChange);
 
   if (usage === null || usage.total === 0) return null;
-  return <ThreadTokenCount usage={usage} />;
+  return (
+    <ThreadTokenCount
+      usage={usage}
+      isCompactViewport={isCompactViewport}
+      onOpenPage={() => navigate.toPluginPanel("tokenomics")}
+    />
+  );
 }
 
 export default definePluginApp((app) => {

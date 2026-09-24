@@ -1,7 +1,7 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { MAX_TURNS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 
@@ -87,7 +87,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
     thread_usage: ({ threadId }) => {
       const { tokens, total, turns } = store.threadTotal(threadId);
-      return { ...tokens, total, turns };
+      return { ...tokens, total, turns, recent: store.threadTurns(threadId, MAX_TURNS) };
     },
   });
 }

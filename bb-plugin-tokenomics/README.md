@@ -2,7 +2,8 @@
 
 How many tokens your threads use, and when. A Tokenomics page in the sidebar
 graphs token use over time and lists the threads behind it, and each thread's
-header shows that thread's total.
+header has a sparkline of its turns that opens a summary of where its tokens
+went.
 
 ## The page
 
@@ -23,10 +24,40 @@ bar fills in while a thread runs.
 
 ## The header
 
-A thread with recorded usage shows its lifetime total, such as `66M tokens`, in
-the header's action row. Hover it for the breakdown and the number of turns. A
-thread with no usage yet shows nothing. Claude Code reports usage when a turn
+A thread with recorded usage shows a button in the header's action row: a
+sparkline of its last 24 turns, one bar per turn, and its lifetime total, such
+as `39.5M tokens`. In a narrow pane the sparkline drops out and the total stays.
+Click it for the thread's summary:
+
+- the total, the number of turns, and when the first and last turns ran
+- the split into new input, cache reads, and output, with each part's share
+- a larger chart of tokens per turn, up to the latest 200 turns; hover a turn
+  for when it ran and what it used, and otherwise the line under the chart
+  names the largest turn
+- the average per turn
+- how many of the total came from turns bb deleted before Tokenomics could
+  record them, when there are any
+- "Open Tokenomics", which goes to the page
+
+A thread with no usage yet shows nothing. Claude Code reports usage when a turn
 ends, so a thread still on its first turn has none.
+
+## Related plugins
+
+- **Usage Meter** (`usage-meter`) shows Claude subscription limits and reads
+  local Claude Code transcripts to explain where the limits went. Tokenomics
+  reads bb's own usage events instead of transcripts, so it covers any provider
+  that reports usage to bb, and it counts tokens rather than subscription
+  limits.
+- **Usage** (`usage-page`) and **Usage** (`usage`) track coding-agent token use
+  with estimated API costs, on a dashboard and across enrolled machines.
+  Tokenomics estimates no costs; it counts tokens per bb thread, by hour, and
+  puts each thread's count in its header.
+- **Receipts** (`receipts`) breaks token use and estimated cost down by model,
+  project, and day. Tokenomics breaks it down by thread and by hour.
+- **Usage Bar** (`usage-bar`) keeps provider quotas and reset times above the
+  sidebar footer, with daily and monthly token totals. Tokenomics has no quota
+  view.
 
 ## What counts
 
@@ -76,10 +107,10 @@ restart, because Claude Code starts its count over when its session restarts.
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
 | `components/thread-usage-list.tsx` | The thread list under the chart |
-| `components/thread-token-count.tsx` | The header count |
+| `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page and the header |
-| `tokenomics.stories.tsx` | Each range, the empty page, and the header count |
+| `tokenomics.stories.tsx` | Each range, the empty page, the header button, and its summary |
 
 ## Working on it
 
@@ -91,4 +122,4 @@ bb plugin build . && bb plugin reload tokenomics
 ```
 
 `npm run storybook` at the root of this repository renders the page and the
-header count with invented data.
+header button and its summary with invented data.

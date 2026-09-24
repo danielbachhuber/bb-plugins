@@ -26,6 +26,11 @@ export const threadUsageSchema = z.object({
   ...tokens,
 });
 
+/** How many of a thread's turns the header's sparkline and summary show. */
+export const MAX_TURNS = 200;
+
+export const turnUsageSchema = z.object({ at: z.number(), ...tokens });
+
 export const rpcContract = defineRpcContract({
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),
@@ -44,9 +49,12 @@ export const rpcContract = defineRpcContract({
       output: z.number(),
       total: z.number(),
       turns: z.number(),
+      /** The latest turns, up to MAX_TURNS, oldest first. */
+      recent: z.array(turnUsageSchema),
     }),
   },
 });
 
 export type HourUsage = z.infer<typeof hourUsageSchema>;
 export type ThreadUsage = z.infer<typeof threadUsageSchema>;
+export type TurnUsage = z.infer<typeof turnUsageSchema>;

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { ThreadTokenCount } from "./components/thread-token-count";
+import { ThreadTokenCount, ThreadTokenSummary, type ThreadTokens } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
 import type { ThreadUsage } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
@@ -94,13 +94,63 @@ export const Empty = () => (
   />
 );
 
+/** Invented turns: a slow start, a long stretch of heavy work, a quick finish. */
+function fixtureTurns(count: number, start: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const wobble = 0.35 + ((index * 7919) % 97) / 97;
+    const heavy = index > count * 0.3 && index < count * 0.8 ? 2.2 : 1;
+    const cacheRead = Math.round(1_600_000 * wobble * heavy);
+    return {
+      at: start + index * 11 * 60_000,
+      input: Math.round(cacheRead * 0.013),
+      cacheRead,
+      output: Math.round(cacheRead * 0.0037),
+    };
+  });
+}
+
+function usageOf(turns: ReturnType<typeof fixtureTurns>, pruned = 0): ThreadTokens {
+  const sum = turns.reduce(
+    (acc, turn) => ({
+      input: acc.input + turn.input,
+      cacheRead: acc.cacheRead + turn.cacheRead,
+      output: acc.output + turn.output,
+    }),
+    { input: 0, cacheRead: 0, output: 0 },
+  );
+  return { ...sum, total: sum.input + sum.cacheRead + sum.output + pruned, turns: turns.length, recent: turns };
+}
+
+const LONG = usageOf(fixtureTurns(18, NOW.getTime() - 4 * HOUR));
+const PRUNED = usageOf(fixtureTurns(6, NOW.getTime() - HOUR), 12_480_000);
+const SHORT = usageOf(fixtureTurns(1, NOW.getTime() - 5 * 60_000));
+
 export const HeaderCount = () => (
   <StoryCard>
-    <StoryRow label="a long thread" hint="hover for the breakdown">
-      <ThreadTokenCount usage={{ input: 512_300, cacheRead: 38_904_100, output: 143_600, total: 39_560_000, turns: 18 }} />
+    <StoryRow label="a long thread" hint="click to open the summary">
+      <ThreadTokenCount usage={LONG} onOpenPage={() => undefined} />
     </StoryRow>
     <StoryRow label="a short thread">
-      <ThreadTokenCount usage={{ input: 2_580, cacheRead: 35_840, output: 402, total: 38_822, turns: 1 }} />
+      <ThreadTokenCount usage={SHORT} onOpenPage={() => undefined} />
+    </StoryRow>
+    <StoryRow label="compact viewport" hint="the sparkline drops out">
+      <ThreadTokenCount usage={LONG} isCompactViewport onOpenPage={() => undefined} />
+    </StoryRow>
+  </StoryCard>
+);
+
+/** The popover's contents, drawn open. */
+export const HeaderSummary = () => (
+  <StoryCard>
+    <StoryRow label="a long thread" hint="hover the turns; the line below follows">
+      <div className="w-[368px] rounded-md border border-border bg-popover p-4">
+        <ThreadTokenSummary usage={LONG} onOpenPage={() => undefined} />
+      </div>
+    </StoryRow>
+    <StoryRow label="earlier turns pruned" hint="the provider's running total covers what bb deleted">
+      <div className="w-[368px] rounded-md border border-border bg-popover p-4">
+        <ThreadTokenSummary usage={PRUNED} onOpenPage={() => undefined} />
+      </div>
     </StoryRow>
   </StoryCard>
 );

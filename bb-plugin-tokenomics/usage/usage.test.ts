@@ -116,6 +116,7 @@ describe("sync and store", () => {
       total: 3_500,
       turns: 3,
     });
+    expect(store.threadTurns(thread.id, 2).map((turn) => turn.at)).toEqual([T0 + 60_000, T0 + HOUR]);
   });
 
   it("buckets usage by hour and ranks threads by what they used in the window", async () => {
