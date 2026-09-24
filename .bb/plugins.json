@@ -56,6 +56,10 @@
       "source": "./bb-plugin-self-improve"
     },
     {
+      "name": "thread-overview",
+      "source": "./bb-plugin-thread-overview"
+    },
+    {
       "name": "thread-todos",
       "source": "./bb-plugin-thread-todos"
     },
