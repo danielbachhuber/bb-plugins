@@ -16,9 +16,9 @@ function item(id: string, overrides: Partial<Item> = {}): Item {
 const due = (date: string) => ({ due: { date, recurring: false } });
 
 describe("sectionOf", () => {
-  test("puts every Gmail row and Todoist's Inbox in Inbox, whatever their date or read state", () => {
+  test("puts unread Gmail rows and Todoist's Inbox in Inbox, and read Gmail rows in Now", () => {
     expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }), now)).toBe("inbox");
-    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }), now)).toBe("inbox");
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }), now)).toBe("now");
     expect(sectionOf(item("a", { inbox: true, ...due("2026-09-21") }), now)).toBe("inbox");
   });
 
@@ -36,7 +36,7 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, orders Inbox newest first with Todoist's Inbox after the mail", () => {
+  test("keeps every section, puts read mail after Now's tasks, and orders Inbox newest first with Todoist's Inbox after the mail", () => {
     const sections = groupIntoSections(
       [
         item("late", due("2026-09-20")),
@@ -45,12 +45,14 @@ describe("groupIntoSections", () => {
         item("new-mail", { gmail: { threadIds: ["t2"], unread: true }, activityAt: "2026-09-24T08:00:00.000Z" }),
         item("later", due("2026-09-30")),
         item("someday"),
+        item("older-read", { gmail: { threadIds: ["t3"], unread: false }, activityAt: "2026-09-21T10:00:00.000Z" }),
+        item("unread-older", { gmail: { threadIds: ["t4"], unread: true }, activityAt: "2026-09-23T08:00:00.000Z" }),
       ],
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
-      ["Now", ["late"]],
-      ["Inbox", ["new-mail", "old-mail", "filed"]],
+      ["Now", ["late", "old-mail", "older-read"]],
+      ["Inbox", ["new-mail", "unread-older", "filed"]],
       ["Anytime", ["later", "someday"]],
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0, 0]);

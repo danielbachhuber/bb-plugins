@@ -15,14 +15,15 @@ the right (**Gmail**, **Todoist**, each with its count in that section; press
 one again to see both, and hover one for its query). Each row goes in one
 section, checked in this order:
 
-- **Inbox**: everything that needs a decision before it is work. Every Gmail
-  row, read or not, since each is a thread still in the Gmail inbox (email,
-  GitHub notifications, document comments, invitations); and every task in
-  Todoist's Inbox project, whatever its date. Mail comes first, newest first,
-  then the Todoist Inbox tasks: those with a date soonest first, then the
-  undated ones newest added first.
-- **Now**: any other task overdue or due today, by its due date or its
-  deadline, whichever is sooner.
+- **Inbox**: everything that needs a decision before it is work. Every
+  unread Gmail row (email, GitHub notifications, document comments,
+  invitations), and every task in Todoist's Inbox project, whatever its date.
+  Mail comes first, newest first, then the Todoist Inbox tasks: those with a
+  date soonest first, then the undated ones newest added first.
+- **Now**: every read Gmail row, since a thread you have read and left in the
+  inbox is one you kept there to act on; and any other task overdue or due
+  today, by its due date or its deadline, whichever is sooner. The tasks come
+  first, then the read mail, newest first.
 - **Anytime**: every other task, dated later or not at all.
 
 The page opens on Now, from every source. In Now and Anytime the soonest come
