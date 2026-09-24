@@ -73,7 +73,8 @@ export function DraftEditor({ label, value, onChange, original, initialMode = "p
       </div>
       {showing === "preview" ? (
         <div
-          className={cn("rounded-md border border-border bg-background px-3 py-2 text-sm", editable && "cursor-text")}
+          // Read-only reads as grey, the way a disabled field does.
+          className={cn("rounded-md border border-border px-3 py-2 text-sm", editable ? "cursor-text bg-background" : "bg-muted/60 text-muted-foreground")}
           // Clicking into the rendered text is the obvious way to start editing it.
           onDoubleClick={editable ? () => setMode("raw") : undefined}
           title={editable ? "Double-click to edit" : undefined}

@@ -49,29 +49,57 @@ export function firstOpenItem(stored: StoredView): Item | null {
   return null;
 }
 
+/** "10:35 AM" today, "Mar 12, 10:35 AM" otherwise; nothing for a stamp that is not a date. */
+function when(at: string): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return date.toDateString() === new Date().toDateString()
+    ? time
+    : `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+/** What the last button did, as a banner at the top of the item. */
 function Result({ record, onGo }: { record: ItemRecord; onGo: (id: string) => void }) {
   const result = record.result;
   if (result === null) return null;
   // A sent review shows its pick and notes in place instead.
   if (result.feedback !== undefined && result.error === undefined) return null;
   const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);
+  const stamp = when(result.at);
   return (
-    <div className={cn("mt-2 rounded-md px-3 py-2 text-xs", failed ? "bg-destructive/10" : "bg-muted/40")}>
-      <div className="text-muted-foreground">
-        {result.label}
-        {result.exitCode === undefined ? null : ` · exit ${result.exitCode}`}
-        {result.threadId === undefined ? null : (
-          <>
-            {" · "}
-            <button type="button" className="font-mono hover:text-foreground hover:underline" onClick={() => onGo(result.threadId!)}>
-              {result.threadId}
-            </button>
-          </>
-        )}
+    <div
+      role="status"
+      className={cn(
+        "mt-3 rounded-md border px-3 py-2 text-sm",
+        failed ? "border-destructive/40 bg-destructive/10" : "border-success/40 bg-success/10",
+      )}
+    >
+      <div className="flex items-baseline gap-2">
+        <span aria-hidden className={cn("font-medium", failed ? "text-destructive" : "text-success")}>
+          {failed ? "!" : "✓"}
+        </span>
+        <span className="min-w-0 flex-1 text-foreground">
+          <span className="font-medium">{result.label}</span>
+          <span className="text-muted-foreground">
+            {failed ? " failed" : ""}
+            {result.exitCode === undefined ? "" : ` · exit ${result.exitCode}`}
+            {result.edited ? " · edited" : ""}
+          </span>
+          {result.threadId === undefined ? null : (
+            <>
+              <span className="text-muted-foreground">{" · "}</span>
+              <button type="button" className="font-mono text-xs text-muted-foreground hover:text-foreground hover:underline" onClick={() => onGo(result.threadId!)}>
+                {result.threadId}
+              </button>
+            </>
+          )}
+        </span>
+        {stamp === "" ? null : <span className="shrink-0 text-xs text-muted-foreground">{stamp}</span>}
       </div>
-      {result.error === undefined ? null : <div className="mt-1 text-destructive">{result.error}</div>}
+      {result.error === undefined ? null : <div className="mt-1 text-xs text-destructive">{result.error}</div>}
       {result.output === undefined || result.output === "" ? null : (
-        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-foreground">{result.output}</pre>
+        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-xs text-foreground">{result.output}</pre>
       )}
     </div>
   );
@@ -184,6 +212,9 @@ function ItemCard({
         )}
       </div>
 
+      {/* What happened comes first, above the evidence for it. */}
+      {record === undefined ? null : <Result record={record} onGo={onGo} />}
+
       {item.summary === "" ? null : (
         <div className="mt-2 text-sm">
           <Markdown content={item.summary} />
@@ -201,8 +232,6 @@ function ItemCard({
           ) : null}
         </>
       )}
-
-      {record === undefined ? null : <Result record={record} onGo={onGo} />}
 
       {item.variations.length === 0 || review === undefined ? null : (
         <ReviewPanel

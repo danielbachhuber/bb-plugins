@@ -34,11 +34,11 @@ up to six buttons:
 | `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A failed command leaves the item open. |
 | `link` | Opens a URL. |
 
-An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`, so edited text never reaches a shell.
+An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows, greyed to say it can no longer be edited. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`, so edited text never reaches a shell.
 
 The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
-Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. Every card can be dismissed and restored.
+Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. What the last button did shows as a banner at the top of the item, above its summary: green for done, red for a failure with its output. Every card can be dismissed and restored.
 
 ## Visual review
 
