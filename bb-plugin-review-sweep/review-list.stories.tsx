@@ -66,7 +66,7 @@ const inProgress: Row[] = [
   }),
 ];
 
-/** The screenshot in screenshots/2026-09-24.png, with invented names. */
+/** The panel as it looked on 2026-09-24, with invented names. */
 const baseline: Listing = {
   rows: [...needsReview, ...inProgress],
   sweptAt: now - 2 * 60_000,
