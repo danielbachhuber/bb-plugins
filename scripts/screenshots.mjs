@@ -3,17 +3,25 @@
 // the result there, so each commit here has a picture of what it looked like
 // without the images living in this repository's history.
 //
-//   npm run screenshots                 build, capture, commit locally
-//   npm run screenshots -- --no-commit  capture only
+//   npm run screenshots          build and capture, then list what changed
+//   npm run screenshots:commit   commit the capture there and push it
 //
-// It never pushes. That checkout's history is public, so every image a run
-// changed is read for private information first; the run lists them, and
-// the push is a separate step once they have been read.
+// Two steps because that checkout's history is public. Every image a capture
+// changed is read for private information while it is still only in the
+// working tree, where a bad one can be thrown away without touching history.
 //
 // The checkout is BB_PLUGINS_SCREENSHOTS_DIR, from the environment or .env,
 // and defaults to a sibling directory named bb-plugins-screenshots.
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
@@ -21,8 +29,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const flags = new Set(process.argv.slice(2));
-const commit = !flags.has("--no-commit");
+const commitMode = process.argv.includes("--commit");
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -54,6 +61,35 @@ if (!existsSync(join(outDir, ".git"))) {
 }
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+
+// Which bb-plugins commit the capture in the working tree came from. Inside
+// .git, so it is never committed itself.
+const capturePath = join(outDir, ".git", "bb-plugins-capture.json");
+
+if (commitMode) {
+  if (!existsSync(capturePath)) {
+    console.error("Nothing captured yet. Run `npm run screenshots` and read the images first.");
+    process.exit(1);
+  }
+  const capture = JSON.parse(readFileSync(capturePath, "utf8"));
+  git(outDir, "add", "-A");
+  if (git(outDir, "status", "--porcelain") === "") {
+    console.log("No visual changes to commit.");
+    rmSync(capturePath);
+    process.exit(0);
+  }
+  const message = [
+    `${capture.sha.slice(0, 7)} ${capture.subject}`,
+    "",
+    `danielbachhuber/bb-plugins@${capture.sha}`,
+    ...(capture.dirty ? ["", "Captured with uncommitted changes in the bb-plugins checkout."] : []),
+  ].join("\n");
+  execFileSync("git", ["commit", "-q", "-F", "-"], { cwd: outDir, input: message });
+  rmSync(capturePath);
+  execFileSync("git", ["push", "-q"], { cwd: outDir, stdio: "inherit" });
+  console.log(`Committed and pushed ${git(outDir, "rev-parse", "--short", "HEAD")}.`);
+  process.exit(0);
+}
 
 // Read before the build, so the commit names the source that was captured.
 const sha = git(repoRoot, "rev-parse", "HEAD");
@@ -155,27 +191,23 @@ for (const entry of readdirSync(outDir, { withFileTypes: true })) {
   }
 }
 
-if (!commit) process.exit(0);
+writeFileSync(capturePath, JSON.stringify({ sha, subject, dirty }));
 
-git(outDir, "add", "-A");
-if (git(outDir, "status", "--porcelain") === "") {
+// -uall so a new plugin's images are listed one by one, not as a directory.
+// Not through git(), whose trim would take the leading space of the first
+// status line and, with it, the first character of that file's name.
+const changed = execFileSync("git", ["status", "--porcelain", "-uall"], { cwd: outDir, encoding: "utf8" })
+  .split("\n")
+  .filter((line) => line && !line.slice(0, 2).includes("D"))
+  .map((line) => line.slice(3));
+
+if (changed.length === 0) {
   console.log("\nNo visual changes.");
   process.exit(0);
 }
-
-const message = [
-  `${sha.slice(0, 7)} ${subject}`,
-  "",
-  `danielbachhuber/bb-plugins@${sha}`,
-  ...(dirty ? ["", "Captured with uncommitted changes in the bb-plugins checkout."] : []),
-].join("\n");
-const changed = git(outDir, "diff", "--cached", "--name-only", "--diff-filter=AM")
-  .split("\n")
-  .filter(Boolean);
-execFileSync("git", ["commit", "-q", "-F", "-"], { cwd: outDir, input: message });
-console.log(`\nCommitted ${git(outDir, "rev-parse", "--short", "HEAD")} in ${outDir}, not pushed.`);
-if (changed.length) {
-  console.log("\nRead each of these for private information before pushing:");
-  for (const file of changed) console.log(`  ${join(outDir, file)}`);
-}
-console.log(`\nThen: git -C ${outDir} push`);
+console.log(`\nNot committed. Read each of these for private information first:`);
+for (const file of changed) console.log(`  ${join(outDir, file)}`);
+console.log(
+  `\nIf all are clean: npm run screenshots:commit` +
+    `\nIf one is not: git -C ${outDir} checkout -- . && git -C ${outDir} clean -fd, then fix the fixture and capture again.`,
+);

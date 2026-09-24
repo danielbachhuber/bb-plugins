@@ -19,16 +19,16 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-automation-palette` | `automation-palette` | Lists your automations in bb's quick palette, so a scheduled sweep can be run by hand without leaving the keyboard. |
 | `bb-plugin-diff-comment` | `diff-comment` | Leave review comments inline on a thread's diff, then have the agent work through them one at a time. |
 | `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes. |
+| `bb-plugin-dynamic-ui` | `dynamic-ui` | Lets a skill show its results as cards with buttons in a tab beside the thread: send a reply to the thread, open a new thread, run a confirmed command, or open a link. |
 | `bb-plugin-gh-context` | `gh-context` | A banner above the composer showing the thread's pull request, the GitHub issues it works on, its changes, and a Harvest timer, in place of bb's own. |
 | `bb-plugin-hacks` | `hacks` | Local patches to bb's own UI, standing in for fixes that have not landed upstream. Currently remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads, opens the unread files bb folds away in a large diff, and adds a button to each sidebar project that opens its checkout in your editor. |
 | `bb-plugin-harvest` | `harvest` | Track time in Harvest from the thread header. |
 | `bb-plugin-issue-sweep` | `issue-sweep` | Open GitHub issues assigned to you, newest activity first. Needs gh-context. |
 | `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab you were reading them in: a Preview/Raw toggle, an editable source pane, Cmd+S saving that refuses to clobber an edit made on disk while you typed, and an Add to chat button on a preview selection. Reachable from a pencil on markdown files in the changes panel. |
 | `bb-plugin-new-issue` | `new-issue` | Draft a GitHub issue from a few lines of notes, in a thread that runs the draft-issue-description skill. |
-| `bb-plugin-now` | `now` | One list of what needs doing now, gathered from your sources: Todoist tasks and your Gmail inbox, synced in the background so it opens with data. |
+| `bb-plugin-now` | `now` | One list of what needs doing now, from Todoist and your Gmail inbox, with GitHub notifications gathered per pull request or issue. Snooze anything, archive email, and reply on GitHub from the row. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored, with the ones needing action flagged. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you, oldest request first. Needs gh-context. |
-| `bb-plugin-self-improve` | `self-improve` | Reviews the past week of bb threads, their tool calls, and their token usage for changes that would have needed less correction or fewer tokens, and opens a thread for each one you pick. |
 | `bb-plugin-thread-todos` | `thread-todos` | A shared per-thread checklist the agent builds as it plans and you edit as you go, with a count in the thread header and a glyph on the sidebar row. |
 | `bb-plugin-weekly-review` | `weekly-review` | One page of what you actually did this week, to write the journal entry from. |
 
@@ -128,7 +128,8 @@ on whichever package it is missing. Run `pnpm install` in bb when that happens.
 `npm run screenshots` captures every story in the light theme and commits the
 images to a separate checkout of `bb-plugins-screenshots`, so there is a
 visual history of each plugin without images in this repository's history.
-It lists the images it changed and leaves the push to you, once you have
-checked them for anything private. It
+It lists the images that changed without committing them;
+`npm run screenshots:commit` commits and pushes them once you have checked
+them for anything private. It
 needs `npm install` at the root, for Playwright, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.

@@ -35,31 +35,30 @@ Commit one logical change at a time rather than one commit at the end.
 
 Every story is photographed into a separate repository,
 `danielbachhuber/bb-plugins-screenshots`, so the history of how each plugin
-looks lives there instead of bloating this one. After you push a commit here,
-run:
+looks lives there instead of bloating this one. After you push a commit here:
 
 ```sh
-npm run screenshots
+npm run screenshots          # build, capture, list the images that changed
+npm run screenshots:commit   # after reading them: commit there and push
 ```
 
-It builds the stories, captures each one in the light theme, and commits the
-images there with a message naming this repository's commit. When nothing
-looks different it says so and commits nothing. Run it after every commit,
-not only visual ones: a change to a shared component alters stories that its
-commit never touched.
+Run it after every commit, not only visual ones: a change to a shared
+component alters stories that its commit never touched. When nothing looks
+different, the capture says so and there is nothing to commit.
 
-It does not push. That repository is public too, and an image can carry what
-a text scan of the diff misses, so read every image the run lists, with the
-same rule as the top of this file, before pushing it with the command it
-prints. If one shows something private, fix the fixture here, drop the local
-commit there with `git -C ../bb-plugins-screenshots reset --hard HEAD~1`, and
-run it again. That repository's AGENTS.md says the same.
+The capture does not commit, because that repository is public too, and an
+image can carry what a text scan of the diff misses. Read every image it
+lists, with the same rule as the top of this file, while it is still only in
+the working tree there. If one shows something private, throw the capture away
+with the `checkout` and `clean` command it prints, fix the fixture here, and
+capture again. Nothing reaches that repository's history until
+`screenshots:commit`, which commits with a message naming this repository's
+commit and pushes. That repository's AGENTS.md says the same.
 
 It expects that checkout at `../bb-plugins-screenshots`, or wherever
 `BB_PLUGINS_SCREENSHOTS_DIR` in `.env` points. Clone it there on a new
-machine. A story that throws stops the run before anything is committed, so
-fix the story rather than committing around it. Use `--no-commit` to look at
-the images before they are committed.
+machine. A story that throws stops the capture, so fix the story rather than
+working around it.
 
 Do not add a `screenshots/` directory to a plugin for design history. The
 screenshots a README embeds are the exception, because the README needs them.

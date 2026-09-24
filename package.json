@@ -5,7 +5,8 @@
   "scripts": {
     "storybook": "node scripts/ladle.mjs serve",
     "storybook:build": "node scripts/ladle.mjs build",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "screenshots:commit": "node scripts/screenshots.mjs --commit"
   },
   "devDependencies": {
     "playwright": "^1.55.0"
