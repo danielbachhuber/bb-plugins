@@ -189,3 +189,13 @@ export const HeaderSummary = () => (
     </StoryRow>
   </StoryCard>
 );
+
+/** The button where bb draws it, in a thread header's action row, for the README. */
+export const HeaderInContext = () => (
+  <div className="w-[720px] border-b border-border">
+    <div className="flex h-12 items-center gap-3 px-4">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">Add a CSV export to the widgets report</span>
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} />
+    </div>
+  </div>
+);

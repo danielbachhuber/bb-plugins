@@ -7,6 +7,8 @@ which of your messages used the most.
 
 ## The page
 
+![The Tokenomics page for the past day: 110M tokens, an hourly stacked bar chart with one hour hovered, and five threads listed by tokens used](screenshots/page.png)
+
 - **The headline** is the period's total, with its three parts beneath it:
   new input, cache reads, and output.
 - **The chart** has one bar per hour for "Past day" (the default, 24 bars)
@@ -23,6 +25,8 @@ The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
 
 ## The header
+
+![A thread header with a sparkline and "28M tokens", its summary open below: tokens over time with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](screenshots/header-summary.png)
 
 A thread with recorded usage shows a button in the header's action row: a
 sparkline of its token use over time and its lifetime total, such as
@@ -134,7 +138,8 @@ before it.
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page and the header |
-| `tokenomics.stories.tsx` | Each range, the empty page, the header button, and its summary |
+| `tokenomics.stories.tsx` | Each range, the empty page, the header button, its summary, and the button in a header |
+| `screenshots/` | The README's images, captured from the stories |
 
 ## Working on it
 
