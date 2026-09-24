@@ -232,6 +232,8 @@ function Banner() {
 
   return (
     <ViewBanner
+      // A fresh banner per view, so a tick on one does not carry to the next.
+      key={stored.id}
       stored={stored}
       collapsed={collapsed}
       onToggle={() => setCollapsedByUser(!collapsed)}

@@ -18,7 +18,7 @@ The thread's newest view appears above its composer, one row per item: the
 title, up to two badges, a line of summary, and a **Review…** button. Nothing
 runs from the list: the button and the row both open the item. The
 list collapses to one line from its header, and does so by itself once every
-item is done or dismissed. The × on the header hides the view until the thread
+item is done or dismissed. Ticking Done on the header hides the view until the thread
 publishes again. Clicking a row opens that item in
 the side panel, with its full summary, its details, and every button; the panel
 keeps one tab per view and switches items as rows are clicked. Publishing again
