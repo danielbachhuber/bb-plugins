@@ -13,7 +13,7 @@ import {
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
 import type { Item } from "../now/types.js";
-import { decodeEntities, hasUnread, header, isRecord, normalizeThread, SOURCE_ID, type Raw } from "./normalize.js";
+import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
 
 /** The headers `threads get` is asked for, which everything here reads. */
 export const METADATA_HEADERS = [
@@ -68,6 +68,9 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
     const text = commentText(snippets[index]!);
     if (text !== "") comment = { author: header(messages[index]!, "X-GitHub-Sender"), text };
   }
+  const requests = events.filter((event) => event.type === "review_requested");
+  const reviewRequested =
+    requests.length === 0 ? null : requests.some((event) => event.requestedOf === "you") ? "you" : "others";
   const latestTime = latest === undefined ? 0 : time(latest);
   const known = state ?? stateFromHeader(latest === undefined ? null : header(latest, "X-GitHub-PullRequestStatus"));
 
@@ -83,7 +86,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
     context: refKey(ref),
     tags: [],
     url: githubUrl(ref),
-    gmail: { threadIds: threads.map((thread) => thread.id as string), unread: hasUnread(messages) },
+    gmail: { threadIds: threads.map((thread) => thread.id as string), ...unreadOf(messages) },
     github: {
       repo: ref.repo,
       number: ref.number,
@@ -92,6 +95,7 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
       review: known?.review ?? null,
       closedAs: known?.closedAs ?? null,
       reason: latest === undefined ? null : header(latest, "X-GitHub-Reason"),
+      reviewRequested,
       comment,
     },
   };

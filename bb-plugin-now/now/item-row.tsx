@@ -55,9 +55,24 @@ const PRIORITY: Record<1 | 2 | 3, string> = {
   3: "border-border text-foreground",
 };
 
-/** A merged or closed pull request, or a closed issue, has nothing left to do. */
-export function suggestsArchive(item: Item): boolean {
-  return item.gmail !== null && (item.github?.state === "merged" || item.github?.state === "closed");
+/**
+ * Why a GitHub row can be archived, or null when it still wants something of
+ * you: a merged or closed pull request, or a closed issue, has nothing left to
+ * do, and neither does one you hear about only because a team you are in, or
+ * someone else, was asked to review it.
+ */
+export function archiveReason(item: Item): string | null {
+  const github = item.github;
+  if (item.gmail === null || github === null) return null;
+  if (github.state === "merged" || github.state === "closed") return `it's ${github.state}`;
+  if (github.reason === "review_requested" && github.reviewRequested === "others") return "not your review";
+  return null;
+}
+
+/** Whether the row asks for your review, for its label. */
+function reviewIsYours(github: GitHubPart): boolean {
+  if (github.reviewRequested !== undefined && github.reviewRequested !== null) return github.reviewRequested === "you";
+  return github.reason === "review_requested";
 }
 
 function Chip({ className, children }: { className: string; children: ReactNode }) {
@@ -115,7 +130,7 @@ function GitHubState({ github }: { github: GitHubPart }) {
   const settled = github.state === "merged" || github.state === "closed";
   return (
     <>
-      {github.reason === "review_requested" && !settled ? (
+      {reviewIsYours(github) && !settled ? (
         <Chip className={GITHUB_REVIEW.requested}>Review requested</Chip>
       ) : null}
       {github.review === "changes_requested" ? <Chip className={GITHUB_REVIEW.changes}>Changes requested</Chip> : null}
@@ -319,9 +334,13 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
   const brand = brandOf(item);
-  const archiveSuggested = suggestsArchive(item);
+  const archiveSuggestion = archiveReason(item);
+  const archiveSuggested = archiveSuggestion !== null;
   const comment = item.github?.comment ?? null;
   const unread = item.gmail?.unread === true;
+  // A row of several messages says how many are new; the dot alone would not.
+  const unreadMessages = item.gmail?.unreadMessages ?? 0;
+  const newCount = unread && (item.gmail?.messages ?? 1) > 1 && unreadMessages > 0 ? unreadMessages : null;
 
   return (
     <li className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60")} aria-busy={busy}>
@@ -344,6 +363,11 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             {item.github === null ? null : <GitHubState github={item.github} />}
             {item.priority === null ? null : (
               <Chip className={cn("font-mono", PRIORITY[item.priority])}>P{item.priority}</Chip>
+            )}
+            {newCount === null ? null : (
+              <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-[#0b57d0] dark:text-[#a8c7fa]">
+                {newCount} new
+              </span>
             )}
             {date === null ? null : (
               <span
@@ -380,7 +404,7 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
               />
             ) : item.gmail !== null ? (
               <LineAction
-                label={archiveSuggested ? `Archive, it's ${item.github?.state}` : "Archive"}
+                label={archiveSuggested ? `Archive, ${archiveSuggestion}` : "Archive"}
                 icon="Archive"
                 ariaLabel={`Archive "${item.title}"`}
                 className={archiveSuggested ? SUGGESTED : undefined}

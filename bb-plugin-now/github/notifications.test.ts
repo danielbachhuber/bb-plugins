@@ -29,8 +29,6 @@ describe("classifyEvent", () => {
     ["@octocat commented on this pull request. In src/widget.ts:", "comment"],
     ["@hubber approved this pull request. Nice work.", "approved"],
     ["@hubber requested changes on this pull request.", "changes_requested"],
-    ["@octocat requested your review on: acme/widgets#128 Promote widgets", "review_requested"],
-    ["@octocat requested review from @acme/reviewers on: acme/widgets#128", "review_requested"],
     ["Merged #128 into main. — Reply to this email directly", "merged"],
     ["Closed #42 as completed via #128.", "closed"],
     ["@octocat pushed 2 commits. abc123 Fix the widget", "pushed"],
@@ -38,6 +36,20 @@ describe("classifyEvent", () => {
   ];
   test.each(cases)("%s", (snippet, type) => {
     expect(classifyEvent(snippet, "octocat")).toEqual({ type, actor: "octocat" });
+  });
+
+  test("says whose review a request asked for", () => {
+    expect(classifyEvent("@octocat requested your review on: acme/widgets#128 Promote widgets", "octocat")).toEqual({
+      type: "review_requested",
+      actor: "octocat",
+      requestedOf: "you",
+    });
+    expect(classifyEvent("@octocat requested review from @acme/reviewers on: acme/widgets#128", "octocat")).toEqual({
+      type: "review_requested",
+      actor: "octocat",
+      requestedOf: "acme/reviewers",
+    });
+    expect(classifyEvent("@octocat requested review from @hubber on: acme/widgets#128", "octocat")?.requestedOf).toBe("hubber");
   });
 });
 
@@ -56,6 +68,15 @@ describe("summarize", () => {
     ).toBe("3 comments from octocat, hubber · review requested by octocat · approved by hubber · merged");
   });
 
+  test("names the team or person a review was asked of when it was not you", () => {
+    expect(
+      summarize([
+        { type: "review_requested", actor: "octocat", requestedOf: "acme/reviewers" },
+        { type: "approved", actor: "hubber" },
+      ]),
+    ).toBe("review requested of acme/reviewers by octocat · approved by hubber");
+  });
+
   test("shortens a long list of people", () => {
     const events = ["a", "b", "c", "d", "e"].map((actor) => ({ type: "comment" as const, actor }));
     expect(summarize(events)).toBe("5 comments from a, b, c and 2 more");
@@ -67,6 +88,12 @@ describe("summarize", () => {
 });
 
 describe("commentText", () => {
+  test("drops a footer the snippet cut short", () => {
+    expect(commentText("octocat left a comment (acme/widgets#128) Could you take another look? Thanks — Reply to this email")).toBe(
+      "Could you take another look? Thanks",
+    );
+  });
+
   test("keeps what was written, without GitHub's opening and footer", () => {
     expect(
       commentText("octocat left a comment (acme/widgets#128) I'd keep these out of the widget API. — Reply to this email directly, view it on GitHub."),

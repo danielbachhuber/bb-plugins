@@ -12,6 +12,9 @@ export const gmailPartSchema = z.object({
   threadIds: z.array(z.string()).min(1),
   /** Whether any message behind the row still carries Gmail's `UNREAD` label. */
   unread: z.boolean().default(false),
+  /** How many messages are behind the row, and how many of them are unread. */
+  messages: z.number().int().optional(),
+  unreadMessages: z.number().int().optional(),
 });
 
 /** The pull request or issue a row of GitHub notifications is about. */
@@ -26,6 +29,11 @@ export const githubPartSchema = z.object({
   closedAs: z.enum(["completed", "not_planned"]).nullable().default(null),
   /** Why GitHub notified you, from the latest email: `review_requested`, `mention`, `author`, … */
   reason: z.string().nullable(),
+  /**
+   * Whose review the emails asked for: yours, or only others' (a team you are
+   * in, or someone else). Null when no email asked for a review.
+   */
+  reviewRequested: z.enum(["you", "others"]).nullable().optional(),
   /** The most recent thing someone wrote, from its email's snippet, so it may be cut short. */
   comment: z.object({ author: z.string().nullable(), text: z.string() }).nullable().default(null),
 });

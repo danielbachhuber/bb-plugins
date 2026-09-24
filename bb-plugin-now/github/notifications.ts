@@ -30,6 +30,12 @@ export interface GitHubEvent {
   type: GitHubEventType;
   /** The login of whoever acted, or null when the email does not say. */
   actor: string | null;
+  /**
+   * For a review request, whose review was asked for: `you`, or the login or
+   * `org/team` GitHub names. A team you are in notifies you with the same
+   * reason as a request of you, so only the wording tells them apart.
+   */
+  requestedOf?: string;
 }
 
 const REF = /^<([^/<>\s]+\/[^/<>\s]+)\/(pull|issues)\/(\d+)[/@]/;
@@ -62,7 +68,9 @@ export function classifyEvent(snippet: string, sender: string | null): GitHubEve
   if (/^Merged #\d+ into /i.test(text)) return { type: "merged", actor };
   if (/\bapproved this pull request\b/i.test(text)) return { type: "approved", actor };
   if (/\brequested changes on this pull request\b/i.test(text)) return { type: "changes_requested", actor };
-  if (/\brequested (your review|review from)\b/i.test(text)) return { type: "review_requested", actor };
+  if (/\brequested your review\b/i.test(text)) return { type: "review_requested", actor, requestedOf: "you" };
+  const requested = text.match(/\brequested review from @?([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)?)/i);
+  if (requested) return { type: "review_requested", actor, requestedOf: requested[1]! };
   if (/^Closed #\d+/i.test(text) || /\bclosed this (pull request|issue)\b/i.test(text)) return { type: "closed", actor };
   if (/^Reopened #\d+/i.test(text) || /\breopened this\b/i.test(text)) return { type: "reopened", actor };
   if (/\bpushed \d+ commits?\b/i.test(text)) return { type: "pushed", actor };
@@ -91,8 +99,23 @@ export function summarize(events: readonly GitHubEvent[]): string {
     const count = comments.length === 1 ? "1 comment" : `${comments.length} comments`;
     parts.push(who === "" ? count : `${count} from ${who}`);
   }
+  // A request of you reads as it always has; one of a team or someone else says whose.
+  const requests = of("review_requested");
+  const ofYou = requests.filter((event) => event.requestedOf === undefined || event.requestedOf === "you");
+  if (ofYou.length > 0) {
+    const who = people(ofYou.map((event) => event.actor));
+    parts.push(who === "" ? "review requested" : `review requested by ${who}`);
+  }
+  const ofOthers = new Map<string, (string | null)[]>();
+  for (const event of requests) {
+    if (event.requestedOf === undefined || event.requestedOf === "you") continue;
+    ofOthers.set(event.requestedOf, [...(ofOthers.get(event.requestedOf) ?? []), event.actor]);
+  }
+  for (const [of, actors] of ofOthers) {
+    const who = people(actors);
+    parts.push(who === "" ? `review requested of ${of}` : `review requested of ${of} by ${who}`);
+  }
   for (const [type, label] of [
-    ["review_requested", "review requested by"],
     ["changes_requested", "changes requested by"],
     ["approved", "approved by"],
   ] as const) {
@@ -115,7 +138,8 @@ export function summarize(events: readonly GitHubEvent[]): string {
  */
 export function commentText(snippet: string): string {
   let text = snippet.trim();
-  text = text.replace(/\s*—\s*Reply to this email directly[\s\S]*$/i, "");
+  // The snippet can end partway through the footer, so its first words are enough.
+  text = text.replace(/\s*—\s*Reply( to this email)?\b[\s\S]*$/i, "");
   text = text.replace(/^@?[A-Za-z0-9-]+(\[bot\])? left a comment \([^)]*\)\s*/i, "");
   text = text.replace(
     /^@?[A-Za-z0-9-]+(\[bot\])? (commented on|approved|requested changes on) this pull request\.?\s*/i,

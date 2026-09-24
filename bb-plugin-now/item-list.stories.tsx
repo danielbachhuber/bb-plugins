@@ -55,7 +55,7 @@ function pull(
     context: `acme/widgets#${number}`,
     tags: [],
     url: `https://github.com/acme/widgets/pull/${number}`,
-    gmail: { threadIds: [`t${number}`], unread: number === 128 },
+    gmail: { threadIds: [`t${number}`], unread: number === 128 || number === 137, messages: 4, unreadMessages: number === 128 ? 2 : 1 },
     github: {
       repo: "acme/widgets",
       number,
@@ -74,10 +74,17 @@ const notifications: Item[] = [
   pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
     reason: "review_requested",
     review: "review_required",
+    reviewRequested: "you",
     comment: {
       author: "hubber",
       text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
     },
+  }),
+  pull(137, "Tidy the widget cache", "1 comment from hubber · review requested of acme/reviewers by octocat · approved by hubber", new Date(2026, 8, 24, 6, 15), {
+    reason: "review_requested",
+    review: "approved",
+    reviewRequested: "others",
+    comment: { author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." },
   }),
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
     state: "merged",

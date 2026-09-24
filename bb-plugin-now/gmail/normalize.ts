@@ -40,9 +40,14 @@ export function header(message: Raw, name: string): string | null {
   return null;
 }
 
-/** Whether any of a thread's messages is still unread in Gmail. */
-export function hasUnread(messages: readonly Raw[]): boolean {
-  return messages.some((message) => Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD"));
+function isUnread(message: Raw): boolean {
+  return Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD");
+}
+
+/** Which of a row's messages are still unread in Gmail, as its `gmail` part says it. */
+export function unreadOf(messages: readonly Raw[]): { unread: boolean; messages: number; unreadMessages: number } {
+  const unreadMessages = messages.filter(isUnread).length;
+  return { unread: unreadMessages > 0, messages: messages.length, unreadMessages };
 }
 
 /**
@@ -81,7 +86,7 @@ export function normalizeThread(raw: unknown, account: string | null): Item | nu
     context: from === null ? null : senderName(from),
     tags: [],
     url: threadUrl(raw.id, account),
-    gmail: { threadIds: [raw.id], unread: hasUnread(messages) },
+    gmail: { threadIds: [raw.id], ...unreadOf(messages) },
     github: null,
   };
 }

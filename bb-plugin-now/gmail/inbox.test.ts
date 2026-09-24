@@ -39,7 +39,7 @@ describe("inboxItems", () => {
       description: "2 comments from octocat, hubber",
       context: "acme/widgets#128",
       activityAt: new Date(T + 2000).toISOString(),
-      gmail: { threadIds: ["t2", "t1"], unread: false },
+      gmail: { threadIds: ["t2", "t1"], unread: false, messages: 2, unreadMessages: 0 },
       github: {
         repo: "acme/widgets",
         number: 128,
@@ -50,6 +50,32 @@ describe("inboxItems", () => {
         comment: { author: "hubber", text: "Agreed" },
       },
     });
+  });
+
+  test("counts unread messages and tells a review asked of you from one asked of a team", () => {
+    const unread = (item: ReturnType<typeof notification>) => ({ ...item, labelIds: ["UNREAD", "INBOX"] });
+    const team = inboxItems(
+      [
+        {
+          id: "t1",
+          messages: [
+            notification(T, "@octocat requested review from @acme/reviewers on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" }),
+            notification(T + 1000, "@hubber approved this pull request.", "hubber", { "X-GitHub-Reason": "review_requested" }),
+            unread(notification(T + 2000, "hubber left a comment (acme/widgets#128) Merging soon", "hubber", { "X-GitHub-Reason": "review_requested" })),
+          ],
+        },
+      ],
+      null,
+    )[0];
+    expect(team?.gmail).toMatchObject({ unread: true, messages: 3, unreadMessages: 1 });
+    expect(team?.github?.reviewRequested).toBe("others");
+
+    const yours = inboxItems(
+      [{ id: "t1", messages: [notification(T, "@octocat requested your review on: acme/widgets#128", "octocat", { "X-GitHub-Reason": "review_requested" })] }],
+      null,
+    )[0];
+    expect(yours?.github?.reviewRequested).toBe("you");
+    expect(inboxItems([{ id: "t1", messages: [notification(T, "octocat left a comment (acme/widgets#128) Hi", "octocat")] }], null)[0]?.github?.reviewRequested).toBeNull();
   });
 
   test("prefers gh's state to the email header", () => {

@@ -73,7 +73,7 @@ describe("normalizeThread", () => {
       context: "Octocat",
       tags: [],
       url: "https://mail.google.com/mail/#all/t1",
-      gmail: { threadIds: ["t1"], unread: false },
+      gmail: { threadIds: ["t1"], unread: false, messages: 2, unreadMessages: 0 },
       github: null,
     });
   });
@@ -83,6 +83,7 @@ describe("normalizeThread", () => {
     const unread = message({ id: "m2", labelIds: ["UNREAD", "INBOX"] });
     expect(normalizeThread({ id: "t1", messages: [read, unread] }, null)?.gmail?.unread).toBe(true);
     expect(normalizeThread({ id: "t1", messages: [read] }, null)?.gmail?.unread).toBe(false);
+    expect(normalizeThread({ id: "t1", messages: [read, unread] }, null)?.gmail).toMatchObject({ messages: 2, unreadMessages: 1 });
   });
 
   test("names a thread with no subject", () => {
