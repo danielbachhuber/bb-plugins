@@ -62,6 +62,9 @@ good sync, with a note saying how many.
   pull request whose review you have given and nobody has asked for again,
   and saying "not your review" on one you are notified about only because
   someone else, or a team you are not on, was asked to review it.
+- **Mark read** (on an unread email row, after Archive) marks the row's
+  threads read in Gmail and leaves them in the inbox, so the row stays on the
+  page and moves down among the read mail.
 - **Open and archive** (first in the details line of a Google Docs, Slides,
   or Sheets comment row that mentions or assigns you) opens the newest
   discussion and archives the row in the same click, since once it is read
@@ -80,7 +83,8 @@ that way until the refreshed list arrives, so it goes straight to gone rather
 than flashing back first.
 
 Each of these says what it did in a toast with **Undo**, which reopens the
-task or puts the threads back in the inbox (unread again if they were), and returns the
+task, puts the threads back in the inbox (unread again if they were), or
+marks them unread again, and returns the
 row to where it was. A recurring task is the exception: completing it moves
 it to its next date, and Todoist cannot move it back, so its toast says so
 instead of offering Undo. Undo is for the moment after the click; it does not

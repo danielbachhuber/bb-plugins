@@ -95,10 +95,15 @@ export const rpcContract = defineRpcContract({
       error: z.string().nullable(),
     }),
   },
+  /** Mark a Gmail row's threads read, leaving them in the inbox and the row on the page. */
+  items_mark_read: {
+    input: z.object({ id: z.string() }),
+    output: z.object({ marked: z.boolean(), error: z.string().nullable() }),
+  },
   /**
-   * Reverse a recent archive or completion: the threads go back in the inbox,
-   * or the task reopens, and the row returns. Only for what this server did
-   * since it last started.
+   * Reverse a recent archive, completion, or mark read: the threads go back in
+   * the inbox or back to unread, or the task reopens, and the row returns as it
+   * was. Only for what this server did since it last started.
    */
   items_undo: {
     input: z.object({ id: z.string() }),

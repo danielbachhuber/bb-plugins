@@ -149,6 +149,13 @@ function useRowActions(
           else toast.success("Archived", { action: undo(item.id) });
         }).catch(fail);
       },
+      onMarkRead: (item) => {
+        void run(item.id, "read", async () => {
+          const result = await rpc.call("items_mark_read", { id: item.id });
+          if (result.error !== null) toast.error(result.error);
+          else toast.success("Marked read", { action: undo(item.id) });
+        }).catch(fail);
+      },
       onComplete: (item) => {
         void run(item.id, "complete", async () => {
           const result = await rpc.call("items_complete", { id: item.id });

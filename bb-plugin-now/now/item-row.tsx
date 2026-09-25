@@ -18,11 +18,12 @@ import type { GitHubPart, Item } from "./types.js";
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "merge" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "read" | "merge" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
   archive: "Archiving…",
+  read: "Marking read…",
   merge: "Merging…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
@@ -31,6 +32,7 @@ const PENDING_LABEL: Record<PendingAction, string> = {
 
 export interface RowActions {
   onArchive: (item: Item) => void;
+  onMarkRead: (item: Item) => void;
   onComplete: (item: Item) => void;
   onRsvp: (item: Item, response: Reply) => void;
   onMerge: (item: Item, method: MergeMethod) => void;
@@ -442,6 +444,16 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
+            {actions === undefined || !unread ? null : (
+              <LineAction
+                label="Mark read"
+                icon="MailOpen"
+                ariaLabel={`Mark "${item.title}" read`}
+                disabled={busy}
+                working={pending === "read" ? PENDING_LABEL.read : null}
+                onClick={() => actions.onMarkRead(item)}
+              />
+            )}
             {item.doc?.url == null ? null : (
               <UrlLink
                 href={item.doc.url}

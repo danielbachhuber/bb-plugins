@@ -222,13 +222,13 @@ export function createPlugin(deps: PluginDeps = {}) {
     }
 
     /**
-     * Rows archived or completed from the page, kept so Undo can put them back.
+     * Rows archived, completed, or marked read from the page, kept so Undo can put them back.
      * In memory only: an undo is for the moment after the click, and a
      * restart ends that moment.
      */
-    const undoable = new Map<string, { item: Item; action: "archive" | "complete"; position: number }>();
+    const undoable = new Map<string, { item: Item; action: "archive" | "complete" | "read"; position: number }>();
     const UNDO_LIMIT = 50;
-    function remember(item: Item, action: "archive" | "complete") {
+    function remember(item: Item, action: "archive" | "complete" | "read") {
       undoable.delete(item.id);
       undoable.set(item.id, { item, action, position: store.positionOf(item.id) });
       if (undoable.size > UNDO_LIMIT) undoable.delete(undoable.keys().next().value!);
@@ -280,6 +280,24 @@ export function createPlugin(deps: PluginDeps = {}) {
         announce();
         return { archived: true, error: null };
       },
+      items_mark_read: async ({ id }) => {
+        const item = findItem(id);
+        if (item?.gmail == null) return { marked: false, error: "Only an email can be marked read." };
+        try {
+          await modifyThreads(item.gmail.threadIds, { removeLabelIds: ["UNREAD"] });
+        } catch (error) {
+          bb.log.warn(`Could not mark ${id} read: ${messageOf(error)}`);
+          return { marked: false, error: messageOf(error) };
+        }
+        remember(item, "read");
+        updateRow({
+          ...item,
+          gmail: { ...item.gmail, unread: false, unreadMessages: 0 },
+          github: item.github === null ? null : { ...item.github, unreadQuotes: [] },
+        });
+        announce();
+        return { marked: true, error: null };
+      },
       items_complete: async ({ id }) => {
         const item = findItem(id);
         if (item?.source !== "todoist") {
@@ -303,7 +321,9 @@ export function createPlugin(deps: PluginDeps = {}) {
         const entry = undoable.get(id);
         if (entry === undefined) return { restored: false, error: "That is too long ago to undo here." };
         try {
-          if (entry.action === "archive") {
+          if (entry.action === "read") {
+            await modifyThreads(entry.item.gmail?.threadIds ?? [], { addLabelIds: ["UNREAD"] });
+          } else if (entry.action === "archive") {
             // Unread comes back only for a row that was unread when archived.
             const unread = entry.item.gmail?.unread === true;
             await modifyThreads(entry.item.gmail?.threadIds ?? [], { addLabelIds: unread ? ["INBOX", "UNREAD"] : ["INBOX"] });
@@ -317,7 +337,8 @@ export function createPlugin(deps: PluginDeps = {}) {
           return { restored: false, error: messageOf(error) };
         }
         undoable.delete(id);
-        restoreRow(entry.item, entry.position);
+        if (entry.action === "read") updateRow(entry.item);
+        else restoreRow(entry.item, entry.position);
         announce();
         return { restored: true, error: null };
       },

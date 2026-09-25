@@ -660,6 +660,27 @@ describe("row actions", () => {
     });
   });
 
+  test("marks a row's threads read, leaving the row on the page, and back to unread on undo", async () => {
+    const { harness, gws } = await loaded();
+
+    await expect(harness.behavior.callRpc("items_mark_read", { id: "gmail:mail1" })).resolves.toEqual({ marked: true, error: null });
+    let listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.find((item) => item.id === "gmail:mail1")?.gmail).toMatchObject({ unread: false, unreadMessages: 0 });
+
+    await expect(harness.behavior.callRpc("items_undo", { id: "gmail:mail1" })).resolves.toEqual({ restored: true, error: null });
+    listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["github:acme/widgets#128", "gmail:mail1"]);
+    expect(listing.list?.items[1]?.gmail).toMatchObject({ unread: true });
+
+    const modifies = gws.calls.filter((args) => args.includes("modify")).map((args) => JSON.parse(args[args.indexOf("--json") + 1]!));
+    expect(modifies).toEqual([{ removeLabelIds: ["UNREAD"] }, { addLabelIds: ["UNREAD"] }]);
+  });
+
+  test("will not mark a Todoist task read", async () => {
+    const { harness } = await loaded();
+    await expect(harness.behavior.callRpc("items_mark_read", { id: "todoist:none" })).resolves.toMatchObject({ marked: false });
+  });
+
   test("leaves a row that was read when archived read on undo", async () => {
     const { harness, gws } = await loaded();
     await harness.behavior.callRpc("items_archive", { id: "github:acme/widgets#128" });

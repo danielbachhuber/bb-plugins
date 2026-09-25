@@ -329,6 +329,7 @@ const actions = {
   onRsvp: noop,
   onMerge: noop,
   onArchive: noop,
+  onMarkRead: noop,
   onComplete: noop,
   onReply: async () => true,
   onStartThread: noop,
