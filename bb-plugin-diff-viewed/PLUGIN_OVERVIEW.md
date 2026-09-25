@@ -6,7 +6,7 @@ it stays folded away while you work through the rest of the diff. What is still
 expanded is what you have not read yet. Uncheck it to bring it back; nothing
 else about the panel changes.
 
-The toolbar shows how far you have got, as "3 / 8 viewed" with a progress
+The toolbar shows how far you have got, as "3/8 viewed" with a progress
 ring, right-aligned above bb's line counts in place of its file count. It
 counts every file in the selected range, not only the ones on screen.
 

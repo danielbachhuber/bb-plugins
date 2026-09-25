@@ -519,7 +519,7 @@ describe("review progress", () => {
     const harness = start({ record: { "a.ts": "+8 -4", "c.ts": "+3 -0" } });
     await harness.settle();
 
-    expect(progressText()).toBe("2 / 3 viewed");
+    expect(progressText()).toBe("2/3 viewed");
   });
 
   it("does not count a mark on a file whose diff has changed", async () => {
@@ -528,7 +528,7 @@ describe("review progress", () => {
     const harness = start({ record: { "a.ts": "+8 -4" } });
     await harness.settle();
 
-    expect(progressText()).toBe("0 / 1 viewed");
+    expect(progressText()).toBe("0/1 viewed");
   });
 
   it("moves when a file is marked", async () => {
@@ -537,12 +537,12 @@ describe("review progress", () => {
     renderCard("b.ts");
     const harness = start();
     await harness.settle();
-    expect(progressText()).toBe("0 / 2 viewed");
+    expect(progressText()).toBe("0/2 viewed");
 
     checkboxFor(toggle)!.click();
     await harness.settle();
 
-    expect(progressText()).toBe("1 / 2 viewed");
+    expect(progressText()).toBe("1/2 viewed");
   });
 
   it("goes away with the changes panel", async () => {

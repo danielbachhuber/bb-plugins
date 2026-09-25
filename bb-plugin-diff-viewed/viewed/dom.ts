@@ -210,8 +210,8 @@ export const STYLE_TEXT = `
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] {
   grid-area: summary;
   justify-self: end;
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
 }
 /* The progress line above already gives the file count, so keep only bb's
    "+a -b" tally. The "N files, " before it is bare text with no element of
@@ -221,7 +221,7 @@ export const STYLE_TEXT = `
   font-size: 0;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] > span {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-actions"] {
   grid-area: actions;
@@ -261,7 +261,7 @@ function ringSvg(viewed: number, total: number): string {
   const dash = (fraction * RING_CIRCUMFERENCE).toFixed(2);
   const color = complete ? "var(--success)" : "var(--primary)";
   return (
-    '<svg viewBox="0 0 16 16" class="h-3.5 w-3.5 shrink-0 -rotate-90" aria-hidden="true">' +
+    '<svg viewBox="0 0 16 16" class="h-3 w-3 shrink-0 -rotate-90" aria-hidden="true">' +
     `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2"/>` +
     `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="${color}" stroke-width="2" ` +
     `stroke-linecap="round" stroke-dasharray="${dash} ${RING_CIRCUMFERENCE.toFixed(2)}"` +
@@ -286,7 +286,7 @@ function progressMarkup(view: ProgressView): { html: string; title: string } {
       ringSvg(viewed, total) +
       '<span class="truncate">' +
       `<span class="text-foreground">${viewed}</span>` +
-      '<span class="text-muted-foreground"> / </span>' +
+      '<span class="text-muted-foreground">/</span>' +
       `<span class="text-foreground">${total}</span>` +
       '<span class="text-muted-foreground"> viewed</span></span>',
     title: `${viewed} of ${total} file${total === 1 ? "" : "s"} viewed`,
@@ -312,7 +312,7 @@ export function renderProgress(doc: Document, view: ProgressView | null): void {
     line.setAttribute(OWNED_ATTR, "");
     line.setAttribute(PROGRESS_ATTR, "");
     line.className =
-      "flex min-w-0 items-center gap-1.5 pl-2.5 text-sm leading-4";
+      "flex min-w-0 items-center gap-1 pl-2.5 text-xs leading-4";
     details.append(line);
   }
   if (!details.hasAttribute(PROGRESS_HOST_ATTR)) {

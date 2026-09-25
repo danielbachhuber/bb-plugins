@@ -13,7 +13,7 @@ stays that way until the file's diff changes.
 - Check a file to fold it away. What is still expanded is what you have not
   read yet.
 - Uncheck it to bring it back. Nothing else about the panel changes.
-- The toolbar shows how far you have got, as "3 / 8 viewed" with a progress
+- The toolbar shows how far you have got, as "3/8 viewed" with a progress
   ring, right-aligned above bb's line counts in place of bb's file count. It
   counts every file in the selected range, including the ones you have not
   scrolled to yet, and a file only counts while its mark matches its current
