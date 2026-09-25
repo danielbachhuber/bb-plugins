@@ -64,7 +64,7 @@ describe("normalizeTask", () => {
       url: "https://app.todoist.com/app/task/6XGgmFVcrG5RRjVr",
       gmail: null,
       github: null,
-      todoist: { projectId: "p1" },
+      todoist: { projectId: "p1", content: "Buy widgets" },
     });
   });
 

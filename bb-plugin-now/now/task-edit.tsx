@@ -1,5 +1,5 @@
-// The edit strip under a Todoist row: a date in words, a project, and a
-// priority, held here and sent together on Save, so a new project or date
+// The edit strip under a Todoist row: its name, a date in words, a project,
+// and a priority, held here and sent together on Save, so a new project or date
 // cannot move the row away halfway through. Draws only.
 import { useMemo, useState, type FormEvent } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 import { parseDeadline } from "../todoist/deadline.js";
-import { hasChanges, rowPriority, taskChanges, type TaskDraft } from "../todoist/edit.js";
+import { hasChanges, rowContent, rowPriority, taskChanges, type TaskDraft } from "../todoist/edit.js";
 import { shortDate } from "./sections.js";
 import type { Item, TodoistProject } from "./types.js";
 
@@ -161,6 +161,7 @@ export interface TaskEditProps {
 
 export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy }: TaskEditProps) {
   const [draft, setDraft] = useState<TaskDraft>(() => ({
+    content: rowContent(item),
     due: "",
     priority: rowPriority(item),
     projectId: item.todoist?.projectId ?? null,
@@ -171,10 +172,13 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
   const deadlineUnread = deadlineText.trim() !== "" && deadline === undefined;
   const full: TaskDraft = { ...draft, deadline };
   const changed = hasChanges(taskChanges(item, full));
+  // Todoist will not take a task with no name.
+  const nameless = draft.content.trim() === "";
+  const blocked = !changed || deadlineUnread || nameless || busy;
 
   const submit = (event?: FormEvent) => {
     event?.preventDefault();
-    if (!changed || deadlineUnread || busy) return;
+    if (blocked) return;
     void onSave(full);
   };
 
@@ -187,6 +191,18 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
       aria-label={`Edit "${item.title}"`}
       className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-1.5"
     >
+      <div className="relative w-full">
+        <Icon name="Edit" className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={draft.content}
+          onChange={(event) => setDraft({ ...draft, content: event.target.value })}
+          aria-label="Task name"
+          aria-invalid={nameless || undefined}
+          maxLength={500}
+          disabled={busy}
+          className={cn("h-7 bg-background pl-7 text-xs", nameless && "border-destructive/60")}
+        />
+      </div>
       <div className="relative w-36">
         <HugeiconsIcon
           icon={Calendar03Icon}
@@ -278,7 +294,7 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button type="submit" size="sm" className="h-7 text-xs" disabled={!changed || deadlineUnread || busy}>
+          <Button type="submit" size="sm" className="h-7 text-xs" disabled={blocked}>
             {busy ? <Icon name="Loading" className="size-3 animate-spin" /> : null}
             Save
           </Button>

@@ -34,6 +34,8 @@ export interface TodoistApi {
 }
 
 export interface TaskUpdate {
+  /** The task's name, in Markdown. */
+  content?: string;
   /** A date in words, which Todoist parses: "fri", "every mon", "no date". */
   due_string?: string;
   /** Todoist's API scale, 4 being what its app calls P1. */

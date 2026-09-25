@@ -59,8 +59,10 @@ good sync, with a note saying how many.
 - **Complete** (on a Todoist row, in its details line) completes the task in
   Todoist and takes the row off the page.
 - **Edit** (on a Todoist row, after Complete) opens a strip under the row with
-  a due date box, a deadline box, a project picker, and the four priority
-  flags. The due date is when to do it: type it in words, as in Todoist
+  the task's name, and under it a due date box, a deadline box, a project
+  picker, and the four priority flags. The name starts as Todoist holds it,
+  Markdown included, so a link in it survives the save; Save waits while it is
+  blank. The due date is when to do it: type it in words, as in Todoist
   ("fri", "next week", "every mon 9am", "no date"), and Todoist reads it when
   you save. The deadline is when it has to be done by. Todoist does not read
   a deadline's words, so the strip does, and shows the day it read at the
@@ -69,8 +71,8 @@ good sync, with a note saying how many.
   to clear it. Anything else reads "Not a date" and Save waits. Either box
   left empty leaves its date as it is. The
   project picker lists your projects nested as Todoist shows them, and typing
-  narrows it. Nothing is sent until **Save**, which sends the date, priority,
-  and project together, so a new project or date cannot move the row away
+  narrows it. Nothing is sent until **Save**, which sends the name, date,
+  priority, and project together, so a new project or date cannot move the row away
   halfway through. The row then shows what Todoist saved, and a sync follows,
   since the new date or project may move it to another section or off the
   page. A task in Todoist's Inbox shows the strip already open, since it is
@@ -143,7 +145,7 @@ has only non-required checks failing. It does not show on someone else's
 pull request, even where you could merge it, since that merge is theirs to
 make. Once merged, the row suggests Archive.
 
-Editing a Todoist task's title, description, or labels still happens
+Editing a Todoist task's description or labels still happens
 in Todoist, and replying to an email that is not from GitHub still happens in Gmail.
 
 ## Sources
@@ -176,7 +178,7 @@ One sync makes two requests to the Todoist API v1, in parallel:
 `GET /api/v1/tasks/filter` with the saved query, and `GET /api/v1/projects` to
 name each task's project and find the Inbox. Both follow `next_cursor` 200
 items at a time.
-Saving the edit strip makes `POST /api/v1/tasks/{id}` for the due date,
+Saving the edit strip makes `POST /api/v1/tasks/{id}` for the name, due date,
 deadline, and priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
 changed, then reads the task back with `GET /api/v1/tasks/{id}`. Delete is
 `DELETE /api/v1/tasks/{id}`. Opening the page reads the projects once, for the
@@ -306,7 +308,7 @@ list `server.ts` passes to `loadSources`.
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
-| `now/task-edit.tsx` | A Todoist row's edit strip: the due date and deadline boxes, project picker, priority flags, and Delete |
+| `now/task-edit.tsx` | A Todoist row's edit strip: the name, the due date and deadline boxes, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
 | `now/reviewer-stack.tsx` | A pull request's reviewers, from GitHub Context's banner |

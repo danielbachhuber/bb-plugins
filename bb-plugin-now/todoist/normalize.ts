@@ -67,7 +67,7 @@ export function normalizeTask(raw: unknown, projects: ReadonlyMap<string, Projec
     url: taskUrl(raw.id),
     gmail: null,
     github: null,
-    todoist: { projectId: typeof raw.project_id === "string" ? raw.project_id : null },
+    todoist: { projectId: typeof raw.project_id === "string" ? raw.project_id : null, content: raw.content },
   };
 }
 

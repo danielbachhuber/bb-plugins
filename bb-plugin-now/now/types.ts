@@ -109,6 +109,8 @@ export type InvitePart = z.infer<typeof invitePartSchema>;
 export const todoistPartSchema = z.object({
   /** The task's project, which the edit strip's project picker starts on. */
   projectId: z.string().nullable(),
+  /** The task's name as Todoist holds it, Markdown and all, which the edit strip's name field starts on. */
+  content: z.string().optional(),
 });
 export type TodoistPart = z.infer<typeof todoistPartSchema>;
 

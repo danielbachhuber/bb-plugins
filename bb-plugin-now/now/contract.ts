@@ -108,6 +108,8 @@ export const rpcContract = defineRpcContract({
   items_edit: {
     input: z.object({
       id: z.string(),
+      /** Todoist caps a task's name at 500 characters. */
+      content: z.string().max(500),
       due: z.string().max(200),
       /** Already a day: Todoist does not read a deadline's words, so the page does. */
       deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),

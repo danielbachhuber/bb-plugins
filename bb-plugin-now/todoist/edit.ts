@@ -5,6 +5,8 @@ import { apiPriority } from "./normalize.js";
 
 /** What the edit strip holds when Save is pressed. */
 export interface TaskDraft {
+  /** The task's name. Blank leaves the name as it is. */
+  content: string;
   /** A date in words. Empty leaves the date as it is. */
   due: string;
   /** The day the deadline moves to, null to clear it, or absent to leave it as it is. */
@@ -25,9 +27,19 @@ export function rowPriority(item: Item): 1 | 2 | 3 | 4 {
   return item.priority ?? 4;
 }
 
+/**
+ * The name the edit strip starts on: Todoist's own Markdown, so saving it back
+ * keeps a link. A row stored before the plugin kept it has only the plain title.
+ */
+export function rowContent(item: Item): string {
+  return item.todoist?.content ?? item.title;
+}
+
 /** Only what the draft changed, so an untouched recurring date keeps its rule. */
 export function taskChanges(item: Item, draft: TaskDraft): TaskChanges {
   const update: TaskUpdate = {};
+  const content = draft.content.trim();
+  if (content !== "" && content !== rowContent(item).trim()) update.content = content;
   const due = draft.due.trim();
   if (due !== "") update.due_string = due;
   if (draft.deadline !== undefined && draft.deadline !== item.deadline) update.deadline_date = draft.deadline;

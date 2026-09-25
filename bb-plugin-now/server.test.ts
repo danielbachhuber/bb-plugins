@@ -826,6 +826,7 @@ describe("editing a task", () => {
     "POST /api/v1/tasks/a": null,
     "POST /api/v1/tasks/a/move": null,
     "/api/v1/tasks/a": rawTask("a", {
+      content: "Order the gadget samples",
       project_id: "p2",
       priority: 3,
       due: { date: "2026-10-02", string: "next fri", is_recurring: false },
@@ -846,7 +847,7 @@ describe("editing a task", () => {
     });
   });
 
-  test("sends the date, priority, and move together, and the row takes what Todoist saved", async () => {
+  test("sends the name, date, priority, and move together, and the row takes what Todoist saved", async () => {
     const { bb, harness, plugin, fetchImpl } = host(ROUTES);
     await plugin(bb);
     await syncAndRead(harness);
@@ -862,6 +863,7 @@ describe("editing a task", () => {
     await expect(
       harness.behavior.callRpc("items_edit", {
         id: "todoist:a",
+        content: "Order the gadget samples",
         due: "next fri",
         deadline: "2026-10-09",
         priority: 2,
@@ -873,12 +875,13 @@ describe("editing a task", () => {
       .filter(([, init]) => init?.method === "POST")
       .map(([url, init]) => [new URL(url).pathname, JSON.parse(String(init?.body))]);
     expect(writes).toEqual([
-      ["/api/v1/tasks/a", { due_string: "next fri", deadline_date: "2026-10-09", priority: 3 }],
+      ["/api/v1/tasks/a", { content: "Order the gadget samples", due_string: "next fri", deadline_date: "2026-10-09", priority: 3 }],
       ["/api/v1/tasks/a/move", { project_id: "p2" }],
     ]);
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
     expect(listing.list?.items[0]).toMatchObject({
       id: "todoist:a",
+      title: "Order the gadget samples",
       context: "Gadgets",
       priority: 2,
       due: { date: "2026-10-02", text: "next fri" },
@@ -892,7 +895,7 @@ describe("editing a task", () => {
     await plugin(bb);
     await syncAndRead(harness);
     await expect(
-      harness.behavior.callRpc("items_edit", { id: "todoist:a", due: "", priority: 4, projectId: "p1" }),
+      harness.behavior.callRpc("items_edit", { id: "todoist:a", content: "Task a", due: "", priority: 4, projectId: "p1" }),
     ).resolves.toEqual({ saved: true, error: null });
     expect(fetchImpl.mock.calls.filter(([, init]) => init?.method === "POST")).toEqual([]);
   });
