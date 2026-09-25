@@ -31,6 +31,29 @@ here.
 
 Commit one logical change at a time rather than one commit at the end.
 
+## Commit only your own work
+
+Several agents work in this one checkout on `main` at the same time, so the
+working tree holds changes that are not yours: another thread's half-finished
+feature, a scratch story, a README edit in progress. Committing one of them
+publishes someone else's work under your message, and once it is pushed the
+history cannot be changed to take it back. A sidebar count change once pushed
+another thread's unfinished Postpone feature this way, because it was staged
+with `git add bb-plugin-now` instead of by file.
+
+- Run `git status` before you stage, and account for every changed file.
+  One you did not edit belongs to someone else, even inside your plugin's
+  directory.
+- Stage the files you changed by name. Never `git add -A`, `git add .`, or a
+  whole directory.
+- Read `git diff --cached --stat` before committing, and unstage anything
+  you do not recognise.
+- The same goes for screenshots. `npm run screenshots` captures every story
+  in the checkout, including another thread's uncommitted ones. Before
+  `screenshots:commit`, restore the images and READMEs that your commit did
+  not change, with `git -C <screenshots dir> checkout -- <path>` and
+  `git clean` for new files.
+
 ## Screenshot the stories after you commit
 
 Every story is photographed into a separate repository,
