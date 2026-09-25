@@ -34,13 +34,9 @@ export const MIGRATIONS = [
      thread_id TEXT NOT NULL,
      created_at TEXT NOT NULL
    )`,
+  // Snoozing was removed.
+  `DROP TABLE IF EXISTS snoozes`,
 ];
-
-export interface Snooze {
-  until: string;
-  /** The item's activity when it was snoozed. */
-  activityAt: string | null;
-}
 
 interface StatementLike {
   run(...params: unknown[]): unknown;
@@ -67,12 +63,6 @@ export interface Store {
   restoreItem(item: Item, position: number): void;
   /** Where an item sits in the stored list, or -1. */
   positionOf(id: string): number;
-  /** Snoozing again replaces the earlier snooze rather than extending it. */
-  snooze(id: string, snooze: Snooze, now: Date): void;
-  unsnooze(id: string): void;
-  snoozes(): Map<string, Snooze>;
-  /** Drops snoozes that have run out. Returns how many went. */
-  pruneSnoozes(now: Date): number;
   /** Item id to the thread started from it. */
   threads(): Map<string, string>;
   linkThread(itemId: string, threadId: string, now: Date): void;
@@ -90,14 +80,6 @@ export function createStore(db: DatabaseLike): Store {
   const selectItems = db.prepare(`SELECT payload FROM items ORDER BY position`);
   const selectSync = db.prepare(`SELECT synced_at, sources FROM sync WHERE id = 1`);
   const deleteItem = db.prepare(`DELETE FROM items WHERE id = ?`);
-  const upsertSnooze = db.prepare(
-    `INSERT INTO snoozes (item_id, until, activity_at, snoozed_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(item_id) DO UPDATE SET
-       until = excluded.until, activity_at = excluded.activity_at, snoozed_at = excluded.snoozed_at`,
-  );
-  const deleteSnooze = db.prepare(`DELETE FROM snoozes WHERE item_id = ?`);
-  const selectSnoozes = db.prepare(`SELECT item_id, until, activity_at FROM snoozes`);
-  const deleteExpired = db.prepare(`DELETE FROM snoozes WHERE until <= ?`);
   const selectThreads = db.prepare(`SELECT item_id, thread_id FROM item_threads`);
   const upsertThread = db.prepare(
     `INSERT INTO item_threads (item_id, thread_id, created_at) VALUES (?, ?, ?)
@@ -138,16 +120,6 @@ export function createStore(db: DatabaseLike): Store {
     positionOf(id) {
       return read()?.items.findIndex((item) => item.id === id) ?? -1;
     },
-    snooze(id, snooze, now) {
-      upsertSnooze.run(id, snooze.until, snooze.activityAt, now.toISOString());
-    },
-    unsnooze(id) {
-      deleteSnooze.run(id);
-    },
-    snoozes() {
-      const rows = selectSnoozes.all() as Array<{ item_id: string; until: string; activity_at: string | null }>;
-      return new Map(rows.map((row) => [row.item_id, { until: row.until, activityAt: row.activity_at }]));
-    },
     threads() {
       const rows = selectThreads.all() as Array<{ item_id: string; thread_id: string }>;
       return new Map(rows.map((row) => [row.item_id, row.thread_id]));
@@ -157,10 +129,6 @@ export function createStore(db: DatabaseLike): Store {
     },
     releaseThread(threadId) {
       const result = deleteThread.run(threadId) as { changes?: number };
-      return result.changes ?? 0;
-    },
-    pruneSnoozes(now) {
-      const result = deleteExpired.run(now.toISOString()) as { changes?: number };
       return result.changes ?? 0;
     },
   };

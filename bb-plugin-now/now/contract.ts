@@ -42,10 +42,8 @@ export type NowList = z.infer<typeof nowListSchema>;
 
 /** The stored list, and whether a sync is running now. */
 export const listingSchema = z.object({
-  /** Null until the first sync finishes. Snoozed items are not in it. */
+  /** Null until the first sync finishes. */
   list: nowListSchema.nullable(),
-  /** What a snooze is hiding, and until when. */
-  snoozed: z.array(z.object({ item: itemSchema, until: z.string() })),
   /** Item id to the thread started from it. */
   threads: z.record(z.string(), z.string()),
   /** The project a new thread starts in unless the composer picks another. */
@@ -78,15 +76,6 @@ export const rpcContract = defineRpcContract({
   items_sync: {
     input: z.object({ ifOlderThanMs: z.number().int().nonnegative().optional() }).nullable(),
     output: z.object({ synced: z.boolean(), error: z.string().nullable() }),
-  },
-  /** Hide an item until `until`. Newer activity on it brings it back sooner. */
-  items_snooze: {
-    input: z.object({ id: z.string(), until: z.string().datetime({ offset: true }) }),
-    output: z.object({ until: z.string() }),
-  },
-  items_unsnooze: {
-    input: z.object({ id: z.string() }),
-    output: z.object({ unsnoozed: z.boolean() }),
   },
   /** Take a Gmail row's threads out of the inbox, and the row off the page. */
   items_archive: {

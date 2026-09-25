@@ -66,18 +66,3 @@ export function describeDue(due: Due, now: Date): DueLabel {
   const tone: DueTone = offset < 0 ? "overdue" : offset === 0 ? "today" : "upcoming";
   return { text, tone };
 }
-
-/**
- * When something last happened, read the way a mail client reads it: the time
- * for today, "Yesterday", and the date before that.
- */
-export function describeActivity(iso: string, now: Date): string {
-  const at = new Date(iso);
-  const day = localDay(at);
-  const offset = daysBetween(localDay(now), day);
-  if (offset === 0) {
-    return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
-  }
-  if (offset === -1) return "Yesterday";
-  return calendarText(day, localDay(now));
-}

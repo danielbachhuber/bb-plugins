@@ -7,7 +7,7 @@ Gmail inbox.
 ## What it adds
 
 A **Now** page in the left sidebar, whose entry shows how many rows need
-action: everything the last sync found, less what is snoozed. It loads every
+action: everything the last sync found. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Inbox**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
@@ -75,21 +75,15 @@ good sync, with a note saying how many.
   each sync, so a reply made in Calendar or Gmail shows here too. The row
   stays where it is, and once you have replied its Archive is tinted and says
   "you replied". A canceled event says so instead, and suggests Archive.
-- **Snooze** (the pause icon, at the right of every row) hides the row until
-  later today (three hours), tomorrow at 8:00, or next Monday at 8:00. The
-  snooze is kept in this plugin's database; nothing changes in Todoist or
-  Gmail. A snoozed row comes back early if it has newer activity, such as a
-  new comment on a snoozed pull request. Snoozed rows are listed, closed, under
-  the rest, where each can be unsnoozed.
 
 While one of these waits on Todoist, Gmail, or the plugin's server, its row
 dims and its buttons are disabled, and the button says what it is doing
-("Completing…", "Archiving…", "Snoozing…") beside a spinner. The row stays
+("Completing…", "Archiving…", "Merging…") beside a spinner. The row stays
 that way until the refreshed list arrives, so it goes straight to gone rather
 than flashing back first.
 
 Each of these says what it did in a toast with **Undo**, which reopens the
-task, puts the threads back in the inbox, or ends the snooze, and returns the
+task or puts the threads back in the inbox, and returns the
 row to where it was. A recurring task is the exception: completing it moves
 it to its next date, and Todoist cannot move it back, so its toast says so
 instead of offering Undo. Undo is for the moment after the click; it does not
@@ -276,8 +270,7 @@ list `server.ts` passes to `loadSources`.
 | `now/items.ts` | The order the merged list is in |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
-| `now/store.ts` | The database tables: the stored list, snoozes, and the threads started from rows |
-| `now/snooze.ts` | The snooze menu's times, and which items a snooze is hiding |
+| `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |

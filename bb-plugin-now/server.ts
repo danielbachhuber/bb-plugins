@@ -7,7 +7,6 @@ import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
-import { partitionSnoozed } from "./now/snooze.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
 import { CONFIGURE_HINT, DEFAULT_FILTER, todoistSource } from "./todoist/source.js";
@@ -203,7 +202,6 @@ export function createPlugin(deps: PluginDeps = {}) {
               if (position !== -1) store.restoreItem(change.updated, position);
             } else if (store.positionOf(change.restored.id) === -1) store.restoreItem(change.restored, change.position);
           }
-          store.pruneSnoozes(now());
         } finally {
           changesDuringSync = null;
           running = null;
@@ -265,27 +263,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         const threads = Object.fromEntries(store.threads());
         const { threadProjectId } = await settings.get();
         const project = threadProjectId?.trim() || null;
-        if (stored === null) {
-          return { list: null, snoozed: [], threads, threadProjectId: project, syncing: running !== null };
-        }
-        const { active, snoozed } = partitionSnoozed(stored.items, store.snoozes(), now());
-        return {
-          list: { ...stored, items: active },
-          snoozed,
-          threads,
-          threadProjectId: project,
-          syncing: running !== null,
-        };
-      },
-      items_snooze: async ({ id, until }) => {
-        store.snooze(id, { until, activityAt: findItem(id)?.activityAt ?? null }, now());
-        announce();
-        return { until };
-      },
-      items_unsnooze: async ({ id }) => {
-        store.unsnooze(id);
-        announce();
-        return { unsnoozed: true };
+        return { list: stored, threads, threadProjectId: project, syncing: running !== null };
       },
       items_archive: async ({ id }) => {
         const item = findItem(id);

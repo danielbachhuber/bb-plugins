@@ -4,12 +4,6 @@ import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -17,21 +11,18 @@ import { cn } from "@/lib/utils";
 import { BrandIcon, type Brand } from "./brand-icon.js";
 import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
-import { describeActivity, describeDue } from "./due.js";
+import { describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
-import { snoozeChoices } from "./snooze.js";
 import type { GitHubPart, Item } from "./types.js";
 
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "snooze" | "unsnooze" | "merge" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "merge" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
   archive: "Archiving…",
-  snooze: "Snoozing…",
-  unsnooze: "Unsnoozing…",
   merge: "Merging…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
@@ -39,8 +30,6 @@ const PENDING_LABEL: Record<PendingAction, string> = {
 };
 
 export interface RowActions {
-  onSnooze: (item: Item, until: string) => void;
-  onUnsnooze: (item: Item) => void;
   onArchive: (item: Item) => void;
   onComplete: (item: Item) => void;
   onRsvp: (item: Item, response: Reply) => void;
@@ -119,54 +108,6 @@ const MAX_QUOTES = 5;
 /** The merged-purple an Archive suggestion is tinted with. */
 const SUGGESTED = "text-[#8250df] hover:text-[#8250df] dark:text-[#a371f7] dark:hover:text-[#a371f7]";
 
-function SnoozeMenu({
-  item,
-  until,
-  now,
-  actions,
-  pending,
-}: {
-  item: Item;
-  until: string | null;
-  now: Date;
-  actions: RowActions;
-  pending: PendingAction | null;
-}) {
-  const working = pending === "snooze" || pending === "unsnooze";
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-          disabled={pending !== null}
-          aria-busy={working}
-          aria-label={
-            working ? PENDING_LABEL[pending] : until === null ? `Snooze "${item.title}"` : `Unsnooze "${item.title}"`
-          }
-        >
-          <Icon name={working ? "Loading" : "Pause"} className={cn("size-4", working && "animate-spin")} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {until === null ? (
-          snoozeChoices(now).map((choice) => (
-            <DropdownMenuItem key={choice.label} onSelect={() => actions.onSnooze(item, choice.until)}>
-              {choice.label}
-            </DropdownMenuItem>
-          ))
-        ) : (
-          <DropdownMenuItem onSelect={() => actions.onUnsnooze(item)}>
-            <Icon name="RotateCcw" className="size-4" />
-            Unsnooze
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 function ReplyBox({ item, onReply, onClose }: { item: Item; onReply: RowActions["onReply"]; onClose: () => void }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -214,8 +155,6 @@ export interface ItemRowProps {
   item: Item;
   now: Date;
   actions?: RowActions;
-  /** When a snooze is hiding the row, its end. */
-  snoozedUntil?: string | null;
   /** The thread already started from this row. */
   threadId?: string | null;
   /** The action this row is waiting on, if any. */
@@ -352,7 +291,7 @@ function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: 
   return null;
 }
 
-export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = null, pending = null }: ItemRowProps) {
+export function ItemRow({ item, now, actions, threadId = null, pending = null }: ItemRowProps) {
   const busy = pending !== null;
   const mergeMethods = actions === undefined ? [] : (item.github?.mergeMethods ?? []);
   const merge =
@@ -547,12 +486,6 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             {item.tags.map((tag) => (
               <span key={tag}>@{tag}</span>
             ))}
-            {snoozedUntil === null ? null : (
-              <span className="inline-flex items-center gap-1">
-                <Icon name="Pause" className="size-3" />
-                until {describeActivity(snoozedUntil, now)}
-              </span>
-            )}
             {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
           {card}
@@ -560,12 +493,6 @@ export function ItemRow({ item, now, actions, snoozedUntil = null, threadId = nu
             <ReplyBox item={item} onReply={actions.onReply} onClose={() => setReplying(false)} />
           ) : null}
         </div>
-
-        {actions === undefined ? null : (
-          <div className="-mr-1.5 shrink-0">
-            <SnoozeMenu item={item} until={snoozedUntil} now={now} actions={actions} pending={pending} />
-          </div>
-        )}
       </div>
     </li>
   );

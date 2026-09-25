@@ -142,22 +142,6 @@ function useRowActions(
 
     return {
       ...threads,
-      onSnooze: (item, until) => {
-        void run(item.id, "snooze", async () => {
-          await rpc.call("items_snooze", { id: item.id, until });
-          const when = new Date(until).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
-          toast.success(`Snoozed until ${when}`, {
-            action: undoAction("Unsnoozing…", async () => {
-              await rpc.call("items_unsnooze", { id: item.id });
-            }),
-          });
-        }).catch(fail);
-      },
-      onUnsnooze: (item) => {
-        void run(item.id, "unsnooze", async () => {
-          await rpc.call("items_unsnooze", { id: item.id });
-        }).catch(fail);
-      },
       onArchive: (item) => {
         void run(item.id, "archive", async () => {
           const result = await rpc.call("items_archive", { id: item.id });
@@ -274,9 +258,8 @@ function NowPage() {
 
 /**
  * How many rows the page has, beside its name in the sidebar: everything the
- * last sync found, less what is snoozed, which is what needs action. It
- * re-reads on the same signal as the page, so completing, archiving, or
- * snoozing a row lowers it at once.
+ * last sync found, which is what needs action. It re-reads on the same signal
+ * as the page, so completing or archiving a row lowers it at once.
  */
 function NeedsActionCount() {
   const { listing } = useListing();

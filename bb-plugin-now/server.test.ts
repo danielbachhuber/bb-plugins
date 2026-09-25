@@ -415,7 +415,6 @@ describe("stored list", () => {
 
     await expect(harness.behavior.callRpc("items_list", null)).resolves.toEqual({
       list: null,
-      snoozed: [],
       threads: {},
       threadProjectId: null,
       syncing: false,
@@ -604,20 +603,6 @@ describe("row actions", () => {
     await syncAndRead(harness);
 
     await expect(harness.behavior.callRpc("items_archive", { id: "todoist:a" })).resolves.toMatchObject({ archived: false });
-  });
-
-  test("snoozes a row until the time given, and unsnoozes it", async () => {
-    const { harness } = await loaded();
-
-    await harness.behavior.callRpc("items_snooze", { id: "gmail:mail1", until: "2026-09-25T08:00:00.000Z" });
-    let listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
-    expect(listing.list?.items.map((item) => item.id)).toEqual(["github:acme/widgets#128"]);
-    expect(listing.snoozed).toEqual([expect.objectContaining({ until: "2026-09-25T08:00:00.000Z" })]);
-
-    await harness.behavior.callRpc("items_unsnooze", { id: "gmail:mail1" });
-    listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
-    expect(listing.snoozed).toEqual([]);
-    expect(listing.list?.items).toHaveLength(2);
   });
 
   test("comments on the pull request through gh", async () => {

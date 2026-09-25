@@ -2,8 +2,6 @@
 // the story can render it with fixtures.
 import { useState, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -196,9 +194,7 @@ export function ItemListView({
   pending = new Map(),
   initialFilter = { section: "now" },
 }: ItemListViewProps) {
-  const [showSnoozed, setShowSnoozed] = useState(false);
   const [filter, setFilter] = useState<Filter>(initialFilter);
-  const snoozed = listing?.snoozed ?? [];
   const threads = listing?.threads ?? {};
   const list = listing?.list ?? null;
   const sources = list?.sources ?? [];
@@ -246,35 +242,6 @@ export function ItemListView({
         )}
       </div>
 
-      {snoozed.length === 0 ? null : (
-        <div className="mt-4">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-xs text-muted-foreground"
-            aria-expanded={showSnoozed}
-            onClick={() => setShowSnoozed((open) => !open)}
-          >
-            <Icon name={showSnoozed ? "ChevronDown" : "ChevronRight"} className="size-3.5" />
-            {snoozed.length} snoozed
-          </Button>
-          {showSnoozed ? (
-            <ul className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4 opacity-80">
-              {snoozed.map(({ item, until }) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  now={now}
-                  actions={actions}
-                  snoozedUntil={until}
-                  threadId={threads[item.id] ?? null}
-                  pending={pending.get(item.id) ?? null}
-                />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      )}
     </div>
     </TooltipProvider>
   );

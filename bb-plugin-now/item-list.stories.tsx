@@ -320,16 +320,14 @@ function Frame({
   );
 }
 
-function stored(list: NowList, syncing = false, snoozed: Listing["snoozed"] = []): Listing {
+function stored(list: NowList, syncing = false): Listing {
   // One row already has its thread, so the story shows Open thread beside Start thread.
-  return { list, snoozed, threads: { "github:acme/widgets#128": "thread-1" }, threadProjectId: null, syncing };
+  return { list, threads: { "github:acme/widgets#128": "thread-1" }, threadProjectId: null, syncing };
 }
 
 const actions = {
   onRsvp: noop,
   onMerge: noop,
-  onSnooze: noop,
-  onUnsnooze: noop,
   onArchive: noop,
   onComplete: noop,
   onReply: async () => true,
@@ -383,14 +381,14 @@ export function States() {
         <Frame listing={null} />
       </StoryRow>
       <StoryRow label="First sync" hint="Nothing stored yet, and the first sync is running.">
-        <Frame listing={{ list: null, snoozed: [], threads: {}, threadProjectId: null, syncing: true }} />
+        <Frame listing={{ list: null, threads: {}, threadProjectId: null, syncing: true }} />
       </StoryRow>
       <StoryRow label="Syncing" hint="The stored list shows while a sync runs behind it.">
         <Frame listing={stored(ok, true)} />
       </StoryRow>
       <StoryRow
         label="Working"
-        hint="In Inbox, a Todoist Inbox task completing, an email archiving, a pull request snoozing, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
+        hint="In Inbox, a Todoist Inbox task completing, an email archiving, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
       >
         <Frame
           listing={stored(ok)}
@@ -399,23 +397,10 @@ export function States() {
             new Map<string, PendingAction>([
               ["todoist:a9", "complete"],
               ["gmail:t1", "archive"],
-              ["github:acme/widgets#128", "snooze"],
               ["gmail:t4", "rsvp:accepted"],
               ["github:acme/widgets#141", "merge"],
             ])
           }
-        />
-      </StoryRow>
-      <StoryRow label="Snoozed" hint="Two items punted to tomorrow and next week, listed under the rest when opened.">
-        <Frame
-          listing={stored(
-            { ...ok, items: ok.items.filter((kept) => kept.id !== "gmail:t2" && kept.id !== "todoist:a5") },
-            false,
-            [
-              { item: emails[1]!, until: new Date(2026, 8, 25, 8, 0).toISOString() },
-              { item: items.find((kept) => kept.id === "todoist:a5")!, until: new Date(2026, 8, 28, 8, 0).toISOString() },
-            ],
-          )}
         />
       </StoryRow>
       <StoryRow label="Empty" hint="Every source synced and nothing matched.">

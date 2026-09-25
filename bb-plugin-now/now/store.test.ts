@@ -58,21 +58,6 @@ describe("store", () => {
     expect(s.read()).toEqual(list(["c"], "2026-09-24T09:45:00.000Z"));
   });
 
-  test("keeps snoozes across syncs, and prunes the ones that ran out", () => {
-    const s = store();
-    const now = new Date("2026-09-24T09:30:00.000Z");
-    s.snooze("a", { until: "2026-09-25T08:00:00.000Z", activityAt: "2026-09-24T08:00:00.000Z" }, now);
-    s.snooze("b", { until: "2026-09-24T09:00:00.000Z", activityAt: null }, now);
-    s.replace(list(["a", "b"], "2026-09-24T09:45:00.000Z"));
-
-    expect(s.pruneSnoozes(now)).toBe(1);
-    expect([...s.snoozes().entries()]).toEqual([
-      ["a", { until: "2026-09-25T08:00:00.000Z", activityAt: "2026-09-24T08:00:00.000Z" }],
-    ]);
-    s.unsnooze("a");
-    expect(s.snoozes().size).toBe(0);
-  });
-
   test("takes one item out of the stored list", () => {
     const s = store();
     s.replace(list(["a", "b"], "2026-09-24T09:30:00.000Z"));
