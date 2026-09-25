@@ -133,7 +133,7 @@ export const PastThreeDays = () => <Page initial="three-days" />;
 export const PastWeek = () => <Page initial="week" recordingSince={NOW.getTime() - 4 * 24 * HOUR} />;
 
 /** Threads archived in the past three days, dimmed and labeled Archived. */
-export const RecentlyActiveThreads = () => (
+export const RecentThreads = () => (
   <UsageView
     range="day"
     onRange={() => undefined}

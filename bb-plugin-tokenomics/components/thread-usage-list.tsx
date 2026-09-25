@@ -10,7 +10,7 @@ export type Lifecycle = "active" | "recent" | "older";
 
 export const LIFECYCLES: ReadonlyArray<{ id: Lifecycle; label: string }> = [
   { id: "active", label: "Active" },
-  { id: "recent", label: "Recently active" },
+  { id: "recent", label: "Recent" },
   { id: "older", label: "Older" },
 ];
 
