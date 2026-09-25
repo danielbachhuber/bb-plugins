@@ -1,4 +1,5 @@
 import { commentsToRead, workSteps } from "./actions.js";
+import { forkNote, type ResolvedPullRequest } from "./open-pr.js";
 import type { ClassifiedRow, Flag } from "./types.js";
 
 /**
@@ -98,7 +99,37 @@ export function describeCommentsToRead(row: ClassifiedRow): string | null {
   return `${threads}${notes}`;
 }
 
-export function buildPromptParts(row: ClassifiedRow): PromptParts {
+/**
+ * Where the thread is, and what that rules out.
+ *
+ * `onBranch` is the pull request when the thread starts in a worktree already
+ * on its branch; undefined when it starts in a bb-managed worktree on a fresh
+ * branch instead, which happens when another worktree holds the PR's branch.
+ */
+function worktreeGuidance(onBranch: ResolvedPullRequest | undefined): string[] {
+  if (onBranch) {
+    // Said outright because the skills this prompt names each begin by
+    // creating a worktree, and a second one here would take the branch away
+    // from the directory bb is watching.
+    const fork = forkNote(onBranch);
+    return [
+      `You are in a git worktree already checked out on \`${onBranch.headRef}\`, this pull request's branch, so commits land on it and a push updates the pull request.`,
+      "Do not create another worktree and do not switch branches. Where a skill says to set up a worktree, skip that step: this one is it.",
+      ...(fork ? [fork] : []),
+    ];
+  }
+  return [
+    // The thread starts in a bb-managed worktree on a fresh branch, not the
+    // pull request's. A prompt that just said "work in a worktree" sent an
+    // agent that was already in one to build a second at an arbitrary /tmp
+    // path, where bb could not see the work and the diff panel read "no
+    // changes".
+    "You already have a git worktree: the one this thread starts in. It is on a new branch, not this pull request's, so check the branch before editing anything. Get onto the PR's head branch — the steps above tell you how.",
+    "If a skill has you create a worktree, create it at a path INSIDE the one you start in, using a relative path such as `.claude/worktrees/pr-<n>`. bb owns the directory this thread runs in and deletes it when the thread is archived, so a worktree inside it is cleaned up with everything else. One created somewhere else, `/tmp` especially, outlives the thread, stays invisible to bb's diff, and has to be found and removed by hand. Never point `git worktree add` at the directory you are already in.",
+  ];
+}
+
+export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequest): PromptParts {
   const steps = workSteps(row.flags, commentsToRead(row));
 
   // The same standing procedure every time, which is why it is neither
@@ -117,13 +148,7 @@ export function buildPromptParts(row: ClassifiedRow): PromptParts {
     "I started this from the PR Sweep panel, which is my explicit request for this work. Follow each skill all the way through, including its commit, push, and reply steps.",
     "Still ask me first before: force-pushing, rewriting any pushed commit, or merging the PR.",
     "",
-    // The thread starts in a bb-managed worktree on a fresh branch, not the
-    // pull request's. A prompt that just said "work in a worktree" sent an
-    // agent that was already in one to build a second at an arbitrary /tmp
-    // path, where bb could not see the work and the diff panel read "no
-    // changes".
-    "You already have a git worktree: the one this thread starts in. It is on a new branch, not this pull request's, so check the branch before editing anything. Get onto the PR's head branch — the steps above tell you how.",
-    "If a skill has you create a worktree, create it at a path INSIDE the one you start in, using a relative path such as `.claude/worktrees/pr-<n>`. bb owns the directory this thread runs in and deletes it when the thread is archived, so a worktree inside it is cleaned up with everything else. One created somewhere else, `/tmp` especially, outlives the thread, stays invisible to bb's diff, and has to be found and removed by hand. Never point `git worktree add` at the directory you are already in.",
+    ...worktreeGuidance(onBranch),
   ];
 
   // The flags, plus the reading, which belongs to no flag. Last because it is

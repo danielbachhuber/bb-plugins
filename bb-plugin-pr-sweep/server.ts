@@ -2,11 +2,14 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import {
+  branchHolder,
   buildOpenPrompt,
+  checkoutForWorktree,
   parsePullRequestInput,
   resolvePullRequest as resolvePr,
   worktreePath,
   worktreePlan,
+  type ResolvedPullRequest,
   type WorktreePlan,
 } from "./sweep/open-pr.js";
 import { isAdoptable } from "./sweep/adopt.js";
@@ -669,6 +672,75 @@ export default async function plugin(bb: BbPluginApi) {
     if (plan.kind === "fork") await configurePush(repoPath, plan);
   }
 
+  /**
+   * Where a "Work on this" thread for a pull request can start: a worktree on
+   * its own branch, beside the checkout. Nothing is created here; this only
+   * decides, so the dialog can say what will happen before anything does.
+   *
+   * The answer is no, with the reason, when the pull request or its checkout
+   * cannot be found, or when another worktree holds the branch. That is most
+   * often the thread that opened the pull request, and taking the branch from
+   * it is not this panel's call. A worktree this panel made earlier for the
+   * same pull request, by either action, is reused rather than counted.
+   */
+  async function branchWorkspace(
+    repo: string,
+    number: number,
+  ): Promise<
+    | { ok: true; pr: ResolvedPullRequest; project: { id: string; path: string; hostId: string }; path: string }
+    | { ok: false; reason: string }
+  > {
+    const { ghPath } = await settings.get();
+    let pr: ResolvedPullRequest;
+    try {
+      pr = await resolvePr(createGhRunner(ghPath), repo, number);
+    } catch {
+      return { ok: false, reason: `Could not read the branch of ${repo}#${number}.` };
+    }
+    const project = await projectForRepo(repo);
+    if (!project) return { ok: false, reason: `No checkout of ${repo} was found on this machine.` };
+
+    const path = worktreePath(project.path, number);
+    // Pruned first for the same reason as in addWorktree: a registration
+    // whose directory bb already deleted still claims the branch.
+    await git(project.path, ["worktree", "prune"]);
+    const listed = await git(project.path, ["worktree", "list", "--porcelain"]);
+    if (!listed.ok) return { ok: false, reason: `Could not list the worktrees of ${project.path}.` };
+    const holder = branchHolder(listed.stdout, pr.headRef);
+    if (holder && holder.replace(/\/+$/, "") !== path) {
+      return { ok: false, reason: `${pr.headRef} is already checked out at ${holder}.` };
+    }
+    return { ok: true, pr, project, path };
+  }
+
+  /**
+   * Removes the worktree an archived or deleted thread ran in, when this
+   * panel made it and nothing else uses it.
+   *
+   * bb deletes only the worktrees it manages. Without this, every thread
+   * started on a pull request's branch would leave a checkout beside the
+   * project for good. `git worktree remove` without `--force` refuses a
+   * worktree with uncommitted or untracked changes, which is the one case
+   * worth keeping; the branch and its commits stay either way.
+   */
+  async function removeThreadWorktree(thread: { id: string; projectId: string; environmentId: string | null }) {
+    if (!thread.environmentId) return;
+    const environment = await bb.sdk.environments.get({ environmentId: thread.environmentId });
+    if (environment.managed || !environment.path) return;
+    const checkout = checkoutForWorktree(
+      environment.path,
+      (await projectCandidates()).map((candidate) => candidate.path).filter((path): path is string => !!path),
+    );
+    if (!checkout) return;
+
+    const others = await bb.sdk.threads.list({ projectId: thread.projectId, archived: false });
+    if (others.some((other) => other.id !== thread.id && other.environmentId === thread.environmentId)) return;
+
+    const removed = await git(checkout, ["worktree", "remove", environment.path]);
+    if (removed.ok) bb.log.info(`removed ${environment.path} after ${thread.id} ended`);
+    else bb.log.info(`kept ${environment.path} after ${thread.id} ended: ${removed.stderr}`);
+  }
+
   const harvest = createHarvestBridge(bb);
 
   /**
@@ -779,8 +851,8 @@ export default async function plugin(bb: BbPluginApi) {
      * review state on the thread, which it cannot do for a branch that has no
      * pull request.
      *
-     * The cost is bb's rule, not ours: it does not delete an unmanaged
-     * worktree when the thread is archived. It stays until removed by hand.
+     * bb does not delete an unmanaged worktree when the thread is archived,
+     * so the thread.archived handler below does, when it is clean.
      */
     async openPullRequest({ input, instructions }) {
       const { ghPath, providerId, permissionMode } = await settings.get();
@@ -917,6 +989,12 @@ export default async function plugin(bb: BbPluginApi) {
           model: modelForFlags(row.flags, models) || null,
           permissionMode: parsePermissionMode(permissionMode),
           prompt: buildPromptParts(row).body,
+          workspace: await (async () => {
+            const found = await branchWorkspace(repo, number);
+            return found.ok
+              ? { branch: found.pr.headRef, note: null }
+              : { branch: null, note: found.reason };
+          })(),
           preview: {
             title: row.title,
             number: row.number,
@@ -929,7 +1007,7 @@ export default async function plugin(bb: BbPluginApi) {
       };
     },
 
-    async workOnThisSubmit({ repo, number, request }) {
+    async workOnThisSubmit({ repo, number, request, onBranch }) {
       const key = `${repo}#${number}`;
 
       // One thread per PR, enforced on three levels: the durable link below,
@@ -966,9 +1044,42 @@ export default async function plugin(bb: BbPluginApi) {
         // the trailer precisely because they must not depend on anyone leaving
         // them in the box. Its own items sit between them untouched, which is
         // what keeps any @-mention or attachment that was added.
-        const parts = buildPromptParts(row);
+        let environment: Record<string, unknown> = {};
+        let branchPr: ResolvedPullRequest | undefined;
+        if (onBranch) {
+          // Decided again rather than trusted from the draft: the dialog can
+          // sit open while another thread takes the branch.
+          const found = await branchWorkspace(repo, number);
+          if (!found.ok) return { threadId: null, existing: false, reason: found.reason };
+          try {
+            await addWorktree(
+              found.project.path,
+              found.path,
+              worktreePlan(found.pr, await remotesOf(found.project.path)),
+            );
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return { threadId: null, existing: false, reason: `Could not create a worktree at ${found.path}: ${message}` };
+          }
+          branchPr = found.pr;
+          environment = {
+            projectId: found.project.id,
+            environment: {
+              type: "host",
+              hostId: found.project.hostId,
+              workspace: {
+                type: "unmanaged",
+                path: found.path,
+                branch: { kind: "existing", name: found.pr.headRef },
+              },
+            },
+          };
+        }
+
+        const parts = buildPromptParts(row, branchPr);
         const thread = await bb.sdk.threads.spawn({
           ...request,
+          ...environment,
           input: [
             { type: "text", text: headerItem(parts), mentions: [] },
             ...request.input,
@@ -1002,6 +1113,11 @@ export default async function plugin(bb: BbPluginApi) {
         await links.release(thread.id);
       } catch (error) {
         bb.log.warn(`could not release ${thread.id}: ${String(error)}`);
+      }
+      try {
+        await removeThreadWorktree(thread);
+      } catch (error) {
+        bb.log.warn(`could not remove the worktree of ${thread.id}: ${String(error)}`);
       }
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
     });

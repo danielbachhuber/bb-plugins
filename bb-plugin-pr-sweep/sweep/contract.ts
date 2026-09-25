@@ -28,6 +28,16 @@ const seedSchema = z.object({
   /** Only the "what to do" half; the rest is reassembled at submit. */
   prompt: z.string(),
   preview: previewSchema,
+  /**
+   * Where the thread will run. `branch` is the pull request's head branch
+   * when the thread will start in a worktree on it, which the composer's own
+   * pickers cannot offer, so the panel hides them. Null when that is not
+   * possible, with `note` saying why; the composer then picks as usual.
+   */
+  workspace: z.object({
+    branch: z.string().nullable(),
+    note: z.string().nullable(),
+  }),
 });
 
 /**
@@ -250,6 +260,12 @@ export const rpcContract = defineRpcContract({
         repo: z.string(),
         number: z.number(),
         request: newThreadRequestSchema,
+        /**
+         * True when the dialog promised a worktree on the pull request's
+         * branch. The composer's environment is then ignored, and a branch
+         * that has since been taken is an error rather than a quiet fallback.
+         */
+        onBranch: z.boolean().optional(),
       })
       .strict(),
     output: z.object({

@@ -19,6 +19,9 @@ function createFakePluginHost(options: Parameters<typeof createHost>[0] = {}) {
   const sdk = (options.sdk ?? {}) as Record<string, unknown>;
   return createHost({
     ...options,
+    // Never the real gh: a draft now resolves the pull request's branch, and a
+    // test that reached GitHub would be slow and depend on the network.
+    settings: { ghPath: "/nonexistent/gh-does-not-exist", ...options.settings },
     sdk: {
       ...sdk,
       plugins: { callRpc: ghContext.callRpc, ...(sdk.plugins as object | undefined) },
@@ -228,6 +231,31 @@ describe("workOnThisSubmit is one thread per pull request", () => {
     ] as never);
     return fixture;
   }
+
+  it("says why the thread cannot start on the pull request's branch", async () => {
+    const { harness } = await seededHost();
+    const draft = await harness.behavior.callRpc("workOnThisDraft", { repo: "acme/widgets", number: 42 });
+    expect(draft.seed!.workspace).toEqual({
+      branch: null,
+      note: "Could not read the branch of acme/widgets#42.",
+    });
+  });
+
+  it("refuses rather than starting elsewhere when the promised branch is unavailable", async () => {
+    const { harness } = await seededHost();
+    const result = await harness.behavior.callRpc("workOnThisSubmit", {
+      repo: "acme/widgets",
+      number: 42,
+      onBranch: true,
+      request: { projectId: "proj_a", input: [{ type: "text", text: "Fix it.", mentions: [] }] },
+    });
+    expect(result).toEqual({
+      threadId: null,
+      existing: false,
+      reason: "Could not read the branch of acme/widgets#42.",
+    });
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
 
   it("spawns once and reuses the thread on a second click", async () => {
     const { harness } = await seededHost();

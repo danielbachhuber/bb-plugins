@@ -84,6 +84,33 @@ export function worktreePath(projectPath: string, number: number): string {
 }
 
 /**
+ * The worktree holding a branch, read from `git worktree list --porcelain`, or
+ * null when none does.
+ *
+ * A branch can be checked out in only one worktree, so this decides before
+ * anything is created whether a thread can start on the pull request's own
+ * branch.
+ */
+export function branchHolder(porcelain: string, branch: string): string | null {
+  for (const block of porcelain.split(/\n\s*\n/)) {
+    const lines = block.split("\n").map((line) => line.trim());
+    const path = lines.find((line) => line.startsWith("worktree "))?.slice("worktree ".length);
+    if (path && lines.includes(`branch refs/heads/${branch}`)) return path;
+  }
+  return null;
+}
+
+/**
+ * The checkout a worktree made by {@link worktreePath} belongs to, among the
+ * given project paths, or null when the path is not one of ours.
+ */
+export function checkoutForWorktree(path: string, projectPaths: readonly string[]): string | null {
+  const match = /^(.*)-pr-\d+$/.exec(path.replace(/\/+$/, ""));
+  if (!match) return null;
+  return projectPaths.find((candidate) => candidate.replace(/\/+$/, "") === match[1]) ?? null;
+}
+
+/**
  * The plan for a pull request, given the checkout's remotes.
  *
  * The local branch is named after the pull request's own branch even for a
@@ -168,6 +195,18 @@ export async function resolvePullRequest(
   };
 }
 
+/** What a push from a worktree on a fork's branch will do, or null for no fork. */
+export function forkNote(pr: ResolvedPullRequest): string | null {
+  if (!pr.isFork) return null;
+  if (!pr.headRepo) {
+    return "The branch came from a fork that has since been deleted, so there is nowhere to push. Treat this as read-only and say so rather than working around it.";
+  }
+  if (!pr.maintainerCanModify) {
+    return `The branch lives on the fork \`${pr.headRepo}\`, and its author has not allowed maintainer edits, so a push will be rejected. Say so rather than working around it.`;
+  }
+  return `The branch lives on the fork \`${pr.headRepo}\`, and this worktree is configured to push there, so \`git push\` still updates the pull request.`;
+}
+
 /**
  * What the spawned thread is told.
  *
@@ -183,21 +222,8 @@ export function buildOpenPrompt(pr: ResolvedPullRequest, instructions: string): 
     "This worktree is already the pull request's branch, so commits land on it and a push updates the pull request. Do not create another worktree and do not switch branches.",
   ];
 
-  if (pr.isFork) {
-    if (!pr.headRepo) {
-      lines.push(
-        `The branch came from a fork that has since been deleted, so there is nowhere to push. Treat this as read-only and say so rather than working around it.`,
-      );
-    } else if (!pr.maintainerCanModify) {
-      lines.push(
-        `The branch lives on the fork \`${pr.headRepo}\`, and its author has not allowed maintainer edits, so a push will be rejected. Say so rather than working around it.`,
-      );
-    } else {
-      lines.push(
-        `The branch lives on the fork \`${pr.headRepo}\`, and this worktree is configured to push there, so \`git push\` still updates the pull request.`,
-      );
-    }
-  }
+  const fork = forkNote(pr);
+  if (fork) lines.push(fork);
 
   const asked = instructions.trim();
   lines.push("", asked === "" ? "Wait for my instructions before changing anything." : asked);

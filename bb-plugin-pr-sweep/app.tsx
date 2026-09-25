@@ -23,6 +23,7 @@ import { TitleLink } from "@/components/ui/title-link";
 import { OpenPullRequestPage } from "./sweep/open-panel.js";
 import { Icon } from "@/components/ui/icon";
 import {
+  FIXED_ENVIRONMENT_CSS,
   StartThreadDialog,
   type StartThreadSeed,
 } from "@/components/start-thread-dialog";
@@ -885,6 +886,7 @@ function Panel() {
         repo,
         number,
         request: request as never,
+        onBranch: Boolean(draft.seed.workspace?.branch),
       });
       if (!result.threadId) {
         toast.error(result.reason ?? "Could not start a thread.");
@@ -1045,6 +1047,22 @@ function NeedsActionCount() {
 }
 
 export default definePluginApp((app) => {
+  // The dialog marks a composer whose environment this plugin decides; this
+  // hides that composer's pickers, which would otherwise offer choices the
+  // server ignores.
+  app.contentScripts.register({
+    id: "hide-fixed-environment-pickers",
+    mount({ signal }) {
+      const style = document.createElement("style");
+      style.dataset.prSweep = "hide-fixed-environment-pickers";
+      style.textContent = FIXED_ENVIRONMENT_CSS;
+      document.head.appendChild(style);
+      const remove = () => style.remove();
+      signal.addEventListener("abort", remove, { once: true });
+      return remove;
+    },
+  });
+
   app.slots.navPanel({
     id: "open-pr",
     title: "Open pull request",

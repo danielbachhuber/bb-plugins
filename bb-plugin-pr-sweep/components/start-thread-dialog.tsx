@@ -30,6 +30,14 @@ export type StartThreadSeed = {
    * opinion, which leaves the composer on its own default.
    */
   environment?: NewThreadComposerProps["defaultEnvironment"];
+  /**
+   * Where the thread will run when the plugin decides that itself. With a
+   * `branch`, the composer's project, environment and branch pickers are
+   * hidden and a line names the branch instead, because whatever they were set
+   * to would be ignored. With only a `note`, the pickers stay and the note says
+   * why the plugin could not decide.
+   */
+  workspace?: { branch: string | null; note: string | null };
   /** The row itself, drawn as a card. Facts, not instructions: not editable. */
   preview: {
     title: string;
@@ -38,6 +46,25 @@ export type StartThreadSeed = {
     meta: string;
   };
 };
+
+/**
+ * Marks a composer whose environment the plugin has already decided. A content
+ * script hides the pickers inside it; see `FIXED_ENVIRONMENT_CSS`.
+ */
+export const FIXED_ENVIRONMENT_ATTRIBUTE = "data-sweep-fixed-environment";
+
+/**
+ * The composer's project, environment, machine and branch pickers, matched by
+ * their accessible labels, which are the only stable handles bb gives them.
+ */
+export const BB_PICKER_SELECTORS = [
+  'button[aria-label^="Project"]',
+  'button[aria-label="Environment"]',
+  'button[aria-label="Machine"]',
+  'button[aria-label="Branch"]',
+] as const;
+
+export const FIXED_ENVIRONMENT_CSS = `[${FIXED_ENVIRONMENT_ATTRIBUTE}] :is(${BB_PICKER_SELECTORS.join(", ")}) { display: none !important; }`;
 
 /**
  * A 32-bit digest of the seeded text, as a short base-36 string. Not a
@@ -137,6 +164,20 @@ export function StartThreadDialog({
                 <p className="mt-1 text-xs text-muted-foreground">{seed.preview.meta}</p>
               ) : null}
             </div>
+            {seed.workspace?.branch ? (
+              <p className="text-xs text-muted-foreground">
+                Runs in its own worktree on{" "}
+                <code className="font-mono text-foreground">{seed.workspace.branch}</code>.
+              </p>
+            ) : seed.workspace?.note ? (
+              <p className="text-xs text-muted-foreground">
+                Starts on a new branch rather than the pull request's: {seed.workspace.note}
+              </p>
+            ) : null}
+            <div
+              className="contents"
+              {...(seed.workspace?.branch ? { [FIXED_ENVIRONMENT_ATTRIBUTE]: "" } : {})}
+            >
             <NewThreadComposer
               defaultProjectId={seed.projectId}
               defaultProviderId={seed.providerId ?? undefined}
@@ -150,6 +191,7 @@ export function StartThreadDialog({
               focusRequest={focusRequest}
               onSubmit={onSubmit}
             />
+            </div>
           </div>
         )}
       </DialogContent>

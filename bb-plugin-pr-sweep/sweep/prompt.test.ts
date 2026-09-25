@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompt } from "./prompt.js";
+import { buildPrompt, buildPromptParts, joinPromptParts } from "./prompt.js";
+import type { ResolvedPullRequest } from "./open-pr.js";
 import type { ClassifiedRow } from "./types.js";
 
 function row(overrides: Partial<ClassifiedRow> = {}): ClassifiedRow {
@@ -289,5 +290,37 @@ describe("buildPrompt: comments belong to no flag", () => {
     expect(prompt.indexOf("conflicts with its base branch")).toBeLessThan(
       prompt.indexOf("unresolved review comment"),
     );
+  });
+});
+
+describe("a thread that starts on the pull request's branch", () => {
+  const pr: ResolvedPullRequest = {
+    repo: "acme/widgets",
+    number: 42,
+    title: "Add the widget endpoint",
+    headRef: "feat/widgets",
+    url: "https://github.com/acme/widgets/pull/42",
+    isDraft: false,
+    headRepo: "acme/widgets",
+    isFork: false,
+    maintainerCanModify: true,
+  };
+
+  it("names the branch and rules out a second worktree", () => {
+    const prompt = joinPromptParts(buildPromptParts(row({ flags: ["conflict"] }), pr));
+    expect(prompt).toContain("already checked out on `feat/widgets`");
+    expect(prompt).toMatch(/Do not create another worktree/);
+    expect(prompt).not.toMatch(/INSIDE the one you start in/);
+    expect(prompt).not.toMatch(/You already have a git worktree/);
+  });
+
+  it("says where a push goes for a fork", () => {
+    const fork = { ...pr, isFork: true, headRepo: "octocat/widgets" };
+    expect(buildPromptParts(row({ flags: ["conflict"] }), fork).trailer).toContain("`octocat/widgets`");
+  });
+
+  it("leaves the composer's half alone", () => {
+    const flagged = row({ flags: ["conflict"] });
+    expect(buildPromptParts(flagged, pr).body).toBe(buildPromptParts(flagged).body);
   });
 });

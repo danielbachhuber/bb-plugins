@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  branchHolder,
   buildOpenPrompt,
+  checkoutForWorktree,
   parsePullRequestInput,
   pushTargetForRepo,
   resolvePullRequest,
@@ -256,5 +258,44 @@ describe("buildOpenPrompt", () => {
 
   it("says nothing about forks for a same-repository pull request", () => {
     expect(buildOpenPrompt(pr, "")).not.toMatch(/fork/i);
+  });
+});
+
+describe("branchHolder", () => {
+  const porcelain = [
+    "worktree /src/widgets",
+    "HEAD abc",
+    "branch refs/heads/main",
+    "",
+    "worktree /src/widgets-pr-42",
+    "HEAD def",
+    "branch refs/heads/feat/widgets",
+    "",
+    "worktree /src/widgets-detached",
+    "HEAD 123",
+    "detached",
+    "",
+  ].join("\n");
+
+  it("names the worktree that has the branch checked out", () => {
+    expect(branchHolder(porcelain, "feat/widgets")).toBe("/src/widgets-pr-42");
+    expect(branchHolder(porcelain, "main")).toBe("/src/widgets");
+  });
+
+  it("is null for a free branch, including one that only shares a prefix", () => {
+    expect(branchHolder(porcelain, "feat/gadgets")).toBeNull();
+    expect(branchHolder(porcelain, "feat")).toBeNull();
+  });
+});
+
+describe("checkoutForWorktree", () => {
+  it("finds the checkout a pull request's worktree sits beside", () => {
+    expect(checkoutForWorktree("/src/widgets-pr-42", ["/src/gadgets", "/src/widgets/"])).toBe("/src/widgets/");
+  });
+
+  it("is null for any other path, so nothing else is ever removed", () => {
+    expect(checkoutForWorktree("/src/widgets", ["/src/widgets"])).toBeNull();
+    expect(checkoutForWorktree("/src/elsewhere-pr-42", ["/src/widgets"])).toBeNull();
+    expect(checkoutForWorktree("/src/widgets-pr-latest", ["/src/widgets"])).toBeNull();
   });
 });

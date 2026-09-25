@@ -36,6 +36,23 @@ the row then opens that thread rather than starting another. gh-context's
 banner above the composer shows the pull request on every thread, so this
 plugin adds nothing to the thread itself.
 
+A row's button opens bb's composer in a dialog, so you can read and edit the
+prompt first. The thread runs in a worktree on the pull request's own branch,
+beside the checkout as `<checkout>-pr-<number>`, so its commits land on the
+pull request and bb shows the pull request's checks and merge state on the
+thread. bb's own worktrees always start a new branch, so the dialog hides the
+composer's project, environment, and branch pickers and names the branch
+instead. When another worktree already has the branch checked out, usually the
+thread that opened the pull request, the dialog says so and keeps the pickers,
+and the thread starts on a new branch and is told to make its own worktree on
+the pull request's branch inside that one.
+
+bb does not delete a worktree it did not create, so this plugin removes one
+when its thread is archived or deleted and no other thread uses it. `git
+worktree remove` keeps a worktree with uncommitted or untracked changes, and
+the branch and its commits stay either way. The same applies to worktrees made
+by **Open pull request**.
+
 A thread started from the composer whose first prompt names exactly one pull
 request, and nothing else, is adopted on the next sweep when that pull request
 is in the list: linked to the row and given this plugin's title, unless
@@ -120,7 +137,8 @@ thread is told to use:
 
 Those first two skills specify their own flow, including worktree setup on the
 PR's own branch, so the prompt names the skill and states the findings without
-restating any method.
+restating any method. A thread already on the branch is told to skip that
+setup step.
 
 **A pull request with several flags gets one thread that works them in order**,
 worst first, finishing each before starting the next. They are sequential
