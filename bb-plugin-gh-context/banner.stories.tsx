@@ -151,6 +151,16 @@ export function Default() {
 // gh-context's own banner. Fixtures mirror bb's above, so the two can be
 // read side by side.
 
+/** A lettered stand-in for a GitHub avatar, so the stories load no real account's picture. */
+function avatar(letter: string, color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const octocat = { login: "octocat", team: false, avatarUrl: avatar("O", "#7c5cc4") };
+const hubber = { login: "hubber", team: false, avatarUrl: avatar("H", "#d0703c") };
+const coreTeam = { login: "acme/core", team: true, avatarUrl: avatar("A", "#3c8dd0") };
+
 const contextPullRequest: ContextPullRequest = {
   repo: "acme/widgets",
   number: 128,
@@ -161,7 +171,7 @@ const contextPullRequest: ContextPullRequest = {
   checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
   canMerge: true,
   myReview: null,
-  reviewers: [],
+  reviewers: [{ ...octocat, state: "approved" }],
 };
 
 const promptIssue: ContextIssue = {
@@ -360,16 +370,6 @@ export function ReviewStates() {
     </StoryCard>
   );
 }
-
-/** A lettered stand-in for a GitHub avatar, so the stories load no real account's picture. */
-function avatar(letter: string, color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-const octocat = { login: "octocat", team: false, avatarUrl: avatar("O", "#7c5cc4") };
-const hubber = { login: "hubber", team: false, avatarUrl: avatar("H", "#d0703c") };
-const coreTeam = { login: "acme/core", team: true, avatarUrl: avatar("A", "#3c8dd0") };
 
 function withReviewers(reviewers: ContextReviewer[], fields: Partial<ContextPullRequest> = {}) {
   return context({
