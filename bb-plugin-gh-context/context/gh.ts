@@ -32,10 +32,21 @@ export interface GhPullRequest {
   latestReviews: Record<string, ReviewVerdict>;
   /** Logins, lowercased, of users whose review request is still outstanding. */
   requestedReviewers: string[];
+  /** Everyone asked for a review or who gave one, as the banner shows them. */
+  reviewers: Reviewer[];
   checks: Checks;
 }
 
 export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
+export type ReviewerState = ReviewVerdict | "pending";
+
+export interface Reviewer {
+  /** A user's login, or a team's `org/team` slug, as GitHub writes it. */
+  login: string;
+  team: boolean;
+  state: ReviewerState;
+  avatarUrl: string;
+}
 
 export interface Gh {
   issue(ref: IssueRef): Promise<GhIssue | null>;
@@ -70,7 +81,8 @@ interface PullRequestJson {
     repository?: { name?: unknown; owner?: { login?: unknown } };
   }>;
   reviews?: Array<{ author?: { login?: unknown } | null; state?: unknown; submittedAt?: unknown }>;
-  reviewRequests?: Array<{ login?: unknown }>;
+  /** A user's `login`, or a team's `org/team` `slug`. */
+  reviewRequests?: Array<{ login?: unknown; slug?: unknown }>;
   statusCheckRollup?: RollupEntry[] | null;
 }
 
@@ -101,6 +113,53 @@ function latestReviews(reviews: NonNullable<PullRequestJson["reviews"]>): Record
     latest[key] = verdict;
   }
   return latest;
+}
+
+/**
+ * Who the pull request's reviewers are and where each stands, in the order
+ * they first reviewed, then everyone still waiting to be asked.
+ *
+ * A reviewer asked again after reviewing is pending, as GitHub shows them.
+ * Requests left on a merged or closed pull request are not waiting on anyone,
+ * so they drop out. The author is left out: GitHub records their replies to
+ * review comments as COMMENTED reviews.
+ */
+function reviewerList(
+  reviews: NonNullable<PullRequestJson["reviews"]>,
+  requests: NonNullable<PullRequestJson["reviewRequests"]>,
+  author: string | null,
+  open: boolean,
+): Reviewer[] {
+  const latest = latestReviews(reviews);
+  const byKey = new Map<string, Reviewer>();
+  const ordered = [...reviews].sort((a, b) =>
+    String(a.submittedAt ?? "").localeCompare(String(b.submittedAt ?? "")),
+  );
+  for (const review of ordered) {
+    const login = review.author?.login;
+    if (typeof login !== "string") continue;
+    const key = login.toLowerCase();
+    const state = latest[key];
+    if (!state || key === author || byKey.has(key)) continue;
+    byKey.set(key, { login, team: false, state, avatarUrl: avatarUrl(login) });
+  }
+  if (open) {
+    for (const request of requests) {
+      const team = typeof request.slug === "string";
+      const login = team ? request.slug : request.login;
+      if (typeof login !== "string") continue;
+      const key = login.toLowerCase();
+      const known = byKey.get(key);
+      if (known) known.state = "pending";
+      else byKey.set(key, { login, team, state: "pending", avatarUrl: avatarUrl(team ? login.split("/")[0]! : login) });
+    }
+  }
+  return [...byKey.values()];
+}
+
+/** GitHub serves any account's avatar here; a team's is its organization's. */
+function avatarUrl(account: string): string {
+  return `https://github.com/${encodeURIComponent(account)}.png?size=40`;
 }
 
 function logins(values: Array<unknown>): string[] {
@@ -159,22 +218,18 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
     }
     closing.push({ repo: `${owner}/${name}`.toLowerCase(), number: ref.number });
   }
+  const author = typeof json.author?.login === "string" ? json.author.login.toLowerCase() : null;
+  const open = state !== "MERGED" && state !== "CLOSED";
   return {
     title: json.title,
     url: json.url,
     body: typeof json.body === "string" ? json.body : "",
-    state:
-      state === "MERGED"
-        ? "merged"
-        : state === "CLOSED"
-          ? "closed"
-          : json.isDraft === true
-            ? "draft"
-            : "open",
+    state: state === "MERGED" ? "merged" : state === "CLOSED" ? "closed" : json.isDraft === true ? "draft" : "open",
     closing,
-    author: typeof json.author?.login === "string" ? json.author.login.toLowerCase() : null,
+    author,
     latestReviews: latestReviews(json.reviews ?? []),
     requestedReviewers: logins((json.reviewRequests ?? []).map((request) => request.login)),
+    reviewers: reviewerList(json.reviews ?? [], json.reviewRequests ?? [], author, open),
     checks: summarizeChecks(json.statusCheckRollup),
   };
 }

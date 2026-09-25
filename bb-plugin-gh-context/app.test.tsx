@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { ThreadContext } from "./context/contract.js";
+import type { ContextReviewer, ThreadContext } from "./context/contract.js";
 
 const app = await loadPluginApp(() => import("./app.js"));
 
@@ -27,6 +27,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
       checks: { state: "pending", totalCount: 3, passedCount: 1, failedCount: 0, pendingCount: 2 },
       canMerge: true,
       myReview: null,
+      reviewers: [],
     },
     issues: [],
     changes: null,
@@ -145,5 +146,39 @@ describe("merged pull request", () => {
     const slot = render(context());
     await slot.findByText("PR #128");
     expect(slot.queryByRole("button", { name: "Archive thread" })).toBeNull();
+  });
+});
+
+describe("reviewers", () => {
+  const withReviewers = (reviewers: ContextReviewer[] | null, fields = {}) =>
+    context({ pullRequest: { ...context().pullRequest!, reviewers, ...fields } });
+
+  it("names each reviewer and where their review stands", async () => {
+    const slot = render(
+      withReviewers([
+        { login: "octocat", team: false, state: "approved", avatarUrl: "https://github.com/octocat.png?size=40" },
+        { login: "acme/core", team: true, state: "pending", avatarUrl: "https://github.com/acme.png?size=40" },
+      ]),
+    );
+    expect(
+      await slot.findByRole("img", { name: "Reviewers: octocat approved, @acme/core review pending" }),
+    ).toBeInTheDocument();
+  });
+
+  it("says when nobody has been asked to review", async () => {
+    const slot = render(withReviewers([]));
+    expect(await slot.findByRole("img", { name: "No reviewers assigned" })).toBeInTheDocument();
+  });
+
+  it("says nothing once a pull request nobody reviewed has merged, or when gh cannot say", async () => {
+    const merged = render(withReviewers([], { state: "merged", attention: "merged" }));
+    await merged.findByText("PR #128 · Merged");
+    expect(merged.queryByRole("img", { name: /reviewers/i })).toBeNull();
+    merged.unmount();
+    mounted = null;
+
+    const unknown = render(withReviewers(null));
+    await unknown.findByText("PR #128");
+    expect(unknown.queryByRole("img", { name: /reviewers/i })).toBeNull();
   });
 });

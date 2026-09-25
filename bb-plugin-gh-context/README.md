@@ -1,7 +1,7 @@
 # bb-plugin-gh-context
 
 A banner above the composer that shows what a thread is about on GitHub: its
-pull request, the issues it works on, its committed or uncommitted changes, a
+pull request and who is reviewing it, the issues it works on, its committed or uncommitted changes, a
 merge button, and a Harvest timer. It takes the place of bb's own prompt
 context banner, which it hides.
 
@@ -62,6 +62,18 @@ comment after an approval leaves it approved, as on GitHub. Once your review is
 in and nobody has asked for another, the banner suggests **Archive thread** too,
 since a review thread's work is done. The label drops once the pull request
 merges or closes.
+
+After the pull request comes everyone reviewing it: an avatar for each person
+or team asked for a review or who gave one, with a badge for where it stands.
+Green with a check is approved, red with a cross is changes requested, grey
+with a speech bubble is commented, grey with a dash is dismissed, and yellow
+with a dot is still pending, which includes someone asked to look again. A
+team is a square avatar. Hovering lists them in words ("octocat approved,
+@acme/core review pending"). A pull request with nobody asked says **No
+reviewers** in amber. The author is never listed, since GitHub records their
+replies to review comments as reviews. Once the pull request merges or closes,
+outstanding requests drop out, and a pull request nobody reviewed shows
+nothing. At the prompt box's compact width only the badges are drawn.
 
 The pull request is bb's own lookup for the thread's branch. For a thread that
 is not on the branch, such as a review, it is the pull request a sweep linked
@@ -128,6 +140,7 @@ display-only.
 | `context/hide.ts` | The content script that hides bb's banner |
 | `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |
 | `components/context-banner.tsx` | The banner, drawn from props alone |
+| `components/reviewer-stack.tsx` | The pull request's reviewers: avatars with a badge for each review |
 | `links.ts` | The bridge the sweeps import |
 | `server.ts` | Assembles a thread's context, scans prompts, and serves the links |
 | `app.tsx` | Loads the context and registers the banner and the content script |

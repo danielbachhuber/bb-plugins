@@ -21,6 +21,17 @@ const myReviewSchema = z.enum([
 
 export type MyReview = z.infer<typeof myReviewSchema>;
 
+/** Someone asked for a review, or who gave one: a user, or a team still waiting. */
+const reviewerSchema = z.object({
+  /** A user's login, or a team's `org/team` slug. */
+  login: z.string(),
+  team: z.boolean(),
+  state: z.enum(["approved", "changes_requested", "commented", "dismissed", "pending"]),
+  avatarUrl: z.string(),
+});
+
+export type ContextReviewer = z.infer<typeof reviewerSchema>;
+
 /** The thread's pull request, from bb's environment lookup or a sweep's link. */
 const pullRequestSchema = z.object({
   repo: z.string(),
@@ -60,6 +71,8 @@ const pullRequestSchema = z.object({
    * reviewer, or `gh` cannot say.
    */
   myReview: myReviewSchema.nullable(),
+  /** Everyone reviewing it and where each stands; null when `gh` cannot say. */
+  reviewers: z.array(reviewerSchema).nullable(),
 });
 
 const issueSchema = z.object({

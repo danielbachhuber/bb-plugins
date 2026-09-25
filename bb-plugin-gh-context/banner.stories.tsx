@@ -12,7 +12,7 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { ContextBanner } from "./components/context-banner";
 import { Icon } from "./components/ui/icon";
-import type { ContextIssue, ContextPullRequest, ThreadContext } from "./context/contract";
+import type { ContextIssue, ContextPullRequest, ContextReviewer, ThreadContext } from "./context/contract";
 
 export default {
   title: "gh-context/Banner",
@@ -161,6 +161,7 @@ const contextPullRequest: ContextPullRequest = {
   checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
   canMerge: true,
   myReview: null,
+  reviewers: [],
 };
 
 const promptIssue: ContextIssue = {
@@ -355,6 +356,64 @@ export function ReviewStates() {
       </StoryRow>
       <StoryRow label="merged after you approved" hint="Merged is the news, so the review label drops.">
         <Pair value={context({ pullRequest: { ...reviewPullRequest, state: "merged", attention: "merged", myReview: "approved" } })} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** A lettered stand-in for a GitHub avatar, so the stories load no real account's picture. */
+function avatar(letter: string, color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const octocat = { login: "octocat", team: false, avatarUrl: avatar("O", "#7c5cc4") };
+const hubber = { login: "hubber", team: false, avatarUrl: avatar("H", "#d0703c") };
+const coreTeam = { login: "acme/core", team: true, avatarUrl: avatar("A", "#3c8dd0") };
+
+function withReviewers(reviewers: ContextReviewer[], fields: Partial<ContextPullRequest> = {}) {
+  return context({
+    pullRequest: { ...contextPullRequest, reviewers, ...fields },
+    issues: [promptIssue],
+    changes: committed,
+  });
+}
+
+/**
+ * The pull request's reviewers, right after it: each avatar carries a badge
+ * for where that review stands. Hovering lists them in words.
+ */
+export function Reviewers() {
+  return (
+    <StoryCard>
+      <StoryRow label="approved, commented, team pending" hint="A team still waiting on one of its members has a square avatar.">
+        <Pair
+          value={withReviewers([
+            { ...octocat, state: "approved" },
+            { ...hubber, state: "commented" },
+            { ...coreTeam, state: "pending" },
+          ])}
+        />
+      </StoryRow>
+      <StoryRow label="changes requested" hint="Red for a reviewer who asked for changes.">
+        <Pair
+          value={withReviewers([
+            { ...octocat, state: "approved" },
+            { ...hubber, state: "changes_requested" },
+          ])}
+        />
+      </StoryRow>
+      <StoryRow label="dismissed" hint="A dismissed review, with nobody asked again.">
+        <Pair value={withReviewers([{ ...hubber, state: "dismissed" }])} />
+      </StoryRow>
+      <StoryRow label="no reviewers" hint="An open pull request nobody has been asked to review.">
+        <Pair value={withReviewers([])} />
+      </StoryRow>
+      <StoryRow label="avatar missing" hint="An account GitHub has no image for, such as a bot, shows its initial.">
+        <Pair value={withReviewers([{ ...octocat, avatarUrl: "data:,", state: "approved" }])} />
+      </StoryRow>
+      <StoryRow label="merged with no reviews" hint="Nothing to show: nobody needs to be asked any more.">
+        <Pair value={withReviewers([], { state: "merged", attention: "merged", checks: null })} />
       </StoryRow>
     </StoryCard>
   );

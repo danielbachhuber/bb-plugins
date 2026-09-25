@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GithubFaviconIcon, type GithubCheckStatus } from "./github-favicon-icon";
+import { ReviewerStack } from "./reviewer-stack";
 import type {
   ContextChanges,
   ContextIssue,
@@ -127,6 +128,18 @@ function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPull
       )}
     </UrlLink>
   );
+}
+
+/**
+ * Whether to draw the pull request's reviewers: always while it is open, and
+ * after it has merged or closed only when someone reviewed it, since nobody
+ * needs to be asked any more. Not when `gh` could not say who they are.
+ */
+function showReviewers(
+  pullRequest: ContextPullRequest | null,
+): pullRequest is ContextPullRequest & { reviewers: NonNullable<ContextPullRequest["reviewers"]> } {
+  if (!pullRequest?.reviewers) return false;
+  return pullRequest.state === "open" || pullRequest.state === "draft" || pullRequest.reviewers.length > 0;
 }
 
 function IssueSegment({ issue, compact }: { issue: ContextIssue; compact: boolean }) {
@@ -336,6 +349,7 @@ export function ContextBanner({
     body = (
       <div className={ROW_CLASS}>
         {pullRequest ? <PullRequestSegment pullRequest={pullRequest} compact={compact} /> : null}
+        {showReviewers(pullRequest) ? <ReviewerStack reviewers={pullRequest.reviewers} compact={compact} /> : null}
         {(compact ? issues.slice(0, 1) : issues).map((issue) => (
           <IssueSegment key={`${issue.repo}#${issue.number}`} issue={issue} compact={compact} />
         ))}

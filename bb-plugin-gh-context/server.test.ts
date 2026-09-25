@@ -137,6 +137,7 @@ describe("threadContext", () => {
       attention: "checks_pending",
       canMerge: true,
       myReview: null,
+      reviewers: null,
     });
     expect(context.changes).toEqual({ label: "Committed", files: 36, insertions: 447, deletions: 112 });
     // The merge base comes from the pull request's base branch.

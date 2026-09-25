@@ -6,6 +6,7 @@ import {
   type ContextChanges,
   type ContextIssue,
   type ContextPullRequest,
+  type ContextReviewer,
   type MyReview,
   type ThreadContext,
 } from "./context/contract.js";
@@ -175,7 +176,7 @@ export default async function plugin(bb: BbPluginApi) {
     return store.itemsForThread(thread.id).length > before;
   }
 
-  async function myReviewOf(ref: IssueRef): Promise<MyReview | null> {
+  async function reviewOf(ref: IssueRef): Promise<{ myReview: MyReview | null; reviewers: ContextReviewer[] | null }> {
     const client = await ghClient();
     const [fetched, viewer, requested] = await Promise.all([
       client.pullRequest(ref),
@@ -184,8 +185,11 @@ export default async function plugin(bb: BbPluginApi) {
       // that reached you through a team.
       client.reviewRequested(),
     ]);
-    if (!fetched) return null;
-    return myReview(fetched, viewer, requested?.includes(`${ref.repo}#${ref.number}`) ?? false);
+    if (!fetched) return { myReview: null, reviewers: null };
+    return {
+      myReview: myReview(fetched, viewer, requested?.includes(`${ref.repo}#${ref.number}`) ?? false),
+      reviewers: fetched.reviewers,
+    };
   }
 
   async function pullRequestFor(
@@ -212,7 +216,7 @@ export default async function plugin(bb: BbPluginApi) {
                 // What bb itself offers merge on. A conflicting or blocked pull
                 // request would only fail, so it gets no button.
                 canMerge: pr.mergeability.state === "mergeable",
-                myReview: await myReviewOf({ repo: ref.repo, number: pr.number }),
+                ...(await reviewOf({ repo: ref.repo, number: pr.number })),
               },
             };
           }
@@ -250,7 +254,7 @@ export default async function plugin(bb: BbPluginApi) {
         // thread is on. Merging still goes through bb, so it stays off.
         checks,
         canMerge: false,
-        myReview: await myReviewOf(linked),
+        ...(await reviewOf(linked)),
       },
     };
   }

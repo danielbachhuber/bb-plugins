@@ -89,6 +89,7 @@ describe("pullRequest", () => {
       author: null,
       latestReviews: {},
       requestedReviewers: [],
+      reviewers: [],
       checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
     });
   });
@@ -124,6 +125,43 @@ describe("pullRequest", () => {
     expect(pr?.requestedReviewers).toEqual(["hubber"]);
   });
 
+  it("lists reviewers in the order they reviewed, then the requests still waiting", async () => {
+    const shaped = (fields: object) =>
+      createGh(
+        runner(() =>
+          JSON.stringify({
+            title: "t",
+            url: "u",
+            author: { login: "Monalisa" },
+            reviews: [
+              { author: { login: "hubber" }, state: "CHANGES_REQUESTED", submittedAt: "2026-09-02T10:00:00Z" },
+              { author: { login: "Octocat" }, state: "APPROVED", submittedAt: "2026-09-01T10:00:00Z" },
+              { author: { login: "octocat" }, state: "COMMENTED", submittedAt: "2026-09-03T10:00:00Z" },
+              { author: { login: "monalisa" }, state: "COMMENTED", submittedAt: "2026-09-04T10:00:00Z" },
+            ],
+            reviewRequests: [
+              { __typename: "User", login: "hubber" },
+              { __typename: "Team", name: "core", slug: "acme/core" },
+            ],
+            ...fields,
+          }),
+        ),
+      ).pullRequest(ref);
+
+    // hubber was asked again after requesting changes, so is pending; the
+    // author's own reply is not a review.
+    expect((await shaped({ state: "OPEN" }))?.reviewers).toEqual([
+      { login: "Octocat", team: false, state: "approved", avatarUrl: "https://github.com/Octocat.png?size=40" },
+      { login: "hubber", team: false, state: "pending", avatarUrl: "https://github.com/hubber.png?size=40" },
+      { login: "acme/core", team: true, state: "pending", avatarUrl: "https://github.com/acme.png?size=40" },
+    ]);
+    // Once merged, the requests are not waiting on anyone.
+    expect((await shaped({ state: "MERGED" }))?.reviewers.map((r) => [r.login, r.state])).toEqual([
+      ["Octocat", "approved"],
+      ["hubber", "changes_requested"],
+    ]);
+  });
+
   it("passes arguments as an array, never a shell string", async () => {
     const fake = runner(() => JSON.stringify({ title: "t", url: "u", state: "OPEN" }));
     await createGh(fake).pullRequest({ repo: "acme/widgets", number: 128 });
@@ -149,6 +187,7 @@ describe("myReview", () => {
     author: "hubber",
     latestReviews: {},
     requestedReviewers: [],
+    reviewers: [],
     checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
     ...fields,
   });

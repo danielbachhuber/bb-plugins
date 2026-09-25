@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "GitHub Context",
-    "description": "A banner above the composer showing the thread's pull request, the GitHub issues it works on, its changes, and a Harvest timer, in place of bb's own.",
+    "description": "A banner above the composer showing the thread's pull request and its reviewers, the GitHub issues it works on, its changes, and a Harvest timer, in place of bb's own.",
     "branding": {
       "icon": "Github"
     },
