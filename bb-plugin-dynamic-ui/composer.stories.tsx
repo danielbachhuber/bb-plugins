@@ -249,6 +249,18 @@ export function TriageConfirmCommand() {
   return <ThreadStage turns={triageTurns} view={stored(triageView)} initialFocus="issue-101" confirming="issue-101:2" />;
 }
 
+/** One issue closed: it moves to the bottom, under the two still open. */
+export function TriageOneDone() {
+  return (
+    <ThreadStage
+      turns={triageTurns}
+      view={stored(triageView, {
+        "issue-101": { state: "done", result: { label: "Post and close", at: "2026-03-12T12:05:00Z" } },
+      })}
+    />
+  );
+}
+
 /** After acting: one closed, one opened as a thread, one dismissed. */
 export function TriageAfter() {
   return (

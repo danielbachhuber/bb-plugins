@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allHandled, firstLine } from "./banner.js";
+import { allHandled, firstLine, orderItems } from "./banner.js";
 import { triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { fillDraft, parseView, usesDraft } from "./schema.js";
@@ -127,6 +127,16 @@ describe("banner rows", () => {
       "Shipped in #140, with Export and --archived",
     );
     expect(firstLine("")).toBe("");
+  });
+
+  it("moves done and dismissed items below the open ones", () => {
+    const s = store();
+    const view = s.publish("thr_one", "default", triageView, null, "t");
+    const before = orderItems(view).map((item) => item.id);
+    s.setItem(view.id, before[0]!, { state: "done", result: null }, "t");
+    s.setItem(view.id, before[1]!, { state: "dismissed", result: null }, "t");
+    const after = orderItems(s.get(view.id)!).map((item) => item.id);
+    expect(after).toEqual([...before.slice(2), before[0], before[1]]);
   });
 
   it("counts a view as handled once no item is open", () => {

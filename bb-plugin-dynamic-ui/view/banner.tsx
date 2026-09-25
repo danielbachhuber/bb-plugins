@@ -33,6 +33,13 @@ export function firstLine(markdown: string): string {
     .trim();
 }
 
+/** Open items in the order published, then done or dismissed ones, so what is left stays at the top. */
+export function orderItems(stored: StoredView): Item[] {
+  const items = stored.view.sections.flatMap((section) => section.items);
+  const isOpen = (item: Item) => (stored.items[item.id]?.state ?? "open") === "open";
+  return [...items.filter(isOpen), ...items.filter((item) => !isOpen(item))];
+}
+
 /** Every item is done or dismissed. */
 export function allHandled(stored: StoredView): boolean {
   return stored.view.sections.every((section) =>
@@ -50,7 +57,7 @@ export function ViewBanner({
   onOpenItem,
   onGoToThread,
 }: ViewBannerProps) {
-  const items = stored.view.sections.flatMap((section) => section.items);
+  const items = orderItems(stored);
   const open = items.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
 
   return (

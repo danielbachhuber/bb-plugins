@@ -16,7 +16,8 @@ bb dynamic-ui publish --file view.json [--key <name>]
 
 The thread's newest view appears above its composer, one row per item: the
 title, up to two badges, a line of summary, and a **Review** button. Nothing
-runs from the list: the button and the row both open the item. The
+runs from the list: the button and the row both open the item. An item
+moves to the bottom of the list once it is done or dismissed. The
 list collapses to one line from its header, and does so by itself once every
 item is done or dismissed. The checkmark on the header hides the view until the thread
 publishes again. Clicking a row opens that item in
