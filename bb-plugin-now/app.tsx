@@ -183,7 +183,10 @@ function useRowActions(
       onEdit: async (item, draft) => {
         let saved = false;
         await run(item.id, "save", async () => {
-          const result = await rpc.call("items_edit", { id: item.id, ...draft });
+          // bb's RPC takes JSON values only, so an unchanged deadline is left out rather than sent as undefined.
+          const { deadline, ...rest } = draft;
+          const input = deadline === undefined ? { id: item.id, ...rest } : { id: item.id, ...rest, deadline };
+          const result = await rpc.call("items_edit", input);
           if (result.error !== null) toast.error(result.error);
           else {
             saved = true;
