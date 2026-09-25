@@ -9,6 +9,8 @@ import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
+import { hasChanges, taskChanges } from "./todoist/edit.js";
+import { normalizeTask, projectMap, projectTree } from "./todoist/normalize.js";
 import { CONFIGURE_HINT, DEFAULT_FILTER, todoistSource } from "./todoist/source.js";
 import type { Item } from "./now/types.js";
 
@@ -316,6 +318,57 @@ export function createPlugin(deps: PluginDeps = {}) {
         removeRow(id);
         announce();
         return { completed: true, undoable: !recurring, error: null };
+      },
+      todoist_projects: async () => {
+        const api = await todoist();
+        if (api === null) return { projects: [], error: "Todoist is not set up." };
+        try {
+          return { projects: projectTree(await api.projects()), error: null };
+        } catch (error) {
+          bb.log.warn(`Could not list Todoist projects: ${messageOf(error)}`);
+          return { projects: [], error: messageOf(error) };
+        }
+      },
+      items_edit: async ({ id, ...draft }) => {
+        const item = findItem(id);
+        if (item?.source !== "todoist") return { saved: false, error: "Only a Todoist task can be edited." };
+        const api = await todoist();
+        if (api === null) return { saved: false, error: "Todoist is not set up." };
+        const changes = taskChanges(item, draft);
+        if (!hasChanges(changes)) return { saved: true, error: null };
+        const taskId = id.slice("todoist:".length);
+        try {
+          if (changes.update !== null) await api.update(taskId, changes.update);
+          if (changes.move !== null) await api.move(taskId, changes.move);
+          const [task, projects] = await Promise.all([api.task(taskId), api.projects()]);
+          const saved = normalizeTask(task, projectMap(projects));
+          if (saved !== null) updateRow(saved);
+          bb.log.info(`Edited ${id}`);
+          return { saved: true, error: null };
+        } catch (error) {
+          bb.log.warn(`Could not edit ${id}: ${messageOf(error)}`);
+          return { saved: false, error: messageOf(error) };
+        } finally {
+          announce();
+          // The new date or project decides whether the filter still matches, and which section it is in.
+          void sync().catch((error) => bb.log.error(`Sync failed: ${messageOf(error)}`));
+        }
+      },
+      items_delete: async ({ id }) => {
+        const item = findItem(id);
+        if (item?.source !== "todoist") return { deleted: false, error: "Only a Todoist task can be deleted." };
+        const api = await todoist();
+        if (api === null) return { deleted: false, error: "Todoist is not set up." };
+        try {
+          await api.delete(id.slice("todoist:".length));
+        } catch (error) {
+          bb.log.warn(`Could not delete ${id}: ${messageOf(error)}`);
+          return { deleted: false, error: messageOf(error) };
+        }
+        bb.log.info(`Deleted ${id}`);
+        removeRow(id);
+        announce();
+        return { deleted: true, error: null };
       },
       items_undo: async ({ id }) => {
         const entry = undoable.get(id);

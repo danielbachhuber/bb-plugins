@@ -4,6 +4,8 @@ export const dueSchema = z.object({
   /** `YYYY-MM-DD`, or `YYYY-MM-DDTHH:MM:SS` (with a trailing `Z` when fixed to a timezone). */
   date: z.string(),
   recurring: z.boolean(),
+  /** How it was written in Todoist, such as "every mon". */
+  text: z.string().optional(),
 });
 export type Due = z.infer<typeof dueSchema>;
 
@@ -89,6 +91,23 @@ export const invitePartSchema = z.object({
 });
 export type InvitePart = z.infer<typeof invitePartSchema>;
 
+/** What a Todoist row needs to be edited in place. */
+export const todoistPartSchema = z.object({
+  /** The task's project, which the edit strip's project picker starts on. */
+  projectId: z.string().nullable(),
+});
+export type TodoistPart = z.infer<typeof todoistPartSchema>;
+
+/** One of your Todoist projects, in the order and nesting Todoist shows them. */
+export const todoistProjectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** 0 for a top-level project, 1 for one inside it, and so on. */
+  depth: z.number().int(),
+  inbox: z.boolean(),
+});
+export type TodoistProject = z.infer<typeof todoistProjectSchema>;
+
 /** One thing that needs doing, from whichever source it came from. */
 export const itemSchema = z.object({
   /** Unique across sources: `<source>:<the source's own id>`. */
@@ -116,5 +135,6 @@ export const itemSchema = z.object({
   github: githubPartSchema.nullable(),
   doc: docPartSchema.nullable().optional(),
   invite: invitePartSchema.nullable().optional(),
+  todoist: todoistPartSchema.nullable().optional(),
 });
 export type Item = z.infer<typeof itemSchema>;

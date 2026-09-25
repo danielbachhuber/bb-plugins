@@ -812,6 +812,96 @@ describe("completing a task", () => {
   });
 });
 
+describe("editing a task", () => {
+  const ROUTES = {
+    [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a"), rawTask("b")], next_cursor: null },
+    [PROJECTS_PATH]: {
+      results: [
+        { id: "p1", name: "Widgets" },
+        { id: "p2", name: "Gadgets" },
+        { id: "p3", name: "Dashboard", parent_id: "p2" },
+      ],
+      next_cursor: null,
+    },
+    "POST /api/v1/tasks/a": null,
+    "POST /api/v1/tasks/a/move": null,
+    "/api/v1/tasks/a": rawTask("a", {
+      project_id: "p2",
+      priority: 3,
+      due: { date: "2026-10-02", string: "next fri", is_recurring: false },
+    }),
+    "DELETE /api/v1/tasks/b": null,
+  };
+
+  test("lists the projects nested as Todoist has them", async () => {
+    const { bb, harness, plugin } = host(ROUTES);
+    await plugin(bb);
+    await expect(harness.behavior.callRpc("todoist_projects", null)).resolves.toEqual({
+      projects: [
+        { id: "p1", name: "Widgets", depth: 0, inbox: false },
+        { id: "p2", name: "Gadgets", depth: 0, inbox: false },
+        { id: "p3", name: "Dashboard", depth: 1, inbox: false },
+      ],
+      error: null,
+    });
+  });
+
+  test("sends the date, priority, and move together, and the row takes what Todoist saved", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    // Hold the sync the save starts, to read the row as the save left it.
+    const original = fetchImpl.getMockImplementation()!;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    fetchImpl.mockImplementation(async (url, init) => {
+      if (url.includes("/tasks/filter")) await held;
+      return original(url, init);
+    });
+
+    await expect(
+      harness.behavior.callRpc("items_edit", { id: "todoist:a", due: "next fri", priority: 2, projectId: "p2" }),
+    ).resolves.toEqual({ saved: true, error: null });
+
+    const writes = fetchImpl.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(([url, init]) => [new URL(url).pathname, JSON.parse(String(init?.body))]);
+    expect(writes).toEqual([
+      ["/api/v1/tasks/a", { due_string: "next fri", priority: 3 }],
+      ["/api/v1/tasks/a/move", { project_id: "p2" }],
+    ]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items[0]).toMatchObject({
+      id: "todoist:a",
+      context: "Gadgets",
+      priority: 2,
+      due: { date: "2026-10-02", text: "next fri" },
+    });
+    expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2);
+    release();
+  });
+
+  test("calls Todoist for nothing when the draft changes nothing", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(
+      harness.behavior.callRpc("items_edit", { id: "todoist:a", due: "", priority: 4, projectId: "p1" }),
+    ).resolves.toEqual({ saved: true, error: null });
+    expect(fetchImpl.mock.calls.filter(([, init]) => init?.method === "POST")).toEqual([]);
+  });
+
+  test("deletes a task and takes its row off the page", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.callRpc("items_delete", { id: "todoist:b" })).resolves.toEqual({ deleted: true, error: null });
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:a"]);
+    expect(fetchImpl.mock.calls.some(([url, init]) => init?.method === "DELETE" && url.endsWith("/tasks/b"))).toBe(true);
+  });
+});
+
 describe("starting a thread", () => {
   const ROUTES = {
     [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a")], next_cursor: null },

@@ -1,7 +1,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-import { itemSchema } from "./types.js";
+import { itemSchema, todoistProjectSchema } from "./types.js";
 
 /** How one source's fetch went. Its items, if any, are in the merged list. */
 export const sourceStatusSchema = z.discriminatedUnion("state", [
@@ -94,6 +94,30 @@ export const rpcContract = defineRpcContract({
       undoable: z.boolean(),
       error: z.string().nullable(),
     }),
+  },
+  /** Your open Todoist projects, for the edit strip's project picker. Asks Todoist each time. */
+  todoist_projects: {
+    input: z.null(),
+    output: z.object({ projects: z.array(todoistProjectSchema), error: z.string().nullable() }),
+  },
+  /**
+   * Save a Todoist row's edit strip: the date in words, the priority, and the
+   * project, sent together. The row takes what Todoist saved, and a sync
+   * follows, since the new date or project can move it or take it off the page.
+   */
+  items_edit: {
+    input: z.object({
+      id: z.string(),
+      due: z.string().max(200),
+      priority: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+      projectId: z.string().nullable(),
+    }),
+    output: z.object({ saved: z.boolean(), error: z.string().nullable() }),
+  },
+  /** Delete a Todoist row's task for good, and take the row off the page. There is no undo. */
+  items_delete: {
+    input: z.object({ id: z.string() }),
+    output: z.object({ deleted: z.boolean(), error: z.string().nullable() }),
   },
   /** Mark a Gmail row's threads read, leaving them in the inbox and the row on the page. */
   items_mark_read: {

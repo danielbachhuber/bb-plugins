@@ -24,6 +24,20 @@ export interface TodoistApi {
   /** Completes a task; a recurring one moves to its next date. */
   close(taskId: string): Promise<void>;
   reopen(taskId: string): Promise<void>;
+  /** One task, open or not. */
+  task(taskId: string): Promise<unknown>;
+  /** Changes what `fields` names and leaves the rest. */
+  update(taskId: string, fields: TaskUpdate): Promise<void>;
+  move(taskId: string, projectId: string): Promise<void>;
+  /** Deletes a task for good; Todoist has no way to bring it back. */
+  delete(taskId: string): Promise<void>;
+}
+
+export interface TaskUpdate {
+  /** A date in words, which Todoist parses: "fri", "every mon", "no date". */
+  due_string?: string;
+  /** Todoist's API scale, 4 being what its app calls P1. */
+  priority?: 1 | 2 | 3 | 4;
 }
 
 export interface TodoistApiOptions {
@@ -77,18 +91,34 @@ export function createTodoistApi(options: TodoistApiOptions): TodoistApi {
     return results;
   }
 
-  async function post(path: string): Promise<void> {
+  async function request(method: "GET" | "POST" | "DELETE", path: string, body?: unknown): Promise<Response> {
+    const headers: Record<string, string> = { authorization: `Bearer ${options.token}` };
+    if (body !== undefined) headers["content-type"] = "application/json";
     const response = await fetchImpl(`${BASE_URL}${path}`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${options.token}` },
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) throw new TodoistError(await errorMessage(response), response.status);
+    return response;
   }
+
+  async function post(path: string, body?: unknown): Promise<void> {
+    await request("POST", path, body);
+  }
+
+  const taskPath = (taskId: string) => `/tasks/${encodeURIComponent(taskId)}`;
 
   return {
     filterTasks: (query) => paginate("/tasks/filter", { query }),
     projects: () => paginate("/projects"),
-    close: (taskId) => post(`/tasks/${encodeURIComponent(taskId)}/close`),
-    reopen: (taskId) => post(`/tasks/${encodeURIComponent(taskId)}/reopen`),
+    close: (taskId) => post(`${taskPath(taskId)}/close`),
+    reopen: (taskId) => post(`${taskPath(taskId)}/reopen`),
+    task: async (taskId) => (await request("GET", taskPath(taskId))).json(),
+    update: (taskId, fields) => post(taskPath(taskId), fields),
+    move: (taskId, projectId) => post(`${taskPath(taskId)}/move`, { project_id: projectId }),
+    delete: async (taskId) => {
+      await request("DELETE", taskPath(taskId));
+    },
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { normalizeTask, normalizeTasks, plainContent, projectMap } from "./normalize.js";
+import { apiPriority, normalizeTask, normalizeTasks, plainContent, projectMap, projectTree } from "./normalize.js";
 
 /** The fields the v1 `tasks/filter` endpoint returns that normalization reads. */
 function rawTask(overrides: Record<string, unknown> = {}) {
@@ -54,7 +54,7 @@ describe("normalizeTask", () => {
       title: "Buy widgets",
       description: "",
       priority: 1,
-      due: { date: "2026-09-24", recurring: true },
+      due: { date: "2026-09-24", recurring: true, text: "every day" },
       deadline: "2026-09-30",
       activityAt: null,
       createdAt: "2026-09-20T15:04:05.123456Z",
@@ -64,6 +64,7 @@ describe("normalizeTask", () => {
       url: "https://app.todoist.com/app/task/6XGgmFVcrG5RRjVr",
       gmail: null,
       github: null,
+      todoist: { projectId: "p1" },
     });
   });
 
@@ -96,5 +97,39 @@ describe("normalizeTask", () => {
 describe("normalizeTasks", () => {
   test("drops payloads that are not tasks", () => {
     expect(normalizeTasks([null, "task", { id: 5 }, rawTask()], projects)).toHaveLength(1);
+  });
+});
+
+describe("projectTree", () => {
+  test("puts the Inbox first and each project under its parent, in Todoist's order", () => {
+    const tree = projectTree([
+      { id: "g", name: "Gadgets", child_order: 2 },
+      { id: "w", name: "Widgets", child_order: 1 },
+      { id: "l", name: "Launch", parent_id: "w", child_order: 1 },
+      { id: "d", name: "Dashboard", parent_id: "g", child_order: 1 },
+      { id: "i", name: "Inbox", inbox_project: true, child_order: 0 },
+      { id: "old", name: "Old widgets", is_archived: true },
+    ]);
+    expect(tree).toEqual([
+      { id: "i", name: "Inbox", depth: 0, inbox: true },
+      { id: "w", name: "Widgets", depth: 0, inbox: false },
+      { id: "l", name: "Launch", depth: 1, inbox: false },
+      { id: "g", name: "Gadgets", depth: 0, inbox: false },
+      { id: "d", name: "Dashboard", depth: 1, inbox: false },
+    ]);
+  });
+
+  test("shows a project whose parent is archived at the top", () => {
+    const tree = projectTree([
+      { id: "w", name: "Widgets", is_archived: true },
+      { id: "l", name: "Launch", parent_id: "w" },
+    ]);
+    expect(tree).toEqual([{ id: "l", name: "Launch", depth: 0, inbox: false }]);
+  });
+});
+
+describe("apiPriority", () => {
+  test("counts P1 as Todoist's 4 and no priority as its 1", () => {
+    expect([1, 2, 3, 4].map((p) => apiPriority(p as 1 | 2 | 3 | 4))).toEqual([4, 3, 2, 1]);
   });
 });

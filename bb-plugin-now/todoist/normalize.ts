@@ -1,5 +1,5 @@
 // Turn Todoist's task payloads into Now items. No I/O here.
-import type { Due, Item } from "../now/types.js";
+import type { Due, Item, TodoistProject } from "../now/types.js";
 
 type Raw = Record<string, unknown>;
 
@@ -24,14 +24,15 @@ export function plainContent(markdown: string): string {
 
 function normalizeDue(value: unknown): Due | null {
   if (!isRecord(value) || typeof value.date !== "string") return null;
-  return { date: value.date, recurring: value.is_recurring === true };
+  const text = typeof value.string === "string" && value.string !== "" ? value.string : undefined;
+  return { date: value.date, recurring: value.is_recurring === true, ...(text === undefined ? {} : { text }) };
 }
 
 /**
  * Todoist's API counts priority up, 4 being what its app calls P1 and 1 being
  * no priority at all. Now counts down from 1.
  */
-function normalizePriority(value: unknown): Item["priority"] {
+export function normalizePriority(value: unknown): Item["priority"] {
   if (value === 4) return 1;
   if (value === 3) return 2;
   if (value === 2) return 3;
@@ -66,6 +67,7 @@ export function normalizeTask(raw: unknown, projects: ReadonlyMap<string, Projec
     url: taskUrl(raw.id),
     gmail: null,
     github: null,
+    todoist: { projectId: typeof raw.project_id === "string" ? raw.project_id : null },
   };
 }
 
@@ -90,4 +92,46 @@ export function projectMap(raw: readonly unknown[]): Map<string, Project> {
     }
   }
   return projects;
+}
+
+/** Now's priority, with 4 for none, on Todoist's API scale. */
+export function apiPriority(priority: 1 | 2 | 3 | 4): 1 | 2 | 3 | 4 {
+  return (5 - priority) as 1 | 2 | 3 | 4;
+}
+
+/**
+ * Every open project, each under its parent in Todoist's own order, the Inbox
+ * first. A project whose parent is missing or archived is shown at the top.
+ */
+export function projectTree(raw: readonly unknown[]): TodoistProject[] {
+  type Node = { id: string; name: string; parent: string | null; order: number; inbox: boolean };
+  const nodes: Node[] = [];
+  for (const project of raw) {
+    if (!isRecord(project) || typeof project.id !== "string" || typeof project.name !== "string") continue;
+    if (project.is_archived === true || project.is_deleted === true) continue;
+    nodes.push({
+      id: project.id,
+      name: project.name,
+      parent: typeof project.parent_id === "string" ? project.parent_id : null,
+      order: typeof project.child_order === "number" ? project.child_order : 0,
+      inbox: project.inbox_project === true,
+    });
+  }
+  const ids = new Set(nodes.map((node) => node.id));
+  const children = new Map<string | null, Node[]>();
+  for (const node of nodes) {
+    const parent = node.parent !== null && ids.has(node.parent) ? node.parent : null;
+    children.set(parent, [...(children.get(parent) ?? []), node]);
+  }
+
+  const tree: TodoistProject[] = [];
+  const visit = (parent: string | null, depth: number) => {
+    const siblings = (children.get(parent) ?? []).sort((a, b) => Number(b.inbox) - Number(a.inbox) || a.order - b.order);
+    for (const node of siblings) {
+      tree.push({ id: node.id, name: node.name, depth, inbox: node.inbox });
+      visit(node.id, depth + 1);
+    }
+  };
+  visit(null, 0);
+  return tree;
 }
