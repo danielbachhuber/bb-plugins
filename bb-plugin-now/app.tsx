@@ -17,7 +17,7 @@ import { ItemListView } from "./now/item-list.js";
 import type { PendingAction, RowActions } from "./now/item-row.js";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
-import type { Item } from "./now/types.js";
+import type { Item, TodoistProject } from "./now/types.js";
 
 /** Opening the page syncs a stored list older than this. */
 const STALE_ON_OPEN_MS = 60_000;
@@ -180,6 +180,25 @@ function useRowActions(
           else toast.success(`${name} is queued to merge`);
         }).catch(fail);
       },
+      onEdit: async (item, draft) => {
+        let saved = false;
+        await run(item.id, "save", async () => {
+          const result = await rpc.call("items_edit", { id: item.id, ...draft });
+          if (result.error !== null) toast.error(result.error);
+          else {
+            saved = true;
+            toast.success(`Saved "${item.title}"`);
+          }
+        }).catch(fail);
+        return saved;
+      },
+      onDelete: (item) => {
+        void run(item.id, "delete", async () => {
+          const result = await rpc.call("items_delete", { id: item.id });
+          if (result.error !== null) toast.error(result.error);
+          else toast.success(`Deleted "${item.title}"`);
+        }).catch(fail);
+      },
       onReply: async (item, body) => {
         try {
           const result = await rpc.call("items_reply", { id: item.id, body });
@@ -223,6 +242,20 @@ function NowPage() {
   );
   const actions = useRowActions(rpc, run, threadActions);
 
+  // Read once per visit, for every Todoist row's project picker.
+  const [projects, setProjects] = useState<readonly TodoistProject[] | null>(null);
+  const hasTodoist = listing?.list?.items.some((item) => item.source === "todoist") === true;
+  useEffect(() => {
+    if (!hasTodoist || projects !== null) return;
+    rpc.call("todoist_projects", null).then(
+      (result) => {
+        if (result.error !== null) toast.error(`Todoist projects: ${result.error}`);
+        else setProjects(result.projects);
+      },
+      () => undefined,
+    );
+  }, [hasTodoist, projects, rpc]);
+
   const onSubmitDraft = useCallback(
     async (request: NewThreadRequest) => {
       if (draft === null) return;
@@ -247,7 +280,7 @@ function NowPage() {
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
-      <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} />
+      <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
       <StartThreadDialog
         open={draft !== null}
         onOpenChange={(open) => {

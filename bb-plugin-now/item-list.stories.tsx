@@ -6,7 +6,7 @@ import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView, type Filter } from "./now/item-list";
 import type { PendingAction } from "./now/item-row";
 import { mergeItems } from "./now/items";
-import type { Item } from "./now/types";
+import type { Item, TodoistProject } from "./now/types";
 
 type LoadedSource = Extract<SourceStatus, { state: "ok" }>;
 
@@ -168,6 +168,7 @@ function item(overrides: Partial<Item> & Pick<Item, "id" | "title">): Item {
     url: `https://app.todoist.com/app/task/${overrides.id}`,
     gmail: null,
     github: null,
+    todoist: { projectId: (overrides.context ?? "widgets").toLowerCase() },
     ...overrides,
     id: `todoist:${overrides.id}`,
   };
@@ -315,6 +316,7 @@ function Frame({
         actions={actions}
         pending={pending}
         initialFilter={filter}
+        projects={projects}
       />
     </div>
   );
@@ -334,7 +336,17 @@ const actions = {
   onReply: async () => true,
   onStartThread: noop,
   onOpenThread: noop,
+  onEdit: async () => true,
+  onDelete: noop,
 };
+
+const projects: TodoistProject[] = [
+  { id: "inbox", name: "Inbox", depth: 0, inbox: true },
+  { id: "widgets", name: "Widgets", depth: 0, inbox: false },
+  { id: "launch", name: "Launch", depth: 1, inbox: false },
+  { id: "gadgets", name: "Gadgets", depth: 0, inbox: false },
+  { id: "admin", name: "Admin", depth: 0, inbox: false },
+];
 
 export function Default() {
   return (

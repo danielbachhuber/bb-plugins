@@ -13,18 +13,22 @@ import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
-import type { GitHubPart, Item } from "./types.js";
+import { TaskEdit } from "./task-edit.js";
+import type { TaskDraft } from "../todoist/edit.js";
+import type { GitHubPart, Item, TodoistProject } from "./types.js";
 
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "read" | "merge" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "read" | "merge" | "save" | "delete" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
   archive: "Archiving…",
   read: "Marking read…",
   merge: "Merging…",
+  save: "Saving…",
+  delete: "Deleting…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
   "rsvp:tentative": "Replying…",
@@ -40,6 +44,9 @@ export interface RowActions {
   onReply: (item: Item, body: string) => Promise<boolean>;
   onStartThread: (item: Item) => void;
   onOpenThread: (threadId: string) => void;
+  /** Saves a Todoist row's edit strip. Resolves true once saved, so the strip can close. */
+  onEdit: (item: Item, draft: TaskDraft) => Promise<boolean>;
+  onDelete: (item: Item) => void;
 }
 
 /** Which source a row came from, drawn at the head of its row. */
@@ -161,6 +168,8 @@ export interface ItemRowProps {
   threadId?: string | null;
   /** The action this row is waiting on, if any. */
   pending?: PendingAction | null;
+  /** Your Todoist projects, for the edit strip. Null until they load. */
+  projects?: readonly TodoistProject[] | null;
 }
 
 /** A small labelled button in the details line, for the row's own action. */
@@ -293,7 +302,7 @@ function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: 
   return null;
 }
 
-export function ItemRow({ item, now, actions, threadId = null, pending = null }: ItemRowProps) {
+export function ItemRow({ item, now, actions, threadId = null, pending = null, projects = null }: ItemRowProps) {
   const busy = pending !== null;
   const mergeMethods = actions === undefined ? [] : (item.github?.mergeMethods ?? []);
   const merge =
@@ -306,6 +315,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
       />
     );
   const [replying, setReplying] = useState(false);
+  // An Inbox task is there to be sorted, so its strip starts open.
+  const editable = actions !== undefined && item.source === "todoist";
+  const [editing, setEditing] = useState(editable && item.inbox === true);
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
@@ -339,6 +351,11 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
         {/* Where it is from, in a column of its own so every title starts at one edge. */}
         <div className="flex w-5 shrink-0 flex-col items-center gap-1.5 pt-0.5">
           {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
+          {item.priority === null ? null : (
+            <span className={cn("rounded border px-1 font-mono text-[10px] leading-3.5", PRIORITY[item.priority])}>
+              P{item.priority}
+            </span>
+          )}
           {/* Gmail's own unread blue. */}
           {unread ? <span className="size-1.5 rounded-full bg-[#0b57d0] dark:bg-[#a8c7fa]" aria-label="Unread" /> : null}
         </div>
@@ -352,9 +369,6 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
               {item.title}
             </UrlLink>
             {item.doc?.mentioned === true ? <Chip className={MENTIONED}>Mentioned</Chip> : null}
-            {item.priority === null ? null : (
-              <Chip className={cn("font-mono", PRIORITY[item.priority])}>P{item.priority}</Chip>
-            )}
             {newCount === null ? null : (
               <span className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-[#0b57d0] dark:text-[#a8c7fa]">
                 {newCount} new
@@ -444,6 +458,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
+            {!editable || editing ? null : (
+              <LineAction label="Edit" icon="Edit" disabled={busy} onClick={() => setEditing(true)} />
+            )}
             {actions === undefined || !unread ? null : (
               <LineAction
                 label="Mark read"
@@ -501,6 +518,22 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null }:
             {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
           {card}
+          {editable && editing ? (
+            <TaskEdit
+              key={item.id}
+              item={item}
+              now={now}
+              projects={projects}
+              busy={pending === "save" || pending === "delete"}
+              onCancel={() => setEditing(false)}
+              onDelete={() => actions!.onDelete(item)}
+              onSave={async (draft) => {
+                const saved = await actions!.onEdit(item, draft);
+                if (saved) setEditing(false);
+                return saved;
+              }}
+            />
+          ) : null}
           {replying && actions !== undefined && item.github !== null ? (
             <ReplyBox item={item} onReply={actions.onReply} onClose={() => setReplying(false)} />
           ) : null}

@@ -32,8 +32,8 @@ with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
 for today), its description, and a details line with the row's actions, tags,
-and where it came from (a Todoist project, or an email's sender), with a P1–P3
-tag beside the title. A date or deadline that is today or already past is
+and where it came from (a Todoist project, or an email's sender). A task's
+P1–P3 tag sits under its Todoist icon. A date or deadline that is today or already past is
 red; nothing else is colored for its date. A recurring item
 has a repeat icon.
 
@@ -55,6 +55,20 @@ good sync, with a note saying how many.
 
 - **Complete** (on a Todoist row, in its details line) completes the task in
   Todoist and takes the row off the page.
+- **Edit** (on a Todoist row, after Complete) opens a strip under the row with
+  a date box, a project picker, and the four priority flags. Type the date in
+  words, as in Todoist ("fri", "next week", "every mon", "no date"), and
+  Todoist reads it when you save; left empty, the date stays as it is. The
+  project picker lists your projects nested as Todoist shows them, and typing
+  narrows it. Nothing is sent until **Save**, which sends the date, priority,
+  and project together, so a new project or date cannot move the row away
+  halfway through. The row then shows what Todoist saved, and a sync follows,
+  since the new date or project may move it to another section or off the
+  page. A task in Todoist's Inbox shows the strip already open, since it is
+  there to be sorted. Escape or **Cancel** closes it.
+- **Delete** (the bin in the edit strip) asks once more, then deletes the task
+  in Todoist and takes the row off the page. Todoist cannot restore a deleted
+  task, so there is no Undo.
 - **Archive** (on an email row, in its details line) takes the row's threads
   out of the Gmail inbox, marks them read, and takes the row off the page. On a GitHub row whose pull
   request has merged or closed, or whose issue has closed, it is tinted purple
@@ -119,8 +133,8 @@ has only non-required checks failing. It does not show on someone else's
 pull request, even where you could merge it, since that merge is theirs to
 make. Once merged, the row suggests Archive.
 
-Completing or editing a Todoist task still happens in Todoist, and replying
-to an email that is not from GitHub still happens in Gmail.
+Editing a Todoist task's title, description, or labels still happens
+in Todoist, and replying to an email that is not from GitHub still happens in Gmail.
 
 ## Sources
 
@@ -152,6 +166,11 @@ One sync makes two requests to the Todoist API v1, in parallel:
 `GET /api/v1/tasks/filter` with the saved query, and `GET /api/v1/projects` to
 name each task's project and find the Inbox. Both follow `next_cursor` 200
 items at a time.
+Saving the edit strip makes `POST /api/v1/tasks/{id}` for the date and
+priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
+changed, then reads the task back with `GET /api/v1/tasks/{id}`. Delete is
+`DELETE /api/v1/tasks/{id}`. Opening the page reads the projects once, for the
+picker.
 Nothing runs in the background, and nothing is requested until a token is set.
 
 ### Gmail
@@ -273,6 +292,7 @@ list `server.ts` passes to `loadSources`.
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
+| `now/task-edit.tsx` | A Todoist row's edit strip: the date box, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
@@ -282,7 +302,8 @@ list `server.ts` passes to `loadSources`.
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
-| `todoist/normalize.ts` | Turning Todoist task payloads into items |
+| `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
+| `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
 | `todoist/source.ts` | Todoist as a `Source`, built from its settings |
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |

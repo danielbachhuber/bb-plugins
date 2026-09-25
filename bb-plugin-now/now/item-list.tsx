@@ -10,7 +10,7 @@ import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
 import { SegmentedToggle } from "@/components/segmented";
 
 import { groupIntoSections, type SectionId } from "./sections.js";
-import type { Item } from "./types.js";
+import type { Item, TodoistProject } from "./types.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
@@ -82,6 +82,8 @@ export interface ItemListViewProps {
   pending?: ReadonlyMap<string, PendingAction>;
   /** What the page opens on, for the stories: the Now section. */
   initialFilter?: Filter;
+  /** Your Todoist projects, for the edit strip. Null until they load. */
+  projects?: readonly TodoistProject[] | null;
 }
 
 /** Gmail before Todoist in the source picker, whatever order they sync in. */
@@ -193,6 +195,7 @@ export function ItemListView({
   actions,
   pending = new Map(),
   initialFilter = { section: "now" },
+  projects = null,
 }: ItemListViewProps) {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const threads = listing?.threads ?? {};
@@ -236,6 +239,7 @@ export function ItemListView({
                 actions={actions}
                 threadId={threads[item.id] ?? null}
                 pending={pending.get(item.id) ?? null}
+                projects={projects}
               />
             )}
           />
