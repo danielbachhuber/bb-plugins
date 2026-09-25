@@ -231,21 +231,23 @@ function ItemCard({
             </div>
           )}
         </div>
-        {/* Beside Dismiss, not among the item's decisions, so it stays usable after one is made. */}
-        {onStartThread === undefined ? null : (
-          <Button size="sm" variant="ghost" className="shrink-0" onClick={onStartThread}>
-            Start thread
-          </Button>
-        )}
-        {state === "dismissed" ? (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(false)}>
-            Restore
-          </Button>
-        ) : (
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(true)}>
-            Dismiss
-          </Button>
-        )}
+        <div className="flex shrink-0">
+          {/* Beside Dismiss, not among the item's decisions, so it stays usable after one is made. */}
+          {onStartThread === undefined ? null : (
+            <Button size="sm" variant="ghost" onClick={onStartThread}>
+              Start thread
+            </Button>
+          )}
+          {state === "dismissed" ? (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(false)}>
+              Restore
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(true)}>
+              Dismiss
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* What happened comes first, above the evidence for it. */}
