@@ -352,7 +352,7 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
         <div className="flex w-5 shrink-0 flex-col items-center gap-1.5 pt-0.5">
           {brand === null ? <span className="size-4" /> : <BrandIcon brand={brand} className="size-4" />}
           {item.priority === null ? null : (
-            <span className={cn("rounded border px-1 font-mono text-[10px] leading-3.5", PRIORITY[item.priority])}>
+            <span className={cn("rounded-[3px] border px-0.5 font-mono text-[9px] leading-3", PRIORITY[item.priority])}>
               P{item.priority}
             </span>
           )}
@@ -458,8 +458,15 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
-            {!editable || editing ? null : (
-              <LineAction label="Edit" icon="Edit" disabled={busy} onClick={() => setEditing(true)} />
+            {!editable ? null : (
+              <LineAction
+                label="Edit"
+                icon="Edit"
+                expanded={editing}
+                className={editing ? "bg-accent text-foreground" : undefined}
+                disabled={busy}
+                onClick={() => setEditing((open) => !open)}
+              />
             )}
             {actions === undefined || !unread ? null : (
               <LineAction

@@ -71,7 +71,8 @@ good sync, with a note saying how many.
   halfway through. The row then shows what Todoist saved, and a sync follows,
   since the new date or project may move it to another section or off the
   page. A task in Todoist's Inbox shows the strip already open, since it is
-  there to be sorted. Escape or **Cancel** closes it.
+  there to be sorted. Edit stays highlighted while the strip is open; Edit
+  again, Escape, or **Cancel** closes it.
 - **Delete** (the bin in the edit strip) asks once more, then deletes the task
   in Todoist and takes the row off the page. Todoist cannot restore a deleted
   task, so there is no Undo.
