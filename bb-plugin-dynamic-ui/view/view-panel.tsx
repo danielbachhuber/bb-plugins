@@ -40,6 +40,17 @@ export const TONE_CLASS: Record<string, string> = {
   danger: "border-destructive/40 text-destructive",
 };
 
+/**
+ * The open item to show after `itemId` is handled: the next open one below it,
+ * or else the first open one above it, or null once none is open.
+ */
+export function nextOpenItem(stored: StoredView, itemId: string): Item | null {
+  const items = stored.view.sections.flatMap((section) => section.items);
+  const at = items.findIndex((item) => item.id === itemId);
+  const isOpen = (item: Item) => item.id !== itemId && (stored.items[item.id]?.state ?? "open") === "open";
+  return items.slice(at + 1).find(isOpen) ?? items.slice(0, Math.max(at, 0)).find(isOpen) ?? null;
+}
+
 /** The item shown when none is picked: the first one still open, or null once all are handled. */
 export function firstOpenItem(stored: StoredView): Item | null {
   for (const section of stored.view.sections) {

@@ -10,7 +10,7 @@ import { fillDraft, parseView, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { firstOpenItem } from "./view-panel.js";
+import { firstOpenItem, nextOpenItem } from "./view-panel.js";
 
 function store() {
   const db = new Database(":memory:");
@@ -137,6 +137,17 @@ describe("banner rows", () => {
     s.setItem(view.id, before[1]!, { state: "dismissed", result: null }, "t");
     const after = orderItems(s.get(view.id)!).map((item) => item.id);
     expect(after).toEqual([...before.slice(2), before[0], before[1]]);
+  });
+
+  it("moves on from a dismissed item to the next open one, wrapping to the top", () => {
+    const s = store();
+    const view = s.publish("thr_one", "default", triageView, null, "t");
+    s.setItem(view.id, "issue-117", { state: "dismissed", result: null }, "t");
+    expect(nextOpenItem(s.get(view.id)!, "issue-117")?.id).toBe("issue-123");
+    s.setItem(view.id, "issue-123", { state: "dismissed", result: null }, "t");
+    expect(nextOpenItem(s.get(view.id)!, "issue-123")?.id).toBe("issue-101");
+    s.setItem(view.id, "issue-101", { state: "dismissed", result: null }, "t");
+    expect(nextOpenItem(s.get(view.id)!, "issue-101")).toBeNull();
   });
 
   it("counts a view as handled once no item is open", () => {

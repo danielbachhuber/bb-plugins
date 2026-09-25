@@ -21,7 +21,7 @@ import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-ope
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import type { Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
-import { firstOpenItem, ViewPanel } from "./view/view-panel.js";
+import { firstOpenItem, nextOpenItem, ViewPanel } from "./view/view-panel.js";
 
 const PANEL_ACTION = "view";
 
@@ -155,7 +155,12 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
         setBusyItem(item.id);
         rpc
           .call("item_dismiss", { viewId: stored.id, itemId: item.id, dismissed })
-          .then(setStored, fail)
+          .then((updated) => {
+            setStored(updated);
+            // Dismissing moves on to the next open item; undoing stays put.
+            const next = dismissed ? nextOpenItem(updated, item.id) : null;
+            if (next) setFocus(threadId, { viewId: updated.id, itemId: next.id });
+          }, fail)
           .finally(() => setBusyItem(null));
       }}
     />
