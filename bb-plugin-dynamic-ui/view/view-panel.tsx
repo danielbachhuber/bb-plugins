@@ -231,19 +231,23 @@ function ItemCard({
             </div>
           )}
         </div>
-        <div className="flex shrink-0">
+        <div className="flex shrink-0 gap-1.5">
           {/* Beside Dismiss, not among the item's decisions, so it stays usable after one is made. */}
           {onStartThread === undefined ? null : (
-            <Button size="sm" variant="ghost" onClick={onStartThread}>
+            <Button size="sm" variant="outline" onClick={onStartThread}>
+              <Icon name="MessageSquarePlus" aria-hidden />
               Start thread
             </Button>
           )}
+          {/* Archive, not X: a dismissed item can be restored, and an X reads as closing the panel. */}
           {state === "dismissed" ? (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(false)}>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => onDismiss(false)}>
+              <Icon name="ArchiveRestore" aria-hidden />
               Restore
             </Button>
           ) : (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(true)}>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => onDismiss(true)}>
+              <Icon name="Archive" aria-hidden />
               Dismiss
             </Button>
           )}
