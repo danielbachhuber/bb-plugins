@@ -21,6 +21,11 @@ fi
 . "$DIR/use-pinned-node.sh"
 use_pinned_node || exit 1
 
+# bb runs scripts with NODE_ENV=production, under which npm leaves out
+# devDependencies, TypeScript among them. Including them here
+# covers every install below, harvest:sync's too.
+export npm_config_include=dev
+
 installed="$(bb plugin list --json 2>/dev/null || echo '[]')"
 
 for package in "$DIR"/*/; do

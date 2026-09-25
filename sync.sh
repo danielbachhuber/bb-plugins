@@ -148,6 +148,11 @@ fi
 . "$DIR/use-pinned-node.sh"
 use_pinned_node || exit 1
 
+# bb runs scripts with NODE_ENV=production, under which npm leaves out
+# devDependencies, TypeScript among them. Including them here
+# covers every install below, harvest:sync's too.
+export npm_config_include=dev
+
 installed_ids="$(bb plugin list --json 2>/dev/null | jq -r '.plugins[].id' 2>/dev/null || true)"
 
 apply_plugin() {
@@ -159,7 +164,9 @@ apply_plugin() {
     if jq -e '.scripts["harvest:sync"]' package.json >/dev/null 2>&1; then
       npm run --silent harvest:sync
     fi
-    npx tsc --noEmit -p tsconfig.json
+    # --no: a missing TypeScript fails here rather than fetching the unrelated
+    # `tsc` package from the registry.
+    npx --no -- tsc --noEmit -p tsconfig.json
     bb plugin build >/dev/null
     # Staleness is "is dist older than what it was built from", and npm rewrites
     # package-lock.json as part of the install above, which can land after the
