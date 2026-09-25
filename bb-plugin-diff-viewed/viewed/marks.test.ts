@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  fingerprintFromCounts,
   fingerprintFromStats,
+  labelForEntry,
+  reviewProgress,
   isViewed,
   pathFromToggleLabel,
   prune,
   recordKey,
   threadIdFromPath,
   withMark,
+  type DiffFileEntry,
 } from "./marks";
 
 describe("threadIdFromPath", () => {
@@ -56,9 +60,22 @@ describe("fingerprintFromStats", () => {
     expect(fingerprintFromStats("+105 -120")).toBe("+105 -120");
   });
 
-  it("captures the single count a pure add or delete renders", () => {
-    expect(fingerprintFromStats("+19")).toBe("+19");
-    expect(fingerprintFromStats("-19")).toBe("-19");
+  it("fills in the zero count a pure add or delete leaves out", () => {
+    expect(fingerprintFromStats("+19")).toBe("+19 -0");
+    expect(fingerprintFromStats("-19")).toBe("+0 -19");
+  });
+
+  it("reads counts bb groups with commas", () => {
+    expect(fingerprintFromStats("+1,234 -5")).toBe("+1234 -5");
+    expect(fingerprintFromStats("+1,234 -5")).not.toBe(
+      fingerprintFromStats("+1,999 -5"),
+    );
+  });
+
+  it("matches the fingerprint bb's file list produces", () => {
+    expect(fingerprintFromStats("+1,234 -0")).toBe(
+      fingerprintFromCounts({ additions: 1234, deletions: 0 }),
+    );
   });
 
   it("distinguishes a changed diff from the one that was reviewed", () => {
@@ -140,5 +157,52 @@ describe("recordKey", () => {
   it("namespaces marks per thread", () => {
     expect(recordKey("thr_a")).not.toBe(recordKey("thr_b"));
     expect(recordKey("thr_a")).toBe("viewed:thr_a");
+  });
+});
+
+function entry(path: string, overrides: Partial<DiffFileEntry> = {}): DiffFileEntry {
+  return {
+    path,
+    previousPath: null,
+    changeKind: "modified",
+    additions: 8,
+    deletions: 4,
+    binary: false,
+    ...overrides,
+  };
+}
+
+describe("labelForEntry", () => {
+  it("is the path for an ordinary file", () => {
+    expect(labelForEntry(entry("src/a.ts"))).toBe("src/a.ts");
+  });
+
+  it("names both paths for a rename, the way the card does", () => {
+    expect(
+      labelForEntry(
+        entry("src/b.ts", { changeKind: "renamed", previousPath: "src/a.ts" }),
+      ),
+    ).toBe("src/a.ts -> src/b.ts");
+  });
+});
+
+describe("reviewProgress", () => {
+  it("counts only files whose current diff is marked", () => {
+    const record = {
+      "src/a.ts": "+8 -4",
+      "src/b.ts": "+1 -1",
+      "src/gone.ts": "+8 -4",
+    };
+    expect(
+      reviewProgress(record, [entry("src/a.ts"), entry("src/b.ts"), entry("src/c.ts")]),
+    ).toEqual({ viewed: 1, total: 3 });
+  });
+
+  it("counts a binary image marked from its size stat", () => {
+    expect(
+      reviewProgress({ "logo.png": "none" }, [
+        entry("logo.png", { binary: true, additions: 0, deletions: 0 }),
+      ]),
+    ).toEqual({ viewed: 1, total: 1 });
   });
 });

@@ -18,7 +18,7 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | --- | --- | --- |
 | `bb-plugin-automation-palette` | `automation-palette` | Lists your automations in bb's quick palette, so a scheduled sweep can be run by hand without leaving the keyboard. |
 | `bb-plugin-diff-comment` | `diff-comment` | Leave review comments inline on a thread's diff, then have the agent work through them one at a time. |
-| `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes, plus an Only unviewed filter that hides reviewed files. |
+| `bb-plugin-diff-viewed` | `diff-viewed` | Adds a Viewed checkbox to each file in the changes panel, so a reviewed file collapses, dims, and stays that way until its diff changes, with a count of files viewed so far and an Only unviewed filter that hides reviewed files. |
 | `bb-plugin-dynamic-ui` | `dynamic-ui` | Lets a skill show its results above the thread's composer, each item opening in the side panel with buttons to reply, open a thread, run a confirmed command, or open a link, or as a visual review of a UI's variations to pick from and comment on. |
 | `bb-plugin-gh-context` | `gh-context` | A banner above the composer showing the thread's pull request, the GitHub issues it works on, its changes, and a Harvest timer, in place of bb's own. |
 | `bb-plugin-hacks` | `hacks` | Local patches to bb's own UI, standing in for fixes that have not landed upstream. Currently remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads, opens the unread files bb folds away in a large diff, and adds a button to each sidebar project that opens its checkout in your editor. |

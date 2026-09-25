@@ -119,3 +119,14 @@ describe("filter", () => {
     });
   });
 });
+
+describe("problem_report", () => {
+  it("accepts a problem from the content script", async () => {
+    const { harness } = await start();
+    expect(
+      await harness.behavior.callRpc("problem_report", {
+        message: "Could not read the changes panel's file list",
+      }),
+    ).toEqual({ ok: true });
+  });
+});

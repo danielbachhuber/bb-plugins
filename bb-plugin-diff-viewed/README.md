@@ -13,6 +13,10 @@ stays that way until the file's diff changes.
 - Check a file to fold it away. What is still expanded is what you have not
   read yet.
 - Uncheck it to bring it back. Nothing else about the panel changes.
+- The toolbar shows how far you have got, as "3 / 8 viewed" with a progress
+  ring, above bb's own file and line counts. It counts every file in the
+  selected range, including the ones you have not scrolled to yet, and a
+  file only counts while its mark matches its current diff.
 - To hide viewed files entirely, open the range dropdown at the top of the
   panel ("All changes", "Uncommitted changes") and pick **Only unviewed** at
   the bottom. Pick it again to show every file. The choice applies to every
@@ -33,7 +37,8 @@ diff changes: rebase the branch, add a hunk, or revert the file, and it comes
 back expanded and undimmed. An edit that adds and removes the same number of
 lines keeps the mark, since the counts carry no other per-file signal.
 
-Marks for files that leave the diff are pruned when the panel next loads.
+Marks for files that leave the diff are pruned the next time the panel shows
+All changes.
 
 ## Install
 
@@ -71,18 +76,12 @@ The script anchors only on things bb emits deliberately:
 | `aria-expanded` | Reading and driving collapse |
 | `[data-testid="git-diff-toolbar-actions"]` | Knowing the changes panel is open |
 | `[data-testid="git-diff-toolbar-selector-slot"]` and the trigger's `aria-controls` | Finding the open range dropdown to add Only unviewed |
-| `[data-index]` | The virtualized row to hide while Only unviewed is on |
+| `[data-index]` | The virtualized row to hide while Only unviewed is on, and where the file list is read from |
+| `[data-testid="git-diff-toolbar-details"]` | Stacking the progress line above bb's file counts |
 
 No minified class names. If bb changes the header and the anchors stop
 matching, the plugin decorates nothing and bb behaves exactly as it does
-without it.
-
-Only unviewed hides rows with CSS: an attribute on `<html>` turns on a rule
-that sets `display: none` on any row containing a header marked viewed. bb's
-file list is virtualized, and the virtualizer measures each row with a
-`ResizeObserver`, so a hidden row measures as zero height and the rows after it
-move up. Nothing else in bb's state changes, which is why the file count in the
-toolbar still counts every file.
+without it. The one exception is the full file list, described below.
 
 Marks live in the plugin's kv storage, which is what makes them survive a
 reload. Another window picks them up on focus rather than live, because
@@ -97,12 +96,51 @@ in `resolveCard` carry that weight instead: the collapse button must be the
 first child of the header's left span, and the header row must have exactly two
 children and `justify-between`.
 
+### The full file list
+
+bb draws only the file cards near the scroll position, so the DOM never holds
+the whole diff. The progress count and the pruning of old marks both need it,
+so they read the `files` prop of bb's `DiffFilesPanel` from the React fiber on
+a rendered row, along with `target`, the selected range. This is the one
+anchor bb does not emit on purpose, which is why it is checked rather than
+trusted: every entry must have the fields the plugin reads, or the read fails
+with a reason.
+
+A failed read is not silent. The toolbar shows **Viewed progress
+unavailable**, with the reason in its tooltip, and the reason goes to the
+plugin's server log once per window:
+
+```sh
+bb plugin logs diff-viewed
+```
+
+The Viewed checkboxes keep working, and pruning stops, since pruning against
+a partial list would delete marks that are still good. Pruning also runs only
+on the All changes range, because a narrower range leaves out files whose
+marks still apply. To fix a failed read after a bb upgrade, read
+`DiffFilesPanel.tsx` in bb's `apps/app/src/components/secondary-panel/git-diff`
+and update `viewed/files.ts`.
+
+A mark's fingerprint is `+a -b`. The card header leaves out a zero count on an
+added or deleted file and writes thousands with commas, so the header's text
+is normalized to match what the file list gives.
+
+### Only unviewed
+
+Only unviewed hides rows with CSS: an attribute on `<html>` turns on a rule
+that sets `display: none` on any row containing a header marked viewed. bb's
+file list is virtualized, and the virtualizer measures each row with a
+`ResizeObserver`, so a hidden row measures as zero height and the rows after it
+move up. Nothing else in bb's state changes, which is why the file count in the
+toolbar still counts every file.
+
 ## Layout
 
 | Path | Holds |
 | --- | --- |
 | `viewed/marks.ts` | Pure logic: keying, fingerprinting, record changes |
-| `viewed/dom.ts` | Reading and decorating bb's card headers |
+| `viewed/dom.ts` | Reading and decorating bb's card headers, toolbar, and range dropdown |
+| `viewed/files.ts` | Reading the panel's full file list from React props |
 | `viewed/engine.ts` | The sync loop: passes, observers, click handling, cleanup |
 | `server.ts` | RPC contract and kv storage for marks and the filter |
 | `app.tsx` | Wiring only: real fetch, real scheduler, real document |

@@ -55,11 +55,83 @@ export function pathFromToggleLabel(label: string | null): string | null {
  * DOM; it is coarse, so an edit that adds and removes the same number of lines
  * keeps its mark. Everything larger — a rebase, new hunks, a reverted file —
  * moves the counts and clears the mark.
+ *
+ * The header drops a zero count on an added or deleted file and groups
+ * thousands with commas, so both are normalized here to the `+a -b` shape
+ * `fingerprintFromCounts` produces from bb's file list.
  */
 export function fingerprintFromStats(statText: string): string {
-  const counts = statText.match(/[+-]\d+/g);
+  const counts = statText.match(/[+-]\d[\d,]*/g);
   if (counts === null || counts.length === 0) return "none";
-  return counts.join(" ");
+  let additions = 0;
+  let deletions = 0;
+  for (const count of counts) {
+    const value = Number(count.slice(1).replaceAll(",", ""));
+    if (count.startsWith("+")) additions = value;
+    else deletions = value;
+  }
+  return fingerprintFromCounts({ additions, deletions });
+}
+
+/** Fingerprint a file's diff from the counts in bb's file list. */
+export function fingerprintFromCounts(counts: {
+  additions: number;
+  deletions: number;
+}): string {
+  return `+${counts.additions} -${counts.deletions}`;
+}
+
+/** One file in bb's changes panel, as the panel's own file list holds it. */
+export interface DiffFileEntry {
+  path: string;
+  previousPath: string | null;
+  changeKind: string;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+}
+
+/**
+ * The label bb puts on this file's card, which is what a mark is keyed on:
+ * the path, or `previous -> current` for a rename or copy. Mirrors
+ * `formatDiffEntryLabel` in bb's DiffFileCard.
+ */
+export function labelForEntry(entry: DiffFileEntry): string {
+  if (
+    (entry.changeKind === "renamed" || entry.changeKind === "copied") &&
+    entry.previousPath !== null &&
+    entry.previousPath !== "" &&
+    entry.previousPath !== entry.path
+  ) {
+    return `${entry.previousPath} -> ${entry.path}`;
+  }
+  return entry.path;
+}
+
+/** How far through a diff the marks go. */
+export interface ReviewProgress {
+  viewed: number;
+  total: number;
+}
+
+/**
+ * Count the files in `entries` whose current diff is marked viewed. A binary
+ * image's header shows its size rather than counts, so its mark was stored as
+ * `none` and is counted on that.
+ */
+export function reviewProgress(
+  record: ViewedRecord,
+  entries: readonly DiffFileEntry[],
+): ReviewProgress {
+  let viewed = 0;
+  for (const entry of entries) {
+    const mark = record[labelForEntry(entry)];
+    if (mark === undefined) continue;
+    if (mark === fingerprintFromCounts(entry) || (entry.binary && mark === "none")) {
+      viewed += 1;
+    }
+  }
+  return { viewed, total: entries.length };
 }
 
 /** Whether this exact diff of this file has been marked viewed. */

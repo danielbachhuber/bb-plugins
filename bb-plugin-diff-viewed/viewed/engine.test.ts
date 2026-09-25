@@ -7,12 +7,62 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startEngine, type Engine } from "./engine";
 import { FILTER_ATTR, OWNED_ATTR, VIEWED_ATTR } from "./dom";
+import type { DiffFileEntry } from "./marks";
 
 const THREAD = "/projects/proj_x/threads/thr_a";
 
+/**
+ * bb's changes panel holds every file in a `files` prop, and each rendered row
+ * reaches it through React's fiber. These stand in for both: `panel.files`
+ * is the whole diff, whether or not a card for a file is rendered.
+ */
+const panel: { files: DiffFileEntry[]; targetType: string } = {
+  files: [],
+  targetType: "all",
+};
+
+function fileEntry(path: string, stats = "+2 -2"): DiffFileEntry {
+  const [, additions = "0", deletions = "0"] = /\+(\d+) -(\d+)/.exec(stats) ?? [];
+  return {
+    path,
+    previousPath: null,
+    changeKind: "modified",
+    additions: Number(additions),
+    deletions: Number(deletions),
+    binary: false,
+  };
+}
+
+function attachFiber(row: HTMLElement): void {
+  Object.assign(row, {
+    __reactFiber$test: {
+      memoizedProps: { className: "absolute left-0 w-full" },
+      return: {
+        memoizedProps: { className: "relative w-full" },
+        return: {
+          memoizedProps: {
+            get files() {
+              return panel.files;
+            },
+            get target() {
+              return { type: panel.targetType };
+            },
+          },
+          return: null,
+        },
+      },
+    },
+  });
+}
+
 /** A card header plus the bit of bb behavior that responds to a click. */
 function renderCard(path: string, stats = "+2 -2"): HTMLButtonElement {
+  if (!panel.files.some((file) => file.path === path)) {
+    panel.files.push(fileEntry(path, stats));
+  }
   const host = document.createElement("div");
+  host.setAttribute("data-index", String(panel.files.length - 1));
+  attachFiber(host);
   host.innerHTML = `
     <div class="flex w-full min-w-0 items-center justify-between gap-2">
       <span class="flex min-w-0 items-center">
@@ -34,6 +84,9 @@ function renderCard(path: string, stats = "+2 -2"): HTMLButtonElement {
 }
 
 function renderToolbar(): HTMLElement {
+  const details = document.createElement("div");
+  details.setAttribute("data-testid", "git-diff-toolbar-details");
+  details.innerHTML = `<span data-testid="git-diff-toolbar-summary">2 files, +4 -4</span>`;
   const toolbar = document.createElement("div");
   toolbar.setAttribute("data-testid", "git-diff-toolbar-actions");
   toolbar.innerHTML = `
@@ -41,7 +94,8 @@ function renderToolbar(): HTMLElement {
     <button type="button" aria-label="Wrap diff lines" aria-pressed="false"></button>
     <button type="button" aria-label="Stacked diff view" aria-pressed="true"></button>
     <button type="button" aria-label="Split diff view" aria-pressed="false"></button>`;
-  document.body.prepend(toolbar);
+  details.append(toolbar);
+  document.body.prepend(details);
   return toolbar;
 }
 
@@ -95,6 +149,8 @@ function start(
     record?: Record<string, string>;
     pathname?: string;
     onlyUnviewed?: boolean;
+    /** Collect warnings instead of failing the test on the first one. */
+    warnings?: unknown[];
   } = {},
 ): Harness {
   const calls: { method: string; input: unknown }[] = [];
@@ -131,7 +187,8 @@ function start(
       return () => {};
     },
     warn: (cause) => {
-      throw cause;
+      if (options.warnings === undefined) throw cause;
+      options.warnings.push(cause);
     },
   });
   started.push(engine);
@@ -150,6 +207,8 @@ function start(
 }
 
 beforeEach(() => {
+  panel.files = [];
+  panel.targetType = "all";
   controller = new AbortController();
   started = [];
 });
@@ -444,5 +503,146 @@ describe("Only unviewed", () => {
     harness.engine.syncNow();
 
     expect(document.documentElement.hasAttribute(FILTER_ATTR)).toBe(false);
+  });
+});
+
+function progressText(): string | null {
+  return document.querySelector("[data-diff-viewed-progress]")?.textContent ?? null;
+}
+
+describe("review progress", () => {
+  it("counts marks across the whole diff, not only rendered cards", async () => {
+    renderToolbar();
+    renderCard("a.ts", "+8 -4");
+    // Two more files bb has not rendered, one of them viewed.
+    panel.files.push(fileEntry("b.ts", "+1 -1"), fileEntry("c.ts", "+3 -0"));
+    const harness = start({ record: { "a.ts": "+8 -4", "c.ts": "+3 -0" } });
+    await harness.settle();
+
+    expect(progressText()).toBe("2 / 3 viewed");
+  });
+
+  it("does not count a mark on a file whose diff has changed", async () => {
+    renderToolbar();
+    renderCard("a.ts", "+9 -4");
+    const harness = start({ record: { "a.ts": "+8 -4" } });
+    await harness.settle();
+
+    expect(progressText()).toBe("0 / 1 viewed");
+  });
+
+  it("moves when a file is marked", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts");
+    renderCard("b.ts");
+    const harness = start();
+    await harness.settle();
+    expect(progressText()).toBe("0 / 2 viewed");
+
+    checkboxFor(toggle)!.click();
+    await harness.settle();
+
+    expect(progressText()).toBe("1 / 2 viewed");
+  });
+
+  it("goes away with the changes panel", async () => {
+    const toolbar = renderToolbar();
+    renderCard("a.ts");
+    const harness = start();
+    await harness.settle();
+
+    toolbar.remove();
+    harness.engine.syncNow();
+
+    expect(progressText()).toBeNull();
+  });
+});
+
+describe("pruning", () => {
+  it("keeps marks on files bb has not rendered yet", async () => {
+    renderToolbar();
+    renderCard("a.ts", "+8 -4");
+    panel.files.push(fileEntry("b.ts", "+1 -1"));
+    const harness = start({
+      record: { "a.ts": "+8 -4", "b.ts": "+1 -1", "gone.ts": "+2 -2" },
+    });
+    await harness.settle();
+    await harness.settle();
+
+    expect(harness.calls).toContainEqual({
+      method: "viewed_prune",
+      input: { threadId: "thr_a", presentPaths: ["a.ts", "b.ts"] },
+    });
+  });
+
+  it("does not prune from a narrower range than All changes", async () => {
+    panel.targetType = "uncommitted";
+    renderToolbar();
+    renderCard("a.ts");
+    const harness = start({ record: { "b.ts": "+1 -1" } });
+    await harness.settle();
+    await harness.settle();
+
+    expect(harness.calls.map((call) => call.method)).not.toContain("viewed_prune");
+  });
+});
+
+describe("when bb's file list cannot be read", () => {
+  function renderUnreadableCard(): void {
+    renderCard("a.ts");
+    const row = document.querySelector("[data-index]")!;
+    delete (row as unknown as Record<string, unknown>).__reactFiber$test;
+  }
+
+  it("says so in the toolbar instead of hiding the progress", async () => {
+    renderToolbar();
+    renderUnreadableCard();
+    const harness = start({ warnings: [] });
+    await harness.settle();
+
+    expect(progressText()).toBe("Viewed progress unavailable");
+    const line = document.querySelector<HTMLElement>("[data-diff-viewed-progress]");
+    expect(line?.title).toContain("the row carries no React fiber");
+  });
+
+  it("logs the problem to the server once", async () => {
+    renderToolbar();
+    renderUnreadableCard();
+    const warnings: unknown[] = [];
+    const harness = start({ warnings });
+    await harness.settle();
+    harness.engine.syncNow();
+    harness.engine.syncNow();
+
+    const reports = harness.calls.filter((call) => call.method === "problem_report");
+    expect(reports).toEqual([
+      {
+        method: "problem_report",
+        input: {
+          message:
+            "Could not read the changes panel's file list: the row carries no React fiber",
+        },
+      },
+    ]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("does not prune", async () => {
+    renderToolbar();
+    renderUnreadableCard();
+    const harness = start({ warnings: [], record: { "b.ts": "+1 -1" } });
+    await harness.settle();
+    await harness.settle();
+
+    expect(harness.calls.map((call) => call.method)).not.toContain("viewed_prune");
+  });
+
+  it("keeps the Viewed checkboxes working", async () => {
+    renderToolbar();
+    renderUnreadableCard();
+    const harness = start({ warnings: [] });
+    await harness.settle();
+
+    expect(document.querySelector(`label[${OWNED_ATTR}] input`)).not.toBeNull();
   });
 });

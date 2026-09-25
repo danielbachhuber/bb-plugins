@@ -50,6 +50,10 @@ export const rpcContract = defineRpcContract({
     input: z.object({ onlyUnviewed: z.boolean() }).strict(),
     output: z.object({ onlyUnviewed: z.boolean() }),
   },
+  problem_report: {
+    input: z.object({ message: z.string().trim().min(1).max(1000) }).strict(),
+    output: z.object({ ok: z.literal(true) }),
+  },
 });
 
 /**
@@ -108,6 +112,13 @@ export default async function plugin(bb: BbPluginApi) {
     filter_set: async ({ onlyUnviewed }) => {
       await bb.storage.kv.set(FILTER_KEY, onlyUnviewed);
       return { onlyUnviewed };
+    },
+    // The content script calls this when it cannot read bb's DOM the way it
+    // expects, so a bb update that breaks the plugin shows up in
+    // `bb plugin logs diff-viewed` and not only in a devtools console.
+    problem_report: async ({ message }) => {
+      bb.log.warn(message);
+      return { ok: true as const };
     },
   });
 

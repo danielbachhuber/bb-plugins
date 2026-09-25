@@ -18,10 +18,18 @@ import {
   findToolbar,
   paintCard,
   paintFilterItem,
+  renderProgress,
   undecorate,
   type DiffCard,
 } from "./dom";
-import { isViewed, threadIdFromPath, type ViewedRecord } from "./marks";
+import { readDiffFiles, rowOf, type DiffFilesRead } from "./files";
+import {
+  isViewed,
+  labelForEntry,
+  reviewProgress,
+  threadIdFromPath,
+  type ViewedRecord,
+} from "./marks";
 
 export type RecordResult = { record: ViewedRecord };
 export type FilterResult = { onlyUnviewed: boolean };
@@ -81,6 +89,9 @@ export function startEngine(deps: EngineDeps): Engine {
   let writing = false;
   let cancel: (() => void) | null = null;
   let loading: Promise<void> | null = null;
+  // Problems already sent to the server log, so a broken read is logged once
+  // per window rather than on every pass.
+  const reported = new Set<string>();
 
   const fail = (cause: unknown) => {
     // A failed write must not leave the checkbox showing a state the server
@@ -213,6 +224,60 @@ export function startEngine(deps: EngineDeps): Engine {
     paintFilterItem(item, state.onlyUnviewed);
   }
 
+  function report(message: string): void {
+    if (reported.has(message)) return;
+    reported.add(message);
+    warn(new Error(message));
+    rpc("problem_report", { message }).catch(() => {});
+  }
+
+  /**
+   * Show review progress for the whole diff, and prune marks against it.
+   *
+   * Both need every file in the diff, not only the cards bb has drawn, so both
+   * come from the panel's own file list. When that list cannot be read the
+   * toolbar says so and the problem is logged; nothing is pruned, since
+   * pruning against a partial list is what deletes marks that are still good.
+   */
+  function syncProgress(threadId: string, cards: readonly DiffCard[]): void {
+    const first = cards[0];
+    if (first === undefined) {
+      renderProgress(doc, null);
+      return;
+    }
+    const row = rowOf(first.headerRow);
+    const read: DiffFilesRead =
+      row === null
+        ? { status: "unreadable", reason: "the card is not inside a [data-index] row" }
+        : readDiffFiles(row);
+    if (read.status === "unreadable") {
+      renderProgress(doc, { kind: "unavailable", reason: read.reason });
+      report(`Could not read the changes panel's file list: ${read.reason}`);
+      return;
+    }
+    renderProgress(doc, {
+      kind: "progress",
+      ...reviewProgress(state.record, read.files),
+    });
+
+    // Prune once per thread, against the full range only: a narrower range
+    // such as Uncommitted leaves out files whose marks are still good.
+    if (state.pruned || read.targetType !== "all" || loading === null) return;
+    state.pruned = true;
+    const presentPaths = read.files.map(labelForEntry);
+    void loading.then(() => {
+      if (signal.aborted || state.threadId !== threadId) return;
+      rpc<RecordResult>("viewed_prune", { threadId, presentPaths }).then(
+        ({ record }) => {
+          if (signal.aborted || state.threadId !== threadId) return;
+          state.record = record;
+          schedule();
+        },
+        fail,
+      );
+    });
+  }
+
   function decorate(cards: readonly DiffCard[]): void {
     writing = true;
     try {
@@ -257,6 +322,7 @@ export function startEngine(deps: EngineDeps): Engine {
       writing = true;
       undecorate(doc.body);
       applyFilter(false);
+      renderProgress(doc, null);
       writing = false;
       return;
     }
@@ -266,26 +332,9 @@ export function startEngine(deps: EngineDeps): Engine {
     writing = true;
     try {
       applyFilter(true);
+      syncProgress(threadId, visible);
     } finally {
       writing = false;
-    }
-
-    // Prune once per thread, after the first pass that produced cards, so a
-    // thread never accumulates marks for files that left its diff.
-    if (!state.pruned && visible.length > 0 && loading !== null) {
-      state.pruned = true;
-      const threadForPrune = threadId;
-      void loading.then(() => {
-        if (signal.aborted || state.threadId !== threadForPrune) return;
-        rpc<RecordResult>("viewed_prune", {
-          threadId: threadForPrune,
-          presentPaths: visible.map((card) => card.path),
-        }).then(({ record }) => {
-          if (signal.aborted || state.threadId !== threadForPrune) return;
-          state.record = record;
-          schedule();
-        }, fail);
-      });
     }
   }
 

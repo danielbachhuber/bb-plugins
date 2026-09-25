@@ -27,6 +27,10 @@ export const OWNED_ATTR = "data-diff-viewed-owned";
 export const VIEWED_ATTR = "data-diff-viewed";
 /** Set on `<html>` while Only unviewed is on. Drives the hiding. */
 export const FILTER_ATTR = "data-diff-viewed-only-unviewed";
+/** Set on the toolbar's details group while it holds the progress line. */
+const PROGRESS_HOST_ATTR = "data-diff-viewed-progress-host";
+/** Marks the progress line this plugin adds above bb's file counts. */
+const PROGRESS_ATTR = "data-diff-viewed-progress";
 /** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
 const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
 /** Timeline diffs, which are deliberately out of scope: the same path recurs
@@ -192,6 +196,24 @@ export const STYLE_TEXT = `
 [${FILTER_ATTR}] [data-index]:has([${VIEWED_ATTR}="true"]) {
   display: none;
 }
+[${PROGRESS_HOST_ATTR}] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "progress actions" "summary actions";
+  align-items: center;
+  column-gap: 0.75rem;
+}
+[${PROGRESS_HOST_ATTR}] > [${PROGRESS_ATTR}] {
+  grid-area: progress;
+}
+[${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] {
+  grid-area: summary;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+[${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-actions"] {
+  grid-area: actions;
+}
 `;
 
 /**
@@ -205,6 +227,94 @@ export const TOOLBAR_SELECTOR = '[data-testid="git-diff-toolbar-actions"]';
 export function findToolbar(root: ParentNode): HTMLElement | null {
   const toolbar = root.querySelector(TOOLBAR_SELECTOR);
   return toolbar instanceof HTMLElement ? toolbar : null;
+}
+
+/**
+ * The toolbar group holding bb's "N files, +a -b" summary and the action
+ * buttons. The progress line is stacked above the summary inside it.
+ */
+const DETAILS_SELECTOR = '[data-testid="git-diff-toolbar-details"]';
+
+/** What the progress line shows. */
+export type ProgressView =
+  | { kind: "progress"; viewed: number; total: number }
+  | { kind: "unavailable"; reason: string };
+
+const RING_RADIUS = 6;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function ringSvg(viewed: number, total: number): string {
+  const fraction = total === 0 ? 0 : viewed / total;
+  const complete = total > 0 && viewed === total;
+  const dash = (fraction * RING_CIRCUMFERENCE).toFixed(2);
+  const color = complete ? "var(--success)" : "var(--primary)";
+  return (
+    '<svg viewBox="0 0 16 16" class="h-3.5 w-3.5 shrink-0 -rotate-90" aria-hidden="true">' +
+    `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2"/>` +
+    `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="${color}" stroke-width="2" ` +
+    `stroke-linecap="round" stroke-dasharray="${dash} ${RING_CIRCUMFERENCE.toFixed(2)}"` +
+    (fraction === 0 ? ' stroke-opacity="0"' : "") +
+    "/></svg>"
+  );
+}
+
+function progressMarkup(view: ProgressView): { html: string; title: string } {
+  if (view.kind === "unavailable") {
+    return {
+      html:
+        '<span class="truncate text-muted-foreground">Viewed progress unavailable</span>',
+      title:
+        `Diff Viewed could not read this panel's file list: ${view.reason}. ` +
+        "A bb update probably changed the changes panel; see the plugin's README.",
+    };
+  }
+  const { viewed, total } = view;
+  return {
+    html:
+      ringSvg(viewed, total) +
+      '<span class="truncate">' +
+      `<span class="text-foreground">${viewed}</span>` +
+      '<span class="text-muted-foreground"> / </span>' +
+      `<span class="text-foreground">${total}</span>` +
+      '<span class="text-muted-foreground"> viewed</span></span>',
+    title: `${viewed} of ${total} file${total === 1 ? "" : "s"} viewed`,
+  };
+}
+
+/**
+ * Show `view` above bb's file counts, or remove the line when `view` is null.
+ * Rewrites the line only when what it says changes, so a pass that finds
+ * nothing new does not touch the DOM.
+ */
+export function renderProgress(doc: Document, view: ProgressView | null): void {
+  const details = doc.querySelector(DETAILS_SELECTOR);
+  if (!(details instanceof HTMLElement)) return;
+  let line = details.querySelector(`:scope > [${PROGRESS_ATTR}]`);
+  if (view === null) {
+    line?.remove();
+    details.removeAttribute(PROGRESS_HOST_ATTR);
+    return;
+  }
+  if (!(line instanceof HTMLElement)) {
+    line = doc.createElement("div");
+    line.setAttribute(OWNED_ATTR, "");
+    line.setAttribute(PROGRESS_ATTR, "");
+    line.className =
+      "flex min-w-0 items-center gap-1.5 pl-2.5 text-sm leading-4";
+    details.append(line);
+  }
+  if (!details.hasAttribute(PROGRESS_HOST_ATTR)) {
+    details.setAttribute(PROGRESS_HOST_ATTR, "");
+  }
+  // Compared on a key rather than on innerHTML, which the browser
+  // re-serializes and so would never equal the markup it was given.
+  const element = line as HTMLElement;
+  const key = JSON.stringify(view);
+  if (element.getAttribute(PROGRESS_ATTR) === key) return;
+  const { html, title } = progressMarkup(view);
+  element.innerHTML = html;
+  element.title = title;
+  element.setAttribute(PROGRESS_ATTR, key);
 }
 
 /**
@@ -300,5 +410,8 @@ export function undecorate(root: ParentNode): void {
   for (const owned of root.querySelectorAll(`[${OWNED_ATTR}]`)) owned.remove();
   for (const row of root.querySelectorAll(`[${VIEWED_ATTR}]`)) {
     row.removeAttribute(VIEWED_ATTR);
+  }
+  for (const host of root.querySelectorAll(`[${PROGRESS_HOST_ATTR}]`)) {
+    host.removeAttribute(PROGRESS_HOST_ATTR);
   }
 }
