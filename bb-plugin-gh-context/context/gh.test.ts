@@ -89,6 +89,7 @@ describe("pullRequest", () => {
       author: null,
       latestReviews: {},
       requestedReviewers: [],
+      checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
     });
   });
 
@@ -133,7 +134,7 @@ describe("pullRequest", () => {
       "--repo",
       "acme/widgets",
       "--json",
-      "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests",
+      "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup",
     ]);
   });
 });
@@ -148,6 +149,7 @@ describe("myReview", () => {
     author: "hubber",
     latestReviews: {},
     requestedReviewers: [],
+    checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
     ...fields,
   });
 

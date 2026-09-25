@@ -229,6 +229,7 @@ export default async function plugin(bb: BbPluginApi) {
     const fetched = await (await ghClient()).pullRequest(linked);
     const url = fetched?.url ?? `https://github.com/${linked.repo}/pull/${linked.number}`;
     const state = fetched?.state ?? "open";
+    const checks = fetched?.checks ?? null;
     return {
       baseRefName: null,
       pullRequest: {
@@ -237,8 +238,17 @@ export default async function plugin(bb: BbPluginApi) {
         title: fetched?.title ?? `#${linked.number}`,
         url,
         state,
-        attention: state === "open" ? "none" : state,
-        checks: null,
+        attention:
+          state !== "open"
+            ? state
+            : checks?.state === "failing"
+              ? "checks_failed"
+              : checks?.state === "pending"
+                ? "checks_pending"
+                : "none",
+        // From gh rather than bb, which only knows the checks of the branch a
+        // thread is on. Merging still goes through bb, so it stays off.
+        checks,
         canMerge: false,
         myReview: await myReviewOf(linked),
       },

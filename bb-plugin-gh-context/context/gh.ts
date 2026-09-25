@@ -1,4 +1,5 @@
 import type { GhRunner } from "@danielb/gh-shared/gh";
+import { summarizeChecks, type Checks, type RollupEntry } from "./checks.js";
 import type { MyReview } from "./contract.js";
 import type { IssueRef } from "./rules.js";
 
@@ -31,6 +32,7 @@ export interface GhPullRequest {
   latestReviews: Record<string, ReviewVerdict>;
   /** Logins, lowercased, of users whose review request is still outstanding. */
   requestedReviewers: string[];
+  checks: Checks;
 }
 
 export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
@@ -69,6 +71,7 @@ interface PullRequestJson {
   }>;
   reviews?: Array<{ author?: { login?: unknown } | null; state?: unknown; submittedAt?: unknown }>;
   reviewRequests?: Array<{ login?: unknown }>;
+  statusCheckRollup?: RollupEntry[] | null;
 }
 
 /** A review that was actually submitted. PENDING reviews are drafts. */
@@ -172,6 +175,7 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
     author: typeof json.author?.login === "string" ? json.author.login.toLowerCase() : null,
     latestReviews: latestReviews(json.reviews ?? []),
     requestedReviewers: logins((json.reviewRequests ?? []).map((request) => request.login)),
+    checks: summarizeChecks(json.statusCheckRollup),
   };
 }
 
@@ -226,7 +230,7 @@ export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
               "--repo",
               ref.repo,
               "--json",
-              "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests",
+              "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup",
             ]),
           ) as PullRequestJson,
         ),

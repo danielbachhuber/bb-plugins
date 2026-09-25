@@ -65,7 +65,8 @@ merges or closes.
 
 The pull request is bb's own lookup for the thread's branch. For a thread that
 is not on the branch, such as a review, it is the pull request a sweep linked
-the thread to; that one shows no checks and cannot be merged from the banner.
+the thread to. Its checks come from `gh` instead, counted the same way, and it
+cannot be merged from the banner.
 
 ## Hiding bb's banner
 
@@ -122,6 +123,7 @@ display-only.
 | `context/rules.ts` | The three linking rules, as pure functions over prompt text and pull request data |
 | `context/store.ts` | `thread_links` and `prompt_scan` |
 | `context/gh.ts` | The only place `gh` runs, with its cache |
+| `context/checks.ts` | Counts a pull request's checks from `gh`'s rollup the way bb does |
 | `context/contract.ts` | The RPC contract, including the bridge's methods and Harvest's relayed ones |
 | `context/hide.ts` | The content script that hides bb's banner |
 | `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |
