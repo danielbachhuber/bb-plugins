@@ -158,16 +158,19 @@ installed_ids="$(bb plugin list --json 2>/dev/null | jq -r '.plugins[].id' 2>/de
 apply_plugin() {
   local plugin="$1" id="$2"
   echo "==> $id"
+  # Every step ends in `|| exit 1` because bash ignores `set -e` inside a
+  # subshell that is followed by `||`, and would carry on past a failed install
+  # or typecheck to build and reload anyway.
   (
-    cd "$plugin"
-    npm install --silent
+    cd "$plugin" || exit 1
+    npm install --silent || exit 1
     if jq -e '.scripts["harvest:sync"]' package.json >/dev/null 2>&1; then
-      npm run --silent harvest:sync
+      npm run --silent harvest:sync || exit 1
     fi
     # --no: a missing TypeScript fails here rather than fetching the unrelated
     # `tsc` package from the registry.
-    npx --no -- tsc --noEmit -p tsconfig.json
-    bb plugin build >/dev/null
+    npx --no -- tsc --noEmit -p tsconfig.json || exit 1
+    bb plugin build >/dev/null || exit 1
     # Staleness is "is dist older than what it was built from", and npm rewrites
     # package-lock.json as part of the install above, which can land after the
     # build it preceded. Stamping the artifacts this build just produced makes
