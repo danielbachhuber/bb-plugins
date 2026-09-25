@@ -13,7 +13,7 @@ export interface ViewBannerProps {
   stored: StoredView;
   collapsed: boolean;
   onToggle: () => void;
-  /** Marks the view done: hides it from above the composer until the thread publishes again. */
+  /** Dismisses the view: hides it from above the composer until the thread publishes again. */
   onHide: () => void;
   /** Which item has an action in flight. */
   busyItem: string | null;
@@ -77,10 +77,10 @@ export function ViewBanner({
           type="button"
           className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground"
           onClick={onHide}
-          aria-label="Done"
-          title="Done: hide until this thread publishes again"
+          aria-label="Dismiss"
+          title="Dismiss: hide until this thread publishes again"
         >
-          <Icon name="Check" className="size-4" />
+          <Icon name="Archive" className="size-4" />
         </button>
       </div>
       {collapsed ? null : (
