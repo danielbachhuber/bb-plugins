@@ -19,9 +19,10 @@ which of your messages used the most.
   shows the other two.
 - **The thread list** has the threads that used tokens in the period, most
   first, with each one's project, provider, number of turns, and total. Above
-  it, "Active | Archived | All" picks which threads it lists, with a count on
-  each; it starts on Active. Archived threads, and deleted ones, are dimmed and
-  labeled "Archived". Beside each total is a sparkline of when that thread used
+  it, "Active | Recently active | Older" picks which threads it lists, with a
+  count on each; it starts on Active. Recently active lists the threads
+  archived in the past three days, and Older the ones archived before that.
+  Archived threads, and deleted ones, are dimmed and labeled "Archived". Beside each total is a sparkline of when that thread used
   its tokens, on the same hours or days as the chart and scaled to the thread's
   own busiest one, so a thread still running when you expected it to stop shows
   bars at the right end. Click a row to open the thread.
@@ -142,7 +143,7 @@ before it.
 | `usage/contract.ts` | The RPC contract and the realtime channel |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
-| `components/thread-usage-list.tsx` | The thread list under the chart, its Active and Archived filter, and each row's sparkline |
+| `components/thread-usage-list.tsx` | The thread list under the chart, its Active, Recently active, and Older filter, and each row's sparkline |
 | `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |

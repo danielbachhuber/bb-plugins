@@ -6,18 +6,29 @@ import { totalOf } from "@/usage/breakdown";
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
 
-export type Lifecycle = "active" | "archived" | "all";
+export type Lifecycle = "active" | "recent" | "older";
 
 export const LIFECYCLES: ReadonlyArray<{ id: Lifecycle; label: string }> = [
   { id: "active", label: "Active" },
-  { id: "archived", label: "Archived" },
-  { id: "all", label: "All" },
+  { id: "recent", label: "Recently active" },
+  { id: "older", label: "Older" },
 ];
 
-/** The threads a lifecycle choice lists. Deleted threads count as archived. */
-export function threadsIn(threads: readonly ThreadUsage[], lifecycle: Lifecycle): ThreadUsage[] {
-  if (lifecycle === "all") return [...threads];
-  return threads.filter((thread) => (thread.archivedAt === null) === (lifecycle === "active"));
+/** How long an archived thread still counts as recently active. */
+export const RECENT_MS = 3 * 24 * 3_600_000;
+
+function lifecycleOf(thread: ThreadUsage, now: number): Lifecycle {
+  if (thread.archivedAt === null) return "active";
+  return now - thread.archivedAt <= RECENT_MS ? "recent" : "older";
+}
+
+/**
+ * The threads a lifecycle choice lists: active ones, those archived in the
+ * past three days, or those archived before that. Deleted threads count as
+ * archived.
+ */
+export function threadsIn(threads: readonly ThreadUsage[], lifecycle: Lifecycle, now: number): ThreadUsage[] {
+  return threads.filter((thread) => lifecycleOf(thread, now) === lifecycle);
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -76,14 +87,14 @@ function RowSpark({ totals }: { totals: readonly number[] }) {
 
 const EMPTY: Record<Lifecycle, string> = {
   active: "No active thread used tokens in this period.",
-  archived: "No archived thread used tokens in this period.",
-  all: "No thread used tokens in this period.",
+  recent: "No thread archived in the past three days used tokens in this period.",
+  older: "No thread archived more than three days ago used tokens in this period.",
 };
 
 export function ThreadUsageList({
   threads,
   bars,
-  lifecycle = "all",
+  lifecycle = "active",
   onOpen,
 }: {
   /** Already narrowed to the lifecycle; the lifecycle only picks the empty message. */

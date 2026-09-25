@@ -52,7 +52,8 @@ function thread(
   cacheRead: number,
   /** How many hours before NOW each hour of its use began. */
   busyHoursAgo: number[],
-  archived = false,
+  /** How many hours before NOW it was archived, or null while it is active. */
+  archivedHoursAgo: number | null = null,
 ): ThreadUsage {
   const input = Math.round(cacheRead * 0.02);
   const output = Math.round(cacheRead * 0.006);
@@ -65,7 +66,7 @@ function thread(
     projectId: `prj_${projectName}`,
     projectName,
     providerId: threadId.endsWith("x") ? "codex" : "claude-code",
-    archivedAt: archived ? hourAgo(2) : null,
+    archivedAt: archivedHoursAgo === null ? null : hourAgo(archivedHoursAgo),
     turns,
     hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
     input,
@@ -80,9 +81,11 @@ const THREADS: ThreadUsage[] = [
   // Busy all day and still going in the latest hour.
   thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)]),
   thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2)),
-  thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), true),
+  thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), 2),
   thread("thr_a4", null, "gadgets", 3, 2_100_000, [3]),
-  thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000, [20], true),
+  thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000, [20], 18),
+  // Archived four days ago, so only the past week lists it, under Older.
+  thread("thr_a6", "Bump the widgets lint config", "widgets", 6, 4_800_000, range(110, 104), 100),
 ];
 
 function dataFor(range: RangeId, recordingSince?: number): UsageData {
@@ -91,7 +94,7 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
     since: span.since,
     bars: fillBars(span.bars, fixtureHours(span.since)),
     unit: span.unit,
-    threads: THREADS,
+    threads: THREADS.filter((thread) => thread.hours.some(({ hour }) => hour >= span.since)),
     recordingSince: recordingSince ?? span.since - HOUR,
   };
 }
@@ -114,6 +117,7 @@ function Page({
       error={null}
       onOpenThread={() => undefined}
       initialHovered={initialHovered}
+      now={NOW.getTime()}
     />
   );
 }
@@ -128,15 +132,29 @@ export const PastThreeDays = () => <Page initial="three-days" />;
 
 export const PastWeek = () => <Page initial="week" recordingSince={NOW.getTime() - 4 * 24 * HOUR} />;
 
-/** Every thread listed, so archived rows sit among active ones. */
-export const AllThreads = () => (
+/** Threads archived in the past three days, dimmed and labeled Archived. */
+export const RecentlyActiveThreads = () => (
   <UsageView
     range="day"
     onRange={() => undefined}
     data={dataFor("day")}
     error={null}
     onOpenThread={() => undefined}
-    initialLifecycle="all"
+    initialLifecycle="recent"
+    now={NOW.getTime()}
+  />
+);
+
+/** Over the past week, a thread archived more than three days ago lists under Older. */
+export const OlderThreads = () => (
+  <UsageView
+    range="week"
+    onRange={() => undefined}
+    data={dataFor("week", NOW.getTime() - 7 * 24 * HOUR)}
+    error={null}
+    onOpenThread={() => undefined}
+    initialLifecycle="older"
+    now={NOW.getTime()}
   />
 );
 
@@ -147,6 +165,7 @@ export const Empty = () => (
     data={{ ...dataFor("day"), bars: windowFor("day", NOW).bars, threads: [] }}
     error={null}
     onOpenThread={() => undefined}
+    now={NOW.getTime()}
   />
 );
 

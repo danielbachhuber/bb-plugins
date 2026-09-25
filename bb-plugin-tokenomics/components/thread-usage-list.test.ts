@@ -11,12 +11,18 @@ function thread(threadId: string, archivedAt: number | null, hours: ThreadUsage[
 }
 
 describe("threadsIn", () => {
-  const threads = [thread("thr_active", null), thread("thr_archived", 1)];
+  const now = 10 * 24 * HOUR;
+  const threads = [
+    thread("thr_active", null),
+    thread("thr_recent", now - 2 * HOUR),
+    thread("thr_edge", now - 72 * HOUR),
+    thread("thr_older", now - 73 * HOUR),
+  ];
 
-  it("lists active, archived, or every thread", () => {
-    expect(threadsIn(threads, "active").map((t) => t.threadId)).toEqual(["thr_active"]);
-    expect(threadsIn(threads, "archived").map((t) => t.threadId)).toEqual(["thr_archived"]);
-    expect(threadsIn(threads, "all")).toHaveLength(2);
+  it("splits active threads from those archived in the past three days and before", () => {
+    expect(threadsIn(threads, "active", now).map((t) => t.threadId)).toEqual(["thr_active"]);
+    expect(threadsIn(threads, "recent", now).map((t) => t.threadId)).toEqual(["thr_recent", "thr_edge"]);
+    expect(threadsIn(threads, "older", now).map((t) => t.threadId)).toEqual(["thr_older"]);
   });
 });
 

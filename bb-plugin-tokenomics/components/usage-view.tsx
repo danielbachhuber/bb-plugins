@@ -38,6 +38,7 @@ export function UsageView({
   onOpenThread,
   initialHovered,
   initialLifecycle = "active",
+  now = Date.now(),
 }: {
   range: RangeId;
   onRange: (range: RangeId) => void;
@@ -47,6 +48,8 @@ export function UsageView({
   /** A bar to show hovered on first render, for stories. */
   initialHovered?: number;
   initialLifecycle?: Lifecycle;
+  /** What "recently" is measured from; stories pin it. */
+  now?: number;
 }) {
   const [lifecycle, setLifecycle] = useState<Lifecycle>(initialLifecycle);
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
@@ -99,7 +102,7 @@ export function UsageView({
           {data === null ? null : (
             <Segmented
               label="Threads to list"
-              options={LIFECYCLES.map((option) => ({ ...option, count: threadsIn(data.threads, option.id).length }))}
+              options={LIFECYCLES.map((option) => ({ ...option, count: threadsIn(data.threads, option.id, now).length }))}
               value={lifecycle}
               onChange={setLifecycle}
             />
@@ -107,7 +110,7 @@ export function UsageView({
         </div>
         {data === null ? null : (
           <ThreadUsageList
-            threads={threadsIn(data.threads, lifecycle)}
+            threads={threadsIn(data.threads, lifecycle, now)}
             bars={data.bars}
             lifecycle={lifecycle}
             onOpen={onOpenThread}
