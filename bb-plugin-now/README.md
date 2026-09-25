@@ -8,12 +8,14 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows how many rows need
 action: everything the last sync found, less what is snoozed. It loads every
-configured source at once and merges their items into one list, shown one
-section at a time. The header picks the section on the left (**Now**,
-**Inbox**, **Anytime**, each with its count) and narrows it to one source on
-the right (**Gmail**, **Todoist**, each with its count in that section; press
-one again to see both, and hover one for its query). Each row goes in one
-section, checked in this order:
+configured source at once and merges their items into one list. The header
+has the sections on the left (**Now**, **Inbox**, **Anytime**) and the sources
+on the right (**Gmail**, **Todoist**; hover one for its query), each with its
+count of every row. One of them is chosen at a time: a section shows that
+section from both sources, and a source shows every row from it, soonest first
+for tasks and newest first for mail. Pressing the chosen one again stacks all
+three sections, each under its heading. Each row goes in one section, checked
+in this order:
 
 - **Inbox**: everything that needs a decision before it is work. Every
   unread Gmail row (email, GitHub notifications, document comments,
@@ -26,7 +28,7 @@ section, checked in this order:
   first, then the read mail, newest first.
 - **Anytime**: every other task, dated later or not at all.
 
-The page opens on Now, from every source. In Now and Anytime the soonest come
+The page opens on the Now section. In Now and Anytime the soonest come
 first, then the most urgent, and undated tasks last. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
-import { SegmentedToggle, Segmented } from "@/components/segmented";
+import { SegmentedToggle } from "@/components/segmented";
 
 import { groupIntoSections, type SectionId } from "./sections.js";
 import type { Item } from "./types.js";
@@ -67,6 +67,12 @@ function SourceProblem({ source }: { source: ProblemSource }) {
   );
 }
 
+/**
+ * What the list is narrowed to: one section, or every row from one source, or
+ * nothing, which stacks the sections.
+ */
+export type Filter = { section: SectionId } | { source: string } | null;
+
 export interface ItemListViewProps {
   /** Null until the stored list has been read. */
   listing: Listing | null;
@@ -76,9 +82,8 @@ export interface ItemListViewProps {
   actions?: RowActions;
   /** Rows waiting on an action, by item id. */
   pending?: ReadonlyMap<string, PendingAction>;
-  /** The section and source the page opens on, for the stories: Now, from every source. */
-  initialSection?: SectionId;
-  initialSource?: string | null;
+  /** What the page opens on, for the stories: the Now section. */
+  initialFilter?: Filter;
 }
 
 /** Gmail before Todoist in the source picker, whatever order they sync in. */
@@ -89,64 +94,93 @@ function sourceRank(id: string): number {
   return index === -1 ? SOURCE_ORDER.length : index;
 }
 
+function Rows({ label, items, empty, renderRow }: {
+  label: string;
+  items: readonly Item[];
+  empty: string;
+  renderRow: (item: Item) => ReactNode;
+}) {
+  if (items.length === 0) return <EmptyState>{empty}</EmptyState>;
+  return (
+    <ul aria-label={label} className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+      {items.map(renderRow)}
+    </ul>
+  );
+}
+
+function emptyText(section: SectionId): string {
+  return section === "inbox" ? "Inbox zero." : "Nothing here.";
+}
+
 /**
- * One section at a time, picked on the left, with the sources on the right to
- * narrow it to one. Each group's counts are within the other's choice: the
- * sections count the chosen source's rows, and the sources count the chosen
- * section's.
+ * The sections on the left and the sources on the right, one filter between
+ * them: pressing a section shows that section from every source, pressing a
+ * source shows every row from it, and pressing the chosen one again stacks
+ * the sections. Each count is of every row, whatever is chosen.
  */
-function SectionedList({
+function FilteredList({
   items,
   sources,
   now,
-  section,
-  onSection,
-  source,
-  onSource,
+  filter,
+  onFilter,
   renderRow,
 }: {
   items: readonly Item[];
   sources: readonly SourceStatus[];
   now: Date;
-  section: SectionId;
-  onSection: (id: SectionId) => void;
-  source: string | null;
-  onSource: (id: string | null) => void;
+  filter: Filter;
+  onFilter: (filter: Filter) => void;
   renderRow: (item: Item) => ReactNode;
 }) {
-  const sections = groupIntoSections(source === null ? items : items.filter((item) => item.source === source), now);
-  const inSection = groupIntoSections(items, now).find((each) => each.id === section)!.items;
-  const shown = sections.find((each) => each.id === section)!;
+  const sections = groupIntoSections(items, now);
+  const section = filter !== null && "section" in filter ? filter.section : null;
+  const source = filter !== null && "source" in filter ? filter.source : null;
+  let body: ReactNode;
+  if (section !== null) {
+    const shown = sections.find((each) => each.id === section)!;
+    body = <Rows label={shown.title} items={shown.items} empty={emptyText(section)} renderRow={renderRow} />;
+  } else if (source !== null) {
+    // The merged list's order: soonest first for tasks, newest first for mail.
+    const name = sources.find((each) => each.id === source)?.name ?? source;
+    body = <Rows label={name} items={items.filter((item) => item.source === source)} empty="Nothing here." renderRow={renderRow} />;
+  } else {
+    body = (
+      <div className="space-y-4">
+        {sections.map((each) => (
+          <section key={each.id} aria-label={each.title}>
+            <h2 className="mb-1.5 flex items-baseline gap-1.5 px-1 text-xs font-medium text-foreground" title={each.hint}>
+              {each.title}
+              <span className="font-normal tabular-nums text-muted-foreground">{each.items.length}</span>
+            </h2>
+            <Rows label={each.title} items={each.items} empty={emptyText(each.id)} renderRow={renderRow} />
+          </section>
+        ))}
+      </div>
+    );
+  }
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Segmented
+        <SegmentedToggle
           label="Section"
           options={sections.map((each) => ({ id: each.id, label: each.title, count: each.items.length, title: each.hint }))}
           value={section}
-          onChange={onSection}
+          onChange={(id) => onFilter(id === null ? null : { section: id })}
         />
         <SegmentedToggle
           label="Source"
           options={[...sources].sort((a, b) => sourceRank(a.id) - sourceRank(b.id)).map((each) => ({
             id: each.id,
             label: each.name,
-            count: inSection.filter((item) => item.source === each.id).length,
+            count: items.filter((item) => item.source === each.id).length,
             title: each.state === "ok" && each.query !== null ? each.query : undefined,
           }))}
           value={source}
-          onChange={onSource}
+          onChange={(id) => onFilter(id === null ? null : { source: id })}
         />
       </div>
-      <div className="mt-3">
-        {shown.items.length === 0 ? (
-          <EmptyState>{section === "inbox" ? "Inbox zero." : "Nothing here."}</EmptyState>
-        ) : (
-          <ul aria-label={shown.title} className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-            {shown.items.map(renderRow)}
-          </ul>
-        )}
-      </div>
+      <div className="mt-3">{body}</div>
     </>
   );
 }
@@ -160,12 +194,10 @@ export function ItemListView({
   now,
   actions,
   pending = new Map(),
-  initialSection = "now",
-  initialSource = null,
+  initialFilter = { section: "now" },
 }: ItemListViewProps) {
   const [showSnoozed, setShowSnoozed] = useState(false);
-  const [section, setSection] = useState<SectionId>(initialSection);
-  const [source, setSource] = useState<string | null>(initialSource);
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const snoozed = listing?.snoozed ?? [];
   const threads = listing?.threads ?? {};
   const list = listing?.list ?? null;
@@ -194,14 +226,12 @@ export function ItemListView({
             <EmptyState>Nothing needs doing now.</EmptyState>
           )
         ) : (
-          <SectionedList
+          <FilteredList
             items={list.items}
             sources={sources}
             now={now}
-            section={section}
-            onSection={setSection}
-            source={source}
-            onSource={setSource}
+            filter={filter}
+            onFilter={setFilter}
             renderRow={(item) => (
               <ItemRow
                 key={item.id}

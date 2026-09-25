@@ -3,9 +3,8 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { SyncStatus } from "./components/ui/sync-status";
 
 import type { Listing, NowList, SourceStatus } from "./now/contract";
-import { ItemListView } from "./now/item-list";
+import { ItemListView, type Filter } from "./now/item-list";
 import type { PendingAction } from "./now/item-row";
-import type { SectionId } from "./now/sections";
 import { mergeItems } from "./now/items";
 import type { Item } from "./now/types";
 
@@ -293,13 +292,11 @@ const ok: NowList = {
 function Frame({
   listing,
   pending,
-  section,
-  source,
+  filter,
 }: {
   listing: Listing | null;
   pending?: ReadonlyMap<string, PendingAction>;
-  section?: SectionId;
-  source?: string | null;
+  filter?: Filter;
 }) {
   const fetchedAt = listing?.list?.fetchedAt;
   return (
@@ -317,8 +314,7 @@ function Frame({
         now={now}
         actions={actions}
         pending={pending}
-        initialSection={section}
-        initialSource={source}
+        initialFilter={filter}
       />
     </div>
   );
@@ -346,7 +342,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: tasks overdue or due today, then read mail still in the inbox. The header picks the section on the left and narrows it to one source on the right, each with its counts."
+        hint="The page opens on Now: tasks overdue or due today, then read mail still in the inbox. The header picks one section on the left or one source on the right, each with its count of every row."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -354,7 +350,7 @@ export function Default() {
   );
 }
 
-/** The other two sections, and a section narrowed to one source. */
+/** The other two sections, each source on its own, and every section stacked. */
 export function Sections() {
   return (
     <StoryCard>
@@ -362,13 +358,19 @@ export function Sections() {
         label="Inbox"
         hint="Unread Gmail rows, newest first (GitHub notifications gathered per pull request or issue, document comments, invitations, plain email), then the tasks in Todoist's Inbox."
       >
-        <Frame listing={stored(ok)} section="inbox" />
-      </StoryRow>
-      <StoryRow label="Inbox, Gmail only" hint="Gmail pressed on the right: only its rows, and the sections on the left count only its rows too.">
-        <Frame listing={stored(ok)} section="inbox" source="gmail" />
+        <Frame listing={stored(ok)} filter={{ section: "inbox" }} />
       </StoryRow>
       <StoryRow label="Anytime" hint="Every other task: dated later, soonest first, then undated.">
-        <Frame listing={stored(ok)} section="anytime" />
+        <Frame listing={stored(ok)} filter={{ section: "anytime" }} />
+      </StoryRow>
+      <StoryRow label="Gmail" hint="Gmail pressed on the right: every Gmail row, read or unread, newest first, and no section chosen.">
+        <Frame listing={stored(ok)} filter={{ source: "gmail" }} />
+      </StoryRow>
+      <StoryRow label="Todoist" hint="Todoist pressed on the right: every task, soonest first, then undated.">
+        <Frame listing={stored(ok)} filter={{ source: "todoist" }} />
+      </StoryRow>
+      <StoryRow label="Everything" hint="Nothing pressed: Now, Inbox, and Anytime stacked, each under its heading and count.">
+        <Frame listing={stored(ok)} filter={null} />
       </StoryRow>
     </StoryCard>
   );
@@ -392,7 +394,7 @@ export function States() {
       >
         <Frame
           listing={stored(ok)}
-          section="inbox"
+          filter={{ section: "inbox" }}
           pending={
             new Map<string, PendingAction>([
               ["todoist:a9", "complete"],
@@ -478,7 +480,7 @@ export function States() {
             ],
             fetchedAt: syncedAt,
           })}
-          section="inbox"
+          filter={{ section: "inbox" }}
         />
       </StoryRow>
     </StoryCard>
