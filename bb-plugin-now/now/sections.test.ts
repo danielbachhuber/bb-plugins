@@ -81,6 +81,13 @@ describe("shortDate", () => {
     expect(shortDate(new Date(2026, 8, 24, 8, 4).toISOString(), now)).toBe("08:04");
     expect(shortDate(new Date(2026, 8, 23, 20, 9).toISOString(), now)).toBe("Sep 23");
   });
+
+  test("keeps the time on another day when asked, as a recurring task's row does", () => {
+    expect(shortDate("2026-09-28T14:00:00", now, { clock: true })).toBe("Sep 28 14:00");
+    expect(shortDate("2027-01-04T09:00:00", now, { clock: true })).toBe("Jan 4, 2027 09:00");
+    expect(shortDate("2026-09-24T14:00:00", now, { clock: true })).toBe("14:00");
+    expect(shortDate("2026-09-28", now, { clock: true })).toBe("Sep 28");
+  });
 });
 
 describe("sidebarCounts", () => {

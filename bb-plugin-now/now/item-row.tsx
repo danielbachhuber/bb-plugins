@@ -304,7 +304,9 @@ function deadlineDue(deadline: string, now: Date): boolean {
  */
 function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: IconName | null } | null {
   if (item.due !== null) {
-    return { text: shortDate(item.due.date, now), urgent: false, icon: item.due.recurring ? "Repeat" : null };
+    // A recurring task's time is part of its routine, so it shows on any day, not only today.
+    const text = shortDate(item.due.date, now, { clock: item.due.recurring });
+    return { text, urgent: false, icon: item.due.recurring ? "Repeat" : null };
   }
   if (item.deadline !== null) {
     return { text: shortDate(item.deadline, now), urgent: deadlineDue(item.deadline, now), icon: "Target" };

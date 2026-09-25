@@ -214,6 +214,12 @@ const items: Item[] = [
     tags: ["routine", "planning"],
   }),
   item({
+    id: "a10",
+    title: "Water the widget lab plants",
+    due: { date: "2026-09-28T09:00:00", recurring: true, text: "every mon 9am" },
+    tags: ["routine"],
+  }),
+  item({
     id: "a4",
     title: "Draft the Acme Board announcement",
     due: { date: "2026-09-25", recurring: false },

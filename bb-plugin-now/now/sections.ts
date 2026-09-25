@@ -97,9 +97,10 @@ function time(date: Date): string {
 /**
  * One short form for every date on the page, which never wraps: the time for
  * something today when it has one, "Today" when it does not, and otherwise
- * the calendar date, with the year only when it is not this one.
+ * the calendar date, with the year only when it is not this one. With
+ * `clock`, a date on another day keeps its time after it too.
  */
-export function shortDate(date: string, now: Date): string {
+export function shortDate(date: string, now: Date, { clock: withClock = false } = {}): string {
   let day: string;
   let clock: string | null = null;
   if (date.includes("T")) {
@@ -118,7 +119,8 @@ export function shortDate(date: string, now: Date): string {
   if (day === localDay(now)) return clock ?? "Today";
   const [year, month, dayOfMonth] = day.split("-").map(Number);
   const text = `${MONTHS[month! - 1]} ${dayOfMonth}`;
-  return year === now.getFullYear() ? text : `${text}, ${year}`;
+  const dated = year === now.getFullYear() ? text : `${text}, ${year}`;
+  return withClock && clock !== null ? `${dated} ${clock}` : dated;
 }
 
 /**
