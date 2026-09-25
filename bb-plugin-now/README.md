@@ -155,6 +155,16 @@ make. Once merged, the row suggests Archive.
 Editing a Todoist task's description or labels still happens
 in Todoist, and replying to an email that is not from GitHub still happens in Gmail.
 
+## From a shell
+
+`bb now` runs the Todoist actions from a shell, through the same functions the
+page uses and with the plugin's own token, so an agent can check them against
+real tasks: `bb now tasks` lists the Todoist rows with their rules, `bb now task
+show <id>` reads one fresh from Todoist, `bb now task add <name> --due <words>`
+adds one to the Inbox, `bb now postpone <id> <day>` postpones one as the menu
+does, and `bb now task delete <id>` deletes one. `skills/now-cli` tells an
+agent how to check Postpone with a throwaway task.
+
 ## Sources
 
 ### Todoist
@@ -314,6 +324,8 @@ list `server.ts` passes to `loadSources`.
 | `now/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
 | `now/items.ts` | The order the merged list is in |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
+| `now/cli.ts` | `bb now`, the Todoist actions from a shell |
+| `skills/now-cli/` | The skill that tells an agent how to use `bb now` |
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |

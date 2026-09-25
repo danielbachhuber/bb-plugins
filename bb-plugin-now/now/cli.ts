@@ -36,6 +36,16 @@ export function formatTasks(items: readonly Item[]): string {
     .concat("\n");
 }
 
+/** A failure from Todoist or the store, reported as a CLI error rather than a crash. */
+async function attempt<T>(code: string, work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof PluginCliError) throw error;
+    throw new PluginCliError(error instanceof Error ? error.message : String(error), { code });
+  }
+}
+
 const JSON_OPTION = { json: { type: "boolean", description: "Print JSON instead of text" } } as const;
 
 export function nowCli(deps: NowCliDeps): PluginCliRegistration {
@@ -58,7 +68,8 @@ export function nowCli(deps: NowCliDeps): PluginCliRegistration {
         summary: "Show a task as Todoist holds it now: its name and due object, read fresh.",
         positionals: [{ name: "id", description: "The Todoist task id, with or without todoist:", required: true }],
         run: async ({ positionals }) => {
-          const task = (await deps.fetchTask(rowId(positionals.id).slice("todoist:".length))) as Record<string, unknown>;
+          const taskId = rowId(positionals.id).slice("todoist:".length);
+          const task = (await attempt("fetch_failed", () => deps.fetchTask(taskId))) as Record<string, unknown>;
           const shown = { id: task.id, content: task.content, due: task.due, project_id: task.project_id };
           return { exitCode: 0, stdout: `${JSON.stringify(shown, null, 2)}\n` };
         },
@@ -68,7 +79,7 @@ export function nowCli(deps: NowCliDeps): PluginCliRegistration {
         positionals: [{ name: "content", description: "The task's name", required: true }],
         options: { due: { type: "string", description: 'A due date in words, as Todoist reads them: "every mon 9am"' } },
         run: async ({ positionals, options }) => {
-          const id = await deps.addTask(positionals.content, options.due);
+          const id = await attempt("add_failed", () => deps.addTask(positionals.content, options.due));
           return { exitCode: 0, stdout: `${id}\n` };
         },
       }),

@@ -977,6 +977,67 @@ describe("postponing a recurring task", () => {
   });
 });
 
+describe("the bb now CLI", () => {
+  const UUID = "00000000-0000-4000-8000-000000000002";
+  const RECURRING = { date: "2026-09-28T09:00:00", string: "every mon 9am", is_recurring: true };
+  const ROUTES = {
+    [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a", { due: RECURRING })], next_cursor: null },
+    [PROJECTS_PATH]: PROJECTS,
+    "POST /api/v1/sync": { sync_status: { [UUID]: "ok" } },
+    "POST /api/v1/tasks": rawTask("n", { content: "Postpone check", due: RECURRING }),
+    "/api/v1/tasks/a": rawTask("a", { due: { ...RECURRING, date: "2026-09-29T09:00:00" } }),
+    "DELETE /api/v1/tasks/a": null,
+  };
+
+  afterEach(() => vi.restoreAllMocks());
+
+  test("lists the Todoist rows with their rules", async () => {
+    const { bb, harness, plugin } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.runCli(["tasks"])).resolves.toMatchObject({
+      exitCode: 0,
+      stdout: "a  2026-09-28T09:00:00 (every mon 9am)  Task a\n",
+    });
+  });
+
+  test("postpones by the same path as the menu, reading the day in words", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(UUID);
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.runCli(["postpone", "a", "sep 29"])).resolves.toMatchObject({
+      exitCode: 0,
+      stdout: "Postponed todoist:a to 2026-09-29\n",
+    });
+    expect(fetchImpl.mock.calls.some(([url]) => url.endsWith("/api/v1/sync"))).toBe(true);
+  });
+
+  test("fails with the reason when a postpone is refused", async () => {
+    const { bb, harness, plugin } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    const result = await harness.behavior.runCli(["postpone", "todoist:a", "2026-09-27"]);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("Pick a day after the one it is due.");
+    const words = await harness.behavior.runCli(["postpone", "a", "someday"]);
+    expect(words.stderr).toContain('"someday" is not a day.');
+  });
+
+  test("adds a task with a due date in words, and deletes one", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.runCli(["task", "add", "Postpone check", "--due", "every mon 9am"])).resolves.toMatchObject({
+      exitCode: 0,
+      stdout: "todoist:n\n",
+    });
+    const [, init] = fetchImpl.mock.calls.find(([url, init]) => init?.method === "POST" && url.endsWith("/api/v1/tasks"))!;
+    expect(JSON.parse(String(init?.body))).toEqual({ content: "Postpone check", due_string: "every mon 9am" });
+    await expect(harness.behavior.runCli(["task", "delete", "a"])).resolves.toMatchObject({ exitCode: 0 });
+  });
+});
+
 describe("starting a thread", () => {
   const ROUTES = {
     [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a")], next_cursor: null },
