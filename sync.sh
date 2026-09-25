@@ -4,8 +4,8 @@
 #
 # `setup.sh` installs plugins on a new machine and deliberately skips anything
 # already registered, so it does nothing after a `git pull`. This script covers
-# the other half: a plugin that is already installed but whose dist/ no longer
-# matches the source it was built from.
+# the other half: a plugin whose dist/ no longer matches the source it was built
+# from, and a plugin that arrived in a pull and is not installed yet.
 #
 # Plugins are installed as `path:` sources pointing straight at the directories
 # here, so a pull changes the source in place. What goes stale is the build,
@@ -48,6 +48,14 @@ fi
 
 stale_plugins=""   # directory \t plugin id \t what changed
 
+# What bb has installed, enabled or not. An empty answer would make every plugin
+# look new, so a failure to ask stops here rather than reinstalling them all.
+if ! installed_ids="$(bb plugin list --json 2>/dev/null | jq -er '.plugins[].id')"; then
+  [ "$CHECK_ONLY" = yes ] && exit 0
+  echo "Could not list bb's plugins. Is bb running?" >&2
+  exit 1
+fi
+
 # Source means what git tracks and what the build actually reads. Neither is
 # what is simply on disk: a plugin writes runtime data inside its own directory
 # (weekly-review keeps data/weeks/ there), so a plain find treats every write it
@@ -81,6 +89,12 @@ detect_plugins() {
     jq -e '.bb | type == "object"' "$plugin/package.json" >/dev/null 2>&1 || continue
 
     id="$(basename "$plugin")"; id="${id#bb-plugin-}"
+
+    if ! printf '%s\n' "$installed_ids" | grep -qx "$id"; then
+      stale_plugins="${stale_plugins}${plugin}	${id}	not installed
+"
+      continue
+    fi
 
     dist_mtime="$(newest_mtime "$plugin/dist" 2>/dev/null || true)"
     if [ -z "$dist_mtime" ]; then
@@ -153,11 +167,12 @@ use_pinned_node || exit 1
 # covers every install below, harvest:sync's too.
 export npm_config_include=dev
 
-installed_ids="$(bb plugin list --json 2>/dev/null | jq -r '.plugins[].id' 2>/dev/null || true)"
-
+# A plugin bb has not seen yet is one that arrived in a pull, so it is installed
+# rather than reloaded. One that bb has but is disabled stays as it is: disabling
+# is how a machine opts out, and `bb plugin list` still lists it.
 apply_plugin() {
-  local plugin="$1" id="$2"
-  echo "==> $id"
+  local plugin="$1" id="$2" install="$3"
+  if [ "$install" = yes ]; then echo "==> $id (installing)"; else echo "==> $id"; fi
   # Every step ends in `|| exit 1` because bash ignores `set -e` inside a
   # subshell that is followed by `||`, and would carry on past a failed install
   # or typecheck to build and reload anyway.
@@ -178,7 +193,11 @@ apply_plugin() {
     # of leaving the next check reporting work it already did.
     find dist -type f -print0 | xargs -0 touch
   ) || return 1
-  bb plugin reload "$id" >/dev/null
+  if [ "$install" = yes ]; then
+    bb plugin install "$plugin" --yes >/dev/null || return 1
+  else
+    bb plugin reload "$id" >/dev/null
+  fi
   return 0
 }
 
@@ -186,13 +205,9 @@ failed=0
 
 while IFS=$'\t' read -r plugin id reason; do
   [ -z "$plugin" ] && continue
-  # A plugin that arrived in a pull is not registered with bb yet, so there is
-  # nothing to reload. Installing one is setup.sh's job and a deliberate step.
-  if ! printf '%s\n' "$installed_ids" | grep -qx "$id"; then
-    echo "==> $id not installed; skipping. Run: ${DIR}/setup.sh"
-    continue
-  fi
-  apply_plugin "$plugin" "$id" || { failed=1; echo "    failed; left as it was" >&2; }
+  install=no
+  [ "$reason" = "not installed" ] && install=yes
+  apply_plugin "$plugin" "$id" "$install" || { failed=1; echo "    failed; left as it was" >&2; }
 done < <(printf '%s' "$stale_plugins")
 
 exit "$failed"

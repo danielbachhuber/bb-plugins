@@ -72,8 +72,9 @@ drifted:
 `sync.sh` builds with the Node version in `.nvmrc`, loading it through nvm, and
 stops if that version is not installed. Different npm versions write
 `package-lock.json` differently, so building with another Node leaves every
-lockfile modified. It skips a plugin that bb has not installed yet; run
-`setup.sh` to install one that arrived in a pull.
+lockfile modified. It installs a plugin that bb has not seen yet, so one that
+arrives in a pull is enabled on the next run. To keep one off a machine, run
+`bb plugin disable <id>`: `sync.sh` leaves a disabled plugin disabled.
 
 `update.sh` keeps a machine current on its own. It fast-forwards `main` from
 `origin`, then runs `sync.sh`. If the checkout is on another branch, has
