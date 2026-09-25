@@ -340,7 +340,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: overdue tasks, tasks due today, read mail still in the inbox, then tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
+        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then overdue tasks, tasks due today, read mail still in the inbox, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -348,16 +348,10 @@ export function Default() {
   );
 }
 
-/** The other two sections, each source on its own, and every section stacked. */
+/** Anytime, each source on its own, and both sections stacked. */
 export function Sections() {
   return (
     <StoryCard>
-      <StoryRow
-        label="Inbox"
-        hint="Unread Gmail rows, newest first (GitHub notifications gathered per pull request or issue, document comments, invitations, plain email), then the tasks in Todoist's Inbox."
-      >
-        <Frame listing={stored(ok)} filter={{ section: "inbox" }} />
-      </StoryRow>
       <StoryRow label="Anytime" hint="Tasks with no date, most urgent first.">
         <Frame listing={stored(ok)} filter={{ section: "anytime" }} />
       </StoryRow>
@@ -367,7 +361,7 @@ export function Sections() {
       <StoryRow label="Todoist" hint="Todoist pressed on the right: every task, soonest first, then undated.">
         <Frame listing={stored(ok)} filter={{ source: "todoist" }} />
       </StoryRow>
-      <StoryRow label="Everything" hint="Nothing pressed: Now, Inbox, and Anytime stacked, each under its heading and count.">
+      <StoryRow label="Everything" hint="Nothing pressed: Now and Anytime stacked, each under its heading and count.">
         <Frame listing={stored(ok)} filter={null} />
       </StoryRow>
     </StoryCard>
@@ -388,11 +382,10 @@ export function States() {
       </StoryRow>
       <StoryRow
         label="Working"
-        hint="In Inbox, a Todoist Inbox task completing, an email archiving, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
+        hint="A Todoist Inbox task completing, an email archiving, an invitation being accepted, and a pull request merging: each row is disabled until its request lands."
       >
         <Frame
           listing={stored(ok)}
-          filter={{ section: "inbox" }}
           pending={
             new Map<string, PendingAction>([
               ["todoist:a9", "complete"],
@@ -465,7 +458,6 @@ export function States() {
             ],
             fetchedAt: syncedAt,
           })}
-          filter={{ section: "inbox" }}
         />
       </StoryRow>
     </StoryCard>

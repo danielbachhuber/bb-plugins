@@ -9,24 +9,21 @@ Gmail inbox.
 A **Now** page in the left sidebar, whose entry shows how many rows need
 action: everything the last sync found. It loads every
 configured source at once and merges their items into one list. The header
-has the sections on the left (**Now**, **Inbox**, **Anytime**) and the sources
+has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
 count of every row. One of them is chosen at a time: a section shows that
 section from both sources, and a source shows every row from it, soonest first
-for tasks and newest first for mail. Pressing the chosen one again stacks all
-three sections, each under its heading. Each row goes in one section, checked
-in this order:
+for tasks and newest first for mail. Pressing the chosen one again stacks both
+sections, each under its heading. Each row goes in one section:
 
-- **Inbox**: everything that needs a decision before it is work. Every
-  unread Gmail row (email, GitHub notifications, document comments,
-  invitations), and every task in Todoist's Inbox project, whatever its date.
-  Mail comes first, newest first, then the Todoist Inbox tasks: those with a
-  date soonest first, then the undated ones newest added first.
-- **Now**: every read Gmail row, since a thread you have read and left in the
-  inbox is one you kept there to act on; and any other task with a date, by
-  its due date or its deadline, whichever is sooner. Overdue tasks come first,
-  then tasks due today, then the read mail, newest first, then tasks dated
-  later.
+- **Now**: every Gmail row, every task in Todoist's Inbox project, and any
+  other task with a date, by its due date or its deadline, whichever is
+  sooner. What needs a decision before it is work leads: unread Gmail rows
+  (email, GitHub notifications, document comments, invitations), newest
+  first, then the Todoist Inbox tasks, those with a date soonest first and
+  then the undated ones newest added first. After them come overdue tasks,
+  tasks due today, read mail newest first (a thread you have read and left in
+  the inbox is one you kept there to act on), and tasks dated later.
 - **Anytime**: every other task, which has no date.
 
 The page opens on the Now section. Tasks within each of those groups, and in

@@ -107,7 +107,7 @@ function Rows({ label, items, empty, renderRow }: {
 }
 
 function emptyText(section: SectionId): string {
-  return section === "inbox" ? "Inbox zero." : "Nothing here.";
+  return section === "now" ? "Nothing needs doing now." : "Nothing here.";
 }
 
 /**

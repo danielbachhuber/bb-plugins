@@ -16,10 +16,10 @@ function item(id: string, overrides: Partial<Item> = {}): Item {
 const due = (date: string) => ({ due: { date, recurring: false } });
 
 describe("sectionOf", () => {
-  test("puts unread Gmail rows and Todoist's Inbox in Inbox, and read Gmail rows in Now", () => {
-    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }))).toBe("inbox");
+  test("puts every Gmail row and Todoist's Inbox in Now", () => {
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }))).toBe("now");
     expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }))).toBe("now");
-    expect(sectionOf(item("a", { inbox: true, ...due("2026-09-21") }))).toBe("inbox");
+    expect(sectionOf(item("a", { inbox: true }))).toBe("now");
   });
 
   test("puts a task with a due date or a deadline in Now, whenever it falls", () => {
@@ -35,7 +35,7 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, orders Now overdue, today, read mail, later, and orders Inbox newest first with Todoist's Inbox after the mail", () => {
+  test("keeps every section, and orders Now unread mail, Todoist's Inbox, overdue, today, read mail, later", () => {
     const sections = groupIntoSections(
       [
         item("today", due("2026-09-24T14:00:00")),
@@ -51,24 +51,24 @@ describe("groupIntoSections", () => {
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
-      ["Now", ["late", "today", "old-mail", "older-read", "later"]],
-      ["Inbox", ["new-mail", "unread-older", "filed"]],
+      ["Now", ["new-mail", "unread-older", "filed", "late", "today", "old-mail", "older-read", "later"]],
       ["Anytime", ["someday"]],
     ]);
-    expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0, 0]);
+    expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0]);
   });
 
-  test("orders Todoist's Inbox by date, then the undated tasks newest added first", () => {
+  test("orders Todoist's Inbox by date, then the undated tasks newest added first, ahead of other tasks", () => {
     const inbox = groupIntoSections(
       [
         item("old", { inbox: true, createdAt: "2026-09-01T10:00:00.000000Z" }),
         item("dated", { inbox: true, ...due("2026-09-30") }),
         item("new", { inbox: true, createdAt: "2026-09-23T10:00:00.000000Z", priority: 3 }),
         item("urgent-but-older", { inbox: true, createdAt: "2026-09-10T10:00:00.000000Z", priority: 1 }),
+        item("overdue", due("2026-09-01")),
       ],
       now,
-    ).find((section) => section.id === "inbox")!;
-    expect(inbox.items.map((kept) => kept.id)).toEqual(["dated", "new", "urgent-but-older", "old"]);
+    ).find((section) => section.id === "now")!;
+    expect(inbox.items.map((kept) => kept.id)).toEqual(["dated", "new", "urgent-but-older", "old", "overdue"]);
   });
 });
 
