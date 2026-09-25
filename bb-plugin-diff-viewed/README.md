@@ -14,9 +14,10 @@ stays that way until the file's diff changes.
   read yet.
 - Uncheck it to bring it back. Nothing else about the panel changes.
 - The toolbar shows how far you have got, as "3 / 8 viewed" with a progress
-  ring, above bb's own file and line counts. It counts every file in the
-  selected range, including the ones you have not scrolled to yet, and a
-  file only counts while its mark matches its current diff.
+  ring, right-aligned above bb's line counts in place of bb's file count. It
+  counts every file in the selected range, including the ones you have not
+  scrolled to yet, and a file only counts while its mark matches its current
+  diff.
 - To hide viewed files entirely, open the range dropdown at the top of the
   panel ("All changes", "Uncommitted changes") and pick **Only unviewed** at
   the bottom. Pick it again to show every file. The choice applies to every
@@ -77,7 +78,7 @@ The script anchors only on things bb emits deliberately:
 | `[data-testid="git-diff-toolbar-actions"]` | Knowing the changes panel is open |
 | `[data-testid="git-diff-toolbar-selector-slot"]` and the trigger's `aria-controls` | Finding the open range dropdown to add Only unviewed |
 | `[data-index]` | The virtualized row to hide while Only unviewed is on, and where the file list is read from |
-| `[data-testid="git-diff-toolbar-details"]` | Stacking the progress line above bb's file counts |
+| `[data-testid="git-diff-toolbar-details"]` | Stacking the progress line above bb's line counts and hiding its file count |
 
 No minified class names. If bb changes the header and the anchors stop
 matching, the plugin decorates nothing and bb behaves exactly as it does

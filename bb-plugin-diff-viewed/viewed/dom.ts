@@ -29,7 +29,7 @@ export const VIEWED_ATTR = "data-diff-viewed";
 export const FILTER_ATTR = "data-diff-viewed-only-unviewed";
 /** Set on the toolbar's details group while it holds the progress line. */
 const PROGRESS_HOST_ATTR = "data-diff-viewed-progress-host";
-/** Marks the progress line this plugin adds above bb's file counts. */
+/** Marks the progress line this plugin adds above bb's line counts. */
 const PROGRESS_ATTR = "data-diff-viewed-progress";
 /** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
 const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
@@ -205,11 +205,23 @@ export const STYLE_TEXT = `
 }
 [${PROGRESS_HOST_ATTR}] > [${PROGRESS_ATTR}] {
   grid-area: progress;
+  justify-self: end;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] {
   grid-area: summary;
+  justify-self: end;
   font-size: 0.75rem;
   line-height: 1rem;
+}
+/* The progress line above already gives the file count, so keep only bb's
+   "+a -b" tally. The "N files, " before it is bare text with no element of
+   its own to hide, so the summary's text is shrunk to nothing and the tally
+   span is given its size back. A summary with no tally keeps its text. */
+[${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"]:has(> span) {
+  font-size: 0;
+}
+[${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] > span {
+  font-size: 0.75rem;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-actions"] {
   grid-area: actions;
@@ -282,7 +294,7 @@ function progressMarkup(view: ProgressView): { html: string; title: string } {
 }
 
 /**
- * Show `view` above bb's file counts, or remove the line when `view` is null.
+ * Show `view` above bb's line counts, or remove the line when `view` is null.
  * Rewrites the line only when what it says changes, so a pass that finds
  * nothing new does not touch the DOM.
  */

@@ -7,8 +7,8 @@ expanded is what you have not read yet. Uncheck it to bring it back; nothing
 else about the panel changes.
 
 The toolbar shows how far you have got, as "3 / 8 viewed" with a progress
-ring, above bb's file and line counts. It counts every file in the selected
-range, not only the ones on screen.
+ring, right-aligned above bb's line counts in place of its file count. It
+counts every file in the selected range, not only the ones on screen.
 
 To hide reviewed files entirely, pick **Only unviewed** at the bottom of the
 panel's range dropdown ("All changes", "Uncommitted changes"). Pick it again to
