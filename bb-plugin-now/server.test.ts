@@ -511,7 +511,7 @@ describe("stored list", () => {
 });
 
 describe("row actions", () => {
-  /** One GitHub notification thread about acme/widgets#128, and one plain email. */
+  /** One GitHub notification thread about acme/widgets#128, read, and one plain email, unread. */
   function inbox() {
     const calls: string[][] = [];
     const run: GwsRunner = async (args) => {
@@ -542,7 +542,7 @@ describe("row actions", () => {
       }
       return JSON.stringify({
         id: "mail1",
-        messages: [{ internalDate: "1790200000000", snippet: "Hi", payload: { headers: [{ name: "Subject", value: "Lunch?" }] } }],
+        messages: [{ internalDate: "1790200000000", labelIds: ["INBOX", "UNREAD"], snippet: "Hi", payload: { headers: [{ name: "Subject", value: "Lunch?" }] } }],
       });
     };
     return { run, calls };
@@ -579,7 +579,7 @@ describe("row actions", () => {
     expect(list.items[0]?.github).toMatchObject({ state: "open", review: "approved" });
   });
 
-  test("archives every thread of a row, and takes the row off the page", async () => {
+  test("archives every thread of a row, marks it read, and takes the row off the page", async () => {
     const { harness, gws } = await loaded();
 
     await expect(harness.behavior.callRpc("items_archive", { id: "github:acme/widgets#128" })).resolves.toEqual({
@@ -589,7 +589,7 @@ describe("row actions", () => {
 
     const modify = gws.calls.find((args) => args.includes("modify"))!;
     expect(JSON.parse(modify[modify.indexOf("--params") + 1]!)).toEqual({ userId: "me", id: "gh1" });
-    expect(JSON.parse(modify[modify.indexOf("--json") + 1]!)).toEqual({ removeLabelIds: ["INBOX"] });
+    expect(JSON.parse(modify[modify.indexOf("--json") + 1]!)).toEqual({ removeLabelIds: ["INBOX", "UNREAD"] });
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
     expect(listing.list?.items.map((item) => item.id)).toEqual(["gmail:mail1"]);
   });
@@ -660,14 +660,23 @@ describe("row actions", () => {
     });
   });
 
-  test("puts an archived row back in the inbox and on the page on undo", async () => {
+  test("leaves a row that was read when archived read on undo", async () => {
+    const { harness, gws } = await loaded();
+    await harness.behavior.callRpc("items_archive", { id: "github:acme/widgets#128" });
+    await harness.behavior.callRpc("items_undo", { id: "github:acme/widgets#128" });
+
+    const modifies = gws.calls.filter((args) => args.includes("modify")).map((args) => JSON.parse(args[args.indexOf("--json") + 1]!));
+    expect(modifies).toEqual([{ removeLabelIds: ["INBOX", "UNREAD"] }, { addLabelIds: ["INBOX"] }]);
+  });
+
+  test("puts an archived row back in the inbox, unread as it was, and on the page on undo", async () => {
     const { harness, gws } = await loaded();
     await harness.behavior.callRpc("items_archive", { id: "gmail:mail1" });
 
     await expect(harness.behavior.callRpc("items_undo", { id: "gmail:mail1" })).resolves.toEqual({ restored: true, error: null });
 
     const modifies = gws.calls.filter((args) => args.includes("modify")).map((args) => JSON.parse(args[args.indexOf("--json") + 1]!));
-    expect(modifies).toEqual([{ removeLabelIds: ["INBOX"] }, { addLabelIds: ["INBOX"] }]);
+    expect(modifies).toEqual([{ removeLabelIds: ["INBOX", "UNREAD"] }, { addLabelIds: ["INBOX", "UNREAD"] }]);
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
     expect(listing.list?.items.map((item) => item.id)).toEqual(["github:acme/widgets#128", "gmail:mail1"]);
     await expect(harness.behavior.callRpc("items_undo", { id: "gmail:mail1" })).resolves.toMatchObject({ restored: false });

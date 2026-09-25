@@ -239,14 +239,14 @@ export function createPlugin(deps: PluginDeps = {}) {
       return todoistApiToken ? createTodoistApi({ token: todoistApiToken, fetch: deps.fetch }) : null;
     }
 
-    async function setInbox(threadIds: readonly string[], inInbox: boolean) {
+    async function modifyThreads(threadIds: readonly string[], labels: { addLabelIds: string[] } | { removeLabelIds: string[] }) {
       const { gwsPath } = await settings.get();
       const { run } = gwsFor(gwsPath.trim() || "gws");
       for (const threadId of threadIds) {
         await runJson(run, [
           "gmail", "users", "threads", "modify",
           "--params", JSON.stringify({ userId: "me", id: threadId }),
-          "--json", JSON.stringify(inInbox ? { addLabelIds: ["INBOX"] } : { removeLabelIds: ["INBOX"] }),
+          "--json", JSON.stringify(labels),
         ]);
       }
     }
@@ -269,7 +269,8 @@ export function createPlugin(deps: PluginDeps = {}) {
         const item = findItem(id);
         if (item?.gmail == null) return { archived: false, error: "Only an email can be archived." };
         try {
-          await setInbox(item.gmail.threadIds, false);
+          // Archiving marks the threads read too, as leaving them unread outside the inbox only hides them.
+          await modifyThreads(item.gmail.threadIds, { removeLabelIds: ["INBOX", "UNREAD"] });
         } catch (error) {
           bb.log.warn(`Could not archive ${id}: ${messageOf(error)}`);
           return { archived: false, error: messageOf(error) };
@@ -303,7 +304,9 @@ export function createPlugin(deps: PluginDeps = {}) {
         if (entry === undefined) return { restored: false, error: "That is too long ago to undo here." };
         try {
           if (entry.action === "archive") {
-            await setInbox(entry.item.gmail?.threadIds ?? [], true);
+            // Unread comes back only for a row that was unread when archived.
+            const unread = entry.item.gmail?.unread === true;
+            await modifyThreads(entry.item.gmail?.threadIds ?? [], { addLabelIds: unread ? ["INBOX", "UNREAD"] : ["INBOX"] });
           } else {
             const api = await todoist();
             if (api === null) return { restored: false, error: "Todoist is not set up." };

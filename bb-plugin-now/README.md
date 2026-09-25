@@ -59,7 +59,7 @@ good sync, with a note saying how many.
 - **Complete** (on a Todoist row, in its details line) completes the task in
   Todoist and takes the row off the page.
 - **Archive** (on an email row, in its details line) takes the row's threads
-  out of the Gmail inbox and the row off the page. On a GitHub row whose pull
+  out of the Gmail inbox, marks them read, and takes the row off the page. On a GitHub row whose pull
   request has merged or closed, or whose issue has closed, it is tinted purple
   and says so, to suggest it. It does the same, saying "you reviewed", on a
   pull request whose review you have given and nobody has asked for again,
@@ -83,7 +83,7 @@ that way until the refreshed list arrives, so it goes straight to gone rather
 than flashing back first.
 
 Each of these says what it did in a toast with **Undo**, which reopens the
-task or puts the threads back in the inbox, and returns the
+task or puts the threads back in the inbox (unread again if they were), and returns the
 row to where it was. A recurring task is the exception: completing it moves
 it to its next date, and Todoist cannot move it back, so its toast says so
 instead of offering Undo. Undo is for the moment after the click; it does not
