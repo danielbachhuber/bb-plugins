@@ -231,6 +231,12 @@ function ItemCard({
             </div>
           )}
         </div>
+        {/* Beside Dismiss, not among the item's decisions, so it stays usable after one is made. */}
+        {onStartThread === undefined ? null : (
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={onStartThread}>
+            Start thread
+          </Button>
+        )}
         {state === "dismissed" ? (
           <Button size="sm" variant="ghost" disabled={busy} onClick={() => onDismiss(false)}>
             Restore
@@ -305,7 +311,7 @@ function ItemCard({
             </Button>
           </div>
         </div>
-      ) : (item.actions.length === 0 && onStartThread === undefined) || state === "dismissed" ? null : (
+      ) : item.actions.length === 0 || state === "dismissed" ? null : (
         <div className="mt-3 flex flex-wrap gap-2">
           {item.actions.map((action, index) => (
             <ActionButton
@@ -321,12 +327,6 @@ function ItemCard({
               onGo={onGo}
             />
           ))}
-          {/* Not one of the item's decisions, so it stays usable after one is made. */}
-          {onStartThread === undefined ? null : (
-            <Button size="sm" variant="ghost" onClick={onStartThread}>
-              Start thread
-            </Button>
-          )}
           {busy ? <span className="self-center text-xs text-muted-foreground">Working…</span> : null}
         </div>
       )}
