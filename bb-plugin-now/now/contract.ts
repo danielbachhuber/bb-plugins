@@ -118,6 +118,14 @@ export const rpcContract = defineRpcContract({
     }),
     output: z.object({ saved: z.boolean(), error: z.string().nullable() }),
   },
+  /**
+   * Move a recurring Todoist task's current occurrence to a later day, keeping
+   * its rule and its time of day. A sync follows, as after an edit.
+   */
+  items_postpone: {
+    input: z.object({ id: z.string(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+    output: z.object({ postponed: z.boolean(), error: z.string().nullable() }),
+  },
   /** Delete a Todoist row's task for good, and take the row off the page. There is no undo. */
   items_delete: {
     input: z.object({ id: z.string() }),

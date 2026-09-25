@@ -197,6 +197,13 @@ function useRowActions(
         }).catch(fail);
         return saved;
       },
+      onPostpone: (item, day) => {
+        void run(item.id, "postpone", async () => {
+          const result = await rpc.call("items_postpone", { id: item.id, day });
+          if (result.error !== null) toast.error(result.error);
+          else toast.success(`Postponed "${item.title}"`);
+        }).catch(fail);
+      },
       onDelete: (item) => {
         void run(item.id, "delete", async () => {
           const result = await rpc.call("items_delete", { id: item.id });
@@ -308,7 +315,7 @@ function NowPage() {
  */
 function NowSidebarCounts() {
   const { listing } = useListing();
-  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [], new Date())} />;
+  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [])} />;
 }
 
 export default definePluginApp((app) => {

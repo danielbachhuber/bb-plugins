@@ -210,7 +210,7 @@ const items: Item[] = [
     id: "a3",
     title: "Weekly planning",
     priority: 3,
-    due: { date: "2026-09-24T14:00:00", recurring: true },
+    due: { date: "2026-09-24T14:00:00", recurring: true, text: "every thu 2pm" },
     tags: ["routine", "planning"],
   }),
   item({
@@ -360,6 +360,7 @@ const actions = {
   onOpenThread: noop,
   onEdit: async () => true,
   onDelete: noop,
+  onPostpone: noop,
 };
 
 const projects: TodoistProject[] = [

@@ -8,9 +8,8 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows two counts: how many
 rows need a decision (unread mail and tasks in Todoist's Inbox) in a red
-circle, and then how many emails are in the Gmail inbox, read or unread, plus
-how many tasks are overdue or due today. An unread email is in both counts,
-and a count of zero is left out. It loads every
+circle, and then how many rows are in the Now section, the same number as its
+tab, which includes the first. A count of zero is left out. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
@@ -78,6 +77,14 @@ good sync, with a note saying how many.
   page. A task in Todoist's Inbox shows the strip already open, since it is
   there to be sorted. Edit stays highlighted while the strip is open; Edit
   again, Escape, or **Cancel** closes it.
+- **Postpone** (on a recurring Todoist row, after Edit) opens a menu that
+  moves only this occurrence to a later day, so the task keeps repeating and
+  keeps its time of day. It offers a day later, two days later, and a week
+  later, counted from the due date, or from today when the task is overdue,
+  and a box that reads a typed day the way the deadline box does. It will not
+  move a task to its own date or earlier, or to a day already past. One click
+  saves, and a sync follows. Typing a one-off date into the edit strip's due
+  box sets a new due date in Todoist's own way instead.
 - **Delete** (the bin in the edit strip) asks once more, then deletes the task
   in Todoist and takes the row off the page. Todoist cannot restore a deleted
   task, so there is no Undo.
@@ -180,7 +187,9 @@ name each task's project and find the Inbox. Both follow `next_cursor` 200
 items at a time.
 Saving the edit strip makes `POST /api/v1/tasks/{id}` for the name, due date,
 deadline, and priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
-changed, then reads the task back with `GET /api/v1/tasks/{id}`. Delete is
+changed, then reads the task back with `GET /api/v1/tasks/{id}`. Postpone
+is one `item_update` command to `POST /api/v1/sync`, carrying the new date with
+the rule's own words as the due string, then the same read back. Delete is
 `DELETE /api/v1/tasks/{id}`. Opening the page reads the projects once, for the
 picker.
 Nothing runs in the background, and nothing is requested until a token is set.
@@ -308,6 +317,7 @@ list `server.ts` passes to `loadSources`.
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
+| `now/postpone-menu.tsx` | Postpone's menu on a recurring Todoist row |
 | `now/task-edit.tsx` | A Todoist row's edit strip: the name, the due date and deadline boxes, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
@@ -322,6 +332,7 @@ list `server.ts` passes to `loadSources`.
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
+| `todoist/postpone.ts` | Postpone's days: the quick picks, which days are allowed, and the due date moved with its time kept |
 | `todoist/deadline.ts` | Reading a deadline typed in words into a day, since Todoist reads only a due date's words |
 | `todoist/source.ts` | Todoist as a `Source`, built from its settings |
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |

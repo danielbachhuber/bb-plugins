@@ -14,6 +14,7 @@ import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
+import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
 import type { TaskDraft } from "../todoist/edit.js";
 import type { GitHubPart, Item, TodoistProject } from "./types.js";
@@ -21,7 +22,7 @@ import type { GitHubPart, Item, TodoistProject } from "./types.js";
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "read" | "merge" | "save" | "delete" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "read" | "merge" | "save" | "delete" | "postpone" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
@@ -30,6 +31,7 @@ const PENDING_LABEL: Record<PendingAction, string> = {
   merge: "Merging…",
   save: "Saving…",
   delete: "Deleting…",
+  postpone: "Postponing…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
   "rsvp:tentative": "Replying…",
@@ -48,6 +50,8 @@ export interface RowActions {
   /** Saves a Todoist row's edit strip. Resolves true once saved, so the strip can close. */
   onEdit: (item: Item, draft: TaskDraft) => Promise<boolean>;
   onDelete: (item: Item) => void;
+  /** Moves a recurring Todoist task's current occurrence to `day`, keeping its rule. */
+  onPostpone: (item: Item, day: string) => void;
 }
 
 /** Which source a row came from, drawn at the head of its row. */
@@ -484,6 +488,15 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
                 className={editing ? "bg-accent text-foreground" : undefined}
                 disabled={busy}
                 onClick={() => setEditing((open) => !open)}
+              />
+            )}
+            {!editable || item.due?.recurring !== true || item.due.text === undefined ? null : (
+              <PostponeMenu
+                due={{ ...item.due, text: item.due.text }}
+                now={now}
+                disabled={busy}
+                working={pending === "postpone"}
+                onPostpone={(day) => actions!.onPostpone(item, day)}
               />
             )}
             {actions === undefined || !unread ? null : (

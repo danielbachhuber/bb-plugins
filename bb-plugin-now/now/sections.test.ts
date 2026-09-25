@@ -91,22 +91,20 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts the inbox, and every email plus the tasks overdue or due today", () => {
+  test("counts the inbox, and every row in the Now section as its tab does", () => {
     const items = [
       item("unread", { gmail: { threadIds: ["t1"], unread: true } }),
       item("read", { gmail: { threadIds: ["t2"], unread: false } }),
       item("inbox", { inbox: true }),
-      item("inbox-today", { inbox: true, ...due("2026-09-24") }),
       item("overdue", due("2026-09-20")),
-      item("today", due("2026-09-24T15:00:00")),
-      item("deadline-today", { ...due("2026-10-02"), deadline: "2026-09-24" }),
-      item("later", due("2026-09-25")),
+      item("later", due("2026-10-02")),
       item("undated"),
     ];
-    expect(sidebarCounts(items, now)).toEqual({ inbox: 3, now: 6 });
+    expect(sidebarCounts(items)).toEqual({ inbox: 2, now: 5 });
+    expect(sidebarCounts(items).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([], now)).toEqual({ inbox: 0, now: 0 });
+    expect(sidebarCounts([])).toEqual({ inbox: 0, now: 0 });
   });
 });

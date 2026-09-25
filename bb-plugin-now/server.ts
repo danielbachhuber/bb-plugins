@@ -5,12 +5,14 @@ import { fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
 import { createGhRunner, fetchStates, mergePullRequest, postComment, type GhRunner } from "./github/gh.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
+import { nowCli } from "./now/cli.js";
 import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
 import { hasChanges, taskChanges } from "./todoist/edit.js";
 import { normalizeTask, projectMap, projectTree } from "./todoist/normalize.js";
+import { canPostponeTo, movedDate } from "./todoist/postpone.js";
 import { CONFIGURE_HINT, DEFAULT_FILTER, todoistSource } from "./todoist/source.js";
 import type { Item } from "./now/types.js";
 
@@ -259,6 +261,50 @@ export function createPlugin(deps: PluginDeps = {}) {
       return store.read()?.items.find((item) => item.id === id) ?? null;
     }
 
+    async function postponeItem(id: string, day: string) {
+      const item = findItem(id);
+      if (item?.source !== "todoist") return { postponed: false, error: "Only a Todoist task can be postponed." };
+      const due = item.due;
+      if (due === null || !due.recurring || due.text === undefined) {
+        return { postponed: false, error: "Only a recurring task can be postponed here. Edit sets a one-off date." };
+      }
+      if (!canPostponeTo(due, day, now())) return { postponed: false, error: "Pick a day after the one it is due." };
+      const api = await todoist();
+      if (api === null) return { postponed: false, error: "Todoist is not set up." };
+      const taskId = id.slice("todoist:".length);
+      try {
+        await api.postpone(taskId, { date: movedDate(due.date, day), string: due.text });
+        const [task, projects] = await Promise.all([api.task(taskId), api.projects()]);
+        const saved = normalizeTask(task, projectMap(projects));
+        if (saved !== null) updateRow(saved);
+        bb.log.info(`Postponed ${id} to ${day}`);
+        return { postponed: true, error: null };
+      } catch (error) {
+        bb.log.warn(`Could not postpone ${id}: ${messageOf(error)}`);
+        return { postponed: false, error: messageOf(error) };
+      } finally {
+        announce();
+        void sync().catch((error) => bb.log.error(`Sync failed: ${messageOf(error)}`));
+      }
+    }
+
+    async function deleteItem(id: string) {
+      const item = findItem(id);
+      if (item?.source !== "todoist") return { deleted: false, error: "Only a Todoist task can be deleted." };
+      const api = await todoist();
+      if (api === null) return { deleted: false, error: "Todoist is not set up." };
+      try {
+        await api.delete(id.slice("todoist:".length));
+      } catch (error) {
+        bb.log.warn(`Could not delete ${id}: ${messageOf(error)}`);
+        return { deleted: false, error: messageOf(error) };
+      }
+      bb.log.info(`Deleted ${id}`);
+      removeRow(id);
+      announce();
+      return { deleted: true, error: null };
+    }
+
     bb.rpc.register(rpcContract, {
       items_list: async () => {
         const stored = store.read();
@@ -354,22 +400,8 @@ export function createPlugin(deps: PluginDeps = {}) {
           void sync().catch((error) => bb.log.error(`Sync failed: ${messageOf(error)}`));
         }
       },
-      items_delete: async ({ id }) => {
-        const item = findItem(id);
-        if (item?.source !== "todoist") return { deleted: false, error: "Only a Todoist task can be deleted." };
-        const api = await todoist();
-        if (api === null) return { deleted: false, error: "Todoist is not set up." };
-        try {
-          await api.delete(id.slice("todoist:".length));
-        } catch (error) {
-          bb.log.warn(`Could not delete ${id}: ${messageOf(error)}`);
-          return { deleted: false, error: messageOf(error) };
-        }
-        bb.log.info(`Deleted ${id}`);
-        removeRow(id);
-        announce();
-        return { deleted: true, error: null };
-      },
+      items_postpone: ({ id, day }) => postponeItem(id, day),
+      items_delete: ({ id }) => deleteItem(id),
       items_undo: async ({ id }) => {
         const entry = undoable.get(id);
         if (entry === undefined) return { restored: false, error: "That is too long ago to undo here." };
@@ -501,6 +533,29 @@ export function createPlugin(deps: PluginDeps = {}) {
         }
       },
     });
+
+    bb.cli.register(
+      nowCli({
+        now,
+        tasks: () => (store.read()?.items ?? []).filter((item) => item.source === "todoist"),
+        fetchTask: async (taskId) => {
+          const api = await todoist();
+          if (api === null) throw new Error("Todoist is not set up.");
+          return api.task(taskId);
+        },
+        addTask: async (content, due) => {
+          const api = await todoist();
+          if (api === null) throw new Error("Todoist is not set up.");
+          const task = (await api.create(due === undefined ? { content } : { content, due_string: due })) as { id?: unknown };
+          if (typeof task.id !== "string") throw new Error("Todoist did not return the new task's id.");
+          bb.log.info(`Added todoist:${task.id} from the CLI`);
+          await sync();
+          return `todoist:${task.id}`;
+        },
+        postpone: postponeItem,
+        remove: deleteItem,
+      }),
+    );
 
     // A row whose thread has been archived or deleted offers to start a new
     // one rather than opening a thread that is gone.

@@ -1,6 +1,6 @@
 /**
  * The counts beside the page's name in the sidebar: the rows that need a
- * decision in a red circle, then the mail and the tasks due by today. Each is left out at zero.
+ * decision in a red circle, then every row in Now, which includes them. Each is left out at zero.
  */
 export function SidebarCounts({ inbox, now }: { inbox: number; now: number }) {
   if (inbox === 0 && now === 0) return null;
@@ -15,7 +15,7 @@ export function SidebarCounts({ inbox, now }: { inbox: number; now: number }) {
         </span>
       )}
       {now === 0 ? null : (
-        <span title={`${now} in Gmail or due by today`} className="text-muted-foreground">
+        <span title={`${now} in Now`} className="text-muted-foreground">
           {now}
         </span>
       )}

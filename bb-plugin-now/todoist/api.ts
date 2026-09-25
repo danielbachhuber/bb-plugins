@@ -26,9 +26,17 @@ export interface TodoistApi {
   reopen(taskId: string): Promise<void>;
   /** One task, open or not. */
   task(taskId: string): Promise<unknown>;
+  /** Adds a task to the Inbox and returns it. */
+  create(fields: { content: string; due_string?: string }): Promise<unknown>;
   /** Changes what `fields` names and leaves the rest. */
   update(taskId: string, fields: TaskUpdate): Promise<void>;
   move(taskId: string, projectId: string): Promise<void>;
+  /**
+   * Moves a recurring task's current occurrence to `date` and keeps its rule.
+   * It goes through the sync endpoint with the rule's words beside the date,
+   * the form Todoist's docs use for a recurring task's next date.
+   */
+  postpone(taskId: string, due: { date: string; string: string }): Promise<void>;
   /** Deletes a task for good; Todoist has no way to bring it back. */
   delete(taskId: string): Promise<void>;
 }
@@ -119,8 +127,26 @@ export function createTodoistApi(options: TodoistApiOptions): TodoistApi {
     close: (taskId) => post(`${taskPath(taskId)}/close`),
     reopen: (taskId) => post(`${taskPath(taskId)}/reopen`),
     task: async (taskId) => (await request("GET", taskPath(taskId))).json(),
+    create: async (fields) => (await request("POST", "/tasks", fields)).json(),
     update: (taskId, fields) => post(taskPath(taskId), fields),
     move: (taskId, projectId) => post(`${taskPath(taskId)}/move`, { project_id: projectId }),
+    postpone: async (taskId, due) => {
+      const uuid = crypto.randomUUID();
+      const commands = [{ type: "item_update", uuid, args: { id: taskId, due } }];
+      const response = await fetchImpl(`${BASE_URL}/sync`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${options.token}`, "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ commands: JSON.stringify(commands) }).toString(),
+      });
+      if (!response.ok) throw new TodoistError(await errorMessage(response), response.status);
+      // The sync endpoint answers 200 even when a command fails, and says so per command.
+      const body = (await response.json()) as { sync_status?: Record<string, unknown> };
+      const status = body.sync_status?.[uuid];
+      if (status !== "ok") {
+        const detail = typeof status === "object" && status !== null && "error" in status ? String(status.error) : "no status";
+        throw new TodoistError(`Todoist did not postpone it: ${detail}`, null);
+      }
+    },
     delete: async (taskId) => {
       await request("DELETE", taskPath(taskId));
     },

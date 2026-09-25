@@ -1,5 +1,5 @@
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { GwsMissingError, type GwsRunner } from "./gmail/gws.js";
 import { GhMissingError, type GhRunner } from "./github/gh.js";
@@ -908,6 +908,72 @@ describe("editing a task", () => {
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
     expect(listing.list?.items.map((item) => item.id)).toEqual(["todoist:a"]);
     expect(fetchImpl.mock.calls.some(([url, init]) => init?.method === "DELETE" && url.endsWith("/tasks/b"))).toBe(true);
+  });
+});
+
+describe("postponing a recurring task", () => {
+  const UUID = "00000000-0000-4000-8000-000000000001";
+  const RECURRING = { date: "2026-09-28T09:00:00", string: "every mon 9am", is_recurring: true };
+  function routes(syncStatus: unknown) {
+    return {
+      [filterPath(DEFAULT_FILTER)]: {
+        results: [rawTask("a", { due: RECURRING }), rawTask("b", { due: { date: "2026-09-28", string: "sep 28", is_recurring: false } })],
+        next_cursor: null,
+      },
+      [PROJECTS_PATH]: PROJECTS,
+      "POST /api/v1/sync": { sync_status: { [UUID]: syncStatus } },
+      "/api/v1/tasks/a": rawTask("a", { due: { ...RECURRING, date: "2026-09-29T09:00:00" } }),
+    };
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  test("sends the new day with the rule's words, keeping the time, and the row takes what Todoist saved", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(UUID);
+    const { bb, harness, plugin, fetchImpl } = host(routes("ok"));
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:a", day: "2026-09-29" })).resolves.toEqual({
+      postponed: true,
+      error: null,
+    });
+
+    const [, init] = fetchImpl.mock.calls.find(([url]) => url.endsWith("/api/v1/sync"))!;
+    const commands = JSON.parse(new URLSearchParams(String(init?.body)).get("commands")!);
+    expect(commands).toEqual([
+      { type: "item_update", uuid: UUID, args: { id: "a", due: { date: "2026-09-29T09:00:00", string: "every mon 9am" } } },
+    ]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items.find((item) => item.id === "todoist:a")?.due).toEqual({
+      date: "2026-09-29T09:00:00",
+      recurring: true,
+      text: "every mon 9am",
+    });
+  });
+
+  test("reports a command Todoist refused, though the request itself was a 200", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(UUID);
+    const { bb, harness, plugin } = host(routes({ error: "Invalid date format" }));
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:a", day: "2026-09-29" })).resolves.toEqual({
+      postponed: false,
+      error: "Todoist did not postpone it: Invalid date format",
+    });
+  });
+
+  test("will not postpone a one-off task, or to a day that is not later", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(routes("ok"));
+    await plugin(bb);
+    await syncAndRead(harness);
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:b", day: "2026-09-29" })).resolves.toMatchObject({
+      postponed: false,
+    });
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:a", day: "2026-09-28" })).resolves.toMatchObject({
+      postponed: false,
+    });
+    expect(fetchImpl.mock.calls.some(([url]) => url.endsWith("/api/v1/sync"))).toBe(false);
   });
 });
 

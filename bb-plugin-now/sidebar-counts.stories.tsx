@@ -17,23 +17,23 @@ function Row({ inbox, now }: { inbox: number; now: number }) {
   );
 }
 
-/** The counts beside Now in the sidebar: what needs a decision in a red circle, then the Gmail inbox plus the tasks overdue or due today. */
+/** The counts beside Now in the sidebar: what needs a decision in a red circle, then every row in the Now section, as its tab counts them. */
 export function Default() {
   return (
     <StoryCard>
-      <StoryRow label="Both" hint="Four rows need a decision, and twelve are emails or tasks due by today.">
+      <StoryRow label="Both" hint="Twelve rows in Now, four of which need a decision.">
         <Row inbox={4} now={12} />
       </StoryRow>
-      <StoryRow label="Inbox only" hint="Three tasks in Todoist's Inbox, no mail, and nothing due by today.">
-        <Row inbox={3} now={0} />
+      <StoryRow label="Inbox only" hint="The three rows in Now all need a decision.">
+        <Row inbox={3} now={3} />
       </StoryRow>
-      <StoryRow label="Inbox empty" hint="Nothing needs a decision, so only the mail and tasks due by today show.">
+      <StoryRow label="Inbox empty" hint="Nothing needs a decision, so only the Now count shows.">
         <Row inbox={0} now={7} />
       </StoryRow>
       <StoryRow label="Large" hint="Two-digit counts on both sides still fit the sidebar's space.">
         <Row inbox={38} now={99} />
       </StoryRow>
-      <StoryRow label="Empty" hint="No mail and nothing due by today, so nothing shows.">
+      <StoryRow label="Empty" hint="Nothing in Now, so nothing shows.">
         <Row inbox={0} now={0} />
       </StoryRow>
     </StoryCard>
