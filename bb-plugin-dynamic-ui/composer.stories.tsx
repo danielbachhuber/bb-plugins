@@ -212,6 +212,7 @@ function ThreadStage({
           onRun={noop}
           onDismiss={noop}
           onGoToThread={noop}
+          onStartThread={noop}
           imageUrl={(_, index) => reviewImages[index] ?? null}
           reviewInitial={reviewInitial}
         />

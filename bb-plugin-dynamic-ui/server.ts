@@ -12,6 +12,7 @@ import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
+import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, parseView, usesDraft, type Action, type View } from "./view/schema.js";
 import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
@@ -202,6 +203,25 @@ export default async function plugin(bb: BbPluginApi) {
       return updated;
     },
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
+    item_thread_seed: async ({ viewId, itemId }) => {
+      const stored = requireView(viewId);
+      const item = findItem(stored, itemId);
+      // The thread that published the view knows the codebase the item is about.
+      const source = await bb.sdk.threads.get({ threadId: stored.threadId });
+      const providerId = (await settings.get()).providerId.trim();
+      return {
+        projectId: source.projectId,
+        providerId: providerId === "" ? null : providerId,
+        prompt: itemThreadPrompt(stored.view.title, item, stored.threadId),
+      };
+    },
+    item_thread_start: async ({ viewId, itemId, request }) => {
+      const stored = requireView(viewId);
+      const item = findItem(stored, itemId);
+      const thread = await bb.sdk.threads.spawn({ ...request, title: item.title } as Parameters<typeof bb.sdk.threads.spawn>[0]);
+      bb.log.info(`started ${thread.id} from ${itemId} in view ${viewId}`);
+      return { threadId: thread.id };
+    },
     review_submit: ({ viewId, itemId, pick, notes, overall }) => submitReview(viewId, itemId, { pick, notes, overall }),
     image_get: ({ viewId, itemId, index }) => {
       const image = store.image(viewId, itemId, index);

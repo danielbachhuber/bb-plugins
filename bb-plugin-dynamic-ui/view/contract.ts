@@ -76,4 +76,17 @@ export const rpcContract = defineRpcContract({
     input: itemRefSchema.extend({ dismissed: z.boolean() }),
     output: storedViewSchema,
   },
+  /** What the new-thread composer starts with for an item: the publishing thread's project and the item as a prompt. */
+  item_thread_seed: {
+    input: itemRefSchema,
+    output: z.object({ projectId: z.string(), providerId: z.string().nullable(), prompt: z.string() }),
+  },
+  /** Starts a thread from what the composer resolved, titled for the item. Leaves the item as it was. */
+  item_thread_start: {
+    input: itemRefSchema.extend({
+      // The composer's NewThreadRequest, passed to threads.spawn unchanged.
+      request: z.looseObject({ projectId: z.string() }),
+    }),
+    output: z.object({ threadId: z.string() }),
+  },
 });

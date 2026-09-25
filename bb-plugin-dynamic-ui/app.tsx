@@ -22,6 +22,7 @@ import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import type { Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { firstOpenItem, nextOpenItem, ViewPanel } from "./view/view-panel.js";
+import { StartThreadDialog, type ThreadSeed } from "./view/start-thread-dialog.js";
 
 const PANEL_ACTION = "view";
 
@@ -123,6 +124,8 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   const focusHere = stored && focus?.viewId === stored.id ? focus : undefined;
   const shownItem = focusHere?.itemId ?? (stored ? (firstOpenItem(stored)?.id ?? null) : null);
   const imageUrl = useReviewImages(stored, shownItem);
+  // The item whose new-thread composer is open, with what it starts with.
+  const [starting, setStarting] = useState<{ item: Item; seed: ThreadSeed } | null>(null);
 
   if (stored === undefined) return null;
   if (stored === null) {
@@ -130,40 +133,67 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   }
 
   return (
-    <ViewPanel
-      stored={stored}
-      busyItem={busyItem}
-      focusItemId={focusHere?.itemId ?? null}
-      confirming={
-        focusHere?.itemId && focusHere.confirmIndex !== undefined ? `${focusHere.itemId}:${focusHere.confirmIndex}` : undefined
-      }
-      onGoToThread={(id) => navigate.toThread(id)}
-      imageUrl={imageUrl}
-      onSubmitReview={(item, feedback) => {
-        setBusyItem(item.id);
-        rpc
-          .call("review_submit", { viewId: stored.id, itemId: item.id, ...feedback })
-          .then((updated) => {
-            setStored(updated);
-            const result = updated.items[item.id]?.result;
-            if (result?.error !== undefined) toast.error(result.error);
-          }, fail)
-          .finally(() => setBusyItem(null));
-      }}
-      onRun={(item, index, draft) => run(stored, item, index, draft)}
-      onDismiss={(item, dismissed) => {
-        setBusyItem(item.id);
-        rpc
-          .call("item_dismiss", { viewId: stored.id, itemId: item.id, dismissed })
-          .then((updated) => {
-            setStored(updated);
-            // Dismissing moves on to the next open item; undoing stays put.
-            const next = dismissed ? nextOpenItem(updated, item.id) : null;
-            if (next) setFocus(threadId, { viewId: updated.id, itemId: next.id });
-          }, fail)
-          .finally(() => setBusyItem(null));
-      }}
-    />
+    <>
+      <ViewPanel
+        stored={stored}
+        busyItem={busyItem}
+        focusItemId={focusHere?.itemId ?? null}
+        confirming={
+          focusHere?.itemId && focusHere.confirmIndex !== undefined ? `${focusHere.itemId}:${focusHere.confirmIndex}` : undefined
+        }
+        onGoToThread={(id) => navigate.toThread(id)}
+        imageUrl={imageUrl}
+        onSubmitReview={(item, feedback) => {
+          setBusyItem(item.id);
+          rpc
+            .call("review_submit", { viewId: stored.id, itemId: item.id, ...feedback })
+            .then((updated) => {
+              setStored(updated);
+              const result = updated.items[item.id]?.result;
+              if (result?.error !== undefined) toast.error(result.error);
+            }, fail)
+            .finally(() => setBusyItem(null));
+        }}
+        onRun={(item, index, draft) => run(stored, item, index, draft)}
+        onDismiss={(item, dismissed) => {
+          setBusyItem(item.id);
+          rpc
+            .call("item_dismiss", { viewId: stored.id, itemId: item.id, dismissed })
+            .then((updated) => {
+              setStored(updated);
+              // Dismissing moves on to the next open item; undoing stays put.
+              const next = dismissed ? nextOpenItem(updated, item.id) : null;
+              if (next) setFocus(threadId, { viewId: updated.id, itemId: next.id });
+            }, fail)
+            .finally(() => setBusyItem(null));
+        }}
+        onStartThread={(item) => {
+          rpc.call("item_thread_seed", { viewId: stored.id, itemId: item.id }).then((seed) => setStarting({ item, seed }), fail);
+        }}
+      />
+      <StartThreadDialog
+        title={starting?.item.title ?? ""}
+        draftKey={starting ? `dynamic-ui:${stored.id}:${stored.publishedAt}:${starting.item.id}` : ""}
+        seed={starting?.seed ?? null}
+        onClose={() => setStarting(null)}
+        onSubmit={async (request) => {
+          if (starting === null) return;
+          try {
+            const { threadId: started } = await rpc.call("item_thread_start", {
+              viewId: stored.id,
+              itemId: starting.item.id,
+              request: request as never,
+            });
+            setStarting(null);
+            toast.success("Started a thread", { action: { label: "Go to thread", onClick: () => navigate.toThread(started) } });
+          } catch (error) {
+            fail(error);
+            // Thrown so the composer keeps the draft rather than clearing it.
+            throw error;
+          }
+        }}
+      />
+    </>
   );
 }
 

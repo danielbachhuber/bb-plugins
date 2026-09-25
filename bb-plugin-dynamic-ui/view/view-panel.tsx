@@ -30,6 +30,8 @@ export interface ViewPanelProps {
   onSubmitReview?: (item: Item, feedback: Feedback) => void;
   /** A visual review's starting pick and notes, for a story. */
   reviewInitial?: Feedback;
+  /** Opens the new-thread composer seeded with the item. */
+  onStartThread?: (item: Item) => void;
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -169,6 +171,7 @@ function ItemCard({
   onRun,
   onDismiss,
   onGo,
+  onStartThread,
 }: {
   item: Item;
   record: ItemRecord | undefined;
@@ -180,6 +183,7 @@ function ItemCard({
   onRun: (index: number, draft?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
+  onStartThread?: () => void;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
@@ -301,7 +305,7 @@ function ItemCard({
             </Button>
           </div>
         </div>
-      ) : item.actions.length === 0 || state === "dismissed" ? null : (
+      ) : (item.actions.length === 0 && onStartThread === undefined) || state === "dismissed" ? null : (
         <div className="mt-3 flex flex-wrap gap-2">
           {item.actions.map((action, index) => (
             <ActionButton
@@ -317,6 +321,12 @@ function ItemCard({
               onGo={onGo}
             />
           ))}
+          {/* Not one of the item's decisions, so it stays usable after one is made. */}
+          {onStartThread === undefined ? null : (
+            <Button size="sm" variant="ghost" onClick={onStartThread}>
+              Start thread
+            </Button>
+          )}
           {busy ? <span className="self-center text-xs text-muted-foreground">Working…</span> : null}
         </div>
       )}
@@ -324,7 +334,7 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, imageUrl, onSubmitReview, reviewInitial }: ViewPanelProps) {
+export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, imageUrl, onSubmitReview, reviewInitial, onStartThread }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
@@ -367,6 +377,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             onRun={(index, draft) => onRun(focused, index, draft)}
             onDismiss={(dismissed) => onDismiss(focused, dismissed)}
             onGo={onGoToThread}
+            onStartThread={onStartThread === undefined ? undefined : () => onStartThread(focused)}
           />
         </ol>
       </div>

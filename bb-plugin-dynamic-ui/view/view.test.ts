@@ -11,6 +11,7 @@ import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { firstOpenItem, nextOpenItem } from "./view-panel.js";
+import { itemThreadPrompt } from "./thread-prompt.js";
 
 function store() {
   const db = new Database(":memory:");
@@ -309,5 +310,22 @@ describe("visual review", () => {
     s.putImages(stored.id, [{ itemId: "review-rows", index: 0, mime: "image/webp", data: Buffer.from("new") }]);
     expect(s.image(stored.id, "review-rows", 1)).toBeNull();
     expect(s.image(stored.id, "review-rows", 0)!.mime).toBe("image/webp");
+  });
+});
+
+describe("itemThreadPrompt", () => {
+  it("carries the item's title, link, summary, details, and draft, and names the thread it came from", () => {
+    const item = triageView.sections[0]!.items[0]!;
+    const prompt = itemThreadPrompt(triageView.title, item, "thr_src");
+    expect(prompt).toContain('from "Triage: acme/widgets milestone 4.2" in @thread:thr_src');
+    expect(prompt).toContain("## #101 Export widgets as CSV\n\nhttps://github.com/acme/widgets/issues/101");
+    expect(prompt).toContain(item.summary);
+    expect(prompt).toContain(item.details);
+    expect(prompt).toContain(`Comment to post:\n\n${item.draft}`);
+  });
+
+  it("leaves out what the item does not have", () => {
+    const item = triageView.sections[1]!.items[1]!;
+    expect(itemThreadPrompt("V", item, "thr_src")).toBe('Dig further into this item from "V" in @thread:thr_src.\n\n## #123 Dark mode for the dashboard');
   });
 });

@@ -47,7 +47,7 @@ const failed: StoredView = {
 function Panel(props: Partial<ViewPanelProps>) {
   return (
     <div className="h-[900px] w-[520px] border-l border-border bg-background">
-      <ViewPanel stored={fresh} busyItem={null} onRun={noop} onDismiss={noop} onGoToThread={noop} {...props} />
+      <ViewPanel stored={fresh} busyItem={null} onRun={noop} onDismiss={noop} onGoToThread={noop} onStartThread={noop} {...props} />
     </div>
   );
 }
