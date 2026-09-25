@@ -23,13 +23,14 @@ in this order:
   Mail comes first, newest first, then the Todoist Inbox tasks: those with a
   date soonest first, then the undated ones newest added first.
 - **Now**: every read Gmail row, since a thread you have read and left in the
-  inbox is one you kept there to act on; and any other task overdue or due
-  today, by its due date or its deadline, whichever is sooner. The tasks come
-  first, then the read mail, newest first.
-- **Anytime**: every other task, dated later or not at all.
+  inbox is one you kept there to act on; and any other task with a date, by
+  its due date or its deadline, whichever is sooner. Overdue tasks come first,
+  then tasks due today, then the read mail, newest first, then tasks dated
+  later.
+- **Anytime**: every other task, which has no date.
 
-The page opens on the Now section. In Now and Anytime the soonest come
-first, then the most urgent, and undated tasks last. Each row starts
+The page opens on the Now section. Tasks within each of those groups, and in
+Anytime, go soonest first, then most urgent. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time

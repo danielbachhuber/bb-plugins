@@ -17,28 +17,28 @@ const due = (date: string) => ({ due: { date, recurring: false } });
 
 describe("sectionOf", () => {
   test("puts unread Gmail rows and Todoist's Inbox in Inbox, and read Gmail rows in Now", () => {
-    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }), now)).toBe("inbox");
-    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }), now)).toBe("now");
-    expect(sectionOf(item("a", { inbox: true, ...due("2026-09-21") }), now)).toBe("inbox");
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: true } }))).toBe("inbox");
+    expect(sectionOf(item("a", { gmail: { threadIds: ["t1"], unread: false } }))).toBe("now");
+    expect(sectionOf(item("a", { inbox: true, ...due("2026-09-21") }))).toBe("inbox");
   });
 
-  test("puts a task overdue or due today in Now, by its due date or its deadline", () => {
-    expect(sectionOf(item("a", due("2026-09-21")), now)).toBe("now");
-    expect(sectionOf(item("a", due("2026-09-24T14:00:00")), now)).toBe("now");
-    expect(sectionOf(item("a", { deadline: "2026-09-16" }), now)).toBe("now");
-    expect(sectionOf(item("a", { ...due("2026-10-01"), deadline: "2026-09-24" }), now)).toBe("now");
+  test("puts a task with a due date or a deadline in Now, whenever it falls", () => {
+    expect(sectionOf(item("a", due("2026-09-21")))).toBe("now");
+    expect(sectionOf(item("a", due("2026-09-24T14:00:00")))).toBe("now");
+    expect(sectionOf(item("a", due("2026-10-01")))).toBe("now");
+    expect(sectionOf(item("a", { deadline: "2026-09-16" }))).toBe("now");
   });
 
-  test("puts every other task in Anytime", () => {
-    expect(sectionOf(item("a", due("2026-09-25")), now)).toBe("anytime");
-    expect(sectionOf(item("a"), now)).toBe("anytime");
+  test("puts an undated task in Anytime", () => {
+    expect(sectionOf(item("a"))).toBe("anytime");
   });
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, puts read mail after Now's tasks, and orders Inbox newest first with Todoist's Inbox after the mail", () => {
+  test("keeps every section, orders Now overdue, today, read mail, later, and orders Inbox newest first with Todoist's Inbox after the mail", () => {
     const sections = groupIntoSections(
       [
+        item("today", due("2026-09-24T14:00:00")),
         item("late", due("2026-09-20")),
         item("filed", { inbox: true }),
         item("old-mail", { gmail: { threadIds: ["t1"], unread: false }, activityAt: "2026-09-22T10:00:00.000Z" }),
@@ -51,9 +51,9 @@ describe("groupIntoSections", () => {
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
-      ["Now", ["late", "old-mail", "older-read"]],
+      ["Now", ["late", "today", "old-mail", "older-read", "later"]],
       ["Inbox", ["new-mail", "unread-older", "filed"]],
-      ["Anytime", ["later", "someday"]],
+      ["Anytime", ["someday"]],
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0, 0]);
   });

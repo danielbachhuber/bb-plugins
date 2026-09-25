@@ -17,8 +17,8 @@ const TITLES: Record<SectionId, string> = { inbox: "Inbox", now: "Now", anytime:
 
 const HINTS: Record<SectionId, string> = {
   inbox: "Needs a decision: unread mail and Todoist's Inbox",
-  now: "Tasks overdue or due today, and read mail still in the inbox",
-  anytime: "Every other task",
+  now: "Overdue tasks, today's tasks, read mail still in the inbox, then tasks dated later",
+  anytime: "Tasks with no date",
 };
 
 export const SECTION_ORDER: readonly SectionId[] = ["now", "inbox", "anytime"];
@@ -38,40 +38,46 @@ function dayOf(date: string): string {
  *   tasks in Todoist's Inbox, whatever their date, since they have not been
  *   filed.
  * - Now: read Gmail rows, since a thread read but left in the inbox is one
- *   kept there to act on; and every other task that is overdue or due today,
- *   by the date it sorts by (its due date or its deadline, whichever is
- *   sooner).
- * - Anytime: every other task, dated later or not at all.
+ *   kept there to act on; and every other task with a date, by the date it
+ *   sorts by (its due date or its deadline, whichever is sooner).
+ * - Anytime: every other task, which has no date.
  */
-export function sectionOf(item: Item, now: Date): SectionId {
+export function sectionOf(item: Item): SectionId {
   if (item.gmail !== null) return item.gmail.unread ? "inbox" : "now";
   if (item.inbox === true) return "inbox";
-  const date = sortDate(item);
-  if (date !== null && dayOf(date) <= localDay(now)) return "now";
-  return "anytime";
+  return sortDate(item) === null ? "anytime" : "now";
 }
 
 /**
  * The rows grouped into sections, every section kept even when empty so the
- * header can count it. Now and Anytime keep the list's order (soonest first,
- * then priority, undated last), with Now's read mail after its tasks, newest
- * first. Inbox's mail is newest first, as Gmail is, with
+ * header can count it. Now runs overdue tasks, then today's, then the read
+ * mail newest first, then the tasks dated later; its tasks and Anytime keep
+ * the list's order (soonest first, then priority). Inbox's mail is newest
+ * first, as Gmail is, with
  * Todoist's Inbox tasks after the mail: dated ones soonest first, then
  * undated ones newest added first.
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
   const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
-  for (const item of items) groups.get(sectionOf(item, now))!.push(item);
+  for (const item of items) groups.get(sectionOf(item))!.push(item);
   const inbox = groups.get("inbox")!;
   const newestFirst = (a: string | null | undefined, b: string | null | undefined) => (b ?? "").localeCompare(a ?? "");
   const current = groups.get("now")!;
   const readMail = current.filter((item) => item.gmail !== null).sort((a, b) => newestFirst(a.activityAt, b.activityAt));
-  groups.set("now", [...current.filter((item) => item.gmail === null), ...readMail]);
+  const today = localDay(now);
+  const tasks = current.filter((item) => item.gmail === null);
+  const dayOfTask = (item: Item) => dayOf(sortDate(item)!);
+  groups.set("now", [
+    ...tasks.filter((item) => dayOfTask(item) < today),
+    ...tasks.filter((item) => dayOfTask(item) === today),
+    ...readMail,
+    ...tasks.filter((item) => dayOfTask(item) > today),
+  ]);
   const mail = inbox.filter((item) => item.gmail !== null).sort((a, b) => newestFirst(a.activityAt, b.activityAt));
-  const tasks = inbox.filter((item) => item.gmail === null);
+  const inboxTasks = inbox.filter((item) => item.gmail === null);
   // Dated tasks keep the list's order; undated ones, which it can only order by priority, go newest added first.
-  const undated = tasks.filter((item) => sortDate(item) === null).sort((a, b) => newestFirst(a.createdAt, b.createdAt));
-  groups.set("inbox", [...mail, ...tasks.filter((item) => sortDate(item) !== null), ...undated]);
+  const undated = inboxTasks.filter((item) => sortDate(item) === null).sort((a, b) => newestFirst(a.createdAt, b.createdAt));
+  groups.set("inbox", [...mail, ...inboxTasks.filter((item) => sortDate(item) !== null), ...undated]);
   return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));
 }
 

@@ -342,7 +342,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: tasks overdue or due today, then read mail still in the inbox. The header picks one section on the left or one source on the right, each with its count of every row."
+        hint="The page opens on Now: overdue tasks, tasks due today, read mail still in the inbox, then tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -360,7 +360,7 @@ export function Sections() {
       >
         <Frame listing={stored(ok)} filter={{ section: "inbox" }} />
       </StoryRow>
-      <StoryRow label="Anytime" hint="Every other task: dated later, soonest first, then undated.">
+      <StoryRow label="Anytime" hint="Tasks with no date, most urgent first.">
         <Frame listing={stored(ok)} filter={{ section: "anytime" }} />
       </StoryRow>
       <StoryRow label="Gmail" hint="Gmail pressed on the right: every Gmail row, read or unread, newest first, and no section chosen.">
