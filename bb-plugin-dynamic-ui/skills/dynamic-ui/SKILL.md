@@ -50,7 +50,7 @@ After publishing, say in chat how many items there are and that they are above t
           "draftLabel": "Comment to post",
           "actions": [
             { "type": "message", "label": "Post and close", "text": "Post this comment on #101, then close it:\n\n{draft}", "primary": true },
-            { "type": "message", "label": "Post and keep open", "text": "Post this comment on #101 and leave it open:\n\n{draft}" },
+            { "type": "message", "label": "Post", "text": "Post this comment on #101 and leave it open:\n\n{draft}" },
             { "type": "command", "label": "Close only", "command": "gh issue close 101 --repo acme/widgets" },
             { "type": "thread", "label": "Fix in a new thread", "project": "widgets", "title": "Fix #101", "prompt": "..." },
             { "type": "link", "label": "Open #101", "url": "https://github.com/acme/widgets/issues/101" }
@@ -66,7 +66,7 @@ After publishing, say in chat how many items there are and that they are above t
 - `url` is what the item is about on the web (the issue, the PR, the review comment's `html_url`). The opened item's title links to it, so set it whenever there is one; a separate `link` button for the same page is then unnecessary.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
-- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons (post and close, post and keep open) share one draft, and each sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
+- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons ("Post and close" and "Post") share one draft, and each sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
 - The row above the composer shows only the title, two badges, and the first line of `summary`. Make the first line the gist, and mark the likely choice `primary` so it stands out in the opened item. Put evidence and drafts further down the summary or in `details`.
 
 | Action | What the button does |
@@ -78,7 +78,7 @@ After publishing, say in chat how many items there are and that they are above t
 
 An item with `variations` is a visual review instead: see below.
 
-Every card also has Dismiss. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post and keep open" as alternatives, not "Post comment" then "Close issue" as steps. A command that fails leaves the card open to try again.
+Every card also has Dismiss. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again.
 
 ## Visual review
 

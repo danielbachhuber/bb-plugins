@@ -143,7 +143,7 @@ describe("banner rows", () => {
 
 describe("item drafts", () => {
   const post = { type: "message" as const, label: "Post and close", text: "Post on #7, then close:\n\n{draft}", primary: true };
-  const keep = { type: "message" as const, label: "Post and keep open", text: "Post on #7, leave it open:\n\n{draft}", primary: false };
+  const keep = { type: "message" as const, label: "Post", text: "Post on #7, leave it open:\n\n{draft}", primary: false };
 
   function viewWith(item: Record<string, unknown>) {
     return JSON.stringify({ title: "T", sections: [{ items: [{ id: "a", title: "A", ...item }] }] });

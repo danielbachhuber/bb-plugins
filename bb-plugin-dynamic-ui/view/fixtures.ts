@@ -22,7 +22,7 @@ export const triageView: View = viewSchema.parse({
           draftLabel: "Comment to post",
           actions: [
             { type: "message", label: "Post and close", text: "Post this comment on #101, then close it as completed:\n\n{draft}", primary: true },
-            { type: "message", label: "Post and keep open", text: "Post this comment on #101 and leave it open:\n\n{draft}", primary: false },
+            { type: "message", label: "Post", text: "Post this comment on #101 and leave it open:\n\n{draft}", primary: false },
             { type: "command", label: "Close only", command: "gh issue close 101 --repo acme/widgets --reason completed", primary: false },
             { type: "link", label: "Open #101", url: "https://github.com/acme/widgets/issues/101", primary: false },
           ],

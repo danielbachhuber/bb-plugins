@@ -138,7 +138,7 @@ export function ViewBanner({
                     disabled={busyItem === item.id}
                     onClick={() => onOpenItem(item)}
                   >
-                    {busyItem === item.id ? "Working…" : "Review…"}
+                    {busyItem === item.id ? "Working…" : "Review"}
                   </Button>
                 )}
               </li>
