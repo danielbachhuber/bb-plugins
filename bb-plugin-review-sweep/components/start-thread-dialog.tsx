@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Icon } from "@/components/ui/icon";
 
 /**
  * What the plugin knows before BB's composer opens. Every field is a seed the
@@ -65,6 +66,38 @@ export const BB_PICKER_SELECTORS = [
 ] as const;
 
 export const FIXED_ENVIRONMENT_CSS = `[${FIXED_ENVIRONMENT_ATTRIBUTE}] :is(${BB_PICKER_SELECTORS.join(", ")}) { display: none !important; }`;
+
+/**
+ * Where the thread will run, drawn like the banners bb stacks above its own
+ * composer, because it replaces pickers that would otherwise say the same.
+ */
+function WorkspaceBanner({ branch, note }: { branch: string | null; note: string | null }) {
+  return (
+    <section
+      aria-label="Where this thread runs"
+      className="flex items-start gap-2 rounded-lg border border-border bg-surface-raised-solid px-3 py-2.5"
+    >
+      <Icon name="GitBranch" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="min-w-0">
+        {branch ? (
+          <>
+            <p className="text-xs font-medium text-foreground">Runs in its own worktree</p>
+            <p className="mt-0.5 break-all text-xs leading-snug text-muted-foreground">
+              On the pull request's branch, <code className="font-mono text-foreground">{branch}</code>
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium text-foreground">Starts on a new branch</p>
+            <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+              Not the pull request's own branch: {note}
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 
 /**
  * A 32-bit digest of the seeded text, as a short base-36 string. Not a
@@ -164,15 +197,11 @@ export function StartThreadDialog({
                 <p className="mt-1 text-xs text-muted-foreground">{seed.preview.meta}</p>
               ) : null}
             </div>
-            {seed.workspace?.branch ? (
-              <p className="text-xs text-muted-foreground">
-                Runs in its own worktree on{" "}
-                <code className="font-mono text-foreground">{seed.workspace.branch}</code>.
-              </p>
-            ) : seed.workspace?.note ? (
-              <p className="text-xs text-muted-foreground">
-                Starts on a new branch rather than the pull request's: {seed.workspace.note}
-              </p>
+            {seed.workspace?.branch || seed.workspace?.note ? (
+              <WorkspaceBanner
+                branch={seed.workspace.branch}
+                note={seed.workspace.note}
+              />
             ) : null}
             <div
               className="contents"
