@@ -40,6 +40,17 @@ describe("taskChanges", () => {
     });
   });
 
+  test("sends a new deadline, or null to clear it, apart from the due date", () => {
+    expect(taskChanges(task(), { due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }).update).toEqual({
+      deadline_date: "2026-09-30",
+    });
+    const withDeadline = task({ deadline: "2026-09-30" });
+    expect(taskChanges(withDeadline, { due: "", deadline: null, priority: 4, projectId: "inbox" }).update).toEqual({
+      deadline_date: null,
+    });
+    expect(hasChanges(taskChanges(withDeadline, { due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }))).toBe(false);
+  });
+
   test("finds nothing to send in an untouched draft", () => {
     expect(hasChanges(taskChanges(task(), { due: "  ", priority: 4, projectId: "inbox" }))).toBe(false);
   });

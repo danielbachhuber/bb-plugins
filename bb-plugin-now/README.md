@@ -56,9 +56,15 @@ good sync, with a note saying how many.
 - **Complete** (on a Todoist row, in its details line) completes the task in
   Todoist and takes the row off the page.
 - **Edit** (on a Todoist row, after Complete) opens a strip under the row with
-  a date box, a project picker, and the four priority flags. Type the date in
-  words, as in Todoist ("fri", "next week", "every mon", "no date"), and
-  Todoist reads it when you save; left empty, the date stays as it is. The
+  a due date box, a deadline box, a project picker, and the four priority
+  flags. The due date is when to do it: type it in words, as in Todoist
+  ("fri", "next week", "every mon 9am", "no date"), and Todoist reads it when
+  you save. The deadline is when it has to be done by. Todoist does not read
+  a deadline's words, so the strip does, and shows the day it read at the
+  right of the box: "today", "tomorrow", a weekday, "next fri", "next week",
+  "in 3 days", "2 weeks", "sep 30", "9/30", or "2026-09-30", and "no deadline"
+  to clear it. Anything else reads "Not a date" and Save waits. Either box
+  left empty leaves its date as it is. The
   project picker lists your projects nested as Todoist shows them, and typing
   narrows it. Nothing is sent until **Save**, which sends the date, priority,
   and project together, so a new project or date cannot move the row away
@@ -166,8 +172,8 @@ One sync makes two requests to the Todoist API v1, in parallel:
 `GET /api/v1/tasks/filter` with the saved query, and `GET /api/v1/projects` to
 name each task's project and find the Inbox. Both follow `next_cursor` 200
 items at a time.
-Saving the edit strip makes `POST /api/v1/tasks/{id}` for the date and
-priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
+Saving the edit strip makes `POST /api/v1/tasks/{id}` for the due date,
+deadline, and priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
 changed, then reads the task back with `GET /api/v1/tasks/{id}`. Delete is
 `DELETE /api/v1/tasks/{id}`. Opening the page reads the projects once, for the
 picker.
@@ -292,7 +298,7 @@ list `server.ts` passes to `loadSources`.
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
-| `now/task-edit.tsx` | A Todoist row's edit strip: the date box, project picker, priority flags, and Delete |
+| `now/task-edit.tsx` | A Todoist row's edit strip: the due date and deadline boxes, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
@@ -304,6 +310,7 @@ list `server.ts` passes to `loadSources`.
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
+| `todoist/deadline.ts` | Reading a deadline typed in words into a day, since Todoist reads only a due date's words |
 | `todoist/source.ts` | Todoist as a `Source`, built from its settings |
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |

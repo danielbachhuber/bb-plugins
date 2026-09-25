@@ -38,6 +38,8 @@ export interface TaskUpdate {
   due_string?: string;
   /** Todoist's API scale, 4 being what its app calls P1. */
   priority?: 1 | 2 | 3 | 4;
+  /** `YYYY-MM-DD`, or null to clear it. Todoist does not read words here. */
+  deadline_date?: string | null;
 }
 
 export interface TodoistApiOptions {

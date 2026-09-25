@@ -860,14 +860,20 @@ describe("editing a task", () => {
     });
 
     await expect(
-      harness.behavior.callRpc("items_edit", { id: "todoist:a", due: "next fri", priority: 2, projectId: "p2" }),
+      harness.behavior.callRpc("items_edit", {
+        id: "todoist:a",
+        due: "next fri",
+        deadline: "2026-10-09",
+        priority: 2,
+        projectId: "p2",
+      }),
     ).resolves.toEqual({ saved: true, error: null });
 
     const writes = fetchImpl.mock.calls
       .filter(([, init]) => init?.method === "POST")
       .map(([url, init]) => [new URL(url).pathname, JSON.parse(String(init?.body))]);
     expect(writes).toEqual([
-      ["/api/v1/tasks/a", { due_string: "next fri", priority: 3 }],
+      ["/api/v1/tasks/a", { due_string: "next fri", deadline_date: "2026-10-09", priority: 3 }],
       ["/api/v1/tasks/a/move", { project_id: "p2" }],
     ]);
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;

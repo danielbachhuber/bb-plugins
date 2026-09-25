@@ -7,6 +7,8 @@ import { apiPriority } from "./normalize.js";
 export interface TaskDraft {
   /** A date in words. Empty leaves the date as it is. */
   due: string;
+  /** The day the deadline moves to, null to clear it, or absent to leave it as it is. */
+  deadline?: string | null;
   /** 4 is no priority, as Todoist's app counts. */
   priority: 1 | 2 | 3 | 4;
   projectId: string | null;
@@ -28,6 +30,7 @@ export function taskChanges(item: Item, draft: TaskDraft): TaskChanges {
   const update: TaskUpdate = {};
   const due = draft.due.trim();
   if (due !== "") update.due_string = due;
+  if (draft.deadline !== undefined && draft.deadline !== item.deadline) update.deadline_date = draft.deadline;
   if (draft.priority !== rowPriority(item)) update.priority = apiPriority(draft.priority);
   const current = item.todoist?.projectId ?? null;
   const move = draft.projectId !== null && draft.projectId !== current ? draft.projectId : null;

@@ -109,6 +109,8 @@ export const rpcContract = defineRpcContract({
     input: z.object({
       id: z.string(),
       due: z.string().max(200),
+      /** Already a day: Todoist does not read a deadline's words, so the page does. */
+      deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
       priority: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
       projectId: z.string().nullable(),
     }),

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+import { parseDeadline } from "../todoist/deadline.js";
 import { hasChanges, rowPriority, taskChanges, type TaskDraft } from "../todoist/edit.js";
 import { shortDate } from "./sections.js";
 import type { Item, TodoistProject } from "./types.js";
@@ -33,7 +34,7 @@ export function PriorityFlag({ priority, className }: { priority: Priority; clas
 
 /** What the date box shows before anything is typed: the date as Todoist has it. */
 function currentDate(item: Item, now: Date): string {
-  if (item.due === null) return "No date";
+  if (item.due === null) return "No due date";
   return item.due.text ?? shortDate(item.due.date, now);
 }
 
@@ -164,13 +165,17 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
     priority: rowPriority(item),
     projectId: item.todoist?.projectId ?? null,
   }));
+  const [deadlineText, setDeadlineText] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const changed = hasChanges(taskChanges(item, draft));
+  const deadline = parseDeadline(deadlineText, now);
+  const deadlineUnread = deadlineText.trim() !== "" && deadline === undefined;
+  const full: TaskDraft = { ...draft, deadline };
+  const changed = hasChanges(taskChanges(item, full));
 
   const submit = (event?: FormEvent) => {
     event?.preventDefault();
-    if (!changed || busy) return;
-    void onSave(draft);
+    if (!changed || deadlineUnread || busy) return;
+    void onSave(full);
   };
 
   return (
@@ -182,7 +187,7 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
       aria-label={`Edit "${item.title}"`}
       className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-1.5"
     >
-      <div className="relative w-40">
+      <div className="relative w-36">
         <HugeiconsIcon
           icon={Calendar03Icon}
           className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
@@ -191,11 +196,38 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           value={draft.due}
           onChange={(event) => setDraft({ ...draft, due: event.target.value })}
           placeholder={currentDate(item, now)}
-          aria-label="Date"
-          title='A date in words, as in Todoist: "fri", "next week", "every mon", or "no date"'
+          aria-label="Due date"
+          title='When to do it, in words, as in Todoist: "fri", "next week", "every mon 9am", or "no date"'
           disabled={busy}
           className="h-7 bg-background pl-7 text-xs"
         />
+      </div>
+      <div className="relative w-36">
+        <Icon name="Target" className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={deadlineText}
+          onChange={(event) => setDeadlineText(event.target.value)}
+          placeholder={item.deadline === null ? "No deadline" : `Deadline ${shortDate(item.deadline, now)}`}
+          aria-label="Deadline"
+          aria-invalid={deadlineUnread || undefined}
+          title='When it has to be done by: "fri", "sep 30", "in 2 weeks", or "no deadline"'
+          disabled={busy}
+          className={cn(
+            "h-7 bg-background pl-7 text-xs",
+            deadlineText.trim() !== "" && "pr-16",
+            deadlineUnread && "border-destructive/60",
+          )}
+        />
+        {deadlineText.trim() === "" ? null : (
+          <span
+            className={cn(
+              "pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[11px] tabular-nums",
+              deadlineUnread ? "text-destructive-text" : "text-muted-foreground",
+            )}
+          >
+            {deadlineUnread ? "Not a date" : deadline === null ? "Clear" : shortDate(deadline!, now)}
+          </span>
+        )}
       </div>
       <ProjectPicker
         projects={projects}
@@ -246,7 +278,7 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button type="submit" size="sm" className="h-7 text-xs" disabled={!changed || busy}>
+          <Button type="submit" size="sm" className="h-7 text-xs" disabled={!changed || deadlineUnread || busy}>
             {busy ? <Icon name="Loading" className="size-3 animate-spin" /> : null}
             Save
           </Button>
