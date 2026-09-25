@@ -68,8 +68,8 @@ or team asked for a review or who gave one, with a badge for where it stands.
 Green with a check is approved, red with a cross is changes requested, grey
 with a speech bubble is commented, grey with a dash is dismissed, and yellow
 with a dot is still pending, which includes someone asked to look again. A
-team is a square avatar. Hovering lists them in words ("octocat approved,
-@acme/core review pending"). A pull request with nobody asked says **No
+team is a square avatar. Hovering an avatar names the reviewer and their
+review ("@acme/core review pending"). A pull request with nobody asked says **No
 reviewers** in amber. The author is never listed, since GitHub records their
 replies to review comments as reviews. Once the pull request merges or closes,
 outstanding requests drop out, and a pull request nobody reviewed shows

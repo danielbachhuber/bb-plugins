@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/ui/icon";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ContextReviewer } from "../context/contract.js";
 
 type ReviewerState = ContextReviewer["state"];
@@ -80,10 +81,26 @@ function describe(reviewer: ContextReviewer): string {
   return `${reviewer.team ? "@" : ""}${reviewer.login} ${STATE_LABEL[reviewer.state]}`;
 }
 
+/** One reviewer, with their name and review in a tooltip on hover. */
+function Named({ reviewer, children }: { reviewer: ContextReviewer; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">
+        <span className="font-medium">
+          {reviewer.team ? "@" : ""}
+          {reviewer.login}
+        </span>{" "}
+        {STATE_LABEL[reviewer.state]}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * Who is reviewing the pull request: each reviewer's avatar with a badge for
  * where their review stands, or a warning that nobody has been asked. Hovering
- * lists them in words.
+ * an avatar names the reviewer and their review.
  */
 export function ReviewerStack({ reviewers, compact }: { reviewers: ContextReviewer[]; compact: boolean }) {
   if (reviewers.length === 0) {
@@ -101,22 +118,30 @@ export function ReviewerStack({ reviewers, compact }: { reviewers: ContextReview
   }
   const summary = reviewers.map(describe).join(", ");
   return (
-    <span role="img" className={cn(SEGMENT_CLASS, compact && "px-1")} title={summary} aria-label={`Reviewers: ${summary}`}>
-      {/* At compact width the row has no room for avatars, so only the badges stay. */}
-      <span className="flex items-center gap-0.5">
-        {reviewers.map((reviewer) =>
-          compact ? (
-            <StateBadge key={reviewer.login} state={reviewer.state} className="size-3" />
-          ) : (
-            <span key={reviewer.login} className="relative flex">
-              <Avatar reviewer={reviewer} />
-              <span className="absolute -bottom-1 -right-1.5 flex rounded-full bg-surface-raised-solid p-px">
-                <StateBadge state={reviewer.state} />
-              </span>
-            </span>
-          ),
-        )}
+    <TooltipProvider delayDuration={150}>
+      <span role="img" className={cn(SEGMENT_CLASS, compact && "px-1")} aria-label={`Reviewers: ${summary}`}>
+        {/* At compact width the row has no room for avatars, so only the badges stay. */}
+        <span className="flex items-center gap-0.5">
+          {reviewers.map((reviewer) =>
+            compact ? (
+              <Named key={reviewer.login} reviewer={reviewer}>
+                <span className="flex">
+                  <StateBadge state={reviewer.state} className="size-3" />
+                </span>
+              </Named>
+            ) : (
+              <Named key={reviewer.login} reviewer={reviewer}>
+                <span className="relative flex">
+                  <Avatar reviewer={reviewer} />
+                  <span className="absolute -bottom-1 -right-1.5 flex rounded-full bg-surface-raised-solid p-px">
+                    <StateBadge state={reviewer.state} />
+                  </span>
+                </span>
+              </Named>
+            ),
+          )}
+        </span>
       </span>
-    </span>
+    </TooltipProvider>
   );
 }

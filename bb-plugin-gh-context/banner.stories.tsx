@@ -381,7 +381,8 @@ function withReviewers(reviewers: ContextReviewer[], fields: Partial<ContextPull
 
 /**
  * The pull request's reviewers, right after it: each avatar carries a badge
- * for where that review stands. Hovering lists them in words.
+ * for where that review stands. Hovering an avatar names the reviewer and
+ * their review.
  */
 export function Reviewers() {
   return (
