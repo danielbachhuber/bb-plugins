@@ -206,6 +206,8 @@ export const STYLE_TEXT = `
 [${PROGRESS_HOST_ATTR}] > [${PROGRESS_ATTR}] {
   grid-area: progress;
   justify-self: end;
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] {
   grid-area: summary;
@@ -312,7 +314,7 @@ export function renderProgress(doc: Document, view: ProgressView | null): void {
     line.setAttribute(OWNED_ATTR, "");
     line.setAttribute(PROGRESS_ATTR, "");
     line.className =
-      "flex min-w-0 items-center gap-1 pl-2.5 text-xs leading-4";
+      "flex min-w-0 items-center gap-1 pl-2.5";
     details.append(line);
   }
   if (!details.hasAttribute(PROGRESS_HOST_ATTR)) {
