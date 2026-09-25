@@ -8,7 +8,8 @@ Gmail inbox.
 
 A **Now** page in the left sidebar, whose entry shows two counts: how many
 rows need a decision (unread mail and tasks in Todoist's Inbox) in a red
-circle, and how many other rows are in the Now section. Anytime is in neither,
+circle, and then how many emails are in the Gmail inbox, read or unread, plus
+how many tasks are overdue or due today. An unread email is in both counts,
 and a count of zero is left out. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources

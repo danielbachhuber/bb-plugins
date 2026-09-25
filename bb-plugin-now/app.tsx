@@ -308,7 +308,7 @@ function NowPage() {
  */
 function NowSidebarCounts() {
   const { listing } = useListing();
-  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [])} />;
+  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [], new Date())} />;
 }
 
 export default definePluginApp((app) => {

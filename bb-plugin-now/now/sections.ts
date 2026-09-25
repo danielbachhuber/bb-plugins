@@ -122,16 +122,19 @@ export function shortDate(date: string, now: Date): string {
 }
 
 /**
- * The two counts beside the page's name in the sidebar: the rows that need a
- * decision (unread mail and Todoist's Inbox), and the rest of the Now section.
- * Anytime is in neither.
+ * The two counts beside the page's name in the sidebar. The inbox is what
+ * needs a decision: unread mail and Todoist's Inbox. Now is every Gmail row,
+ * read or unread, since the inbox is emptied each day, and every task overdue
+ * or due today. An unread email or an Inbox task due today is in both.
  */
-export function sidebarCounts(items: readonly Item[]): { inbox: number; now: number } {
+export function sidebarCounts(items: readonly Item[], now: Date): { inbox: number; now: number } {
+  const today = localDay(now);
   let inbox = 0;
-  let now = 0;
+  let current = 0;
   for (const item of items) {
     if (needsDecision(item)) inbox++;
-    else if (sectionOf(item) === "now") now++;
+    const date = sortDate(item);
+    if (item.gmail !== null || (date !== null && dayOf(date) <= today)) current++;
   }
-  return { inbox, now };
+  return { inbox, now: current };
 }
