@@ -5,7 +5,8 @@
 # `setup.sh` installs plugins on a new machine and deliberately skips anything
 # already registered, so it does nothing after a `git pull`. This script covers
 # the other half: a plugin whose dist/ no longer matches the source it was built
-# from, and a plugin that arrived in a pull and is not installed yet.
+# from, a plugin that arrived in a pull and is not installed yet, and a plugin
+# that a pull deleted but bb still has installed.
 #
 # Plugins are installed as `path:` sources pointing straight at the directories
 # here, so a pull changes the source in place. What goes stale is the build,
@@ -50,7 +51,8 @@ stale_plugins=""   # directory \t plugin id \t what changed
 
 # What bb has installed, enabled or not. An empty answer would make every plugin
 # look new, so a failure to ask stops here rather than reinstalling them all.
-if ! installed_ids="$(bb plugin list --json 2>/dev/null | jq -er '.plugins[].id')"; then
+if ! installed_json="$(bb plugin list --json 2>/dev/null)" \
+  || ! installed_ids="$(printf '%s' "$installed_json" | jq -er '.plugins[].id')"; then
   [ "$CHECK_ONLY" = yes ] && exit 0
   echo "Could not list bb's plugins. Is bb running?" >&2
   exit 1
@@ -125,9 +127,30 @@ detect_plugins() {
   return 0
 }
 
+# A plugin bb loads from a directory here that no longer holds one. Removing it
+# also deletes its settings and secrets, so being gone from this checkout is not
+# enough: an older branch or a half-written plugin looks the same. It has to be
+# gone from origin/main too, which is what a plugin deleted upstream looks like.
+detect_removed() {
+  local id plugin name
+  git -C "$DIR" rev-parse -q --verify origin/main >/dev/null || return 0
+  while IFS=$'\t' read -r id plugin; do
+    [ -z "$id" ] && continue
+    [ "$(dirname "$plugin")" = "$DIR" ] || continue
+    [ -f "$plugin/package.json" ] && continue
+    name="$(basename "$plugin")"
+    git -C "$DIR" cat-file -e "origin/main:$name/package.json" 2>/dev/null && continue
+    stale_plugins="${stale_plugins}${plugin}	${id}	removed from this checkout
+"
+  done < <(printf '%s' "$installed_json" \
+    | jq -r '.plugins[] | select(.source | startswith("path:")) | "\(.id)\t\(.source | ltrimstr("path:"))"')
+  return 0
+}
+
 # --- Report ------------------------------------------------------------------
 
 detect_plugins
+detect_removed
 
 if [ -z "$stale_plugins" ]; then
   [ "$CHECK_ONLY" = yes ] || echo "bb: every plugin is current."
@@ -205,6 +228,11 @@ failed=0
 
 while IFS=$'\t' read -r plugin id reason; do
   [ -z "$plugin" ] && continue
+  if [ "$reason" = "removed from this checkout" ]; then
+    echo "==> $id (removing)"
+    bb plugin remove "$id" >/dev/null || { failed=1; echo "    failed; left as it was" >&2; }
+    continue
+  fi
   install=no
   [ "$reason" = "not installed" ] && install=yes
   apply_plugin "$plugin" "$id" "$install" || { failed=1; echo "    failed; left as it was" >&2; }
