@@ -15,6 +15,8 @@ import type { rpcContract } from "./server";
 import { SYNC_CHANNEL, type Listing } from "./now/contract.js";
 import { ItemListView } from "./now/item-list.js";
 import type { PendingAction, RowActions } from "./now/item-row.js";
+import { sidebarCounts } from "./now/sections.js";
+import { SidebarCounts } from "./now/sidebar-counts.js";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
@@ -300,15 +302,13 @@ function NowPage() {
 }
 
 /**
- * How many rows the page has, beside its name in the sidebar: everything the
- * last sync found, which is what needs action. It re-reads on the same signal
- * as the page, so completing or archiving a row lowers it at once.
+ * The inbox and Now counts beside the page's name in the sidebar. It re-reads
+ * on the same signal as the page, so completing or archiving a row lowers them
+ * at once.
  */
-function NeedsActionCount() {
+function NowSidebarCounts() {
   const { listing } = useListing();
-  const count = listing?.list?.items.length ?? 0;
-  if (count === 0) return null;
-  return <span className="text-xs tabular-nums text-muted-foreground">{count}</span>;
+  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [])} />;
 }
 
 export default definePluginApp((app) => {
@@ -319,6 +319,6 @@ export default definePluginApp((app) => {
     path: "now",
     component: NowPage,
     headerContent: SyncHeader,
-    experimental_sidebarAccessory: NeedsActionCount,
+    experimental_sidebarAccessory: NowSidebarCounts,
   });
 });

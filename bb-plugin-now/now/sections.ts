@@ -120,3 +120,18 @@ export function shortDate(date: string, now: Date): string {
   const text = `${MONTHS[month! - 1]} ${dayOfMonth}`;
   return year === now.getFullYear() ? text : `${text}, ${year}`;
 }
+
+/**
+ * The two counts beside the page's name in the sidebar: the rows that need a
+ * decision (unread mail and Todoist's Inbox), and the rest of the Now section.
+ * Anytime is in neither.
+ */
+export function sidebarCounts(items: readonly Item[]): { inbox: number; now: number } {
+  let inbox = 0;
+  let now = 0;
+  for (const item of items) {
+    if (needsDecision(item)) inbox++;
+    else if (sectionOf(item) === "now") now++;
+  }
+  return { inbox, now };
+}

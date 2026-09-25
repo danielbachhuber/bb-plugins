@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { groupIntoSections, sectionOf, shortDate } from "./sections.js";
+import { groupIntoSections, sectionOf, shortDate, sidebarCounts } from "./sections.js";
 import type { Item } from "./types.js";
 
 /** Thursday, September 24, 2026, 9:30 local. */
@@ -80,5 +80,23 @@ describe("shortDate", () => {
     expect(shortDate("2027-01-15", now)).toBe("Jan 15, 2027");
     expect(shortDate(new Date(2026, 8, 24, 8, 4).toISOString(), now)).toBe("08:04");
     expect(shortDate(new Date(2026, 8, 23, 20, 9).toISOString(), now)).toBe("Sep 23");
+  });
+});
+
+describe("sidebarCounts", () => {
+  test("counts the inbox apart from the rest of Now, and leaves Anytime out", () => {
+    const items = [
+      item("unread", { gmail: { threadIds: ["t1"], unread: true } }),
+      item("read", { gmail: { threadIds: ["t2"], unread: false } }),
+      item("inbox", { inbox: true }),
+      item("dated-inbox", { inbox: true, ...due("2026-09-30") }),
+      item("today", due("2026-09-24")),
+      item("undated"),
+    ];
+    expect(sidebarCounts(items)).toEqual({ inbox: 3, now: 2 });
+  });
+
+  test("counts nothing in an empty list", () => {
+    expect(sidebarCounts([])).toEqual({ inbox: 0, now: 0 });
   });
 });

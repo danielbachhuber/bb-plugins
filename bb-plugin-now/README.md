@@ -6,8 +6,10 @@ Gmail inbox.
 
 ## What it adds
 
-A **Now** page in the left sidebar, whose entry shows how many rows need
-action: everything the last sync found. It loads every
+A **Now** page in the left sidebar, whose entry shows two counts: how many
+rows need a decision (unread mail and tasks in Todoist's Inbox) in a red
+circle, and how many other rows are in the Now section. Anytime is in neither,
+and a count of zero is left out. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
@@ -304,10 +306,11 @@ list `server.ts` passes to `loadSources`.
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
-| `now/sections.ts` | Which section a row goes in, and the short date each row shows |
+| `now/sections.ts` | Which section a row goes in, the short date each row shows, and the sidebar's counts |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
+| `now/sidebar-counts.tsx` | The inbox badge and Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
@@ -324,6 +327,7 @@ list `server.ts` passes to `loadSources`.
 | `calendar/api.ts` | The only module that asks Google Calendar: each event's reply, and replying |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
+| `sidebar-counts.stories.tsx` | The sidebar entry's counts, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page and its title-bar sync control, which read the stored list and sync on open |
 | `components/ui/sync-status.tsx` | The "synced 4m ago" label and Refresh button, the same file the sweeps carry |
