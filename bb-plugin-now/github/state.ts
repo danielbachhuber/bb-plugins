@@ -14,6 +14,17 @@ export type MergeMethod = "merge" | "squash" | "rebase";
  */
 export type MyReview = "requested" | "re-requested" | "approved" | "changes_requested" | "commented" | "dismissed";
 
+export type ReviewerState = "approved" | "changes_requested" | "commented" | "dismissed" | "pending";
+
+/** Someone asked for a review of a pull request, or who gave one. */
+export interface Reviewer {
+  /** A user's login, or a team's `org/team` slug. */
+  login: string;
+  team: boolean;
+  state: ReviewerState;
+  avatarUrl: string;
+}
+
 export interface GitHubState {
   state: GitHubStateName;
   /** Pull requests only, and only when the repository requires reviews. */
@@ -26,6 +37,11 @@ export interface GitHubState {
    * Undefined when it was not asked.
    */
   pendingReviewers?: string[];
+  /**
+   * Everyone reviewing a pull request and where each stands, as GitHub
+   * Context's banner shows them. Undefined when it was not asked.
+   */
+  reviewers?: Reviewer[];
   /** The latest commit's checks, on an open pull request that has any. */
   checks?: CheckState | null;
   /**
@@ -44,6 +60,8 @@ export interface GitHubState {
    */
   requestedVia?: "you" | "team" | null;
 }
+
+const REVIEW_FIELDS = "state submittedAt author { login avatarUrl }";
 
 /** GitHub logins and repository names: letters, digits, `-`, `_`, `.`. */
 const NAME = /^[A-Za-z0-9_.-]+$/;
@@ -67,10 +85,11 @@ export function buildStateQuery(refs: readonly GitHubRef[]): { query: string; al
       `${alias}: repository(owner: "${owner}", name: "${name}") { ` +
         `viewerPermission mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed ` +
         `issueOrPullRequest(number: ${ref.number}) { ` +
-        `__typename ... on PullRequest { state isDraft reviewDecision mergeStateStatus viewerDidAuthor ` +
+        `__typename ... on PullRequest { state isDraft reviewDecision mergeStateStatus viewerDidAuthor author { login } ` +
         `viewerLatestReview { state } viewerLatestReviewRequest { requestedReviewer { __typename } } ` +
         `commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } ` +
-        `reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on Team { combinedSlug } ... on User { login } } } } } ` +
+        `latestReviews(first: 20) { nodes { ${REVIEW_FIELDS} } } latestOpinionatedReviews(first: 20) { nodes { ${REVIEW_FIELDS} } } ` +
+        `reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on Team { combinedSlug avatarUrl } ... on User { login avatarUrl } } } } } ` +
         `... on Issue { state stateReason } } }`,
     );
   });
@@ -116,6 +135,61 @@ function myReview(node: Record<string, unknown>): { myReview: MyReview | null; r
   const verdict = VERDICTS[String((node.viewerLatestReview as { state?: unknown } | null | undefined)?.state)];
   if (verdict !== undefined) return { myReview: requestedVia === null ? verdict : "re-requested", requestedVia };
   return { myReview: requestedVia === null ? null : "requested", requestedVia };
+}
+
+interface ReviewNode {
+  state?: unknown;
+  submittedAt?: unknown;
+  author?: { login?: unknown; avatarUrl?: unknown } | null;
+}
+
+function reviewNodes(value: unknown): ReviewNode[] {
+  const nodes = (value as { nodes?: unknown } | undefined)?.nodes;
+  return Array.isArray(nodes) ? nodes.filter((node): node is ReviewNode => node !== null && typeof node === "object") : [];
+}
+
+const REVIEWER_VERDICTS: Record<string, ReviewerState> = {
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  COMMENTED: "commented",
+  DISMISSED: "dismissed",
+};
+
+/**
+ * Who is reviewing a pull request and where each stands, in the order they
+ * reviewed, then everyone still waiting to be asked.
+ *
+ * An approval or request for changes stands through later comments, as on
+ * GitHub, so `latestOpinionatedReviews` wins over `latestReviews`. A reviewer
+ * asked again is pending. Requests left on a merged or closed pull request are
+ * not waiting on anyone. The author is left out: GitHub records their replies
+ * to review comments as COMMENTED reviews.
+ */
+function reviewers(node: Record<string, unknown>, open: boolean): Reviewer[] {
+  const author = String((node.author as { login?: unknown } | null | undefined)?.login ?? "").toLowerCase();
+  const chosen = new Map<string, { reviewer: Reviewer; at: string }>();
+  for (const review of [...reviewNodes(node.latestReviews), ...reviewNodes(node.latestOpinionatedReviews)]) {
+    const login = review.author?.login;
+    const state = REVIEWER_VERDICTS[String(review.state)];
+    if (typeof login !== "string" || state === undefined || login.toLowerCase() === author) continue;
+    const avatarUrl = typeof review.author?.avatarUrl === "string" ? review.author.avatarUrl : "";
+    chosen.set(login.toLowerCase(), { reviewer: { login, team: false, state, avatarUrl }, at: String(review.submittedAt ?? "") });
+  }
+  const list = [...chosen.values()].sort((a, b) => a.at.localeCompare(b.at)).map((entry) => entry.reviewer);
+  if (!open) return list;
+
+  const requests = (node.reviewRequests as { nodes?: unknown } | undefined)?.nodes;
+  for (const request of Array.isArray(requests) ? requests : []) {
+    const reviewer = (request as { requestedReviewer?: { combinedSlug?: unknown; login?: unknown; avatarUrl?: unknown } | null } | null)
+      ?.requestedReviewer;
+    const team = typeof reviewer?.combinedSlug === "string";
+    const login = reviewer?.combinedSlug ?? reviewer?.login;
+    if (typeof login !== "string") continue;
+    const known = list.find((entry) => entry.login.toLowerCase() === login.toLowerCase());
+    if (known !== undefined) known.state = "pending";
+    else list.push({ login, team, state: "pending", avatarUrl: typeof reviewer?.avatarUrl === "string" ? reviewer.avatarUrl : "" });
+  }
+  return list;
 }
 
 /**
@@ -167,7 +241,9 @@ export function parseStateResponse(body: unknown, aliases: ReadonlyMap<string, G
         })
       : undefined;
     states.set(`${ref.repo}#${ref.number}`, {
-      ...(pull && pendingReviewers !== undefined ? { pendingReviewers } : {}),
+      ...(pull && pendingReviewers !== undefined
+        ? { pendingReviewers, reviewers: reviewers(node, state === "open" || state === "draft") }
+        : {}),
       ...(pull && (state === "open" || state === "draft")
         ? { checks: checks(node), mergeMethods: mergeMethods(repository, node), ...myReview(node) }
         : {}),

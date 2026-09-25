@@ -72,6 +72,61 @@ describe("parseStateResponse", () => {
     expect(states.get("acme/widgets#128")?.pendingReviewers).toEqual(["acme/reviewers", "hubber"]);
   });
 
+  test("lists reviewers in the order they reviewed, then the requests still waiting", () => {
+    const review = (login: string, state: string, submittedAt: string) => ({
+      state,
+      submittedAt,
+      author: { login, avatarUrl: `https://avatars.example/${login}` },
+    });
+    const answer = (state: string) =>
+      parseStateResponse(
+        {
+          data: {
+            r0: {
+              issueOrPullRequest: {
+                __typename: "PullRequest",
+                state,
+                isDraft: false,
+                author: { login: "Monalisa" },
+                // A comment after an approval leaves the approval standing.
+                latestReviews: {
+                  nodes: [
+                    review("octocat", "COMMENTED", "2026-09-03T10:00:00Z"),
+                    review("hubber", "CHANGES_REQUESTED", "2026-09-02T10:00:00Z"),
+                    review("monalisa", "COMMENTED", "2026-09-04T10:00:00Z"),
+                  ],
+                },
+                latestOpinionatedReviews: {
+                  nodes: [
+                    review("octocat", "APPROVED", "2026-09-01T10:00:00Z"),
+                    review("hubber", "CHANGES_REQUESTED", "2026-09-02T10:00:00Z"),
+                  ],
+                },
+                reviewRequests: {
+                  nodes: [
+                    { requestedReviewer: { __typename: "User", login: "hubber", avatarUrl: "https://avatars.example/hubber" } },
+                    { requestedReviewer: { __typename: "Team", combinedSlug: "acme/core", avatarUrl: "https://avatars.example/core" } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        aliases,
+      ).get("acme/widgets#128")?.reviewers;
+
+    // hubber was asked again after requesting changes; the author is no reviewer.
+    expect(answer("OPEN")).toEqual([
+      { login: "octocat", team: false, state: "approved", avatarUrl: "https://avatars.example/octocat" },
+      { login: "hubber", team: false, state: "pending", avatarUrl: "https://avatars.example/hubber" },
+      { login: "acme/core", team: true, state: "pending", avatarUrl: "https://avatars.example/core" },
+    ]);
+    expect(answer("MERGED")?.map((reviewer) => [reviewer.login, reviewer.state])).toEqual([
+      ["octocat", "approved"],
+      ["hubber", "changes_requested"],
+    ]);
+  });
+
   test("drops the review decision once a pull request has merged", () => {
     const states = parseStateResponse(
       { data: { r0: { issueOrPullRequest: { __typename: "PullRequest", state: "MERGED", isDraft: false, reviewDecision: "APPROVED" } } } },

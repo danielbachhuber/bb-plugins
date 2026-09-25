@@ -70,8 +70,19 @@ function pull(
   };
 }
 
+/** A lettered stand-in for a GitHub avatar, so the stories load no real account's picture. */
+function avatar(letter: string, color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const octocat = { login: "octocat", team: false, avatarUrl: avatar("O", "#7c5cc4") };
+const hubber = { login: "hubber", team: false, avatarUrl: avatar("H", "#d0703c") };
+const reviewersTeam = { login: "acme/reviewers", team: true, avatarUrl: avatar("A", "#3c8dd0") };
+
 const notifications: Item[] = [
   pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
+    reviewers: [{ ...hubber, state: "commented" }, { ...reviewersTeam, state: "pending" }],
     reason: "review_requested",
     review: "review_required",
     checks: "pending",
@@ -90,6 +101,7 @@ const notifications: Item[] = [
     },
   }),
   pull(137, "Tidy the widget cache", "1 comment from hubber · review requested of acme/reviewers by octocat · approved by hubber", new Date(2026, 8, 24, 6, 15), {
+    reviewers: [{ ...hubber, state: "approved" }],
     reason: "review_requested",
     review: "approved",
     checks: "passing",
@@ -98,6 +110,7 @@ const notifications: Item[] = [
     comment: { author: "hubber", text: "Looks good to me. Merging after lunch unless anyone objects." },
   }),
   pull(141, "Cache widget lookups per request", "1 comment from hubber · approved by hubber", new Date(2026, 8, 24, 5, 50), {
+    reviewers: [{ ...hubber, state: "approved" }],
     reason: "author",
     review: "approved",
     checks: "passing",
@@ -105,6 +118,7 @@ const notifications: Item[] = [
     unreadQuotes: [{ author: "hubber", text: "approved" }],
   }),
   pull(139, "Split the gadget cache by region", "1 comment from github-actions[bot] · review requested of acme/reviewers by octocat", new Date(2026, 8, 23, 17, 20), {
+    reviewers: [{ ...reviewersTeam, state: "pending" }],
     reason: "review_requested",
     review: "review_required",
     checks: "passing",
@@ -121,14 +135,16 @@ const notifications: Item[] = [
   pull(131, "Drop the gadget feature toggle", "2 comments from hubber · approved by octocat · merged", new Date(2026, 8, 23, 16, 5), {
     state: "merged",
     reason: "review_requested",
+    reviewers: [{ ...octocat, state: "approved" }],
   }),
   pull(133, "Read empty widgets back as absent", "1 comment from octocat · changes requested by hubber", new Date(2026, 8, 22, 11, 0), {
+    reviewers: [{ ...hubber, state: "changes_requested" }],
     review: "changes_requested",
     checks: "failing",
     reason: "author",
     comment: { author: "octocat", text: "Can we add a test for an empty gadget list too?" },
   }),
-  pull(135, "Sketch a widget plugin API", "1 comment from hubber", new Date(2026, 8, 22, 9, 30), { state: "draft", reason: "author" }),
+  pull(135, "Sketch a widget plugin API", "1 comment from hubber", new Date(2026, 8, 22, 9, 30), { state: "draft", reason: "author", reviewers: [] }),
   {
     ...pull(44, "Support gadgets on the moon", "2 comments from octocat", new Date(2026, 8, 21, 12, 0), {
       repo: "acme/gadgets",

@@ -233,6 +233,10 @@ requested", "Re-review requested", "You approved", "You requested changes",
 "You commented"), or else what it is waiting on ("Approved", "Changes
 requested"), or its state once it is not open ("Draft",
 "Merged", "Closed", "Not planned"). The segment links to it on GitHub.
+After it, a pull request's reviewers are drawn as GitHub Context draws them:
+an avatar for each person or team asked or who reviewed, with a badge for
+approved, changes requested, commented, dismissed, or pending, and **No
+reviewers** when nobody has been asked.
 
 That state comes from `gh`, asked about every pull request and issue in one
 GraphQL query per sync, because an email only says what was true when it was
@@ -305,6 +309,7 @@ list `server.ts` passes to `loadSources`.
 | `now/task-edit.tsx` | A Todoist row's edit strip: the due date and deadline boxes, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
+| `now/reviewer-stack.tsx` | A pull request's reviewers, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
 | `now/sections.ts` | Which section a row goes in, the short date each row shows, and the sidebar's counts |

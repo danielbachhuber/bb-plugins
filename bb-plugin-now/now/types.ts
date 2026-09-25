@@ -40,6 +40,20 @@ export const githubPartSchema = z.object({
    * when gh was not asked.
    */
   myReview: z.enum(["requested", "re-requested", "approved", "changes_requested", "commented", "dismissed"]).nullable().optional(),
+  /**
+   * A pull request's reviewers and where each stands, from gh: a user's login
+   * or a team's `org/team` slug. Absent when gh was not asked.
+   */
+  reviewers: z
+    .array(
+      z.object({
+        login: z.string(),
+        team: z.boolean(),
+        state: z.enum(["approved", "changes_requested", "commented", "dismissed", "pending"]),
+        avatarUrl: z.string(),
+      }),
+    )
+    .optional(),
   /** A closed issue's reason, which GitHub colors differently: done, or not planned. */
   closedAs: z.enum(["completed", "not_planned"]).nullable().default(null),
   /** Why GitHub notified you, from the latest email: `review_requested`, `mention`, `author`, … */

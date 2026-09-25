@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { BrandIcon, type Brand } from "./brand-icon.js";
 import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
+import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
 import { shortDate } from "./sections.js";
 import { TaskEdit } from "./task-edit.js";
@@ -93,6 +94,16 @@ export function archiveReason(item: Item): string | null {
  */
 export function mentionsYou(item: Item): boolean {
   return item.gmail !== null && item.doc?.mentioned === true;
+}
+
+/**
+ * Whether to draw a pull request's reviewers: always while it is open, and
+ * after it has merged or closed only when someone reviewed it. Not for an
+ * issue, or when gh could not say.
+ */
+function showReviewers(github: GitHubPart): github is GitHubPart & { reviewers: NonNullable<GitHubPart["reviewers"]> } {
+  if (github.kind !== "pull" || github.reviewers === undefined) return false;
+  return github.state === "open" || github.state === "draft" || github.reviewers.length > 0;
 }
 
 /** Whether the row asks for your review, for its label. */
@@ -339,7 +350,12 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
     github === null ? null : (
       <div className="mt-2">
         <PullRequestBar
-          left={<PullRequestSegment github={github} url={item.url} yours={reviewIsYours(github)} />}
+          left={
+            <>
+              <PullRequestSegment github={github} url={item.url} yours={reviewIsYours(github)} />
+              {showReviewers(github) ? <ReviewerStack reviewers={github.reviewers} /> : null}
+            </>
+          }
           right={merge}
         />
       </div>
