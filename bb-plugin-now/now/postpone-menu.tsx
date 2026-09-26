@@ -74,7 +74,7 @@ export function PostponeMenu({
             open && "bg-accent text-foreground",
           )}
         >
-          <Icon name="Clock" className="size-3" />
+          <Icon name="Pause" className="size-3" />
           Postpone
         </button>
       </PopoverTrigger>
