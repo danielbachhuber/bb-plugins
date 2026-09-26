@@ -68,7 +68,8 @@ good sync, with a note saying how many.
   right of the box: "today", "tomorrow", a weekday, "next fri", "next week",
   "in 3 days", "2 weeks", "sep 30", "9/30", or "2026-09-30", and "no deadline"
   to clear it. Anything else reads "Not a date" and Save waits. Either box
-  left empty leaves its date as it is. The
+  left empty leaves its date as it is. A box whose task has a date shows an
+  X, which types "no date" or "no deadline" into it, so Save clears that date. The
   project picker lists your projects nested as Todoist shows them, and typing
   narrows it. Nothing is sent until **Save**, which sends the name, date,
   priority, and project together, so a new project or date cannot move the row away

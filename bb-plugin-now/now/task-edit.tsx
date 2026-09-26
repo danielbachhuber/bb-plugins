@@ -4,6 +4,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Calendar03Icon from "@hugeicons/core-free-icons/Calendar03Icon";
+import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import Flag02Icon from "@hugeicons/core-free-icons/Flag02Icon";
 import HashIcon from "@hugeicons/core-free-icons/HashIcon";
 
@@ -147,6 +148,22 @@ function ProjectPicker({
   );
 }
 
+/** An X at the right of a date box that types the words that clear it, so Save sends them. */
+function ClearDate({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+    >
+      <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+    </button>
+  );
+}
+
 export interface TaskEditProps {
   item: Item;
   now: Date;
@@ -215,8 +232,11 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           aria-label="Due date"
           title='When to do it, in words, as in Todoist: "fri", "next week", "every mon 9am", or "no date"'
           disabled={busy}
-          className="h-7 bg-background pl-7 text-xs"
+          className={cn("h-7 bg-background pl-7 text-xs", item.due !== null && "pr-6")}
         />
+        {item.due !== null && draft.due === "" ? (
+          <ClearDate label="Clear the due date" disabled={busy} onClick={() => setDraft({ ...draft, due: "no date" })} />
+        ) : null}
       </div>
       <div className="relative w-36">
         <Icon name="Target" className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
@@ -230,7 +250,7 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           disabled={busy}
           className={cn(
             "h-7 bg-background pl-7 text-xs",
-            deadlineText.trim() !== "" && "pr-16",
+            deadlineText.trim() !== "" ? "pr-16" : item.deadline !== null && "pr-6",
             deadlineUnread && "border-destructive/60",
           )}
         />
@@ -244,6 +264,9 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
             {deadlineUnread ? "Not a date" : deadline === null ? "Clear" : shortDate(deadline!, now)}
           </span>
         )}
+        {item.deadline !== null && deadlineText === "" ? (
+          <ClearDate label="Clear the deadline" disabled={busy} onClick={() => setDeadlineText("no deadline")} />
+        ) : null}
       </div>
       <ProjectPicker
         projects={projects}
