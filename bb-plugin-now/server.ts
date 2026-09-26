@@ -12,7 +12,7 @@ import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
 import { hasChanges, taskChanges } from "./todoist/edit.js";
 import { normalizeTask, projectMap, projectTree } from "./todoist/normalize.js";
-import { canPostponeTo, movedDate } from "./todoist/postpone.js";
+import { canPostponeTo, movedDate, postponeTarget } from "./todoist/postpone.js";
 import { CONFIGURE_HINT, DEFAULT_FILTER, todoistSource } from "./todoist/source.js";
 import type { Item } from "./now/types.js";
 
@@ -264,16 +264,22 @@ export function createPlugin(deps: PluginDeps = {}) {
     async function postponeItem(id: string, day: string) {
       const item = findItem(id);
       if (item?.source !== "todoist") return { postponed: false, error: "Only a Todoist task can be postponed." };
-      const due = item.due;
-      if (due === null || !due.recurring || due.text === undefined) {
-        return { postponed: false, error: "Only a recurring task can be postponed here. Edit sets a one-off date." };
+      const target = postponeTarget(item, now());
+      if (target === null) {
+        return {
+          postponed: false,
+          error: "Only a recurring task, or one whose date or deadline has come, can be postponed. Edit sets any other date.",
+        };
       }
-      if (!canPostponeTo(due, day, now())) return { postponed: false, error: "Pick a day after the one it is due." };
+      if (!canPostponeTo(target.due, day, now())) return { postponed: false, error: "Pick a later day than its date, and not a past one." };
       const api = await todoist();
       if (api === null) return { postponed: false, error: "Todoist is not set up." };
       const taskId = id.slice("todoist:".length);
       try {
-        await api.postpone(taskId, { date: movedDate(due.date, day), string: due.text });
+        const date = movedDate(target.due.date, day);
+        if (target.kind === "occurrence") await api.postpone(taskId, { date, string: target.due.text });
+        else if (target.kind === "due") await api.postpone(taskId, { date });
+        else await api.update(taskId, { deadline_date: day });
         const [task, projects] = await Promise.all([api.task(taskId), api.projects()]);
         const saved = normalizeTask(task, projectMap(projects));
         if (saved !== null) updateRow(saved);

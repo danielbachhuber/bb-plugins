@@ -21,7 +21,47 @@ export function Open() {
         <div className="h-72 text-xs text-muted-foreground">
           <PostponeMenu
             defaultOpen
-            due={{ date: "2026-09-28T09:00:00", recurring: true, text: "every mon 9am" }}
+            target={{ kind: "occurrence", due: { date: "2026-09-28T09:00:00", recurring: true, text: "every mon 9am" } }}
+            now={now}
+            disabled={false}
+            working={false}
+            onPostpone={noop}
+          />
+        </div>
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** On a one-off task whose due date has passed, Postpone moves that date and keeps its time. Today comes first, since the date has passed. */
+export function OverdueDate() {
+  return (
+    <StoryCard>
+      <StoryRow label="Due Tuesday 2pm" hint="A one-off task two days overdue. Each pick keeps 14:00.">
+        <div className="h-64 text-xs text-muted-foreground">
+          <PostponeMenu
+            defaultOpen
+            target={{ kind: "due", due: { date: "2026-09-22T14:00:00", recurring: false } }}
+            now={now}
+            disabled={false}
+            working={false}
+            onPostpone={noop}
+          />
+        </div>
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** On a task with no due date and a deadline that has passed, Postpone moves the deadline. */
+export function PastDeadline() {
+  return (
+    <StoryCard>
+      <StoryRow label="Deadline Sep 20" hint="No due date, and a deadline four days past.">
+        <div className="h-72 text-xs text-muted-foreground">
+          <PostponeMenu
+            defaultOpen
+            target={{ kind: "deadline", due: { date: "2026-09-20", recurring: false } }}
             now={now}
             disabled={false}
             working={false}

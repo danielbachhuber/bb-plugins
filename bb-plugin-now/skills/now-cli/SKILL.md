@@ -14,7 +14,7 @@ own Todoist token, so nothing needs a token of its own.
 | `bb now tasks [--json]` | Lists the Todoist tasks on the page: id, due date, repeat rule, and name. |
 | `bb now task show <id>` | Reads a task fresh from Todoist and prints its name and due object. |
 | `bb now task add <name> [--due <words>]` | Adds a task to the Todoist Inbox, syncs, and prints its id. `--due` takes Todoist's words: `"every mon 9am"`. |
-| `bb now postpone <id> <day>` | Moves a recurring task's current occurrence to a later day, as the Postpone menu does. The day is `tomorrow`, `fri`, `oct 8`, or `2026-10-08`. |
+| `bb now postpone <id> <day>` | Moves a task to a later day, as the Postpone menu does: a recurring task's current occurrence, or a one-off due date or deadline that is today or past. The day is `tomorrow`, `fri`, `oct 8`, or `2026-10-08`. |
 | `bb now task delete <id>` | Deletes a task for good. Todoist cannot restore it. |
 
 An id is Todoist's own, with or without the `todoist:` prefix the page uses.

@@ -963,7 +963,7 @@ describe("postponing a recurring task", () => {
     });
   });
 
-  test("will not postpone a one-off task, or to a day that is not later", async () => {
+  test("will not postpone a one-off task whose date is ahead, or to a day that is not later", async () => {
     const { bb, harness, plugin, fetchImpl } = host(routes("ok"));
     await plugin(bb);
     await syncAndRead(harness);
@@ -973,6 +973,53 @@ describe("postponing a recurring task", () => {
     await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:a", day: "2026-09-28" })).resolves.toMatchObject({
       postponed: false,
     });
+    expect(fetchImpl.mock.calls.some(([url]) => url.endsWith("/api/v1/sync"))).toBe(false);
+  });
+});
+
+describe("postponing a one-off date that has come", () => {
+  const UUID = "00000000-0000-4000-8000-000000000003";
+  const PAST = { date: "2026-09-22T14:00:00", string: "sep 22 2pm", is_recurring: false };
+  const ROUTES = {
+    [filterPath(DEFAULT_FILTER)]: {
+      results: [rawTask("c", { due: PAST }), rawTask("d", { deadline: { date: "2026-09-20" } })],
+      next_cursor: null,
+    },
+    [PROJECTS_PATH]: PROJECTS,
+    "POST /api/v1/sync": { sync_status: { [UUID]: "ok" } },
+    "/api/v1/tasks/c": rawTask("c", { due: { ...PAST, date: "2026-09-26T14:00:00", string: "sep 26 2pm" } }),
+    "POST /api/v1/tasks/d": rawTask("d", { deadline: { date: "2026-09-26" } }),
+    "/api/v1/tasks/d": rawTask("d", { deadline: { date: "2026-09-26" } }),
+  };
+
+  afterEach(() => vi.restoreAllMocks());
+
+  test("moves an overdue due date without words, keeping its time", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(UUID);
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:c", day: "2026-09-26" })).resolves.toEqual({
+      postponed: true,
+      error: null,
+    });
+    const [, init] = fetchImpl.mock.calls.find(([url]) => url.endsWith("/api/v1/sync"))!;
+    const commands = JSON.parse(new URLSearchParams(String(init?.body)).get("commands")!);
+    expect(commands).toEqual([{ type: "item_update", uuid: UUID, args: { id: "c", due: { date: "2026-09-26T14:00:00" } } }]);
+  });
+
+  test("moves a past deadline on a task with no due date", async () => {
+    const { bb, harness, plugin, fetchImpl } = host(ROUTES);
+    await plugin(bb);
+    await syncAndRead(harness);
+
+    await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:d", day: "2026-09-26" })).resolves.toEqual({
+      postponed: true,
+      error: null,
+    });
+    const [, init] = fetchImpl.mock.calls.find(([url, init]) => init?.method === "POST" && url.endsWith("/api/v1/tasks/d"))!;
+    expect(JSON.parse(String(init?.body))).toEqual({ deadline_date: "2026-09-26" });
     expect(fetchImpl.mock.calls.some(([url]) => url.endsWith("/api/v1/sync"))).toBe(false);
   });
 });
@@ -1019,7 +1066,7 @@ describe("the bb now CLI", () => {
     await syncAndRead(harness);
     const result = await harness.behavior.runCli(["postpone", "todoist:a", "2026-09-27"]);
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("Pick a day after the one it is due.");
+    expect(result.stderr).toContain("Pick a later day than its date, and not a past one.");
     const words = await harness.behavior.runCli(["postpone", "a", "someday"]);
     expect(words.stderr).toContain('"someday" is not a day.');
   });

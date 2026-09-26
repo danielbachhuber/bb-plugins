@@ -1,5 +1,6 @@
-// Postpone on a recurring Todoist row: a menu of later days that moves only
-// the current occurrence, so the task keeps repeating. Draws only.
+// Postpone on a Todoist row: a menu of later days. On a recurring task it moves
+// only the current occurrence, so the task keeps repeating; on a one-off task
+// it moves the due date or deadline that has come. Draws only.
 import { useState } from "react";
 
 import { Icon } from "@/components/ui/icon";
@@ -8,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 
 import { parseDeadline } from "../todoist/deadline.js";
-import { canPostponeTo, dueDay, movedDate, postponeChoices } from "../todoist/postpone.js";
+import { canPostponeTo, dueDay, movedDate, postponeChoices, type PostponeTarget } from "../todoist/postpone.js";
 import { describeDue } from "./due.js";
 import type { Due } from "./types.js";
 
@@ -18,14 +19,14 @@ function when(due: Due, day: string, now: Date): string {
 }
 
 export function PostponeMenu({
-  due,
+  target,
   now,
   disabled,
   working,
   onPostpone,
   defaultOpen = false,
 }: {
-  due: Due & { text: string };
+  target: PostponeTarget;
   now: Date;
   disabled: boolean;
   /** The postpone is running. */
@@ -35,6 +36,7 @@ export function PostponeMenu({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const due = target.due;
   const [text, setText] = useState("");
   const typed = parseDeadline(text, now);
   const typedDay = typeof typed === "string" ? typed : null;
@@ -78,21 +80,26 @@ export function PostponeMenu({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-1" mobileTitle="Postpone">
         <p className="px-2 pb-1 pt-1.5 text-xs text-muted-foreground">
-          Postpone {when(due, dueDay(due.date), now)} to
+          Postpone {target.kind === "deadline" ? "the deadline " : ""}
+          {when(due, dueDay(due.date), now)} to
         </p>
         <div role="menu" aria-label="Postpone to">
-          {postponeChoices(due, now).map((choice) => (
-            <button
-              key={choice.day}
-              type="button"
-              role="menuitem"
-              onClick={() => choose(choice.day)}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-            >
-              <span className="flex-1">{choice.label}</span>
-              <span className="text-xs tabular-nums text-muted-foreground">{when(due, choice.day, now)}</span>
-            </button>
-          ))}
+          {postponeChoices(due, now).map((choice) => {
+            // "Today" beside "Today" says it twice; a time, as in "Today 14:00", still shows.
+            const date = when(due, choice.day, now);
+            return (
+              <button
+                key={choice.day}
+                type="button"
+                role="menuitem"
+                onClick={() => choose(choice.day)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+              >
+                <span className="flex-1">{choice.label}</span>
+                {date === choice.label ? null : <span className="text-xs tabular-nums text-muted-foreground">{date}</span>}
+              </button>
+            );
+          })}
         </div>
         <form
           className="relative px-1 pb-1 pt-1"
@@ -121,10 +128,17 @@ export function PostponeMenu({
             </span>
           )}
         </form>
-        <p className="flex items-center gap-1.5 border-t border-border px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
-          <Icon name="Repeat" className="size-3" />
-          Still repeats {due.text}
-        </p>
+        {target.kind === "occurrence" ? (
+          <p className="flex items-center gap-1.5 border-t border-border px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
+            <Icon name="Repeat" className="size-3" />
+            Still repeats {target.due.text}
+          </p>
+        ) : target.kind === "deadline" ? (
+          <p className="flex items-center gap-1.5 border-t border-border px-2 pb-1 pt-2 text-[11px] text-muted-foreground">
+            <Icon name="Target" className="size-3" />
+            Moves the deadline only.
+          </p>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

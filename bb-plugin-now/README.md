@@ -78,14 +78,17 @@ good sync, with a note saying how many.
   page. A task in Todoist's Inbox shows the strip already open, since it is
   there to be sorted. Edit stays highlighted while the strip is open; Edit
   again, Escape, or **Cancel** closes it.
-- **Postpone** (on a recurring Todoist row, after Edit) opens a menu that
-  moves only this occurrence to a later day, so the task keeps repeating and
-  keeps its time of day. It offers a day later, two days later, and a week
-  later, counted from the due date, or from today when the task is overdue,
-  and a box that reads a typed day the way the deadline box does. It will not
-  move a task to its own date or earlier, or to a day already past. One click
-  saves, and a sync follows. Typing a one-off date into the edit strip's due
-  box sets a new due date in Todoist's own way instead.
+- **Postpone** (on a Todoist row, after Edit) opens a menu that moves the
+  task to a later day. On a recurring task it moves only this occurrence, so
+  the task keeps repeating and keeps its time of day. On a one-off task it
+  appears once the due date is today or past, and moves that date, keeping its
+  time; on a task whose due date is not due yet, or that has none, it appears
+  once the deadline is today or past, and moves the deadline. It offers a day
+  later, two days later, and a week later, counted from the date, or, when
+  the date has passed, today, tomorrow, and a week from today, and a box that reads a typed day the way the
+  deadline box does. It will not move a task to its own date or earlier, or to
+  a day already past. One click saves, and a sync follows. Typing into the edit
+  strip's boxes sets any other date.
 - **Delete** (the bin in the edit strip) asks once more, then deletes the task
   in Todoist and takes the row off the page. Todoist cannot restore a deleted
   task, so there is no Undo.
@@ -199,8 +202,10 @@ items at a time.
 Saving the edit strip makes `POST /api/v1/tasks/{id}` for the name, due date,
 deadline, and priority and `POST /api/v1/tasks/{id}/move` for the project, only for what
 changed, then reads the task back with `GET /api/v1/tasks/{id}`. Postpone
-is one `item_update` command to `POST /api/v1/sync`, carrying the new date with
-the rule's own words as the due string, then the same read back. Delete is
+on a due date is one `item_update` command to `POST /api/v1/sync`, carrying the
+new date, with the rule's own words as the due string when the task repeats,
+then the same read back. Postpone on a deadline is `POST /api/v1/tasks/{id}`
+with the new `deadline_date`. Delete is
 `DELETE /api/v1/tasks/{id}`. Opening the page reads the projects once, for the
 picker.
 Nothing runs in the background, and nothing is requested until a token is set.
@@ -330,7 +335,7 @@ list `server.ts` passes to `loadSources`.
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
-| `now/postpone-menu.tsx` | Postpone's menu on a recurring Todoist row |
+| `now/postpone-menu.tsx` | Postpone's menu on a Todoist row |
 | `now/task-edit.tsx` | A Todoist row's edit strip: the name, the due date and deadline boxes, project picker, priority flags, and Delete |
 | `now/pull-request-bar.tsx` | A GitHub row's card, in GitHub Context's banner chrome: the pull request segment and room for Merge |
 | `now/merge-button.tsx` | The Merge split button, from GitHub Context's banner |
@@ -345,7 +350,7 @@ list `server.ts` passes to `loadSources`.
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
-| `todoist/postpone.ts` | Postpone's days: the quick picks, which days are allowed, and the due date moved with its time kept |
+| `todoist/postpone.ts` | What Postpone moves on a row, its days (the quick picks and which days are allowed), and the due date moved with its time kept |
 | `todoist/deadline.ts` | Reading a deadline typed in words into a day, since Todoist reads only a due date's words |
 | `todoist/source.ts` | Todoist as a `Source`, built from its settings |
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |

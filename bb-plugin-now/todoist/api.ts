@@ -32,11 +32,13 @@ export interface TodoistApi {
   update(taskId: string, fields: TaskUpdate): Promise<void>;
   move(taskId: string, projectId: string): Promise<void>;
   /**
-   * Moves a recurring task's current occurrence to `date` and keeps its rule.
-   * It goes through the sync endpoint with the rule's words beside the date,
-   * the form Todoist's docs use for a recurring task's next date.
+   * Moves a task's due date to `date`, keeping its time's form. For a
+   * recurring task it moves the current occurrence and keeps its rule: it
+   * goes through the sync endpoint with the rule's words beside the date, the
+   * form Todoist's docs use for a recurring task's next date. A one-off date
+   * goes without words.
    */
-  postpone(taskId: string, due: { date: string; string: string }): Promise<void>;
+  postpone(taskId: string, due: { date: string; string?: string }): Promise<void>;
   /** Deletes a task for good; Todoist has no way to bring it back. */
   delete(taskId: string): Promise<void>;
 }

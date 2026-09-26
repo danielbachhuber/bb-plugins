@@ -93,7 +93,7 @@ export function nowCli(deps: NowCliDeps): PluginCliRegistration {
         },
       }),
       postpone: cliCommand({
-        summary: "Move a recurring task's current occurrence to a later day, keeping its rule and time, as the Postpone menu does.",
+        summary: "Move a task to a later day as the Postpone menu does: a recurring task's current occurrence, keeping its rule and time, or a one-off due date or deadline that has come.",
         positionals: [
           { name: "id", description: "The Todoist task id, with or without todoist:", required: true },
           { name: "day", description: 'The day: "tomorrow", "fri", "oct 8", or 2026-10-08', required: true },

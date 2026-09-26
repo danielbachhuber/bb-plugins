@@ -17,6 +17,7 @@ import { shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
 import type { TaskDraft } from "../todoist/edit.js";
+import { postponeTarget } from "../todoist/postpone.js";
 import type { GitHubPart, Item, TodoistProject } from "./types.js";
 
 export type Reply = "accepted" | "declined" | "tentative";
@@ -335,6 +336,7 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   // An Inbox task is there to be sorted, so its strip starts open.
   const editable = actions !== undefined && item.source === "todoist";
   const [editing, setEditing] = useState(editable && item.inbox === true);
+  const postpone = editable ? postponeTarget(item, now) : null;
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
@@ -490,9 +492,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
                 onClick={() => setEditing((open) => !open)}
               />
             )}
-            {!editable || item.due?.recurring !== true || item.due.text === undefined ? null : (
+            {!editable || postpone === null ? null : (
               <PostponeMenu
-                due={{ ...item.due, text: item.due.text }}
+                target={postpone}
                 now={now}
                 disabled={busy}
                 working={pending === "postpone"}
