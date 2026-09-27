@@ -3,6 +3,7 @@ import type { GitHubRef } from "../github/notifications.js";
 import type { GitHubState } from "../github/state.js";
 import type { Source, SourceResult } from "../now/sources.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
+import { fallbackDirs } from "../now/find-command.js";
 import type { InviteState } from "../calendar/invite.js";
 import { githubRefs, inboxItems, METADATA_HEADERS, needsBody } from "./inbox.js";
 import { SOURCE_ID } from "./normalize.js";
@@ -15,9 +16,16 @@ const MAX_THREADS_LIMIT = 500;
 const CONCURRENCY = 5;
 const NAME = "Gmail";
 
-export const MISSING_HINT =
-  "Install the `gws` CLI and sign in with `gws auth login`, or point `gwsPath` at it with " +
-  "`bb plugin config now set gwsPath <path>`.";
+/** Says where `command` was looked for, since bb's PATH is rarely the shell's. */
+export function missingHint(command: string): string {
+  const set = "`bb plugin config now set gwsPath <path>`";
+  if (command.includes("/")) return `Could not find the gws CLI at \`${command}\`. Set its full path with ${set}.`;
+  const dirs = fallbackDirs("~").map((dir) => `\`${dir}\``);
+  return (
+    `Could not find the \`${command}\` CLI on bb's PATH or in ${dirs.slice(0, -1).join(", ")}, or ${dirs.at(-1)}. ` +
+    `Install it, or set its full path with ${set}.`
+  );
+}
 
 export interface GmailSourceOptions {
   run: GwsRunner;
@@ -68,7 +76,7 @@ export function gmailSource(options: GmailSourceOptions): Source {
       ]);
     } catch (error) {
       if (!(error instanceof GwsMissingError)) throw error;
-      return { status: { id: SOURCE_ID, name: NAME, state: "unconfigured", hint: MISSING_HINT }, items: [] };
+      return { status: { id: SOURCE_ID, name: NAME, state: "unconfigured", hint: missingHint(error.command) }, items: [] };
     }
 
     const ids = (Array.isArray(listing.threads) ? listing.threads : [])

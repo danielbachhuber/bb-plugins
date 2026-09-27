@@ -471,7 +471,7 @@ export function States() {
           })}
         />
       </StoryRow>
-      <StoryRow label="Gmail not set up" hint="gws is not installed; Todoist still syncs.">
+      <StoryRow label="Gmail not set up" hint="gws is not where bb can find it; Todoist still syncs.">
         <Frame
           listing={stored({
             items: mergeItems([items]),
@@ -481,7 +481,7 @@ export function States() {
                 id: "gmail",
                 name: "Gmail",
                 state: "unconfigured",
-                hint: "Install the `gws` CLI and sign in with `gws auth login`, or point `gwsPath` at it with `bb plugin config now set gwsPath <path>`.",
+                hint: "Could not find the `gws` CLI on bb's PATH or in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, or `~/bin`. Install it, or set its full path with `bb plugin config now set gwsPath <path>`.",
               },
             ],
             fetchedAt: syncedAt,

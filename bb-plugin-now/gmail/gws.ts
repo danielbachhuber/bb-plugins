@@ -1,6 +1,8 @@
 // The one module that runs the gws CLI.
 import { execFile } from "node:child_process";
 
+import { findCommand } from "../now/find-command.js";
+
 /** Runs `gws` with arguments and resolves to its stdout. */
 export type GwsRunner = (args: string[]) => Promise<string>;
 
@@ -21,7 +23,8 @@ const TIMEOUT_MS = 30_000;
 export function createGwsRunner(command: string): GwsRunner {
   return (args) =>
     new Promise((resolve, reject) => {
-      execFile(command, args, { maxBuffer: 16 * 1024 * 1024, timeout: TIMEOUT_MS }, (error, stdout, stderr) => {
+      // Looked up on every run, so installing the CLI needs no reload.
+      execFile(findCommand(command), args, { maxBuffer: 16 * 1024 * 1024, timeout: TIMEOUT_MS }, (error, stdout, stderr) => {
         if (error === null) return resolve(stdout);
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return reject(new GwsMissingError(command));
         reject(new Error(bestErrorLine(String(stderr)) ?? error.message));

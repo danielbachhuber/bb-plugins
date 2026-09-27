@@ -243,8 +243,13 @@ is on by default and reads `in:inbox`, the 25 most recent threads:
 bb plugin config now set gmailQuery "in:inbox is:unread"
 bb plugin config now set gmailMaxThreads 50
 bb plugin config now set gmailEnabled false    # hide Gmail
-bb plugin config now set gwsPath /opt/homebrew/bin/gws   # when gws is not on bb's PATH
+bb plugin config now set gwsPath ~/tools/gws   # when gws is somewhere else
 ```
+
+bb started from the Dock or at login has only the system's PATH, without
+Homebrew's directories. So when `gws` or `gh` is not on bb's PATH, the plugin
+also looks in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, and
+`~/bin` before reporting it missing.
 
 Each thread is one row: the first message's subject, and the latest
 message's sender, snippet, and time. A row with any unread message has a bold
@@ -294,7 +299,7 @@ read as open. When `gh` is missing or fails, the row uses the
 `X-GitHub-PullRequestStatus` of its latest email instead.
 
 ```sh
-bb plugin config now set ghPath /opt/homebrew/bin/gh   # when gh is not on bb's PATH
+bb plugin config now set ghPath ~/tools/gh   # when gh is somewhere else
 bb plugin config now set threadProjectId <project-id>  # where Start thread opens
 ```
 
@@ -368,6 +373,7 @@ list `server.ts` passes to `loadSources`.
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
+| `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
 | `now/sidebar-counts.tsx` | The red urgent badge and Now count beside the page's name in the sidebar |

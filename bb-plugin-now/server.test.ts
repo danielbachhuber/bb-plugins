@@ -392,6 +392,7 @@ describe("items_list with Gmail", () => {
 
     const list = await syncAndRead(harness);
     expect(list.sources[1]).toMatchObject({ id: "gmail", state: "unconfigured" });
+    expect(list.sources[1]).toHaveProperty("hint", expect.stringContaining("on bb's PATH or in `/opt/homebrew/bin`"));
   });
 
   test("reports a gws failure as the source's error", async () => {
