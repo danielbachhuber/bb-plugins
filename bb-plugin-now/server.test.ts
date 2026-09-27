@@ -676,6 +676,25 @@ describe("row actions", () => {
     expect(modifies).toEqual([{ removeLabelIds: ["UNREAD"] }, { addLabelIds: ["UNREAD"] }]);
   });
 
+  test("reads a plain email in full, asking Gmail for every part", async () => {
+    const { harness, gws } = await loaded();
+    const result = (await harness.behavior.callRpc("email_thread", { id: "gmail:mail1" })) as {
+      thread: { subject: string; messages: { from: string }[] } | null;
+      error: string | null;
+    };
+
+    expect(result.error).toBeNull();
+    expect(result.thread).toMatchObject({ threadId: "mail1", subject: "Lunch?" });
+    const read = gws.calls.at(-1)!;
+    expect(JSON.parse(read[read.indexOf("--params") + 1]!)).toEqual({ userId: "me", id: "mail1", format: "full" });
+  });
+
+  test("will not read a GitHub notification or a Todoist task in the Email tab", async () => {
+    const { harness } = await loaded();
+    await expect(harness.behavior.callRpc("email_thread", { id: "github:acme/widgets#128" })).resolves.toMatchObject({ thread: null });
+    await expect(harness.behavior.callRpc("email_thread", { id: "todoist:none" })).resolves.toMatchObject({ thread: null });
+  });
+
   test("will not mark a Todoist task read", async () => {
     const { harness } = await loaded();
     await expect(harness.behavior.callRpc("items_mark_read", { id: "todoist:none" })).resolves.toMatchObject({ marked: false });

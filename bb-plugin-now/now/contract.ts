@@ -52,6 +52,31 @@ export const listingSchema = z.object({
 });
 export type Listing = z.infer<typeof listingSchema>;
 
+/** One message of an email thread, as the Email tab shows it. */
+export const emailMessageSchema = z.object({
+  id: z.string(),
+  /** The sender's name, their address when the header has no name, or "Me". */
+  from: z.string(),
+  address: z.string().nullable(),
+  /** ISO 8601. */
+  date: z.string().nullable(),
+  /** Gmail's one-line preview, for a message shown collapsed. */
+  snippet: z.string(),
+  /** The message's HTML part, as the sender wrote it. */
+  html: z.string().nullable(),
+  text: z.string().nullable(),
+});
+export type EmailMessage = z.infer<typeof emailMessageSchema>;
+
+export const emailThreadSchema = z.object({
+  threadId: z.string(),
+  subject: z.string(),
+  /** The thread in Gmail's web app. */
+  url: z.string(),
+  messages: z.array(emailMessageSchema),
+});
+export type EmailThread = z.infer<typeof emailThreadSchema>;
+
 /**
  * What bb's new-thread composer hands back, checked only as far as the plugin
  * relies on it: a project and some input. Everything else passes to
@@ -130,6 +155,14 @@ export const rpcContract = defineRpcContract({
   items_delete: {
     input: z.object({ id: z.string() }),
     output: z.object({ deleted: z.boolean(), error: z.string().nullable() }),
+  },
+  /**
+   * A Gmail row's email in full, every message with its body, for the Email
+   * tab. Asks Gmail each time; nothing is stored.
+   */
+  email_thread: {
+    input: z.object({ id: z.string() }),
+    output: z.object({ thread: emailThreadSchema.nullable(), error: z.string().nullable() }),
   },
   /** Mark a Gmail row's threads read, leaving them in the inbox and the row on the page. */
   items_mark_read: {

@@ -41,3 +41,12 @@ export function compareItems(a: Item, b: Item): number {
 export function mergeItems(lists: readonly (readonly Item[])[]): Item[] {
   return lists.flat().sort(compareItems);
 }
+
+/**
+ * An email with nothing but its message to show, which the Email tab reads in
+ * full: not a GitHub notification, a document comment, or an invitation, each
+ * of which its row already sums up.
+ */
+export function readable(item: Item): boolean {
+  return item.gmail !== null && item.github === null && item.doc == null && item.invite == null;
+}

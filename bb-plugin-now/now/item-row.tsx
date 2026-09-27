@@ -1,6 +1,6 @@
 // One row of the Now page: what the item is, and what can be done with it
 // from here. Draws only; every action is a callback.
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
+import { readable } from "./items.js";
 import { shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
@@ -53,7 +54,12 @@ export interface RowActions {
   onDelete: (item: Item) => void;
   /** Moves a recurring Todoist task's current occurrence to `day`, keeping its rule. */
   onPostpone: (item: Item, day: string) => void;
+  /** Opens a plain email row's full message in the page's Email tab. */
+  onRead?: (item: Item) => void;
 }
+
+/** The row whose email is open in the Email tab, so the list can mark it. */
+export const ReadingContext = createContext<string | null>(null);
 
 /** Which source a row came from, drawn at the head of its row. */
 function brandOf(item: Item): Brand | null {
@@ -337,6 +343,7 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   const editable = actions !== undefined && item.source === "todoist";
   const [editing, setEditing] = useState(editable && item.inbox === true);
   const postpone = editable ? postponeTarget(item, now) : null;
+  const reading = useContext(ReadingContext) === item.id;
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
@@ -370,7 +377,10 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
     );
 
   return (
-    <li className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60")} aria-busy={busy}>
+    <li
+      className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60", reading && "-mx-3 rounded-md bg-accent/60 px-3")}
+      aria-busy={busy}
+    >
       <div className="flex items-start gap-3">
         {/* Where it is from, in a column of its own so every title starts at one edge. */}
         <div className="flex w-5 shrink-0 flex-col items-center gap-1.5 pt-0.5">
@@ -482,6 +492,17 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
                 onClick={() => actions.onArchive(item)}
               />
             ) : null}
+            {actions?.onRead === undefined || !readable(item) ? null : (
+              <LineAction
+                label="Read"
+                icon="PanelRight"
+                ariaLabel={`Read "${item.title}"`}
+                expanded={reading}
+                className={reading ? "bg-accent text-foreground" : undefined}
+                disabled={busy}
+                onClick={() => actions.onRead!(item)}
+              />
+            )}
             {!editable ? null : (
               <LineAction
                 label="Edit"

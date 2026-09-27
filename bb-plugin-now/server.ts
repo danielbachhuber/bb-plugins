@@ -3,10 +3,12 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
 import { createGhRunner, fetchStates, mergePullRequest, postComment, type GhRunner } from "./github/gh.js";
+import { emailThread } from "./gmail/body.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { nowCli } from "./now/cli.js";
 import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
+import { readable } from "./now/items.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
@@ -333,6 +335,29 @@ export function createPlugin(deps: PluginDeps = {}) {
         removeRow(id);
         announce();
         return { archived: true, error: null };
+      },
+      email_thread: async ({ id }) => {
+        const item = findItem(id);
+        const threadId = item?.gmail?.threadIds[0];
+        if (item == null || threadId === undefined || !readable(item)) {
+          return { thread: null, error: "Only an email can be read here." };
+        }
+        try {
+          const { gwsPath } = await settings.get();
+          const { run, account } = gwsFor(gwsPath.trim() || "gws");
+          const [raw, address] = await Promise.all([
+            runJson<unknown>(run, [
+              "gmail", "users", "threads", "get",
+              "--params", JSON.stringify({ userId: "me", id: threadId, format: "full" }),
+            ]),
+            account(),
+          ]);
+          const thread = emailThread(raw, address);
+          return thread === null ? { thread: null, error: "Gmail returned no messages for this email." } : { thread, error: null };
+        } catch (error) {
+          bb.log.warn(`Could not read ${id}: ${messageOf(error)}`);
+          return { thread: null, error: messageOf(error) };
+        }
       },
       items_mark_read: async ({ id }) => {
         const item = findItem(id);

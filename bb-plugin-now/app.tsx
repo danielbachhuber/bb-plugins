@@ -2,9 +2,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   definePluginApp,
+  experimental_useAppPanel,
+  experimental_useFixedTabTarget,
   useBbNavigate,
   useRealtime,
   useRpc,
+  type ExperimentalPluginFixedTabReference,
+  type JsonValue,
   type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
@@ -12,9 +16,10 @@ import { toast } from "sonner";
 import { SyncStatus } from "@/components/ui/sync-status";
 
 import type { rpcContract } from "./server";
-import { SYNC_CHANNEL, type Listing } from "./now/contract.js";
+import { SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
+import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
-import type { PendingAction, RowActions } from "./now/item-row.js";
+import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
 import { SidebarCounts } from "./now/sidebar-counts.js";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
@@ -23,6 +28,16 @@ import type { Item, TodoistProject } from "./now/types.js";
 
 /** Opening the page syncs a stored list older than this. */
 const STALE_ON_OPEN_MS = 60_000;
+
+/** The Email tab in the page's side panel. Its target is the row it shows. */
+const EMAIL_TAB: ExperimentalPluginFixedTabReference<{ id: string }> = {
+  panelId: "now",
+  id: "email",
+  experimental_target: {
+    validate: (value: JsonValue): value is { id: string } =>
+      typeof value === "object" && value !== null && !Array.isArray(value) && typeof value.id === "string",
+  },
+};
 
 /**
  * The stored list, re-read whenever a sync starts or finishes. The header and
@@ -229,44 +244,27 @@ function useRowActions(
   }, [rpc, run, threads]);
 }
 
-function NowPage() {
-  const { listing, rpc, load } = useListing();
-  const { pending, run } = usePending(load);
+/**
+ * Start a thread about a row: `start` opens bb's composer seeded with the
+ * row, and `dialog` is that composer, for the caller to render.
+ */
+function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
   // The row whose composer is open. Null when the dialog is closed.
   const [draft, setDraft] = useState<{ item: Item; seed: StartThreadSeed } | null>(null);
-  const threadProjectId = listing?.threadProjectId ?? null;
 
-  const threadActions = useMemo(
-    () => ({
-      onOpenThread: (threadId: string) => navigate.toThread(threadId),
-      onStartThread: (item: Item) =>
-        setDraft({
-          item,
-          seed: {
-            projectId: threadProjectId,
-            prompt: threadPrompt(item),
-            preview: { title: item.title, url: item.url, meta: itemOrigin(item) },
-          },
-        }),
-    }),
-    [navigate, threadProjectId],
+  const start = useCallback(
+    (item: Item) =>
+      setDraft({
+        item,
+        seed: {
+          projectId: threadProjectId,
+          prompt: threadPrompt(item),
+          preview: { title: item.title, url: item.url, meta: itemOrigin(item) },
+        },
+      }),
+    [threadProjectId],
   );
-  const actions = useRowActions(rpc, run, threadActions);
-
-  // Read once per visit, for every Todoist row's project picker.
-  const [projects, setProjects] = useState<readonly TodoistProject[] | null>(null);
-  const hasTodoist = listing?.list?.items.some((item) => item.source === "todoist") === true;
-  useEffect(() => {
-    if (!hasTodoist || projects !== null) return;
-    rpc.call("todoist_projects", null).then(
-      (result) => {
-        if (result.error !== null) toast.error(`Todoist projects: ${result.error}`);
-        else setProjects(result.projects);
-      },
-      () => undefined,
-    );
-  }, [hasTodoist, projects, rpc]);
 
   const onSubmitDraft = useCallback(
     async (request: NewThreadRequest) => {
@@ -284,6 +282,69 @@ function NowPage() {
     [draft, navigate, rpc],
   );
 
+  const dialog = (
+    <StartThreadDialog
+      open={draft !== null}
+      onOpenChange={(open) => {
+        if (!open) setDraft(null);
+      }}
+      heading="Start a thread"
+      description="Write what this thread should do, then start it."
+      draftKey={draft === null ? "" : `now:${draft.item.id}`}
+      seed={draft?.seed ?? null}
+      onSubmit={onSubmitDraft}
+    />
+  );
+
+  return { start, dialog };
+}
+
+function NowPage() {
+  const { listing, rpc, load } = useListing();
+  const { pending, run } = usePending(load);
+  const navigate = useBbNavigate();
+  const panel = experimental_useAppPanel();
+  const reading = experimental_useFixedTabTarget(EMAIL_TAB)?.target.id ?? null;
+  const { start, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
+
+  const threadActions = useMemo(
+    () => ({
+      onOpenThread: (threadId: string) => navigate.toThread(threadId),
+      onStartThread: start,
+    }),
+    [navigate, start],
+  );
+  const rowActions = useRowActions(rpc, run, threadActions);
+  // Reading an email marks it read, as opening it in Gmail would.
+  const actions = useMemo<RowActions>(
+    () => ({
+      ...rowActions,
+      onRead: (item) => {
+        panel.openFixedTab({ surface: { kind: "current" }, tab: EMAIL_TAB, target: { id: item.id } });
+        if (item.gmail?.unread !== true) return;
+        void run(item.id, "read", async () => {
+          const result = await rpc.call("items_mark_read", { id: item.id });
+          if (result.error !== null) toast.error(result.error);
+        }).catch((cause) => toast.error(messageOf(cause)));
+      },
+    }),
+    [panel, rowActions, rpc, run],
+  );
+
+  // Read once per visit, for every Todoist row's project picker.
+  const [projects, setProjects] = useState<readonly TodoistProject[] | null>(null);
+  const hasTodoist = listing?.list?.items.some((item) => item.source === "todoist") === true;
+  useEffect(() => {
+    if (!hasTodoist || projects !== null) return;
+    rpc.call("todoist_projects", null).then(
+      (result) => {
+        if (result.error !== null) toast.error(`Todoist projects: ${result.error}`);
+        else setProjects(result.projects);
+      },
+      () => undefined,
+    );
+  }, [hasTodoist, projects, rpc]);
+
   // Shows what is stored at once, and brings it up to date behind it. The
   // server skips this when the list is fresh, and joins a sync already running.
   useEffect(() => {
@@ -292,19 +353,76 @@ function NowPage() {
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
-      <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
-      <StartThreadDialog
-        open={draft !== null}
-        onOpenChange={(open) => {
-          if (!open) setDraft(null);
-        }}
-        heading="Start a thread"
-        description="Write what this thread should do, then start it."
-        draftKey={draft === null ? "" : `now:${draft.item.id}`}
-        seed={draft?.seed ?? null}
-        onSubmit={onSubmitDraft}
-      />
+      <ReadingContext.Provider value={reading}>
+        <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
+      </ReadingContext.Provider>
+      {dialog}
     </div>
+  );
+}
+
+/**
+ * The Email tab: the row that Read last opened, in full. It fetches the email
+ * each time the target changes, and closes itself once the row is archived.
+ */
+function EmailTab() {
+  const { listing, rpc } = useListing();
+  const navigate = useBbNavigate();
+  const target = experimental_useFixedTabTarget(EMAIL_TAB);
+  const id = target?.target.id ?? null;
+  const item = id === null ? null : (listing?.list?.items.find((row) => row.id === id) ?? null);
+  const { start, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const [thread, setThread] = useState<{ id: string; thread: EmailThread | null; error: string | null } | null>(null);
+  const [archiving, setArchiving] = useState(false);
+
+  useEffect(() => {
+    if (id === null) return;
+    let current = true;
+    setThread(null);
+    rpc.call("email_thread", { id }).then(
+      (result) => {
+        if (current) setThread({ id, ...result });
+      },
+      (cause) => {
+        if (current) setThread({ id, thread: null, error: messageOf(cause) });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [id, rpc]);
+
+  const onArchive = useCallback(async () => {
+    if (id === null) return;
+    setArchiving(true);
+    try {
+      const result = await rpc.call("items_archive", { id });
+      if (result.error !== null) toast.error(result.error);
+      else {
+        toast.success("Archived", { action: undoAction("Restoring…", () => rpc.call("items_undo", { id })) });
+        target?.clear();
+      }
+    } catch (cause) {
+      toast.error(messageOf(cause));
+    } finally {
+      setArchiving(false);
+    }
+  }, [id, rpc, target]);
+
+  if (id === null) return <EmailReaderNote>Choose Read on an email to read it here.</EmailReaderNote>;
+  if (thread === null || thread.id !== id) return <EmailReaderNote loading>Loading the email…</EmailReaderNote>;
+  if (thread.thread === null) return <EmailReaderNote>{thread.error ?? "Could not read this email."}</EmailReaderNote>;
+  return (
+    <>
+      <EmailReader
+        thread={thread.thread}
+        archiving={archiving}
+        onArchive={() => void onArchive()}
+        onStartThread={item === null ? undefined : () => start(item)}
+        onOpenLink={(url) => navigate.openUrl(url)}
+      />
+      {dialog}
+    </>
   );
 }
 
@@ -326,6 +444,7 @@ export default definePluginApp((app) => {
     path: "now",
     component: NowPage,
     headerContent: SyncHeader,
+    fixedTabs: [{ ...EMAIL_TAB, title: "Email", icon: "Mail", component: EmailTab, layout: "flush" }],
     experimental_sidebarAccessory: NowSidebarCounts,
   });
 });

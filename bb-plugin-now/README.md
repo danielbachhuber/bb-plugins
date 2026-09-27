@@ -102,6 +102,16 @@ good sync, with a note saying how many.
 - **Mark read** (on an unread email row, after Archive) marks the row's
   threads read in Gmail and leaves them in the inbox, so the row stays on the
   page and moves down among the read mail.
+- **Read** (on an email row that is not a GitHub notification, a document
+  comment, or an invitation, after Archive) opens the email in full in the
+  page's **Email** tab, in the side panel beside the list, and marks it read
+  in Gmail. The row stays highlighted while its email is in the tab. The tab
+  shows the subject and then each message in order: the latest open, laid out
+  as its sender wrote it with its images loaded, and the earlier ones one line
+  each, which open when clicked. Scripts in an email do not run, and its links
+  open the way bb opens other links. **Archive** and **Start thread** stay at
+  the top of the tab, with **Open in Gmail** beside them. The email is
+  fetched from Gmail each time Read opens it and is not stored.
 - **Open and archive** (first in the details line of a Google Docs, Slides,
   or Sheets comment row that mentions or assigns you) opens the newest
   discussion and archives the row in the same click, since once it is read
@@ -328,11 +338,11 @@ list `server.ts` passes to `loadSources`.
 | --- | --- |
 | `now/types.ts` | The `Item` shape every source produces |
 | `now/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
-| `now/items.ts` | The order the merged list is in |
+| `now/items.ts` | The order the merged list is in, and which email rows Read opens |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
 | `now/cli.ts` | `bb now`, the Todoist actions from a shell |
 | `skills/now-cli/` | The skill that tells an agent how to use `bb now` |
-| `now/contract.ts` | The RPC contract: reading the stored list, syncing, and the row actions |
+| `now/contract.ts` | The RPC contract: reading the stored list, syncing, the row actions, and an email in full |
 | `now/store.ts` | The database tables: the stored list and the threads started from rows |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/postpone-menu.tsx` | Postpone's menu on a Todoist row |
@@ -346,6 +356,7 @@ list `server.ts` passes to `loadSources`.
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
+| `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/sidebar-counts.tsx` | The inbox badge and Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
@@ -356,6 +367,7 @@ list `server.ts` passes to `loadSources`.
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |
 | `gmail/source.ts` | Gmail as a `Source`: the thread search and each thread's headers |
+| `gmail/body.ts` | Reading a whole email out of Gmail's full format: each message's sender, time, and HTML or text body |
 | `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue and Google comment notifications per document |
 | `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
 | `github/state.ts` | The GraphQL query for every reference's state, checks, and whether you can merge it, and reading its answer |
@@ -364,9 +376,10 @@ list `server.ts` passes to `loadSources`.
 | `calendar/api.ts` | The only module that asks Google Calendar: each event's reply, and replying |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
+| `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |
 | `sidebar-counts.stories.tsx` | The sidebar entry's counts, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
-| `app.tsx` | The sidebar page and its title-bar sync control, which read the stored list and sync on open |
+| `app.tsx` | The sidebar page, its title-bar sync control, and its Email tab, which read the stored list and sync on open |
 | `components/ui/sync-status.tsx` | The "synced 4m ago" label and Refresh button, the same file the sweeps carry |
 
 ## Working on it
