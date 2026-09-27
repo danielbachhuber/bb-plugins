@@ -140,7 +140,7 @@ function DecidingRow({
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && primary !== -1 && !empty) click(primary);
                   }}
-                  className={cn("h-7 min-w-0 flex-1 px-2 text-sm text-foreground", dismissed && "line-through")}
+                  className={cn("h-7 min-w-0 flex-1 bg-background px-2 text-sm text-foreground", dismissed && "line-through")}
                 />
                 <Badges item={item} />
               </span>
