@@ -517,9 +517,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
             ) : null}
             {actions?.onRead === undefined || !readable(item) ? null : (
               <LineAction
-                label="Read"
+                label="Open"
                 icon="PanelRight"
-                ariaLabel={`Read "${item.title}"`}
+                ariaLabel={`Open "${item.title}"`}
                 expanded={reading}
                 className={reading ? "bg-accent text-foreground" : undefined}
                 disabled={busy}

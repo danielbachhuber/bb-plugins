@@ -193,7 +193,7 @@ function Page({ thread }: { thread: EmailThread | null }) {
         <PanelTabs />
         <div className="min-h-0 flex-1">
           {thread === null ? (
-            <EmailReaderNote>Choose Read on an email to read it here.</EmailReaderNote>
+            <EmailReaderNote>Choose Open on an email to read it here.</EmailReaderNote>
           ) : (
             <EmailReader thread={thread} onArchive={noop} onStartThread={noop} onClose={noop} onOpenLink={noop} />
           )}
@@ -204,7 +204,7 @@ function Page({ thread }: { thread: EmailThread | null }) {
 }
 
 /**
- * Read on a newsletter opens it in the Email tab beside the list, laid out as
+ * Open on a newsletter opens it in the Email tab beside the list, laid out as
  * its sender wrote it, and marks it read. The row being read is highlighted.
  */
 export const Newsletter = () => <Page thread={newsletterThread} />;
@@ -215,5 +215,5 @@ export const Newsletter = () => <Page thread={newsletterThread} />;
  */
 export const Conversation = () => <Page thread={swapThread} />;
 
-/** The Email tab before Read has opened anything in it. */
+/** The Email tab before any email is opened in it. */
 export const Empty = () => <Page thread={null} />;

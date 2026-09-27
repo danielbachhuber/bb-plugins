@@ -112,7 +112,7 @@ good sync, with a note saying how many.
   threads read in Gmail and leaves them in the inbox, so the row stays on the
   page and moves down among the read mail, or among the overdue rows when its
   latest message is more than 48 hours old.
-- **Read** (on an email row that is not a GitHub notification, a document
+- **Open** (on an email row that is not a GitHub notification, a document
   comment, or an invitation, after Archive) opens the email in full in the
   page's **Email** tab, in the side panel beside the list, and marks it read
   in Gmail. The row stays highlighted while its email is in the tab. The tab
@@ -122,7 +122,7 @@ good sync, with a note saying how many.
   open the way bb opens other links. **Archive**, **Start thread**, and
   **Close** stay at the top of the tab, with **Open in Gmail** beside them.
   **Close** hides the side panel and leaves the email in the inbox. The email is
-  fetched from Gmail each time Read opens it and is not stored.
+  fetched from Gmail each time it is opened and is not stored.
 - **Open and archive** (first in the details line of a Google Docs, Slides,
   or Sheets comment row that mentions or assigns you) opens the newest
   discussion and archives the row in the same click, since once it is read
@@ -350,7 +350,7 @@ list `server.ts` passes to `loadSources`.
 | --- | --- |
 | `now/types.ts` | The `Item` shape every source produces |
 | `now/sources.ts` | The `Source` interface, loading every source into one list, and keeping a failed source's last items |
-| `now/items.ts` | The order the merged list is in, and which email rows Read opens |
+| `now/items.ts` | The order the merged list is in, and which email rows open in the Email tab |
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
 | `now/cli.ts` | `bb now`, the Todoist actions from a shell |
 | `skills/now-cli/` | The skill that tells an agent how to use `bb now` |

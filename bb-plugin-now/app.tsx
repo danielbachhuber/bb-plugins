@@ -363,7 +363,7 @@ function NowPage() {
 }
 
 /**
- * The Email tab: the row that Read last opened, in full. It fetches the email
+ * The Email tab: the email row last opened, in full. It fetches the email
  * each time the target changes, and empties itself once the row is archived.
  * Close empties it too and hides the side panel.
  */
@@ -412,7 +412,7 @@ function EmailTab() {
     }
   }, [id, rpc, target]);
 
-  if (id === null) return <EmailReaderNote>Choose Read on an email to read it here.</EmailReaderNote>;
+  if (id === null) return <EmailReaderNote>Choose Open on an email to read it here.</EmailReaderNote>;
   if (thread === null || thread.id !== id) return <EmailReaderNote loading>Loading the email…</EmailReaderNote>;
   if (thread.thread === null) return <EmailReaderNote>{thread.error ?? "Could not read this email."}</EmailReaderNote>;
   return (
