@@ -1,7 +1,7 @@
 // One row of the Now page: what the item is, and what can be done with it
 // from here. Draws only; every action is a callback.
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -429,7 +429,14 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
               </span>
             )}
           </div>
-          {item.description === "" ? null : (
+          {item.description === "" ? null : item.source === "todoist" ? (
+            // Todoist descriptions are Markdown, so lists and links read as they do in Todoist.
+            // bb's renderer is sized and colored for chat, so each block is brought down to the row's muted text.
+            <Markdown
+              content={item.description}
+              className="mt-0.5 text-xs leading-normal text-muted-foreground [&_:is(p,ul,ol)]:mb-1 [&_:is(p,ul,ol,li)]:text-muted-foreground [&_li]:mb-0"
+            />
+          ) : (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
           )}
           {item.invite == null ? null : (

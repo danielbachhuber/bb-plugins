@@ -36,7 +36,9 @@ with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
 for today), its description, and a details line with the row's actions, tags,
-and where it came from (a Todoist project, or an email's sender). A task's
+and where it came from (a Todoist project, or an email's sender). A Todoist
+task's description is rendered as Markdown, so its lists, links, and bold text
+look as they do in Todoist. A task's
 P1–P3 tag sits under its Todoist icon. An overdue row (a task dated before
 today, or mail, read or unread, whose latest message is more than 48 hours old)
 is tinted red with a red bar down its left edge, and says how late it is in

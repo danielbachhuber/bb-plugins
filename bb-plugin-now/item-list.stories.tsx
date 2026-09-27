@@ -222,6 +222,7 @@ const items: Item[] = [
   item({
     id: "a4",
     title: "Draft the Acme Board announcement",
+    description: "It should:\n\n* Open with the **widget launch** date\n* Link the [gadget roadmap](https://example.com/roadmap)",
     due: { date: "2026-09-25", recurring: false },
   }),
   item({
