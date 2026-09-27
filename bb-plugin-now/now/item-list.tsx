@@ -2,8 +2,8 @@
 // the story can render it with fixtures.
 import { useState, type ReactNode } from "react";
 
+import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
@@ -44,23 +44,30 @@ function WithCode({ text }: { text: string }) {
   );
 }
 
+/**
+ * A source that did not load. Drawn as an alert either way: an unconfigured
+ * source is missing from the list just as a failed one is.
+ */
 function SourceProblem({ source }: { source: ProblemSource }) {
   const error = source.state === "error";
   return (
     <div
-      role={error ? "alert" : "status"}
-      className={cn(
-        "rounded-lg border px-4 py-3 text-sm",
-        error ? "border-destructive/40 text-destructive-text" : "border-dashed border-border text-muted-foreground",
-      )}
+      role="alert"
+      className="flex items-start gap-2.5 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-foreground"
     >
-      <span className="font-medium">{source.name}:</span> <WithCode text={error ? source.message : source.hint} />
-      {error && source.kept > 0 ? (
-        <span className="text-muted-foreground">
-          {" "}
-          Showing {source.kept} from the last sync.
-        </span>
-      ) : null}
+      <Icon name="AlertCircle" className="mt-0.5 size-4 shrink-0 text-destructive-text" aria-hidden="true" />
+      <div className="min-w-0">
+        <span className="font-semibold text-destructive-text">
+          {error ? `${source.name} did not sync.` : `${source.name} is not set up.`}
+        </span>{" "}
+        <WithCode text={error ? source.message : source.hint} />
+        {error && source.kept > 0 ? (
+          <span className="text-muted-foreground">
+            {" "}
+            Showing {source.kept} from the last sync.
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

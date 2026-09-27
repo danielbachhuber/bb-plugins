@@ -331,9 +331,10 @@ on a patch.
 One sync runs `gws gmail users threads list` with the search, then
 `threads get` for each thread's headers, five at a time, and once more in full
 for each thread of Google comment notifications or calendar invitations. The signed-in
-address is asked for once per plugin load, for the links. If `gws` is
-missing, the page says how to set it up; if it fails (an expired sign-in, for
-example), its error shows above the list and the Todoist tasks still load.
+address is asked for once per plugin load, for the links. If `gws` cannot be
+found, a red alert above the list names where the plugin looked and how to set
+`gwsPath`; if it fails (an expired sign-in, for example), the alert shows its
+error instead. Either way the Todoist tasks still load.
 
 ### Sync interval
 
