@@ -39,7 +39,7 @@ function resolve(due: Due): { day: string; time: string | null } {
 }
 
 /** Whole days from one `YYYY-MM-DD` to another. */
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 

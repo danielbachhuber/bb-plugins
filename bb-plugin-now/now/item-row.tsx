@@ -14,7 +14,7 @@ import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
 import { readable } from "./items.js";
-import { shortDate } from "./sections.js";
+import { isOverdue, overdueText, shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
 import type { TaskDraft } from "../todoist/edit.js";
@@ -302,16 +302,16 @@ function LineAction({
   );
 }
 
-/** A deadline that is today or already past: the one date the page colors. */
+/** A deadline that is today or already past, which is colored even when it is not overdue yet. */
 function deadlineDue(deadline: string, now: Date): boolean {
   return describeDue({ date: deadline, recurring: false }, now).tone !== "upcoming";
 }
 
 /**
  * The date at the right of the title line, in one short form: when it is
- * due, else its deadline, else when its latest email arrived. The section
- * heading says whether it is overdue, so only a deadline that is today or past
- * is colored.
+ * due, else its deadline, else when its latest email arrived. An overdue row
+ * shows how late it is instead; of the rest, only a deadline that is today is
+ * colored.
  */
 function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: IconName | null } | null {
   if (item.due !== null) {
@@ -344,6 +344,8 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   const [editing, setEditing] = useState(editable && item.inbox === true);
   const postpone = editable ? postponeTarget(item, now) : null;
   const reading = useContext(ReadingContext) === item.id;
+  // An overdue row says how late it is in place of its date, and is tinted red.
+  const overdue = isOverdue(item, now);
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
@@ -378,7 +380,13 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
 
   return (
     <li
-      className={cn("py-3.5 text-sm transition-opacity", busy && "opacity-60", reading && "-mx-3 rounded-md bg-accent/60 px-3")}
+      className={cn(
+        "py-3.5 text-sm transition-opacity",
+        busy && "opacity-60",
+        reading && "-mx-3 rounded-md bg-accent/60 px-3",
+        // Out to the list's edges, with a red bar where its padding was.
+        overdue && "-mx-4 border-l-2 border-l-destructive bg-destructive/[0.04] pl-[14px] pr-4",
+      )}
       aria-busy={busy}
     >
       <div className="flex items-start gap-3">
@@ -412,11 +420,11 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
               <span
                 className={cn(
                   "mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs tabular-nums",
-                  date.urgent ? "text-destructive-text" : "text-muted-foreground",
+                  overdue ? "font-medium text-destructive-text" : date.urgent ? "text-destructive-text" : "text-muted-foreground",
                 )}
               >
                 {date.icon === "Target" ? <Icon name="Target" className="size-3" aria-label="Deadline" /> : null}
-                {date.text}
+                {overdue ? overdueText(item, now) : date.text}
                 {date.icon === "Repeat" ? <Icon name="Repeat" className="size-3" aria-label="Recurring" /> : null}
               </span>
             )}

@@ -376,7 +376,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then overdue tasks, tasks due today, read mail still in the inbox, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
+        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then the overdue rows (past-dated tasks and mail more than 48 hours old, tinted red and saying how late they are), tasks due today, recent read mail, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>

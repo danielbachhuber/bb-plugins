@@ -23,9 +23,11 @@ sections, each under its heading. Each row goes in one section:
   sooner. What needs a decision before it is work leads: unread Gmail rows
   (email, GitHub notifications, document comments, invitations), newest
   first, then the Todoist Inbox tasks, those with a date soonest first and
-  then the undated ones newest added first. After them come overdue tasks,
-  tasks due today, read mail newest first (a thread you have read and left in
-  the inbox is one you kept there to act on), and tasks dated later.
+  then the undated ones newest added first. After them come the overdue rows,
+  oldest day first: tasks dated before today, and read mail whose latest
+  message is more than 48 hours old. Then tasks due today, the rest of the
+  read mail newest first (a thread you have read and left in the inbox is one
+  you kept there to act on), and tasks dated later.
 - **Anytime**: every other task, which has no date.
 
 The page opens on the Now section. Tasks within each of those groups, and in
@@ -35,8 +37,12 @@ Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
 for today), its description, and a details line with the row's actions, tags,
 and where it came from (a Todoist project, or an email's sender). A task's
-P1–P3 tag sits under its Todoist icon. A date or deadline that is today or already past is
-red; nothing else is colored for its date. A recurring item
+P1–P3 tag sits under its Todoist icon. An overdue row (a task dated before
+today, or mail, read or unread, whose latest message is more than 48 hours old)
+is tinted red with a red bar down its left edge, and says how late it is in
+place of its date: "3 days late" for a task, "4 days old" for mail. Unread mail
+that old keeps its place at the top. A deadline that is today is red too;
+nothing else is colored for its date. A recurring item
 has a repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last
@@ -101,7 +107,8 @@ good sync, with a note saying how many.
   someone else, or a team you are not on, was asked to review it.
 - **Mark read** (on an unread email row, after Archive) marks the row's
   threads read in Gmail and leaves them in the inbox, so the row stays on the
-  page and moves down among the read mail.
+  page and moves down among the read mail, or among the overdue rows when its
+  latest message is more than 48 hours old.
 - **Read** (on an email row that is not a GitHub notification, a document
   comment, or an invitation, after Archive) opens the email in full in the
   page's **Email** tab, in the side panel beside the list, and marks it read

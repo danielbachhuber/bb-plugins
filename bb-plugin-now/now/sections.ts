@@ -1,5 +1,5 @@
 // The page's sections, and the short date each row shows. No I/O here.
-import { localDay } from "./due.js";
+import { daysBetween, localDay } from "./due.js";
 import { sortDate } from "./items.js";
 import type { Item } from "./types.js";
 
@@ -16,7 +16,7 @@ export interface Section {
 const TITLES: Record<SectionId, string> = { now: "Now", anytime: "Anytime" };
 
 const HINTS: Record<SectionId, string> = {
-  now: "Unread mail and Todoist's Inbox, then overdue tasks, today's tasks, read mail, and tasks dated later",
+  now: "Unread mail and Todoist's Inbox, then overdue tasks and mail over two days old, today's tasks, recent read mail, and tasks dated later",
   anytime: "Tasks with no date",
 };
 
@@ -35,6 +35,36 @@ function dayOf(date: string): string {
  */
 export function needsDecision(item: Item): boolean {
   return item.gmail !== null ? item.gmail.unread : item.inbox === true;
+}
+
+/** How long a Gmail row can wait in the inbox before it counts as overdue. */
+export const MAIL_OVERDUE_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Whether a row is overdue: a task whose date (due or deadline, whichever is
+ * sooner) is a day already past, or a Gmail row, read or unread, whose latest
+ * message is more than 48 hours old.
+ */
+export function isOverdue(item: Item, now: Date): boolean {
+  if (item.gmail !== null) {
+    return item.activityAt !== null && now.getTime() - Date.parse(item.activityAt) > MAIL_OVERDUE_MS;
+  }
+  const date = sortDate(item);
+  return date !== null && dayOf(date) < localDay(now);
+}
+
+/**
+ * How far past due an overdue row is, in place of its date: "1 day late" or
+ * "8 days late" for a task, by the day it sorts by, and "3 days old" for
+ * mail, by whole days since its latest message.
+ */
+export function overdueText(item: Item, now: Date): string {
+  if (item.gmail !== null) {
+    const days = Math.floor((now.getTime() - Date.parse(item.activityAt!)) / (24 * 60 * 60 * 1000));
+    return `${days} ${days === 1 ? "day" : "days"} old`;
+  }
+  const days = daysBetween(dayOf(sortDate(item)!), localDay(now));
+  return `${days} ${days === 1 ? "day" : "days"} late`;
 }
 
 /**
@@ -57,8 +87,9 @@ export function sectionOf(item: Item): SectionId {
  * header can count it. Now leads with what needs a decision: unread mail
  * newest first, as Gmail has it, then Todoist's Inbox tasks, dated ones
  * soonest first and then undated ones newest added first. After those come
- * overdue tasks, today's tasks, the read mail newest first, and the tasks
- * dated later. Its other tasks and Anytime keep the list's order (soonest
+ * overdue rows (past-dated tasks and read mail more than 48 hours old, oldest
+ * day first), today's tasks, the rest of the read mail newest first, and the
+ * tasks dated later. Its other tasks and Anytime keep the list's order (soonest
  * first, then priority).
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
@@ -76,13 +107,18 @@ export function groupIntoSections(items: readonly Item[], now: Date): Section[] 
   const today = localDay(now);
   const tasks = rest.filter((item) => item.gmail === null);
   const dayOfTask = (item: Item) => dayOf(sortDate(item)!);
+  // Overdue tasks and stale mail share one run, oldest day first; within a day the tasks keep the list's order.
+  const overdue = [...tasks.filter((item) => dayOfTask(item) < today), ...readMail.filter((item) => isOverdue(item, now))]
+    .map((item) => ({ item, day: item.gmail === null ? dayOfTask(item) : dayOf(item.activityAt!) }))
+    .sort((a, b) => a.day.localeCompare(b.day))
+    .map(({ item }) => item);
   groups.set("now", [
     ...unreadMail,
     ...inboxTasks.filter((item) => sortDate(item) !== null),
     ...undated,
-    ...tasks.filter((item) => dayOfTask(item) < today),
+    ...overdue,
     ...tasks.filter((item) => dayOfTask(item) === today),
-    ...readMail,
+    ...readMail.filter((item) => !isOverdue(item, now)),
     ...tasks.filter((item) => dayOfTask(item) > today),
   ]);
   return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));

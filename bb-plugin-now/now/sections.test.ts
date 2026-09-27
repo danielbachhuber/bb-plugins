@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { groupIntoSections, sectionOf, shortDate, sidebarCounts } from "./sections.js";
+import { groupIntoSections, isOverdue, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
 import type { Item } from "./types.js";
 
 /** Thursday, September 24, 2026, 9:30 local. */
@@ -14,6 +14,38 @@ function item(id: string, overrides: Partial<Item> = {}): Item {
 }
 
 const due = (date: string) => ({ due: { date, recurring: false } });
+
+/** An instant `hours` before `now`, so mail ages hold in any timezone. */
+const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000).toISOString();
+
+const mail = (id: string, hours: number, unread = false) =>
+  item(id, { gmail: { threadIds: [id], unread }, activityAt: hoursAgo(hours) });
+
+describe("isOverdue", () => {
+  test("counts a task dated before today, by its due date or deadline, whichever is sooner", () => {
+    expect(isOverdue(item("a", due("2026-09-23")), now)).toBe(true);
+    expect(isOverdue(item("a", due("2026-09-24")), now)).toBe(false);
+    expect(isOverdue(item("a", { ...due("2026-09-30"), deadline: "2026-09-20" }), now)).toBe(true);
+    expect(isOverdue(item("a"), now)).toBe(false);
+  });
+
+  test("counts mail, read or unread, once its latest message is more than 48 hours old", () => {
+    expect(isOverdue(mail("a", 47), now)).toBe(false);
+    expect(isOverdue(mail("a", 48), now)).toBe(false);
+    expect(isOverdue(mail("a", 49), now)).toBe(true);
+    expect(isOverdue(mail("a", 49, true), now)).toBe(true);
+  });
+});
+
+describe("overdueText", () => {
+  test("says how many days late a task is, and how many days old mail is", () => {
+    expect(overdueText(item("a", due("2026-09-23")), now)).toBe("1 day late");
+    expect(overdueText(item("a", due("2026-09-16")), now)).toBe("8 days late");
+    expect(overdueText(item("a", { ...due("2026-09-23T14:00:00"), deadline: "2026-09-20" }), now)).toBe("4 days late");
+    expect(overdueText(mail("a", 49), now)).toBe("2 days old");
+    expect(overdueText(mail("a", 100), now)).toBe("4 days old");
+  });
+});
 
 describe("sectionOf", () => {
   test("puts every Gmail row and Todoist's Inbox in Now", () => {
@@ -35,23 +67,29 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, and orders Now unread mail, Todoist's Inbox, overdue, today, read mail, later", () => {
+  test("keeps every section, and orders Now unread mail, Todoist's Inbox, overdue, today, recent read mail, later", () => {
     const sections = groupIntoSections(
       [
         item("today", due("2026-09-24T14:00:00")),
-        item("late", due("2026-09-20")),
+        item("late", due("2026-09-21")),
         item("filed", { inbox: true }),
-        item("old-mail", { gmail: { threadIds: ["t1"], unread: false }, activityAt: "2026-09-22T10:00:00.000Z" }),
-        item("new-mail", { gmail: { threadIds: ["t2"], unread: true }, activityAt: "2026-09-24T08:00:00.000Z" }),
+        mail("recent-mail", 5),
+        mail("new-mail", 1, true),
         item("later", due("2026-09-30")),
         item("someday"),
-        item("older-read", { gmail: { threadIds: ["t3"], unread: false }, activityAt: "2026-09-21T10:00:00.000Z" }),
-        item("unread-older", { gmail: { threadIds: ["t4"], unread: true }, activityAt: "2026-09-23T08:00:00.000Z" }),
+        mail("recent-older", 30),
+        mail("unread-old", 72, true),
+        mail("stale-mail", 60),
+        mail("stalest-mail", 120),
       ],
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
-      ["Now", ["new-mail", "unread-older", "filed", "late", "today", "old-mail", "older-read", "later"]],
+      [
+        "Now",
+        // Stale read mail joins the overdue tasks, oldest day first; stale unread mail stays on top.
+        ["new-mail", "unread-old", "filed", "stalest-mail", "late", "stale-mail", "today", "recent-mail", "recent-older", "later"],
+      ],
       ["Anytime", ["someday"]],
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0]);
