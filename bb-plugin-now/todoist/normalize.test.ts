@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { apiPriority, normalizeTask, normalizeTasks, plainContent, projectMap, projectTree } from "./normalize.js";
+import { apiPriority, attachSubtasks, normalizeTask, normalizeTasks, plainContent, projectMap, projectTree } from "./normalize.js";
 
 /** The fields the v1 `tasks/filter` endpoint returns that normalization reads. */
 function rawTask(overrides: Record<string, unknown> = {}) {
@@ -97,6 +97,30 @@ describe("normalizeTask", () => {
 describe("normalizeTasks", () => {
   test("drops payloads that are not tasks", () => {
     expect(normalizeTasks([null, "task", { id: 5 }, rawTask()], projects)).toHaveLength(1);
+  });
+});
+
+describe("attachSubtasks", () => {
+  const parent = normalizeTask(rawTask({ id: "t1" }), projects)!;
+  const other = normalizeTask(rawTask({ id: "t2" }), projects)!;
+  const sub = (id: string, order: number, overrides: Record<string, unknown> = {}) =>
+    rawTask({ id, parent_id: "t1", child_order: order, content: `Step ${id}`, ...overrides });
+
+  test("lists open subtasks under their parent, in Todoist's order", () => {
+    const [withSubtasks, without] = attachSubtasks([parent, other], [sub("s2", 2), sub("s1", 1, { content: "Read the **spec**" })]);
+    expect(withSubtasks!.todoist?.subtasks).toEqual([
+      { id: "s1", title: "Read the spec" },
+      { id: "s2", title: "Step s2" },
+    ]);
+    expect(without!.todoist?.subtasks).toBeUndefined();
+  });
+
+  test("leaves out payloads that are not open subtasks", () => {
+    const [item] = attachSubtasks(
+      [parent],
+      [rawTask({ id: "top" }), null, sub("done", 1, { checked: true }), sub("gone", 2, { is_deleted: true })],
+    );
+    expect(item!.todoist?.subtasks).toBeUndefined();
   });
 });
 

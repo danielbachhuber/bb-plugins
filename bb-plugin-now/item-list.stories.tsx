@@ -224,6 +224,14 @@ const items: Item[] = [
     title: "Draft the Acme Board announcement",
     description: "It should:\n\n* Open with the **widget launch** date\n* Link the [gadget roadmap](https://example.com/roadmap)",
     due: { date: "2026-09-25", recurring: false },
+    todoist: {
+      projectId: "widgets",
+      subtasks: [
+        { id: "s1", title: "Collect quotes from octocat" },
+        { id: "s2", title: "Write the first draft" },
+        { id: "s3", title: "Send it to hubber for review" },
+      ],
+    },
   }),
   item({
     id: "a5",

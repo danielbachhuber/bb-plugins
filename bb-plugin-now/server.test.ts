@@ -20,7 +20,8 @@ type Route = unknown | { status: number; body: unknown };
  * Route by path and query, so each test declares the endpoints it expects and
  * an unexpected call fails loudly.
  */
-function routedFetch(routes: Record<string, Route>) {
+function routedFetch(given: Record<string, Route>) {
+  const routes = { ...NO_SUBTASKS, ...given };
   return vi.fn(async (url: string, _init?: RequestInit) => {
     const target = new URL(url);
     const key = `${target.pathname}${target.search}`;
@@ -42,6 +43,15 @@ function filterPath(query: string, cursor?: string) {
 }
 
 const PROJECTS_PATH = "/api/v1/projects?limit=200";
+/** A read of the tasks on the page, rather than of the subtasks every sync reads too. */
+function readsTasks(url: string) {
+  return url.includes("/tasks/filter") && !url.includes("query=subtask");
+}
+
+/** What every Todoist sync reads besides the tasks and projects: no subtasks, unless a test says otherwise. */
+const NO_SUBTASKS = {
+  [filterPath("subtask")]: { results: [], next_cursor: null },
+};
 const PROJECTS = { results: [{ id: "p1", name: "Widgets" }], next_cursor: null };
 
 function rawTask(id: string, overrides: Record<string, unknown> = {}) {
@@ -452,7 +462,7 @@ describe("stored list", () => {
 
     await Promise.all([harness.behavior.callRpc("items_sync", null), harness.behavior.callRpc("items_sync", null)]);
 
-    expect(fetchImpl.mock.calls.filter(([url]) => String(url).includes("/tasks/filter"))).toHaveLength(1);
+    expect(fetchImpl.mock.calls.filter(([url]) => readsTasks(String(url)))).toHaveLength(1);
   });
 
   test("keeps the emails from the last good sync when Gmail fails", async () => {
@@ -760,7 +770,7 @@ describe("completing a task", () => {
     let reads = 0;
     fetchImpl.mockImplementation(async (url, init) => {
       const response = await original(url, init);
-      if (url.includes("/tasks/filter") && reads++ === 0) await held;
+      if (readsTasks(url) && reads++ === 0) await held;
       return response;
     });
     return release;
@@ -773,7 +783,7 @@ describe("completing a task", () => {
 
     const release = holdNextRead(fetchImpl);
     const syncing = harness.behavior.callRpc("items_sync", null);
-    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2));
+    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => readsTasks(url))).toHaveLength(2));
     await harness.behavior.callRpc("items_complete", { id: "todoist:a" });
     release();
     await syncing;
@@ -793,12 +803,12 @@ describe("completing a task", () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
     fetchImpl.mockImplementation(async (url, init) => {
-      if (!url.includes("/tasks/filter")) return original(url, init);
+      if (!readsTasks(url)) return original(url, init);
       await held;
       return jsonResponse({ results: [rawTask("b")], next_cursor: null });
     });
     const syncing = harness.behavior.callRpc("items_sync", null);
-    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2));
+    await vi.waitFor(() => expect(fetchImpl.mock.calls.filter(([url]) => readsTasks(url))).toHaveLength(2));
     fetchImpl.mockImplementation(async (url, init) => original(url, init));
     await harness.behavior.callRpc("items_undo", { id: "todoist:a" });
     release();
@@ -828,6 +838,25 @@ describe("completing a task", () => {
     await plugin(bb);
     await syncAndRead(harness);
     await expect(harness.behavior.callRpc("items_complete", { id: "gmail:x" })).resolves.toMatchObject({ completed: false });
+  });
+});
+
+describe("subtasks", () => {
+  test("lists a task's open subtasks on its row", async () => {
+    const sub = (id: string, order: number) => rawTask(id, { parent_id: "a", child_order: order, content: `Step ${id}` });
+    const { bb, harness, plugin } = host({
+      [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a"), rawTask("b")], next_cursor: null },
+      [PROJECTS_PATH]: PROJECTS,
+      [filterPath("subtask")]: { results: [sub("s2", 2), sub("s1", 1)], next_cursor: null },
+    });
+    await plugin(bb);
+
+    const list = await syncAndRead(harness);
+    expect(list.items[0]?.todoist?.subtasks).toEqual([
+      { id: "s1", title: "Step s1" },
+      { id: "s2", title: "Step s2" },
+    ]);
+    expect(list.items[1]?.todoist?.subtasks).toBeUndefined();
   });
 });
 
@@ -875,7 +904,7 @@ describe("editing a task", () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
     fetchImpl.mockImplementation(async (url, init) => {
-      if (url.includes("/tasks/filter")) await held;
+      if (readsTasks(url)) await held;
       return original(url, init);
     });
 
@@ -905,7 +934,7 @@ describe("editing a task", () => {
       priority: 2,
       due: { date: "2026-10-02", text: "next fri" },
     });
-    expect(fetchImpl.mock.calls.filter(([url]) => url.includes("/tasks/filter"))).toHaveLength(2);
+    expect(fetchImpl.mock.calls.filter(([url]) => readsTasks(url))).toHaveLength(2);
     release();
   });
 

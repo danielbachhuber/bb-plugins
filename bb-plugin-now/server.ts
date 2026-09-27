@@ -263,6 +263,12 @@ export function createPlugin(deps: PluginDeps = {}) {
       return store.read()?.items.find((item) => item.id === id) ?? null;
     }
 
+    /** A task read back on its own lacks its subtasks, which the next sync reads again; until then it keeps the row's. */
+    function keepSubtasks(saved: Item, item: Item): Item {
+      const subtasks = item.todoist?.subtasks;
+      return subtasks === undefined || saved.todoist == null ? saved : { ...saved, todoist: { ...saved.todoist, subtasks } };
+    }
+
     async function postponeItem(id: string, day: string) {
       const item = findItem(id);
       if (item?.source !== "todoist") return { postponed: false, error: "Only a Todoist task can be postponed." };
@@ -284,7 +290,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         else await api.update(taskId, { deadline_date: day });
         const [task, projects] = await Promise.all([api.task(taskId), api.projects()]);
         const saved = normalizeTask(task, projectMap(projects));
-        if (saved !== null) updateRow(saved);
+        if (saved !== null) updateRow(keepSubtasks(saved, item));
         bb.log.info(`Postponed ${id} to ${day}`);
         return { postponed: true, error: null };
       } catch (error) {
@@ -419,7 +425,7 @@ export function createPlugin(deps: PluginDeps = {}) {
           if (changes.move !== null) await api.move(taskId, changes.move);
           const [task, projects] = await Promise.all([api.task(taskId), api.projects()]);
           const saved = normalizeTask(task, projectMap(projects));
-          if (saved !== null) updateRow(saved);
+          if (saved !== null) updateRow(keepSubtasks(saved, item));
           bb.log.info(`Edited ${id}`);
           return { saved: true, error: null };
         } catch (error) {

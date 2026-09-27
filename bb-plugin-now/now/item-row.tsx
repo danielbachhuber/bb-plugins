@@ -328,6 +328,7 @@ function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: 
 
 export function ItemRow({ item, now, actions, threadId = null, pending = null, projects = null }: ItemRowProps) {
   const busy = pending !== null;
+  const subtasks = item.todoist?.subtasks ?? [];
   const mergeMethods = actions === undefined ? [] : (item.github?.mergeMethods ?? []);
   const merge =
     mergeMethods.length === 0 || actions === undefined ? null : (
@@ -438,6 +439,13 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
             />
           ) : (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+          )}
+          {subtasks.length === 0 ? null : (
+            <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground" aria-label="Subtasks">
+              {subtasks.map((subtask) => (
+                <li key={subtask.id}>{subtask.title}</li>
+              ))}
+            </ul>
           )}
           {item.invite == null ? null : (
             <RsvpControl

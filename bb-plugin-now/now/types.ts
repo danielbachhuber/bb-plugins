@@ -105,12 +105,23 @@ export const invitePartSchema = z.object({
 });
 export type InvitePart = z.infer<typeof invitePartSchema>;
 
-/** What a Todoist row needs to be edited in place. */
+/** One open subtask of a Todoist task, which the row lists under it. */
+export const todoistSubtaskSchema = z.object({
+  /** Todoist's own id, without the `todoist:` prefix. */
+  id: z.string(),
+  /** Its name as plain text, as a row's title is. */
+  title: z.string(),
+});
+export type TodoistSubtask = z.infer<typeof todoistSubtaskSchema>;
+
+/** What a Todoist row needs to be edited in place, and its subtasks. */
 export const todoistPartSchema = z.object({
   /** The task's project, which the edit strip's project picker starts on. */
   projectId: z.string().nullable(),
   /** The task's name as Todoist holds it, Markdown and all, which the edit strip's name field starts on. */
   content: z.string().optional(),
+  /** The task's open subtasks, in Todoist's order. Absent when it has none. */
+  subtasks: z.array(todoistSubtaskSchema).optional(),
 });
 export type TodoistPart = z.infer<typeof todoistPartSchema>;
 

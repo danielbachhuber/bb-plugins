@@ -38,7 +38,8 @@ source) with its date at the right in one short form ("Sep 21", or the time
 for today), its description, and a details line with the row's actions, tags,
 and where it came from (a Todoist project, or an email's sender). A Todoist
 task's description is rendered as Markdown, so its lists, links, and bold text
-look as they do in Todoist. A task's
+look as they do in Todoist, and its open subtasks are listed under it as
+bullets. A task's
 P1–P3 tag sits under its Todoist icon. An overdue row (a task dated before
 today, or mail, read or unread, whose latest message is more than 48 hours old)
 is tinted red with a red bar down its left edge, and says how late it is in
@@ -214,9 +215,10 @@ under `~/.bb` and never sent to the frontend.
 A task matched only through its deadline (Todoist's `overdue` includes
 missed deadlines) has no due date, and sorts by the deadline instead.
 
-One sync makes two requests to the Todoist API v1, in parallel:
-`GET /api/v1/tasks/filter` with the saved query, and `GET /api/v1/projects` to
-name each task's project and find the Inbox. Both follow `next_cursor` 200
+One sync makes three requests to the Todoist API v1, in parallel:
+`GET /api/v1/tasks/filter` with the saved query, `GET /api/v1/projects` to
+name each task's project and find the Inbox, and `GET /api/v1/tasks/filter`
+with `subtask` for every open subtask. All three follow `next_cursor` 200
 items at a time.
 Saving the edit strip makes `POST /api/v1/tasks/{id}` for the name, due date,
 deadline, and priority and `POST /api/v1/tasks/{id}/move` for the project, only for what

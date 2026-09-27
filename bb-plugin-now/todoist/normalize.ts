@@ -1,5 +1,5 @@
 // Turn Todoist's task payloads into Now items. No I/O here.
-import type { Due, Item, TodoistProject } from "../now/types.js";
+import type { Due, Item, TodoistProject, TodoistSubtask } from "../now/types.js";
 
 type Raw = Record<string, unknown>;
 
@@ -75,6 +75,25 @@ export function normalizeTasks(raw: readonly unknown[], projects: ReadonlyMap<st
   return raw
     .map((task) => normalizeTask(task, projects))
     .filter((item): item is Item => item !== null);
+}
+
+/** Lists each row's open subtasks under it, in Todoist's order. */
+export function attachSubtasks(items: readonly Item[], subtasks: readonly unknown[]): Item[] {
+  const byParent = new Map<string, Array<TodoistSubtask & { order: number }>>();
+  for (const raw of subtasks) {
+    if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.content !== "string") continue;
+    if (typeof raw.parent_id !== "string" || raw.checked === true || raw.is_deleted === true) continue;
+    const siblings = byParent.get(raw.parent_id) ?? [];
+    siblings.push({ id: raw.id, title: plainContent(raw.content), order: typeof raw.child_order === "number" ? raw.child_order : 0 });
+    byParent.set(raw.parent_id, siblings);
+  }
+
+  return items.map((item) => {
+    const siblings = item.todoist == null ? undefined : byParent.get(item.id.slice(`${SOURCE_ID}:`.length));
+    if (siblings === undefined) return item;
+    const sorted = siblings.sort((a, b) => a.order - b.order).map(({ id, title }) => ({ id, title }));
+    return { ...item, todoist: { ...item.todoist!, subtasks: sorted } };
+  });
 }
 
 export interface Project {
