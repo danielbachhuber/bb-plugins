@@ -121,9 +121,13 @@ export default async function plugin(bb: BbPluginApi) {
     if (original === undefined) throw new Error(`Item ${itemId} has no action ${index}.`);
     // Only a button that sends the draft takes the user's version of it.
     if (draft !== undefined && !usesDraft(original)) throw new Error(`"${original.label}" does not send the draft.`);
+    // A text field can start empty, and an empty answer is not one to send.
+    if (usesDraft(original) && (draft ?? item.draft).trim() === "") throw new Error(`Fill in "${item.draftLabel}" before "${original.label}".`);
     const { action, edited } = fillDraft(original, item.draft, draft);
-    // An edited draft is kept, so the list and the agent see what was sent.
-    const sent = edited ? { edited: true, draft } : {};
+    // What was sent is kept when the user changed it, or typed it into a
+    // one-line field, so the card, the list, and the agent see it.
+    const keep = edited || (item.draftFormat === "text" && usesDraft(original));
+    const sent = { ...(edited ? { edited: true } : {}), ...(keep ? { draft: draft ?? item.draft } : {}) };
     let result: ActionResult;
     try {
       result = { label: action.label, at: now(), ...sent, ...(await perform(stored, action)) };

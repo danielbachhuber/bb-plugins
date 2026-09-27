@@ -365,3 +365,53 @@ export const staplesView: View = viewSchema.parse({
     },
   ],
 });
+
+/**
+ * A grocery-cart-shaped view: each card offers products as buttons and a
+ * one-line field for a value of the user's own. Invented store and products.
+ */
+export const groceryView: View = viewSchema.parse({
+  title: "Acme Market cart: this week",
+  summary: "Pick a product for each item on the list.",
+  sections: [
+    {
+      title: "Confirm",
+      items: [
+        {
+          id: "apples",
+          title: "Apples",
+          badges: [{ label: "Bought 6 times", tone: "info" }],
+          summary: "Last three orders were **Fuji ×8**.",
+          draftFormat: "text",
+          draftLabel: "Something else",
+          draftPlaceholder: "Fuji ×12, or another product",
+          actions: [
+            { type: "command", label: "Fuji ×8", command: "true", primary: true },
+            { type: "command", label: "Fuji ×5", command: "true" },
+            { type: "command", label: "Honeycrisp ×5", command: "true" },
+            { type: "command", label: "Gala ×6", command: "true" },
+            { type: "command", label: "Pink Lady ×4", command: "true" },
+            { type: "message", label: "Use this", text: "For Apples, put this in the cart instead: {draft}" },
+          ],
+        },
+      ],
+    },
+    {
+      title: "Questions",
+      items: [
+        {
+          id: "chew-toy",
+          title: "Chew toy",
+          summary: "Searching Acme Market found nothing that fits. What is it?",
+          draftFormat: "text",
+          draftLabel: "Answer",
+          draftPlaceholder: "What it is, and a size if it matters",
+          actions: [
+            { type: "message", label: "Send answer", text: "About Chew toy on the list: {draft}", primary: true },
+            { type: "command", label: "Rope toy ×1", command: "true" },
+          ],
+        },
+      ],
+    },
+  ],
+});

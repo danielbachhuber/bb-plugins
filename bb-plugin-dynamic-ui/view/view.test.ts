@@ -10,7 +10,7 @@ import { dismissLabelOf, fillDraft, isQuiet, needsConfirm, parseView, shellQuote
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { firstOpenItem, nextOpenItem } from "./view-panel.js";
+import { enterAction, firstOpenItem, nextOpenItem } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -348,6 +348,53 @@ describe("item drafts", () => {
     const command = { type: "command", label: "Comment", command: "gh issue comment 7 --body '{draft}'" };
     expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command can use \{draft\} only in the "list" layout/);
     expect(() => parseView(viewWith({ actions: [post] }))).toThrow(/uses \{draft\} but the item has no draft/);
+  });
+});
+
+describe("one-line drafts", () => {
+  const fuji = { type: "command" as const, label: "Fuji ×8", command: "true", primary: true };
+  const other = { type: "message" as const, label: "Use this", text: "For apples, use: {draft}", primary: false };
+
+  function viewWith(item: Record<string, unknown>) {
+    return JSON.stringify({ title: "T", sections: [{ items: [{ id: "a", title: "A", ...item }] }] });
+  }
+
+  it("defaults to markdown, and takes a text field that starts empty", () => {
+    expect(parseView(viewWith({ draft: "x", actions: [other] })).sections[0]!.items[0]!.draftFormat).toBe("markdown");
+    const item = parseView(
+      viewWith({ draftFormat: "text", draftLabel: "Something else", draftPlaceholder: "Fuji ×12, or another product", actions: [fuji, other] }),
+    ).sections[0]!.items[0]!;
+    expect(item).toMatchObject({ draft: "", draftFormat: "text", draftPlaceholder: "Fuji ×12, or another product" });
+  });
+
+  it("refuses a text draft over one line, with no button to send it, or a placeholder on markdown", () => {
+    expect(() => parseView(viewWith({ draftFormat: "text", draft: "a\nb", actions: [other] }))).toThrow(/draft: a "text" draft is one line/);
+    expect(() => parseView(viewWith({ draftFormat: "text", actions: [fuji] }))).toThrow(/draftFormat: a "text" draft needs a message or thread button/);
+    expect(() => parseView(viewWith({ draft: "x", draftPlaceholder: "y", actions: [other] }))).toThrow(/draftPlaceholder: a placeholder needs "draftFormat": "text"/);
+  });
+
+  it("lets only a card's text draft start empty, since a list row sends it without a check", () => {
+    const list = JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", draftFormat: "text", actions: [other] }] }] });
+    expect(() => parseView(list)).toThrow(/uses \{draft\} but the item has no draft/);
+  });
+
+  it("fills {draft} with what was typed, which is not an edit when the field started empty", () => {
+    expect(fillDraft(other, "", "Fuji ×12")).toEqual({ action: { ...other, text: "For apples, use: Fuji ×12" }, edited: false });
+    const thread = { type: "thread" as const, label: "Look it up", primary: false, project: "personal", title: "Look up", prompt: "Find {draft} at the store." };
+    expect(fillDraft(thread, "", "oat milk").action).toMatchObject({ prompt: "Find oat milk at the store." });
+  });
+
+  it("presses the button that sends the draft on Enter, not the primary product", () => {
+    const item = parseView(viewWith({ draftFormat: "text", actions: [fuji, other, { ...other, label: "Use and save", primary: true }] })).sections[0]!.items[0]!;
+    expect(enterAction(item)).toBe(2);
+    expect(enterAction({ ...item, actions: item.actions.slice(0, 2) })).toBe(1);
+  });
+
+  it("reads back what a one-line draft sent", () => {
+    const s = store();
+    const view = s.publish("thr_1", "default", parseView(viewWith({ draftFormat: "text", actions: [other] })), "/tmp", "t");
+    s.setItem(view.id, "a", { state: "done", result: { label: "Use this", at: "t", draft: "Fuji ×12" } }, "t");
+    expect(describeItems(s.get(view.id)!)).toEqual(['[done] a  A  (Use this: "Fuji ×12")']);
   });
 });
 

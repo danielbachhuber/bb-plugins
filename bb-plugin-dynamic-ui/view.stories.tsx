@@ -1,4 +1,4 @@
-import { staplesView, triageView } from "./view/fixtures";
+import { groceryView, staplesView, triageView } from "./view/fixtures";
 import { ListPanel } from "./view/list-panel";
 import type { View } from "./view/schema";
 import type { StoredView } from "./view/store";
@@ -163,4 +163,28 @@ const asking: View = {
 /** A command that asks first shows it under its row, with Run and Cancel. */
 export function ListConfirm() {
   return <List stored={{ ...staples, view: asking }} confirming="coffee-beans:0" />;
+}
+const grocery: StoredView = { ...fresh, view: groceryView };
+
+/** A one-line field beside five product buttons: type a product of your own and press Use this, or Enter. */
+export function TextDraft() {
+  return <Panel stored={grocery} focusItemId="apples" />;
+}
+
+/** A question card whose answer is the main button, with a product button in case one fits. */
+export function TextDraftQuestion() {
+  return <Panel stored={grocery} focusItemId="chew-toy" />;
+}
+
+/** After the answer is sent: the field shows it, greyed, and the banner repeats it. */
+export function TextDraftSent() {
+  return (
+    <Panel
+      stored={{
+        ...grocery,
+        items: { "chew-toy": { state: "done", result: { label: "Send answer", at: "2026-03-12T12:05:00Z", draft: "A rubber bone for a small dog" } } },
+      }}
+      focusItemId="chew-toy"
+    />
+  );
 }

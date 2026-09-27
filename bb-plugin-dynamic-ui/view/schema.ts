@@ -86,7 +86,8 @@ export function shellQuote(text: string): string {
  */
 export function fillDraft(action: Action, original: string, draft: string | undefined): { action: Action; edited: boolean } {
   const text = draft ?? original;
-  const edited = draft !== undefined && draft !== original;
+  // A text field that started empty was filled in, not edited.
+  const edited = draft !== undefined && original !== "" && draft !== original;
   // Split and join, so a "$" in the user's text is not read as a replace pattern.
   const fill = (template: string) => template.split(DRAFT).join(text);
   if (action.type === "message") return { action: { ...action, text: fill(action.text) }, edited };
@@ -123,6 +124,13 @@ export const LAYOUTS = ["cards", "list"] as const;
 /** At most this many buttons on a list row, besides Dismiss, so it stays one line. */
 export const LIST_ACTIONS = 3;
 
+/**
+ * How the opened item shows its draft. `markdown` is an editor with a
+ * rendered preview, for a comment or a task. `text` is a one-line field beside
+ * the buttons that send it, for a short answer or a value of the user's own.
+ */
+export const DRAFT_FORMATS = ["markdown", "text"] as const;
+
 const itemId = z
   .string()
   .trim()
@@ -143,10 +151,14 @@ export const itemSchema = z.object({
    * Text the user can edit before a button sends it: a comment to post, the
    * task for a new thread. A `message` or `thread` button puts `{draft}` in
    * its text where the draft goes, so several buttons share one draft.
+   * Markdown unless `draftFormat` is `text`.
    */
   draft: z.string().max(50_000).default(""),
   /** The label over the draft's box: "Comment to post", "Task for the new thread". */
   draftLabel: z.string().trim().max(80).default("Draft"),
+  draftFormat: z.enum(DRAFT_FORMATS).default("markdown"),
+  /** Shown in an empty `text` field: "Fuji ×12, or another product". */
+  draftPlaceholder: z.string().trim().max(120).optional(),
   actions: z.array(actionSchema).max(6).default([]),
   /**
    * Makes the item a visual review: the original first, then the
@@ -198,10 +210,22 @@ export const viewSchema = z
               message: 'a command can use {draft} only in the "list" layout; use a message button',
             });
           }
-          if (usesDraft(action) && item.draft.trim() === "") {
+          // A card's text field can start empty: the user types the whole answer.
+          if (usesDraft(action) && item.draft.trim() === "" && (item.draftFormat !== "text" || view.layout === "list")) {
             ctx.addIssue({ code: "custom", path: [...path, "type"], message: "uses {draft} but the item has no draft" });
           }
         });
+        const itemPath = ["sections", s, "items", i];
+        if (item.draftFormat === "text") {
+          if (item.draft.includes("\n")) {
+            ctx.addIssue({ code: "custom", path: [...itemPath, "draft"], message: 'a "text" draft is one line; use "markdown" for more' });
+          }
+          if (!item.actions.some(usesDraft)) {
+            ctx.addIssue({ code: "custom", path: [...itemPath, "draftFormat"], message: 'a "text" draft needs a message or thread button that uses {draft}' });
+          }
+        } else if (item.draftPlaceholder !== undefined) {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "draftPlaceholder"], message: 'a placeholder needs "draftFormat": "text"' });
+        }
         if (item.variations.length === 1) {
           ctx.addIssue({
             code: "custom",

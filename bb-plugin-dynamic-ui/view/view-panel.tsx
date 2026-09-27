@@ -1,9 +1,10 @@
 // What a view's tab draws. Kept free of RPC so a story can render it with
 // fixture props.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
@@ -104,6 +105,7 @@ function Result({ record, onGo }: { record: ItemRecord; onGo: (id: string) => vo
             {failed ? " failed" : ""}
             {result.exitCode === undefined ? "" : ` · exit ${result.exitCode}`}
             {result.edited ? " · edited" : ""}
+            {result.draft === undefined ? "" : ` · “${result.draft}”`}
           </span>
           {result.threadId === undefined ? null : (
             <>
@@ -129,6 +131,7 @@ function ActionButton({
   openedThread,
   busy,
   used,
+  blank = false,
   onRun,
   onConfirm,
   onGo,
@@ -139,6 +142,8 @@ function ActionButton({
   busy: boolean;
   /** An action on this item already went through, so the rest are spent. */
   used: boolean;
+  /** The button sends a one-line draft that is still empty. */
+  blank?: boolean;
   onRun: () => void;
   onConfirm: () => void;
   onGo: (id: string) => void;
@@ -159,9 +164,71 @@ function ActionButton({
     );
   }
   return (
-    <Button size="sm" variant={variant} disabled={busy || used} onClick={needsConfirm(action) ? onConfirm : onRun}>
+    <Button size="sm" variant={variant} disabled={busy || used || blank} onClick={needsConfirm(action) ? onConfirm : onRun}>
       {action.label}
     </Button>
+  );
+}
+
+/**
+ * The button Enter presses in a one-line draft: the primary among those that
+ * send it, or else the first. Never one that would drop what the user typed.
+ */
+export function enterAction(item: Item): number | undefined {
+  const sends = item.actions.flatMap((action, index) => (usesDraft(action) ? [index] : []));
+  return sends.find((index) => item.actions[index]!.primary) ?? sends[0];
+}
+
+/**
+ * A one-line draft's buttons: the ones that do not send it in a row, then the
+ * field with the buttons that do on its right.
+ */
+function TextDraftActions({
+  item,
+  draft,
+  onChange,
+  button,
+  busy,
+  onEnter,
+}: {
+  item: Item;
+  draft: string;
+  /** Absent once the item is done: the field shows what was sent. */
+  onChange?: (value: string) => void;
+  button: (index: number) => ReactNode;
+  busy: boolean;
+  onEnter: (index: number) => void;
+}) {
+  const indexes = item.actions.map((_, index) => index);
+  const sends = indexes.filter((index) => usesDraft(item.actions[index]!));
+  const others = indexes.filter((index) => !sends.includes(index));
+  const enter = enterAction(item);
+  const editable = onChange !== undefined;
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {others.length === 0 ? null : <div className="flex flex-wrap gap-2">{others.map(button)}</div>}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-muted-foreground">{item.draftLabel}</span>
+        <div className="flex gap-2">
+          <Input
+            aria-label={item.draftLabel}
+            className="h-8 min-w-0 flex-1 text-sm"
+            value={draft}
+            placeholder={item.draftPlaceholder}
+            disabled={!editable}
+            onChange={(event) => onChange?.(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter while an IME is composing picks a candidate, not the button.
+              if (event.key !== "Enter" || event.nativeEvent.isComposing || enter === undefined) return;
+              event.preventDefault();
+              if (editable && !busy && draft.trim() !== "") onEnter(enter);
+            }}
+          />
+          {sends.map(button)}
+        </div>
+      </div>
+      {busy ? <span className="text-xs text-muted-foreground">Working…</span> : null}
+    </div>
   );
 }
 
@@ -195,14 +262,35 @@ function ItemCard({
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
-  const [draft, setDraft] = useState(item.draft);
+  // A failed send keeps what the user typed in a one-line field.
+  const [draft, setDraft] = useState(record?.result?.draft ?? item.draft);
   const draftChanged = draft.trim() !== item.draft.trim();
   const run = (index: number) => {
     const action = item.actions[index]!;
     onRun(index, usesDraft(action) && draftChanged && draft.trim() !== "" ? draft.trim() : undefined);
   };
   const state = record?.state ?? "open";
+  const textDraft = item.draftFormat === "text";
+  const blank = textDraft && draft.trim() === "";
   const pending = confirming === null ? null : item.actions[confirming];
+  const button = (index: number) => {
+    const action = item.actions[index]!;
+    return (
+      <ActionButton
+        key={`${action.type}:${action.label}`}
+        action={action}
+        openedThread={
+          action.type === "thread" && record?.result?.label === action.label ? (record.result.threadId ?? null) : null
+        }
+        busy={busy}
+        used={state === "done"}
+        blank={blank && usesDraft(action)}
+        onRun={() => run(index)}
+        onConfirm={() => setConfirming(index)}
+        onGo={onGo}
+      />
+    );
+  };
 
   return (
     <li className={cn("rounded-lg border border-border bg-card px-4 py-3", state === "dismissed" && "opacity-60")}>
@@ -295,7 +383,7 @@ function ItemCard({
       )}
 
       {/* One box for the item's draft: every button that says {draft} sends it as left here. */}
-      {item.draft === "" ? null : (
+      {item.draft === "" || textDraft ? null : (
         <DraftEditor
           label={item.draftLabel}
           value={state === "open" ? draft : item.draft}
@@ -325,22 +413,18 @@ function ItemCard({
             </Button>
           </div>
         </div>
-      ) : item.actions.length === 0 || state === "dismissed" ? null : (
+      ) : item.actions.length === 0 || state === "dismissed" ? null : textDraft ? (
+        <TextDraftActions
+          item={item}
+          draft={state === "open" ? draft : (record?.result?.draft ?? item.draft)}
+          onChange={state === "open" ? setDraft : undefined}
+          button={button}
+          busy={busy}
+          onEnter={run}
+        />
+      ) : (
         <div className="mt-3 flex flex-wrap gap-2">
-          {item.actions.map((action, index) => (
-            <ActionButton
-              key={`${action.type}:${action.label}`}
-              action={action}
-              openedThread={
-                action.type === "thread" && record?.result?.label === action.label ? (record.result.threadId ?? null) : null
-              }
-              busy={busy}
-              used={state === "done"}
-              onRun={() => run(index)}
-              onConfirm={() => setConfirming(index)}
-              onGo={onGo}
-            />
-          ))}
+          {item.actions.map((_, index) => button(index))}
           {busy ? <span className="self-center text-xs text-muted-foreground">Working…</span> : null}
         </div>
       )}
