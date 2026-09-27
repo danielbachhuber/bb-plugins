@@ -7,8 +7,8 @@ Gmail inbox.
 ## What it adds
 
 A **Now** page in the left sidebar, whose entry shows two counts: how many
-rows need a decision (unread mail and tasks in Todoist's Inbox) in a red
-circle, and then how many rows are in the Now section, the same number as its
+rows need a decision (unread mail and tasks in Todoist's Inbox) or are overdue
+in a red circle, and then how many rows are in the Now section, the same number as its
 tab, which includes the first. A count of zero is left out. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
@@ -364,7 +364,7 @@ list `server.ts` passes to `loadSources`.
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
-| `now/sidebar-counts.tsx` | The inbox badge and Now count beside the page's name in the sidebar |
+| `now/sidebar-counts.tsx` | The red urgent badge and Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |

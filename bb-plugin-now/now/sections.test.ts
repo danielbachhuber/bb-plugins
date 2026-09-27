@@ -129,7 +129,7 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts the inbox, and every row in the Now section as its tab does", () => {
+  test("counts what needs a decision or is overdue, each once, and every row in the Now section as its tab does", () => {
     const items = [
       item("unread", { gmail: { threadIds: ["t1"], unread: true } }),
       item("read", { gmail: { threadIds: ["t2"], unread: false } }),
@@ -137,12 +137,15 @@ describe("sidebarCounts", () => {
       item("overdue", due("2026-09-20")),
       item("later", due("2026-10-02")),
       item("undated"),
+      mail("stale-read", 60),
+      mail("stale-unread", 60, true),
     ];
-    expect(sidebarCounts(items)).toEqual({ inbox: 2, now: 5 });
-    expect(sidebarCounts(items).now).toBe(groupIntoSections(items, now)[0]!.items.length);
+    // unread, inbox, overdue, stale-read, and stale-unread (counted once).
+    expect(sidebarCounts(items, now)).toEqual({ urgent: 5, now: 7 });
+    expect(sidebarCounts(items, now).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([])).toEqual({ inbox: 0, now: 0 });
+    expect(sidebarCounts([], now)).toEqual({ urgent: 0, now: 0 });
   });
 });

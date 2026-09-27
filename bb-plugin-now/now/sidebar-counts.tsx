@@ -1,17 +1,17 @@
 /**
  * The counts beside the page's name in the sidebar: the rows that need a
- * decision in a red circle, then every row in Now, which includes them. Each is left out at zero.
+ * decision or are overdue in a red circle, then every row in Now, which includes them. Each is left out at zero.
  */
-export function SidebarCounts({ inbox, now }: { inbox: number; now: number }) {
-  if (inbox === 0 && now === 0) return null;
+export function SidebarCounts({ urgent, now }: { urgent: number; now: number }) {
+  if (urgent === 0 && now === 0) return null;
   return (
     <span className="flex items-center gap-1.5 text-xs tabular-nums">
-      {inbox === 0 ? null : (
+      {urgent === 0 ? null : (
         <span
-          title={`${inbox} in the inbox`}
+          title={`${urgent} to sort or overdue`}
           className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white"
         >
-          {inbox}
+          {urgent}
         </span>
       )}
       {now === 0 ? null : (

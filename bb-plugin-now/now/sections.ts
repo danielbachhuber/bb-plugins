@@ -161,15 +161,16 @@ export function shortDate(date: string, now: Date, { clock: withClock = false } 
 
 /**
  * The two counts beside the page's name in the sidebar: what needs a
- * decision (unread mail and Todoist's Inbox), and every row in the Now
- * section, the same number as its tab. The first is part of the second.
+ * decision (unread mail and Todoist's Inbox) or is overdue, each row once,
+ * and every row in the Now section, the same number as its tab. The first is
+ * part of the second.
  */
-export function sidebarCounts(items: readonly Item[]): { inbox: number; now: number } {
-  let inbox = 0;
-  let now = 0;
+export function sidebarCounts(items: readonly Item[], now: Date): { urgent: number; now: number } {
+  let urgent = 0;
+  let current = 0;
   for (const item of items) {
-    if (needsDecision(item)) inbox++;
-    if (sectionOf(item) === "now") now++;
+    if (needsDecision(item) || isOverdue(item, now)) urgent++;
+    if (sectionOf(item) === "now") current++;
   }
-  return { inbox, now };
+  return { urgent, now: current };
 }

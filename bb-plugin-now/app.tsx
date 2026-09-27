@@ -427,13 +427,13 @@ function EmailTab() {
 }
 
 /**
- * The inbox and Now counts beside the page's name in the sidebar. It re-reads
+ * The urgent and Now counts beside the page's name in the sidebar. It re-reads
  * on the same signal as the page, so completing or archiving a row lowers them
  * at once.
  */
 function NowSidebarCounts() {
   const { listing } = useListing();
-  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [])} />;
+  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [], new Date())} />;
 }
 
 export default definePluginApp((app) => {
