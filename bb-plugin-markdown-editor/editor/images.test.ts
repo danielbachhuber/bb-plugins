@@ -126,6 +126,29 @@ describe("resolveSibling", () => {
   it("collapses a redundant current-directory segment", () => {
     expect(resolveSibling("docs/notes.md", "./img/a.png")).toBe("docs/img/a.png");
   });
+
+  it("decodes a percent-encoded space, as GitHub does", () => {
+    expect(resolveSibling("notes/plan.md", "Widget%20launch%20-%20plan.png")).toBe(
+      "notes/Widget launch - plan.png",
+    );
+  });
+
+  it("decodes encoded spaces in a path that climbs a folder", () => {
+    expect(
+      resolveSibling("notes/weekly/plan.md", "../Shared%20images/Acme%20Board.png"),
+    ).toBe("notes/Shared images/Acme Board.png");
+  });
+
+  it("keeps a segment as written when it is not valid percent-encoding", () => {
+    expect(resolveSibling("docs/notes.md", "100%.png")).toBe("docs/100%.png");
+    expect(resolveSibling("docs/notes.md", "a%20b/100%.png")).toBe("docs/a b/100%.png");
+  });
+
+  it("does not let an encoded slash climb out of the root", () => {
+    expect(resolveSibling("docs/notes.md", "..%2F..%2Fescape.png")).toBe(
+      "docs/..%2F..%2Fescape.png",
+    );
+  });
 });
 
 describe("imageMimeType", () => {

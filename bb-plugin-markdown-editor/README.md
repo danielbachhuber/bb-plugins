@@ -14,9 +14,11 @@ a Save button.
 **Preview** renders the buffer with bb's own chat-message markdown renderer, so
 a file looks the way the same text would look in a thread. Images the file
 points at are rendered too: `![](screenshots/a.png)` resolves against the
-file's own directory and is served from the host it lives on. Links resolve the
-same way, so a note at `docs/guides/index.md` linking to `setup/install.md`
-opens `docs/guides/setup/install.md` in a new tab, as GitHub would.
+file's own directory and is served from the host it lives on. A percent-encoded
+path such as `plan%20v2.png` finds `plan v2.png`, as it does on GitHub. Links
+resolve the same way, so a note at `docs/guides/index.md` linking to
+`setup/install.md` opens `docs/guides/setup/install.md` in a new tab, as GitHub
+would.
 
 ![The Preview view: the same file rendered, with the header reading
 Saved](screenshots/preview.png)
