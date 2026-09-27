@@ -119,8 +119,9 @@ good sync, with a note saying how many.
   shows the subject and then each message in order: the latest open, laid out
   as its sender wrote it with its images loaded, and the earlier ones one line
   each, which open when clicked. Scripts in an email do not run, and its links
-  open the way bb opens other links. **Archive** and **Start thread** stay at
-  the top of the tab, with **Open in Gmail** beside them. The email is
+  open the way bb opens other links. **Archive**, **Start thread**, and
+  **Close** stay at the top of the tab, with **Open in Gmail** beside them.
+  **Close** hides the side panel and leaves the email in the inbox. The email is
   fetched from Gmail each time Read opens it and is not stored.
 - **Open and archive** (first in the details line of a Google Docs, Slides,
   or Sheets comment row that mentions or assigns you) opens the newest
@@ -368,6 +369,7 @@ list `server.ts` passes to `loadSources`.
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
+| `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
 | `now/sidebar-counts.tsx` | The red urgent badge and Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |

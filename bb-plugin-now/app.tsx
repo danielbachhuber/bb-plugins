@@ -1,5 +1,5 @@
 // bb-plugin-now — the Now page: what needs doing now, from every source.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
   experimental_useAppPanel,
@@ -21,6 +21,7 @@ import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
+import { hideSidePanel } from "./now/side-panel.js";
 import { SidebarCounts } from "./now/sidebar-counts.js";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
@@ -363,7 +364,8 @@ function NowPage() {
 
 /**
  * The Email tab: the row that Read last opened, in full. It fetches the email
- * each time the target changes, and closes itself once the row is archived.
+ * each time the target changes, and empties itself once the row is archived.
+ * Close empties it too and hides the side panel.
  */
 function EmailTab() {
   const { listing, rpc } = useListing();
@@ -374,6 +376,7 @@ function EmailTab() {
   const { start, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
   const [thread, setThread] = useState<{ id: string; thread: EmailThread | null; error: string | null } | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (id === null) return;
@@ -413,16 +416,20 @@ function EmailTab() {
   if (thread === null || thread.id !== id) return <EmailReaderNote loading>Loading the email…</EmailReaderNote>;
   if (thread.thread === null) return <EmailReaderNote>{thread.error ?? "Could not read this email."}</EmailReaderNote>;
   return (
-    <>
+    <div ref={root} className="h-full">
       <EmailReader
         thread={thread.thread}
         archiving={archiving}
         onArchive={() => void onArchive()}
         onStartThread={item === null ? undefined : () => start(item)}
+        onClose={() => {
+          hideSidePanel(root.current);
+          target?.clear();
+        }}
         onOpenLink={(url) => navigate.openUrl(url)}
       />
       {dialog}
-    </>
+    </div>
   );
 }
 

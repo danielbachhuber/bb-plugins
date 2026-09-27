@@ -82,15 +82,17 @@ export interface EmailReaderProps {
   archiving?: boolean;
   onArchive?: () => void;
   onStartThread?: () => void;
+  /** Hides the side panel without archiving the email. */
+  onClose?: () => void;
   onOpenLink?: (url: string) => void;
 }
 
 /**
  * The thread's subject, then its messages in order: the latest open, the
- * earlier ones one line each until clicked. Archive and Start thread stay
- * at the top however long the message is.
+ * earlier ones one line each until clicked. Archive, Start thread, and Close
+ * stay at the top however long the message is.
  */
-export function EmailReader({ thread, archiving = false, onArchive, onStartThread, onOpenLink }: EmailReaderProps) {
+export function EmailReader({ thread, archiving = false, onArchive, onStartThread, onClose, onOpenLink }: EmailReaderProps) {
   const latest = thread.messages[thread.messages.length - 1]?.id;
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(latest === undefined ? [] : [latest]));
   useEffect(() => setOpen(new Set(latest === undefined ? [] : [latest])), [thread.threadId, latest]);
@@ -113,6 +115,10 @@ export function EmailReader({ thread, archiving = false, onArchive, onStartThrea
         <Button variant="outline" size="sm" disabled={archiving} onClick={onStartThread}>
           <Icon name="MessageSquarePlus" className="size-3.5" />
           Start thread
+        </Button>
+        <Button variant="outline" size="sm" disabled={archiving} onClick={onClose}>
+          <Icon name="X" className="size-3.5" />
+          Close
         </Button>
         <UrlLink href={thread.url} className="ml-auto text-xs text-muted-foreground hover:text-foreground hover:underline">
           Open in Gmail

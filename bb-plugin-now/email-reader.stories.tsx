@@ -195,7 +195,7 @@ function Page({ thread }: { thread: EmailThread | null }) {
           {thread === null ? (
             <EmailReaderNote>Choose Read on an email to read it here.</EmailReaderNote>
           ) : (
-            <EmailReader thread={thread} onArchive={noop} onStartThread={noop} onOpenLink={noop} />
+            <EmailReader thread={thread} onArchive={noop} onStartThread={noop} onClose={noop} onOpenLink={noop} />
           )}
         </div>
       </div>
