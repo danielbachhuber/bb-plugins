@@ -310,7 +310,7 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
             aria-label="Delete"
             disabled={busy}
             onClick={() => setConfirmingDelete(true)}
-            className="rounded p-1 text-muted-foreground hover:text-destructive-text disabled:opacity-50"
+            className="cursor-pointer rounded p-1 text-muted-foreground hover:text-destructive-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="Trash2" className="size-3.5" />
           </button>
