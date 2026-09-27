@@ -12,7 +12,7 @@
  */
 import type { Database } from "better-sqlite3";
 import type { Feedback } from "./review.js";
-import type { View } from "./schema.js";
+import { dismissLabelOf, isQuiet, type View } from "./schema.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE views (
@@ -61,6 +61,8 @@ export interface ActionResult {
   error?: string;
   /** The user changed the text before sending it. */
   edited?: boolean;
+  /** The draft as sent, when the user changed it. */
+  draft?: string;
   /** What a visual review sent back. */
   feedback?: Feedback;
 }
@@ -199,17 +201,24 @@ export function createStore(db: Database): Store {
   };
 }
 
-/** Where an item stands, for the CLI and the agent reading it back. */
+/**
+ * Where an item stands, for the CLI and the agent reading it back. A quiet row
+ * has no decision on it, so it reads as listed rather than open.
+ */
 export function describeItems(stored: StoredView): string[] {
   return stored.view.sections.flatMap((section) =>
     section.items.map((item) => {
+      if (isQuiet(stored.view, item)) return `[listed] ${item.id}  ${item.title}`;
       const record = stored.items[item.id];
       const state = record?.state ?? "open";
       const result = record?.result;
+      const dismissLabel = dismissLabelOf(stored.view, item);
       const detail =
-        result === null || result === undefined
+        state === "dismissed" && dismissLabel !== "Dismiss"
+          ? `  (${dismissLabel})`
+          : result === null || result === undefined
           ? ""
-          : `  (${result.label}${result.edited ? ", edited" : ""}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
+          : `  (${result.label}${result.edited ? (result.draft === undefined ? ", edited" : `, edited to "${result.draft}"`) : ""}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
               result.exitCode === undefined ? "" : `, exit ${result.exitCode}`
             }${result.error === undefined ? "" : `, failed: ${result.error}`}${
               result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`

@@ -19,7 +19,12 @@ export const badgeSchema = z.object({
   tone: z.enum(TONES).default("neutral"),
 });
 
-const actionBase = { label, primary: z.boolean().default(false) };
+const actionBase = {
+  label,
+  primary: z.boolean().default(false),
+  /** What a list view's row says once this button went through, such as "Added". */
+  doneLabel: label.optional(),
+};
 
 /**
  * What a button does. `message` hands the decision back to the publishing
@@ -44,10 +49,12 @@ export const actionSchema = z.discriminatedUnion("type", [
   z.object({
     ...actionBase,
     type: z.literal("command"),
-    /** Run with the user's login shell. The panel shows it and asks first. */
+    /** Run with the user's login shell. The panel shows it and asks first, unless `confirm` is false. */
     command: z.string().trim().min(1).max(4_000),
     /** Absolute. Defaults to the directory `publish` ran in. */
     cwd: z.string().trim().startsWith("/").optional(),
+    /** False runs the command as soon as the button is clicked, with no confirmation. */
+    confirm: z.boolean().default(true),
   }),
   z.object({
     ...actionBase,
@@ -64,7 +71,13 @@ export const DRAFT = "{draft}";
 export function usesDraft(action: Action): boolean {
   if (action.type === "message") return action.text.includes(DRAFT);
   if (action.type === "thread") return action.prompt.includes(DRAFT);
+  if (action.type === "command") return action.command.includes(DRAFT);
   return false;
+}
+
+/** One shell word that is exactly `text`: single-quoted, so nothing in it expands or runs. */
+export function shellQuote(text: string): string {
+  return `'${text.split("'").join(`'\\''`)}'`;
 }
 
 /**
@@ -78,6 +91,8 @@ export function fillDraft(action: Action, original: string, draft: string | unde
   const fill = (template: string) => template.split(DRAFT).join(text);
   if (action.type === "message") return { action: { ...action, text: fill(action.text) }, edited };
   if (action.type === "thread") return { action: { ...action, prompt: fill(action.prompt) }, edited };
+  // A command takes the draft as one quoted word, so the user's text never runs as shell.
+  if (action.type === "command") return { action: { ...action, command: action.command.split(DRAFT).join(shellQuote(text)) }, edited };
   return { action, edited: false };
 }
 
@@ -93,6 +108,20 @@ export const variationSchema = z.object({
   image: z.string().trim().min(1).max(1_000),
 });
 export type Variation = z.infer<typeof variationSchema>;
+
+/** Renames Dismiss, such as to "Skip". Set on the view, a section, or an item; the nearest one wins. */
+const dismissLabel = { dismissLabel: label.optional() };
+
+/**
+ * How the side panel shows a view. `cards` shows one item at a time, opened
+ * from the list above the composer. `list` shows the whole view as one list:
+ * the items to decide at the top with their buttons on each row, and the items
+ * with no buttons below as a plain list.
+ */
+export const LAYOUTS = ["cards", "list"] as const;
+
+/** At most this many buttons on a list row, besides Dismiss, so it stays one line. */
+export const LIST_ACTIONS = 3;
 
 const itemId = z
   .string()
@@ -125,28 +154,49 @@ export const itemSchema = z.object({
    * the thread as one message.
    */
   variations: z.array(variationSchema).max(6).default([]),
+  ...dismissLabel,
 });
 export type Item = z.infer<typeof itemSchema>;
 
 export const sectionSchema = z.object({
   title: z.string().trim().max(200).default(""),
   items: z.array(itemSchema).max(200),
+  ...dismissLabel,
 });
+export type Section = z.infer<typeof sectionSchema>;
 
 export const viewSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     summary: markdown.default(""),
     sections: z.array(sectionSchema).min(1).max(20),
+    layout: z.enum(LAYOUTS).default("cards"),
+    ...dismissLabel,
   })
   .superRefine((view, ctx) => {
     const seen = new Set<string>();
     view.sections.forEach((section, s) =>
       section.items.forEach((item, i) => {
+        if (view.layout === "list") {
+          if (item.variations.length > 0) {
+            ctx.addIssue({ code: "custom", path: ["sections", s, "items", i, "variations"], message: 'a visual review needs the "cards" layout' });
+          }
+          if (item.actions.length > LIST_ACTIONS) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["sections", s, "items", i, "actions"],
+              message: `an item in a "list" layout has at most ${LIST_ACTIONS} buttons, so its row stays one line`,
+            });
+          }
+        }
         item.actions.forEach((action, a) => {
           const path = ["sections", s, "items", i, "actions", a];
-          if (action.type === "command" && action.command.includes(DRAFT)) {
-            ctx.addIssue({ code: "custom", path: [...path, "command"], message: "a command cannot use {draft}; use a message button" });
+          if (action.type === "command" && action.command.includes(DRAFT) && view.layout !== "list") {
+            ctx.addIssue({
+              code: "custom",
+              path: [...path, "command"],
+              message: 'a command can use {draft} only in the "list" layout; use a message button',
+            });
           }
           if (usesDraft(action) && item.draft.trim() === "") {
             ctx.addIssue({ code: "custom", path: [...path, "type"], message: "uses {draft} but the item has no draft" });
@@ -171,6 +221,25 @@ export const viewSchema = z
     );
   });
 export type View = z.infer<typeof viewSchema>;
+
+function sectionOf(view: View, item: Item): Section | undefined {
+  return view.sections.find((section) => section.items.some((candidate) => candidate.id === item.id));
+}
+
+/** An item in a list view with nothing to decide: a plain row, never counted as open. */
+export function isQuiet(view: View, item: Item): boolean {
+  return view.layout === "list" && item.actions.length === 0;
+}
+
+/** What Dismiss is called on this item. */
+export function dismissLabelOf(view: View, item: Item): string {
+  return item.dismissLabel ?? sectionOf(view, item)?.dismissLabel ?? view.dismissLabel ?? "Dismiss";
+}
+
+/** Whether a button asks before it runs. Only a command does, unless it says not to. */
+export function needsConfirm(action: Action): boolean {
+  return action.type === "command" && action.confirm;
+}
 
 export function describeIssues(error: z.ZodError): string {
   return error.issues

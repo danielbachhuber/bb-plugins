@@ -7,7 +7,7 @@ description: Use when `bb dynamic-ui` is available and either a skill or task pr
 
 ## Overview
 
-`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. Nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. The user acts from the cards instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. By default nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
 
 ## Is it available?
 
@@ -66,19 +66,62 @@ After publishing, say in chat how many items there are and that they are above t
 - `url` is what the item is about on the web (the issue, the PR, the review comment's `html_url`). The opened item's title links to it, so set it whenever there is one; a separate `link` button for the same page is then unnecessary.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
 - At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
-- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons ("Post and close" and "Post") share one draft, and each sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`. Do not repeat the draft in `summary` or `details`.
+- `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons ("Post and close" and "Post") share one draft, and each sends its own instruction with the draft as the user left it. A command can use `{draft}` only in a list view (see below). Do not repeat the draft in `summary` or `details`.
 - The row above the composer shows only the title, two badges, and the first line of `summary`. Make the first line the gist, and mark the likely choice `primary` so it stands out in the opened item. Put evidence and drafts further down the summary or in `details`.
 
 | Action | What the button does |
 |---|---|
 | `message` | Sends `text` to this thread as if the user typed it. Use it when the work needs your judgment or context: posting a drafted comment, revising something. Write `text` so it names the item, because you will read it later with no other context. |
 | `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone. |
-| `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. Use it for one self-contained step: `gh issue close`, `gh pr merge`. |
+| `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. `"confirm": false` runs it as soon as the button is clicked; use that only for a small step the user already expects, such as adding a to-do. Use a command for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
 
 An item with `variations` is a visual review instead: see below.
 
 Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again.
+
+## A list in the side panel
+
+When each item is a quick yes or no that needs no reading, such as suggestions to add to a list, give the view `"layout": "list"`. The whole view then shows in the side panel as one list. Above the composer, under the view's header, a single row previews it (the names still to decide, then what is on the list) with a Review button that opens the panel:
+
+```json
+{
+  "title": "Grocery staples",
+  "summary": "Due staples that are not on the Groceries list yet.",
+  "layout": "list",
+  "dismissLabel": "Skip",
+  "sections": [
+    {
+      "items": [
+        {
+          "id": "oat-milk",
+          "title": "Oat milk",
+          "summary": "Last bought Mar 5",
+          "draft": "Oat milk",
+          "draftLabel": "Task to add",
+          "actions": [
+            { "type": "command", "label": "Add", "doneLabel": "Just added", "command": "td task add {draft} --project \"Groceries\"", "confirm": false, "primary": true }
+          ]
+        }
+      ]
+    },
+    {
+      "items": [
+        { "id": "task-eggs", "title": "Eggs (dozen)", "url": "https://app.todoist.com/app/task/eggs-1001" },
+        { "id": "task-bread", "title": "Sourdough bread", "url": "https://app.todoist.com/app/task/bread-1002" }
+      ]
+    }
+  ]
+}
+```
+
+- Items with actions are the decisions. They sit at the top as dashed rows showing the title, badges, and the first line of `summary`, with their buttons and Dismiss on the right.
+- Items with no actions are the list as it stands: plain rows with the title (linked to `url`) and badges. They are left out of the open count, and `state` prints them as `[listed]`.
+- An item with a `draft` shows it in place of its title, in a text field the user can edit before pressing a button; Enter presses the primary one. A `command` puts `{draft}` where the text goes, and the plugin passes it as one single-quoted shell word, so write `td task add {draft}`, not `td task add "{draft}"`. `draftLabel` names the field for screen readers. `state` shows an edited name as `edited to "<text>"`.
+- Once a button goes through, its row moves into the list, under the name as it was sent, tagged with the button's `doneLabel` (such as "Just added"), or its `label` when there is no `doneLabel`. A dismissed row stays on top, struck through, with Undo. A failed command stays on top with its error and its buttons, so the user can retry.
+- `dismissLabel` renames Dismiss (`"Skip"`, `"Not now"`). Set it on the view, a section, or an item; the nearest one wins. It also works in the default layout.
+- A `command` with `"confirm": false` runs as soon as its button is clicked. Without it, the command shows under its row with Run and Cancel. `message` buttons work too, but each one starts a turn in this thread, so use a command when one does the job.
+- Section titles are not shown, so group items only by whether they have actions. An item has at most 3 actions besides Dismiss, and a list view cannot hold a visual review.
 
 ## Visual review
 
@@ -110,4 +153,4 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 bb dynamic-ui state [--key <name>]
 ```
 
-Prints each item as `[open|done|dismissed] <id> <title>` with the last action and its result. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.
+Prints each item as `[open|done|dismissed] <id> <title>` with the last action and its result, or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.

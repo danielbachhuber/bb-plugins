@@ -10,6 +10,7 @@ const resultSchema = z.object({
   output: z.string().optional(),
   error: z.string().optional(),
   edited: z.boolean().optional(),
+  draft: z.string().optional(),
   feedback: z
     .object({ pick: z.number().int().nullable(), notes: z.array(z.string()), overall: z.string() })
     .optional(),

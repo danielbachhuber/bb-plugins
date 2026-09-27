@@ -313,3 +313,55 @@ export const reviewImages: string[] = [
     316,
   ),
 ];
+
+function staple(id: string, name: string, lastBought: string) {
+  return {
+    id,
+    title: name,
+    summary: `Last bought ${lastBought}`,
+    draft: name,
+    draftLabel: "Task to add",
+    actions: [
+      {
+        type: "command",
+        label: "Add",
+        doneLabel: "Just added",
+        command: 'td task add {draft} --project "Groceries"',
+        confirm: false,
+        primary: true,
+      },
+    ],
+  };
+}
+
+/**
+ * A grocery-staples-shaped view in the "list" layout: the staples to add on
+ * top, each renamed if need be and added or skipped from its row, and the list
+ * as it stands below.
+ * Invented items and task links.
+ */
+export const staplesView: View = viewSchema.parse({
+  title: "Grocery staples",
+  summary: "Due staples that are not on the Groceries list yet.",
+  layout: "list",
+  dismissLabel: "Skip",
+  sections: [
+    {
+      title: "Suggested",
+      items: [
+        staple("oat-milk", "Oat milk", "Mar 5"),
+        staple("bananas", "Bananas", "Mar 5"),
+        staple("coffee-beans", "Coffee beans", "Feb 26"),
+        staple("rice", "Brown rice", "Feb 20"),
+      ],
+    },
+    {
+      title: "On Groceries",
+      items: [
+        { id: "task-eggs", title: "Eggs (dozen)", url: "https://app.todoist.com/app/task/eggs-1001" },
+        { id: "task-bread", title: "Sourdough bread", url: "https://app.todoist.com/app/task/bread-1002" },
+        { id: "task-candles", title: "Birthday candles", url: "https://app.todoist.com/app/task/candles-1003" },
+      ],
+    },
+  ],
+});

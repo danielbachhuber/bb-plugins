@@ -13,11 +13,12 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, reviewImages, reviewView, selfImproveView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
-import type { View } from "./view/schema";
+import type { Item, View } from "./view/schema";
 import type { ItemRecord, StoredView } from "./view/store";
 import { firstOpenItem, ViewPanel } from "./view/view-panel";
+import { ListPanel } from "./view/list-panel";
 
 export default {
   title: "dynamic-ui/Thread",
@@ -124,7 +125,7 @@ function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView 
  */
 function ThreadStage({
   turns,
-  view,
+  view: published,
   initialFocus = null,
   initialCollapsed,
   confirming,
@@ -142,7 +143,11 @@ function ThreadStage({
   const [focus, setFocus] = useState<string | null>(initialFocus);
   const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(initialCollapsed ?? null);
   const [hidden, setHidden] = useState(false);
+  // A list view's buttons work here without a server: they mark rows done or skipped.
+  const [items, setItems] = useState(published.items);
+  const view = { ...published, items };
   const collapsed = collapsedByUser ?? allHandled(view);
+  const setItem = (item: Item, record: ItemRecord) => setItems((current) => ({ ...current, [item.id]: record }));
   return (
     <div className="flex h-[860px] w-[1320px] overflow-hidden border border-border bg-background">
     <div className="flex min-w-0 flex-1 flex-col">
@@ -165,6 +170,7 @@ function ThreadStage({
                   focusedItem={focus ?? firstOpenItem(view)?.id ?? null}
                   onOpenItem={(item) => setFocus(item.id)}
                   onGoToThread={noop}
+                  onOpenView={noop}
                 />
               </PromptStackCard>
               )}
@@ -203,7 +209,16 @@ function ThreadStage({
       </div>
     </div>
     <aside className="w-[440px] shrink-0 border-l border-border">
-      {(
+      {view.view.layout === "list" ? (
+        <ListPanel
+          stored={view}
+          busyItem={null}
+          onRun={(item, index) =>
+            setItem(item, { state: "done", result: { label: item.actions[index]!.label, at: "2026-03-12T12:07:00Z", exitCode: 0 } })
+          }
+          onDismiss={(item, dismissed) => setItem(item, { state: dismissed ? "dismissed" : "open", result: items[item.id]?.result ?? null })}
+        />
+      ) : (
         <ViewPanel
           stored={view}
           busyItem={null}
@@ -289,6 +304,38 @@ export function TriageFailed() {
         },
       })}
       initialFocus="issue-101"
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Grocery staples, as a list in the side panel                               */
+/* -------------------------------------------------------------------------- */
+
+const staplesTurns: Turn[] = [
+  { kind: "user", text: "What staples are missing from the grocery list?" },
+  { kind: "work", text: "Read the staples list and 3 open Groceries tasks" },
+  {
+    kind: "assistant",
+    text: "**4 staples** are due and not on the list. They're in the side panel with the list as it stands: Add or Skip each one.",
+  },
+];
+
+/** A list view: one row above the composer previewing what is left and what is on the list, and the whole view in the side panel, each staple's name in a field to edit before Add. */
+export function Staples() {
+  return <ThreadStage turns={staplesTurns} view={stored(staplesView)} />;
+}
+
+/** After deciding: Oat milk added and moved into the list, Bananas skipped with Undo, and Brown rice failed with its error, ready to retry. */
+export function StaplesAfter() {
+  return (
+    <ThreadStage
+      turns={staplesTurns}
+      view={stored(staplesView, {
+        "oat-milk": { state: "done", result: { label: "Add", at: "2026-03-12T12:05:00Z", exitCode: 0, output: "Added: Oat milk" } },
+        bananas: { state: "dismissed", result: null },
+        rice: { state: "open", result: { label: "Add", at: "2026-03-12T12:06:30Z", exitCode: 1, output: 'Error: no project named "Groceries"' } },
+      })}
     />
   );
 }

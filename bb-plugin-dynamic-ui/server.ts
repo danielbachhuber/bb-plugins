@@ -122,11 +122,13 @@ export default async function plugin(bb: BbPluginApi) {
     // Only a button that sends the draft takes the user's version of it.
     if (draft !== undefined && !usesDraft(original)) throw new Error(`"${original.label}" does not send the draft.`);
     const { action, edited } = fillDraft(original, item.draft, draft);
+    // An edited draft is kept, so the list and the agent see what was sent.
+    const sent = edited ? { edited: true, draft } : {};
     let result: ActionResult;
     try {
-      result = { label: action.label, at: now(), ...(edited ? { edited: true } : {}), ...(await perform(stored, action)) };
+      result = { label: action.label, at: now(), ...sent, ...(await perform(stored, action)) };
     } catch (error) {
-      result = { label: action.label, at: now(), ...(edited ? { edited: true } : {}), error: error instanceof Error ? error.message : String(error) };
+      result = { label: action.label, at: now(), ...sent, error: error instanceof Error ? error.message : String(error) };
     }
     // A failed command or spawn leaves the item open, with the failure on it.
     const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);

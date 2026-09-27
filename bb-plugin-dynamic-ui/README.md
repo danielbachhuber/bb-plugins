@@ -26,6 +26,20 @@ keeps one tab per view and switches items as rows are clicked. Publishing again
 with the same key replaces the view and keeps what the user already did to
 each item.
 
+A view can use the **list** layout instead, for items that are a quick yes or
+no, such as staples to add to a grocery list. The whole view then shows in the
+side panel as one list. Above the composer, under the view's header, one row
+previews it: the names still to decide, then what is on the list, with a
+**Review** button that opens the panel. The items to decide sit at the top as
+dashed rows, each with its buttons and Dismiss. An item with a draft shows it
+in a text field to edit before pressing Add, and a command there gets the edited name as one
+quoted shell word, so nothing typed into it runs. Once one of its buttons goes through, a row
+moves into the list below, tagged with the button's done label, such as **Just
+added**. A dismissed row stays on top, struck through, with **Undo**. A failed
+command stays on top with its error and its buttons, so it can be retried.
+Items with no buttons are the list as it stands: plain rows linked to their
+`url`.
+
 A view is a title, a markdown summary, and cards grouped into sections. A card
 has a title (linked, when the card names a `url` such as the issue or comment it is about), badges, a markdown summary, markdown details behind a toggle, and
 up to six buttons:
@@ -34,14 +48,14 @@ up to six buttons:
 |---|---|
 | `message` | Sends text to the thread that published the view, as if the user typed it. The agent does the work with its own permissions and context. |
 | `thread` | Starts a new thread in a named project with a prompt and title. The button then becomes **Go to thread**. |
-| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A failed command leaves the item open. |
+| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A command marked `confirm: false` runs as soon as it is clicked. A failed command leaves the item open. |
 | `link` | Opens a URL. |
 
-An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows, greyed to say it can no longer be edited. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. Commands cannot use `{draft}`, so edited text never reaches a shell.
+An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows, greyed to say it can no longer be edited. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. A command on a card cannot use `{draft}`; in a list view, a command gets the edited text as one quoted shell word, so it cannot run as a command.
 
 The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
 
-Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. What the last button did shows as a banner at the top of the item, above its summary: green for done, red for a failure with its output. Every card can be dismissed and restored. Dismissing a card moves the side panel on to the next open item. **Start thread**, beside Dismiss, opens bb's new-thread composer in the publishing thread's project, with the card's title, link, summary, and details as the prompt to edit; it does not change the card, so it stays usable after a decision.
+Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. What the last button did shows as a banner at the top of the item, above its summary: green for done, red for a failure with its output. Every card can be dismissed and restored, and a view, section, or item can rename Dismiss with `dismissLabel`, such as to **Skip**. Dismissing a card moves the side panel on to the next open item. **Start thread**, beside Dismiss, opens bb's new-thread composer in the publishing thread's project, with the card's title, link, summary, and details as the prompt to edit; it does not change the card, so it stays usable after a decision.
 
 ## Visual review
 
@@ -55,7 +69,8 @@ The view file's shape, and when a skill should use it, are in
 
 A `command` button runs whatever the view file says, with your permissions,
 once you press **Run** on the confirmation that shows it. Read the command
-before running it, as you would one an agent proposed in chat.
+before running it, as you would one an agent proposed in chat. A command the
+view marks `confirm: false` skips that step and runs on the first click.
 
 ## CLI
 
@@ -86,7 +101,7 @@ this checkout.
 |---|---|
 | `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
 | `app.tsx` | The list above the composer and the side-panel tab it opens |
-| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the visual review and its feedback message, and when the panel opens by itself |
+| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/dynamic-ui/` | How an agent publishes a view |
 

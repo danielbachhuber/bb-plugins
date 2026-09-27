@@ -1,4 +1,6 @@
-import { triageView } from "./view/fixtures";
+import { staplesView, triageView } from "./view/fixtures";
+import { ListPanel } from "./view/list-panel";
+import type { View } from "./view/schema";
 import type { StoredView } from "./view/store";
 import { ViewPanel, type ViewPanelProps } from "./view/view-panel";
 
@@ -106,4 +108,59 @@ export function CommandFailed() {
 /** An action in flight. */
 export function Working() {
   return <Panel busyItem="issue-117" focusItemId="issue-117" />;
+}
+
+function List(props: { stored: StoredView; busyItem?: string; confirming?: string }) {
+  return (
+    <div className="h-[520px] w-[520px] border-l border-border bg-background">
+      <ListPanel busyItem={props.busyItem ?? null} onRun={noop} onDismiss={noop} {...props} />
+    </div>
+  );
+}
+
+const staples: StoredView = { ...fresh, key: "staples", view: staplesView };
+
+/** A list view: the staples to add on top as dashed rows, each name editable before Add, with Skip; the list as it stands below. */
+export function ListFresh() {
+  return <List stored={staples} />;
+}
+
+/** Add running on one row. */
+export function ListWorking() {
+  return <List stored={staples} busyItem="bananas" />;
+}
+
+/** Added moves a row into the list as the name was sent, here edited to say how many, tagged with its button's done label; Skip strikes it through with Undo; a failure shows its error and keeps the buttons. */
+export function ListAfter() {
+  return (
+    <List
+      stored={{
+        ...staples,
+        items: {
+          "oat-milk": {
+            state: "done",
+            result: { label: "Add", at: "2026-03-12T12:05:00Z", exitCode: 0, output: "Added: Oat milk (2 cartons)", edited: true, draft: "Oat milk (2 cartons)" },
+          },
+          bananas: { state: "dismissed", result: null },
+          rice: { state: "open", result: { label: "Add", at: "2026-03-12T12:06:30Z", exitCode: 1, output: 'Error: no project named "Groceries"' } },
+        },
+      }}
+    />
+  );
+}
+
+// Coffee beans' Add made to ask first, as a command without `confirm: false` does.
+const asking: View = {
+  ...staplesView,
+  sections: staplesView.sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) =>
+      item.id === "coffee-beans" ? { ...item, actions: item.actions.map((action) => ({ ...action, confirm: true })) } : item,
+    ),
+  })),
+} as View;
+
+/** A command that asks first shows it under its row, with Run and Cancel. */
+export function ListConfirm() {
+  return <List stored={{ ...staples, view: asking }} confirming="coffee-beans:0" />;
 }

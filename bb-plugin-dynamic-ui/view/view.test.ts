@@ -3,14 +3,15 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allHandled, firstLine, orderItems } from "./banner.js";
-import { triageView } from "./fixtures.js";
+import { allHandled, decisionItems, firstLine, listPreview, orderItems } from "./banner.js";
+import { staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
-import { fillDraft, parseView, usesDraft } from "./schema.js";
+import { dismissLabelOf, fillDraft, isQuiet, needsConfirm, parseView, shellQuote, usesDraft } from "./schema.js";
 import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { firstOpenItem, nextOpenItem } from "./view-panel.js";
+import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
 function store() {
@@ -163,6 +164,156 @@ describe("banner rows", () => {
 
 });
 
+describe("list layout", () => {
+  const add = { type: "command", label: "Add", command: "td task add Milk", confirm: false };
+  const find = (view: ReturnType<typeof parseView>, id: string) =>
+    view.sections.flatMap((section) => section.items).find((item) => item.id === id)!;
+  const stored = (items: StoredView["items"] = {}): StoredView => ({
+    id: 1,
+    threadId: "thr_test",
+    key: "staples",
+    view: staplesView,
+    cwd: "/tmp",
+    publishedAt: "2026-03-12T12:00:00Z",
+    hiddenAt: null,
+    items,
+  });
+  const failed = { state: "open" as const, result: { label: "Add", at: "t", exitCode: 1, output: "\nError: no project\nmore" } };
+
+  it("defaults to cards, so a view that does not ask is unchanged", () => {
+    expect(triageView.layout).toBe("cards");
+    const item = triageView.sections[0]!.items[0]!;
+    expect(dismissLabelOf(triageView, item)).toBe("Dismiss");
+    expect(decisionItems({ ...stored(), view: triageView })).toHaveLength(3);
+    // An item with no buttons is still something to decide in a cards view.
+    expect(isQuiet(triageView, find(triageView, "issue-123"))).toBe(false);
+  });
+
+  it("takes dismissLabel from the item, then its section, then the view", () => {
+    const view = parseView(
+      JSON.stringify({
+        title: "T",
+        dismissLabel: "Skip",
+        sections: [
+          { items: [{ id: "a", title: "A" }, { id: "b", title: "B", dismissLabel: "Not now" }] },
+          { dismissLabel: "Pass", items: [{ id: "c", title: "C" }] },
+        ],
+      }),
+    );
+    expect(["a", "b", "c"].map((id) => dismissLabelOf(view, find(view, id)))).toEqual(["Skip", "Not now", "Pass"]);
+  });
+
+  it("asks before a command unless it says confirm: false", () => {
+    const view = parseView(
+      JSON.stringify({
+        title: "T",
+        sections: [{ items: [{ id: "a", title: "A", actions: [{ type: "command", label: "Close", command: "gh issue close 7" }, add] }] }],
+      }),
+    );
+    const [close, quick] = view.sections[0]!.items[0]!.actions;
+    expect(close).toMatchObject({ confirm: true });
+    expect([needsConfirm(close!), needsConfirm(quick!)]).toEqual([true, false]);
+    expect(needsConfirm({ type: "message", label: "Post", text: "Post it", primary: false })).toBe(false);
+  });
+
+  it("refuses a visual review, and more buttons than fit on a row", () => {
+    const variations = [
+      { label: "Original", image: "/tmp/a.png" },
+      { label: "A", image: "/tmp/b.png" },
+    ];
+    const one = (item: Record<string, unknown>) => JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", ...item }] }] });
+    expect(() => parseView(one({ variations }))).toThrow(/sections\.0\.items\.0\.variations: a visual review needs the "cards" layout/);
+    expect(() => parseView(one({ actions: [0, 1, 2, 3].map((i) => ({ ...add, label: `Add ${i}` })) }))).toThrow(/at most 3 buttons/);
+    expect(() => parseView(one({ actions: [add, { ...add, label: "B" }, { ...add, label: "C" }] }))).not.toThrow();
+  });
+
+  it("makes an item with no buttons a plain row, left out of the count and of where the panel opens", () => {
+    const view = stored();
+    expect(decisionItems(view).map((item) => item.id)).toEqual(["oat-milk", "bananas", "coffee-beans", "rice"]);
+    const handled = stored(Object.fromEntries(decisionItems(view).map((item) => [item.id, { state: "dismissed" as const, result: null }])));
+    expect(allHandled(handled)).toBe(true);
+    expect(firstOpenItem(handled)).toBeNull();
+    expect(nextOpenItem(stored({ rice: { state: "done", result: null } }), "coffee-beans")?.id).toBe("oat-milk");
+  });
+
+  it("does not call a view with only plain rows handled, since there was nothing to decide", () => {
+    const view = parseView(JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A" }] }] }));
+    expect(allHandled({ ...stored(), view })).toBe(false);
+  });
+
+  it("keeps skipped and failed items on top, and moves done ones into the list ahead of it", () => {
+    const { deciding, listed } = listRows(
+      stored({ "coffee-beans": { state: "done", result: { label: "Add", at: "t", exitCode: 0 } }, bananas: { state: "dismissed", result: null }, rice: failed }),
+    );
+    expect(deciding.map((item) => item.id)).toEqual(["oat-milk", "bananas", "rice"]);
+    expect(listed.map((item) => item.id)).toEqual(["coffee-beans", "task-eggs", "task-bread", "task-candles"]);
+  });
+
+  it("tags a done row with its button's doneLabel, or the button's label", () => {
+    const record = { state: "done" as const, result: { label: "Add", at: "t", exitCode: 0 } };
+    expect(doneTag(find(staplesView, "oat-milk"), record)).toBe("Just added");
+    const plain = parseView(JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", actions: [add] }] }] }));
+    expect(doneTag(find(plain, "a"), record)).toBe("Add");
+  });
+
+  it("says what failed in one line", () => {
+    expect(failureLine(failed)).toBe("Error: no project");
+    expect(failureLine({ state: "open", result: { label: "Add", at: "t", error: "spawn failed" } })).toBe("spawn failed");
+    expect(failureLine({ state: "open", result: { label: "Add", at: "t", exitCode: 2 } })).toBe("exit 2");
+    expect(failureLine({ state: "done", result: { label: "Add", at: "t", exitCode: 0 } })).toBeNull();
+  });
+
+  it("lets a list view's command take the edited name, quoted as one shell word", () => {
+    const item = find(staplesView, "oat-milk");
+    const [addAction] = item.actions;
+    expect(usesDraft(addAction!)).toBe(true);
+    expect(fillDraft(addAction!, item.draft, "Oat milk (2)").action).toMatchObject({ command: `td task add 'Oat milk (2)' --project "Groceries"` });
+    expect(fillDraft(addAction!, item.draft, undefined)).toMatchObject({ action: { command: `td task add 'Oat milk' --project "Groceries"` }, edited: false });
+  });
+
+  it("quotes anything the user types so it cannot run", async () => {
+    const typed = `Kid's "snacks" $(touch /tmp/nope) \`id\`; rm -rf ~`;
+    expect(shellQuote("it's")).toBe(`'it'\\''s'`);
+    const { output } = await runCommand(`printf %s ${shellQuote(typed)}`, tmpdir());
+    expect(output).toBe(typed);
+  });
+
+  it("keeps {draft} out of commands in a cards view", () => {
+    const command = { type: "command", label: "Add", command: "td task add {draft}" };
+    const view = (layout: string) => JSON.stringify({ title: "T", layout, sections: [{ items: [{ id: "a", title: "A", draft: "x", actions: [command] }] }] });
+    expect(() => parseView(view("cards"))).toThrow(/a command can use \{draft\} only in the "list" layout/);
+    expect(() => parseView(view("list"))).not.toThrow();
+  });
+
+  it("reads back an edited name for the agent", () => {
+    const s = store();
+    const view = s.publish("thr_one", "staples", staplesView, null, "t");
+    s.setItem(view.id, "oat-milk", { state: "done", result: { label: "Add", at: "t", exitCode: 0, edited: true, draft: "Oat milk (2)" } }, "t");
+    expect(describeItems(s.get(view.id)!)).toContain('[done] oat-milk  Oat milk  (Add, edited to "Oat milk (2)", exit 0)');
+  });
+
+  it("previews the list above the composer: what is left, then what is on the list as added", () => {
+    const preview = listPreview(
+      stored({
+        "oat-milk": { state: "done", result: { label: "Add", at: "t", exitCode: 0, edited: true, draft: "Oat milk (2)" } },
+        bananas: { state: "dismissed", result: null },
+        rice: failed,
+      }),
+    );
+    expect(preview.deciding).toEqual(["Coffee beans", "Brown rice"]);
+    expect(preview.listed).toEqual(["Oat milk (2)", "Eggs (dozen)", "Sourdough bread", "Birthday candles"]);
+  });
+
+  it("reads back a skip and a plain row for the agent", () => {
+    const s = store();
+    const view = s.publish("thr_one", "staples", staplesView, null, "t");
+    s.setItem(view.id, "bananas", { state: "dismissed", result: null }, "t");
+    const lines = describeItems(s.get(view.id)!);
+    expect(lines).toContain("[dismissed] bananas  Bananas  (Skip)");
+    expect(lines).toContain("[listed] task-eggs  Eggs (dozen)");
+  });
+});
+
 describe("item drafts", () => {
   const post = { type: "message" as const, label: "Post and close", text: "Post on #7, then close:\n\n{draft}", primary: true };
   const keep = { type: "message" as const, label: "Post", text: "Post on #7, leave it open:\n\n{draft}", primary: false };
@@ -193,9 +344,9 @@ describe("item drafts", () => {
     expect(fillDraft(post, "x", "costs $1 and $&").action).toMatchObject({ text: "Post on #7, then close:\n\ncosts $1 and $&" });
   });
 
-  it("refuses {draft} in a command, and {draft} on an item with no draft", () => {
+  it("refuses {draft} in a cards view's command, and {draft} on an item with no draft", () => {
     const command = { type: "command", label: "Comment", command: "gh issue comment 7 --body '{draft}'" };
-    expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command cannot use \{draft\}/);
+    expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command can use \{draft\} only in the "list" layout/);
     expect(() => parseView(viewWith({ actions: [post] }))).toThrow(/uses \{draft\} but the item has no draft/);
   });
 });

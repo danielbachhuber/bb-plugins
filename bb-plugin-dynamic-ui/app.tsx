@@ -4,7 +4,8 @@
 // The newest view a thread published shows as a compact list right above the
 // composer: one row per item with a Review button. Clicking a row opens that
 // item in the side panel, with its details and every button. The panel keeps
-// one tab per view and switches the item it shows as rows are clicked.
+// one tab per view and switches the item it shows as rows are clicked. A view
+// with the "list" layout shows whole in the panel instead, as one list.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   definePluginApp,
@@ -22,6 +23,7 @@ import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import type { Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { firstOpenItem, nextOpenItem, ViewPanel } from "./view/view-panel.js";
+import { ListPanel } from "./view/list-panel.js";
 import { StartThreadDialog, type ThreadSeed } from "./view/start-thread-dialog.js";
 
 const PANEL_ACTION = "view";
@@ -130,6 +132,23 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   if (stored === undefined) return null;
   if (stored === null) {
     return <div className="px-4 py-6 text-sm text-muted-foreground">This thread has not published a view.</div>;
+  }
+
+  if (stored.view.layout === "list") {
+    return (
+      <ListPanel
+        stored={stored}
+        busyItem={busyItem}
+        onRun={(item, index, draft) => run(stored, item, index, draft)}
+        onDismiss={(item, dismissed) => {
+          setBusyItem(item.id);
+          rpc
+            .call("item_dismiss", { viewId: stored.id, itemId: item.id, dismissed })
+            .then(setStored, fail)
+            .finally(() => setBusyItem(null));
+        }}
+      />
+    );
   }
 
   return (
@@ -279,6 +298,7 @@ function Banner() {
       focusedItem={(focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored)?.id ?? null}
       onOpenItem={(item) => openItem(item)}
       onGoToThread={(id) => navigate.toThread(id)}
+      onOpenView={() => navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title })}
     />
   );
 }

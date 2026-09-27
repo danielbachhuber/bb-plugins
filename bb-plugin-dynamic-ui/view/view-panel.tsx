@@ -5,7 +5,7 @@ import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { usesDraft, type Action, type Item } from "./schema.js";
+import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, type Action, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 import { DraftEditor } from "./draft-editor.js";
 import type { Feedback } from "./review.js";
@@ -49,15 +49,20 @@ export const TONE_CLASS: Record<string, string> = {
 export function nextOpenItem(stored: StoredView, itemId: string): Item | null {
   const items = stored.view.sections.flatMap((section) => section.items);
   const at = items.findIndex((item) => item.id === itemId);
-  const isOpen = (item: Item) => item.id !== itemId && (stored.items[item.id]?.state ?? "open") === "open";
+  const isOpen = (item: Item) =>
+    item.id !== itemId && !isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open";
   return items.slice(at + 1).find(isOpen) ?? items.slice(0, Math.max(at, 0)).find(isOpen) ?? null;
 }
 
-/** The item shown when none is picked: the first one still open, or null once all are handled. */
+/**
+ * The item shown when none is picked: the first one still open, or null once
+ * all are handled. A list view's plain row has nothing to decide, so it is
+ * never shown.
+ */
 export function firstOpenItem(stored: StoredView): Item | null {
   for (const section of stored.view.sections) {
     for (const item of section.items) {
-      if ((stored.items[item.id]?.state ?? "open") === "open") return item;
+      if (!isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open") return item;
     }
   }
   return null;
@@ -154,7 +159,7 @@ function ActionButton({
     );
   }
   return (
-    <Button size="sm" variant={variant} disabled={busy || used} onClick={action.type === "command" ? onConfirm : onRun}>
+    <Button size="sm" variant={variant} disabled={busy || used} onClick={needsConfirm(action) ? onConfirm : onRun}>
       {action.label}
     </Button>
   );
@@ -163,6 +168,7 @@ function ActionButton({
 function ItemCard({
   item,
   record,
+  dismissLabel,
   busy,
   initiallyExpanded,
   initiallyConfirming,
@@ -175,6 +181,8 @@ function ItemCard({
 }: {
   item: Item;
   record: ItemRecord | undefined;
+  /** What Dismiss is called on this item, such as "Skip". */
+  dismissLabel: string;
   busy: boolean;
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
@@ -220,7 +228,7 @@ function ItemCard({
               {/* A done item shows what happened in its result, not a tag. */}
               {state === "dismissed" ? (
                 <span className="rounded border border-border px-1.5 py-px text-[11px] text-muted-foreground">
-                  Dismissed
+                  {dismissLabel === "Dismiss" ? "Dismissed" : dismissLabel}
                 </span>
               ) : null}
               {item.badges.map((badge) => (
@@ -248,7 +256,7 @@ function ItemCard({
           ) : (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => onDismiss(true)}>
               <Icon name="Archive" aria-hidden />
-              Dismiss
+              {dismissLabel}
             </Button>
           )}
         </div>
@@ -371,6 +379,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             key={`${focused.id}:${confirming ?? ""}`}
             item={focused}
             record={stored.items[focused.id]}
+            dismissLabel={dismissLabelOf(view, focused)}
             busy={busyItem === focused.id}
             initiallyExpanded
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}

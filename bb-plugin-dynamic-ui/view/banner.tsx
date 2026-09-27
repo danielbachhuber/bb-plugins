@@ -1,11 +1,13 @@
 // A thread's view as a compact list right above the composer. Each row is one
 // item: its title, badges, one line of summary, and a Review button. Clicking
-// the row opens the item in the side panel with everything else. Kept free of
-// RPC so a story can render it with fixture props.
+// the row opens the item in the side panel with everything else. A view with
+// the "list" layout lives in the side panel instead, so here it is one row
+// that previews it and opens it. Kept free of RPC so a story can render it
+// with fixture props.
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import type { Item } from "./schema.js";
+import { isQuiet, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
 import { TONE_CLASS } from "./view-panel.js";
 
@@ -21,6 +23,8 @@ export interface ViewBannerProps {
   focusedItem: string | null;
   onOpenItem: (item: Item) => void;
   onGoToThread: (threadId: string) => void;
+  /** Opens a "list" layout view in the side panel. */
+  onOpenView: () => void;
 }
 
 /** One line of plain text from a markdown summary, for the row. */
@@ -40,10 +44,52 @@ export function orderItems(stored: StoredView): Item[] {
   return [...items.filter(isOpen), ...items.filter((item) => !isOpen(item))];
 }
 
-/** Every item is done or dismissed. */
+/** The items with a decision on them: every one but a list view's plain rows. */
+export function decisionItems(stored: StoredView): Item[] {
+  return stored.view.sections.flatMap((section) => section.items.filter((item) => !isQuiet(stored.view, item)));
+}
+
+/** Every item with a decision is done or dismissed. A view with none has nothing to finish. */
 export function allHandled(stored: StoredView): boolean {
-  return stored.view.sections.every((section) =>
-    section.items.every((item) => (stored.items[item.id]?.state ?? "open") !== "open"),
+  const items = decisionItems(stored);
+  return items.length > 0 && items.every((item) => (stored.items[item.id]?.state ?? "open") !== "open");
+}
+
+/**
+ * A "list" layout view's one row above the composer: what is left to decide,
+ * and under it what is on the list, each as names. The whole list is in the
+ * side panel.
+ */
+export function listPreview(stored: StoredView): { deciding: string[]; listed: string[] } {
+  const items = stored.view.sections.flatMap((section) => section.items);
+  const state = (item: Item) => stored.items[item.id]?.state ?? "open";
+  // What was added, as it was sent; what is left, as the skill wrote it.
+  const name = (item: Item) => stored.items[item.id]?.result?.draft ?? (item.draft || item.title);
+  return {
+    deciding: items.filter((item) => !isQuiet(stored.view, item) && state(item) === "open").map(name),
+    listed: items.filter((item) => isQuiet(stored.view, item) || state(item) === "done").map(name),
+  };
+}
+
+function ListRow({ stored, onOpen }: { stored: StoredView; onOpen: () => void }) {
+  const { deciding, listed } = listPreview(stored);
+  return (
+    <ul className="border-t border-border">
+      <li className="flex items-center gap-2 px-3 py-1.5">
+        <span className={cn("w-3 shrink-0 text-center text-xs", deciding.length === 0 ? "text-success" : "text-muted-foreground")} aria-hidden>
+          {deciding.length === 0 ? "✓" : "○"}
+        </span>
+        <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen} title="Open in the side panel">
+          <span className="block truncate text-sm text-foreground">{deciding.length === 0 ? "Nothing left to decide" : deciding.join(", ")}</span>
+          {listed.length === 0 ? null : (
+            <span className="block truncate text-xs text-muted-foreground">On the list: {listed.join(", ")}</span>
+          )}
+        </button>
+        <Button size="sm" variant={deciding.length === 0 ? "ghost" : "default"} className="h-6 shrink-0 px-2 text-xs" onClick={onOpen}>
+          Review
+        </Button>
+      </li>
+    </ul>
   );
 }
 
@@ -56,8 +102,10 @@ export function ViewBanner({
   focusedItem,
   onOpenItem,
   onGoToThread,
+  onOpenView,
 }: ViewBannerProps) {
-  const items = orderItems(stored);
+  const list = stored.view.layout === "list";
+  const items = list ? decisionItems(stored) : orderItems(stored);
   const open = items.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
 
   return (
@@ -69,7 +117,7 @@ export function ViewBanner({
             <b className="font-medium text-foreground">{stored.view.title}</b>
             <span className="text-muted-foreground">
               {" "}
-              · {open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`}
+              · {items.length === 0 ? "nothing to decide" : open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`}
             </span>
           </span>
         </button>
@@ -83,7 +131,9 @@ export function ViewBanner({
           <Icon name="Archive" className="size-4" />
         </button>
       </div>
-      {collapsed ? null : (
+      {collapsed ? null : list ? (
+        <ListRow stored={stored} onOpen={onOpenView} />
+      ) : (
         <ul className="max-h-72 overflow-y-auto border-t border-border">
           {items.map((item) => {
             const record = stored.items[item.id];
