@@ -169,6 +169,10 @@ export function isSiblingRef(url: string): boolean {
 /**
  * Resolve a reference against the markdown file's own directory.
  *
+ * Each segment of the reference is percent-decoded first, as GitHub does, so
+ * `plan%20v2.png` finds `plan v2.png`. Only the reference is decoded: the
+ * file's own path is already a real path on disk.
+ *
  * Returns null when the result climbs above the top of a relative path, which
  * for a workspace or thread-storage file means out of its root. An absolute
  * file path keeps its leading slash and can walk anywhere its host allows,
@@ -179,7 +183,7 @@ export function resolveSibling(filePath: string, ref: string): string | null {
   const directory = filePath.split("/").slice(0, -1);
   const resolved: string[] = [];
 
-  for (const segment of [...directory, ...ref.split("/")]) {
+  for (const segment of [...directory, ...ref.split("/").map(decodeSegment)]) {
     if (segment === "" || segment === ".") continue;
     if (segment === "..") {
       // Nothing left to pop means the reference climbs above its root,
@@ -192,6 +196,24 @@ export function resolveSibling(filePath: string, ref: string): string | null {
   }
   if (resolved.length === 0) return null;
   return `${absolute ? "/" : ""}${resolved.join("/")}`;
+}
+
+/**
+ * One percent-decoded path segment, or the segment as written when decoding
+ * would fail or change the path's shape.
+ *
+ * `100%.png` is not valid percent-encoding, and on GitHub it still means the
+ * file named `100%.png`. An encoded slash is kept as written too: decoded, it
+ * would turn `..%2F..%2Fx.png` into two parent steps the loop above never
+ * checked.
+ */
+function decodeSegment(segment: string): string {
+  try {
+    const decoded = decodeURIComponent(segment);
+    return decoded.includes("/") ? segment : decoded;
+  } catch {
+    return segment;
+  }
 }
 
 const MIME_TYPES: Readonly<Record<string, string>> = {
