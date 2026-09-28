@@ -1,11 +1,12 @@
 // The My plugins page: loads the shelf over RPC and hands it to ShelfTable.
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useRpc, type NewThreadRequest } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { rpcContract } from "../shelf/contract";
 import { ShelfTable } from "./ShelfTable";
+import { StartThreadDialog } from "./StartThreadDialog";
 import { shelfStore } from "./shelf-store";
 
 function useShelf() {
@@ -28,9 +29,15 @@ export function ShelfPage() {
   const navigate = useBbNavigate();
   const [providerId, setProviderId] = useState("claude-code");
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [threadFor, setThreadFor] = useState<string | null>(null);
 
   useEffect(() => {
     void load(true);
+    rpc.call("shelf_project", {}).then(
+      (project) => setProjectId(project.projectId),
+      () => {},
+    );
     rpc.call("shelf_settings", {}).then(
       (settings) => setProviderId(settings.providerId),
       () => {},
@@ -52,6 +59,25 @@ export function ShelfPage() {
     [navigate, rpc],
   );
 
+  const startThread = useCallback(
+    async (request: NewThreadRequest) => {
+      if (threadFor === null) return;
+      try {
+        const { threadId } = await rpc.call("shelf_thread_create", {
+          pluginId: threadFor,
+          request: request as never,
+        });
+        setThreadFor(null);
+        navigate.toThread(threadId);
+      } catch (cause) {
+        toast.error(cause instanceof Error ? cause.message : "Could not start the thread.");
+        // Rethrow so the composer keeps the draft rather than clearing it.
+        throw cause;
+      }
+    },
+    [navigate, rpc, threadFor],
+  );
+
   const body =
     state.list === null ? (
       <p className="py-6 text-sm text-muted-foreground">
@@ -63,6 +89,7 @@ export function ShelfPage() {
         providerId={providerId}
         publishing={publishing}
         onPublish={(id) => void publish(id)}
+        onStartThread={setThreadFor}
       />
     );
 
@@ -75,6 +102,12 @@ export function ShelfPage() {
         </div>
         {body}
       </div>
+      <StartThreadDialog
+        plugin={state.list?.rows.find((row) => row.id === threadFor) ?? null}
+        projectId={projectId}
+        onClose={() => setThreadFor(null)}
+        onSubmit={startThread}
+      />
     </div>
   );
 }

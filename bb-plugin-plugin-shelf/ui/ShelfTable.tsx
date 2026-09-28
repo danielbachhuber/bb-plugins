@@ -21,6 +21,8 @@ export interface ShelfTableProps {
   /** The plugin id whose publish thread is being started, if any. */
   publishing: string | null;
   onPublish: (pluginId: string) => void;
+  /** Opens the new-thread composer for a plugin. Without it, no button is drawn. */
+  onStartThread?: (pluginId: string) => void;
   /**
    * Called only for installed plugins. Without it, names are plain text: the
    * SDK has no route to bb's own plugin detail page yet.
@@ -155,7 +157,10 @@ function GroupSection(props: {
   now: number;
   expanded: Set<string>;
   onToggle: (id: string) => void;
-} & Pick<ShelfTableProps, "providerId" | "publishing" | "onPublish" | "onOpenPlugin">) {
+} & Pick<
+  ShelfTableProps,
+  "providerId" | "publishing" | "onPublish" | "onOpenPlugin" | "onStartThread"
+>) {
   const { group, rows, repo, now, expanded, onToggle } = props;
   const withActions = group === "needs-release";
   // Every group's table has the action column, empty where there is no
@@ -182,7 +187,7 @@ function GroupSection(props: {
               <TableHead className="w-[26%]">Name</TableHead>
               <TableHead>Summary</TableHead>
               <TableHead className="w-[16%]">Release</TableHead>
-              <TableHead className="w-[150px]" />
+              <TableHead className="w-[290px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -220,6 +225,19 @@ function GroupSection(props: {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                      {props.onStartThread ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Start a thread on ${row.name}`}
+                          onClick={() => props.onStartThread?.(row.id)}
+                        >
+                          <Icon name="Plus" className="size-3.5" aria-hidden />
+                          Start thread
+                        </Button>
+                      ) : null}
                       {withActions ? (
                         <Button
                           type="button"
@@ -233,6 +251,7 @@ function GroupSection(props: {
                           Publish update
                         </Button>
                       ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                   {open ? (
@@ -310,6 +329,7 @@ export function ShelfTable(props: ShelfTableProps) {
             publishing={props.publishing}
             onPublish={props.onPublish}
             onOpenPlugin={props.onOpenPlugin}
+            onStartThread={props.onStartThread}
           />
         );
       })}

@@ -43,6 +43,16 @@ export const shelfListSchema = z.object({
   marketplaceError: z.string().nullable(),
 });
 
+/**
+ * BB's composer resolves a complete NewThreadRequest and guarantees it is
+ * JSON-serializable, so this validates only the fields the plugin reads and
+ * forwards the rest verbatim. threads.spawn validates the remainder.
+ */
+const newThreadRequestSchema = z.looseObject({
+  projectId: z.string().min(1),
+  input: z.array(z.looseObject({ type: z.string() })).min(1),
+});
+
 export const rpcContract = defineRpcContract({
   shelf_list: {
     input: z.object({ refresh: z.boolean().optional() }).strict(),
@@ -50,6 +60,14 @@ export const rpcContract = defineRpcContract({
   },
   shelf_publish: {
     input: z.object({ pluginId: z.string().min(1) }).strict(),
+    output: z.object({ threadId: z.string() }),
+  },
+  shelf_project: {
+    input: z.object({}).strict(),
+    output: z.object({ projectId: z.string().nullable() }),
+  },
+  shelf_thread_create: {
+    input: z.object({ pluginId: z.string().min(1), request: newThreadRequestSchema }).strict(),
     output: z.object({ threadId: z.string() }),
   },
   shelf_settings: {

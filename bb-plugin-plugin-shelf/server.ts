@@ -179,6 +179,34 @@ export function createShelf(deps: ShelfDeps) {
   return { list };
 }
 
+/** Longest thread title taken from what was typed, before eliding. */
+const TITLE_MAX = 72;
+
+/** `<Name>: <first line typed>`, or the name alone when nothing was typed. */
+export function threadTitle(name: string, input: readonly { type: string }[]): string {
+  const firstLine =
+    input
+      .flatMap((item) => {
+        const text = (item as { text?: unknown }).text;
+        return item.type === "text" && typeof text === "string" ? text.split("\n") : [];
+      })
+      .map((line) => line.trim())
+      .find((line) => line !== "") ?? "";
+  if (firstLine === "") return name;
+  const elided =
+    firstLine.length > TITLE_MAX ? `${firstLine.slice(0, TITLE_MAX - 1).trimEnd()}…` : firstLine;
+  return `${name}: ${elided}`;
+}
+
+/**
+ * Prepended as its own prompt item, so what was typed reaches the agent as
+ * composed. bb joins prompt items with nothing between them, so it ends with a
+ * blank line.
+ */
+export function threadContext(name: string, dir: string): string {
+  return `This thread works on the ${name} plugin, in \`${dir}/\` of this repository.\n\n`;
+}
+
 export function publishInstruction(pluginId: string): string {
   return (
     `Use the publish-plugin-update skill to publish an update of the ` +
@@ -213,7 +241,45 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  /** The bb project whose local folder is the checkout, and where on which host. */
+  async function projectFor(
+    root: string,
+  ): Promise<{ projectId: string; hostId: string; path: string } | null> {
+    for (const project of await bb.sdk.projects.list()) {
+      const source = project.sources.find(
+        (s) => s.type === "local_path" && typeof s.path === "string" && samePath(s.path, root),
+      );
+      if (source && "hostId" in source && typeof source.hostId === "string") {
+        return { projectId: project.id, hostId: source.hostId, path: source.path as string };
+      }
+    }
+    return null;
+  }
+
   bb.rpc.register(rpcContract, {
+    shelf_project: async () => {
+      const { checkout } = await shelf.list(false);
+      if (checkout === null) return { projectId: null };
+      return { projectId: (await projectFor(checkout.root))?.projectId ?? null };
+    },
+    shelf_thread_create: async ({ pluginId, request }) => {
+      const listed = await shelf.list(false);
+      const row = listed.rows.find((r) => r.id === pluginId);
+      if (!row) throw new Error(`${pluginId} is not in this checkout.`);
+      // Everything the composer resolved (project, environment, provider,
+      // model, permission mode) is forwarded untouched. Only which plugin the
+      // thread is for, and its title, are this plugin's business.
+      const thread = await bb.sdk.threads.spawn({
+        ...request,
+        input: [
+          { type: "text", text: threadContext(row.name, row.dir), mentions: [] },
+          ...request.input,
+        ],
+        title: threadTitle(row.name, request.input),
+      } as Parameters<typeof bb.sdk.threads.spawn>[0]);
+      bb.log.info(`spawned thread ${thread.id} for ${pluginId}`);
+      return { threadId: thread.id };
+    },
     shelf_list: ({ refresh }) => shelf.list(refresh ?? false),
     shelf_settings: async () => ({ providerId: (await settings.get()).providerId }),
     shelf_publish: async ({ pluginId }) => {
@@ -227,17 +293,7 @@ export default async function plugin(bb: BbPluginApi) {
 
       // The release commit belongs on main, so the thread works in the
       // checkout itself rather than in a fresh worktree.
-      const projects = await bb.sdk.projects.list();
-      let target: { projectId: string; hostId: string; path: string } | null = null;
-      for (const project of projects) {
-        const source = project.sources.find(
-          (s) => s.type === "local_path" && typeof s.path === "string" && samePath(s.path, checkout.root),
-        );
-        if (source && "hostId" in source && typeof source.hostId === "string") {
-          target = { projectId: project.id, hostId: source.hostId, path: source.path as string };
-          break;
-        }
-      }
+      const target = await projectFor(checkout.root);
       if (target === null) {
         throw new Error(`No bb project has ${checkout.root} as its folder.`);
       }

@@ -165,42 +165,42 @@ describe("shelf_list", () => {
   });
 });
 
-describe("shelf_publish", () => {
-  function host(spawn = vi.fn(async () => makeThreadResponse({ id: "thr_publish" }))) {
-    const { bb, harness } = createFakePluginHost({
-      pluginId: "plugin-shelf",
-      sdk: {
-        plugins: {
-          list: async () => ({
-            plugins: [{ id: "plugin-shelf", rootDir: join(clone, "bb-plugin-widgets"), enabled: true }],
+function host(spawn = vi.fn(async () => makeThreadResponse({ id: "thr_publish" }))) {
+  const { bb, harness } = createFakePluginHost({
+    pluginId: "plugin-shelf",
+    sdk: {
+      plugins: {
+        list: async () => ({
+          plugins: [{ id: "plugin-shelf", rootDir: join(clone, "bb-plugin-widgets"), enabled: true }],
+        }),
+        catalog: {
+          search: async ({ query }: { query: string }) => ({
+            results: query === "widgets"
+              ? [{ entryId: "widgets", pluginId: "widgets", marketplace: "bb-community" }]
+              : [],
           }),
-          catalog: {
-            search: async ({ query }: { query: string }) => ({
-              results: query === "widgets"
-                ? [{ entryId: "widgets", pluginId: "widgets", marketplace: "bb-community" }]
-                : [],
-            }),
-            installPlan: async () => ({
-              resolvedSource: {
-                kind: "git", url: origin, subdir: "bb-plugin-widgets", range: "^0.1.0", tagPrefix: "widgets/",
-              },
-            }),
-          },
-        },
-        projects: {
-          list: async () => [
-            {
-              id: "proj_widgets",
-              sources: [{ type: "local_path", hostId: "host_a", path: clone }],
+          installPlan: async () => ({
+            resolvedSource: {
+              kind: "git", url: origin, subdir: "bb-plugin-widgets", range: "^0.1.0", tagPrefix: "widgets/",
             },
-          ],
+          }),
         },
-        threads: { spawn },
-      } as never,
-    });
-    return { bb, harness, spawn };
-  }
+      },
+      projects: {
+        list: async () => [
+          {
+            id: "proj_widgets",
+            sources: [{ type: "local_path", hostId: "host_a", path: clone }],
+          },
+        ],
+      },
+      threads: { spawn },
+    } as never,
+  });
+  return { bb, harness, spawn };
+}
 
+describe("shelf_publish", () => {
   it("starts a thread in the checkout that runs the publish skill", async () => {
     const { bb, harness, spawn } = host();
     await plugin(bb);
@@ -221,6 +221,80 @@ describe("shelf_publish", () => {
     await expect(
       harness.behavior.callRpc("shelf_publish", { pluginId: "gadgets" }),
     ).rejects.toThrow("gadgets is not published");
+    expect(spawn).not.toHaveBeenCalled();
+  });
+});
+
+/** A NewThreadRequest as BB's composer submits one. */
+function composerRequest(overrides: Record<string, unknown> = {}) {
+  return {
+    projectId: "proj_widgets",
+    providerId: "codex",
+    model: "gpt-6",
+    permissionMode: "auto",
+    environment: { type: "host", workspace: { type: "managed-worktree" } },
+    input: [{ type: "text", text: "Add a snap-to-grid toggle.\nKeep it off by default.", mentions: [] }],
+    ...overrides,
+  };
+}
+
+describe("shelf_project", () => {
+  it("names the bb project whose folder is the checkout", async () => {
+    const { bb, harness } = host();
+    await plugin(bb);
+    expect(await harness.behavior.callRpc("shelf_project", {})).toEqual({ projectId: "proj_widgets" });
+  });
+});
+
+describe("shelf_thread_create", () => {
+  it("says which plugin the thread is for, and forwards the rest untouched", async () => {
+    const spawn = vi.fn(async () => makeThreadResponse({ id: "thr_work" }));
+    const { bb, harness } = host(spawn);
+    await plugin(bb);
+    const result = await harness.behavior.callRpc("shelf_thread_create", {
+      pluginId: "widgets",
+      request: composerRequest(),
+    });
+    expect(result).toEqual({ threadId: "thr_work" });
+    const args = spawn.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(args).toMatchObject({
+      projectId: "proj_widgets",
+      providerId: "codex",
+      model: "gpt-6",
+      permissionMode: "auto",
+      environment: { type: "host", workspace: { type: "managed-worktree" } },
+      title: "Widgets: Add a snap-to-grid toggle.",
+    });
+    expect(args.input).toEqual([
+      {
+        type: "text",
+        // bb joins prompt items with nothing between them, so the context
+        // ends with a blank line to keep it apart from what was typed.
+        text: expect.stringMatching(/the Widgets plugin, in `bb-plugin-widgets\/`.*\n\n$/s),
+        mentions: [],
+      },
+      { type: "text", text: "Add a snap-to-grid toggle.\nKeep it off by default.", mentions: [] },
+    ]);
+  });
+
+  it("titles a thread with no typed text after the plugin alone", async () => {
+    const spawn = vi.fn(async () => makeThreadResponse({ id: "thr_work" }));
+    const { bb, harness } = host(spawn);
+    await plugin(bb);
+    await harness.behavior.callRpc("shelf_thread_create", {
+      pluginId: "gadgets",
+      request: composerRequest({ input: [{ type: "text", text: "  ", mentions: [] }] }),
+    });
+    expect((spawn.mock.calls[0]?.[0] as { title: string }).title).toBe("gadgets");
+  });
+
+  it("refuses a plugin that is not in the checkout", async () => {
+    const spawn = vi.fn(async () => makeThreadResponse({ id: "thr_work" }));
+    const { bb, harness } = host(spawn);
+    await plugin(bb);
+    await expect(
+      harness.behavior.callRpc("shelf_thread_create", { pluginId: "sprockets", request: composerRequest() }),
+    ).rejects.toThrow("sprockets is not in this checkout");
     expect(spawn).not.toHaveBeenCalled();
   });
 });

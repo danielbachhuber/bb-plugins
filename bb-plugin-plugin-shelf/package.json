@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Plugin Shelf",
-    "description": "Lists the plugins in your bb-plugins checkout as published and current, published with commits not yet released (with those commits), or personal, on a My plugins page in bb's Plugins screen, and starts a thread to publish an update.",
+    "description": "Lists the plugins in your bb-plugins checkout as published and current, published with commits not yet released (with those commits), or personal, on a My plugins page in bb's Plugins screen, with a button on each to start a thread on it and one to publish an update where one is due.",
     "branding": {
       "icon": "Layers"
     },

@@ -15,7 +15,7 @@ function Shelf(props: Partial<ShelfTableProps>) {
         providerId="claude-code"
         publishing={null}
         onPublish={noop}
-        onOpenPlugin={noop}
+        onStartThread={noop}
         now={FIXTURE_NOW}
         {...props}
       />
@@ -23,7 +23,7 @@ function Shelf(props: Partial<ShelfTableProps>) {
   );
 }
 
-/** Every plugin in a checkout, grouped by whether it needs a release. Widgets has three commits since its last release tag, and its package.json was bumped without a tag. */
+/** Every plugin in a checkout, grouped by whether it needs a release, each with a Start thread button. Widgets has three commits since its last release tag, and its package.json was bumped without a tag. */
 export const Mixed = () => <Shelf />;
 
 /** A plugin's unreleased commits, opened from its row. The README change is marked as docs, and each short SHA links to the commit. */

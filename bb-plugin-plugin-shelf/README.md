@@ -42,6 +42,19 @@ since that tag:
   only when its id matches exactly, it is in `bb-community`, and its source is
   this checkout's `origin` and the plugin's directory.
 
+## Starting a thread on a plugin
+
+Every row has a Start thread button. It opens bb's own new-thread composer in
+a dialog, under a card naming the plugin and its directory, with the project
+set to the one whose folder is the checkout. Everything else is the
+composer's: the provider, model, environment, branch, and permission mode
+start from that project's remembered defaults, and each plugin keeps its own
+saved draft.
+
+The thread's prompt starts with a line saying which plugin it is for and
+where it lives, ahead of what you typed. Its title is the plugin's name and
+your first line.
+
 ## Publishing an update
 
 Publish update starts a thread in the bb project whose folder is the checkout.
@@ -131,9 +144,10 @@ slot, so a bb upgrade can change it too.
 | `ui/ShelfTable.tsx` | The grouped tables, display only |
 | `ui/ShelfPage.tsx` | The page, its title, and its Refresh button, loading over RPC |
 | `ui/PluginsScreenOverlay.tsx` | The app overlay that portals the page into bb's Plugins screen |
+| `ui/StartThreadDialog.tsx` | The Start thread dialog around bb's new-thread composer |
 | `ui/shelf-store.ts` | One load shared by the page and the Refresh button |
 | `ui/fixtures.ts` | Invented rows for the stories and tests |
-| `server.ts` | Gathers the inputs, caches the result, and starts publish threads |
+| `server.ts` | Gathers the inputs, caches the result, and starts publish and plugin threads |
 | `app.tsx` | Registers the Plugins screen overlay |
 
 ## Development

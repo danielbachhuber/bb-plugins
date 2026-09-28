@@ -61,6 +61,21 @@ describe("ShelfTable", () => {
     ).toBeTruthy();
   });
 
+  it("offers a Start thread button on every row, in every group", () => {
+    const onStartThread = vi.fn();
+    renderTable(fixtureList(), { onStartThread });
+    const buttons = screen.getAllByRole("button", { name: /^Start a thread on / });
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Start a thread on Widgets",
+      "Start a thread on Gadgets",
+      "Start a thread on Sprockets",
+      "Start a thread on Gizmos",
+      "Start a thread on Doohickeys",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Start a thread on Gizmos" }));
+    expect(onStartThread).toHaveBeenCalledWith("gizmos");
+  });
+
   it("disables Publish while that plugin's publish is in flight", () => {
     renderTable(fixtureList(), { publishing: "widgets" });
     const button = screen.getByRole("button", { name: "Publish update for Widgets" }) as HTMLButtonElement;
