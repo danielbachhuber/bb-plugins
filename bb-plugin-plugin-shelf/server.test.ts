@@ -1,3 +1,6 @@
+import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
@@ -91,6 +94,58 @@ describe("shelf_list", () => {
     const result = await createShelf(deps({ git: failingRemote() })).list(true);
     expect(result.rows.every((r) => r.group === "unknown")).toBe(true);
     expect(result.fetchError).toContain("could not resolve host");
+  });
+
+  it("reads a release tag pushed from another clone without a refresh", async () => {
+    const own = makeTestRepo();
+    const other = join(mkdtempSync(join(tmpdir(), "shelf-other-")), "other");
+    execFileSync("git", ["clone", "--quiet", own.origin, other]);
+    execFileSync("git", ["tag", "-a", "-m", "Release", "widgets/v0.1.2", "origin/main"], {
+      cwd: other,
+      env: { ...process.env, GIT_COMMITTER_NAME: "Octocat", GIT_COMMITTER_EMAIL: "octocat@example.com" },
+    });
+    execFileSync("git", ["push", "--quiet", "origin", "widgets/v0.1.2"], { cwd: other });
+    const result = await createShelf(
+      deps({
+        listInstalled: async () => [
+          { id: "plugin-shelf", rootDir: join(own.clone, "bb-plugin-widgets"), enabled: true },
+        ],
+        installPlan: async () => ({
+          kind: "git", url: own.origin, subdir: "bb-plugin-widgets", range: "^0.1.0", tagPrefix: "widgets/",
+        }),
+      }),
+    ).list(false);
+    const widgets = result.rows.find((r) => r.id === "widgets")!;
+    expect(result.fetchError).toBeNull();
+    expect(widgets.latestTag).toBe("widgets/v0.1.2");
+    expect(widgets.commits).toEqual([]);
+  });
+
+  it("keeps the last good rows when a later marketplace read fails", async () => {
+    let catalogDown = false;
+    let gitDown = false;
+    let clock = 1_000_000;
+    const good = deps();
+    const bad = failingRemote();
+    const shelf = createShelf(
+      deps({
+        now: () => clock,
+        git: (cwd, args) => (gitDown ? bad(cwd, args) : runGit(cwd, args)),
+        searchCatalog: async (query) => {
+          if (catalogDown) throw new Error("catalog down");
+          return good.searchCatalog(query);
+        },
+      }),
+    );
+    await shelf.list(true);
+    catalogDown = true;
+    expect((await shelf.list(true)).marketplaceError).toContain("catalog down");
+    catalogDown = false;
+    gitDown = true;
+    clock += 120_000;
+    const offline = await shelf.list(true);
+    expect(offline.fetchError).toContain("could not resolve host");
+    expect(offline.rows.find((r) => r.id === "widgets")!.group).toBe("needs-release");
   });
 
   it("fetches at most once a minute", async () => {

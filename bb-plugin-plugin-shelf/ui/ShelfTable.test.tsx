@@ -106,6 +106,13 @@ describe("ShelfTable", () => {
     expect(screen.getByRole("heading", { name: /Unknown/ })).toBeTruthy();
   });
 
+  it("does not blame the marketplace when GitHub was what failed", () => {
+    const list = unknownList();
+    renderTable({ ...list, marketplaceError: null, fetchError: "could not resolve host" });
+    expect(screen.getByText(/Could not reach GitHub: could not resolve host/)).toBeTruthy();
+    expect(screen.queryByText(/marketplace unreachable/i)).toBeNull();
+  });
+
   it("shows the empty reason when there is no checkout", () => {
     renderTable(emptyList());
     expect(screen.getByText(/is not inside a git checkout/)).toBeTruthy();

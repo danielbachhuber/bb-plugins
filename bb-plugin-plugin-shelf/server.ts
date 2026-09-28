@@ -9,6 +9,7 @@ import { buildRow, matchEntry, normalizeRepoUrl, releaseFor, sortRows } from "./
 import { rpcContract } from "./shelf/contract";
 import {
   commitsSince,
+  ensureTags,
   fetchMain,
   findCheckout,
   readIndex,
@@ -137,12 +138,28 @@ export function createShelf(deps: ShelfDeps) {
     // current or behind, so every row is unknown rather than "no release".
     if (fetchError !== null) entries = null;
 
-    const rows: ShelfRow[] = [];
-    for (const plugin of plugins) {
+    const releases = plugins.map((plugin) => {
       const entry = entries === null ? null : matchEntry(plugin, entries, repo).entry;
-      const tag = entry === null ? null : releaseFor(entry, tags).latestTag;
+      return { plugin, entry, tag: entry === null ? null : releaseFor(entry, tags).latestTag };
+    });
+    try {
+      await ensureTags(
+        deps.git,
+        root,
+        releases.flatMap((r) => (r.tag === null ? [] : [r.tag])),
+      );
+    } catch (error) {
+      if (last !== null) return { ...last, fetchError: message(error) };
+      fetchError = message(error);
+      entries = null;
+    }
+
+    const rows: ShelfRow[] = [];
+    for (const { plugin, entry, tag } of releases) {
       const commits =
-        entry === null ? [] : await commitsSince(deps.git, root, tag, plugin.dir);
+        entries === null || entry === null
+          ? []
+          : await commitsSince(deps.git, root, tag, plugin.dir);
       rows.push(buildRow({ plugin, entries, repo, tags, commits }));
     }
 
@@ -154,7 +171,8 @@ export function createShelf(deps: ShelfDeps) {
       fetchError,
       marketplaceError,
     };
-    if (fetchError === null) last = result;
+    // Only a fully read result is worth falling back to later.
+    if (fetchError === null && marketplaceError === null) last = result;
     return result;
   }
 

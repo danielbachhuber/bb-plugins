@@ -36,14 +36,14 @@ const GROUP_TITLES: Record<Group, string> = {
   "needs-release": "Needs a release",
   current: "Published",
   personal: "Personal",
-  unknown: "Unknown (marketplace unreachable)",
+  unknown: "Unknown",
 };
 
 const GROUP_HINTS: Record<Group, string> = {
   "needs-release": "Published, with commits since the latest release tag.",
   current: "Published, and the latest release tag has every code change.",
   personal: "Not in the bb-community marketplace.",
-  unknown: "The marketplace could not be read, so these are neither published nor personal yet.",
+  unknown: "GitHub or the marketplace could not be read, so these are neither published nor personal yet.",
 };
 
 function flagText(flag: Flag): string {

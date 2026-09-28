@@ -66,15 +66,26 @@ minor as the alternative with that cost, and **wait for the user to choose.**
 
 ## 4. Build, bump, commit, tag
 
+Use the repository's Node version before any npm command. Another npm
+version rewrites the whole lockfile, and that rewrite would ship in the release
+commit. If the repository's AGENTS.md or CLAUDE.md gives a build sequence for a
+plugin (for example `npm install && npm run harvest:sync`), use it in place of
+the `npm install` below.
+
 ```sh
+nvm use                       # when the repository has an .nvmrc
 cd <dir>
 npm install && npx tsc --noEmit -p tsconfig.json && npm test && bb plugin build .
 npm version <version> --no-git-tag-version
 cd ..
+git diff --stat -- <dir>      # only package.json and package-lock.json, a few lines each
 git add <dir>/package.json <dir>/package-lock.json
 git commit -m "Release <id> v<version>"
 git tag -a <tagPrefix>v<version> -m "Release <id> v<version>"
 ```
+
+If `git diff --stat` shows more than the version lines, stop and find out
+why before committing.
 
 If the repository's AGENTS.md or CLAUDE.md has steps to run after a commit,
 such as capturing screenshots, run them too.
