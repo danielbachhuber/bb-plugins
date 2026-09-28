@@ -48,6 +48,10 @@
       "source": "./bb-plugin-now"
     },
     {
+      "name": "plugin-shelf",
+      "source": "./bb-plugin-plugin-shelf"
+    },
+    {
       "name": "pr-sweep",
       "source": "./bb-plugin-pr-sweep"
     },
