@@ -10,7 +10,7 @@
     "name": "Plugin Shelf",
     "description": "Lists the plugins in your bb-plugins checkout as published and current, published with commits not yet released (with those commits), or personal, and starts a thread to publish an update.",
     "branding": {
-      "icon": "Library"
+      "icon": "Layers"
     },
     "server": "./server.ts",
     "app": "./app.tsx"

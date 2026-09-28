@@ -152,7 +152,9 @@ function GroupSection(props: {
 } & Pick<ShelfTableProps, "providerId" | "publishing" | "onPublish" | "onOpenPlugin">) {
   const { group, rows, repo, now, expanded, onToggle } = props;
   const withActions = group === "needs-release";
-  const columns = withActions ? 4 : 3;
+  // Every group's table has the action column, empty where there is no
+  // action, so the columns line up from one table to the next.
+  const columns = 4;
   return (
     <section className="space-y-2">
       <div>
@@ -174,7 +176,7 @@ function GroupSection(props: {
               <TableHead className="w-[26%]">Name</TableHead>
               <TableHead>Summary</TableHead>
               <TableHead className="w-[16%]">Release</TableHead>
-              {withActions ? <TableHead className="w-[150px]" /> : null}
+              <TableHead className="w-[150px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -211,8 +213,8 @@ function GroupSection(props: {
                         ) : null}
                       </div>
                     </TableCell>
-                    {withActions ? (
-                      <TableCell className="text-right">
+                    <TableCell className="text-right">
+                      {withActions ? (
                         <Button
                           type="button"
                           size="sm"
@@ -221,11 +223,11 @@ function GroupSection(props: {
                           aria-label={`Publish update for ${row.name}`}
                           onClick={() => props.onPublish(row.id)}
                         >
-                          <Icon name="Upload" className="size-3.5" aria-hidden />
+                          <Icon name="Sent" className="size-3.5" aria-hidden />
                           Publish update
                         </Button>
-                      </TableCell>
-                    ) : null}
+                      ) : null}
+                    </TableCell>
                   </TableRow>
                   {open ? (
                     <TableRow className="hover:bg-transparent">
@@ -281,7 +283,7 @@ export function ShelfTable(props: ShelfTableProps) {
         </p>
         {warnings.map((warning) => (
           <p key={warning} className="flex items-center gap-1.5 text-xs text-destructive">
-            <Icon name="TriangleAlert" className="size-3.5" aria-hidden />
+            <Icon name="AlertTriangle" className="size-3.5" aria-hidden />
             {warning}
           </p>
         ))}
