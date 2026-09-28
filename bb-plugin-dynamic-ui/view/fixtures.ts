@@ -1,5 +1,105 @@
 import { viewSchema, type View } from "./schema.js";
 
+/* Invented diffs for the Dependabot and code-review fixtures. */
+
+const prettierManifest = `diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -22,7 +22,7 @@
+   "devDependencies": {
+     "eslint": "^9.30.0",
+-    "prettier": "3.6.1",
++    "prettier": "3.6.2",
+     "typescript": "^5.8.3",
+     "vitest": "^3.2.4"
+`;
+
+const prettierLockfile = `diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -18,7 +18,7 @@
+       "devDependencies": {
+         "eslint": "^9.30.0",
+-        "prettier": "3.6.1",
++        "prettier": "3.6.2",
+         "typescript": "^5.8.3",
+@@ -4410,9 +4410,9 @@
+     "node_modules/prettier": {
+-      "version": "3.6.1",
+-      "resolved": "https://registry.npmjs.org/prettier/-/prettier-3.6.1.tgz",
+-      "integrity": "sha512-5xGWRa90Sp2+x1dQtNpIpeOQpTDBs9cZDmA/qs2vDNN2i18PdapqY7CmBeyLlMuGqXJRIOPaCaVZTLNQRWUH/A==",
++      "version": "3.6.2",
++      "resolved": "https://registry.npmjs.org/prettier/-/prettier-3.6.2.tgz",
++      "integrity": "sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==",
+       "dev": true,
+       "license": "MIT",
+`;
+
+const dateFnsManifest = `diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -14,7 +14,7 @@
+   "dependencies": {
+     "clsx": "^2.1.1",
+-    "date-fns": "^4.1.0",
++    "date-fns": "^4.2.0",
+     "react": "^19.1.0",
+     "react-dom": "^19.1.0",
+     "zod": "^3.25.76"
+`;
+
+const dateFnsLockfile = `diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,7 +9,7 @@
+       "dependencies": {
+         "clsx": "^2.1.1",
+-        "date-fns": "^4.1.0",
++        "date-fns": "^4.2.0",
+         "react": "^19.1.0",
+         "react-dom": "^19.1.0",
+         "zod": "^3.25.76"
+@@ -2104,9 +2104,9 @@
+     "node_modules/date-fns": {
+-      "version": "4.1.0",
+-      "resolved": "https://registry.npmjs.org/date-fns/-/date-fns-4.1.0.tgz",
+-      "integrity": "sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==",
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/date-fns/-/date-fns-4.2.0.tgz",
++      "integrity": "sha512-E4KWKavANzeuusPi0jUjpuI22SURAznGkx7eZV+4i6x2A+IZxAMcajgkvuDAU1bg40+xuhW1zRdVIIM/4khuIg==",
+       "license": "MIT",
+       "funding": {
+         "type": "github",
+@@ -5871,9 +5871,9 @@
+     "node_modules/zod": {
+-      "version": "3.25.76",
+-      "resolved": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz",
+-      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
++      "version": "3.24.2",
++      "resolved": "https://registry.npmjs.org/zod/-/zod-3.24.2.tgz",
++      "integrity": "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqdQ==",
+       "license": "MIT",
+       "funding": {
+         "url": "https://github.com/sponsors/octocat"
+`;
+
+const syncHunk = `diff --git a/src/sync.ts b/src/sync.ts
+--- a/src/sync.ts
++++ b/src/sync.ts
+@@ -41,10 +41,10 @@ export async function syncGadgets(rows: GadgetRow[], pageSize = 50) {
+   const pages = [];
+-  for (let start = 0; start < rows.length; start += pageSize) {
+-    pages.push(rows.slice(start, start + pageSize));
++  for (let start = 0; start + pageSize < rows.length; start += pageSize) {
++    pages.push(rows.slice(start, start + pageSize - 1));
+   }
+   for (const page of pages) {
+     await client.upsert("gadgets", page);
+   }
+   return pages.length;
+ }
+`;
+
 /** A triage-shaped view: invented repository, issues, and people. */
 export const triageView: View = viewSchema.parse({
   title: "Triage: acme/widgets milestone 4.2",
@@ -169,6 +269,11 @@ export const dependabotView: View = viewSchema.parse({
           summary:
             "Safe to merge: dev-only patch bump, one formatter fix for a syntax we don't use, CI green.\n\n- **Changed:** a fix for decorators in class expressions\n- **Blast radius:** `npm run format` and the lint job only\n- **CI:** 12 of 12 passing",
           details: "The diff touches `package.json` and `package-lock.json` only.",
+          changesLabel: "Files changed",
+          changes: [
+            { label: "package.json", patch: prettierManifest },
+            { label: "package-lock.json", patch: prettierLockfile },
+          ],
           draft:
             "Safe to merge. Prettier is a dev dependency here, used only by `npm run format` and the lint job.\n\n- 3.6.2 fixes formatting of decorators in class expressions, which acme/widgets doesn't use\n- No output changes on this repository: `npm run format -- --check` is clean on the branch\n- CI is green, 12 of 12",
           draftLabel: "Assessment to post",
@@ -208,6 +313,11 @@ export const dependabotConflictView: View = viewSchema.parse({
           summary:
             "Needs a rebase first: the lockfile conflicts with main, and the diff shows an unrelated downgrade from the stale base.\n\n- **Changed:** new `formatISODuration` options, no breaking changes\n- **Blast radius:** 14 files import it, all through `lib/dates.ts`\n- **CI:** not run since the conflict",
           details: "The downgrade of `zod` in the diff comes from the stale base, not from this bump.",
+          changesLabel: "Files changed",
+          changes: [
+            { label: "package.json", patch: dateFnsManifest },
+            { label: "package-lock.json", patch: dateFnsLockfile },
+          ],
           draft:
             "Safe once rebased. The bump adds options and changes nothing this repository calls.\n\n- Every import goes through `lib/dates.ts`, which uses `format` and `parseISO` only\n- The `zod` downgrade in the diff is a stale-base artifact",
           draftLabel: "Assessment to post",
@@ -444,6 +554,14 @@ export const grantView: View = viewSchema.parse({
             { who: "user", text: "Lead with who maintains it, not downloads.", at: "2026-03-12T09:48:00Z" },
             { text: "Round 2: leads with the two volunteer maintainers.", at: "2026-03-12T09:51:00Z" },
           ],
+          changesLabel: "Changes against the application",
+          changes: [
+            {
+              label: "Need",
+              before:
+                "acme/widgets is downloaded 90,000 times a week. It is a dependency of 1,400 public projects, and its release queue is behind.\n\n- 212 open issues\n- Downloads grew 40% this year",
+            },
+          ],
           draft:
             "Two volunteers maintain acme/widgets in their evenings. It is a dependency of 1,400 public projects, and its release queue is four months behind.\n\n- 212 open issues, 38 of them security reports waiting on triage\n- No maintainer is paid for the work",
           draftLabel: "Proposed text",
@@ -478,6 +596,39 @@ export const grantView: View = viewSchema.parse({
           badges: [{ label: "0 of 150 words" }],
           summary: "Who maintains it, and who reviews their work.",
           actions: [{ type: "message", label: "Start", text: "Draft the Team section of the grant application.", primary: true }],
+        },
+      ],
+    },
+  ],
+});
+
+/** A code review's findings, each with the hunk it is about and a comment to post. */
+export const codeReviewView: View = viewSchema.parse({
+  title: "Review: acme/widgets#431",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "finding-1",
+          title: "Paging drops the last rows of every sync",
+          url: "https://github.com/acme/widgets/pull/431#discussion_r1001",
+          badges: [
+            { label: "Bug", tone: "danger" },
+            { label: "src/sync.ts", tone: "neutral" },
+          ],
+          summary:
+            "The new loop stops one page early and slices one row short, so 120 rows sync as 49. Found by running the existing `sync.test.ts` fixture through the changed loop.",
+          changesLabel: "The change",
+          changes: [{ label: "src/sync.ts", patch: syncHunk }],
+          draft:
+            "This drops rows: with 120 rows and a page size of 50, the loop stops after the first page, and `pageSize - 1` leaves off each page's last row. The original `start < rows.length` and `start + pageSize` were right.",
+          draftLabel: "Comment to post",
+          actions: [
+            { type: "message", label: "Post comment", text: "Post this review comment on acme/widgets#431, on src/sync.ts line 43:\n\n{draft}", primary: true },
+            { type: "message", label: "Fix it", text: "Fix the paging bug in src/sync.ts on acme/widgets#431 and push the fix." },
+          ],
         },
       ],
     },

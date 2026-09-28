@@ -97,6 +97,26 @@ An item with `variations` is a visual review instead: see below.
 
 Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again. A button with `"repeat": true` leaves the card open after it goes through, for a step the user may take again, such as "Regenerate".
 
+## Show what changed
+
+When an item is about a change, such as a pull request's files, a code review finding's hunk, or a section's new text against the document it goes into, give it `changes` rather than describing the diff in its summary:
+
+```json
+{
+  "id": "pr-418",
+  "title": "#418 date-fns 4.1.0 → 4.2.0",
+  "changesLabel": "Files changed",
+  "changes": [{ "patchFile": "/tmp/pr-418.diff" }]
+}
+```
+
+- A change is a `patch` (a unified diff of one file, with its path as `label`), a `patchFile` (a diff on disk, such as one `gh pr diff 418 > /tmp/pr-418.diff` wrote, split into one change per file when you publish), or `before` and `after` text with a `label` naming it.
+- A patch shows in bb's own diff view. Text shows as prose: each line beside the one it replaced, with the changed words marked. Set `"format": "code"` on `before` and `after` to show them as code instead.
+- A lockfile (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`) shows as the packages whose versions changed, with downgrades flagged and each package marked by whether the `package.json` diff beside it names it. Its raw diff is one click away. Include the manifest's diff so the marks can show.
+- `"collapsed": true` starts a change folded to its header, for a file that matters less.
+- `before` with no `after` compares against the item's `draft`. The changes block then has an Edit tab that edits the draft, the draft's own editor is left out, and `{draft}` buttons send it as edited. Use this for a section you propose: `before` is the text now in the document, `draft` the proposed text.
+- `changesLabel` names the heading, such as "Files changed" or "Changes against the Doc"; it defaults to "Changes".
+
 ## Work in rounds
 
 When each item is a piece of work that goes back and forth, such as sections of a document you draft, the user pushes back on, and you revise, give each item a `status` and a `history`:

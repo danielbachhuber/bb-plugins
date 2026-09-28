@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, type Action, type HistoryEntry, type Item } from "./schema.js";
+import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, type Action, type HistoryEntry, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
+import { ChangesBlock, type ChangesMode } from "./changes-block.js";
 import { DraftEditor } from "./draft-editor.js";
 import type { Feedback } from "./review.js";
 import { ReviewPanel } from "./review-panel.js";
@@ -26,6 +27,8 @@ export interface ViewPanelProps {
   focusItemId?: string | null;
   /** Whether the draft starts rendered or as source. Preview unless a story says otherwise. */
   draftMode?: "preview" | "raw";
+  /** How the changes block starts, for a story. */
+  changesMode?: ChangesMode;
   /** A visual review's image as a URL; undefined while it loads. */
   imageUrl?: (itemId: string, index: number) => string | null | undefined;
   onSubmitReview?: (item: Item, feedback: Feedback) => void;
@@ -281,6 +284,7 @@ function ItemCard({
   initiallyExpanded,
   initiallyConfirming,
   initialDraftMode,
+  initialChangesMode,
   review,
   onRun,
   onDismiss,
@@ -297,6 +301,7 @@ function ItemCard({
   initiallyExpanded: boolean;
   initiallyConfirming: number | null;
   initialDraftMode?: "preview" | "raw";
+  initialChangesMode?: ChangesMode;
   review?: { imageUrl: (index: number) => string | null | undefined; onSubmit: (feedback: Feedback) => void; initial?: Feedback };
   onRun: (index: number, draft?: string) => void;
   onDismiss: (dismissed: boolean) => void;
@@ -405,6 +410,14 @@ function ItemCard({
         </div>
       )}
       {item.history.length === 0 ? null : <History entries={item.history} />}
+      {item.changes.length === 0 ? null : (
+        <ChangesBlock
+          item={item}
+          draft={state === "open" ? draft : (record?.result?.draft ?? item.draft)}
+          onDraftChange={state === "open" ? setDraft : undefined}
+          initialMode={initialChangesMode}
+        />
+      )}
       {item.details === "" ? null : (
         <>
           <Button size="sm" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setExpanded((v) => !v)}>
@@ -430,7 +443,8 @@ function ItemCard({
       )}
 
       {/* One box for the item's draft: every button that says {draft} sends it as left here. */}
-      {item.draft === "" || textDraft ? null : (
+      {/* A change that compares against the draft edits it in place instead. */}
+      {item.draft === "" || textDraft || item.changes.some(usesDraftAsAfter) ? null : (
         <DraftEditor
           label={item.draftLabel}
           value={state === "open" ? draft : item.draft}
@@ -479,7 +493,7 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, imageUrl, onSubmitReview, reviewInitial, onStartThread }: ViewPanelProps) {
+export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, changesMode, imageUrl, onSubmitReview, reviewInitial, onStartThread }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
@@ -516,6 +530,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             initiallyExpanded
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
             initialDraftMode={draftMode}
+            initialChangesMode={changesMode}
             review={{
               imageUrl: (index) => imageUrl?.(focused.id, index),
               onSubmit: (feedback) => onSubmitReview?.(focused, feedback),

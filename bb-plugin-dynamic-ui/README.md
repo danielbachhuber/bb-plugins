@@ -59,6 +59,14 @@ The first time you look at a thread after it publishes, the side panel opens on 
 
 Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. A button marked `repeat` leaves its card open instead. What the last button did shows as a banner at the top of the item, above its summary: green for done, red for a failure with its output. Every card can be dismissed and restored, and a view, section, or item can rename Dismiss with `dismissLabel`, such as to **Skip**. Dismissing a card moves the side panel on to the next open item. **Start thread**, beside Dismiss, opens bb's new-thread composer in the publishing thread's project, with the card's title, link, summary, and details as the prompt to edit; it does not change the card, so it stays usable after a decision.
 
+## What changed
+
+An item about a change shows it under its summary: a pull request's files, a code review finding's hunk, or a section's proposed text against the document it goes into. One heading names the changes and switches them between **Unified** and **Split**, and each change is a block with its name and its lines added and removed, folded or opened from its header. A file's patch shows in bb's own diff view. Prose shows each line beside the one it replaced, with the changed words marked, rather than a run of removed lines and then a run of added ones. A lockfile shows as the packages whose versions changed, with a downgrade flagged and each package marked by whether the `package.json` diff names it, so a stale-base downgrade stands out; its raw diff is one click away.
+
+When the change compares a section's text against the item's draft, the heading has an **Edit** tab too, which edits the draft in place of the diff, and the buttons that send the draft send it as edited.
+
+A skill can hand `publish` a diff on disk, such as one `gh pr diff` wrote, and `publish` reads it and splits it into one change per file, so the view keeps what was proposed.
+
 ## Work in rounds
 
 Some items are a piece of work rather than one decision: a section of a document that the agent drafts, the user pushes back on, and the agent revises until it is right. The agent gives each such item a **status**, such as **In progress** or **40 words over**, shown beside its badges on the row and the opened item. An item with a status is finished only when the agent publishes it as complete, so its buttons stay usable through as many rounds as it takes, and pressing Accept does not mark it done before the agent has checked that the work landed. Once any item has a status, the header counts what is complete, such as **1 of 4 complete**, instead of what is open.

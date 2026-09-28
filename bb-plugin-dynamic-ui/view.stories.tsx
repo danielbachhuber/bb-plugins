@@ -1,4 +1,5 @@
-import { grantView, groceryView, staplesView, triageView } from "./view/fixtures";
+import { codeReviewView, dependabotConflictView, grantView, groceryView, staplesView, triageView } from "./view/fixtures";
+import { ChangesBlock } from "./view/changes-block";
 import { ListPanel } from "./view/list-panel";
 import type { View } from "./view/schema";
 import { applyStatus, type StoredView } from "./view/store";
@@ -204,4 +205,46 @@ export function StatusJustRevised() {
       focusItemId="need"
     />
   );
+}
+
+const conflict: StoredView = { ...fresh, key: "dependabot", view: dependabotConflictView };
+
+/** A pull request's files: package.json's diff in bb's own diff view, and the lockfile as the packages whose versions changed, the zod downgrade package.json doesn't explain flagged. */
+export function ChangesFiles() {
+  return <Panel stored={conflict} focusItemId="pr-418" />;
+}
+
+// The lockfile's own diff, after Show the raw diff.
+function RawLockfile() {
+  const item = dependabotConflictView.sections[0]!.items[0]!;
+  return (
+    <div className="h-[900px] w-[520px] border-l border-border bg-background px-4 py-4">
+      <ChangesBlock item={item} draft={item.draft} initiallyRaw initiallyOpen={[1]} initialMode="split" />
+    </div>
+  );
+}
+
+/** The lockfile's raw diff, one click from its packages, here split side by side. */
+export function ChangesRawLockfile() {
+  return <RawLockfile />;
+}
+
+/** A code review finding: the hunk it is about, above the comment to post. */
+export function ChangesCodeReview() {
+  return <Panel stored={{ ...fresh, key: "review", view: codeReviewView }} focusItemId="finding-1" />;
+}
+
+/** A section's proposed text against the application: each line beside what it replaced, the changed words marked. */
+export function ChangesProse() {
+  return <Panel stored={grant} focusItemId="need" />;
+}
+
+/** The same change split side by side: before on the left, after on the right. */
+export function ChangesProseSplit() {
+  return <Panel stored={grant} focusItemId="need" changesMode="split" />;
+}
+
+/** Edit: the proposed text as source, in place of the diff. Accept and Revise send it as left here. */
+export function ChangesProseEdit() {
+  return <Panel stored={grant} focusItemId="need" changesMode="edit" />;
 }

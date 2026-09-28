@@ -154,6 +154,40 @@ export const historyEntrySchema = z.object({
 });
 export type HistoryEntry = z.infer<typeof historyEntrySchema>;
 
+/** How a change is drawn: prose as paired lines with the changed words marked, code as bb's diff view. */
+export const CHANGE_FORMATS = ["prose", "code"] as const;
+
+/**
+ * One changed thing on an item: a file in a pull request, or a section of a
+ * document. Given as `before` and `after` text, a unified `patch`, or a
+ * `patchFile` that `publish` reads and splits into one change per file.
+ * `before` with no `after` compares against the item's draft, and the draft
+ * is then edited in the changes block.
+ */
+export const changeSchema = z.object({
+  /** The file's path, or the section's name. A `patchFile` names each file by its path instead. */
+  label: z.string().trim().min(1).max(300).optional(),
+  format: z.enum(CHANGE_FORMATS).optional(),
+  before: z.string().max(200_000).optional(),
+  after: z.string().max(200_000).optional(),
+  patch: z.string().max(1_000_000).optional(),
+  /** A diff on disk, such as `gh pr diff 412 > /tmp/pr-412.diff`: absolute, or relative to where `publish` runs. */
+  patchFile: z.string().trim().min(1).max(1_000).optional(),
+  /** Starts folded to its header, for a file that matters less, such as a generated one. */
+  collapsed: z.boolean().default(false),
+});
+export type Change = z.infer<typeof changeSchema>;
+
+/** Whether a change is drawn as prose or code: code for a patch, prose for text, unless it says. */
+export function changeFormat(change: Change): (typeof CHANGE_FORMATS)[number] {
+  return change.format ?? (change.patch !== undefined || change.patchFile !== undefined ? "code" : "prose");
+}
+
+/** A change compared against the item's draft, which the changes block then edits. */
+export function usesDraftAsAfter(change: Change): boolean {
+  return change.before !== undefined && change.after === undefined;
+}
+
 const itemId = z
   .string()
   .trim()
@@ -171,6 +205,10 @@ export const itemSchema = z.object({
   history: z.array(historyEntrySchema).max(50).default([]),
   /** Always shown. */
   summary: markdown.default(""),
+  /** What changed, shown after the summary: files in a pull request, a section's text against the document. */
+  changes: z.array(changeSchema).max(50).default([]),
+  /** The heading over the changes: "Files changed", "Changes against the Doc". */
+  changesLabel: z.string().trim().max(80).default("Changes"),
   /** Shown behind a "Details" toggle. */
   details: markdown.default(""),
   /**
@@ -251,6 +289,28 @@ export const viewSchema = z
           }
         } else if (item.draftPlaceholder !== undefined) {
           ctx.addIssue({ code: "custom", path: [...itemPath, "draftPlaceholder"], message: 'a placeholder needs "draftFormat": "text"' });
+        }
+        item.changes.forEach((change, c) => {
+          const path = [...itemPath, "changes", c];
+          const sources = [change.patch, change.patchFile, change.before].filter((source) => source !== undefined).length;
+          if (sources !== 1) {
+            ctx.addIssue({ code: "custom", path, message: "a change needs exactly one of patch, patchFile, or before (with after, or the item's draft)" });
+          }
+          if (change.label === undefined && change.patchFile === undefined) {
+            ctx.addIssue({ code: "custom", path: [...path, "label"], message: "a change needs a label: the file's path or the section's name" });
+          }
+          if (change.after !== undefined && change.before === undefined) {
+            ctx.addIssue({ code: "custom", path: [...path, "after"], message: "after needs before" });
+          }
+          if (change.format === "prose" && (change.patch !== undefined || change.patchFile !== undefined)) {
+            ctx.addIssue({ code: "custom", path: [...path, "format"], message: 'a patch is code; use before and after for "prose"' });
+          }
+          if (usesDraftAsAfter(change) && (item.draft.trim() === "" || item.draftFormat === "text")) {
+            ctx.addIssue({ code: "custom", path: [...path, "before"], message: "before with no after compares against the item's draft, and the item has no markdown draft" });
+          }
+        });
+        if (item.changes.filter(usesDraftAsAfter).length > 1) {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "changes"], message: "only one change can compare against the draft" });
         }
         if (item.variations.length === 1) {
           ctx.addIssue({

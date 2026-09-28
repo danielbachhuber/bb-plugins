@@ -10,6 +10,7 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { expandPatchFiles } from "./view/changes.js";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
@@ -288,7 +289,10 @@ export default async function plugin(bb: BbPluginApi) {
           try {
             // The server's working directory is not the caller's.
             const path = ctx.cwd === undefined || isAbsolute(file) ? file : resolve(ctx.cwd, file);
-            const view = parseView(await readFile(path, "utf8"));
+            // A patchFile is read now, like an image, so the view keeps what was proposed.
+            const view = await expandPatchFiles(parseView(await readFile(path, "utf8")), (patchFile) =>
+              readFile(ctx.cwd === undefined || isAbsolute(patchFile) ? patchFile : resolve(ctx.cwd, patchFile), "utf8"),
+            );
             const images = await loadImages(view, ctx.cwd);
             const stored = store.publish(threadId, key, view, ctx.cwd ?? null, now());
             store.putImages(stored.id, images);
