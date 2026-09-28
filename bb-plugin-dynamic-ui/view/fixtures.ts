@@ -528,7 +528,7 @@ export const groceryView: View = viewSchema.parse({
 
 const grantActions = (section: string) => [
   { type: "message", label: "Accept", text: `Accept ${section} as below, write it into the application, and check the word count:\n\n{draft}`, primary: true },
-  { type: "message", label: "Revise", text: `Revise ${section}. My edits, and what to change, are below:\n\n{draft}` },
+  { type: "message", label: "Revise", text: `Revise ${section}. What to change: {note}\n\nThe text as I left it:\n\n{draft}` },
 ];
 
 /**
@@ -565,6 +565,7 @@ export const grantView: View = viewSchema.parse({
           draft:
             "Two volunteers maintain acme/widgets in their evenings. It is a dependency of 1,400 public projects, and its release queue is four months behind.\n\n- 212 open issues, 38 of them security reports waiting on triage\n- No maintainer is paid for the work",
           draftLabel: "Proposed text",
+          note: { placeholder: "What to change for the next round" },
           actions: grantActions("Need"),
         },
         {
@@ -577,6 +578,7 @@ export const grantView: View = viewSchema.parse({
           draft:
             "Fund one maintainer for twelve months at half time. Months one to three clear the security queue; four to nine ship the overdue 4.0 release; ten to twelve write the handover guide.",
           draftLabel: "Proposed text",
+          note: { placeholder: "What to change for the next round" },
           actions: grantActions("Approach"),
         },
         {
@@ -587,6 +589,7 @@ export const grantView: View = viewSchema.parse({
           summary: "Written into the application and under the limit.",
           draft: "Half-time funding for one acme/widgets maintainer, for a year, to clear its security backlog and ship 4.0.",
           draftLabel: "Proposed text",
+          note: { placeholder: "What to change for the next round" },
           actions: grantActions("Summary"),
         },
         {

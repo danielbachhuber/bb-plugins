@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, type Action, type HistoryEntry, type Item } from "./schema.js";
+import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 import { ChangesBlock, type ChangesMode } from "./changes-block.js";
 import { DraftEditor } from "./draft-editor.js";
@@ -17,8 +17,8 @@ export interface ViewPanelProps {
   stored: StoredView;
   /** Which item has an action in flight. */
   busyItem: string | null;
-  /** `draft` is the item's draft as the user edited it; absent when unchanged. */
-  onRun: (item: Item, index: number, draft?: string) => void;
+  /** `draft` is the item's draft as the user edited it; absent when unchanged. `note` is the push-back note, for a button that sends it. */
+  onRun: (item: Item, index: number, draft?: string, note?: string) => void;
   onDismiss: (item: Item, dismissed: boolean) => void;
   onGoToThread: (threadId: string) => void;
   /** An item whose command confirmation starts open, as `itemId:index`. */
@@ -303,7 +303,7 @@ function ItemCard({
   initialDraftMode?: "preview" | "raw";
   initialChangesMode?: ChangesMode;
   review?: { imageUrl: (index: number) => string | null | undefined; onSubmit: (feedback: Feedback) => void; initial?: Feedback };
-  onRun: (index: number, draft?: string) => void;
+  onRun: (index: number, draft?: string, note?: string) => void;
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
   onStartThread?: () => void;
@@ -313,9 +313,14 @@ function ItemCard({
   // A failed send keeps what the user typed in a one-line field.
   const [draft, setDraft] = useState(record?.result?.draft ?? item.draft);
   const draftChanged = draft.trim() !== item.draft.trim();
+  const [note, setNote] = useState("");
   const run = (index: number) => {
     const action = item.actions[index]!;
-    onRun(index, usesDraft(action) && draftChanged && draft.trim() !== "" ? draft.trim() : undefined);
+    onRun(
+      index,
+      usesDraft(action) && draftChanged && draft.trim() !== "" ? draft.trim() : undefined,
+      usesNote(action) ? note.trim() : undefined,
+    );
   };
   const state = record?.state ?? "open";
   const textDraft = item.draftFormat === "text";
@@ -485,6 +490,25 @@ function ItemCard({
         />
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
+          {/* The push-back goes first, beside the buttons that send it. */}
+          {item.note === undefined || state !== "open" ? null : (
+            <Input
+              aria-label={item.note.label}
+              placeholder={item.note.placeholder ?? item.note.label}
+              className="h-8 min-w-[12rem] flex-1 text-sm"
+              value={note}
+              disabled={busy}
+              onChange={(event) => setNote(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                const sends = item.actions.flatMap((action, index) => (usesNote(action) ? [index] : []));
+                const target = sends.find((index) => item.actions[index]!.primary) ?? sends[0];
+                if (target === undefined) return;
+                event.preventDefault();
+                run(target);
+              }}
+            />
+          )}
           {item.actions.map((_, index) => button(index))}
           {busy ? <span className="self-center text-xs text-muted-foreground">Working…</span> : null}
         </div>

@@ -58,10 +58,16 @@ function useRunAction(setStored: (view: StoredView) => void) {
   const fail = useFail();
   const [busyItem, setBusyItem] = useState<string | null>(null);
   const run = useCallback(
-    (stored: StoredView, item: Item, index: number, draft?: string) => {
+    (stored: StoredView, item: Item, index: number, draft?: string, note?: string) => {
       setBusyItem(item.id);
       rpc
-        .call("action_run", { viewId: stored.id, itemId: item.id, index, ...(draft === undefined ? {} : { draft }) })
+        .call("action_run", {
+          viewId: stored.id,
+          itemId: item.id,
+          index,
+          ...(draft === undefined ? {} : { draft }),
+          ...(note === undefined ? {} : { note }),
+        })
         .then((updated) => {
           setStored(updated);
           const result = updated.items[item.id]?.result;
@@ -173,7 +179,7 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
             }, fail)
             .finally(() => setBusyItem(null));
         }}
-        onRun={(item, index, draft) => run(stored, item, index, draft)}
+        onRun={(item, index, draft, note) => run(stored, item, index, draft, note)}
         onDismiss={(item, dismissed) => {
           setBusyItem(item.id);
           rpc

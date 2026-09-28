@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { allHandled, decisionItems, firstLine, listPreview, orderItems, progressLabel } from "./banner.js";
 import { staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
-import { dismissLabelOf, fillDraft, isQuiet, needsConfirm, parseView, shellQuote, usesDraft } from "./schema.js";
+import { dismissLabelOf, fillDraft, fillNote, isQuiet, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
 import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
@@ -635,5 +635,54 @@ describe("agent-set status", () => {
       "[open] need  Need  {In progress}  (Revise)",
       "[open] team  Team  {Not started}",
     ]);
+  });
+});
+
+describe("push-back note", () => {
+  const view = (item: object) =>
+    JSON.stringify({
+      title: "T",
+      sections: [
+        {
+          items: [
+            {
+              id: "need",
+              title: "Need",
+              draft: "Two volunteers maintain acme/widgets.",
+              actions: [
+                { type: "message", label: "Revise", text: "Revise Need. {note}\n\n{draft}" },
+                { type: "message", label: "Accept", text: "Accept Need:\n\n{draft}", primary: true },
+              ],
+              ...item,
+            },
+          ],
+        },
+      ],
+    });
+
+  it("takes a note field for buttons that use {note}, and names what is wrong otherwise", () => {
+    const item = parseView(view({ note: { placeholder: "What to change for round 3" } })).sections[0]!.items[0]!;
+    expect(item.note).toEqual({ label: "Note", placeholder: "What to change for round 3" });
+    expect(usesNote(item.actions[0]!)).toBe(true);
+    expect(usesNote(item.actions[1]!)).toBe(false);
+    expect(() => parseView(view({}))).toThrow(/uses \{note\} but the item has no note field/);
+    expect(() =>
+      parseView(view({ note: {}, actions: [{ type: "message", label: "Accept", text: "Accept Need:\n\n{draft}" }] })),
+    ).toThrow(/a note field needs a message or thread button that uses \{note\}/);
+  });
+
+  it("puts the note where the button says, or nothing when none was written", () => {
+    const item = parseView(view({ note: {} })).sections[0]!.items[0]!;
+    expect(fillNote(item.actions[0]!, "Shorter, and name the security queue.")).toMatchObject({
+      text: "Revise Need. Shorter, and name the security queue.\n\n{draft}",
+    });
+    expect(fillNote(item.actions[0]!, "")).toMatchObject({ text: "Revise Need. \n\n{draft}" });
+  });
+
+  it("reads the note back for the agent", () => {
+    const s = store();
+    const stored = s.publish("thr_one", "default", parseView(view({ note: {} })), null, "t");
+    s.setItem(stored.id, "need", { state: "done", result: { label: "Revise", at: "t", note: "Shorter" } }, "t");
+    expect(describeItems(s.get(stored.id)!)).toEqual(['[done] need  Need  (Revise, note: "Shorter")']);
   });
 });

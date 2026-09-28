@@ -11,6 +11,7 @@ const resultSchema = z.object({
   error: z.string().optional(),
   edited: z.boolean().optional(),
   draft: z.string().optional(),
+  note: z.string().optional(),
   feedback: z
     .object({ pick: z.number().int().nullable(), notes: z.array(z.string()), overall: z.string() })
     .optional(),
@@ -51,6 +52,8 @@ export const rpcContract = defineRpcContract({
       index: z.number().int().min(0).max(5),
       /** The item's draft as the user left it; goes where the button's text says `{draft}`. */
       draft: z.string().trim().min(1).max(50_000).optional(),
+      /** The push-back note as typed; goes where the button's text says `{note}`. */
+      note: z.string().trim().max(5_000).optional(),
     }),
     output: storedViewSchema,
   },

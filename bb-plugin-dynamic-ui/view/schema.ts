@@ -77,6 +77,24 @@ export function usesDraft(action: Action): boolean {
   return false;
 }
 
+/** Where a button's text takes the item's note, the user's push-back as typed. */
+export const NOTE = "{note}";
+
+/** Whether a button sends the item's note. Only a message or a new thread's prompt can. */
+export function usesNote(action: Action): boolean {
+  if (action.type === "message") return action.text.includes(NOTE);
+  if (action.type === "thread") return action.prompt.includes(NOTE);
+  return false;
+}
+
+/** The action with `{note}` replaced by what the user typed, or nothing when they typed nothing. */
+export function fillNote(action: Action, note: string): Action {
+  const fill = (template: string) => template.split(NOTE).join(note);
+  if (action.type === "message") return { ...action, text: fill(action.text) };
+  if (action.type === "thread") return { ...action, prompt: fill(action.prompt) };
+  return action;
+}
+
 /** One shell word that is exactly `text`: single-quoted, so nothing in it expands or runs. */
 export function shellQuote(text: string): string {
   return `'${text.split("'").join(`'\\''`)}'`;
@@ -225,6 +243,17 @@ export const itemSchema = z.object({
   draftPlaceholder: z.string().trim().max(120).optional(),
   actions: z.array(actionSchema).max(6).default([]),
   /**
+   * A one-line field beside the buttons for the user's push-back, such as
+   * what to change in the next round. A button puts `{note}` in its text
+   * where the note goes; an empty note sends nothing there.
+   */
+  note: z
+    .object({
+      label: z.string().trim().min(1).max(80).default("Note"),
+      placeholder: z.string().trim().max(120).optional(),
+    })
+    .optional(),
+  /**
    * Makes the item a visual review: the original first, then the
    * alternatives. The user picks one, notes on any, and sends it all back to
    * the thread as one message.
@@ -311,6 +340,19 @@ export const viewSchema = z
         });
         if (item.changes.filter(usesDraftAsAfter).length > 1) {
           ctx.addIssue({ code: "custom", path: [...itemPath, "changes"], message: "only one change can compare against the draft" });
+        }
+        item.actions.forEach((action, a) => {
+          if (usesNote(action) && item.note === undefined) {
+            ctx.addIssue({ code: "custom", path: [...itemPath, "actions", a], message: "uses {note} but the item has no note field; add note" });
+          }
+        });
+        if (item.note !== undefined) {
+          if (!item.actions.some(usesNote)) {
+            ctx.addIssue({ code: "custom", path: [...itemPath, "note"], message: "a note field needs a message or thread button that uses {note}" });
+          }
+          if (item.draftFormat === "text" || view.layout === "list") {
+            ctx.addIssue({ code: "custom", path: [...itemPath, "note"], message: 'a note field needs a card with a markdown draft or none, not a "text" draft or a "list" row' });
+          }
         }
         if (item.variations.length === 1) {
           ctx.addIssue({

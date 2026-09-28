@@ -63,6 +63,8 @@ export interface ActionResult {
   edited?: boolean;
   /** The draft as sent, when the user changed it or typed it into a one-line field. */
   draft?: string;
+  /** The push-back note the user sent with the button, when it used one. */
+  note?: string;
   /** What a visual review sent back. */
   feedback?: Feedback;
 }
@@ -243,7 +245,7 @@ export function describeItems(stored: StoredView): string[] {
           ? `  (${dismissLabel})`
           : result === null || result === undefined
           ? ""
-          : `  (${result.label}${result.edited ? (result.draft === undefined ? ", edited" : `, edited to "${result.draft}"`) : result.draft === undefined ? "" : `: "${result.draft}"`}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
+          : `  (${result.label}${result.note === undefined ? "" : `, note: "${result.note}"`}${result.edited ? (result.draft === undefined ? ", edited" : `, edited to "${result.draft}"`) : result.draft === undefined ? "" : `: "${result.draft}"`}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
               result.exitCode === undefined ? "" : `, exit ${result.exitCode}`
             }${result.error === undefined ? "" : `, failed: ${result.error}`}${
               result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`

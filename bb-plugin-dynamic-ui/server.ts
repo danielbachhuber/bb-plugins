@@ -15,7 +15,7 @@ import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
-import { fillDraft, parseView, usesDraft, type Action, type View } from "./view/schema.js";
+import { fillDraft, fillNote, parseView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
 import { MIGRATIONS, createStore, describeItems, stateAfterAction, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
@@ -115,7 +115,7 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function runAction(viewId: number, itemId: string, index: number, draft?: string): Promise<StoredView> {
+  async function runAction(viewId: number, itemId: string, index: number, draft?: string, note?: string): Promise<StoredView> {
     const stored = requireView(viewId);
     const item = findItem(stored, itemId);
     const original = item.actions[index];
@@ -124,11 +124,18 @@ export default async function plugin(bb: BbPluginApi) {
     if (draft !== undefined && !usesDraft(original)) throw new Error(`"${original.label}" does not send the draft.`);
     // A text field can start empty, and an empty answer is not one to send.
     if (usesDraft(original) && (draft ?? item.draft).trim() === "") throw new Error(`Fill in "${item.draftLabel}" before "${original.label}".`);
-    const { action, edited } = fillDraft(original, item.draft, draft);
+    if (note !== undefined && !usesNote(original)) throw new Error(`"${original.label}" does not send the note.`);
+    const filled = fillDraft(original, item.draft, draft);
+    const edited = filled.edited;
+    const action = usesNote(original) ? fillNote(filled.action, note ?? "") : filled.action;
     // What was sent is kept when the user changed it, or typed it into a
     // one-line field, so the card, the list, and the agent see it.
     const keep = edited || (item.draftFormat === "text" && usesDraft(original));
-    const sent = { ...(edited ? { edited: true } : {}), ...(keep ? { draft: draft ?? item.draft } : {}) };
+    const sent = {
+      ...(edited ? { edited: true } : {}),
+      ...(keep ? { draft: draft ?? item.draft } : {}),
+      ...(note === undefined || note === "" ? {} : { note }),
+    };
     let result: ActionResult;
     try {
       result = { label: action.label, at: now(), ...sent, ...(await perform(stored, action)) };
@@ -202,7 +209,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
-    action_run: ({ viewId, itemId, index, draft }) => runAction(viewId, itemId, index, draft),
+    action_run: ({ viewId, itemId, index, draft, note }) => runAction(viewId, itemId, index, draft, note),
     view_hide: ({ viewId, hidden }) => {
       const stored = requireView(viewId);
       const updated = store.setHidden(viewId, hidden, now())!;

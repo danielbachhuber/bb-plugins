@@ -71,7 +71,7 @@ A skill can hand `publish` a diff on disk, such as one `gh pr diff` wrote, and `
 
 Some items are a piece of work rather than one decision: a section of a document that the agent drafts, the user pushes back on, and the agent revises until it is right. The agent gives each such item a **status**, such as **In progress** or **40 words over**, shown beside its badges on the row and the opened item. An item with a status is finished only when the agent publishes it as complete, so its buttons stay usable through as many rounds as it takes, and pressing Accept does not mark it done before the agent has checked that the work landed. Once any item has a status, the header counts what is complete, such as **1 of 4 complete**, instead of what is open.
 
-The item's **history** shows under its summary: each round the agent proposed and each push-back, with the time of each. When the agent publishes the next round, the opened item starts over with the new draft, and the banner saying which button was pressed gives way to the history.
+An item can also have a one-line **note** field beside its buttons, for the push-back that goes with Revise, such as what to change in the next round; Enter sends it with the button that uses it. The item's **history** shows under its summary: each round the agent proposed and each push-back, with the time of each. When the agent publishes the next round, the opened item starts over with the new draft, and the banner saying which button was pressed gives way to the history.
 
 ## Visual review
 
