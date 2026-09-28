@@ -206,6 +206,25 @@ export function usesDraftAsAfter(change: Change): boolean {
   return change.before !== undefined && change.after === undefined;
 }
 
+/**
+ * The text an item's claims are found in: the draft, as the user left it, when
+ * a change compares against it; otherwise each change's new text, the added
+ * lines of a patch; otherwise the draft.
+ */
+export function evidenceText(item: Pick<Item, "changes">, draft: string): string {
+  if (item.changes.length === 0 || item.changes.some(usesDraftAsAfter)) return draft;
+  return item.changes
+    .map((change) =>
+      change.after ??
+      (change.patch ?? "")
+        .split("\n")
+        .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+        .map((line) => line.slice(1))
+        .join("\n"),
+    )
+    .join("\n");
+}
+
 /** How much of a budget an item uses: lines of a page, words of a limit. Red once over. */
 export const meterSchema = z.object({
   value: z.number().min(0),
@@ -244,6 +263,35 @@ export const relatedSchema = z.object({
 });
 export type Related = z.infer<typeof relatedSchema>;
 
+/** How well a claim's sources back it. */
+export const SUPPORT_LEVELS = ["full", "partial", "none"] as const;
+
+/**
+ * What backs one claim in an item's proposed text: the claim as it appears in
+ * the text, how well it is supported, the verbatim quotes that support it and
+ * where each is from, and a doubt about it, if any.
+ */
+export const evidenceSchema = z.object({
+  id: itemId,
+  /** Text quoted from the proposed text, which the claim's marks attach to. */
+  claim: z.string().trim().min(1).max(1_000),
+  support: z.enum(SUPPORT_LEVELS),
+  sources: z
+    .array(
+      z.object({
+        quote: z.string().trim().min(1).max(2_000),
+        /** Where the quote is from: a file and its heading, a page. */
+        source: z.string().trim().min(1).max(200),
+        url: z.string().trim().url().optional(),
+      }),
+    )
+    .max(10)
+    .default([]),
+  /** A doubt about the claim, shown beside it. */
+  note: z.string().trim().max(500).optional(),
+});
+export type Evidence = z.infer<typeof evidenceSchema>;
+
 export const itemSchema = z.object({
   /** Stable across republishing, so a decision on the item survives it. */
   id: itemId,
@@ -255,6 +303,8 @@ export const itemSchema = z.object({
   meter: meterSchema.optional(),
   /** Shown in its own card under the item. */
   related: relatedSchema.optional(),
+  /** What backs each claim in the proposed text, marked where the claim appears. */
+  evidence: z.array(evidenceSchema).max(50).default([]),
   /** Oldest first. Shown under the summary. */
   history: z.array(historyEntrySchema).max(50).default([]),
   /** Always shown. */
@@ -408,6 +458,26 @@ export const viewSchema = z
           if (item.draftFormat === "text" || view.layout === "list") {
             ctx.addIssue({ code: "custom", path: [...itemPath, "note"], message: 'a note field needs a card with a markdown draft or none, not a "text" draft or a "list" row' });
           }
+        }
+        const seenEvidence = new Set<string>();
+        // A patch on disk is read after parsing, so its claims are checked only once it is in the view.
+        const claimsText = item.changes.some((change) => change.patchFile !== undefined) ? undefined : evidenceText(item, item.draft);
+        item.evidence.forEach((entry, e) => {
+          const path = [...itemPath, "evidence", e];
+          if (seenEvidence.has(entry.id)) {
+            ctx.addIssue({ code: "custom", path: [...path, "id"], message: `duplicate evidence id "${entry.id}"` });
+          }
+          seenEvidence.add(entry.id);
+          if (claimsText !== undefined && !claimsText.includes(entry.claim)) {
+            ctx.addIssue({
+              code: "custom",
+              path: [...path, "claim"],
+              message: "a claim must be quoted exactly from the item's proposed text: its draft, or the new text of its changes",
+            });
+          }
+        });
+        if (item.evidence.length > 0 && view.layout === "list") {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "evidence"], message: 'evidence needs the "cards" layout' });
         }
         const seenEntries = new Set<string>();
         item.related?.entries.forEach((entry, e) => {

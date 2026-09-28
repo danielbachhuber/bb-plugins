@@ -1,4 +1,4 @@
-import { codeReviewView, dependabotConflictView, grantView, groceryView, staplesView, triageView } from "./view/fixtures";
+import { codeReviewView, dependabotConflictView, grantEvidenceView, grantView, groceryView, staplesView, triageView } from "./view/fixtures";
 import { ChangesBlock } from "./view/changes-block";
 import { ListPanel } from "./view/list-panel";
 import type { View } from "./view/schema";
@@ -265,4 +265,36 @@ export function RelatedJustAdded() {
       focusItemId="need"
     />
   );
+}
+
+const cited: StoredView = { ...fresh, key: "grant", view: grantEvidenceView, items: applyStatus(grantEvidenceView, {}) };
+
+// Taller than Panel, so the evidence card under the changes is in the picture.
+function TallPanel(props: Partial<ViewPanelProps>) {
+  return (
+    <div className="h-[1400px] w-[520px] border-l border-border bg-background">
+      <ViewPanel stored={cited} busyItem={null} onRun={noop} onDismiss={noop} onGoToThread={noop} onStartThread={noop} onRunRelated={noop} onOpenItem={noop} {...props} />
+    </div>
+  );
+}
+
+/** Each claim in the proposed text numbered and underlined by how well it is supported; the Evidence card under the changes quotes the sources for each, with any doubt beside it. */
+export function Evidence() {
+  return <TallPanel focusItemId="need" />;
+}
+
+/** "212 open issues" edited to "About 200" before Revise: that claim no longer matches the text, so its evidence moves to the bottom of the card rather than being lost. */
+export function EvidenceEdited() {
+  const draft = grantEvidenceView.sections[0]!.items[0]!.draft.replace("212 open issues", "About 200 open issues");
+  return (
+    <TallPanel
+      stored={{ ...cited, items: applyStatus(grantEvidenceView, { need: { state: "open", result: { label: "Revise", at: "2026-03-12T12:05:00Z", edited: true, draft } } }) }}
+      focusItemId="need"
+    />
+  );
+}
+
+/** The same claims marked on the right side of the split view. */
+export function EvidenceSplit() {
+  return <TallPanel focusItemId="need" changesMode="split" />;
 }

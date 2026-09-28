@@ -20,7 +20,9 @@ import {
   type PackageChange,
   type ProseRow,
 } from "./changes.js";
-import { changeFormat, usesDraftAsAfter, type Change, type Item } from "./schema.js";
+import { changeFormat, usesDraftAsAfter, type Change, type Evidence, type Item } from "./schema.js";
+import { claimSpans, type ClaimSpan } from "./evidence.js";
+import { markClaims, type Piece } from "./evidence-block.js";
 
 export type ChangesMode = "unified" | "split" | "edit";
 
@@ -63,8 +65,10 @@ function CountsLabel({ counts }: { counts: Counts }) {
 }
 
 /** One line of a prose diff, with the words that changed marked. */
-function ProseLine({ row, side }: { row: ProseRow; side?: "before" | "after" }) {
+function ProseLine({ row, side, evidence }: { row: ProseRow; side?: "before" | "after"; evidence?: Evidence[] }) {
   if (row.text.trim() === "" && row.kind === "same") return <div className="h-2" />;
+  const spans = evidence === undefined || side === "before" || row.kind === "removed" ? [] : claimSpans(row.text, evidence);
+  if (spans.length > 0) return <ClaimLine row={row} side={side} spans={spans} />;
   if (row.kind === "same") return <div className={side === "before" ? "text-muted-foreground" : undefined}>{row.text}</div>;
   if (row.kind === "added") return <div className="rounded-sm bg-success/15 text-success">{row.text}</div>;
   if (row.kind === "removed") return <div className="text-destructive line-through decoration-destructive/60">{row.text}</div>;
@@ -90,12 +94,29 @@ function ProseLine({ row, side }: { row: ProseRow; side?: "before" | "after" }) 
   );
 }
 
-function ProseBody({ rows, mode }: { rows: ProseRow[]; mode: "unified" | "split" }) {
+/** A line with claims in it: each underlined in its support's color, with its footnote's number. */
+function ClaimLine({ row, side, spans }: { row: ProseRow; side?: "before" | "after"; spans: ClaimSpan[] }) {
+  const pieces: Piece[] =
+    row.kind === "changed"
+      ? diffWords(row.from!, row.text).flatMap((piece): Piece[] =>
+          piece.kind === "same"
+            ? [{ text: piece.text, inText: true }]
+            : piece.kind === "added"
+              ? [{ text: piece.text, inText: true, className: "rounded-sm bg-success/15 text-success" }]
+              : side === "after"
+                ? []
+                : [{ text: piece.text, inText: false, className: "rounded-sm bg-destructive/10 text-destructive line-through" }],
+        )
+      : [{ text: row.text, inText: true }];
+  return <div className={row.kind === "added" ? "rounded-sm bg-success/15 text-success" : undefined}>{markClaims(pieces, spans)}</div>;
+}
+
+function ProseBody({ rows, mode, evidence }: { rows: ProseRow[]; mode: "unified" | "split"; evidence?: Evidence[] }) {
   if (mode === "unified") {
     return (
       <div className="flex flex-col gap-1 px-3 py-2 text-[13px] leading-snug text-foreground">
         {rows.map((row, i) => (
-          <ProseLine key={i} row={row} />
+          <ProseLine key={i} row={row} evidence={evidence} />
         ))}
       </div>
     );
@@ -110,7 +131,7 @@ function ProseBody({ rows, mode }: { rows: ProseRow[]; mode: "unified" | "split"
             (side === "before" && row.kind === "added") || (side === "after" && row.kind === "removed") ? (
               <div key={i} aria-hidden className="min-h-[1em]" />
             ) : (
-              <ProseLine key={i} row={row} side={side} />
+              <ProseLine key={i} row={row} side={side} evidence={evidence} />
             ),
           )}
         </div>
@@ -181,7 +202,14 @@ function LockfileBody({ change, manifest, mode, initiallyRaw }: { change: Change
   );
 }
 
-export function ChangesBlock({ item, draft, onDraftChange, initialMode = "unified", initiallyOpen, initiallyRaw = false }: ChangesBlockProps) {
+export function ChangesBlock({
+  item,
+  draft,
+  onDraftChange,
+  initialMode = "unified",
+  initiallyOpen,
+  initiallyRaw = false,
+}: ChangesBlockProps) {
   const editable = onDraftChange !== undefined && item.changes.some(usesDraftAsAfter);
   const [mode, setMode] = useState<ChangesMode>(initialMode === "edit" && !editable ? "unified" : initialMode);
   const [open, setOpen] = useState<boolean[]>(() => item.changes.map((change, i) => (initiallyOpen ? initiallyOpen.includes(i) : !change.collapsed)));
@@ -219,6 +247,8 @@ export function ChangesBlock({ item, draft, onDraftChange, initialMode = "unifie
           const manifest = lockfile ? item.changes.find((other) => other.label === manifestFor(change.label!)) : undefined;
           const packages = lockfile ? lockfilePackages(change.label!, patch!, manifest?.patch).length : 0;
           const editing = mode === "edit" && usesDraftAsAfter(change);
+          // Claims are marked in prose; bb's diff view draws code, so a patch's claims show only in the card.
+          const cited = item.evidence.length > 0 && patch === undefined;
           return (
             <div key={`${change.label}:${i}`} className="overflow-hidden rounded-md border border-border">
               <button
@@ -251,7 +281,7 @@ export function ChangesBlock({ item, draft, onDraftChange, initialMode = "unifie
                       <Diff patch={patch} path={change.label!} view={view} overflow="wrap" showLineNumbers={false} />
                     </div>
                   ) : (
-                    <ProseBody rows={rows} mode={view} />
+                    <ProseBody rows={rows} mode={view} evidence={cited ? item.evidence : undefined} />
                   )}
                 </div>
               )}

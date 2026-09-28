@@ -67,6 +67,14 @@ When the change compares a section's text against the item's draft, the heading 
 
 A skill can hand `publish` a diff on disk, such as one `gh pr diff` wrote, and `publish` reads it and splits it into one change per file, so the view keeps what was proposed.
 
+## Evidence
+
+An item's proposed text can show what backs each claim in it, such as a grant section citing its sources, a resume line pointing at the accomplishment it comes from, or a code review finding quoting the lines it is based on. Each claim is underlined in the text with a number, colored by whether it is supported, partly supported, or unsupported. An **Evidence** card under the changes lists the claims in the order of their numbers, each with the verbatim quotes that back it, where each quote is from (linked, when it has a page), and any doubt the agent has about it, beside the claim it is about. The card's heading counts the claims by how well they are supported.
+
+A claim is found by its exact text, so its mark follows the draft as it is edited in the **Edit** tab. A claim whose text is edited away moves to the bottom of the card under **No longer in the text**, with its quotes, so they are still there to check. In a file's diff, which bb's own diff view draws, the claims are not underlined, and the card lists them.
+
+Evidence is for text already in the draft. **Related** notes, below, are the ones not used yet.
+
 ## Work in rounds
 
 Some items are a piece of work rather than one decision: a section of a document that the agent drafts, the user pushes back on, and the agent revises until it is right. The agent gives each such item a **status**, such as **In progress** or **40 words over**, shown beside its badges on the row and the opened item. An item with a status is finished only when the agent publishes it as complete, so its buttons stay usable through as many rounds as it takes, and pressing Accept does not mark it done before the agent has checked that the work landed. Once any item has a status, the header counts what is complete, such as **1 of 4 complete**, instead of what is open.
@@ -125,7 +133,7 @@ this checkout.
 |---|---|
 | `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
 | `app.tsx` | The list above the composer and the side-panel tab it opens |
-| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
+| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the evidence behind its text, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/dynamic-ui/` | How an agent publishes a view |
 

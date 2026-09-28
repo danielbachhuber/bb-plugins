@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item, type Meter, type Related } from "./schema.js";
+import { dismissLabelOf, evidenceText, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item, type Meter, type Related } from "./schema.js";
 import type { ActionResult, ItemRecord, StoredView } from "./store.js";
 import { ChangesBlock, type ChangesMode } from "./changes-block.js";
 import { DraftEditor } from "./draft-editor.js";
+import { EvidenceCard } from "./evidence-block.js";
 import type { Feedback } from "./review.js";
 import { ReviewPanel } from "./review-panel.js";
 
@@ -608,6 +609,10 @@ function ItemCard({
           onDraftChange={state === "open" ? setDraft : undefined}
           initialMode={initialChangesMode}
         />
+      )}
+      {/* Under the changes it footnotes, before the details. */}
+      {item.evidence.length === 0 ? null : (
+        <EvidenceCard text={evidenceText(item, state === "open" ? draft : (record?.result?.draft ?? item.draft))} evidence={item.evidence} />
       )}
       {item.details === "" ? null : (
         <>

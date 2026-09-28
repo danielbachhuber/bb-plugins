@@ -667,3 +667,87 @@ export const codeReviewView: View = viewSchema.parse({
     },
   ],
 });
+
+const evidenceNeed = {
+  id: "need",
+  title: "Need",
+  status: { label: "In progress", tone: "warning" },
+  meter: { value: 46, max: 200, unit: "words" },
+  summary: "Lead with who maintains acme/widgets, then what is waiting on them.",
+  changesLabel: "Changes against the application",
+  changes: [
+    {
+      label: "Need",
+      before:
+        "acme/widgets is downloaded 90,000 times a week. It is a dependency of 1,400 public projects, and its release queue is behind.\n\n- 212 open issues\n- Downloads grew 40% this year",
+    },
+  ],
+  draft:
+    "Two volunteers maintain acme/widgets in their evenings. It is a dependency of 1,400 public projects, and its release queue is four months behind.\n\n- 212 open issues, 38 of them security reports waiting on triage\n- No maintainer is paid for the work",
+  draftLabel: "Proposed text",
+  note: { placeholder: "What to change for the next round" },
+  actions: grantActions("Need"),
+  related: {
+    title: "Not used yet",
+    detail: "From the release notes",
+    entries: [
+      {
+        id: "lts-backports",
+        text: "The 3.x branch still gets backports for two long-term-support platforms.",
+        detail: "release-notes.md › 3.9.2",
+        action: { type: "message", label: "Add", doneLabel: "Added", text: "Add to Need: the 3.x branch still gets backports for two long-term-support platforms." },
+      },
+    ],
+  },
+};
+
+const evidence = [
+  {
+    id: "volunteers",
+    claim: "Two volunteers maintain acme/widgets in their evenings.",
+    support: "full",
+    sources: [
+      { quote: "octocat and hubber review every pull request, both outside their day jobs.", source: "maintainers.md › Who we are" },
+      { quote: "Both maintainers log about four hours a week, all outside work.", source: "release-notes.md › 3.9.0" },
+    ],
+  },
+  {
+    id: "dependents",
+    claim: "a dependency of 1,400 public projects",
+    support: "full",
+    sources: [{ quote: "1,400 public projects depend on acme/widgets.", source: "GitHub › Dependents", url: "https://github.com/acme/widgets/network/dependents" }],
+  },
+  {
+    id: "release-queue",
+    claim: "its release queue is four months behind",
+    support: "partial",
+    note: "The notes date the wait from June, three months ago, not four.",
+    sources: [{ quote: "The 4.0 release has waited on two security reports since June.", source: "release-notes.md › 4.0 (unreleased)" }],
+  },
+  {
+    id: "open-issues",
+    claim: "212 open issues",
+    support: "full",
+    sources: [{ quote: "212 Open · 1,893 Closed", source: "GitHub › Issues", url: "https://github.com/acme/widgets/issues" }],
+  },
+  {
+    id: "security-reports",
+    claim: "38 of them security reports waiting on triage",
+    support: "none",
+    note: "No source counts the security reports. The tracker's security label shows 31 open.",
+  },
+  {
+    id: "unpaid",
+    claim: "No maintainer is paid for the work",
+    support: "full",
+    sources: [{ quote: "Neither maintainer receives a salary or sponsorship for acme/widgets.", source: "funding.md › Sponsors" }],
+  },
+];
+
+/** A grant section whose proposed text cites where each claim comes from. */
+export const grantEvidenceView: View = viewSchema.parse({
+  title: "Grant: Acme Foundation Open Tools Fund",
+  summary: "",
+  sections: [{ title: "", items: [{ ...evidenceNeed, evidence }] }],
+});
+

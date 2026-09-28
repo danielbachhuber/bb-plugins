@@ -117,6 +117,32 @@ When an item is about a change, such as a pull request's files, a code review fi
 - `before` with no `after` compares against the item's `draft`. The changes block then has an Edit tab that edits the draft, the draft's own editor is left out, and `{draft}` buttons send it as edited. Use this for a section you propose: `before` is the text now in the document, `draft` the proposed text.
 - `changesLabel` names the heading, such as "Files changed" or "Changes against the Doc"; it defaults to "Changes".
 
+## Show the evidence behind proposed text
+
+When an item proposes text whose claims come from sources, such as a grant section citing release notes, a resume line drawn from a list of accomplishments, or a review finding based on certain lines, give it `evidence`: one entry per claim, with the verbatim quotes that back it. Do not put sources or doubts about a claim in `details`.
+
+```json
+{
+  "id": "need",
+  "draft": "Two volunteers maintain acme/widgets in their evenings. Its release queue is four months behind.",
+  "changes": [{ "label": "Need", "before": "acme/widgets is downloaded 90,000 times a week." }],
+  "evidence": [
+    { "id": "volunteers", "claim": "Two volunteers maintain acme/widgets in their evenings.", "support": "full",
+      "sources": [{ "quote": "octocat and hubber review every pull request, both outside their day jobs.", "source": "maintainers.md › Who we are" }] },
+    { "id": "release-queue", "claim": "Its release queue is four months behind", "support": "partial",
+      "note": "The notes date the wait from June, three months ago, not four.",
+      "sources": [{ "quote": "The 4.0 release has waited on two security reports since June.", "source": "release-notes.md › 4.0", "url": "https://github.com/acme/widgets/releases" }] }
+  ]
+}
+```
+
+- `claim` is copied exactly from the proposed text: the draft, a change's `after`, or a patch's added lines. `publish` refuses one it cannot find. Keep it to the words the sources back, within one line, and list claims in the order they appear.
+- `support` is `full`, `partial`, or `none`. Be honest: a claim the sources only partly back is `partial`, and one with no source is `none`, with `sources` left empty.
+- Each source is a verbatim `quote`, `source` naming where it is from (the file and heading, the page), and a `url` when it has one.
+- `note` is a doubt about the claim, such as a source that disagrees or a fact that may be out of date. It shows beside the claim.
+- The claims are underlined and numbered in the text, and the Evidence card under the changes lists each with its quotes. A claim the user edits away moves to the bottom of the card with its quotes; when you publish the next round, drop or rewrite the evidence to match the new text.
+- `related` is for notes not in the text yet. Once you use a related note, move it to `evidence` on the claim it backs.
+
 ## Work in rounds
 
 When each item is a piece of work that goes back and forth, such as sections of a document you draft, the user pushes back on, and you revise, give each item a `status` and a `history`:
