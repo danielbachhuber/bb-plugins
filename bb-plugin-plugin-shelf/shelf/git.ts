@@ -67,6 +67,22 @@ export async function remoteTags(git: RunGit, root: string): Promise<string[]> {
     .map((ref) => ref.slice("refs/tags/".length));
 }
 
+/**
+ * Fetches the given tags when this clone does not have them yet. Tags are read
+ * from origin, but `git log` needs them locally, and a tag pushed from another
+ * machine is not here until something fetches it.
+ */
+export async function ensureTags(git: RunGit, root: string, tags: string[]): Promise<void> {
+  if (tags.length === 0) return;
+  const local = new Set((await git(root, ["tag", "-l"])).split("\n").map((t) => t.trim()));
+  const missing = tags.filter((tag) => !local.has(tag));
+  if (missing.length === 0) return;
+  await git(root, [
+    "fetch", "--quiet", "--no-tags", "origin",
+    ...missing.map((tag) => `refs/tags/${tag}:refs/tags/${tag}`),
+  ]);
+}
+
 export async function fetchMain(git: RunGit, root: string): Promise<void> {
   await git(root, ["fetch", "--quiet", "origin", "main"]);
 }
