@@ -92,6 +92,20 @@ one bb's own "Open in" menu calls, with project paths read from bb's
 origin, which is where a content script runs. A window that cannot reach a
 daemon, such as bb opened in a browser on another machine, shows no buttons.
 
+### My plugins in the Plugins sidebar
+
+bb's Plugins sidebar gets a My plugins row under Installed plugins, which opens
+[Plugin Shelf](../bb-plugin-plugin-shelf)'s page of the plugins in your
+checkout and their marketplace state. bb's sidebar has a fixed list of pages
+and no slot for a plugin to add one, which is why this is a hack.
+
+The row appears only while Plugin Shelf is installed and enabled, read from
+bb's `/api/v1/plugins`. It is a copy of whichever of bb's two rows is not the
+current page, so it has bb's idle styling. It never shows as active, because
+the shelf's page lives outside the Plugins section and this sidebar is not on
+screen there. A plain click navigates inside bb without a reload. A click with
+a modifier key is left to the browser.
+
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -139,6 +153,14 @@ The open-in-editor hack anchors on the sidebar project row:
 | `data-sidebar-row-controls` | The row's hover controls, which the button joins |
 | `aria-label="New thread in <project>"` | Telling the project header's controls apart from a nested environment group's, and where the button goes |
 
+The My plugins hack anchors on the Plugins sidebar's links:
+
+| Anchor | Used for |
+| --- | --- |
+| `a[href="/plugins?view=installed"]` beside `a[href="/plugins"]` | Finding bb's Plugins sidebar, and where the row goes |
+| `aria-current` | Telling the current page's row from the idle one it copies |
+| `span.truncate` inside the row | The label it replaces |
+
 The button copies its classes from the New thread button beside it, so it
 picks up bb's hover reveal and sizing without naming a class itself.
 
@@ -166,6 +188,8 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/project-open-in-editor/sidebar.ts` | Reading bb's project headers and building the button |
 | `hacks/project-open-in-editor/api.ts` | The network boundary: bb's projects and the host daemon |
 | `hacks/project-open-in-editor/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/plugins-mine-tab/sidebar.ts` | Reading bb's Plugins sidebar and building the My plugins row |
+| `hacks/plugins-mine-tab/engine.ts` | The sync loop: passes, observers, cleanup |
 | `app.tsx` | Wiring only: registers each hack's content script |
 | `server.ts` | Required backend entry, deliberately empty |
 
