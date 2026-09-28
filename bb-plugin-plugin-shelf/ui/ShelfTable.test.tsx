@@ -81,6 +81,14 @@ describe("ShelfTable", () => {
     expect(screen.getByText("not installed")).toBeTruthy();
   });
 
+  it("shows names as plain text when there is nowhere to open them", () => {
+    render(
+      <ShelfTable list={fixtureList()} providerId="claude-code" publishing={null} onPublish={vi.fn()} now={FIXTURE_NOW} />,
+    );
+    expect(screen.queryByRole("button", { name: "Gizmos" })).toBeNull();
+    expect(screen.getByText("Gizmos")).toBeTruthy();
+  });
+
   it("shows the release without its tag prefix", () => {
     renderTable();
     expect(screen.getByText("v0.1.2")).toBeTruthy();

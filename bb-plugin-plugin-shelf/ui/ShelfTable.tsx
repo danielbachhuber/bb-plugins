@@ -21,8 +21,11 @@ export interface ShelfTableProps {
   /** The plugin id whose publish thread is being started, if any. */
   publishing: string | null;
   onPublish: (pluginId: string) => void;
-  /** Called only for installed plugins. */
-  onOpenPlugin: (pluginId: string) => void;
+  /**
+   * Called only for installed plugins. Without it, names are plain text: the
+   * SDK has no route to bb's own plugin detail page yet.
+   */
+  onOpenPlugin?: (pluginId: string) => void;
   /** Rows whose commits start open. Stories use this. */
   initialExpanded?: string[];
   /** The time relative dates are measured from. Defaults to now. */
@@ -109,10 +112,10 @@ function CommitList({ row, repo, now }: { row: ShelfRow; repo: string; now: numb
   );
 }
 
-function NameCell({ row, onOpenPlugin }: { row: ShelfRow; onOpenPlugin: (id: string) => void }) {
+function NameCell({ row, onOpenPlugin }: { row: ShelfRow; onOpenPlugin?: (id: string) => void }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      {row.installed ? (
+      {row.installed && onOpenPlugin ? (
         <button
           type="button"
           className="w-fit text-left font-medium text-foreground hover:underline"
@@ -122,7 +125,10 @@ function NameCell({ row, onOpenPlugin }: { row: ShelfRow; onOpenPlugin: (id: str
         </button>
       ) : (
         <span className="font-medium text-foreground">
-          {row.name} <span className="text-xs font-normal text-muted-foreground">not installed</span>
+          {row.name}
+          {row.installed ? null : (
+            <span className="text-xs font-normal text-muted-foreground"> not installed</span>
+          )}
         </span>
       )}
       {row.flags.length > 0 ? (
