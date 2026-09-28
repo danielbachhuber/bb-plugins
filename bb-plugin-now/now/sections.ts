@@ -29,6 +29,18 @@ function dayOf(date: string): string {
 }
 
 /**
+ * The instant a date-time names, or null for a date with no time. A trailing
+ * `Z` fixes it to a timezone; without one the time is local ("floating").
+ */
+function instantOf(date: string): number | null {
+  if (!date.includes("T")) return null;
+  if (date.endsWith("Z")) return Date.parse(date);
+  const [year, month, day] = date.slice(0, 10).split("-").map(Number);
+  const [hours, minutes] = date.slice(11, 16).split(":").map(Number);
+  return new Date(year!, month! - 1, day!, hours!, minutes!).getTime();
+}
+
+/**
  * Whether a row needs a decision before it is work: an unread Gmail row
  * (email, GitHub notification, document comment, invitation), or a task in
  * Todoist's Inbox, whatever its date, since it has not been filed.
@@ -42,28 +54,39 @@ export const MAIL_OVERDUE_MS = 48 * 60 * 60 * 1000;
 
 /**
  * Whether a row is overdue: a task whose date (due or deadline, whichever is
- * sooner) is a day already past, or a Gmail row, read or unread, whose latest
- * message is more than 48 hours old.
+ * sooner) is a day already past, or is today at a time already past, or a
+ * Gmail row, read or unread, whose latest message is more than 48 hours old.
  */
 export function isOverdue(item: Item, now: Date): boolean {
   if (item.gmail !== null) {
     return item.activityAt !== null && now.getTime() - Date.parse(item.activityAt) > MAIL_OVERDUE_MS;
   }
   const date = sortDate(item);
-  return date !== null && dayOf(date) < localDay(now);
+  if (date === null) return false;
+  const instant = instantOf(date);
+  return dayOf(date) < localDay(now) || (instant !== null && instant < now.getTime());
 }
 
 /**
  * How far past due an overdue row is, in place of its date: "1 day late" or
- * "8 days late" for a task, by the day it sorts by, and "3 days old" for
- * mail, by whole days since its latest message.
+ * "8 days late" for a task, by the day it sorts by, or "3 hours late" or
+ * "20 minutes late" for one whose time passed earlier today, and "3 days old"
+ * for mail, by whole days since its latest message.
  */
 export function overdueText(item: Item, now: Date): string {
   if (item.gmail !== null) {
     const days = Math.floor((now.getTime() - Date.parse(item.activityAt!)) / (24 * 60 * 60 * 1000));
     return `${days} ${days === 1 ? "day" : "days"} old`;
   }
-  const days = daysBetween(dayOf(sortDate(item)!), localDay(now));
+  const date = sortDate(item)!;
+  const days = daysBetween(dayOf(date), localDay(now));
+  if (days === 0) {
+    // At least a minute, so a task due moments ago does not read "0 minutes late".
+    const minutes = Math.max(1, Math.floor((now.getTime() - instantOf(date)!) / (60 * 1000)));
+    if (minutes < 60) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} late`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} ${hours === 1 ? "hour" : "hours"} late`;
+  }
   return `${days} ${days === 1 ? "day" : "days"} late`;
 }
 
@@ -87,10 +110,10 @@ export function sectionOf(item: Item): SectionId {
  * header can count it. Now leads with what needs a decision: unread mail
  * newest first, as Gmail has it, then Todoist's Inbox tasks, dated ones
  * soonest first and then undated ones newest added first. After those come
- * overdue rows (past-dated tasks and read mail more than 48 hours old, oldest
- * day first), today's tasks, the rest of the read mail newest first, and the
- * tasks dated later. Its other tasks and Anytime keep the list's order (soonest
- * first, then priority).
+ * overdue rows (tasks whose day or time has passed and read mail more than 48
+ * hours old, oldest day first), the rest of today's tasks, the rest of the
+ * read mail newest first, and the tasks dated later. Its other tasks and
+ * Anytime keep the list's order (soonest first, then priority).
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
   const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
@@ -108,7 +131,7 @@ export function groupIntoSections(items: readonly Item[], now: Date): Section[] 
   const tasks = rest.filter((item) => item.gmail === null);
   const dayOfTask = (item: Item) => dayOf(sortDate(item)!);
   // Overdue tasks and stale mail share one run, oldest day first; within a day the tasks keep the list's order.
-  const overdue = [...tasks.filter((item) => dayOfTask(item) < today), ...readMail.filter((item) => isOverdue(item, now))]
+  const overdue = [...tasks.filter((item) => isOverdue(item, now)), ...readMail.filter((item) => isOverdue(item, now))]
     .map((item) => ({ item, day: item.gmail === null ? dayOfTask(item) : dayOf(item.activityAt!) }))
     .sort((a, b) => a.day.localeCompare(b.day))
     .map(({ item }) => item);
@@ -117,7 +140,7 @@ export function groupIntoSections(items: readonly Item[], now: Date): Section[] 
     ...inboxTasks.filter((item) => sortDate(item) !== null),
     ...undated,
     ...overdue,
-    ...tasks.filter((item) => dayOfTask(item) === today),
+    ...tasks.filter((item) => dayOfTask(item) === today && !isOverdue(item, now)),
     ...readMail.filter((item) => !isOverdue(item, now)),
     ...tasks.filter((item) => dayOfTask(item) > today),
   ]);

@@ -24,8 +24,9 @@ sections, each under its heading. Each row goes in one section:
   (email, GitHub notifications, document comments, invitations), newest
   first, then the Todoist Inbox tasks, those with a date soonest first and
   then the undated ones newest added first. After them come the overdue rows,
-  oldest day first: tasks dated before today, and read mail whose latest
-  message is more than 48 hours old. Then tasks due today, the rest of the
+  oldest day first: tasks dated before today or due earlier today at a time
+  that has passed, and read mail whose latest message is more than 48 hours
+  old. Then the rest of the tasks due today, the rest of the
   read mail newest first (a thread you have read and left in the inbox is one
   you kept there to act on), and tasks dated later.
 - **Anytime**: every other task, which has no date.
@@ -41,9 +42,11 @@ task's description is rendered as Markdown, so its lists, links, and bold text
 look as they do in Todoist, and its open subtasks are listed under it as
 bullets. A task's
 P1–P3 tag sits under its Todoist icon. An overdue row (a task dated before
-today, or mail, read or unread, whose latest message is more than 48 hours old)
-is tinted red with a red bar down its left edge, and says how late it is in
-place of its date: "3 days late" for a task, "4 days old" for mail. Unread mail
+today or due today at a time that has passed, or mail, read or unread, whose
+latest message is more than 48 hours old) is tinted red with a red bar down its
+left edge, and says how late it is in place of its date: "3 days late" for a
+task, "2 hours late" or "20 minutes late" for one due earlier today, "4 days
+old" for mail. Unread mail
 that old keeps its place at the top. A deadline that is today is red too;
 nothing else is colored for its date. A recurring item
 has a repeat icon.

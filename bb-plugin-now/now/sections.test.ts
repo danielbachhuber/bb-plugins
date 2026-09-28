@@ -29,6 +29,14 @@ describe("isOverdue", () => {
     expect(isOverdue(item("a"), now)).toBe(false);
   });
 
+  test("counts a task due today once its time has passed", () => {
+    expect(isOverdue(item("a", due("2026-09-24T08:00:00")), now)).toBe(true);
+    expect(isOverdue(item("a", due("2026-09-24T09:30:00")), now)).toBe(false);
+    expect(isOverdue(item("a", due("2026-09-24T14:00:00")), now)).toBe(false);
+    expect(isOverdue(item("a", due(new Date(now.getTime() - 60 * 1000).toISOString())), now)).toBe(true);
+    expect(isOverdue(item("a", due(new Date(now.getTime() + 60 * 1000).toISOString())), now)).toBe(false);
+  });
+
   test("counts mail, read or unread, once its latest message is more than 48 hours old", () => {
     expect(isOverdue(mail("a", 47), now)).toBe(false);
     expect(isOverdue(mail("a", 48), now)).toBe(false);
@@ -43,6 +51,11 @@ describe("overdueText", () => {
     expect(overdueText(item("a", due("2026-09-16")), now)).toBe("8 days late");
     expect(overdueText(item("a", { ...due("2026-09-23T14:00:00"), deadline: "2026-09-20" }), now)).toBe("4 days late");
     expect(overdueText(mail("a", 49), now)).toBe("2 days old");
+    expect(overdueText(item("a", due("2026-09-24T09:10:00")), now)).toBe("20 minutes late");
+    expect(overdueText(item("a", due("2026-09-24T09:29:00")), now)).toBe("1 minute late");
+    expect(overdueText(item("a", due(new Date(now.getTime() - 10 * 1000).toISOString())), now)).toBe("1 minute late");
+    expect(overdueText(item("a", due("2026-09-24T08:30:00")), now)).toBe("1 hour late");
+    expect(overdueText(item("a", due("2026-09-24T06:00:00")), now)).toBe("3 hours late");
     expect(overdueText(mail("a", 100), now)).toBe("4 days old");
   });
 });
@@ -71,6 +84,7 @@ describe("groupIntoSections", () => {
     const sections = groupIntoSections(
       [
         item("today", due("2026-09-24T14:00:00")),
+        item("this-morning", due("2026-09-24T08:00:00")),
         item("late", due("2026-09-21")),
         item("filed", { inbox: true }),
         mail("recent-mail", 5),
@@ -87,8 +101,8 @@ describe("groupIntoSections", () => {
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
       [
         "Now",
-        // Stale read mail joins the overdue tasks, oldest day first; stale unread mail stays on top.
-        ["new-mail", "unread-old", "filed", "stalest-mail", "late", "stale-mail", "today", "recent-mail", "recent-older", "later"],
+        // Stale read mail and a task whose time has passed join the overdue tasks, oldest day first; stale unread mail stays on top.
+        ["new-mail", "unread-old", "filed", "stalest-mail", "late", "stale-mail", "this-morning", "today", "recent-mail", "recent-older", "later"],
       ],
       ["Anytime", ["someday"]],
     ]);
