@@ -3,7 +3,7 @@
 A **My plugins** page that lists every plugin in the bb-plugins checkout it was
 installed from, grouped by where each one stands in the bb-community
 marketplace. It opens from a My plugins row under Installed plugins in bb's
-Plugins screen, and from bb's main sidebar:
+Plugins screen:
 
 - **Needs a release**: published, with code commits since the latest release
   tag. The row expands to those commits, and a Publish update button starts a
@@ -112,10 +112,9 @@ the DOM work around it:
 | `aria-current` and `bg-sidebar-accent` | Reading and setting which row is the current page |
 | `#extensions-main-panel` | The screen's main panel, where the page is drawn |
 
-If bb changes those, the row or the in-screen page stops appearing, and the
-standalone page at `/plugins/plugin-shelf/mine` keeps working.
-`experimental_appOverlay` is an experimental slot, so a bb upgrade can change
-it too.
+If bb changes those, the row or the page stops appearing, and bb's own
+Plugins screen is left as it was. `experimental_appOverlay` is an experimental
+slot, so a bb upgrade can change it too.
 
 ## Layout
 
@@ -130,12 +129,12 @@ it too.
 | `screen/engine.ts` | The sync loop for the Plugins screen: the row, the panel, cleanup |
 | `skills/publish-plugin-update/` | The skill Publish update runs |
 | `ui/ShelfTable.tsx` | The grouped tables, display only |
-| `ui/ShelfPage.tsx` | The page and its Refresh button, loading over RPC |
+| `ui/ShelfPage.tsx` | The page, its title, and its Refresh button, loading over RPC |
 | `ui/PluginsScreenOverlay.tsx` | The app overlay that portals the page into bb's Plugins screen |
 | `ui/shelf-store.ts` | One load shared by the page and the Refresh button |
 | `ui/fixtures.ts` | Invented rows for the stories and tests |
 | `server.ts` | Gathers the inputs, caches the result, and starts publish threads |
-| `app.tsx` | Registers the My plugins page and the Plugins screen overlay |
+| `app.tsx` | Registers the Plugins screen overlay |
 
 ## Development
 

@@ -32,5 +32,5 @@ export function PluginsScreenOverlay() {
     return () => controller.abort();
   }, []);
 
-  return container === null ? null : createPortal(<ShelfPage embedded />, container);
+  return container === null ? null : createPortal(<ShelfPage />, container);
 }
