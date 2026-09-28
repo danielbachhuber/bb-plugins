@@ -560,7 +560,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
               onSubmit: (feedback) => onSubmitReview?.(focused, feedback),
               initial: reviewInitial,
             }}
-            onRun={(index, draft) => onRun(focused, index, draft)}
+            onRun={(index, draft, note) => onRun(focused, index, draft, note)}
             onDismiss={(dismissed) => onDismiss(focused, dismissed)}
             onGo={onGoToThread}
             onStartThread={onStartThread === undefined ? undefined : () => onStartThread(focused)}
