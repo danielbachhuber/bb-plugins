@@ -19,7 +19,12 @@ function useShelf() {
   return { rpc, state, load };
 }
 
-export function ShelfPage() {
+/**
+ * `embedded` is the page drawn inside bb's Plugins screen, which has no title
+ * bar of its own for the Refresh button, so the page carries its title and
+ * Refresh itself.
+ */
+export function ShelfPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { rpc, state, load } = useShelf();
   const navigate = useBbNavigate();
   const [providerId, setProviderId] = useState("claude-code");
@@ -65,6 +70,12 @@ export function ShelfPage() {
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
+        {embedded ? (
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-base font-medium text-foreground">My plugins</h2>
+            <ShelfRefresh />
+          </div>
+        ) : null}
         {body}
       </div>
     </div>

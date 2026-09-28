@@ -8,13 +8,11 @@
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import * as gitDiffExpandUnviewed from "./hacks/git-diff-expand-unviewed";
 import * as gitDiffViewPreferences from "./hacks/git-diff-view-preferences";
-import * as pluginsMineTab from "./hacks/plugins-mine-tab";
 import * as projectOpenInEditor from "./hacks/project-open-in-editor";
 
 const HACKS = [
   gitDiffExpandUnviewed,
   gitDiffViewPreferences,
-  pluginsMineTab,
   projectOpenInEditor,
 ];
 

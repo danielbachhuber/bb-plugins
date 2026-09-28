@@ -2,7 +2,8 @@
 
 A **My plugins** page that lists every plugin in the bb-plugins checkout it was
 installed from, grouped by where each one stands in the bb-community
-marketplace:
+marketplace. It opens from a My plugins row under Installed plugins in bb's
+Plugins screen, and from bb's main sidebar:
 
 - **Needs a release**: published, with code commits since the latest release
   tag. The row expands to those commits, and a Publish update button starts a
@@ -20,9 +21,6 @@ Small tags under the name point out:
 - a newer tag outside the entry's range
 - a published entry with no release in its range
 - an id that another source holds in the marketplace
-
-With [Hacks](../bb-plugin-hacks) installed, bb's Plugins sidebar also gets a
-My plugins row under Installed plugins that opens this page.
 
 This plugin is built for one person's plugin repository. It is public because
 the repository is, not because it is meant to be broadly useful.
@@ -90,6 +88,35 @@ was taken, rather than an empty page.
 The Publish button is refused on the server for a plugin that is not
 published, whatever the page drew.
 
+### Inside bb's Plugins screen
+
+bb's Plugins screen has a fixed list of pages and no slot for a plugin to add
+one. So an app overlay, which bb mounts once per window inside its own React
+tree, draws the page there with a React portal, and `screen/engine.ts` does
+the DOM work around it:
+
+- It adds a My plugins row under Installed plugins, copied from whichever of
+  bb's rows is not the current page so it has bb's idle styling. A plain click
+  goes to `/plugins?view=mine` inside bb, without a reload.
+- On `/plugins?view=mine`, bb falls back to drawing Browse, so the engine hides
+  bb's content in the screen's main panel with a stylesheet rule and gives the
+  overlay a container there for the page. Because it is a rule, content bb
+  draws later is hidden too.
+- It marks My plugins as the current row and takes the highlight off Browse,
+  then gives it back on leaving, because bb never re-renders a row whose state
+  it thinks has not changed.
+
+| Anchor | Used for |
+| --- | --- |
+| `a[href="/plugins?view=installed"]` beside `a[href="/plugins"]` | Finding bb's Plugins sidebar, and where the row goes |
+| `aria-current` and `bg-sidebar-accent` | Reading and setting which row is the current page |
+| `#extensions-main-panel` | The screen's main panel, where the page is drawn |
+
+If bb changes those, the row or the in-screen page stops appearing, and the
+standalone page at `/plugins/plugin-shelf/mine` keeps working.
+`experimental_appOverlay` is an experimental slot, so a bb upgrade can change
+it too.
+
 ## Layout
 
 | Path | Holds |
@@ -99,13 +126,16 @@ published, whatever the page drew.
 | `shelf/git.ts` | The git and filesystem boundary: checkout, index, pushed tags, commits |
 | `shelf/contract.ts` | The RPC contract, which `ui/ShelfPage.tsx` imports as a type |
 | `shelf/test-repo.ts` | A throwaway checkout with a bare origin, for the git and server tests |
+| `screen/dom.ts` | Reading and marking up bb's Plugins screen: its sidebar and main panel |
+| `screen/engine.ts` | The sync loop for the Plugins screen: the row, the panel, cleanup |
 | `skills/publish-plugin-update/` | The skill Publish update runs |
 | `ui/ShelfTable.tsx` | The grouped tables, display only |
 | `ui/ShelfPage.tsx` | The page and its Refresh button, loading over RPC |
+| `ui/PluginsScreenOverlay.tsx` | The app overlay that portals the page into bb's Plugins screen |
 | `ui/shelf-store.ts` | One load shared by the page and the Refresh button |
 | `ui/fixtures.ts` | Invented rows for the stories and tests |
 | `server.ts` | Gathers the inputs, caches the result, and starts publish threads |
-| `app.tsx` | Registers the My plugins page |
+| `app.tsx` | Registers the My plugins page and the Plugins screen overlay |
 
 ## Development
 
