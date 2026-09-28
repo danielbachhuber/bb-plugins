@@ -1,8 +1,8 @@
-import { codeReviewView, dependabotConflictView, grantEvidenceView, grantView, groceryView, staplesView, triageView } from "./view/fixtures";
+import { codeReviewView, dependabotConflictView, grantEvidenceView, grantSectionThreads, grantSectionThreadsView, grantView, groceryView, staplesView, triageView } from "./view/fixtures";
 import { ChangesBlock } from "./view/changes-block";
 import { ListPanel } from "./view/list-panel";
 import type { View } from "./view/schema";
-import { applyStatus, type StoredView } from "./view/store";
+import { applyStatus, viewFor, type StoredView } from "./view/store";
 import { ViewPanel, type ViewPanelProps } from "./view/view-panel";
 
 export default {
@@ -203,6 +203,38 @@ export function StatusJustRevised() {
     <Panel
       stored={{ ...grant, items: applyStatus(grantView, { need: { state: "open", result: { label: "Revise", at: "2026-03-12T09:53:00Z", edited: true } } }) }}
       focusItemId="need"
+    />
+  );
+}
+
+const sectionThreads: StoredView = { ...grant, threadId: "thr_grant01", view: grantSectionThreadsView, items: applyStatus(grantSectionThreadsView, {}) };
+
+/** A section drafted in a thread of its own, opened in the thread that published the view: Open, named for the section's thread, takes the place of Start thread. */
+export function SectionThreadCoordinator() {
+  return <Panel stored={sectionThreads} focusItemId="need" threads={grantSectionThreads} currentThreadId="thr_grant01" />;
+}
+
+/** The same section in its own thread: only its card, from the same view, without the page map. Revise stays here; Accept goes back to the thread that writes the application. */
+export function SectionThreadOwnCopy() {
+  return <Panel stored={viewFor(sectionThreads, "thr_need01")} focusItemId="need" threads={grantSectionThreads} currentThreadId="thr_need01" />;
+}
+
+/** The section's thread archived: its Open button says so, and Revise failing says what to do. */
+export function SectionThreadArchived() {
+  return (
+    <Panel
+      stored={{
+        ...sectionThreads,
+        items: applyStatus(grantSectionThreadsView, {
+          need: {
+            state: "open",
+            result: { label: "Revise", at: "2026-03-12T09:53:00Z", note: "Shorter", sentTo: "thr_need01", error: "Grant: Need (thr_need01) is archived. Unarchive it and try again." },
+          },
+        }),
+      }}
+      focusItemId="need"
+      threads={{ ...grantSectionThreads, thr_need01: { title: "Grant: Need", archived: true } }}
+      currentThreadId="thr_grant01"
     />
   );
 }

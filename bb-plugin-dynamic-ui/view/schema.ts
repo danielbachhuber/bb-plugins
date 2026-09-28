@@ -37,8 +37,10 @@ export const actionSchema = z.discriminatedUnion("type", [
   z.object({
     ...actionBase,
     type: z.literal("message"),
-    /** Sent to the thread that published the view, as if the user typed it. */
+    /** Sent to the thread that published the view, or to `threadId`, as if the user typed it. */
     text: z.string().trim().min(1).max(20_000),
+    /** Another bb thread to send to instead, such as the thread drafting this item with the user. */
+    threadId: z.string().trim().min(1).max(100).optional(),
   }),
   z.object({
     ...actionBase,
@@ -65,6 +67,37 @@ export const actionSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type Action = z.infer<typeof actionSchema>;
+
+/** Every other thread a view names, for an item to show in or a button to send to, with where, so `publish` can check they exist. */
+export function messageTargets(view: View): Array<{ threadId: string; where: string }> {
+  const targets: Array<{ threadId: string; where: string }> = [];
+  for (const item of view.sections.flatMap((section) => section.items)) {
+    if (item.thread !== undefined) targets.push({ threadId: item.thread, where: `${item.id}, thread` });
+    for (const action of item.actions) {
+      if (action.type === "message" && action.threadId !== undefined) targets.push({ threadId: action.threadId, where: `${item.id}, "${action.label}"` });
+    }
+    for (const entry of item.related?.entries ?? []) {
+      const action = entry.action;
+      if (action?.type === "message" && action.threadId !== undefined) {
+        targets.push({ threadId: action.threadId, where: `${item.id}, related ${entry.id}, "${action.label}"` });
+      }
+    }
+  }
+  return targets;
+}
+
+/**
+ * The thread an item is worked in, when that is not the thread looking at it.
+ * Opening such an item goes to its thread rather than the side panel.
+ */
+export function threadElsewhere(item: Item, threadId: string | undefined): string | null {
+  return item.thread !== undefined && item.thread !== threadId ? item.thread : null;
+}
+
+/** The other threads a view's items show in. */
+export function itemThreads(view: View): string[] {
+  return [...new Set(view.sections.flatMap((section) => section.items.flatMap((item) => (item.thread === undefined ? [] : [item.thread]))))];
+}
 
 /** Where a button's text takes the item's draft, as the user left it. */
 export const DRAFT = "{draft}";
@@ -303,6 +336,12 @@ export const itemSchema = z.object({
   meter: meterSchema.optional(),
   /** Shown in its own card under the item. */
   related: relatedSchema.optional(),
+  /**
+   * Another bb thread that shows this item too, above its composer, such as
+   * the thread drafting it with the user. It is the same item, so what is
+   * done in either thread shows in both.
+   */
+  thread: z.string().trim().min(1).max(100).optional(),
   /** What backs each claim in the proposed text, marked where the claim appears. */
   evidence: z.array(evidenceSchema).max(50).default([]),
   /** Oldest first. Shown under the summary. */
@@ -478,6 +517,9 @@ export const viewSchema = z
         });
         if (item.evidence.length > 0 && view.layout === "list") {
           ctx.addIssue({ code: "custom", path: [...itemPath, "evidence"], message: 'evidence needs the "cards" layout' });
+        }
+        if (item.thread !== undefined && view.layout === "list") {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "thread"], message: 'showing an item in another thread needs the "cards" layout' });
         }
         const seenEntries = new Set<string>();
         item.related?.entries.forEach((entry, e) => {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, evidenceText, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item, type Meter, type Related } from "./schema.js";
+import { dismissLabelOf, evidenceText, isQuiet, threadElsewhere, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item, type Meter, type Related } from "./schema.js";
 import type { ActionResult, ItemRecord, StoredView } from "./store.js";
 import { ChangesBlock, type ChangesMode } from "./changes-block.js";
 import { DraftEditor } from "./draft-editor.js";
@@ -41,6 +41,72 @@ export interface ViewPanelProps {
   onRunRelated?: (item: Item, entryId: string) => void;
   /** Opens an item from the map. */
   onOpenItem?: (item: Item) => void;
+  /** The other threads the view's buttons send to, by id; absent while they load. */
+  threads?: Record<string, LinkedThread>;
+  /** The thread showing the panel. Buttons that send to it need no line saying so. */
+  currentThreadId?: string;
+}
+
+/** Another thread an item's buttons send to, as the panel names it. */
+export interface LinkedThread {
+  title: string;
+  archived: boolean;
+}
+
+/** Each other thread the item's buttons send to, with the labels of the buttons that go there. */
+export function linkedThreads(item: Item, currentThreadId?: string): Array<{ threadId: string; labels: string[] }> {
+  const byThread = new Map<string, string[]>();
+  for (const action of item.actions) {
+    if (action.type !== "message" || action.threadId === undefined || action.threadId === currentThreadId) continue;
+    // The item's own thread has its Open button.
+    if (action.threadId === item.thread) continue;
+    byThread.set(action.threadId, [...(byThread.get(action.threadId) ?? []), action.label]);
+  }
+  return [...byThread].map(([threadId, labels]) => ({ threadId, labels }));
+}
+
+/** "Revise", "Revise and Rewrite", "Revise, Rewrite, and Retry". */
+function joinLabels(labels: string[]): string {
+  if (labels.length <= 2) return labels.join(" and ");
+  return `${labels.slice(0, -1).join(", ")}, and ${labels.at(-1)}`;
+}
+
+/** Says which buttons go to another thread, with a link to open it. */
+function LinkedThreadsLine({
+  item,
+  threads,
+  currentThreadId,
+  onGo,
+  className,
+}: {
+  item: Item;
+  threads: Record<string, LinkedThread> | undefined;
+  currentThreadId?: string;
+  onGo: (threadId: string) => void;
+  className?: string;
+}) {
+  const links = linkedThreads(item, currentThreadId);
+  if (links.length === 0) return null;
+  return (
+    <div className={cn("flex flex-col gap-0.5 text-xs text-muted-foreground", className)}>
+      {links.map(({ threadId, labels }) => {
+        const thread = threads?.[threadId];
+        return (
+          <div key={threadId} className="flex min-w-0 items-center gap-1">
+            <Icon name="CornerDownRight" aria-hidden className="size-3.5 shrink-0" />
+            <span className="shrink-0">
+              {joinLabels(labels)}
+              {labels.length === 1 ? " goes" : " go"} to
+            </span>
+            <button type="button" className="min-w-0 truncate font-medium text-foreground hover:underline" onClick={() => onGo(threadId)}>
+              {thread?.title ?? threadId}
+            </button>
+            {thread?.archived ? <span className="shrink-0 text-warning">(archived)</span> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -55,23 +121,28 @@ export const TONE_CLASS: Record<string, string> = {
  * The open item to show after `itemId` is handled: the next open one below it,
  * or else the first open one above it, or null once none is open.
  */
-export function nextOpenItem(stored: StoredView, itemId: string): Item | null {
+export function nextOpenItem(stored: StoredView, itemId: string, threadId?: string): Item | null {
   const items = stored.view.sections.flatMap((section) => section.items);
   const at = items.findIndex((item) => item.id === itemId);
   const isOpen = (item: Item) =>
-    item.id !== itemId && !isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open";
+    item.id !== itemId && showsInPanel(stored, item, threadId) && (stored.items[item.id]?.state ?? "open") === "open";
   return items.slice(at + 1).find(isOpen) ?? items.slice(0, Math.max(at, 0)).find(isOpen) ?? null;
+}
+
+/** Whether an item opens in this thread's side panel: not a list view's plain row, and not one worked in a thread of its own elsewhere. */
+function showsInPanel(stored: StoredView, item: Item, threadId: string | undefined): boolean {
+  return !isQuiet(stored.view, item) && threadElsewhere(item, threadId) === null;
 }
 
 /**
  * The item shown when none is picked: the first one still open, or null once
- * all are handled. A list view's plain row has nothing to decide, so it is
- * never shown.
+ * all are handled. A list view's plain row has nothing to decide, and an item
+ * worked in its own thread opens there, so neither is shown.
  */
-export function firstOpenItem(stored: StoredView): Item | null {
+export function firstOpenItem(stored: StoredView, threadId?: string): Item | null {
   for (const section of stored.view.sections) {
     for (const item of section.items) {
-      if (!isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open") return item;
+      if (showsInPanel(stored, item, threadId) && (stored.items[item.id]?.state ?? "open") === "open") return item;
     }
   }
   return null;
@@ -476,6 +547,8 @@ function ItemCard({
   onDismiss,
   onGo,
   onStartThread,
+  threads,
+  currentThreadId,
 }: {
   item: Item;
   record: ItemRecord | undefined;
@@ -493,6 +566,8 @@ function ItemCard({
   onDismiss: (dismissed: boolean) => void;
   onGo: (id: string) => void;
   onStartThread?: () => void;
+  threads?: Record<string, LinkedThread>;
+  currentThreadId?: string;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
@@ -509,6 +584,7 @@ function ItemCard({
     );
   };
   const state = record?.state ?? "open";
+  const elsewhere = threadElsewhere(item, currentThreadId);
   const textDraft = item.draftFormat === "text";
   const blank = textDraft && draft.trim() === "";
   const pending = confirming === null ? null : item.actions[confirming];
@@ -572,7 +648,14 @@ function ItemCard({
         </div>
         <div className="flex shrink-0 gap-1.5">
           {/* Beside Dismiss, not among the item's decisions, so it stays usable after one is made. */}
-          {onStartThread === undefined ? null : (
+          {/* An item worked in its own thread opens that one; starting another would make a duplicate. */}
+          {elsewhere !== null ? (
+            <Button size="sm" variant="outline" className="max-w-[16rem]" onClick={() => onGo(elsewhere)}>
+              <Icon name="SideChat" aria-hidden />
+              <span className="truncate">Open {threads?.[elsewhere]?.title ?? "thread"}</span>
+              {threads?.[elsewhere]?.archived ? <span className="shrink-0 text-warning">(archived)</span> : null}
+            </Button>
+          ) : onStartThread === undefined ? null : (
             <Button size="sm" variant="outline" onClick={onStartThread}>
               <Icon name="MessageSquarePlus" aria-hidden />
               Start thread
@@ -650,6 +733,11 @@ function ItemCard({
         />
       )}
 
+      {/* Beside the note and buttons it is about. */}
+      {state === "dismissed" ? null : (
+        <LinkedThreadsLine item={item} threads={threads} currentThreadId={currentThreadId} onGo={onGo} className="mt-3 -mb-1" />
+      )}
+
       {pending !== undefined && pending !== null && pending.type === "command" ? (
         <div className="mt-3 rounded-md border border-border px-3 py-2">
           <div className="text-xs text-muted-foreground">Run this command{pending.cwd ? ` in ${pending.cwd}` : ""}?</div>
@@ -724,13 +812,15 @@ export function ViewPanel({
   onStartThread,
   onRunRelated,
   onOpenItem,
+  threads,
+  currentThreadId,
 }: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
   // The list lives above the composer; the panel shows one entry from it,
   // starting on the first open one.
-  const focused = picked ?? firstOpenItem(stored) ?? undefined;
+  const focused = picked ?? firstOpenItem(stored, currentThreadId) ?? undefined;
 
   if (focused === undefined) {
     return (
@@ -738,7 +828,11 @@ export function ViewPanel({
         {view.map === undefined ? null : <MapView stored={stored} focusedId={null} onOpenItem={onOpenItem} />}
         <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
           <div className="text-sm font-medium text-foreground">{view.title}</div>
-          <div className="mt-1 text-sm text-muted-foreground">Click on an entry to see its full details.</div>
+          <div className="mt-1 text-sm text-muted-foreground">
+            {view.sections.every((section) => section.items.every((item) => threadElsewhere(item, currentThreadId) !== null))
+              ? "Each entry is worked in its own thread. Click one to open it."
+              : "Click on an entry to see its full details."}
+          </div>
         </div>
       </div>
     );
@@ -775,6 +869,8 @@ export function ViewPanel({
             onDismiss={(dismissed) => onDismiss(focused, dismissed)}
             onGo={onGoToThread}
             onStartThread={onStartThread === undefined ? undefined : () => onStartThread(focused)}
+            threads={threads}
+            currentThreadId={currentThreadId}
           />
         </ol>
         {focused.related === undefined || focused.related.entries.length === 0 ? null : (

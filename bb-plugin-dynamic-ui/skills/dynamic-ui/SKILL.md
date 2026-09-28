@@ -88,7 +88,7 @@ After publishing, say in chat how many items there are and that they are above t
 
 | Action | What the button does |
 |---|---|
-| `message` | Sends `text` to this thread as if the user typed it. Use it when the work needs your judgment or context: posting a drafted comment, revising something. Write `text` so it names the item, because you will read it later with no other context. |
+| `message` | Sends `text` to this thread as if the user typed it, or to the thread named by `threadId` (see "An item in its own thread"). Use it when the work needs your judgment or context: posting a drafted comment, revising something. Write `text` so it names the item, because you will read it later with no other context. |
 | `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone. |
 | `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. `"confirm": false` runs it as soon as the button is clicked; use that only for a small step the user already expects, such as adding a to-do. Use a command for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
@@ -172,6 +172,30 @@ When each item is a piece of work that goes back and forth, such as sections of 
 - `history` is the back and forth, oldest first, shown under the summary. Add an entry for each round you propose and each push-back the user gives (`"who": "user"`). `at` is an ISO time, shown as a time of day, or a short label shown as written.
 - For the user's push-back, give the item `"note": { "placeholder": "What to change for the next round" }` and put `{note}` in the Revise button's `text`. A one-line field shows beside the buttons; Enter presses the button that sends it. An empty note sends nothing where `{note}` is, and `state` reads a sent note back.
 - Each round, publish the item again under the same `id` with the new `draft`: the card starts over with it. The banner saying which button the user pressed stays only until you publish again.
+
+### An item in its own thread
+
+When you start a thread for each item to work on with the user, such as one per section of a document, give the item `"thread"` with that thread's id, and give the buttons that belong there, such as Revise, the same `threadId`:
+
+```json
+{
+  "id": "need",
+  "title": "Need",
+  "thread": "thr_need01",
+  "note": { "placeholder": "What to change for the next round" },
+  "actions": [
+    { "type": "message", "label": "Accept", "text": "Accept Need as below:\n\n{draft}", "primary": true },
+    { "type": "message", "label": "Revise", "text": "Revise Need. {note}\n\n{draft}", "threadId": "thr_need01" }
+  ]
+}
+```
+
+- The item then shows above that thread's composer too, as the same card from your view, so both threads always agree. That thread sees only its own items. Buttons without `threadId`, like Accept here, still come to you.
+- In your thread, the item's row opens its thread instead of the side panel, and the panel keeps the page map. Do not add a `command` button that runs `bb thread open`.
+- `{note}` goes wherever the button that uses it goes.
+- `publish` refuses an id that is not a bb thread. A button sending to a thread archived since fails on the card with a note to unarchive it.
+- Sending wakes that thread if it is idle, as `bb thread tell --mode auto` does.
+- Only you publish the view. The item's thread cannot, so when it finishes a round it must hand the new text back to you, such as with `bb thread tell <your thread id>`, and you publish the next round. Tell it so in its first prompt. From its own thread, `bb dynamic-ui state` reads the item back, with the note the user sent.
 
 ## Budgets, supporting notes, and a map
 
@@ -274,4 +298,4 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 bb dynamic-ui state [--key <name>]
 ```
 
-Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{In progress}` if it has one, with the last action and its result, or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.
+Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{In progress}` if it has one, with the last action and its result (and `sent to <thread id>` when it went to another thread), or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.

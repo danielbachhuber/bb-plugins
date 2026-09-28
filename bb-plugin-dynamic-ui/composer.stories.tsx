@@ -13,11 +13,11 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
-import { applyStatus, type ItemRecord, type StoredView } from "./view/store";
-import { firstOpenItem, ViewPanel } from "./view/view-panel";
+import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
+import { firstOpenItem, ViewPanel, type LinkedThread } from "./view/view-panel";
 import { ListPanel } from "./view/list-panel";
 
 export default {
@@ -131,6 +131,8 @@ function ThreadStage({
   initialCollapsed,
   confirming,
   reviewInitial,
+  currentThreadId,
+  threads,
 }: {
   turns: Turn[];
   view: StoredView;
@@ -138,6 +140,9 @@ function ThreadStage({
   initialCollapsed?: boolean;
   confirming?: string;
   reviewInitial?: Feedback;
+  /** The thread on screen, when the view was published by another. */
+  currentThreadId?: string;
+  threads?: Record<string, LinkedThread>;
 }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
@@ -168,10 +173,11 @@ function ThreadStage({
                   onToggle={() => setCollapsedByUser(!collapsed)}
                   onHide={() => setHidden(true)}
                   busyItem={null}
-                  focusedItem={focus ?? firstOpenItem(view)?.id ?? null}
+                  focusedItem={focus ?? firstOpenItem(view, currentThreadId)?.id ?? null}
                   onOpenItem={(item) => setFocus(item.id)}
                   onGoToThread={noop}
                   onOpenView={noop}
+                  currentThreadId={currentThreadId}
                 />
               </PromptStackCard>
               )}
@@ -233,6 +239,8 @@ function ThreadStage({
           onOpenItem={(item) => setFocus(item.id)}
           imageUrl={(_, index) => reviewImages[index] ?? null}
           reviewInitial={reviewInitial}
+          currentThreadId={currentThreadId}
+          threads={threads}
         />
       )}
     </aside>
@@ -494,4 +502,33 @@ const grantTurns: Turn[] = [
 /** A piece of work in rounds: the header counts what the agent marked complete, and each row shows the status it set. */
 export function Grant() {
   return <ThreadStage turns={grantTurns} view={stored(grantView)} initialFocus="need" />;
+}
+
+const sectionTurns: Turn[] = [
+  { kind: "user", text: "Help me write the Acme Foundation Open Tools Fund application for acme/widgets." },
+  { kind: "work", text: "Read the fund's guidelines and started a thread for each section" },
+  { kind: "assistant", text: "Each section is drafted with you in its own thread. **Open thread** on a row goes there; Accept comes back here to write it in." },
+];
+
+const needTurns: Turn[] = [
+  { kind: "user", text: "Draft the Need section of the Acme Foundation application with me." },
+  { kind: "work", text: "Drafted Need and counted its words" },
+  { kind: "assistant", text: "**Round 2 of Need** leads with the two volunteer maintainers. It's 180 of 200 words." },
+];
+
+/** Each section worked in a thread of its own: in the thread that published the view, a row's Open thread goes to that section's thread, and the side panel keeps the page map. */
+export function GrantSectionThreads() {
+  return <ThreadStage turns={sectionTurns} view={stored(grantSectionThreadsView)} currentThreadId="thr_story01" threads={grantSectionThreads} />;
+}
+
+/** The Need section's own thread: the same card above its composer and in its side panel, from the view the other thread published. Revise and the note stay here; Accept goes back. */
+export function GrantSectionOwnThread() {
+  return (
+    <ThreadStage
+      turns={needTurns}
+      view={viewFor(stored(grantSectionThreadsView), "thr_need01")}
+      currentThreadId="thr_need01"
+      threads={grantSectionThreads}
+    />
+  );
 }

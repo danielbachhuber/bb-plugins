@@ -6,6 +6,7 @@ const resultSchema = z.object({
   label: z.string(),
   at: z.string(),
   threadId: z.string().optional(),
+  sentTo: z.string().optional(),
   exitCode: z.number().int().optional(),
   output: z.string().optional(),
   error: z.string().optional(),
@@ -80,9 +81,15 @@ export const rpcContract = defineRpcContract({
     input: itemRefSchema.extend({ index: z.number().int().min(0).max(5) }),
     output: z.object({ dataUrl: z.string().nullable() }),
   },
+  /** The other threads a view's buttons send to, by id, with each one's title and whether it is archived. A thread that no longer exists is left out. */
+  view_threads: {
+    input: z.object({ viewId: z.number().int().positive() }),
+    output: z.object({ threads: z.record(z.string(), z.object({ title: z.string(), archived: z.boolean() })) }),
+  },
   /** Hides a view from above the composer, or shows it again. */
+  /** `threadId` is where it is hidden from, when that is a thread the view's items show in rather than the one that published it. */
   view_hide: {
-    input: z.object({ viewId: z.number().int().positive(), hidden: z.boolean() }),
+    input: z.object({ viewId: z.number().int().positive(), hidden: z.boolean(), threadId: z.string().optional() }),
     output: storedViewSchema,
   },
   item_dismiss: {

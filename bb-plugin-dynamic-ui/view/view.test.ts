@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { allHandled, decisionItems, firstLine, listPreview, orderItems, progressLabel } from "./banner.js";
-import { staplesView, triageView } from "./fixtures.js";
+import { grantSectionThreadsView, staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
-import { dismissLabelOf, fillDraft, fillNote, isQuiet, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
-import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, type StoredView } from "./store.js";
+import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTargets, threadElsewhere, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
+import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { draftKey, enterAction, firstOpenItem, mapPages, nextOpenItem, showsResult } from "./view-panel.js";
+import { draftKey, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -684,6 +684,141 @@ describe("push-back note", () => {
     const stored = s.publish("thr_one", "default", parseView(view({ note: {} })), null, "t");
     s.setItem(stored.id, "need", { state: "done", result: { label: "Revise", at: "t", note: "Shorter" } }, "t");
     expect(describeItems(s.get(stored.id)!)).toEqual(['[done] need  Need  (Revise, note: "Shorter")']);
+  });
+});
+
+describe("messages to another thread", () => {
+  const view = JSON.stringify({
+    title: "Resume",
+    sections: [
+      {
+        items: [
+          {
+            id: "experience",
+            title: "Experience",
+            draft: "Led the widgets export for acme/widgets.",
+            note: {},
+            actions: [
+              { type: "message", label: "Accept", text: "Accept Experience:\n\n{draft}", primary: true },
+              { type: "message", label: "Revise", text: "Revise Experience. {note}\n\n{draft}", threadId: "thr_section1" },
+            ],
+            related: {
+              entries: [
+                { id: "export", text: "Shipped CSV export.", action: { type: "message", label: "Add", text: "Add the CSV export.", threadId: "thr_section1" } },
+                { id: "gadgets", text: "Maintained acme/gadgets.", action: { type: "message", label: "Add", text: "Add acme/gadgets." } },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  it("lists every other thread a button sends to, naming where, and leaves out the publishing thread's", () => {
+    expect(messageTargets(parseView(view))).toEqual([
+      { threadId: "thr_section1", where: 'experience, "Revise"' },
+      { threadId: "thr_section1", where: 'experience, related export, "Add"' },
+    ]);
+  });
+
+  it("reads back which thread a message went to", () => {
+    const s = store();
+    const stored = s.publish("thr_coordinator", "default", parseView(view), null, "t");
+    s.setItem(stored.id, "experience", { state: "open", result: { label: "Revise", at: "t", note: "Shorter", sentTo: "thr_section1" } }, "t");
+    s.setRelated(stored.id, "experience", "export", { label: "Add", at: "t", sentTo: "thr_section1", error: "Experience (thr_section1) is archived. Unarchive it and try again." }, "t");
+    expect(describeItems(s.get(stored.id)!)).toEqual([
+      '[open] experience  Experience  (Revise, note: "Shorter", sent to thr_section1)',
+      "    [related] export  (Add, sent to thr_section1, failed: Experience (thr_section1) is archived. Unarchive it and try again.)",
+    ]);
+  });
+});
+
+describe("an item shown in another thread", () => {
+  it("names each thread the items show in once, and checks them with the buttons' targets", () => {
+    expect(itemThreads(grantSectionThreadsView)).toEqual(["thr_need01", "thr_approach01", "thr_summary01", "thr_team01"]);
+    expect(messageTargets(grantSectionThreadsView).slice(0, 2)).toEqual([
+      { threadId: "thr_need01", where: "need, thread" },
+      { threadId: "thr_need01", where: 'need, "Revise"' },
+    ]);
+  });
+
+  it("refuses one in a list view", () => {
+    const view = JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", thread: "thr_a" }] }] });
+    expect(() => parseView(view)).toThrow(/showing an item in another thread needs the "cards" layout/);
+  });
+
+  it("shows the thread that published the view all of it, and a linked thread only its items, without the map", () => {
+    const s = store();
+    const stored = s.publish("thr_grant01", "default", grantSectionThreadsView, null, "2026-03-12T09:51:00Z");
+    s.setItem(stored.id, "need", { state: "open", result: { label: "Revise", at: "t", sentTo: "thr_need01" } }, "t");
+    s.setItem(stored.id, "team", { state: "dismissed", result: null }, "t");
+    expect(viewFor(stored, "thr_grant01")).toBe(stored);
+    const need = viewFor(s.get(stored.id)!, "thr_need01");
+    expect(need.view.sections.flatMap((section) => section.items.map((item) => item.id))).toEqual(["need"]);
+    expect(need.view.map).toBeUndefined();
+    expect(Object.keys(need.items)).toEqual(["need"]);
+  });
+
+  it("finds the views whose items show in a thread, and not the thread's own or ones that only mention it", () => {
+    const s = store();
+    const stored = s.publish("thr_grant01", "default", grantSectionThreadsView, null, "2026-03-12T09:51:00Z");
+    // Names thr_need01 only in a button, which does not put the card there.
+    s.publish("thr_other", "default", parseView(JSON.stringify({
+      title: "Other",
+      sections: [{ items: [{ id: "x", title: "X", actions: [{ type: "message", label: "Tell", text: "Hi", threadId: "thr_need01" }] }] }],
+    })), null, "2026-03-12T09:52:00Z");
+    expect(s.linkedTo("thr_need01").map((view) => [view.id, view.view.sections[0]!.items[0]!.id])).toEqual([[stored.id, "need"]]);
+    expect(s.linkedTo("thr_grant01")).toEqual([]);
+    expect(s.forThread("thr_need01")).toEqual([]);
+  });
+
+  it("hides a view from a linked thread alone, until the next publish", () => {
+    const s = store();
+    const stored = s.publish("thr_grant01", "default", grantSectionThreadsView, null, "2026-03-12T09:51:00Z");
+    s.setLinkedHidden(stored.id, "thr_need01", true, "2026-03-12T10:00:00Z");
+    expect(s.linkedTo("thr_need01")[0]!.hiddenAt).toBe("2026-03-12T10:00:00Z");
+    expect(s.linkedTo("thr_team01")[0]!.hiddenAt).toBeNull();
+    expect(s.get(stored.id)!.hiddenAt).toBeNull();
+    s.publish("thr_grant01", "default", grantSectionThreadsView, null, "2026-03-12T10:05:00Z");
+    expect(s.linkedTo("thr_need01")[0]!.hiddenAt).toBeNull();
+    s.setLinkedHidden(stored.id, "thr_need01", true, "2026-03-12T10:06:00Z");
+    s.setLinkedHidden(stored.id, "thr_need01", false, "2026-03-12T10:07:00Z");
+    expect(s.linkedTo("thr_need01")[0]!.hiddenAt).toBeNull();
+  });
+
+  it("says which buttons go elsewhere, leaving out the thread showing the item and the item's own thread, which has its Open button", () => {
+    const need = grantSectionThreadsView.sections[0]!.items.find((item) => item.id === "need")!;
+    expect(linkedThreads(need, "thr_grant01")).toEqual([]);
+    expect(linkedThreads(need, "thr_need01")).toEqual([]);
+    const loose = { ...need, thread: undefined };
+    expect(linkedThreads(loose, "thr_grant01")).toEqual([{ threadId: "thr_need01", labels: ["Revise"] }]);
+  });
+
+  it("opens an item worked in another thread there, and keeps it out of the side panel's first and next item", () => {
+    const need = grantSectionThreadsView.sections[0]!.items.find((item) => item.id === "need")!;
+    expect(threadElsewhere(need, "thr_grant01")).toBe("thr_need01");
+    expect(threadElsewhere(need, "thr_need01")).toBeNull();
+    const s = store();
+    const view = parseView(JSON.stringify({
+      title: "Mixed",
+      sections: [{ items: [
+        { id: "a", title: "A", thread: "thr_a" },
+        { id: "b", title: "B" },
+        { id: "c", title: "C", thread: "thr_c" },
+      ] }],
+    }));
+    const stored = s.publish("thr_grant01", "default", view, null, "t");
+    expect(firstOpenItem(stored, "thr_grant01")?.id).toBe("b");
+    expect(nextOpenItem(stored, "b", "thr_grant01")).toBeNull();
+    // In its own thread, the item is the one to show.
+    expect(firstOpenItem(viewFor(stored, "thr_c"), "thr_c")?.id).toBe("c");
+  });
+
+  it("reads back the item's state from the linked thread", () => {
+    const s = store();
+    const stored = s.publish("thr_grant01", "default", grantSectionThreadsView, null, "2026-03-12T09:51:00Z");
+    s.setItem(stored.id, "need", { state: "open", result: { label: "Revise", at: "t", note: "Shorter", sentTo: "thr_need01" } }, "t");
+    expect(describeItems(s.linkedTo("thr_need01")[0]!)).toEqual(['[open] need  Need  {In progress}  (Revise, note: "Shorter", sent to thr_need01)']);
   });
 });
 

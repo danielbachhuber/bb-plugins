@@ -48,6 +48,15 @@ export const MIGRATIONS = [
   // What each related entry's button did, by entry id, as JSON. The item's
   // own buttons leave it alone.
   `ALTER TABLE item_states ADD COLUMN related TEXT`,
+  // When the user hid a view from above another thread's composer, one that
+  // shows some of the view's items. Hiding it there leaves it in the thread
+  // that published it, and the next publish shows it again.
+  `CREATE TABLE linked_hidden (
+     view_id   INTEGER NOT NULL REFERENCES views(id) ON DELETE CASCADE,
+     thread_id TEXT NOT NULL,
+     hidden_at TEXT NOT NULL,
+     PRIMARY KEY (view_id, thread_id)
+   )`,
 ];
 
 export type ItemState = "open" | "done" | "dismissed";
@@ -58,6 +67,8 @@ export interface ActionResult {
   at: string;
   /** A thread the action opened. */
   threadId?: string;
+  /** Another thread a message went to, instead of the one that published the view. */
+  sentTo?: string;
   /** A command's exit code and the tail of its output. */
   exitCode?: number;
   output?: string;
@@ -101,10 +112,14 @@ export interface Store {
   publish(threadId: string, key: string, view: View, cwd: string | null, now: string): StoredView;
   get(id: number): StoredView | null;
   forThread(threadId: string): StoredView[];
+  /** Views another thread published with items that show in this one, each narrowed to those items, newest first. */
+  linkedTo(threadId: string): StoredView[];
   /** Sets an item's state and last result, leaving what its related entries' buttons did. */
   setItem(viewId: number, itemId: string, record: ItemRecord, now: string): StoredView | null;
   setRelated(viewId: number, itemId: string, entryId: string, result: ActionResult, now: string): StoredView | null;
   setHidden(viewId: number, hidden: boolean, now: string): StoredView | null;
+  /** Hides a view from above a thread that shows some of its items, leaving it in the thread that published it. */
+  setLinkedHidden(viewId: number, threadId: string, hidden: boolean, now: string): void;
   /** Replaces every image a view holds, as one publish's set. */
   putImages(viewId: number, images: Array<{ itemId: string; index: number } & StoredImage>): void;
   image(viewId: number, itemId: string, index: number): StoredImage | null;
@@ -133,6 +148,25 @@ export function applyStatus(view: View, items: Record<string, ItemRecord>): Reco
     next[item.id] = { ...record, state: item.status.complete ? "done" : "open", result: record?.result ?? null };
   }
   return next;
+}
+
+/**
+ * The view as a thread sees it. The thread that published it sees all of it;
+ * a thread its items name sees only those items, without the page map, which
+ * lays out items it does not have.
+ */
+export function viewFor(stored: StoredView, threadId: string): StoredView {
+  if (stored.threadId === threadId) return stored;
+  const sections = stored.view.sections
+    .map((section) => ({ ...section, items: section.items.filter((item) => item.thread === threadId) }))
+    .filter((section) => section.items.length > 0);
+  const kept = new Set(sections.flatMap((section) => section.items.map((item) => item.id)));
+  const { map: _map, ...view } = stored.view;
+  return {
+    ...stored,
+    view: { ...view, sections },
+    items: Object.fromEntries(Object.entries(stored.items).filter(([itemId]) => kept.has(itemId))),
+  };
 }
 
 type ViewRow = {
@@ -225,6 +259,32 @@ export function createStore(db: Database): Store {
       return get(viewId);
     },
 
+    linkedTo(threadId) {
+      // The body is JSON, so a view naming the thread has its id in quotes.
+      const rows = db
+        .prepare("SELECT * FROM views WHERE thread_id != ? AND instr(body, ?) > 0 ORDER BY published_at DESC, id DESC")
+        .all(threadId, JSON.stringify(threadId)) as ViewRow[];
+      const hiddenAt = db.prepare("SELECT hidden_at FROM linked_hidden WHERE view_id = ? AND thread_id = ?");
+      return rows.flatMap((row) => {
+        const stored = viewFor(hydrate(row), threadId);
+        if (stored.view.sections.length === 0) return [];
+        const hidden = (hiddenAt.get(row.id, threadId) as { hidden_at: string } | undefined)?.hidden_at ?? null;
+        // A publish since it was hidden brings something new to look at.
+        return [{ ...stored, hiddenAt: hidden !== null && hidden >= stored.publishedAt ? hidden : null }];
+      });
+    },
+
+    setLinkedHidden(viewId, threadId, hidden, now) {
+      if (hidden) {
+        db.prepare(
+          `INSERT INTO linked_hidden (view_id, thread_id, hidden_at) VALUES (?, ?, ?)
+           ON CONFLICT (view_id, thread_id) DO UPDATE SET hidden_at = excluded.hidden_at`,
+        ).run(viewId, threadId, now);
+      } else {
+        db.prepare("DELETE FROM linked_hidden WHERE view_id = ? AND thread_id = ?").run(viewId, threadId);
+      }
+    },
+
     setHidden(viewId, hidden, now) {
       db.prepare("UPDATE views SET hidden_at = ? WHERE id = ?").run(hidden ? now : null, viewId);
       return get(viewId);
@@ -264,13 +324,13 @@ export function describeItems(stored: StoredView): string[] {
           ? `  (${dismissLabel})`
           : result === null || result === undefined
           ? ""
-          : `  (${result.label}${result.note === undefined ? "" : `, note: "${result.note}"`}${result.edited ? (result.draft === undefined ? ", edited" : `, edited to "${result.draft}"`) : result.draft === undefined ? "" : `: "${result.draft}"`}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
+          : `  (${result.label}${result.note === undefined ? "" : `, note: "${result.note}"`}${result.edited ? (result.draft === undefined ? ", edited" : `, edited to "${result.draft}"`) : result.draft === undefined ? "" : `: "${result.draft}"`}${result.sentTo === undefined ? "" : `, sent to ${result.sentTo}`}${result.threadId === undefined ? "" : ` → ${result.threadId}`}${
               result.exitCode === undefined ? "" : `, exit ${result.exitCode}`
             }${result.error === undefined ? "" : `, failed: ${result.error}`}${
               result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`
             })`;
       const related = Object.entries(record?.related ?? {}).map(
-        ([entryId, entry]) => `    [related] ${entryId}  (${entry.label}${entry.error === undefined ? "" : `, failed: ${entry.error}`})`,
+        ([entryId, entry]) => `    [related] ${entryId}  (${entry.label}${entry.sentTo === undefined ? "" : `, sent to ${entry.sentTo}`}${entry.error === undefined ? "" : `, failed: ${entry.error}`})`,
       );
       return [`[${state}] ${item.id}  ${item.title}${item.status === undefined ? "" : `  {${item.status.label}}`}${detail}`, ...related];
     }),

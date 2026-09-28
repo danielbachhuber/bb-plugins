@@ -15,8 +15,8 @@ import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
-import { fillDraft, fillNote, parseView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
-import { MIGRATIONS, createStore, describeItems, stateAfterAction, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
+import { fillDraft, fillNote, itemThreads, messageTargets, parseView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
+import { MIGRATIONS, createStore, describeItems, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -70,6 +70,13 @@ export default async function plugin(bb: BbPluginApi) {
     return match.id;
   }
 
+  /** Tells every thread that shows the view to look again: the one that published it, and each one its items show in. */
+  function changed(stored: StoredView) {
+    for (const threadId of [stored.threadId, ...itemThreads(stored.view)]) {
+      bb.realtime.publish(CHANGED, { threadId, viewId: stored.id });
+    }
+  }
+
   function requireView(viewId: number): StoredView {
     const stored = store.get(viewId);
     if (stored === null) throw new Error(`No view ${viewId}.`);
@@ -84,15 +91,43 @@ export default async function plugin(bb: BbPluginApi) {
     throw new Error(`No item ${itemId} in view ${stored.id}.`);
   }
 
+  function threadName(thread: { id: string; title: string | null; titleFallback: string | null }): string {
+    const title = thread.title ?? thread.titleFallback;
+    return title === null ? thread.id : `${title} (${thread.id})`;
+  }
+
+  /** Refuses a view whose buttons send to a thread that does not exist. An archived one is fine: it can be unarchived. */
+  async function checkTargets(view: View) {
+    for (const { threadId, where } of messageTargets(view)) {
+      try {
+        await bb.sdk.threads.get({ threadId });
+      } catch {
+        throw new Error(`${where}: no bb thread ${threadId}.`);
+      }
+    }
+  }
+
+  /** Where a message goes when that is not the thread that published the view, kept whether or not the send works. */
+  function sentTo(stored: StoredView, action: Action): Pick<ActionResult, "sentTo"> {
+    return action.type === "message" && action.threadId !== undefined && action.threadId !== stored.threadId ? { sentTo: action.threadId } : {};
+  }
+
   async function perform(stored: StoredView, action: Action): Promise<Omit<ActionResult, "label" | "at">> {
     switch (action.type) {
-      case "message":
+      case "message": {
+        // "auto" starts a turn in an idle thread and joins a running one, as typing into it would.
+        const target = action.threadId ?? stored.threadId;
+        if (target !== stored.threadId) {
+          const thread = await bb.sdk.threads.get({ threadId: target });
+          if (thread.archivedAt !== null) throw new Error(`${threadName(thread)} is archived. Unarchive it and try again.`);
+        }
         await bb.sdk.threads.send({
-          threadId: stored.threadId,
+          threadId: target,
           mode: "auto",
           input: [{ type: "text", text: action.text, mentions: [] }],
         });
         return {};
+      }
       case "thread": {
         const projectId = await projectFor(action.project);
         const providerId = (await settings.get()).providerId.trim();
@@ -132,6 +167,7 @@ export default async function plugin(bb: BbPluginApi) {
     // one-line field, so the card, the list, and the agent see it.
     const keep = edited || (item.draftFormat === "text" && usesDraft(original));
     const sent = {
+      ...sentTo(stored, action),
       ...(edited ? { edited: true } : {}),
       ...(keep ? { draft: draft ?? item.draft } : {}),
       ...(note === undefined || note === "" ? {} : { note }),
@@ -145,7 +181,7 @@ export default async function plugin(bb: BbPluginApi) {
     // A failed command or spawn leaves the item open, with the failure on it.
     const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);
     const updated = store.setItem(viewId, itemId, { state: stateAfterAction(item, original, failed), result }, now())!;
-    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    changed(stored);
     bb.log.info(`ran "${action.label}" (${action.type}) on ${itemId} in view ${viewId}${failed ? ", failed" : ""}`);
     return updated;
   }
@@ -158,12 +194,12 @@ export default async function plugin(bb: BbPluginApi) {
     if (entry?.action === undefined) throw new Error(`Item ${itemId} has no related entry ${entryId} with a button.`);
     let result: ActionResult;
     try {
-      result = { label: entry.action.label, at: now(), ...(await perform(stored, entry.action)) };
+      result = { label: entry.action.label, at: now(), ...sentTo(stored, entry.action), ...(await perform(stored, entry.action)) };
     } catch (error) {
-      result = { label: entry.action.label, at: now(), error: error instanceof Error ? error.message : String(error) };
+      result = { label: entry.action.label, at: now(), ...sentTo(stored, entry.action), error: error instanceof Error ? error.message : String(error) };
     }
     const updated = store.setRelated(viewId, itemId, entryId, result, now())!;
-    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    changed(stored);
     bb.log.info(`ran "${entry.action.label}" on related ${entryId} of ${itemId} in view ${viewId}${result.error === undefined ? "" : ", failed"}`);
     return updated;
   }
@@ -173,7 +209,7 @@ export default async function plugin(bb: BbPluginApi) {
     findItem(stored, itemId);
     const previous = stored.items[itemId]?.result ?? null;
     const updated = store.setItem(viewId, itemId, { state: dismissed ? "dismissed" : "open", result: previous }, now())!;
-    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    changed(stored);
     return updated;
   }
 
@@ -219,20 +255,40 @@ export default async function plugin(bb: BbPluginApi) {
       result = { ...result, error: error instanceof Error ? error.message : String(error) };
     }
     const updated = store.setItem(viewId, itemId, { state: result.error === undefined ? "done" : "open", result }, now())!;
-    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    changed(stored);
     bb.log.info(`sent visual review feedback on ${itemId} in view ${viewId}${result.error === undefined ? "" : ", failed"}`);
     return updated;
   }
 
   bb.rpc.register(rpcContract, {
-    thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
+    // A thread's own views first, then the ones whose items show in it.
+    thread_views: ({ threadId }) => ({ views: [...store.forThread(threadId), ...store.linkedTo(threadId)] }),
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft, note }) => runAction(viewId, itemId, index, draft, note),
     related_run: ({ viewId, itemId, entryId }) => runRelated(viewId, itemId, entryId),
-    view_hide: ({ viewId, hidden }) => {
+    view_threads: async ({ viewId }) => {
+      const threads: Record<string, { title: string; archived: boolean }> = {};
+      for (const { threadId } of messageTargets(requireView(viewId).view)) {
+        if (threadId in threads) continue;
+        try {
+          const thread = await bb.sdk.threads.get({ threadId });
+          threads[threadId] = { title: thread.title ?? thread.titleFallback ?? threadId, archived: thread.archivedAt !== null };
+        } catch {
+          // Deleted since the view was published: the panel shows the id.
+        }
+      }
+      return { threads };
+    },
+    view_hide: ({ viewId, hidden, threadId }) => {
       const stored = requireView(viewId);
+      if (threadId !== undefined && threadId !== stored.threadId) {
+        // Hidden only from above that thread; the thread that published it keeps it.
+        store.setLinkedHidden(viewId, threadId, hidden, now());
+        bb.realtime.publish(CHANGED, { threadId, viewId });
+        return viewFor(stored, threadId);
+      }
       const updated = store.setHidden(viewId, hidden, now())!;
-      bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+      changed(stored);
       return updated;
     },
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
@@ -319,10 +375,13 @@ export default async function plugin(bb: BbPluginApi) {
             const view = await expandPatchFiles(parseView(await readFile(path, "utf8")), (patchFile) =>
               readFile(ctx.cwd === undefined || isAbsolute(patchFile) ? patchFile : resolve(ctx.cwd, patchFile), "utf8"),
             );
+            await checkTargets(view);
             const images = await loadImages(view, ctx.cwd);
             const stored = store.publish(threadId, key, view, ctx.cwd ?? null, now());
             store.putImages(stored.id, images);
-            bb.realtime.publish(PUBLISHED, { threadId, viewId: stored.id, title: view.title });
+            for (const shown of [threadId, ...itemThreads(view)]) {
+              bb.realtime.publish(PUBLISHED, { threadId: shown, viewId: stored.id, title: view.title });
+            }
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
             return {
               exitCode: 0,
@@ -335,18 +394,30 @@ export default async function plugin(bb: BbPluginApi) {
         }
         case "state": {
           const stored = store.forThread(threadId).find((candidate) => candidate.key === key);
-          if (stored === undefined) return { exitCode: 1, stderr: `This thread has no view with key "${key}".` };
-          return { exitCode: 0, stdout: [`${stored.view.title} (view ${stored.id})`, ...describeItems(stored)].join("\n") };
+          if (stored !== undefined) {
+            return { exitCode: 0, stdout: [`${stored.view.title} (view ${stored.id})`, ...describeItems(stored)].join("\n") };
+          }
+          // A thread an item shows in reads back that item, from each view that has one.
+          const linked = store.linkedTo(threadId);
+          if (flag(args, "key") === undefined && linked.length > 0) {
+            return {
+              exitCode: 0,
+              stdout: linked
+                .map((view) => [`${view.view.title} (view ${view.id}, published by ${view.threadId})`, ...describeItems(view)].join("\n"))
+                .join("\n\n"),
+            };
+          }
+          return { exitCode: 1, stderr: `This thread has no view with key "${key}".` };
         }
         case "list": {
-          const views = store.forThread(threadId);
+          const views = [...store.forThread(threadId), ...store.linkedTo(threadId)];
           return {
             exitCode: 0,
             stdout:
               views.length === 0
                 ? "This thread has no views."
                 : views
-                    .map((v) => `${v.id}  ${v.key}  ${v.publishedAt.slice(0, 16).replace("T", " ")}  ${v.view.title}${v.hiddenAt === null ? "" : "  (hidden)"}`).join("\n"),
+                    .map((v) => `${v.id}  ${v.key}  ${v.publishedAt.slice(0, 16).replace("T", " ")}  ${v.view.title}${v.threadId === threadId ? "" : `  (from ${v.threadId})`}${v.hiddenAt === null ? "" : "  (hidden)"}`).join("\n"),
           };
         }
       }

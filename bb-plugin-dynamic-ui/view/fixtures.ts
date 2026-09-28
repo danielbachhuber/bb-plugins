@@ -751,3 +751,31 @@ export const grantEvidenceView: View = viewSchema.parse({
   sections: [{ title: "", items: [{ ...evidenceNeed, evidence }] }],
 });
 
+
+/**
+ * The grant with each section drafted in a thread of its own, which shows the
+ * section's card too: Revise and its note go to the section's thread, while
+ * Accept stays with the thread that published the view and writes the
+ * application.
+ */
+export const grantSectionThreadsView: View = {
+  ...grantView,
+  sections: grantView.sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => ({
+      ...item,
+      thread: `thr_${item.id}01`,
+      actions: item.actions.map((action) =>
+        action.type === "message" && action.label === "Revise" ? { ...action, threadId: `thr_${item.id}01` } : action,
+      ),
+    })),
+  })),
+};
+
+/** What the panel shows for each section's thread. */
+export const grantSectionThreads = {
+  thr_summary01: { title: "Grant: Summary", archived: false },
+  thr_need01: { title: "Grant: Need", archived: false },
+  thr_approach01: { title: "Grant: Approach", archived: false },
+  thr_team01: { title: "Grant: Team", archived: false },
+};

@@ -46,7 +46,7 @@ up to six buttons:
 
 | Button | What it does |
 |---|---|
-| `message` | Sends text to the thread that published the view, as if the user typed it. The agent does the work with its own permissions and context. |
+| `message` | Sends text to the thread that published the view, as if the user typed it, or to another thread the button names. The agent does the work with its own permissions and context. |
 | `thread` | Starts a new thread in a named project with a prompt and title. The button then becomes **Go to thread**. |
 | `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A command marked `confirm: false` runs as soon as it is clicked. A failed command leaves the item open. |
 | `link` | Opens a URL. |
@@ -80,6 +80,14 @@ Evidence is for text already in the draft. **Related** notes, below, are the one
 Some items are a piece of work rather than one decision: a section of a document that the agent drafts, the user pushes back on, and the agent revises until it is right. The agent gives each such item a **status**, such as **In progress** or **40 words over**, shown beside its badges on the row and the opened item. An item with a status is finished only when the agent publishes it as complete, so its buttons stay usable through as many rounds as it takes, and pressing Accept does not mark it done before the agent has checked that the work landed. Once any item has a status, the header counts what is complete, such as **1 of 4 complete**, instead of what is open.
 
 An item can also have a one-line **note** field beside its buttons, for the push-back that goes with Revise, such as what to change in the next round; Enter sends it with the button that uses it. The item's **history** shows under its summary: each round the agent proposed and each push-back, with the time of each. When the agent publishes the next round, the opened item starts over with the new draft, and the banner saying which button was pressed gives way to the history.
+
+### An item in its own thread
+
+When each item is drafted with the user in a thread of its own, such as a section of a resume, the item can name that thread. It then shows above that thread's composer too, as the same card from the same view: what is pressed in either thread shows in both, and publishing again updates both. That thread sees only its own items, without the page map, and hiding the list there leaves it in the thread that published it.
+
+In the thread that published the view, such an item's row has **Open thread** in place of Review, and clicking the row goes to the item's thread rather than the side panel, where the page map stays. A block on the map opens the thread too. If the item is opened in the panel anyway, **Open**, named for its thread, takes the place of Start thread, since the thread already exists.
+
+A `message` button can name the thread it sends to, so Revise and its note can go to the section's thread while Accept goes to the thread that published the view. Sending wakes an idle thread and joins a running one, as typing into it would. A button sending to a thread other than the item's own gets a line above the buttons naming that thread. A thread archived since shows as archived, and a button sending to it fails with a note to unarchive it, keeping what was typed. `bb dynamic-ui state` says where each message went, and in the item's own thread it reads that item back.
 
 ## Budgets, supporting notes, and a map
 

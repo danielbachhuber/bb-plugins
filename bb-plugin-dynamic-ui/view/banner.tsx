@@ -1,13 +1,14 @@
 // A thread's view as a compact list right above the composer. Each row is one
 // item: its title, badges, one line of summary, and a Review button. Clicking
-// the row opens the item in the side panel with everything else. A view with
+// the row opens the item in the side panel with everything else, or goes to the
+// thread the item is worked in when it has one elsewhere. A view with
 // the "list" layout lives in the side panel instead, so here it is one row
 // that previews it and opens it. Kept free of RPC so a story can render it
 // with fixture props.
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
-import { isQuiet, type Item } from "./schema.js";
+import { isQuiet, threadElsewhere, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
 import { MeterBar, TONE_CLASS } from "./view-panel.js";
 
@@ -25,6 +26,8 @@ export interface ViewBannerProps {
   onGoToThread: (threadId: string) => void;
   /** Opens a "list" layout view in the side panel. */
   onOpenView: () => void;
+  /** The thread showing the list. An item worked in another thread opens that thread instead of the side panel. */
+  currentThreadId?: string;
 }
 
 /** One line of plain text from a markdown summary, for the row. */
@@ -119,6 +122,7 @@ export function ViewBanner({
   onOpenItem,
   onGoToThread,
   onOpenView,
+  currentThreadId,
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
   const items = list ? decisionItems(stored) : orderItems(stored);
@@ -153,6 +157,8 @@ export function ViewBanner({
             const result = record?.result;
             const failed = result?.error !== undefined || (result?.exitCode !== undefined && result.exitCode !== 0);
             const summary = firstLine(item.summary);
+            const elsewhere = threadElsewhere(item, currentThreadId);
+            const open = () => (elsewhere === null ? onOpenItem(item) : onGoToThread(elsewhere));
             return (
               <li
                 key={item.id}
@@ -168,7 +174,7 @@ export function ViewBanner({
                 >
                   {failed ? "!" : state === "done" ? "✓" : state === "dismissed" ? "–" : "○"}
                 </span>
-                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpenItem(item)} title="Open in the side panel">
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={open} title={elsewhere === null ? "Open in the side panel" : "Open its thread"}>
                   <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate text-sm text-foreground">{item.title}</span>
                     {item.status === undefined ? null : (
@@ -199,7 +205,12 @@ export function ViewBanner({
                     </span>
                   ) : null}
                 </button>
-                {state !== "open" ? (
+                {elsewhere !== null ? (
+                  <Button size="sm" variant={state === "open" ? "default" : "ghost"} className="h-6 shrink-0 px-2 text-xs" onClick={open}>
+                    <Icon name="SideChat" aria-hidden />
+                    Open thread
+                  </Button>
+                ) : state !== "open" ? (
                   result?.threadId ? (
                     <Button size="sm" variant="ghost" className="h-6 shrink-0 px-2 text-xs" onClick={() => onGoToThread(result.threadId!)}>
                       Go to thread
