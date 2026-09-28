@@ -539,6 +539,12 @@ const grantActions = (section: string) => [
 export const grantView: View = viewSchema.parse({
   title: "Grant: Acme Foundation Open Tools Fund",
   summary: "",
+  map: {
+    pages: [
+      { label: "Page 1", columns: [["summary", "need"]] },
+      { label: "Page 2", columns: [["approach", "team"]] },
+    ],
+  },
   sections: [
     {
       title: "",
@@ -547,7 +553,31 @@ export const grantView: View = viewSchema.parse({
           id: "need",
           title: "Need",
           status: { label: "In progress", tone: "warning" },
-          badges: [{ label: "180 of 200 words" }],
+          meter: { value: 180, max: 200, unit: "words" },
+          related: {
+            title: "From the release notes",
+            detail: "Ranked by the fund's criteria",
+            entries: [
+              {
+                id: "security-queue",
+                text: "The 4.0 release has waited on two security reports since June.",
+                detail: "Matches: maintenance is at risk",
+                action: { type: "message", label: "Add", doneLabel: "Added", text: "Add to Need: the 4.0 release has waited on two security reports since June." },
+              },
+              {
+                id: "maintainer-hours",
+                text: "Both maintainers log about four hours a week, all outside work.",
+                detail: "Matches: the project depends on volunteers",
+                action: { type: "message", label: "Add", doneLabel: "Added", text: "Add to Need: both maintainers log about four hours a week, all outside work." },
+              },
+              {
+                id: "dependents",
+                text: "1,400 public projects depend on acme/widgets.",
+                detail: "Matches: reach",
+                badge: { label: "Used", tone: "success" },
+              },
+            ],
+          },
           summary: "Round 2 leads with who maintains acme/widgets, then what breaks without them.",
           history: [
             { text: "Round 1: opened with the download counts.", at: "2026-03-12T09:42:00Z" },
@@ -572,7 +602,7 @@ export const grantView: View = viewSchema.parse({
           id: "approach",
           title: "Approach",
           status: { label: "40 words over", tone: "danger" },
-          badges: [{ label: "240 of 200 words" }],
+          meter: { value: 240, max: 200, unit: "words" },
           summary: "Accepted and written in, but the form counts 240 of 200 words.",
           history: [{ text: "Round 1: a three-phase plan: triage, release, handover.", at: "2026-03-12T09:30:00Z" }],
           draft:
@@ -585,7 +615,7 @@ export const grantView: View = viewSchema.parse({
           id: "summary",
           title: "Summary",
           status: { label: "Complete", tone: "success", complete: true },
-          badges: [{ label: "48 of 50 words" }],
+          meter: { value: 48, max: 50, unit: "words" },
           summary: "Written into the application and under the limit.",
           draft: "Half-time funding for one acme/widgets maintainer, for a year, to clear its security backlog and ship 4.0.",
           draftLabel: "Proposed text",
@@ -596,7 +626,7 @@ export const grantView: View = viewSchema.parse({
           id: "team",
           title: "Team",
           status: { label: "Not started" },
-          badges: [{ label: "0 of 150 words" }],
+          meter: { value: 0, max: 150, unit: "words" },
           summary: "Who maintains it, and who reviews their work.",
           actions: [{ type: "message", label: "Start", text: "Draft the Team section of the grant application.", primary: true }],
         },

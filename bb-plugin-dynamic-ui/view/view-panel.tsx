@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item } from "./schema.js";
-import type { ItemRecord, StoredView } from "./store.js";
+import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, usesDraftAsAfter, usesNote, type Action, type HistoryEntry, type Item, type Meter, type Related } from "./schema.js";
+import type { ActionResult, ItemRecord, StoredView } from "./store.js";
 import { ChangesBlock, type ChangesMode } from "./changes-block.js";
 import { DraftEditor } from "./draft-editor.js";
 import type { Feedback } from "./review.js";
@@ -36,6 +36,10 @@ export interface ViewPanelProps {
   reviewInitial?: Feedback;
   /** Opens the new-thread composer seeded with the item. */
   onStartThread?: (item: Item) => void;
+  /** Runs a related entry's button. */
+  onRunRelated?: (item: Item, entryId: string) => void;
+  /** Opens an item from the map. */
+  onOpenItem?: (item: Item) => void;
 }
 
 export const TONE_CLASS: Record<string, string> = {
@@ -112,6 +116,187 @@ function History({ entries }: { entries: HistoryEntry[] }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/** A meter as a bar and its numbers: "13/14" on a row, "13 of 14 lines" on the opened item. */
+export function MeterBar({ meter, long = false }: { meter: Meter; long?: boolean }) {
+  const over = meter.value > meter.max;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5" title={`${meter.value} of ${meter.max}${meter.unit ? ` ${meter.unit}` : ""}`}>
+      <span className={cn("relative h-1.5 overflow-hidden rounded-full bg-muted", long ? "w-20" : "w-10")}>
+        <span
+          className={cn("absolute inset-y-0 left-0 rounded-full", over ? "bg-destructive" : "bg-foreground/50")}
+          style={{ width: `${Math.min(100, (meter.value / meter.max) * 100)}%` }}
+        />
+      </span>
+      <span className={cn("text-[11px] tabular-nums", over ? "text-destructive" : "text-muted-foreground")}>
+        {long ? `${meter.value} of ${meter.max}${meter.unit ? ` ${meter.unit}` : ""}` : `${meter.value}/${meter.max}`}
+      </span>
+    </span>
+  );
+}
+
+export interface MapBlock {
+  item: Item;
+  /** In pixels, from the item's meter max. */
+  height: number;
+  /** How much of the block the item's value fills, 0 to 1. */
+  fill: number;
+  over: boolean;
+  /** Done and dismissed by state; otherwise the status's tone. */
+  tone: "done" | "dismissed" | "neutral" | "info" | "success" | "warning" | "danger";
+}
+
+/**
+ * The view's map as blocks, at one scale for every page, so the tallest
+ * column fills `pageHeight` and a block's size compares across pages.
+ */
+export function mapPages(stored: StoredView, pageHeight: number): Array<{ label: string; columns: MapBlock[][] }> {
+  const map = stored.view.map;
+  if (map === undefined) return [];
+  const items = new Map(stored.view.sections.flatMap((section) => section.items.map((item) => [item.id, item] as const)));
+  const size = (id: string) => items.get(id)?.meter?.max ?? 1;
+  const tallest = Math.max(...map.pages.flatMap((page) => page.columns.map((column) => column.reduce((sum, id) => sum + size(id), 0))));
+  const scale = pageHeight / tallest;
+  return map.pages.map((page) => ({
+    label: page.label,
+    columns: page.columns.map((column) =>
+      column.map((id) => {
+        const item = items.get(id)!;
+        const state = stored.items[id]?.state ?? "open";
+        return {
+          item,
+          height: size(id) * scale,
+          fill: item.meter === undefined ? 0 : Math.min(1, item.meter.value / item.meter.max),
+          over: item.meter !== undefined && item.meter.value > item.meter.max,
+          tone: state === "done" ? "done" : state === "dismissed" ? "dismissed" : (item.status?.tone ?? "neutral"),
+        };
+      }),
+    ),
+  }));
+}
+
+const BLOCK_TONE: Record<MapBlock["tone"], string> = {
+  done: "bg-success/15",
+  dismissed: "bg-muted/40 opacity-50",
+  neutral: "bg-muted/40",
+  info: "bg-muted/60",
+  success: "bg-success/15",
+  warning: "bg-warning/10",
+  danger: "bg-destructive/15",
+};
+
+/** The pages the items fill, at the top of the side panel; clicking a block opens its item. */
+function MapView({ stored, focusedId, onOpenItem }: { stored: StoredView; focusedId: string | null; onOpenItem?: (item: Item) => void }) {
+  const pages = mapPages(stored, 150);
+  return (
+    <div className="flex gap-3" aria-label="Map">
+      {pages.map((page) => (
+        <div key={page.label} className="min-w-0 flex-1">
+          <div className="mb-1 text-[10px] text-muted-foreground">{page.label}</div>
+          <div className="flex h-[162px] gap-1 overflow-hidden rounded border border-border bg-background p-1.5 shadow-sm">
+            {page.columns.map((column, c) => (
+              <div key={c} className="flex min-w-0 flex-1 flex-col gap-1">
+                {column.map((block) => (
+                  <button
+                    key={block.item.id}
+                    type="button"
+                    title={block.item.title}
+                    onClick={() => onOpenItem?.(block.item)}
+                    className={cn(
+                      "relative flex shrink-0 flex-col justify-start overflow-hidden rounded-sm border text-left",
+                      focusedId === block.item.id ? "border-foreground ring-1 ring-foreground" : "border-border hover:border-foreground/40",
+                      BLOCK_TONE[block.tone],
+                    )}
+                    style={{ height: Math.max(18, block.height - 4) }}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn("absolute inset-x-0 bottom-0", block.over ? "bg-destructive/25" : "bg-foreground/[0.06]")}
+                      style={{ height: `${block.fill * 100}%` }}
+                    />
+                    <span className="relative flex items-center gap-1 px-1.5 pt-0.5">
+                      {block.tone === "done" ? <span className="text-[9px] text-success">✓</span> : null}
+                      <span className="truncate text-[10px] font-medium text-foreground">{block.item.title}</span>
+                      {block.item.meter === undefined ? null : (
+                        <span className={cn("ml-auto text-[9px] tabular-nums", block.over ? "text-destructive" : "text-muted-foreground")}>
+                          {block.item.meter.value}/{block.item.meter.max}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const RELATED_SHOWN = 4;
+
+/** An item's supporting material, each entry with its badge or its one button. */
+function RelatedCard({
+  related,
+  results,
+  publishedAt,
+  busy,
+  onRun,
+}: {
+  related: Related;
+  results: Record<string, ActionResult> | undefined;
+  publishedAt: string;
+  busy: boolean;
+  onRun?: (entryId: string) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const shown = all ? related.entries : related.entries.slice(0, RELATED_SHOWN);
+  return (
+    <div className="rounded-lg border border-border bg-card px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">{related.title}</span>
+        {related.detail === undefined ? null : <span className="truncate text-xs text-muted-foreground">{related.detail}</span>}
+      </div>
+      <ul className="divide-y divide-border">
+        {shown.map((entry) => {
+          const result = results?.[entry.id];
+          // Sent since the agent last published: it has not had a chance to mark the entry used.
+          const sent = result !== undefined && result.error === undefined && result.at >= publishedAt;
+          const used = entry.badge?.tone === "success" && entry.action === undefined;
+          return (
+            <li key={entry.id} className={cn("flex gap-2 py-2", used && "opacity-60")}>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] leading-snug text-foreground">{entry.text}</div>
+                {entry.detail === undefined ? null : <div className="mt-0.5 text-[11px] text-muted-foreground">{entry.detail}</div>}
+                {result?.error === undefined ? null : <div className="mt-0.5 text-[11px] text-destructive">{result.label} failed: {result.error}</div>}
+              </div>
+              {entry.badge === undefined ? null : (
+                <span className={cn("h-fit shrink-0 rounded border px-1.5 py-px text-[11px]", TONE_CLASS[entry.badge.tone])}>{entry.badge.label}</span>
+              )}
+              {entry.action === undefined ? null : sent ? (
+                <span className="h-fit shrink-0 text-[11px] text-success">✓ {entry.action.doneLabel ?? "Sent"}</span>
+              ) : entry.action.type === "link" ? (
+                <Button size="sm" variant="outline" className="h-6 shrink-0 px-2 text-xs" asChild>
+                  <UrlLink href={entry.action.url}>{entry.action.label}</UrlLink>
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="h-6 shrink-0 px-2 text-xs" disabled={busy || onRun === undefined} onClick={() => onRun?.(entry.id)}>
+                  {entry.action.label}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {related.entries.length > RELATED_SHOWN && !all ? (
+        <button type="button" className="text-xs text-muted-foreground hover:text-foreground hover:underline" onClick={() => setAll(true)}>
+          {related.entries.length - RELATED_SHOWN} more
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -364,7 +549,7 @@ function ItemCard({
               </UrlLink>
             )}
           </div>
-          {item.badges.length === 0 && item.status === undefined && state !== "dismissed" ? null : (
+          {item.badges.length === 0 && item.status === undefined && item.meter === undefined && state !== "dismissed" ? null : (
             <div className="mt-1 flex flex-wrap gap-1.5">
               {/* A done item shows what happened in its result, not a tag. */}
               {state === "dismissed" ? (
@@ -375,6 +560,7 @@ function ItemCard({
               {item.status === undefined ? null : (
                 <span className={cn("rounded border px-1.5 py-px text-[11px]", TONE_CLASS[item.status.tone])}>{item.status.label}</span>
               )}
+              {item.meter === undefined ? null : <MeterBar meter={item.meter} long />}
               {item.badges.map((badge) => (
                 <span key={badge.label} className={cn("rounded border px-1.5 py-px text-[11px]", TONE_CLASS[badge.tone])}>
                   {badge.label}
@@ -517,7 +703,23 @@ function ItemCard({
   );
 }
 
-export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, confirming, focusItemId, draftMode, changesMode, imageUrl, onSubmitReview, reviewInitial, onStartThread }: ViewPanelProps) {
+export function ViewPanel({
+  stored,
+  busyItem,
+  onRun,
+  onDismiss,
+  onGoToThread,
+  confirming,
+  focusItemId,
+  draftMode,
+  changesMode,
+  imageUrl,
+  onSubmitReview,
+  reviewInitial,
+  onStartThread,
+  onRunRelated,
+  onOpenItem,
+}: ViewPanelProps) {
   const { view } = stored;
   const [confirmItem, confirmIndex] = confirming?.split(":") ?? [];
   const picked = focusItemId ? view.sections.flatMap((section) => section.items).find((item) => item.id === focusItemId) : undefined;
@@ -527,9 +729,12 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
 
   if (focused === undefined) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 text-center">
-        <div className="text-sm font-medium text-foreground">{view.title}</div>
-        <div className="mt-1 text-sm text-muted-foreground">Click on an entry to see its full details.</div>
+      <div className="flex h-full min-h-0 flex-col gap-3 px-4 py-4">
+        {view.map === undefined ? null : <MapView stored={stored} focusedId={null} onOpenItem={onOpenItem} />}
+        <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
+          <div className="text-sm font-medium text-foreground">{view.title}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Click on an entry to see its full details.</div>
+        </div>
       </div>
     );
   }
@@ -542,6 +747,7 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
           {view.title}
           {section?.title ? ` · ${section.title}` : ""}
         </div>
+        {view.map === undefined ? null : <MapView stored={stored} focusedId={focused.id} onOpenItem={onOpenItem} />}
         <ol>
           {/* Keyed on the confirmation too, so a command clicked in the list opens asking. */}
           <ItemCard
@@ -566,6 +772,15 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
             onStartThread={onStartThread === undefined ? undefined : () => onStartThread(focused)}
           />
         </ol>
+        {focused.related === undefined || focused.related.entries.length === 0 ? null : (
+          <RelatedCard
+            related={focused.related}
+            results={stored.items[focused.id]?.related}
+            publishedAt={stored.publishedAt}
+            busy={busyItem === focused.id}
+            onRun={onRunRelated === undefined ? undefined : (entryId) => onRunRelated(focused, entryId)}
+          />
+        )}
       </div>
     </div>
   );

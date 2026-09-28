@@ -229,6 +229,8 @@ function ThreadStage({
           onDismiss={noop}
           onGoToThread={noop}
           onStartThread={noop}
+          onRunRelated={noop}
+          onOpenItem={(item) => setFocus(item.id)}
           imageUrl={(_, index) => reviewImages[index] ?? null}
           reviewInitial={reviewInitial}
         />

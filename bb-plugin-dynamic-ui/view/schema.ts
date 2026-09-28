@@ -206,10 +206,43 @@ export function usesDraftAsAfter(change: Change): boolean {
   return change.before !== undefined && change.after === undefined;
 }
 
+/** How much of a budget an item uses: lines of a page, words of a limit. Red once over. */
+export const meterSchema = z.object({
+  value: z.number().min(0),
+  max: z.number().positive(),
+  /** "lines", "words"; shown after the numbers. */
+  unit: z.string().trim().max(20).default(""),
+});
+export type Meter = z.infer<typeof meterSchema>;
+
 const itemId = z
   .string()
   .trim()
   .regex(/^[A-Za-z0-9._:-]{1,80}$/, "must be 1 to 80 letters, digits, or . _ : -");
+
+/**
+ * Material that supports an item, which the user can act on one entry at a
+ * time: notes to draw from, ranked by how well they fit, each with a badge
+ * (such as "Used") and at most one button (such as "Add").
+ */
+export const relatedSchema = z.object({
+  title: z.string().trim().min(1).max(80).default("Related"),
+  /** One line beside the title: how the entries are ranked, where they came from. */
+  detail: z.string().trim().max(120).optional(),
+  entries: z
+    .array(
+      z.object({
+        id: itemId,
+        text: z.string().trim().min(1).max(1_000),
+        /** A second, muted line: what the entry matches, where it is from. */
+        detail: z.string().trim().max(300).optional(),
+        badge: badgeSchema.optional(),
+        action: actionSchema.optional(),
+      }),
+    )
+    .max(30),
+});
+export type Related = z.infer<typeof relatedSchema>;
 
 export const itemSchema = z.object({
   /** Stable across republishing, so a decision on the item survives it. */
@@ -219,6 +252,9 @@ export const itemSchema = z.object({
   url: z.string().trim().url().optional(),
   badges: z.array(badgeSchema).max(8).default([]),
   status: statusSchema.optional(),
+  meter: meterSchema.optional(),
+  /** Shown in its own card under the item. */
+  related: relatedSchema.optional(),
   /** Oldest first. Shown under the summary. */
   history: z.array(historyEntrySchema).max(50).default([]),
   /** Always shown. */
@@ -276,6 +312,25 @@ export const viewSchema = z
     summary: markdown.default(""),
     sections: z.array(sectionSchema).min(1).max(20),
     layout: z.enum(LAYOUTS).default("cards"),
+    /**
+     * The items laid out as the pages they fill, at the top of the side
+     * panel: each block sized by its item's meter max and filled by its value.
+     * Clicking a block opens its item.
+     */
+    map: z
+      .object({
+        pages: z
+          .array(
+            z.object({
+              label: z.string().trim().min(1).max(40),
+              /** Item ids, top to bottom, in one to three columns side by side. */
+              columns: z.array(z.array(itemId).min(1).max(30)).min(1).max(3),
+            }),
+          )
+          .min(1)
+          .max(6),
+      })
+      .optional(),
     ...dismissLabel,
   })
   .superRefine((view, ctx) => {
@@ -354,6 +409,21 @@ export const viewSchema = z
             ctx.addIssue({ code: "custom", path: [...itemPath, "note"], message: 'a note field needs a card with a markdown draft or none, not a "text" draft or a "list" row' });
           }
         }
+        const seenEntries = new Set<string>();
+        item.related?.entries.forEach((entry, e) => {
+          const path = [...itemPath, "related", "entries", e];
+          if (entry.action !== undefined && (entry.action.type === "command" || usesDraft(entry.action) || usesNote(entry.action))) {
+            ctx.addIssue({
+              code: "custom",
+              path: [...path, "action"],
+              message: "a related entry's button is a message, a thread, or a link, and cannot use {draft} or {note}",
+            });
+          }
+          if (seenEntries.has(entry.id)) {
+            ctx.addIssue({ code: "custom", path: [...path, "id"], message: `duplicate related entry id "${entry.id}"` });
+          }
+          seenEntries.add(entry.id);
+        });
         if (item.variations.length === 1) {
           ctx.addIssue({
             code: "custom",
@@ -371,6 +441,20 @@ export const viewSchema = z
         seen.add(item.id);
       }),
     );
+    if (view.map !== undefined) {
+      if (view.layout !== "cards") ctx.addIssue({ code: "custom", path: ["map"], message: 'a map needs the "cards" layout' });
+      const placed = new Set<string>();
+      view.map.pages.forEach((page, p) =>
+        page.columns.forEach((column, c) =>
+          column.forEach((id, i) => {
+            const path = ["map", "pages", p, "columns", c, i];
+            if (!seen.has(id)) ctx.addIssue({ code: "custom", path, message: `no item "${id}"` });
+            else if (placed.has(id)) ctx.addIssue({ code: "custom", path, message: `"${id}" is on the map twice` });
+            placed.add(id);
+          }),
+        ),
+      );
+    }
   });
 export type View = z.infer<typeof viewSchema>;
 

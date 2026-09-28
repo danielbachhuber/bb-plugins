@@ -27,7 +27,11 @@ const storedViewSchema = z.object({
   hiddenAt: z.string().nullable(),
   items: z.record(
     z.string(),
-    z.object({ state: z.enum(["open", "done", "dismissed"]), result: resultSchema.nullable() }),
+    z.object({
+      state: z.enum(["open", "done", "dismissed"]),
+      result: resultSchema.nullable(),
+      related: z.record(z.string(), resultSchema).optional(),
+    }),
   ),
 });
 
@@ -55,6 +59,11 @@ export const rpcContract = defineRpcContract({
       /** The push-back note as typed; goes where the button's text says `{note}`. */
       note: z.string().trim().max(5_000).optional(),
     }),
+    output: storedViewSchema,
+  },
+  /** Runs a related entry's button, by the entry's id. */
+  related_run: {
+    input: itemRefSchema.extend({ entryId: z.string().min(1).max(80) }),
     output: storedViewSchema,
   },
   /** Sends a visual review's pick and notes to the thread as one message. */

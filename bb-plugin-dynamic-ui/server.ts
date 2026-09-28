@@ -150,6 +150,24 @@ export default async function plugin(bb: BbPluginApi) {
     return updated;
   }
 
+  /** Runs a related entry's button. The item stays as it was; only the entry records what happened. */
+  async function runRelated(viewId: number, itemId: string, entryId: string): Promise<StoredView> {
+    const stored = requireView(viewId);
+    const item = findItem(stored, itemId);
+    const entry = item.related?.entries.find((candidate) => candidate.id === entryId);
+    if (entry?.action === undefined) throw new Error(`Item ${itemId} has no related entry ${entryId} with a button.`);
+    let result: ActionResult;
+    try {
+      result = { label: entry.action.label, at: now(), ...(await perform(stored, entry.action)) };
+    } catch (error) {
+      result = { label: entry.action.label, at: now(), error: error instanceof Error ? error.message : String(error) };
+    }
+    const updated = store.setRelated(viewId, itemId, entryId, result, now())!;
+    bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
+    bb.log.info(`ran "${entry.action.label}" on related ${entryId} of ${itemId} in view ${viewId}${result.error === undefined ? "" : ", failed"}`);
+    return updated;
+  }
+
   function dismiss(viewId: number, itemId: string, dismissed: boolean): StoredView {
     const stored = requireView(viewId);
     findItem(stored, itemId);
@@ -210,6 +228,7 @@ export default async function plugin(bb: BbPluginApi) {
     thread_views: ({ threadId }) => ({ views: store.forThread(threadId) }),
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft, note }) => runAction(viewId, itemId, index, draft, note),
+    related_run: ({ viewId, itemId, entryId }) => runRelated(viewId, itemId, entryId),
     view_hide: ({ viewId, hidden }) => {
       const stored = requireView(viewId);
       const updated = store.setHidden(viewId, hidden, now())!;

@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { isQuiet, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
-import { TONE_CLASS } from "./view-panel.js";
+import { MeterBar, TONE_CLASS } from "./view-panel.js";
 
 export interface ViewBannerProps {
   stored: StoredView;
@@ -179,6 +179,11 @@ export function ViewBanner({
                         {badge.label}
                       </span>
                     ))}
+                    {item.meter === undefined ? null : (
+                      <span className="ml-auto">
+                        <MeterBar meter={item.meter} />
+                      </span>
+                    )}
                   </span>
                   {failed || state !== "open" || summary ? (
                     <span className="block truncate text-xs text-muted-foreground">

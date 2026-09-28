@@ -73,6 +73,14 @@ Some items are a piece of work rather than one decision: a section of a document
 
 An item can also have a one-line **note** field beside its buttons, for the push-back that goes with Revise, such as what to change in the next round; Enter sends it with the button that uses it. The item's **history** shows under its summary: each round the agent proposed and each push-back, with the time of each. When the agent publishes the next round, the opened item starts over with the new draft, and the banner saying which button was pressed gives way to the history.
 
+## Budgets, supporting notes, and a map
+
+An item can show how much of a budget it uses, such as **180 of 200 words**, as a bar on its row and on the opened item, red once it runs over.
+
+An item can carry **related** material in its own card under it: supporting notes the agent ranked, each with a line saying what it matches, a badge such as **Used**, and at most one button such as **Add**, which sends the note to the thread. A note says it was added until the agent publishes again and marks it.
+
+A view whose items fill pages, such as sections of a two-page document, can draw them as a **map** at the top of the side panel. Each page shows its items as blocks sized by their budgets and filled by what they use, colored by where each stands, with one over budget in red, so it is clear at a glance which section is crowding the page. Clicking a block opens that item.
+
 ## Visual review
 
 An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item shows them side by side, one at a time at the panel's width, with every image in the same place: flip between them with the arrow keys, the ‹ › buttons, or a swipe, and what changed is what moves. Clicking an image shows it full size. A filmstrip of thumbnails stays at the top of the panel: it shows how many variations there are, highlights the one showing, marks the pick and any variation with a note, and flips to a variation when you click it. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. Once feedback is sent, the row above the composer says which variation was picked. The agent reads back what the user

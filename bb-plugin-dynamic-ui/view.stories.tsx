@@ -50,7 +50,7 @@ const failed: StoredView = {
 function Panel(props: Partial<ViewPanelProps>) {
   return (
     <div className="h-[900px] w-[520px] border-l border-border bg-background">
-      <ViewPanel stored={fresh} busyItem={null} onRun={noop} onDismiss={noop} onGoToThread={noop} onStartThread={noop} {...props} />
+      <ViewPanel stored={fresh} busyItem={null} onRun={noop} onDismiss={noop} onGoToThread={noop} onStartThread={noop} onRunRelated={noop} onOpenItem={noop} {...props} />
     </div>
   );
 }
@@ -247,4 +247,22 @@ export function ChangesProseSplit() {
 /** Edit: the proposed text as source, in place of the diff. Accept and Revise send it as left here. */
 export function ChangesProseEdit() {
   return <Panel stored={grant} focusItemId="need" changesMode="edit" />;
+}
+
+/** Work that fills pages: the map at the top sizes each section by its word limit and fills it by its count, Approach red for running over; under the section, notes from the release history to add, one already used. */
+export function MapAndRelated() {
+  return <Panel stored={grant} focusItemId="need" />;
+}
+
+/** Add pressed on a related note: it says so until the agent publishes again and marks the note used. */
+export function RelatedJustAdded() {
+  return (
+    <Panel
+      stored={{
+        ...grant,
+        items: applyStatus(grantView, { need: { state: "open", result: null, related: { "security-queue": { label: "Add", at: "2026-03-12T09:55:00Z" } } } }),
+      }}
+      focusItemId="need"
+    />
+  );
 }

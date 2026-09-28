@@ -147,6 +147,34 @@ When each item is a piece of work that goes back and forth, such as sections of 
 - For the user's push-back, give the item `"note": { "placeholder": "What to change for the next round" }` and put `{note}` in the Revise button's `text`. A one-line field shows beside the buttons; Enter presses the button that sends it. An empty note sends nothing where `{note}` is, and `state` reads a sent note back.
 - Each round, publish the item again under the same `id` with the new `draft`: the card starts over with it. The banner saying which button the user pressed stays only until you publish again.
 
+## Budgets, supporting notes, and a map
+
+For work that has to fit, such as sections of a two-page document or a word-limited form, three more fields help:
+
+```json
+{
+  "map": { "pages": [{ "label": "Page 1", "columns": [["summary", "need"]] }, { "label": "Page 2", "columns": [["approach", "team"]] }] },
+  "sections": [{ "items": [{
+    "id": "need",
+    "meter": { "value": 180, "max": 200, "unit": "words" },
+    "related": {
+      "title": "From the release notes",
+      "detail": "Ranked by the fund's criteria",
+      "entries": [
+        { "id": "security-queue", "text": "The 4.0 release has waited on two security reports since June.", "detail": "Matches: maintenance is at risk",
+          "action": { "type": "message", "label": "Add", "doneLabel": "Added", "text": "Add to Need: the 4.0 release has waited on two security reports since June." } },
+        { "id": "dependents", "text": "1,400 public projects depend on acme/widgets.", "badge": { "label": "Used", "tone": "success" } }
+      ]
+    }
+  }] }]
+}
+```
+
+- `meter` is how much of its budget an item uses. It shows as a bar with its numbers on the row and the opened item, red once `value` passes `max`. Keep it current each round, from the real count (the exported page, the form's word count), not an estimate.
+- `related` is supporting material to act on one entry at a time, shown in its own card under the item: notes to draw from, ranked best first. Each entry has `text`, an optional `detail` line (what it matches, where it is from), an optional `badge` such as "Used", and at most one button: a `message`, `thread`, or `link`, without `{draft}` or `{note}`. Once pressed, the entry says so (its `doneLabel`, or "Sent") until you publish again; then mark it, such as with a "Used" badge in place of its button.
+- `map` on the view lays the items out as the pages they fill, at the top of the side panel: each page is one to three columns of item ids, top to bottom. A block's height comes from its item's `meter.max`, its fill from `meter.value`, and its color from its state and status, with an item over budget in red. Clicking a block opens its item. Every id must be an item in the view, once. It needs the "cards" layout.
+- `state` reads each related button pressed as `[related] <entry id>` under its item.
+
 ## A list in the side panel
 
 When each item is a quick yes or no that needs no reading, such as suggestions to add to a list, give the view `"layout": "list"`. The whole view then shows in the side panel as one list. Above the composer, under the view's header, a single row previews it (the names still to decide, then what is on the list) with a Review button that opens the panel:

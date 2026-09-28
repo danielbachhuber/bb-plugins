@@ -10,7 +10,7 @@ import { dismissLabelOf, fillDraft, fillNote, isQuiet, needsConfirm, parseView, 
 import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { draftKey, enterAction, firstOpenItem, nextOpenItem, showsResult } from "./view-panel.js";
+import { draftKey, enterAction, firstOpenItem, mapPages, nextOpenItem, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -684,5 +684,83 @@ describe("push-back note", () => {
     const stored = s.publish("thr_one", "default", parseView(view({ note: {} })), null, "t");
     s.setItem(stored.id, "need", { state: "done", result: { label: "Revise", at: "t", note: "Shorter" } }, "t");
     expect(describeItems(s.get(stored.id)!)).toEqual(['[done] need  Need  (Revise, note: "Shorter")']);
+  });
+});
+
+describe("meter, related, and map", () => {
+  const view = (extra: object = {}, need: object = {}) =>
+    JSON.stringify({
+      title: "Grant",
+      sections: [
+        {
+          items: [
+            { id: "summary", title: "Summary", meter: { value: 48, max: 50, unit: "words" }, status: { label: "Complete", tone: "success", complete: true } },
+            {
+              id: "need",
+              title: "Need",
+              meter: { value: 220, max: 200, unit: "words" },
+              status: { label: "In progress", tone: "warning" },
+              related: {
+                title: "From the release notes",
+                entries: [
+                  { id: "security-queue", text: "38 security reports wait on triage.", detail: "Matches: maintenance burden", action: { type: "message", label: "Add", text: "Add the security queue to Need." } },
+                  { id: "downloads", text: "Downloads grew 40% this year.", badge: { label: "Used", tone: "success" } },
+                ],
+              },
+              ...need,
+            },
+            { id: "team", title: "Team", meter: { value: 0, max: 150, unit: "words" } },
+          ],
+        },
+      ],
+      ...extra,
+    });
+
+  it("fills in a meter's unit and the related list's title", () => {
+    const need = parseView(view()).sections[0]!.items[1]!;
+    expect(need.meter).toEqual({ value: 220, max: 200, unit: "words" });
+    expect(parseView(view({}, { meter: { value: 1, max: 2 } })).sections[0]!.items[1]!.meter).toEqual({ value: 1, max: 2, unit: "" });
+    expect(parseView(view({}, { related: { entries: [{ id: "a", text: "A" }] } })).sections[0]!.items[1]!.related!.title).toBe("Related");
+  });
+
+  it("refuses a related entry whose button needs the item's draft or note, runs a command, or repeats an id", () => {
+    const entry = (action: object) => ({ related: { entries: [{ id: "a", text: "A", action }] } });
+    expect(() => parseView(view({}, entry({ type: "command", label: "Run", command: "ls" })))).toThrow(/related\.entries\.0\.action: a related entry's button/);
+    expect(() => parseView(view({}, { draft: "d", ...entry({ type: "message", label: "Add", text: "Add {draft}" }) }))).toThrow(/related\.entries\.0\.action/);
+    expect(() => parseView(view({}, { related: { entries: [{ id: "a", text: "A" }, { id: "a", text: "B" }] } }))).toThrow(/duplicate related entry id "a"/);
+  });
+
+  it("lays out a map from item ids, and names an id it does not have or has twice", () => {
+    const map = { pages: [{ label: "Page 1", columns: [["summary", "need"]] }, { label: "Page 2", columns: [["team"]] }] };
+    expect(parseView(view({ map })).map!.pages).toHaveLength(2);
+    expect(() => parseView(view({ map: { pages: [{ label: "P", columns: [["nope"]] }] } }))).toThrow(/map\.pages\.0\.columns\.0\.0: no item "nope"/);
+    expect(() => parseView(view({ map: { pages: [{ label: "P", columns: [["need"], ["need"]] }] } }))).toThrow(/map\.pages\.0\.columns\.1\.0: "need" is on the map twice/);
+    expect(() => parseView(view({ layout: "list", map }))).toThrow(/a map needs the "cards" layout/);
+  });
+
+  it("sizes each block by its meter's max, so the tallest column fills the page, and fills it by value", () => {
+    const s = store();
+    const stored = s.publish("thr_one", "grant", parseView(view({ map: { pages: [{ label: "P1", columns: [["summary", "need"], ["team"]] }] } })), null, "t");
+    const [page] = mapPages(stored, 100);
+    const [first, second] = page!.columns;
+    expect(first!.map((block) => [block.item.id, Math.round(block.height), block.fill, block.over, block.tone])).toEqual([
+      ["summary", 20, 0.96, false, "done"],
+      ["need", 80, 1, true, "warning"],
+    ]);
+    expect(second!.map((block) => [block.item.id, Math.round(block.height), block.fill, block.tone])).toEqual([["team", 60, 0, "neutral"]]);
+  });
+
+  it("keeps what a related button did across a republish and a button on the item, and reads it back", () => {
+    const s = store();
+    const stored = s.publish("thr_one", "grant", parseView(view()), null, "t");
+    s.setRelated(stored.id, "need", "security-queue", { label: "Add", at: "2026-03-12T10:00:00Z" }, "t");
+    s.setItem(stored.id, "need", { state: "open", result: { label: "Revise", at: "t" } }, "t");
+    const again = s.publish("thr_one", "grant", parseView(view()), null, "t");
+    expect(again.items.need).toEqual({
+      state: "open",
+      result: { label: "Revise", at: "t" },
+      related: { "security-queue": { label: "Add", at: "2026-03-12T10:00:00Z" } },
+    });
+    expect(describeItems(again)).toContain("    [related] security-queue  (Add)");
   });
 });

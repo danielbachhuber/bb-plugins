@@ -45,6 +45,9 @@ export const MIGRATIONS = [
   // Set when the user hides a view from above the composer; the next publish
   // under its key clears it, since that brings something new to look at.
   `ALTER TABLE views ADD COLUMN hidden_at TEXT`,
+  // What each related entry's button did, by entry id, as JSON. The item's
+  // own buttons leave it alone.
+  `ALTER TABLE item_states ADD COLUMN related TEXT`,
 ];
 
 export type ItemState = "open" | "done" | "dismissed";
@@ -77,6 +80,8 @@ export interface StoredImage {
 export interface ItemRecord {
   state: ItemState;
   result: ActionResult | null;
+  /** What each related entry's button did, by entry id. */
+  related?: Record<string, ActionResult>;
 }
 
 export interface StoredView {
@@ -96,7 +101,9 @@ export interface Store {
   publish(threadId: string, key: string, view: View, cwd: string | null, now: string): StoredView;
   get(id: number): StoredView | null;
   forThread(threadId: string): StoredView[];
+  /** Sets an item's state and last result, leaving what its related entries' buttons did. */
   setItem(viewId: number, itemId: string, record: ItemRecord, now: string): StoredView | null;
+  setRelated(viewId: number, itemId: string, entryId: string, result: ActionResult, now: string): StoredView | null;
   setHidden(viewId: number, hidden: boolean, now: string): StoredView | null;
   /** Replaces every image a view holds, as one publish's set. */
   putImages(viewId: number, images: Array<{ itemId: string; index: number } & StoredImage>): void;
@@ -123,7 +130,7 @@ export function applyStatus(view: View, items: Record<string, ItemRecord>): Reco
     if (item.status === undefined) continue;
     const record = items[item.id];
     if (record?.state === "dismissed") continue;
-    next[item.id] = { state: item.status.complete ? "done" : "open", result: record?.result ?? null };
+    next[item.id] = { ...record, state: item.status.complete ? "done" : "open", result: record?.result ?? null };
   }
   return next;
 }
@@ -138,7 +145,7 @@ type ViewRow = {
   hidden_at: string | null;
 };
 
-type StateRow = { item_id: string; state: ItemState; result: string | null };
+type StateRow = { item_id: string; state: ItemState; result: string | null; related: string | null };
 
 export function createStore(db: Database): Store {
   function hydrate(row: ViewRow): StoredView {
@@ -146,12 +153,13 @@ export function createStore(db: Database): Store {
     const known = new Set(view.sections.flatMap((section) => section.items.map((item) => item.id)));
     const items: Record<string, ItemRecord> = {};
     for (const state of db
-      .prepare("SELECT item_id, state, result FROM item_states WHERE view_id = ?")
+      .prepare("SELECT item_id, state, result, related FROM item_states WHERE view_id = ?")
       .all(row.id) as StateRow[]) {
       if (!known.has(state.item_id)) continue;
       items[state.item_id] = {
         state: state.state,
         result: state.result === null ? null : (JSON.parse(state.result) as ActionResult),
+        ...(state.related === null ? {} : { related: JSON.parse(state.related) as Record<string, ActionResult> }),
       };
     }
     return {
@@ -206,6 +214,17 @@ export function createStore(db: Database): Store {
       return get(viewId);
     },
 
+    setRelated(viewId, itemId, entryId, result, now) {
+      const stored = get(viewId);
+      if (stored === null) return null;
+      const related = { ...stored.items[itemId]?.related, [entryId]: result };
+      db.prepare(
+        `INSERT INTO item_states (view_id, item_id, state, result, related, updated_at) VALUES (?, ?, 'open', NULL, ?, ?)
+         ON CONFLICT (view_id, item_id) DO UPDATE SET related = excluded.related, updated_at = excluded.updated_at`,
+      ).run(viewId, itemId, JSON.stringify(related), now);
+      return get(viewId);
+    },
+
     setHidden(viewId, hidden, now) {
       db.prepare("UPDATE views SET hidden_at = ? WHERE id = ?").run(hidden ? now : null, viewId);
       return get(viewId);
@@ -234,8 +253,8 @@ export function createStore(db: Database): Store {
  */
 export function describeItems(stored: StoredView): string[] {
   return stored.view.sections.flatMap((section) =>
-    section.items.map((item) => {
-      if (isQuiet(stored.view, item)) return `[listed] ${item.id}  ${item.title}`;
+    section.items.flatMap((item) => {
+      if (isQuiet(stored.view, item)) return [`[listed] ${item.id}  ${item.title}`];
       const record = stored.items[item.id];
       const state = record?.state ?? "open";
       const result = record?.result;
@@ -250,7 +269,10 @@ export function describeItems(stored: StoredView): string[] {
             }${result.error === undefined ? "" : `, failed: ${result.error}`}${
               result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`
             })`;
-      return `[${state}] ${item.id}  ${item.title}${item.status === undefined ? "" : `  {${item.status.label}}`}${detail}`;
+      const related = Object.entries(record?.related ?? {}).map(
+        ([entryId, entry]) => `    [related] ${entryId}  (${entry.label}${entry.error === undefined ? "" : `, failed: ${entry.error}`})`,
+      );
+      return [`[${state}] ${item.id}  ${item.title}${item.status === undefined ? "" : `  {${item.status.label}}`}${detail}`, ...related];
     }),
   );
 }

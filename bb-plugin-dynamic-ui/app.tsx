@@ -195,6 +195,18 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
         onStartThread={(item) => {
           rpc.call("item_thread_seed", { viewId: stored.id, itemId: item.id }).then((seed) => setStarting({ item, seed }), fail);
         }}
+        onRunRelated={(item, entryId) => {
+          setBusyItem(item.id);
+          rpc
+            .call("related_run", { viewId: stored.id, itemId: item.id, entryId })
+            .then((updated) => {
+              setStored(updated);
+              const result = updated.items[item.id]?.related?.[entryId];
+              if (result?.error !== undefined) toast.error(result.error);
+            }, fail)
+            .finally(() => setBusyItem(null));
+        }}
+        onOpenItem={(item) => setFocus(threadId, { viewId: stored.id, itemId: item.id })}
       />
       <StartThreadDialog
         title={starting?.item.title ?? ""}
