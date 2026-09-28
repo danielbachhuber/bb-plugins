@@ -12,7 +12,7 @@
  */
 import type { Database } from "better-sqlite3";
 import type { Feedback } from "./review.js";
-import { dismissLabelOf, isQuiet, type View } from "./schema.js";
+import { dismissLabelOf, isQuiet, type Action, type Item, type View } from "./schema.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE views (
@@ -101,6 +101,31 @@ export interface Store {
   image(viewId: number, itemId: string, index: number): StoredImage | null;
 }
 
+/**
+ * What an item is once one of its buttons went through. A failure leaves it
+ * open to try again. A button marked `repeat`, or any button on an item whose
+ * status the agent sets, leaves it open too: the agent finishes it.
+ */
+export function stateAfterAction(item: Item, action: Action, failed: boolean): ItemState {
+  return failed || action.repeat === true || item.status !== undefined ? "open" : "done";
+}
+
+/**
+ * The view's items with each agent-set status applied: complete is done,
+ * anything else open. A dismissal is the user's, so it stands, and the last
+ * button's result stays on the item.
+ */
+export function applyStatus(view: View, items: Record<string, ItemRecord>): Record<string, ItemRecord> {
+  const next = { ...items };
+  for (const item of view.sections.flatMap((section) => section.items)) {
+    if (item.status === undefined) continue;
+    const record = items[item.id];
+    if (record?.state === "dismissed") continue;
+    next[item.id] = { state: item.status.complete ? "done" : "open", result: record?.result ?? null };
+  }
+  return next;
+}
+
 type ViewRow = {
   id: number;
   thread_id: string;
@@ -135,7 +160,7 @@ export function createStore(db: Database): Store {
       cwd: row.cwd,
       publishedAt: row.published_at,
       hiddenAt: row.hidden_at,
-      items,
+      items: applyStatus(view, items),
     };
   }
 
@@ -223,7 +248,7 @@ export function describeItems(stored: StoredView): string[] {
             }${result.error === undefined ? "" : `, failed: ${result.error}`}${
               result.feedback?.pick == null ? "" : `, picked ${item.variations[result.feedback.pick]?.label ?? result.feedback.pick}`
             })`;
-      return `[${state}] ${item.id}  ${item.title}${detail}`;
+      return `[${state}] ${item.id}  ${item.title}${item.status === undefined ? "" : `  {${item.status.label}}`}${detail}`;
     }),
   );
 }

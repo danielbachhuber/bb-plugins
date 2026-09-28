@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, type Action, type Item } from "./schema.js";
+import { dismissLabelOf, isQuiet, needsConfirm, usesDraft, type Action, type HistoryEntry, type Item } from "./schema.js";
 import type { ItemRecord, StoredView } from "./store.js";
 import { DraftEditor } from "./draft-editor.js";
 import type { Feedback } from "./review.js";
@@ -77,6 +77,46 @@ function when(at: string): string {
   return date.toDateString() === new Date().toDateString()
     ? time
     : `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+/**
+ * Whether the item shows what its last button did. An item whose status the
+ * agent sets goes round after round, so its result shows only until the
+ * agent publishes again; from then its history says what happened.
+ */
+export function showsResult(item: Item, record: ItemRecord | undefined, publishedAt: string): boolean {
+  const result = record?.result;
+  if (result === null || result === undefined) return false;
+  return item.status === undefined || result.at >= publishedAt;
+}
+
+/** The time a history entry names, or its label as written. */
+function historyTime(at: string): string {
+  const date = new Date(at);
+  return Number.isNaN(date.getTime()) ? at : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/** The item's back and forth, oldest first: each round proposed and each push-back. */
+function History({ entries }: { entries: HistoryEntry[] }) {
+  return (
+    <ol className="mt-3 flex flex-col gap-1 border-l border-border pl-3 text-xs" aria-label="History">
+      {entries.map((entry, i) => (
+        <li key={i} className="flex gap-2">
+          {entry.at === undefined ? null : <span className="w-16 shrink-0 text-muted-foreground">{historyTime(entry.at)}</span>}
+          <span className={entry.who === "user" ? "text-foreground" : "text-muted-foreground"}>
+            {entry.who === "user" ? `You: “${entry.text}”` : entry.text}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A short, stable name for a draft, so the card starts over when the agent publishes a new one. */
+export function draftKey(draft: string): string {
+  let hash = 5381;
+  for (let i = 0; i < draft.length; i++) hash = ((hash << 5) + hash + draft.charCodeAt(i)) | 0;
+  return (hash >>> 0).toString(36);
 }
 
 /** What the last button did, as a banner at the top of the item. */
@@ -235,6 +275,7 @@ function TextDraftActions({
 function ItemCard({
   item,
   record,
+  publishedAt,
   dismissLabel,
   busy,
   initiallyExpanded,
@@ -248,6 +289,8 @@ function ItemCard({
 }: {
   item: Item;
   record: ItemRecord | undefined;
+  /** When the view was last published, which retires an agent-set item's last result. */
+  publishedAt: string;
   /** What Dismiss is called on this item, such as "Skip". */
   dismissLabel: string;
   busy: boolean;
@@ -311,7 +354,7 @@ function ItemCard({
               </UrlLink>
             )}
           </div>
-          {item.badges.length === 0 && state !== "dismissed" ? null : (
+          {item.badges.length === 0 && item.status === undefined && state !== "dismissed" ? null : (
             <div className="mt-1 flex flex-wrap gap-1.5">
               {/* A done item shows what happened in its result, not a tag. */}
               {state === "dismissed" ? (
@@ -319,6 +362,9 @@ function ItemCard({
                   {dismissLabel === "Dismiss" ? "Dismissed" : dismissLabel}
                 </span>
               ) : null}
+              {item.status === undefined ? null : (
+                <span className={cn("rounded border px-1.5 py-px text-[11px]", TONE_CLASS[item.status.tone])}>{item.status.label}</span>
+              )}
               {item.badges.map((badge) => (
                 <span key={badge.label} className={cn("rounded border px-1.5 py-px text-[11px]", TONE_CLASS[badge.tone])}>
                   {badge.label}
@@ -351,13 +397,14 @@ function ItemCard({
       </div>
 
       {/* What happened comes first, above the evidence for it. */}
-      {record === undefined ? null : <Result record={record} onGo={onGo} />}
+      {record === undefined || !showsResult(item, record, publishedAt) ? null : <Result record={record} onGo={onGo} />}
 
       {item.summary === "" ? null : (
         <div className="mt-2 text-sm">
           <Markdown content={item.summary} />
         </div>
       )}
+      {item.history.length === 0 ? null : <History entries={item.history} />}
       {item.details === "" ? null : (
         <>
           <Button size="sm" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setExpanded((v) => !v)}>
@@ -460,9 +507,10 @@ export function ViewPanel({ stored, busyItem, onRun, onDismiss, onGoToThread, co
         <ol>
           {/* Keyed on the confirmation too, so a command clicked in the list opens asking. */}
           <ItemCard
-            key={`${focused.id}:${confirming ?? ""}`}
+            key={`${focused.id}:${confirming ?? ""}:${draftKey(focused.draft)}`}
             item={focused}
             record={stored.items[focused.id]}
+            publishedAt={stored.publishedAt}
             dismissLabel={dismissLabelOf(view, focused)}
             busy={busyItem === focused.id}
             initiallyExpanded

@@ -13,10 +13,10 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
-import type { ItemRecord, StoredView } from "./view/store";
+import { applyStatus, type ItemRecord, type StoredView } from "./view/store";
 import { firstOpenItem, ViewPanel } from "./view/view-panel";
 import { ListPanel } from "./view/list-panel";
 
@@ -114,7 +114,8 @@ const execution = makeExecutionControlsProps({
 });
 
 function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView {
-  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items };
+  // As the store reads it back: an agent-set status decides the item's state.
+  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items: applyStatus(view, items) };
 }
 
 /**
@@ -474,4 +475,21 @@ export function VisualReviewSent() {
       initialFocus="review-rows"
     />
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Work in rounds                                                             */
+/* -------------------------------------------------------------------------- */
+
+const grantTurns: Turn[] = [
+  { kind: "user", text: "Help me write the Acme Foundation Open Tools Fund application for acme/widgets." },
+  { kind: "work", text: "Read the fund's guidelines and the application form" },
+  { kind: "user", text: "Lead the Need section with who maintains it, not downloads." },
+  { kind: "work", text: "Revised Need and counted its words" },
+  { kind: "assistant", text: "**Round 2 of Need** leads with the two volunteer maintainers. It's 180 of 200 words." },
+];
+
+/** A piece of work in rounds: the header counts what the agent marked complete, and each row shows the status it set. */
+export function Grant() {
+  return <ThreadStage turns={grantTurns} view={stored(grantView)} initialFocus="need" />;
 }

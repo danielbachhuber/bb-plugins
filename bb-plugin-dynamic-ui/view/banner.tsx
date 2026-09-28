@@ -56,6 +56,22 @@ export function allHandled(stored: StoredView): boolean {
 }
 
 /**
+ * The count beside the view's title. Once any item has an agent-set status,
+ * the view is a piece of work in progress, so it counts what is complete;
+ * otherwise it counts what is left to decide.
+ */
+export function progressLabel(stored: StoredView): string {
+  const items = stored.view.layout === "list" ? decisionItems(stored) : orderItems(stored);
+  if (items.length === 0) return "nothing to decide";
+  const state = (item: Item) => stored.items[item.id]?.state ?? "open";
+  if (items.some((item) => item.status !== undefined)) {
+    return `${items.filter((item) => state(item) === "done").length} of ${items.length} complete`;
+  }
+  const open = items.filter((item) => state(item) === "open").length;
+  return open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`;
+}
+
+/**
  * A "list" layout view's one row above the composer: what is left to decide,
  * and under it what is on the list, each as names. The whole list is in the
  * side panel.
@@ -106,7 +122,6 @@ export function ViewBanner({
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
   const items = list ? decisionItems(stored) : orderItems(stored);
-  const open = items.filter((item) => (stored.items[item.id]?.state ?? "open") === "open").length;
 
   return (
     <div>
@@ -115,10 +130,7 @@ export function ViewBanner({
           <span className="text-xs text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
           <span className="min-w-0 flex-1 truncate text-sm">
             <b className="font-medium text-foreground">{stored.view.title}</b>
-            <span className="text-muted-foreground">
-              {" "}
-              · {items.length === 0 ? "nothing to decide" : open === 0 ? `all ${items.length} handled` : `${open} of ${items.length} open`}
-            </span>
+            <span className="text-muted-foreground"> · {progressLabel(stored)}</span>
           </span>
         </button>
         <button
@@ -159,6 +171,9 @@ export function ViewBanner({
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpenItem(item)} title="Open in the side panel">
                   <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate text-sm text-foreground">{item.title}</span>
+                    {item.status === undefined ? null : (
+                      <span className={cn("shrink-0 rounded border px-1 text-[10px]", TONE_CLASS[item.status.tone])}>{item.status.label}</span>
+                    )}
                     {item.badges.slice(0, 2).map((badge) => (
                       <span key={badge.label} className={cn("shrink-0 rounded border px-1 text-[10px]", TONE_CLASS[badge.tone])}>
                         {badge.label}
@@ -173,7 +188,7 @@ export function ViewBanner({
                           ? result.feedback.pick === null
                             ? "Feedback sent"
                             : `Picked ${item.variations[result.feedback.pick]?.label ?? "one"}`
-                          : state === "done" && result
+                          : state === "done" && result && item.status === undefined
                             ? result.label
                             : summary}
                     </span>

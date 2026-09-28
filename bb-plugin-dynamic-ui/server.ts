@@ -15,7 +15,7 @@ import { runCommand } from "./view/run-command.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, parseView, usesDraft, type Action, type View } from "./view/schema.js";
-import { MIGRATIONS, createStore, describeItems, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
+import { MIGRATIONS, createStore, describeItems, stateAfterAction, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -136,7 +136,7 @@ export default async function plugin(bb: BbPluginApi) {
     }
     // A failed command or spawn leaves the item open, with the failure on it.
     const failed = result.error !== undefined || (result.exitCode !== undefined && result.exitCode !== 0);
-    const updated = store.setItem(viewId, itemId, { state: failed ? "open" : "done", result }, now())!;
+    const updated = store.setItem(viewId, itemId, { state: stateAfterAction(item, original, failed), result }, now())!;
     bb.realtime.publish(CHANGED, { threadId: stored.threadId, viewId });
     bb.log.info(`ran "${action.label}" (${action.type}) on ${itemId} in view ${viewId}${failed ? ", failed" : ""}`);
     return updated;

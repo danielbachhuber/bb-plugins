@@ -415,3 +415,71 @@ export const groceryView: View = viewSchema.parse({
     },
   ],
 });
+
+const grantActions = (section: string) => [
+  { type: "message", label: "Accept", text: `Accept ${section} as below, write it into the application, and check the word count:\n\n{draft}`, primary: true },
+  { type: "message", label: "Revise", text: `Revise ${section}. My edits, and what to change, are below:\n\n{draft}` },
+];
+
+/**
+ * A piece of work in rounds: a grant application written section by section.
+ * The agent sets each section's status, so a section is complete only once
+ * its text is written in and fits the word limit, whatever the user pressed.
+ */
+export const grantView: View = viewSchema.parse({
+  title: "Grant: Acme Foundation Open Tools Fund",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "need",
+          title: "Need",
+          status: { label: "In progress", tone: "warning" },
+          badges: [{ label: "180 of 200 words" }],
+          summary: "Round 2 leads with who maintains acme/widgets, then what breaks without them.",
+          history: [
+            { text: "Round 1: opened with the download counts.", at: "2026-03-12T09:42:00Z" },
+            { who: "user", text: "Lead with who maintains it, not downloads.", at: "2026-03-12T09:48:00Z" },
+            { text: "Round 2: leads with the two volunteer maintainers.", at: "2026-03-12T09:51:00Z" },
+          ],
+          draft:
+            "Two volunteers maintain acme/widgets in their evenings. It is a dependency of 1,400 public projects, and its release queue is four months behind.\n\n- 212 open issues, 38 of them security reports waiting on triage\n- No maintainer is paid for the work",
+          draftLabel: "Proposed text",
+          actions: grantActions("Need"),
+        },
+        {
+          id: "approach",
+          title: "Approach",
+          status: { label: "40 words over", tone: "danger" },
+          badges: [{ label: "240 of 200 words" }],
+          summary: "Accepted and written in, but the form counts 240 of 200 words.",
+          history: [{ text: "Round 1: a three-phase plan: triage, release, handover.", at: "2026-03-12T09:30:00Z" }],
+          draft:
+            "Fund one maintainer for twelve months at half time. Months one to three clear the security queue; four to nine ship the overdue 4.0 release; ten to twelve write the handover guide.",
+          draftLabel: "Proposed text",
+          actions: grantActions("Approach"),
+        },
+        {
+          id: "summary",
+          title: "Summary",
+          status: { label: "Complete", tone: "success", complete: true },
+          badges: [{ label: "48 of 50 words" }],
+          summary: "Written into the application and under the limit.",
+          draft: "Half-time funding for one acme/widgets maintainer, for a year, to clear its security backlog and ship 4.0.",
+          draftLabel: "Proposed text",
+          actions: grantActions("Summary"),
+        },
+        {
+          id: "team",
+          title: "Team",
+          status: { label: "Not started" },
+          badges: [{ label: "0 of 150 words" }],
+          summary: "Who maintains it, and who reviews their work.",
+          actions: [{ type: "message", label: "Start", text: "Draft the Team section of the grant application.", primary: true }],
+        },
+      ],
+    },
+  ],
+});

@@ -1,7 +1,7 @@
-import { groceryView, staplesView, triageView } from "./view/fixtures";
+import { grantView, groceryView, staplesView, triageView } from "./view/fixtures";
 import { ListPanel } from "./view/list-panel";
 import type { View } from "./view/schema";
-import type { StoredView } from "./view/store";
+import { applyStatus, type StoredView } from "./view/store";
 import { ViewPanel, type ViewPanelProps } from "./view/view-panel";
 
 export default {
@@ -185,6 +185,23 @@ export function TextDraftSent() {
         items: { "chew-toy": { state: "done", result: { label: "Send answer", at: "2026-03-12T12:05:00Z", draft: "A rubber bone for a small dog" } } },
       }}
       focusItemId="chew-toy"
+    />
+  );
+}
+
+const grant: StoredView = { ...fresh, key: "grant", view: grantView, publishedAt: "2026-03-12T09:51:00Z", items: applyStatus(grantView, {}) };
+
+/** A section worked in rounds: its status set by the agent beside its badges, and its history under the summary. Its buttons stay usable until the agent marks it complete. */
+export function StatusRounds() {
+  return <Panel stored={grant} focusItemId="need" />;
+}
+
+/** Revise pressed: the banner says it was sent, until the agent publishes the next round. */
+export function StatusJustRevised() {
+  return (
+    <Panel
+      stored={{ ...grant, items: applyStatus(grantView, { need: { state: "open", result: { label: "Revise", at: "2026-03-12T09:53:00Z", edited: true } } }) }}
+      focusItemId="need"
     />
   );
 }

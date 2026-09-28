@@ -22,6 +22,8 @@ export const badgeSchema = z.object({
 const actionBase = {
   label,
   primary: z.boolean().default(false),
+  /** True leaves the item open after this button goes through, so it can be pressed again, as for another round. */
+  repeat: z.boolean().optional(),
   /** What a list view's row says once this button went through, such as "Added". */
   doneLabel: label.optional(),
 };
@@ -131,6 +133,27 @@ export const LIST_ACTIONS = 3;
  */
 export const DRAFT_FORMATS = ["markdown", "text"] as const;
 
+/**
+ * Where an item stands, as the agent sees it: "In progress", "5 words over".
+ * An item with a status is finished only when the agent says so, by
+ * publishing it with `complete: true`; its buttons do not finish it.
+ */
+export const statusSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  tone: z.enum(TONES).default("neutral"),
+  complete: z.boolean().default(false),
+});
+export type Status = z.infer<typeof statusSchema>;
+
+/** One step in an item's back and forth, such as a round proposed or the user's push-back. */
+export const historyEntrySchema = z.object({
+  who: z.enum(["agent", "user"]).default("agent"),
+  text: z.string().trim().min(1).max(2_000),
+  /** When it happened: an ISO time, shown as a time of day, or a short label shown as written. */
+  at: z.string().trim().max(40).optional(),
+});
+export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+
 const itemId = z
   .string()
   .trim()
@@ -143,6 +166,9 @@ export const itemSchema = z.object({
   /** What the item is about on the web (an issue, a PR, a review comment); the opened item's title links to it. */
   url: z.string().trim().url().optional(),
   badges: z.array(badgeSchema).max(8).default([]),
+  status: statusSchema.optional(),
+  /** Oldest first. Shown under the summary. */
+  history: z.array(historyEntrySchema).max(50).default([]),
   /** Always shown. */
   summary: markdown.default(""),
   /** Shown behind a "Details" toggle. */

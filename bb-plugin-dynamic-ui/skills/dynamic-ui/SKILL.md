@@ -95,7 +95,36 @@ After publishing, say in chat how many items there are and that they are above t
 
 An item with `variations` is a visual review instead: see below.
 
-Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again.
+Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again. A button with `"repeat": true` leaves the card open after it goes through, for a step the user may take again, such as "Regenerate".
+
+## Work in rounds
+
+When each item is a piece of work that goes back and forth, such as sections of a document you draft, the user pushes back on, and you revise, give each item a `status` and a `history`:
+
+```json
+{
+  "id": "need",
+  "title": "Need",
+  "status": { "label": "In progress", "tone": "warning" },
+  "summary": "Round 2 leads with who maintains acme/widgets.",
+  "history": [
+    { "text": "Round 1: opened with the download counts.", "at": "2026-03-12T09:42:00Z" },
+    { "who": "user", "text": "Lead with who maintains it, not downloads.", "at": "2026-03-12T09:48:00Z" },
+    { "text": "Round 2: leads with the two volunteer maintainers.", "at": "2026-03-12T09:51:00Z" }
+  ],
+  "draft": "Two volunteers maintain acme/widgets in their evenings. ...",
+  "draftLabel": "Proposed text",
+  "actions": [
+    { "type": "message", "label": "Accept", "text": "Accept Need as below:\n\n{draft}", "primary": true },
+    { "type": "message", "label": "Revise", "text": "Revise Need. My edits are below:\n\n{draft}" }
+  ]
+}
+```
+
+- An item with a `status` is finished only when you say so: republish it with `"complete": true`. Its buttons stay usable until then, so the user can revise it as many times as it takes. Mark it complete when the work is really done, such as once the text is written in and fits, not when Accept is pressed; if it does not fit yet, say why in the label, such as `"40 words over"`.
+- `label` is what shows, `tone` colors it, and `complete` defaults to false. Once any item has a status, the header counts what is complete ("1 of 4 complete") instead of what is open.
+- `history` is the back and forth, oldest first, shown under the summary. Add an entry for each round you propose and each push-back the user gives (`"who": "user"`). `at` is an ISO time, shown as a time of day, or a short label shown as written.
+- Each round, publish the item again under the same `id` with the new `draft`: the card starts over with it. The banner saying which button the user pressed stays only until you publish again.
 
 ## A list in the side panel
 
@@ -170,4 +199,4 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 bb dynamic-ui state [--key <name>]
 ```
 
-Prints each item as `[open|done|dismissed] <id> <title>` with the last action and its result, or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.
+Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{In progress}` if it has one, with the last action and its result, or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.

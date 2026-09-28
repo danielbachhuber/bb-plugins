@@ -3,14 +3,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allHandled, decisionItems, firstLine, listPreview, orderItems } from "./banner.js";
+import { allHandled, decisionItems, firstLine, listPreview, orderItems, progressLabel } from "./banner.js";
 import { staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { dismissLabelOf, fillDraft, isQuiet, needsConfirm, parseView, shellQuote, usesDraft } from "./schema.js";
-import { MIGRATIONS, createStore, describeItems, type StoredView } from "./store.js";
+import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { enterAction, firstOpenItem, nextOpenItem } from "./view-panel.js";
+import { draftKey, enterAction, firstOpenItem, nextOpenItem, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -525,5 +525,115 @@ describe("itemThreadPrompt", () => {
   it("leaves out what the item does not have", () => {
     const item = triageView.sections[1]!.items[1]!;
     expect(itemThreadPrompt("V", item, "thr_src")).toBe('Dig further into this item from "V" in @thread:thr_src.\n\n## #123 Dark mode for the dashboard');
+  });
+});
+
+describe("agent-set status", () => {
+  const sections = (need: object) => ({
+    title: "Grant: Open Tools Fund",
+    sections: [
+      {
+        items: [
+          { id: "summary", title: "Summary", status: { label: "Complete", tone: "success", complete: true } },
+          {
+            id: "need",
+            title: "Need",
+            status: { label: "In progress", tone: "warning" },
+            history: [
+              { text: "Round 1: led with the download counts." },
+              { who: "user", text: "Lead with who maintains it, not downloads.", at: "2026-03-12T09:48:00Z" },
+            ],
+            draft: "Two volunteers maintain acme/widgets.",
+            actions: [
+              { type: "message", label: "Accept", text: "Accept Need:\n\n{draft}", primary: true },
+              { type: "message", label: "Revise", text: "Revise Need:\n\n{draft}" },
+            ],
+            ...need,
+          },
+          { id: "team", title: "Team", status: { label: "Not started" } },
+        ],
+      },
+    ],
+  });
+  const grant = (need: object = {}) => parseView(JSON.stringify(sections(need)));
+
+  it("fills in a status's tone and completeness, and leaves items without one unchanged", () => {
+    const view = grant();
+    const [summary, need, team] = view.sections[0]!.items;
+    expect(summary!.status).toEqual({ label: "Complete", tone: "success", complete: true });
+    expect(need!.status).toEqual({ label: "In progress", tone: "warning", complete: false });
+    expect(team!.status).toEqual({ label: "Not started", tone: "neutral", complete: false });
+    expect(need!.history[0]).toEqual({ who: "agent", text: "Round 1: led with the download counts." });
+    expect(need!.actions[0]!.repeat).toBeUndefined();
+    expect(triageView.sections[0]!.items[0]!.status).toBeUndefined();
+    expect(triageView.sections[0]!.items[0]!.history).toEqual([]);
+  });
+
+  it("finishes an item on a button, unless the button repeats or the agent owns the item's status", () => {
+    const plain = triageView.sections[0]!.items[0]!;
+    const need = grant().sections[0]!.items[1]!;
+    expect(stateAfterAction(plain, plain.actions[0]!, false)).toBe("done");
+    expect(stateAfterAction(plain, { ...plain.actions[0]!, repeat: true }, false)).toBe("open");
+    expect(stateAfterAction(need, need.actions[0]!, false)).toBe("open");
+    expect(stateAfterAction(plain, plain.actions[0]!, true)).toBe("open");
+  });
+
+  it("takes an item's state from its status, keeping the last result and a dismissal", () => {
+    const view = grant();
+    const items = applyStatus(view, {
+      need: { state: "open", result: { label: "Revise", at: "t" } },
+      team: { state: "dismissed", result: null },
+    });
+    expect(items).toEqual({
+      summary: { state: "done", result: null },
+      need: { state: "open", result: { label: "Revise", at: "t" } },
+      team: { state: "dismissed", result: null },
+    });
+  });
+
+  it("marks an item done when the agent republishes it complete, and open again when it reopens it", () => {
+    const s = store();
+    const first = s.publish("thr_one", "grant", grant(), null, "t");
+    expect(first.items.need?.state).toBe("open");
+    s.setItem(first.id, "need", { state: "open", result: { label: "Accept", at: "t" } }, "t");
+    const done = s.publish("thr_one", "grant", grant({ status: { label: "Complete", tone: "success", complete: true } }), null, "t");
+    expect(done.items.need).toEqual({ state: "done", result: { label: "Accept", at: "t" } });
+    const reopened = s.publish("thr_one", "grant", grant({ status: { label: "40 words over", tone: "danger" } }), null, "t");
+    expect(reopened.items.need?.state).toBe("open");
+  });
+
+  it("counts complete items in the header once a view uses status, and open ones otherwise", () => {
+    const s = store();
+    expect(progressLabel(s.publish("thr_one", "grant", grant(), null, "t"))).toBe("1 of 3 complete");
+    const triage = s.publish("thr_one", "default", triageView, null, "t");
+    expect(progressLabel(triage)).toBe("3 of 3 open");
+    s.setItem(triage.id, "issue-101", { state: "done", result: null }, "t");
+    expect(progressLabel(s.get(triage.id)!)).toBe("2 of 3 open");
+  });
+
+  it("shows an agent-set item's last result only until the agent publishes again", () => {
+    const need = grant().sections[0]!.items[1]!;
+    const plain = triageView.sections[0]!.items[0]!;
+    const record = { state: "open" as const, result: { label: "Revise", at: "2026-03-12T09:48:00Z" } };
+    expect(showsResult(need, record, "2026-03-12T09:40:00Z")).toBe(true);
+    expect(showsResult(need, record, "2026-03-12T09:51:00Z")).toBe(false);
+    expect(showsResult(plain, record, "2026-03-12T09:51:00Z")).toBe(true);
+    expect(showsResult(need, undefined, "t")).toBe(false);
+  });
+
+  it("names a draft so the card starts over on a new round, and not on a republish that leaves it alone", () => {
+    expect(draftKey("Two volunteers maintain acme/widgets.")).toBe(draftKey("Two volunteers maintain acme/widgets."));
+    expect(draftKey("Two volunteers maintain acme/widgets.")).not.toBe(draftKey("Three volunteers maintain acme/widgets."));
+  });
+
+  it("reads each item's status back for the agent", () => {
+    const s = store();
+    const view = s.publish("thr_one", "grant", grant(), null, "t");
+    s.setItem(view.id, "need", { state: "open", result: { label: "Revise", at: "t" } }, "t");
+    expect(describeItems(s.get(view.id)!)).toEqual([
+      "[done] summary  Summary  {Complete}",
+      "[open] need  Need  {In progress}  (Revise)",
+      "[open] team  Team  {Not started}",
+    ]);
   });
 });
