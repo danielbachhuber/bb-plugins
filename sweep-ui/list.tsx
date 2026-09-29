@@ -41,6 +41,11 @@ export interface SweepListProps {
    * fact would be. Without it, rows draw their number line.
    */
   renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
+  /**
+   * Draws the right-hand column in place of the stage track. Returning null
+   * leaves the column out, so the row takes the full width.
+   */
+  renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
 }
 
 const TIERS: Tier[] = ["now", "next", "later"];
@@ -57,6 +62,7 @@ export function SweepList({
   laterShown = 5,
   busyKeys,
   renderBody,
+  renderTrack,
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
   // Rows opened or closed by hand. Open state lives only as long as the panel.
@@ -107,6 +113,7 @@ export function SweepList({
         onNoteCancel={() => setEditing(null)}
         busy={busyKeys?.has(item.key) ?? false}
         renderBody={renderBody}
+        renderTrack={renderTrack}
       />
     );
   };

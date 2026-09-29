@@ -82,6 +82,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `laterShown` | Later rows shown before "N more". Defaults to 5 |
 | `busyKeys` | Keys of rows to dim while a request for them runs |
 | `renderBody` | Optional. `(item, open, line)` draws the row's body in place of its number line. `line` is true on a one-line Later row, where it is drawn inline in place of the first fact |
+| `renderTrack` | Optional. `(item, line)` draws the right-hand column in place of the stage track. Returning null leaves the column out, so the row takes the full width |
 
 ## Working on it
 

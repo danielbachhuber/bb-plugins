@@ -148,6 +148,8 @@ export interface SweepRowProps {
    * line. `line` is true for a one-line Later row, where it is drawn inline.
    */
   renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
+  /** Draws the right-hand column in place of the track; null leaves it out. */
+  renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
 }
 
 export function SweepRow({
@@ -166,10 +168,13 @@ export function SweepRow({
   onNoteCancel,
   busy = false,
   renderBody,
+  renderTrack,
 }: SweepRowProps) {
   const line = tier === "later" && !open;
   const unread = item.newComments > 0;
-  const track = (
+  const track = renderTrack ? (
+    renderTrack(item, line)
+  ) : (
     <Track stages={stages} stage={item.stage} offTrack={item.offTrack} onMove={onMove} blocked={item.blockedStage} />
   );
   const icon = item.icon ? <span className="flex shrink-0 items-center">{item.icon}</span> : null;

@@ -481,6 +481,8 @@ export interface PrListViewProps {
    * pass drawn ones so they need no network.
    */
   avatarFor?: (owner: string) => string;
+  /** Draws each row's right-hand column in place of the stage track; null leaves it out. */
+  renderTrack?: (item: SweepItem, line: boolean, row: Row) => ReactNode;
 }
 
 export function PrListView({
@@ -494,6 +496,7 @@ export function PrListView({
   onNoteSave,
   onOpenLink,
   avatarFor,
+  renderTrack,
 }: PrListViewProps): ReactNode {
   if (!listing) return <SweepingPullRequests />;
 
@@ -575,6 +578,14 @@ export function PrListView({
               const row = rowsByKey.get(item.key);
               if (row) onOpenLink(row);
             }}
+            renderTrack={
+              renderTrack
+                ? (item, line) => {
+                    const row = rowsByKey.get(item.key);
+                    return row ? renderTrack(item, line, row) : null;
+                  }
+                : undefined
+            }
             renderBody={(item, _open, line) => {
               const row = rowsByKey.get(item.key);
               return row ? <RowBody row={row} item={item} line={line} showRepo={showRepo} avatarFor={avatarFor} /> : null;

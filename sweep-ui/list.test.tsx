@@ -205,6 +205,19 @@ describe("SweepList", () => {
     expect(within(row("Widget task 2")).queryByLabelText(/^Blocked at/)).toBeNull();
   });
 
+  it("draws renderTrack in place of the track, and no column when it returns null", () => {
+    render(
+      <SweepList
+        {...props([item(1, "new", { stage: 1 }), item(2, "to-start", { stage: 0 })], {
+          renderTrack: (subject: SweepItem) => (subject.number === 1 ? <span>Custom column</span> : null),
+        })}
+      />,
+    );
+    expect(within(row("Widget task 1")).getByText("Custom column")).toBeInTheDocument();
+    expect(within(row("Widget task 1")).queryByText("Ready")).toBeNull();
+    expect(within(row("Widget task 2")).queryByText("Backlog")).toBeNull();
+  });
+
   describe("with renderBody", () => {
     const body = (subject: SweepItem, open: boolean, line: boolean) => (
       <span data-testid={`body-${subject.number}`}>{`body ${open ? "open" : "closed"}${line ? " line" : ""}`}</span>
