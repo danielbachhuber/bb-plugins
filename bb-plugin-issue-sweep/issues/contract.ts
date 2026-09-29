@@ -89,6 +89,8 @@ const rowSchema = z.object({
   note: z.string().nullable(),
   /** Comments since the issue was last opened from the panel. */
   newComments: z.number(),
+  /** When this plugin last moved the issue's board status, or null. */
+  movedAt: z.number().nullable(),
   /** The thread this plugin started for the issue, or null. */
   threadId: z.string().nullable(),
   /** False when no bb project is checked out for the issue's repository. */

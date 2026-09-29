@@ -28,6 +28,12 @@ export interface ListedIssue {
   /** Comments since the issue was last opened from here. */
   newComments: number;
   parent: { number: number; title: string; url: string } | null;
+  /**
+   * When this plugin last moved the issue's board status, or null. A board
+   * move does not change GitHub's updatedAt, so without it an issue promoted
+   * from the panel would read as stale right away.
+   */
+  movedAt: number | null;
 }
 
 export interface TierInputs {
@@ -88,6 +94,14 @@ function isWaiting(row: ListedIssue, inputs: TierInputs): boolean {
 }
 
 /**
+ * The latest sign of life: GitHub's updatedAt, or a board move made from
+ * here if that came later. Moves made on GitHub's own board are not seen.
+ */
+export function lastActivity(row: ListedIssue): number {
+  return Math.max(row.updatedAt, row.movedAt ?? 0);
+}
+
+/**
  * Something you meant to be doing that has not moved for the configured number
  * of days. Never a parent: its sub-issues are the work, and they carry their
  * own activity.
@@ -97,7 +111,7 @@ export function isStale(row: ListedIssue, inputs: TierInputs): boolean {
     isCounted(row, inputs) &&
     row.blockedBy === 0 &&
     !isParent(row) &&
-    inputs.now - row.updatedAt > inputs.staleAfterDays * DAY
+    inputs.now - lastActivity(row) > inputs.staleAfterDays * DAY
   );
 }
 

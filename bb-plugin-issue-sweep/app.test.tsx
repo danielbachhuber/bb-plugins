@@ -30,6 +30,7 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     parent: null,
     note: null,
     newComments: 0,
+    movedAt: null,
     threadId: null,
     canSpawn: true,
     ...overrides,
@@ -247,6 +248,14 @@ describe("tiers", () => {
     expect(slot.getByText("No activity for 12 days")).toBeInTheDocument();
     fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
     expect(slot.getByText("Blocked by 1 issue")).toBeInTheDocument();
+  });
+
+  it("does not call an issue stale right after it was moved from here", async () => {
+    const slot = render(
+      listing({ rows: [rowFixture({ updatedAt: Date.now() - 20 * DAY, movedAt: Date.now() - HOUR })] }),
+    );
+    await rowFor(slot, "Widget rotation drifts after a resize");
+    expect(slot.queryByText(/No activity for/)).toBeNull();
   });
 
   it("shows a sub-issue's parent on its number line", async () => {

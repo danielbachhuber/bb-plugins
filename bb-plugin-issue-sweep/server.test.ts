@@ -398,6 +398,13 @@ describe("server", () => {
     expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
   });
 
+  it("lists the last move made from here, so a promoted issue is not stale", async () => {
+    const { bb, harness } = await seededHost();
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.movedAt).toBeNull();
+    createStore(bb.storage.database() as never).recordMove("acme/widgets", 42, 1_700_000_000_000);
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.movedAt).toBe(1_700_000_000_000);
+  });
+
   it("refuses to mark an issue the sweep does not have", async () => {
     const { harness } = await seededHost();
     expect(await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 41 })).toEqual({ ok: false });

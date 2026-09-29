@@ -53,7 +53,11 @@ all.
   records its count, so nothing is new on the first sync.
 - **Stale**: in one of the "Statuses counted in the sidebar", not blocked, not
   a parent, and not updated for "Stale after (days)". Flagged in red. A parent
-  is never stale, because its sub-issues are the work.
+  is never stale, because its sub-issues are the work. A board move does not
+  change the issue's updated time on GitHub, so the plugin counts the moves it
+  makes itself, from the track, the picker, or its own automatic moves, as
+  activity. A move made on the board in GitHub is not seen, and the issue can
+  still read as stale after one.
 - **Working**: has a thread.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.

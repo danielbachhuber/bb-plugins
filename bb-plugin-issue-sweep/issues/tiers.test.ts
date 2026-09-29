@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ISSUE_RUNS,
   isStale,
+  lastActivity,
   parseStaleAfterDays,
   runOf,
   sortIssues,
@@ -44,6 +45,7 @@ function issue(overrides: Partial<ListedIssue> = {}): ListedIssue {
     note: null,
     newComments: 0,
     parent: null,
+    movedAt: null,
     ...overrides,
   };
 }
@@ -88,6 +90,25 @@ describe("isStale", () => {
   it("waits the full number of days", () => {
     expect(isStale(issue({ updatedAt: NOW - 6 * DAY }), inputs)).toBe(false);
     expect(isStale(issue({ updatedAt: NOW - 7 * DAY - 1 }), inputs)).toBe(true);
+  });
+
+  it("counts a move made from this panel as activity, since GitHub's updatedAt does not change", () => {
+    // Promoted to Ready an hour ago, after twenty quiet days.
+    expect(isStale(issue({ updatedAt: NOW - 20 * DAY, movedAt: NOW - HOUR }), inputs)).toBe(false);
+    expect(runOf(issue({ updatedAt: NOW - 20 * DAY, movedAt: NOW - HOUR }), inputs)).toBe("to-start");
+  });
+
+  it("measures from the later of the two", () => {
+    expect(isStale(issue({ updatedAt: NOW - 20 * DAY, movedAt: NOW - 9 * DAY }), inputs)).toBe(true);
+    expect(isStale(issue({ updatedAt: NOW - HOUR, movedAt: NOW - 20 * DAY }), inputs)).toBe(false);
+  });
+});
+
+describe("lastActivity", () => {
+  it("is updatedAt with no local move, and the later of the two with one", () => {
+    expect(lastActivity(issue({ updatedAt: 5, movedAt: null }))).toBe(5);
+    expect(lastActivity(issue({ updatedAt: 5, movedAt: 9 }))).toBe(9);
+    expect(lastActivity(issue({ updatedAt: 9, movedAt: 5 }))).toBe(9);
   });
 });
 

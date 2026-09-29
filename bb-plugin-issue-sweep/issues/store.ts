@@ -71,6 +71,18 @@ export const MIGRATIONS = [
      seen_at INTEGER NOT NULL,
      PRIMARY KEY (repo, number)
    )`,
+  // When this plugin last moved an issue's board status, by hand or on its
+  // own. A board move leaves GitHub's updatedAt alone, so staleness reads the
+  // later of the two.
+  `CREATE TABLE IF NOT EXISTS status_moves (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     moved_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
+  // The automatic moves made before the table existed.
+  `INSERT OR IGNORE INTO status_moves (repo, number, moved_at)
+     SELECT repo, number, applied_at FROM board_auto`,
 ];
 
 export interface SweepMeta {
@@ -142,6 +154,10 @@ export interface Store {
   recordFirstSeen(rows: readonly IssueRow[], now: number): void;
   /** Records the count an issue has now, when it is opened from the panel. */
   markSeen(repo: string, number: number, comments: number, now: number): void;
+  /** Records that this plugin just moved the issue's board status. */
+  recordMove(repo: string, number: number, movedAt: number): void;
+  /** When each issue was last moved from here, keyed `repo#number`. */
+  moves(): Map<string, number>;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -193,6 +209,11 @@ export function createStore(db: DatabaseLike): Store {
   const upsertSeen = db.prepare(
     `INSERT INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(repo, number) DO UPDATE SET comments = excluded.comments, seen_at = excluded.seen_at`,
+  );
+  const selectMoves = db.prepare(`SELECT repo, number, moved_at FROM status_moves`);
+  const upsertMove = db.prepare(
+    `INSERT INTO status_moves (repo, number, moved_at) VALUES (?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET moved_at = excluded.moved_at`,
   );
   const writeFirstSeen = db.transaction(((rows: readonly IssueRow[], now: number) => {
     for (const row of rows) insertSeen.run(row.repo, row.number, row.commentsCount, now);
@@ -310,6 +331,15 @@ export function createStore(db: DatabaseLike): Store {
 
     markSeen(repo, number, comments, now) {
       upsertSeen.run(repo, number, comments, now);
+    },
+
+    recordMove(repo, number, movedAt) {
+      upsertMove.run(repo, number, movedAt);
+    },
+
+    moves() {
+      const rows = selectMoves.all() as Array<{ repo: string; number: number; moved_at: number }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.moved_at]));
     },
   };
 }

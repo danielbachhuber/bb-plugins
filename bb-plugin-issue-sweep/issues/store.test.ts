@@ -140,6 +140,41 @@ describe("auto-applied board status", () => {
   });
 });
 
+describe("status moves", () => {
+  it("records when an issue was last moved from here, keyed repo#number", () => {
+    store.recordMove("acme/widgets", 12, 100);
+    store.recordMove("acme/widgets", 12, 300);
+    store.recordMove("acme/gadgets", 12, 200);
+    expect(store.moves()).toEqual(
+      new Map([
+        ["acme/widgets#12", 300],
+        ["acme/gadgets#12", 200],
+      ]),
+    );
+  });
+
+  it("counts every move this plugin made on its own before moves were recorded", () => {
+    // A database from before the table: the automatic moves are in board_auto.
+    const db = new Database(":memory:");
+    const index = MIGRATIONS.findIndex((statement) => statement.includes("status_moves"));
+    for (const statement of MIGRATIONS.slice(0, index)) db.exec(statement);
+    db.prepare(`INSERT INTO board_auto (repo, number, status, applied_at) VALUES (?, ?, ?, ?)`).run(
+      "acme/widgets",
+      12,
+      "In Review",
+      400,
+    );
+    for (const statement of MIGRATIONS.slice(index)) db.exec(statement);
+    expect(createStore(db as unknown as DatabaseLike).moves().get("acme/widgets#12")).toBe(400);
+  });
+
+  it("survives the listing being swapped out under it", () => {
+    store.recordMove("acme/widgets", 12, 100);
+    store.replaceAll(result());
+    expect(store.moves().get("acme/widgets#12")).toBe(100);
+  });
+});
+
 describe("setRowStatus", () => {
   it("moves a stored row to its new status without a sweep", () => {
     store.replaceAll(result({ rows: [row({ boardStatus: "Ready" })] }));

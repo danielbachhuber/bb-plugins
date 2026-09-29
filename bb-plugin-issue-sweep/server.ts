@@ -420,7 +420,9 @@ export default async function plugin(bb: BbPluginApi) {
         url: row.url,
         option,
       });
-      store.recordAutoStatus(row.repo, row.number, option.name, Date.now());
+      const movedAt = Date.now();
+      store.recordAutoStatus(row.repo, row.number, option.name, movedAt);
+      store.recordMove(row.repo, row.number, movedAt);
       // The board has the move; the stored row does not until the next sweep.
       // Patching it here is what lets a card show its new status on the paint
       // that follows the click, rather than up to five minutes later.
@@ -603,6 +605,7 @@ export default async function plugin(bb: BbPluginApi) {
       const rows = store.readRows();
       const notes = store.notes();
       const seen = store.seenCounts();
+      const moves = store.moves();
 
       let candidates: ProjectCandidate[] = [];
       try {
@@ -645,6 +648,7 @@ export default async function plugin(bb: BbPluginApi) {
             parent: row.parent ?? null,
             note: notes.get(key) ?? null,
             newComments: seenCount === undefined ? 0 : Math.max(0, row.commentsCount - seenCount),
+            movedAt: moves.get(key) ?? null,
             canSpawn: threadMap !== null && spawnable.has(row.repo),
             threadId: threadMap?.get(key)?.[0] ?? null,
           };
@@ -832,6 +836,8 @@ export default async function plugin(bb: BbPluginApi) {
           url: row.url,
           option,
         });
+
+        store.recordMove(repo, number, Date.now());
 
         // Shown first, reconciled second. The board is the source of truth and
         // a status change can trip its own automations, so the sweep still

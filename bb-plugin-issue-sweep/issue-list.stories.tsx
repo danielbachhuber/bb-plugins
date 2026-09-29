@@ -37,6 +37,7 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     parent: null,
     note: null,
     newComments: 0,
+    movedAt: null,
     threadId: null,
     canSpawn: true,
     createdAt: now - 12 * DAY,
