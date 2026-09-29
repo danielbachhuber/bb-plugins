@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { archiveReason, mentionsYou } from "./item-row.js";
+import { mentionsYou } from "./item-row.js";
+import { archiveReason } from "./sections.js";
 import type { Item } from "./types.js";
 
 function pullRow(github: Partial<NonNullable<Item["github"]>>): Item {

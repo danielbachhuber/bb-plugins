@@ -20,28 +20,42 @@ sections, each under its heading. Each row goes in one section:
 
 - **Now**: every Gmail row, every task in Todoist's Inbox project, and any
   other task with a date, by its due date or its deadline, whichever is
-  sooner. What needs a decision before it is work leads: unread Gmail rows
-  (email, GitHub notifications, document comments, invitations), newest
-  first, then the Todoist Inbox tasks, those with a date soonest first and
-  then the undated ones newest added first. After them come the overdue rows,
-  oldest day first: tasks dated before today or due earlier today at a time
-  that has passed, and read mail whose latest message is more than 48 hours
-  old. Then the rest of the tasks due today, the rest of the
-  read mail newest first (a thread you have read and left in the inbox is one
-  you kept there to act on), and tasks dated later.
+  sooner.
 - **Anytime**: every other task, which has no date.
 
-Under the header, while the Now section is showing, a row of small squares
-gives one square to each of its rows, in the list's order, colored by which of
-those runs it is in: blue for what needs a decision, red for overdue, yellow
-for due today, and gray for read mail and for tasks dated later. Each run is
-labelled with its count, such as "7 overdue", and hovering a square shows its
-row's title. Pressing a run shows only its rows and fades the others; pressing
-it again shows the whole section. When the last row of the chosen run leaves
-the page, the whole section shows again.
+Now is split into six runs, in this order:
 
-The page opens on the Now section. Tasks within each of those groups, and in
-Anytime, go soonest first, then most urgent. Each row starts
+- **Overdue**: tasks dated before today, or due earlier today at a time that
+  has passed.
+- **Today**: tasks due today, and tasks in Todoist's Inbox with no date,
+  since filing them is today's job.
+- **Me**: GitHub notifications about your own pull requests and issues, and
+  email with your address in its To field.
+- **Requests**: what asks something of you: a review requested of you or
+  your team, a mention, an assignment, a document comment that mentions you,
+  an invitation you have not answered, and any other email.
+- **Archive**: what has nothing left to do: a pull request or issue that has
+  merged or closed, a review you have given, a review someone else was asked
+  for, and an invitation you have answered or that was canceled.
+- **Minor**: what you only follow, such as a subscription or a comment on
+  someone else's item or document, and tasks dated after today.
+
+Within a run, mail comes first, unread and then newest first, then dated
+tasks, oldest first, then undated Inbox tasks, newest added first.
+
+Under the header, while the Now section is showing, a line of small squares
+gives one square to each of its rows, in the list's order, colored by run: red
+for Overdue, yellow for Today, green for Me, blue for Requests, and gray for
+Archive and Minor. Each run is labelled with its count, such as "4 overdue",
+and hovering a square shows its row's title. The squares shrink, down to 4px,
+to keep the runs on one line; on a page too narrow even for that, each label
+keeps only its count, with the name on hover. Pressing a run shows only its
+rows and fades the others; pressing it again shows the whole section. When
+the last row of the chosen run leaves the page, the whole section shows
+again.
+
+The page opens on the Now section. Tasks in Anytime go soonest first, then
+most urgent. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
 Todoist mark in the same style), then the item's title (linking to it in its
 source) with its date at the right in one short form ("Sep 21", or the time
@@ -55,8 +69,8 @@ today or due today at a time that has passed, or mail, read or unread, whose
 latest message is more than 48 hours old) is tinted red with a red bar down its
 left edge, and says how late it is in place of its date: "3 days late" for a
 task, "2 hours late" or "20 minutes late" for one due earlier today, "4 days
-old" for mail. Unread mail
-that old keeps its place at the top. A deadline that is today is red too;
+old" for mail. Mail that old stays in its run rather than joining
+Overdue, which holds only tasks. A deadline that is today is red too;
 nothing else is colored for its date. A recurring item
 has a repeat icon.
 
@@ -122,8 +136,7 @@ good sync, with a note saying how many.
   someone else, or a team you are not on, was asked to review it.
 - **Mark read** (on an unread email row, after Archive) marks the row's
   threads read in Gmail and leaves them in the inbox, so the row stays on the
-  page and moves down among the read mail, or among the overdue rows when its
-  latest message is more than 48 hours old.
+  page and moves down its run, below the unread mail.
 - **Open** (on an email row that is not a GitHub notification, a document
   comment, or an invitation, after Archive) opens the email in full in the
   page's **Email** tab, in the side panel beside the list, and marks it read
@@ -382,8 +395,8 @@ list `server.ts` passes to `loadSources`.
 | `now/reviewer-stack.tsx` | A pull request's reviewers, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
-| `now/sections.ts` | Which section a row goes in, which run of the Now section, the short date each row shows, and the sidebar's counts |
-| `now/now-summary.tsx` | The squares under the header, one per row in Now, that filter the list to one run |
+| `now/sections.ts` | Which section a row goes in, which run of the Now section and why a row can be archived, the short date each row shows, and the sidebar's counts |
+| `now/now-summary.tsx` | The squares under the header, one per row in Now, shrunk to fit one line, that filter the list to one run |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |

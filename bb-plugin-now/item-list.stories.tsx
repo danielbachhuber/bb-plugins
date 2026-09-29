@@ -284,7 +284,8 @@ const invitation: Item = {
 };
 
 const emails: Item[] = [
-  email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true),
+  // Addressed to you, so it counts as Me rather than Requests.
+  { ...email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true), gmail: { threadIds: ["t1"], unread: true, toYou: true } },
   email("t2", "Re: Gadget invoice for September", "Hubber", new Date(2026, 8, 23, 20, 9), "Thanks! I have attached the corrected invoice."),
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
   docComments,
@@ -385,7 +386,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then the overdue rows (past-dated tasks and mail more than 48 hours old, tinted red and saying how late they are), tasks due today, recent read mail, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by the run it is in."
+        hint="The page opens on Now, run by run: overdue tasks (tinted red and saying how late they are), today's tasks and undated Inbox tasks, your own items and email to you, requests of you, what can be archived, and what is minor. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by its run."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>

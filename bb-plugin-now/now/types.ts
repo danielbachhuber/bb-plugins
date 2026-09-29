@@ -17,6 +17,8 @@ export const gmailPartSchema = z.object({
   /** How many messages are behind the row, and how many of them are unread. */
   messages: z.number().int().optional(),
   unreadMessages: z.number().int().optional(),
+  /** Whether your address is in the To field of any message, rather than only Cc or a list. */
+  toYou: z.boolean().optional(),
 });
 
 /** The pull request or issue a row of GitHub notifications is about. */

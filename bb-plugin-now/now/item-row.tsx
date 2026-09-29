@@ -14,7 +14,7 @@ import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
 import { readable } from "./items.js";
-import { isOverdue, overdueText, shortDate } from "./sections.js";
+import { archiveReason, isOverdue, overdueText, shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
 import type { TaskDraft } from "../todoist/edit.js";
@@ -75,27 +75,6 @@ const PRIORITY: Record<1 | 2 | 3, string> = {
   2: "border-warning/40 text-warning-text",
   3: "border-border text-foreground",
 };
-
-/**
- * Why a GitHub row can be archived, or null when it still wants something of
- * you: a merged or closed pull request, or a closed issue, has nothing left to
- * do, and neither does one whose review you have given and nobody has asked
- * for again, or one you hear about only because someone else, or a team you
- * are not on, was asked to review it.
- */
-export function archiveReason(item: Item): string | null {
-  const github = item.github;
-  if (item.gmail === null) return null;
-  if (item.invite?.cancelled === true) return "it's canceled";
-  if (item.invite?.response === "accepted" || item.invite?.response === "declined" || item.invite?.response === "tentative") {
-    return "you replied";
-  }
-  if (github === null) return null;
-  if (github.state === "merged" || github.state === "closed") return `it's ${github.state}`;
-  if (github.myReview != null && github.myReview !== "requested" && github.myReview !== "re-requested") return "you reviewed";
-  if (github.reason === "review_requested" && github.reviewRequested === "others") return "not your review";
-  return null;
-}
 
 /**
  * A Google document comment that mentions or assigns you. Once you have read

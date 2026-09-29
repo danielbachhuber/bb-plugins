@@ -60,6 +60,22 @@ export function threadUrl(threadId: string, account: string | null): string {
 }
 
 /**
+ * Whether `account` is in the To field of any of the messages, rather than
+ * only in Cc or reached through a mailing list. False when the account is not
+ * known.
+ */
+export function addressedTo(messages: readonly Raw[], account: string | null): boolean {
+  if (account === null) return false;
+  const wanted = account.toLowerCase();
+  return messages.some((message) =>
+    (header(message, "To") ?? "")
+      .toLowerCase()
+      .match(/[^\s<>,;:"']+@[^\s<>,;:"']+/g)
+      ?.includes(wanted) === true,
+  );
+}
+
+/**
  * One thread from `threads get` in metadata format, or null when it has no
  * messages to show. The subject comes from the first message; the sender,
  * snippet, and time come from the latest, which is the one waiting on you.
@@ -86,7 +102,7 @@ export function normalizeThread(raw: unknown, account: string | null): Item | nu
     context: from === null ? null : senderName(from),
     tags: [],
     url: threadUrl(raw.id, account),
-    gmail: { threadIds: [raw.id], ...unreadOf(messages) },
+    gmail: { threadIds: [raw.id], ...unreadOf(messages), toYou: addressedTo(messages, account) },
     github: null,
   };
 }

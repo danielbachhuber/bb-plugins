@@ -21,6 +21,7 @@ import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf,
 /** The headers `threads get` is asked for, which everything here reads. */
 export const METADATA_HEADERS = [
   "From",
+  "To",
   "Subject",
   "Message-ID",
   "In-Reply-To",

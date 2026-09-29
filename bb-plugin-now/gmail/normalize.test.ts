@@ -73,7 +73,7 @@ describe("normalizeThread", () => {
       context: "Octocat",
       tags: [],
       url: "https://mail.google.com/mail/#all/t1",
-      gmail: { threadIds: ["t1"], unread: false, messages: 2, unreadMessages: 0 },
+      gmail: { threadIds: ["t1"], unread: false, messages: 2, unreadMessages: 0, toYou: false },
       github: null,
     });
   });
@@ -84,6 +84,16 @@ describe("normalizeThread", () => {
     expect(normalizeThread({ id: "t1", messages: [read, unread] }, null)?.gmail?.unread).toBe(true);
     expect(normalizeThread({ id: "t1", messages: [read] }, null)?.gmail?.unread).toBe(false);
     expect(normalizeThread({ id: "t1", messages: [read, unread] }, null)?.gmail).toMatchObject({ messages: 2, unreadMessages: 1 });
+  });
+
+  test("marks a thread whose To field names you, but not one where you are only in Cc or on a list", () => {
+    const to = (value: string) => message({}, { To: value, Cc: "hubber@example.com" });
+    const account = "Octocat@Example.com";
+    expect(normalizeThread({ id: "t1", messages: [to('"Octocat" <octocat@example.com>, hubber@example.com')] }, account)?.gmail?.toYou).toBe(true);
+    expect(normalizeThread({ id: "t1", messages: [to("widgets@lists.example.com"), to("octocat@example.com")] }, account)?.gmail?.toYou).toBe(true);
+    expect(normalizeThread({ id: "t1", messages: [to("widgets@lists.example.com")] }, account)?.gmail?.toYou).toBe(false);
+    expect(normalizeThread({ id: "t1", messages: [to("not-octocat@example.com")] }, account)?.gmail?.toYou).toBe(false);
+    expect(normalizeThread({ id: "t1", messages: [to("octocat@example.com")] }, null)?.gmail?.toYou).toBe(false);
   });
 
   test("names a thread with no subject", () => {

@@ -16,7 +16,7 @@ export interface Section {
 const TITLES: Record<SectionId, string> = { now: "Now", anytime: "Anytime" };
 
 const HINTS: Record<SectionId, string> = {
-  now: "Unread mail and Todoist's Inbox, then overdue tasks and mail over two days old, today's tasks, recent read mail, and tasks dated later",
+  now: "Overdue and today's tasks, what is yours, what asks for you, what can be archived, and what is minor",
   anytime: "Tasks with no date",
 };
 
@@ -106,67 +106,107 @@ export function sectionOf(item: Item): SectionId {
 }
 
 /**
+ * Why a Gmail row can be archived, or null when it still wants something of
+ * you: a merged or closed pull request, or a closed issue, has nothing left to
+ * do, and neither does one whose review you have given and nobody has asked
+ * for again, or one you hear about only because someone else, or a team you
+ * are not on, was asked to review it. An invitation you have answered, or
+ * one that was canceled, is done too.
+ */
+export function archiveReason(item: Item): string | null {
+  const github = item.github;
+  if (item.gmail === null) return null;
+  if (item.invite?.cancelled === true) return "it's canceled";
+  if (item.invite?.response === "accepted" || item.invite?.response === "declined" || item.invite?.response === "tentative") {
+    return "you replied";
+  }
+  if (github === null) return null;
+  if (github.state === "merged" || github.state === "closed") return `it's ${github.state}`;
+  if (github.myReview != null && github.myReview !== "requested" && github.myReview !== "re-requested") return "you reviewed";
+  if (github.reason === "review_requested" && github.reviewRequested === "others") return "not your review";
+  return null;
+}
+
+/**
+ * The runs the Now section is ordered in, which its summary counts and filters
+ * by. Each row is in exactly one.
+ */
+export type NowGroupId = "overdue" | "today" | "me" | "requests" | "archive" | "minor";
+
+export const NOW_GROUPS: readonly { id: NowGroupId; label: string }[] = [
+  { id: "overdue", label: "Overdue" },
+  { id: "today", label: "Today" },
+  { id: "me", label: "Me" },
+  { id: "requests", label: "Requests" },
+  { id: "archive", label: "Archive" },
+  { id: "minor", label: "Minor" },
+];
+
+/** GitHub's notification reasons that ask something of you by name or by team. */
+const REQUEST_REASONS = new Set(["review_requested", "approval_requested", "mention", "team_mention", "assign", "security_alert"]);
+
+/** GitHub's notification reasons about your own work. */
+const ME_REASONS = new Set(["author", "ci_activity", "your_activity"]);
+
+/**
+ * Which of the Now section's runs a row in it belongs to:
+ *
+ * - Overdue: a task whose day or time has passed.
+ * - Today: a task due today, or one in Todoist's Inbox with no date, since
+ *   filing it is today's job.
+ * - Me: activity on your own pull requests and issues, and email with you in
+ *   its To field.
+ * - Requests: what asks something of you: a review, a mention, an
+ *   assignment, a document comment that mentions you, an invitation to
+ *   answer, and any other email.
+ * - Archive: a row with nothing left to do (see `archiveReason`).
+ * - Minor: what you only follow, such as a subscription or a comment on
+ *   someone else's item or document, and tasks dated after today.
+ */
+export function nowGroupOf(item: Item, now: Date): NowGroupId {
+  if (item.gmail === null) {
+    if (isOverdue(item, now)) return "overdue";
+    const date = sortDate(item);
+    return date === null || dayOf(date) === localDay(now) ? "today" : "minor";
+  }
+  if (archiveReason(item) !== null) return "archive";
+  if (item.github !== null) {
+    const reason = item.github.reason ?? "";
+    if (ME_REASONS.has(reason)) return "me";
+    return REQUEST_REASONS.has(reason) ? "requests" : "minor";
+  }
+  if (item.doc != null) return item.doc.mentioned ? "requests" : "minor";
+  if (item.invite != null) return "requests";
+  return item.gmail.toYou === true ? "me" : "requests";
+}
+
+/**
  * The rows grouped into sections, every section kept even when empty so the
- * header can count it. Now leads with what needs a decision: unread mail
- * newest first, as Gmail has it, then Todoist's Inbox tasks, dated ones
- * soonest first and then undated ones newest added first. After those come
- * overdue rows (tasks whose day or time has passed and read mail more than 48
- * hours old, oldest day first), the rest of today's tasks, the rest of the
- * read mail newest first, and the tasks dated later. Its other tasks and
- * Anytime keep the list's order (soonest first, then priority).
+ * header can count it. Now goes run by run, in `NOW_GROUPS` order. Within a
+ * run, mail comes first, unread and then newest first; then dated tasks,
+ * oldest day first and most urgent first within a day, so the most overdue
+ * leads; then undated Inbox tasks, newest added first. Anytime keeps the
+ * list's order.
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
   const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
   for (const item of items) groups.get(sectionOf(item))!.push(item);
   const newestFirst = (a: string | null | undefined, b: string | null | undefined) => (b ?? "").localeCompare(a ?? "");
-  const current = groups.get("now")!;
-  const inbox = current.filter(needsDecision);
-  const rest = current.filter((item) => !needsDecision(item));
-  const unreadMail = inbox.filter((item) => item.gmail !== null).sort((a, b) => newestFirst(a.activityAt, b.activityAt));
-  const inboxTasks = inbox.filter((item) => item.gmail === null);
-  // Dated tasks keep the list's order; undated ones, which it can only order by priority, go newest added first.
-  const undated = inboxTasks.filter((item) => sortDate(item) === null).sort((a, b) => newestFirst(a.createdAt, b.createdAt));
-  const readMail = rest.filter((item) => item.gmail !== null).sort((a, b) => newestFirst(a.activityAt, b.activityAt));
-  const today = localDay(now);
-  const tasks = rest.filter((item) => item.gmail === null);
-  const dayOfTask = (item: Item) => dayOf(sortDate(item)!);
-  // Overdue tasks and stale mail share one run, oldest day first; within a day the tasks keep the list's order.
-  const overdue = [...tasks.filter((item) => isOverdue(item, now)), ...readMail.filter((item) => isOverdue(item, now))]
-    .map((item) => ({ item, day: item.gmail === null ? dayOfTask(item) : dayOf(item.activityAt!) }))
-    .sort((a, b) => a.day.localeCompare(b.day))
-    .map(({ item }) => item);
-  groups.set("now", [
-    ...unreadMail,
-    ...inboxTasks.filter((item) => sortDate(item) !== null),
-    ...undated,
-    ...overdue,
-    ...tasks.filter((item) => dayOfTask(item) === today && !isOverdue(item, now)),
-    ...readMail.filter((item) => !isOverdue(item, now)),
-    ...tasks.filter((item) => dayOfTask(item) > today),
-  ]);
+  const runs = new Map<NowGroupId, Item[]>(NOW_GROUPS.map((group) => [group.id, []]));
+  for (const item of groups.get("now")!) runs.get(nowGroupOf(item, now))!.push(item);
+  const byRun = (run: Item[]) => {
+    const mail = run
+      .filter((item) => item.gmail !== null)
+      .sort((a, b) => Number(b.gmail!.unread) - Number(a.gmail!.unread) || newestFirst(a.activityAt, b.activityAt));
+    const tasks = run.filter((item) => item.gmail === null);
+    // Undated tasks, which the list can only order by priority, go newest added first.
+    const undated = tasks.filter((item) => sortDate(item) === null).sort((a, b) => newestFirst(a.createdAt, b.createdAt));
+    // Dated tasks go oldest day first; within a day they keep the list's order.
+    const dated = tasks.filter((item) => sortDate(item) !== null).sort((a, b) => dayOf(sortDate(a)!).localeCompare(dayOf(sortDate(b)!)));
+    return [...mail, ...dated, ...undated];
+  };
+  groups.set("now", NOW_GROUPS.flatMap((group) => byRun(runs.get(group.id)!)));
   return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));
-}
-
-/**
- * The runs the Now section is ordered in, which its summary counts and filters
- * by. Read mail over two days old counts as overdue, not as read mail.
- */
-export type NowGroupId = "decide" | "overdue" | "today" | "read" | "later";
-
-export const NOW_GROUPS: readonly { id: NowGroupId; label: string }[] = [
-  { id: "decide", label: "Needs a decision" },
-  { id: "overdue", label: "Overdue" },
-  { id: "today", label: "Due today" },
-  { id: "read", label: "Read mail" },
-  { id: "later", label: "Later" },
-];
-
-/** Which of the Now section's runs a row in it belongs to. */
-export function nowGroupOf(item: Item, now: Date): NowGroupId {
-  if (needsDecision(item)) return "decide";
-  if (isOverdue(item, now)) return "overdue";
-  if (item.gmail !== null) return "read";
-  return dayOf(sortDate(item)!) === localDay(now) ? "today" : "later";
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

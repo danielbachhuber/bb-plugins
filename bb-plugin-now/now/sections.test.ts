@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { groupIntoSections, isOverdue, nowGroupOf, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
+import { groupIntoSections, isOverdue, NOW_GROUPS, nowGroupOf, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
 import type { Item } from "./types.js";
 
 /** Thursday, September 24, 2026, 9:30 local. */
@@ -46,27 +46,50 @@ describe("isOverdue", () => {
 });
 
 describe("nowGroupOf", () => {
-  test("puts each Now row in the run it sorts into", () => {
-    expect(nowGroupOf(mail("a", 1, true), now)).toBe("decide");
-    expect(nowGroupOf(mail("a", 60, true), now)).toBe("decide");
-    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-20") }), now)).toBe("decide");
+  const github = (overrides: Partial<NonNullable<Item["github"]>>, unread = true) =>
+    item("gh", {
+      gmail: { threadIds: ["gh"], unread },
+      activityAt: hoursAgo(2),
+      github: { repo: "acme/widgets", number: 1, kind: "pull", state: "open", review: null, closedAs: null, reason: "mention", comment: null, ...overrides },
+    });
+
+  test("sorts tasks by date, with an undated Inbox task counted as today's", () => {
     expect(nowGroupOf(item("a", due("2026-09-23")), now)).toBe("overdue");
     expect(nowGroupOf(item("a", due("2026-09-24T08:00:00")), now)).toBe("overdue");
-    expect(nowGroupOf(mail("a", 60), now)).toBe("overdue");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-20") }), now)).toBe("overdue");
     expect(nowGroupOf(item("a", due("2026-09-24T14:00:00")), now)).toBe("today");
-    expect(nowGroupOf(mail("a", 5), now)).toBe("read");
-    expect(nowGroupOf(item("a", due("2026-09-25")), now)).toBe("later");
     expect(nowGroupOf(item("a", { deadline: "2026-09-24" }), now)).toBe("today");
+    expect(nowGroupOf(item("a", { inbox: true }), now)).toBe("today");
+    expect(nowGroupOf(item("a", due("2026-09-25")), now)).toBe("minor");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-26") }), now)).toBe("minor");
   });
 
-  test("agrees with the order groupIntoSections gives the Now section", () => {
-    const rows = [
-      item("later", due("2026-09-26")), mail("read", 3), item("today", due("2026-09-24")),
-      item("late", due("2026-09-20")), mail("stale", 60), mail("unread", 2, true), item("inbox", { inbox: true }),
-    ];
-    const order = ["decide", "overdue", "today", "read", "later"];
-    const groups = groupIntoSections(rows, now)[0]!.items.map((row) => order.indexOf(nowGroupOf(row, now)));
-    expect(groups).toEqual([...groups].sort((a, b) => a - b));
+  test("sorts GitHub notifications by why they came, after anything left to archive", () => {
+    expect(nowGroupOf(github({ reason: "author" }), now)).toBe("me");
+    expect(nowGroupOf(github({ reason: "ci_activity" }), now)).toBe("me");
+    expect(nowGroupOf(github({ reason: "review_requested", reviewRequested: "team", myReview: "requested" }), now)).toBe("requests");
+    expect(nowGroupOf(github({ reason: "mention" }), now)).toBe("requests");
+    expect(nowGroupOf(github({ reason: "team_mention" }), now)).toBe("requests");
+    expect(nowGroupOf(github({ reason: "assign" }), now)).toBe("requests");
+    expect(nowGroupOf(github({ reason: "subscribed" }), now)).toBe("minor");
+    expect(nowGroupOf(github({ reason: "manual" }), now)).toBe("minor");
+    expect(nowGroupOf(github({ reason: "comment" }), now)).toBe("minor");
+    expect(nowGroupOf(github({ reason: "author", state: "merged" }), now)).toBe("archive");
+    expect(nowGroupOf(github({ reason: "review_requested", reviewRequested: "others" }), now)).toBe("archive");
+    expect(nowGroupOf(github({ reason: "review_requested", myReview: "approved" }), now)).toBe("archive");
+  });
+
+  test("puts email to you in Me, document comments by whether they mention you, and invitations by whether you answered", () => {
+    expect(nowGroupOf(item("a", { gmail: { threadIds: ["a"], unread: true, toYou: true }, activityAt: hoursAgo(1) }), now)).toBe("me");
+    expect(nowGroupOf(mail("a", 1, true), now)).toBe("requests");
+    // Mail no longer counts as overdue for its age.
+    expect(nowGroupOf(mail("a", 60), now)).toBe("requests");
+    const doc = (mentioned: boolean) => item("d", { gmail: { threadIds: ["d"], unread: true }, activityAt: hoursAgo(1), doc: { app: "docs", documentId: "d", mentioned, quotes: [] } });
+    expect(nowGroupOf(doc(true), now)).toBe("requests");
+    expect(nowGroupOf(doc(false), now)).toBe("minor");
+    const invite = (response: "needsAction" | "accepted") => item("i", { gmail: { threadIds: ["i"], unread: true }, activityAt: hoursAgo(1), invite: { eventId: "e", response, cancelled: false } });
+    expect(nowGroupOf(invite("needsAction"), now)).toBe("requests");
+    expect(nowGroupOf(invite("accepted"), now)).toBe("archive");
   });
 });
 
@@ -105,7 +128,18 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, and orders Now unread mail, Todoist's Inbox, overdue, today, recent read mail, later", () => {
+  test("keeps every section, and orders Now run by run: overdue, today, me, requests, archive, minor", () => {
+    const toYou = item("to-you", { gmail: { threadIds: ["to-you"], unread: false, toYou: true }, activityAt: hoursAgo(3) });
+    const merged = item("merged", {
+      gmail: { threadIds: ["merged"], unread: true },
+      activityAt: hoursAgo(4),
+      github: { repo: "acme/widgets", number: 2, kind: "pull", state: "merged", review: null, closedAs: null, reason: "author", comment: null },
+    });
+    const followed = item("followed", {
+      gmail: { threadIds: ["followed"], unread: false },
+      activityAt: hoursAgo(1),
+      github: { repo: "acme/gadgets", number: 3, kind: "issue", state: "open", review: null, closedAs: null, reason: "subscribed", comment: null },
+    });
     const sections = groupIntoSections(
       [
         item("today", due("2026-09-24T14:00:00")),
@@ -116,38 +150,49 @@ describe("groupIntoSections", () => {
         mail("new-mail", 1, true),
         item("later", due("2026-09-30")),
         item("someday"),
-        mail("recent-older", 30),
-        mail("unread-old", 72, true),
         mail("stale-mail", 60),
-        mail("stalest-mail", 120),
+        toYou,
+        merged,
+        followed,
       ],
       now,
     );
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
       [
         "Now",
-        // Stale read mail and a task whose time has passed join the overdue tasks, oldest day first; stale unread mail stays on top.
-        ["new-mail", "unread-old", "filed", "stalest-mail", "late", "stale-mail", "this-morning", "today", "recent-mail", "recent-older", "later"],
+        // Within a run, unread mail leads, then newest first; tasks keep the list's order, undated ones last.
+        ["late", "this-morning", "today", "filed", "to-you", "new-mail", "recent-mail", "stale-mail", "merged", "followed", "later"],
       ],
       ["Anytime", ["someday"]],
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0]);
   });
 
-  test("orders Todoist's Inbox by date, then the undated tasks newest added first, ahead of other tasks", () => {
-    const inbox = groupIntoSections(
+  test("puts undated Inbox tasks after today's dated ones, newest added first", () => {
+    const today = groupIntoSections(
       [
         item("old", { inbox: true, createdAt: "2026-09-01T10:00:00.000000Z" }),
-        item("dated", { inbox: true, ...due("2026-09-30") }),
+        item("dated", { inbox: true, ...due("2026-09-24") }),
         item("new", { inbox: true, createdAt: "2026-09-23T10:00:00.000000Z", priority: 3 }),
         item("urgent-but-older", { inbox: true, createdAt: "2026-09-10T10:00:00.000000Z", priority: 1 }),
-        item("overdue", due("2026-09-01")),
+        item("due-today", due("2026-09-24")),
       ],
       now,
     ).find((section) => section.id === "now")!;
-    expect(inbox.items.map((kept) => kept.id)).toEqual(["dated", "new", "urgent-but-older", "old", "overdue"]);
+    expect(today.items.map((kept) => kept.id)).toEqual(["dated", "due-today", "new", "urgent-but-older", "old"]);
+  });
+
+  test("agrees with nowGroupOf, so each run's rows sit together in NOW_GROUPS order", () => {
+    const rows = [
+      item("later", due("2026-09-26")), mail("read", 3), item("today", due("2026-09-24")),
+      item("late", due("2026-09-20")), mail("stale", 60), mail("unread", 2, true), item("inbox", { inbox: true }),
+    ];
+    const order = NOW_GROUPS.map((group) => group.id);
+    const runs = groupIntoSections(rows, now)[0]!.items.map((row) => order.indexOf(nowGroupOf(row, now)));
+    expect(runs).toEqual([...runs].sort((a, b) => a - b));
   });
 });
+
 
 describe("shortDate", () => {
   test("gives the time today, Today without one, and the date otherwise", () => {
