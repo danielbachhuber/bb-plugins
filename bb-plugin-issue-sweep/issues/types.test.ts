@@ -34,6 +34,7 @@ describe("toRow", () => {
       blockedBy: 0,
       closingPr: null,
       subtasks: null,
+      parent: null,
       boardStatus: null,
       onBoard: false,
     });

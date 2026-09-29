@@ -121,3 +121,21 @@ describe("runSweep repository filter", () => {
   });
 });
 
+describe("runSweep facts", () => {
+  it("stamps each row with its parent issue from the facts query", async () => {
+    const parent = { number: 140, title: "Widget export, second pass", url: "https://github.com/acme/widgets/issues/140" };
+    const gh: GhRunner = {
+      async run(args) {
+        if (args[0] === "api") {
+          return JSON.stringify({
+            data: { search: { nodes: [{ number: 1, repository: { nameWithOwner: "acme/widgets" }, parent }] } },
+          });
+        }
+        return JSON.stringify([hit(1), hit(2)]);
+      },
+    };
+    const { rows } = await runSweep(gh, () => 0);
+    expect(rows.find((row) => row.number === 1)?.parent).toEqual(parent);
+    expect(rows.find((row) => row.number === 2)?.parent).toBeNull();
+  });
+});

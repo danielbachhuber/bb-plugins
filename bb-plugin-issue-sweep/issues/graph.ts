@@ -1,8 +1,15 @@
 import type { GhRunner } from "./gh.js";
 import { resolveSubtasks, type SubtaskProgress } from "./subtasks.js";
 
+/** The issue a sub-issue belongs to, enough to draw a link to it. */
+export interface IssueParent {
+  number: number;
+  title: string;
+  url: string;
+}
+
 /**
- * The two facts about an issue that `gh issue list` cannot report, both of
+ * The facts about an issue that `gh issue list` cannot report, both of
  * them only reachable through GraphQL, and both cheap enough to take in the
  * one search that already covers the whole sweep.
  */
@@ -24,6 +31,8 @@ export interface IssueFacts {
    * task list in its body. Null when it keeps neither.
    */
   subtasks: SubtaskProgress | null;
+  /** The issue this one is a sub-issue of, or null. */
+  parent: IssueParent | null;
 }
 
 export const FACTS_QUERY = `
@@ -39,6 +48,7 @@ query($q: String!) {
         }
         subIssuesSummary { total completed }
         body
+        parent { number title url }
       }
     }
   }
@@ -61,6 +71,7 @@ interface RawNode {
   } | null;
   subIssuesSummary?: { total?: number; completed?: number } | null;
   body?: string | null;
+  parent?: { number?: number; title?: string; url?: string } | null;
 }
 
 /**
@@ -93,8 +104,16 @@ export function parseIssueFacts(raw: string): Map<string, IssueFacts> {
 
     const subtasks = resolveSubtasks(node.subIssuesSummary, node.body);
 
-    if (openBlockers > 0 || closingPr !== null || subtasks) {
-      facts.set(factsKey(repo, node.number), { openBlockers, closingPr, subtasks });
+    // All three fields or none: a parent the row cannot link to is not worth
+    // a chip.
+    const raw = node.parent;
+    const parent =
+      typeof raw?.number === "number" && typeof raw.title === "string" && typeof raw.url === "string"
+        ? { number: raw.number, title: raw.title, url: raw.url }
+        : null;
+
+    if (openBlockers > 0 || closingPr !== null || subtasks || parent) {
+      facts.set(factsKey(repo, node.number), { openBlockers, closingPr, subtasks, parent });
     }
   }
 

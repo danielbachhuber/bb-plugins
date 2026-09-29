@@ -197,3 +197,52 @@ describe("legacy thread links", () => {
     expect(createStore(db as unknown as DatabaseLike).legacyThreadLinks()).toEqual([]);
   });
 });
+
+describe("notes", () => {
+  it("saves a note and reads it back by issue", () => {
+    store.setNote("acme/widgets", 12, "Ask octocat about the resize case", 1);
+    expect(store.notes().get("acme/widgets#12")).toBe("Ask octocat about the resize case");
+  });
+
+  it("replaces a note rather than keeping two", () => {
+    store.setNote("acme/widgets", 12, "First", 1);
+    store.setNote("acme/widgets", 12, "Second", 2);
+    expect([...store.notes().values()]).toEqual(["Second"]);
+  });
+
+  it("deletes the note when the new text is empty, rather than saving blank text", () => {
+    store.setNote("acme/widgets", 12, "First", 1);
+    store.setNote("acme/widgets", 12, "   ", 2);
+    expect(store.notes().has("acme/widgets#12")).toBe(false);
+  });
+
+  it("keys by repository as well as number", () => {
+    store.setNote("acme/widgets", 12, "Widgets", 1);
+    store.setNote("acme/gadgets", 12, "Gadgets", 1);
+    expect(store.notes().get("acme/gadgets#12")).toBe("Gadgets");
+  });
+});
+
+describe("seen comment counts", () => {
+  it("records the count on first sight, so a first sync shows nothing new", () => {
+    store.recordFirstSeen([row({ commentsCount: 5 })], 1);
+    expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
+  });
+
+  it("never moves a count it already has on a later sweep", () => {
+    store.recordFirstSeen([row({ commentsCount: 5 })], 1);
+    store.recordFirstSeen([row({ commentsCount: 8 })], 2);
+    expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
+  });
+
+  it("moves the count up to the current one when the issue is opened", () => {
+    store.recordFirstSeen([row({ commentsCount: 5 })], 1);
+    store.markSeen("acme/widgets", 12, 8, 2);
+    expect(store.seenCounts().get("acme/widgets#12")).toBe(8);
+  });
+
+  it("marks an issue seen that no sweep has recorded yet", () => {
+    store.markSeen("acme/widgets", 12, 3, 1);
+    expect(store.seenCounts().get("acme/widgets#12")).toBe(3);
+  });
+});

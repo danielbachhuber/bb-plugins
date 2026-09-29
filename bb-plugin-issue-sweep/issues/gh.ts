@@ -116,6 +116,7 @@ export async function runSweep(
         row.blockedBy = fact?.openBlockers ?? 0;
         row.closingPr = fact?.closingPr ?? null;
         row.subtasks = fact?.subtasks ?? null;
+        row.parent = fact?.parent ?? null;
       }
     } catch (error) {
       if (error instanceof GhUnavailableError) throw error;

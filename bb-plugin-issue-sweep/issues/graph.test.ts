@@ -14,6 +14,7 @@ function node(
     repo = "acme/widgets",
     subIssues = null as { total: number; completed: number } | null,
     body = null as string | null,
+    parent = null as { number: number; title: string; url: string } | null,
   } = {},
 ) {
   return {
@@ -25,6 +26,7 @@ function node(
     },
     subIssuesSummary: subIssues,
     body,
+    parent,
   };
 }
 
@@ -78,6 +80,7 @@ describe("parseIssueFacts: closing pull requests", () => {
       openBlockers: 1,
       closingPr: 5810,
       subtasks: null,
+      parent: null,
     });
   });
 });
@@ -113,6 +116,7 @@ describe("parseIssueFacts: subtasks", () => {
       openBlockers: 0,
       closingPr: null,
       subtasks: { completed: 0, total: 3, source: "sub-issues" },
+      parent: null,
     });
   });
 
@@ -120,6 +124,25 @@ describe("parseIssueFacts: subtasks", () => {
     const facts = parseIssueFacts(
       payload([node(42, { subIssues: { total: 0, completed: 0 }, body: "Just prose." })]),
     );
+    expect(facts.has("acme/widgets#42")).toBe(false);
+  });
+});
+
+describe("parseIssueFacts: parent", () => {
+  const PARENT = { number: 140, title: "Widget export, second pass", url: "https://github.com/acme/widgets/issues/140" };
+
+  it("reports the issue a sub-issue belongs to", () => {
+    const facts = parseIssueFacts(payload([node(42, { parent: PARENT })]));
+    expect(facts.get("acme/widgets#42")).toEqual({
+      openBlockers: 0,
+      closingPr: null,
+      subtasks: null,
+      parent: PARENT,
+    });
+  });
+
+  it("drops a parent too malformed to link to", () => {
+    const facts = parseIssueFacts(payload([node(42, { parent: { number: 140 } as never })]));
     expect(facts.has("acme/widgets#42")).toBe(false);
   });
 });

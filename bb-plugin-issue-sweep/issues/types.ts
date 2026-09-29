@@ -1,4 +1,5 @@
 import { boardPlacement } from "./board.js";
+import type { IssueParent } from "./graph.js";
 import type { SubtaskProgress } from "./subtasks.js";
 
 export const REPO_SLUG_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
@@ -51,6 +52,12 @@ export interface IssueRow {
    * blockedBy, for the same reason: the listing cannot report it.
    */
   subtasks: SubtaskProgress | null;
+  /**
+   * The issue this one is a sub-issue of, or null. Stamped from the same
+   * query as blockedBy. Optional because rows stored before it existed are
+   * read back without it.
+   */
+  parent?: IssueParent | null;
   /** The status column on the configured board, or null when it has none. */
   boardStatus: string | null;
   /**
@@ -105,6 +112,7 @@ export function toRow(raw: RawIssue, board = ""): IssueRow | null {
     blockedBy: 0,
     closingPr: null,
     subtasks: null,
+    parent: null,
     boardStatus: placement.status,
     onBoard: placement.onBoard,
   };

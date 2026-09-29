@@ -18,7 +18,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "harvest:sync": "rm -rf node_modules/bb-plugin-harvest && npm install --install-links file:../bb-plugin-harvest"
+    "harvest:sync": "rm -rf node_modules/bb-plugin-harvest node_modules/sweep-ui && npm install --install-links file:../bb-plugin-harvest file:../sweep-ui"
   },
   "dependencies": {
     "@danielb/gh-shared": "file:../gh-shared",
@@ -31,6 +31,7 @@
     "@radix-ui/react-slot": "^1.3.0",
     "bb-plugin-gh-context": "file:../bb-plugin-gh-context",
     "bb-plugin-harvest": "file:../bb-plugin-harvest",
+    "sweep-ui": "file:../sweep-ui",
     "zod": "4.5.4"
   },
   "devDependencies": {
