@@ -193,6 +193,11 @@ describe("classifyOne", () => {
   it("defaults a missing author to unknown rather than dropping the row", () => {
     expect(classifyOne(makePr({ author: null }), ME)?.author).toBe("unknown");
   });
+
+  it("carries the comment count through, and reads a missing one as zero", () => {
+    expect(classifyOne(makePr({ comments: { totalCount: 7 } }), ME)?.comments).toBe(7);
+    expect(classifyOne(makePr({ comments: null }), ME)?.comments).toBe(0);
+  });
 });
 
 describe("classify", () => {

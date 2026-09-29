@@ -45,6 +45,11 @@ export interface ClassifiedRow {
    */
   requestedReviewers: string[];
   size: ChangeSize;
+  /**
+   * How many general comments the pull request has, for "N new". Optional
+   * because rows stored before the field existed lack it until the next sweep.
+   */
+  comments?: number;
 }
 
 export interface SweepResult {
@@ -85,6 +90,7 @@ export interface RawPullRequest {
   changedFiles?: number;
   repository?: { nameWithOwner?: string } | null;
   author?: { login?: string } | null;
+  comments?: { totalCount?: number } | null;
   reviews?: { nodes?: Array<RawReview | null> | null } | null;
   reviewRequests?: { nodes?: Array<RawReviewRequest | null> | null } | null;
   timelineItems?: { nodes?: Array<RawReviewRequestedEvent | null> | null } | null;

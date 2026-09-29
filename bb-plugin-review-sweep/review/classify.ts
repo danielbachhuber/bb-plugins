@@ -172,6 +172,7 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
       deletions: pr.deletions ?? 0,
       changedFiles: pr.changedFiles ?? 0,
     },
+    comments: pr.comments?.totalCount ?? 0,
   };
 }
 

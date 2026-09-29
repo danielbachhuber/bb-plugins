@@ -48,6 +48,7 @@ query($q: String!, $limit: Int!) {
         changedFiles
         repository { nameWithOwner }
         author { login }
+        comments { totalCount }
         reviews(last: 100) {
           nodes { state submittedAt author { login } }
         }

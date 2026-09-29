@@ -32,6 +32,10 @@ describe("SEARCH_GRAPHQL", () => {
   it("asks for the review-request timeline, which gh pr list cannot supply", () => {
     expect(SEARCH_GRAPHQL).toContain("REVIEW_REQUESTED_EVENT");
   });
+
+  it("asks for the comment count, for the row's new comments", () => {
+    expect(SEARCH_GRAPHQL).toContain("comments { totalCount }");
+  });
 });
 
 describe("parseSearch", () => {

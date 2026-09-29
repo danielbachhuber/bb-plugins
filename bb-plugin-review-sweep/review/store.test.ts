@@ -154,4 +154,74 @@ describe("store", () => {
     expect(store.pruneSnoozes(NOW)).toBe(0);
     expect(store.snoozesUntil(NOW).get("acme/widgets#2")).toBe(NOW + 3_600_000);
   });
+
+  describe("notes", () => {
+    it("saves a note and reads it back by pull request", () => {
+      const store = freshStore();
+      store.setNote("acme/widgets", 12, "Ask octocat about the retry", 1);
+      expect(store.notes().get("acme/widgets#12")).toBe("Ask octocat about the retry");
+    });
+
+    it("replaces a note rather than keeping two", () => {
+      const store = freshStore();
+      store.setNote("acme/widgets", 12, "First", 1);
+      store.setNote("acme/widgets", 12, "Second", 2);
+      expect([...store.notes().values()]).toEqual(["Second"]);
+    });
+
+    it("deletes the note when the new text is empty, rather than saving blank text", () => {
+      const store = freshStore();
+      store.setNote("acme/widgets", 12, "First", 1);
+      store.setNote("acme/widgets", 12, "   ", 2);
+      expect(store.notes().has("acme/widgets#12")).toBe(false);
+    });
+
+    it("keys by repository as well as number", () => {
+      const store = freshStore();
+      store.setNote("acme/widgets", 12, "Widgets", 1);
+      store.setNote("acme/gadgets", 12, "Gadgets", 1);
+      expect(store.notes().get("acme/gadgets#12")).toBe("Gadgets");
+    });
+
+    it("keeps a note across a sweep, which replaces every row", () => {
+      const store = freshStore();
+      store.setNote("acme/widgets", 1, "Kept", 1);
+      store.replaceAll(result([row()]));
+      expect(store.notes().get("acme/widgets#1")).toBe("Kept");
+    });
+  });
+
+  describe("seen comment counts", () => {
+    it("records the count on first sight, so a first sync shows nothing new", () => {
+      const store = freshStore();
+      store.recordFirstSeen([row({ number: 12, comments: 5 })], 1);
+      expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
+    });
+
+    it("never moves a count it already has on a later sweep", () => {
+      const store = freshStore();
+      store.recordFirstSeen([row({ number: 12, comments: 5 })], 1);
+      store.recordFirstSeen([row({ number: 12, comments: 8 })], 2);
+      expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
+    });
+
+    it("reads a row stored before the count existed as zero comments", () => {
+      const store = freshStore();
+      store.recordFirstSeen([row({ number: 12 })], 1);
+      expect(store.seenCounts().get("acme/widgets#12")).toBe(0);
+    });
+
+    it("moves the count up to the current one when the pull request is opened", () => {
+      const store = freshStore();
+      store.recordFirstSeen([row({ number: 12, comments: 5 })], 1);
+      store.markSeen("acme/widgets", 12, 8, 2);
+      expect(store.seenCounts().get("acme/widgets#12")).toBe(8);
+    });
+
+    it("marks a pull request seen that no sweep has recorded yet", () => {
+      const store = freshStore();
+      store.markSeen("acme/widgets", 12, 3, 1);
+      expect(store.seenCounts().get("acme/widgets#12")).toBe(3);
+    });
+  });
 });

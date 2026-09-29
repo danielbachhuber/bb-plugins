@@ -35,6 +35,24 @@ export const MIGRATIONS = [
   // this machine has their remote. Stored so the panel can say why it is empty
   // instead of reading as "nobody is waiting on you".
   `ALTER TABLE meta ADD COLUMN skipped_repos TEXT NOT NULL DEFAULT '[]'`,
+  // The local next-step note on a row. Kept apart from `rows`, which each
+  // sweep replaces wholesale, and never sent to GitHub.
+  `CREATE TABLE IF NOT EXISTS notes (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     body TEXT NOT NULL,
+     updated_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
+  // The comment count when a pull request was last opened from the panel, so
+  // the row can say how many are new since.
+  `CREATE TABLE IF NOT EXISTS seen (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     comments INTEGER NOT NULL,
+     seen_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
 ];
 
 export interface SweepMeta {
@@ -91,6 +109,20 @@ export interface Store {
   snoozesUntil(now: number): Map<string, number>;
   /** Drops deadlines already in the past. Returns how many went. */
   pruneSnoozes(now: number): number;
+  /** Every note, keyed `repo#number`. */
+  notes(): Map<string, string>;
+  /** Saves a note. Empty or blank text deletes it instead. */
+  setNote(repo: string, number: number, body: string, now: number): void;
+  /** The comment count each pull request was last seen at, keyed `repo#number`. */
+  seenCounts(): Map<string, number>;
+  /**
+   * Records the current count for every row not seen before, and leaves the
+   * rest alone. Run on every sweep, so a review is never "new" merely because
+   * this is the first sweep to list it.
+   */
+  recordFirstSeen(rows: readonly ClassifiedRow[], now: number): void;
+  /** Records the count a pull request has now, when it is opened from the panel. */
+  markSeen(repo: string, number: number, comments: number, now: number): void;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -133,6 +165,24 @@ export function createStore(db: DatabaseLike): Store {
   const countExpiredSnoozes = db.prepare(
     `SELECT COUNT(*) AS expired FROM snoozes WHERE until <= ?`,
   );
+
+  const selectNotes = db.prepare(`SELECT repo, number, body FROM notes`);
+  const upsertNote = db.prepare(
+    `INSERT INTO notes (repo, number, body, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+  );
+  const deleteNote = db.prepare(`DELETE FROM notes WHERE repo = ? AND number = ?`);
+  const selectSeen = db.prepare(`SELECT repo, number, comments FROM seen`);
+  const insertSeen = db.prepare(
+    `INSERT OR IGNORE INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)`,
+  );
+  const upsertSeen = db.prepare(
+    `INSERT INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET comments = excluded.comments, seen_at = excluded.seen_at`,
+  );
+  const writeFirstSeen = db.transaction(((rows: readonly ClassifiedRow[], now: number) => {
+    for (const row of rows) insertSeen.run(row.repo, row.number, row.comments ?? 0, now);
+  }) as (rows: readonly ClassifiedRow[], now: number) => void);
 
   const writeAll = db.transaction(
     ((rows: ClassifiedRow[], sweptAt: number, skippedRepos: string, truncated: number) => {
@@ -221,6 +271,30 @@ export function createStore(db: DatabaseLike): Store {
       const { expired } = countExpiredSnoozes.get(now) as { expired: number };
       if (expired > 0) deleteExpiredSnoozes.run(now);
       return expired;
+    },
+
+    notes() {
+      const rows = selectNotes.all() as Array<{ repo: string; number: number; body: string }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.body]));
+    },
+
+    setNote(repo, number, body, now) {
+      const trimmed = body.trim();
+      if (trimmed === "") deleteNote.run(repo, number);
+      else upsertNote.run(repo, number, trimmed, now);
+    },
+
+    seenCounts() {
+      const rows = selectSeen.all() as Array<{ repo: string; number: number; comments: number }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.comments]));
+    },
+
+    recordFirstSeen(rows, now) {
+      writeFirstSeen(rows, now);
+    },
+
+    markSeen(repo, number, comments, now) {
+      upsertSeen.run(repo, number, comments, now);
     },
   };
 }
