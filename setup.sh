@@ -35,10 +35,11 @@ for package in "$DIR"/*/; do
   name="$(basename "$package")"
 
   # This repository also holds shared libraries the plugins depend on. A bb
-  # plugin is the thing with a "bb" manifest block; anything else is bundled in
+  # plugin is the thing with a "bb" manifest block that names it; anything else,
+  # such as a shared package that only lists files for Tailwind to scan, is bundled in
   # as a `file:` dependency rather than installed. Those still get an npm
   # install, so their own test and typecheck scripts work in a fresh clone.
-  if ! jq -e '.bb | type == "object"' "$package/package.json" >/dev/null 2>&1; then
+  if ! jq -e '.bb.name | type == "string"' "$package/package.json" >/dev/null 2>&1; then
     echo "==> $name (shared library)"
     ( cd "$package" && npm install --silent )
     continue

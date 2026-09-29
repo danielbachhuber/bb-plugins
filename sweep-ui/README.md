@@ -28,6 +28,13 @@ the plugin's.
 The package uses relative imports only, since `@/` means the plugin's own
 directory once it is installed there.
 
+`bb.pluginTailwindContent` in its package.json lists its components for
+Tailwind. `bb plugin build` generates only the classes it finds in the plugin
+itself and in dependencies that list files this way, so without it the
+squares, the track width, and the row tints are missing in bb even though
+they show in Storybook. A `bb` block with no `name` does not make this a
+plugin: `sync.sh` and `setup.sh` look for `bb.name`.
+
 ## Exports
 
 | Path | What it holds |

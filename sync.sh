@@ -88,7 +88,7 @@ detect_plugins() {
   for plugin in "$DIR"/*/; do
     plugin="${plugin%/}"
     [ -f "$plugin/package.json" ] || continue
-    jq -e '.bb | type == "object"' "$plugin/package.json" >/dev/null 2>&1 || continue
+    jq -e '.bb.name | type == "string"' "$plugin/package.json" >/dev/null 2>&1 || continue
 
     id="$(basename "$plugin")"; id="${id#bb-plugin-}"
 
