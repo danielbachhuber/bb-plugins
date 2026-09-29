@@ -323,19 +323,19 @@ describe("tiers", () => {
     ]);
     expect(
       await bannerOf({ flags: ["ci-failing"], checks: { pass: 7, fail: 2, skip: 0, pending: 0, cancelled: 0, total: 9 } }),
-    ).toEqual(["blocked", "2 failing checks"]);
+    ).toEqual(["blocked", "2 of 9 checks failing"]);
     expect(
       await bannerOf({ flags: ["conflict", "feedback"], baseRefName: "main", changesRequestedBy: ["hubber"] }),
     ).toEqual(["blocked", "Merge conflict with main · hubber requested changes"]);
     expect(await bannerOf({ flags: ["merge-ready"], group: "ready-to-merge", approvedBy: ["hubber"] })).toEqual([
       "ready",
-      "Ready to merge",
+      "Ready to merge · approved by hubber",
     ]);
     expect(await bannerOf({ flags: ["ci-pending"] })).toBeNull();
     // Nothing flagged, but comments left to answer are why it needs you.
     expect(await bannerOf({ flags: [], group: "clean", unresolvedThreads: 2, notedBy: ["hubber"] })).toEqual([
       "blocked",
-      "2 unresolved comments · Review notes from hubber",
+      "Review notes from hubber · 2 unresolved comments",
     ]);
   });
 

@@ -66,16 +66,25 @@ panel, or started one, and how long ago it was updated on the right. The first
 sweep to see a pull request records its comment count, so nothing is new on
 the first sync.
 
-Under the title, a red banner names what stops the pull request: "Merge
-conflict with main" (naming its base branch), else "2 failing checks", else
-the first of "Merge blocked", "Mergeability unknown", "Checks cancelled", "No
-checks", and "No reviewer". Reviewer feedback joins it as "hubber requested
-changes", or "reviewer feedback" when nobody's latest review requested
-changes, in lighter text after a dot, and stands alone when nothing else is
-wrong. A pull request ready to merge gets a green "Ready to merge" banner
-instead. With nothing else to say, comments left to answer are the banner:
-"2 unresolved comments", "Review notes from hubber", or both. One that is only
-waiting gets none.
+Under the title, a banner says where the pull request stands.
+
+- **Red, for what stops it**, the first that applies: "Merge conflict with
+  main" (naming its base branch), "2 of 9 checks failing", "Approved, but
+  GitHub won't merge it · a branch rule isn't met" (approved and passing, yet
+  a rule the listing cannot name still blocks it), "1 of 9 checks cancelled",
+  "No checks ran on the latest push", or "No reviewer requested".
+- **Reviewers' feedback** follows a blocker in lighter text after a dot, and
+  stands alone in red when nothing else is wrong: "hubber requested changes",
+  "octocat left review comments" (a review that neither approved nor
+  requested changes), "hubber approved with notes", or "Review notes from
+  hubber". The unresolved comment count follows a reviewer's name, and is the
+  banner on its own when no review explains it: "2 unresolved comments".
+- **Green** "Ready to merge", followed by who approved, or by who has not
+  reviewed yet when someone else was asked.
+- **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
+  or "GitHub is still checking for conflicts".
+- **None** for a draft, a first review not yet given, or checks still
+  running, which the track and the icons already show.
 
 Under the banner, a line of icons: each reviewer's avatar with a badge for
 where their review stands (requested, changes requested, approved, or

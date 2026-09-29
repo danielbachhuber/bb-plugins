@@ -10,23 +10,23 @@ import type { ListedPr } from "./tiers.js";
  */
 
 export type Banner = {
-  tone: "blocked" | "ready";
+  tone: "blocked" | "ready" | "info";
   text: string;
   /** A second, lighter part after the text, such as who requested changes. */
   detail?: string;
 };
 
-/** The flags after a conflict and failing checks that stop the author, in plain words. */
-const OTHER_BLOCKERS: Record<string, string> = {
-  "merge-blocked": "Merge blocked",
-  "mergeable-unknown": "Mergeability unknown",
-  "ci-cancelled": "Checks cancelled",
-  "ci-absent": "No checks",
-  "no-reviewer": "No reviewer",
-};
+/** The flags that stop the author, other than feedback, in the order the classifier ranks them. */
+const BLOCKERS = new Set(["conflict", "ci-failing", "merge-blocked", "ci-cancelled", "ci-absent", "no-reviewer"]);
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** "hubber", "hubber and octocat", "hubber, octocat, and hubot". */
+function names(logins: readonly string[]): string {
+  if (logins.length <= 2) return logins.join(" and ");
+  return `${logins.slice(0, -1).join(", ")}, and ${logins.at(-1)}`;
 }
 
 /**
@@ -38,50 +38,91 @@ function plural(count: number, noun: string): string {
 function leadingBlocker(flags: readonly string[]): string | null {
   if (flags.includes("conflict")) return "conflict";
   if (flags.includes("ci-failing")) return "ci-failing";
-  return flags.find((flag) => flag in OTHER_BLOCKERS) ?? null;
+  return flags.find((flag) => BLOCKERS.has(flag)) ?? null;
+}
+
+/** The leading blocker as a sentence about this pull request. */
+function blockerText(row: ListedPr, flag: string): string {
+  const ran = row.checks.total - row.checks.skip;
+  switch (flag) {
+    case "conflict":
+      return row.baseRefName ? `Merge conflict with ${row.baseRefName}` : "Merge conflict";
+    case "ci-failing":
+      return `${row.checks.fail} of ${ran} checks failing`;
+    case "ci-cancelled":
+      return `${row.checks.cancelled} of ${ran} checks cancelled`;
+    case "ci-absent":
+      return "No checks ran on the latest push";
+    case "no-reviewer":
+      return "No reviewer requested";
+    default:
+      // merge-blocked: approved, green, and no conflict, yet GitHub refuses
+      // the merge. The listing does not say which rule, so the banner says
+      // what is known.
+      return "Approved, but GitHub won't merge it";
+  }
 }
 
 /**
- * Comments that are yours to answer: unresolved inline threads and reviews
- * with a written body. Null when there are none.
+ * What reviewers left for you to answer, or null: who requested changes,
+ * then who reviewed with comments and neither approved nor requested
+ * changes, then who wrote notes, then unresolved threads with no name.
  */
-function commentsText(row: ListedPr): string | null {
-  const parts: string[] = [];
-  if (row.unresolvedThreads > 0) parts.push(plural(row.unresolvedThreads, "unresolved comment"));
-  if (row.notedBy.length > 0) parts.push(`Review notes from ${row.notedBy.join(", ")}`);
-  return parts.length > 0 ? parts.join(" · ") : null;
+function feedbackText(row: ListedPr): { text: string; byReviewer: boolean } | null {
+  const requested = row.changesRequestedBy ?? [];
+  if (requested.length > 0) return { text: `${names(requested)} requested changes`, byReviewer: true };
+  const settled = new Set([...row.approvedBy, ...requested]);
+  const commented = row.flags.includes("feedback") ? row.commentedBy.filter((login) => !settled.has(login)) : [];
+  if (commented.length > 0) return { text: `${names(commented)} left review comments`, byReviewer: true };
+  if (row.notedBy.length > 0) {
+    const approved = row.notedBy.every((login) => row.approvedBy.includes(login));
+    const text = approved ? `${names(row.notedBy)} approved with notes` : `Review notes from ${names(row.notedBy)}`;
+    return { text, byReviewer: true };
+  }
+  if (row.unresolvedThreads > 0) return { text: plural(row.unresolvedThreads, "unresolved comment"), byReviewer: false };
+  return null;
 }
 
 /**
- * What stops the pull request, in red, or "Ready to merge" in green. Reviewer
- * feedback follows the leading blocker as a lighter detail, naming the
- * reviewer who requested changes when the sweep knows who. With nothing else
- * to say, comments left to answer are the banner, since they are what puts a
- * row with no flags under needs you.
+ * The banner under the title. Red for what stops the pull request, with the
+ * reviewers' feedback after it as a lighter detail; red for feedback alone,
+ * with the unresolved count as its detail; green when it can merge; blue for
+ * a wait that asks nothing of you but is worth knowing. Nothing for a draft,
+ * a first review not yet given, or checks still running, which the track and
+ * the icons already show.
  */
 export function bannerFor(row: ListedPr): Banner | null {
   const flags = row.flags;
   const leading = leadingBlocker(flags);
-  const main =
-    leading === "conflict"
-      ? row.baseRefName
-        ? `Merge conflict with ${row.baseRefName}`
-        : "Merge conflict"
-      : leading === "ci-failing"
-        ? plural(row.checks.fail, "failing check")
-        : leading
-          ? OTHER_BLOCKERS[leading]!
-          : null;
+  const feedback = feedbackText(row);
 
-  if (flags.includes("feedback")) {
-    const by = row.changesRequestedBy?.[0];
-    if (main) return { tone: "blocked", text: main, detail: by ? `${by} requested changes` : "reviewer feedback" };
-    return { tone: "blocked", text: by ? `${by} requested changes` : "Reviewer feedback" };
+  if (leading) {
+    const main = blockerText(row, leading);
+    if (leading === "merge-blocked") {
+      return { tone: "blocked", text: main, detail: "a branch rule isn't met" };
+    }
+    return feedback ? { tone: "blocked", text: main, detail: feedback.text } : { tone: "blocked", text: main };
   }
-  if (main) return { tone: "blocked", text: main };
-  if (flags.includes("merge-ready")) return { tone: "ready", text: "Ready to merge" };
-  const comments = commentsText(row);
-  if (comments) return { tone: "blocked", text: comments };
+  if (flags.includes("merge-ready")) {
+    const waiting = row.waitingOn;
+    const detail =
+      waiting.length > 0
+        ? `${names(waiting)} ${waiting.length === 1 ? "hasn't" : "haven't"} reviewed yet`
+        : row.approvedBy.length > 0
+          ? `approved by ${names(row.approvedBy)}`
+          : undefined;
+    return detail ? { tone: "ready", text: "Ready to merge", detail } : { tone: "ready", text: "Ready to merge" };
+  }
+  if (row.awaitingReReview && row.waitingOn.length > 0) {
+    return { tone: "info", text: `Waiting on ${names(row.waitingOn)} to re-review` };
+  }
+  if (feedback) {
+    // A reviewer's name leads, so the unresolved threads follow as the detail.
+    return feedback.byReviewer && row.unresolvedThreads > 0
+      ? { tone: "blocked", text: feedback.text, detail: plural(row.unresolvedThreads, "unresolved comment") }
+      : { tone: "blocked", text: feedback.text };
+  }
+  if (flags.includes("mergeable-unknown")) return { tone: "info", text: "GitHub is still checking for conflicts" };
   return null;
 }
 

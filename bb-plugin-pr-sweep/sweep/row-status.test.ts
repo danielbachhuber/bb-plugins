@@ -35,78 +35,112 @@ function pr(overrides: Partial<ListedPr> = {}): ListedPr {
 }
 
 describe("bannerFor", () => {
+  const text = (overrides: Partial<ListedPr>) => bannerFor(pr(overrides))?.text;
+
   it("leads with a merge conflict, naming the base branch", () => {
     expect(bannerFor(pr({ flags: ["conflict", "ci-failing"], baseRefName: "main" }))).toEqual({
       tone: "blocked",
       text: "Merge conflict with main",
     });
-    expect(bannerFor(pr({ flags: ["conflict"], baseRefName: "trunk" }))?.text).toBe("Merge conflict with trunk");
+    expect(text({ flags: ["conflict"], baseRefName: "trunk" })).toBe("Merge conflict with trunk");
+    expect(text({ flags: ["conflict"] })).toBe("Merge conflict");
   });
 
-  it("says only merge conflict when the base branch is not stored yet", () => {
-    expect(bannerFor(pr({ flags: ["conflict"] }))?.text).toBe("Merge conflict");
+  it("counts failing and cancelled checks out of those that ran", () => {
+    expect(text({ flags: ["ci-failing"], checks: { ...GREEN, fail: 2 } })).toBe("2 of 4 checks failing");
+    expect(text({ flags: ["ci-cancelled"], checks: { ...GREEN, cancelled: 1 } })).toBe("1 of 4 checks cancelled");
   });
 
-  it("counts failing checks, in the singular for one", () => {
-    expect(bannerFor(pr({ flags: ["ci-failing"], checks: { ...GREEN, fail: 2 } }))?.text).toBe("2 failing checks");
-    expect(bannerFor(pr({ flags: ["ci-failing"], checks: { ...GREEN, fail: 1 } }))?.text).toBe("1 failing check");
+  it("says plainly what each other blocker means", () => {
+    expect(text({ flags: ["ci-absent"] })).toBe("No checks ran on the latest push");
+    expect(text({ flags: ["no-reviewer"] })).toBe("No reviewer requested");
   });
 
-  it("names the first other needs-action flag in plain words", () => {
-    const text = (flags: string[]) => bannerFor(pr({ flags }))?.text;
-    expect(text(["merge-blocked"])).toBe("Merge blocked");
-    expect(text(["no-reviewer"])).toBe("No reviewer");
-    expect(text(["ci-cancelled"])).toBe("Checks cancelled");
-    expect(text(["ci-absent"])).toBe("No checks");
-    expect(text(["mergeable-unknown"])).toBe("Mergeability unknown");
-    expect(text(["mergeable-unknown", "ci-cancelled"])).toBe("Mergeability unknown");
+  it("says GitHub refuses a merge it has not explained", () => {
+    expect(bannerFor(pr({ flags: ["merge-blocked"], approvedBy: ["hubber"], unresolvedThreads: 2 }))).toEqual({
+      tone: "blocked",
+      text: "Approved, but GitHub won't merge it",
+      detail: "a branch rule isn't met",
+    });
   });
 
-  it("adds who requested changes when there is reviewer feedback", () => {
+  it("puts the reviewers' feedback after a blocker as the detail", () => {
     expect(
       bannerFor(pr({ flags: ["conflict", "feedback"], baseRefName: "main", changesRequestedBy: ["hubber"] })),
     ).toEqual({ tone: "blocked", text: "Merge conflict with main", detail: "hubber requested changes" });
-    expect(bannerFor(pr({ flags: ["ci-failing", "feedback"], checks: { ...GREEN, fail: 1 } }))).toEqual({
-      tone: "blocked",
-      text: "1 failing check",
-      detail: "reviewer feedback",
-    });
+    expect(
+      bannerFor(pr({ flags: ["ci-failing", "feedback"], checks: { ...GREEN, fail: 1 }, commentedBy: ["octocat"] })),
+    ).toEqual({ tone: "blocked", text: "1 of 4 checks failing", detail: "octocat left review comments" });
   });
 
-  it("stands reviewer feedback alone when nothing else blocks", () => {
-    expect(bannerFor(pr({ flags: ["feedback"], changesRequestedBy: ["hubber"] }))).toEqual({
+  it("names who requested changes, with the unresolved threads after", () => {
+    expect(bannerFor(pr({ flags: ["feedback"], changesRequestedBy: ["hubber"], unresolvedThreads: 3 }))).toEqual({
       tone: "blocked",
       text: "hubber requested changes",
+      detail: "3 unresolved comments",
     });
-    expect(bannerFor(pr({ flags: ["feedback"] }))?.text).toBe("Reviewer feedback");
+    expect(text({ flags: ["feedback"], changesRequestedBy: ["hubber", "octocat"] })).toBe(
+      "hubber and octocat requested changes",
+    );
   });
 
-  it("names comments to read when nothing else explains the row", () => {
+  it("names who reviewed with comments, leaving out those who approved", () => {
+    expect(
+      bannerFor(
+        pr({
+          flags: ["feedback"],
+          commentedBy: ["octocat", "hubber"],
+          approvedBy: ["hubber"],
+          waitingOn: ["hubot"],
+          unresolvedThreads: 7,
+        }),
+      ),
+    ).toEqual({ tone: "blocked", text: "octocat left review comments", detail: "7 unresolved comments" });
+  });
+
+  it("counts unresolved comments when no reviewer's review explains the row", () => {
     expect(bannerFor(pr({ unresolvedThreads: 2 }))).toEqual({ tone: "blocked", text: "2 unresolved comments" });
-    expect(bannerFor(pr({ unresolvedThreads: 1 }))?.text).toBe("1 unresolved comment");
-    expect(bannerFor(pr({ notedBy: ["hubber", "octocat"] }))?.text).toBe("Review notes from hubber, octocat");
-    expect(bannerFor(pr({ unresolvedThreads: 3, notedBy: ["hubber"] }))?.text).toBe(
-      "3 unresolved comments · Review notes from hubber",
-    );
-    expect(bannerFor(pr({ flags: ["ci-pending"], unresolvedThreads: 1 }))?.text).toBe("1 unresolved comment");
+    expect(text({ unresolvedThreads: 1 })).toBe("1 unresolved comment");
+    expect(text({ flags: ["ci-pending"], unresolvedThreads: 1 })).toBe("1 unresolved comment");
   });
 
-  it("leaves comments to the banner another problem or a merge already owns", () => {
-    expect(bannerFor(pr({ flags: ["merge-blocked"], unresolvedThreads: 2 }))?.text).toBe("Merge blocked");
-    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2 }))?.tone).toBe(
-      "ready",
-    );
+  it("names notes left with an approval, or notes alone", () => {
+    expect(text({ notedBy: ["hubber"], approvedBy: ["hubber"] })).toBe("hubber approved with notes");
+    expect(text({ notedBy: ["hubber", "octocat", "hubot"] })).toBe("Review notes from hubber, octocat, and hubot");
+    expect(bannerFor(pr({ notedBy: ["hubber"], unresolvedThreads: 2 }))?.detail).toBe("2 unresolved comments");
   });
 
-  it("says ready to merge in green", () => {
-    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"] }))).toEqual({
+  it("says ready to merge in green, with who approved or who is still to review", () => {
+    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2 }))).toEqual({
       tone: "ready",
       text: "Ready to merge",
+      detail: "approved by hubber",
+    });
+    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], waitingOn: ["octocat"] }))?.detail).toBe(
+      "octocat hasn't reviewed yet",
+    );
+  });
+
+  it("says in blue who a re-review is waiting on", () => {
+    expect(bannerFor(pr({ awaitingReReview: true, waitingOn: ["hubber"] }))).toEqual({
+      tone: "info",
+      text: "Waiting on hubber to re-review",
     });
   });
 
-  it("draws no banner for a run in flight or an unflagged pull request", () => {
+  it("says in blue that GitHub is still working out mergeability", () => {
+    expect(bannerFor(pr({ flags: ["mergeable-unknown"] }))).toEqual({
+      tone: "info",
+      text: "GitHub is still checking for conflicts",
+    });
+    expect(text({ flags: ["mergeable-unknown", "ci-cancelled"], checks: { ...GREEN, cancelled: 1 } })).toBe(
+      "1 of 4 checks cancelled",
+    );
+  });
+
+  it("draws no banner for a run in flight, a first review not yet given, or an unflagged pull request", () => {
     expect(bannerFor(pr({ flags: ["ci-pending"] }))).toBeNull();
+    expect(bannerFor(pr({ waitingOn: ["hubber"] }))).toBeNull();
     expect(bannerFor(pr())).toBeNull();
   });
 });
@@ -127,8 +161,9 @@ describe("blockedStageOf", () => {
     expect(blockedStageOf(pr({ flags: ["conflict", "ci-failing"] }))).toBe(3);
     expect(blockedStageOf(pr({ flags: ["ci-failing", "merge-blocked"] }))).toBe(1);
     expect(blockedStageOf(pr({ flags: ["merge-blocked", "ci-cancelled"] }))).toBe(3);
-    // The banner leads with mergeability, which has no stage to cross out.
-    expect(blockedStageOf(pr({ flags: ["mergeable-unknown", "ci-cancelled"] }))).toBeNull();
+    // Mergeability still being worked out is not a blocker, so the cancelled
+    // checks lead and the cross is on Checks.
+    expect(blockedStageOf(pr({ flags: ["mergeable-unknown", "ci-cancelled"] }))).toBe(1);
   });
 
   it("blocks nothing otherwise", () => {

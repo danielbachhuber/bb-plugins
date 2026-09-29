@@ -243,6 +243,21 @@ const everyStatus: Listing = {
       outdatedThreads: 2,
     }),
     row({
+      number: 415,
+      title: "Let admins rename a gadget folder",
+      flags: ["feedback"],
+      commentedBy: ["octocat", "hubber"],
+      approvedBy: ["hubber"],
+      waitingOn: ["hubot"],
+      unresolvedThreads: 7,
+    }),
+    row({
+      number: 416,
+      title: "Cache the gadget list between page loads",
+      notedBy: ["octocat"],
+      unresolvedThreads: 2,
+    }),
+    row({
       number: 404,
       title: "Update the gadget import docs",
       flags: ["merge-blocked"],
@@ -302,6 +317,13 @@ const everyStatus: Listing = {
       flags: ["merge-ready"],
       approvedBy: ["hubber", "octocat"],
       notedBy: ["hubber"],
+    }),
+    row({
+      number: 417,
+      title: "Batch widget saves into one request",
+      flags: ["merge-ready"],
+      approvedBy: ["hubber"],
+      waitingOn: ["octocat"],
     }),
     row({
       number: 413,
