@@ -213,23 +213,29 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts what needs a decision or is overdue, each once, and every row in the Now section as its tab does", () => {
+  test("counts the Overdue run, the Today, Me, and Requests runs together, and every row in the Now section as its tab does", () => {
     const items = [
-      item("unread", { gmail: { threadIds: ["t1"], unread: true } }),
-      item("read", { gmail: { threadIds: ["t2"], unread: false } }),
-      item("inbox", { inbox: true }),
       item("overdue", due("2026-09-20")),
+      item("today", due("2026-09-24")),
+      item("inbox", { inbox: true }),
+      item("to-you", { gmail: { threadIds: ["t0"], unread: false, toYou: true }, activityAt: hoursAgo(1) }),
+      mail("request", 2, true),
+      // Mail over two days old is not overdue here; it counts in its own run.
+      mail("stale", 60),
+      item("merged", {
+        gmail: { threadIds: ["t9"], unread: true },
+        activityAt: hoursAgo(1),
+        github: { repo: "acme/widgets", number: 9, kind: "pull", state: "merged", review: null, closedAs: null, reason: "author", comment: null },
+      }),
       item("later", due("2026-10-02")),
       item("undated"),
-      mail("stale-read", 60),
-      mail("stale-unread", 60, true),
     ];
-    // unread, inbox, overdue, stale-read, and stale-unread (counted once).
-    expect(sidebarCounts(items, now)).toEqual({ urgent: 5, now: 7 });
+    expect(sidebarCounts(items, now)).toEqual({ overdue: 1, today: 5, now: 8 });
     expect(sidebarCounts(items, now).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([], now)).toEqual({ urgent: 0, now: 0 });
+    expect(sidebarCounts([], now)).toEqual({ overdue: 0, today: 0, now: 0 });
   });
 });
+

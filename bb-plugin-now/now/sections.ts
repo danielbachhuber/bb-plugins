@@ -40,15 +40,6 @@ function instantOf(date: string): number | null {
   return new Date(year!, month! - 1, day!, hours!, minutes!).getTime();
 }
 
-/**
- * Whether a row needs a decision before it is work: an unread Gmail row
- * (email, GitHub notification, document comment, invitation), or a task in
- * Todoist's Inbox, whatever its date, since it has not been filed.
- */
-export function needsDecision(item: Item): boolean {
-  return item.gmail !== null ? item.gmail.unread : item.inbox === true;
-}
-
 /** How long a Gmail row can wait in the inbox before it counts as overdue. */
 export const MAIL_OVERDUE_MS = 48 * 60 * 60 * 1000;
 
@@ -244,18 +235,23 @@ export function shortDate(date: string, now: Date, { clock: withClock = false } 
   return withClock && clock !== null ? `${dated} ${clock}` : dated;
 }
 
+/** The runs the sidebar's blue count adds up: what to deal with today. */
+const TODAY_RUNS: ReadonlySet<NowGroupId> = new Set(["today", "me", "requests"]);
+
 /**
- * The two counts beside the page's name in the sidebar: what needs a
- * decision (unread mail and Todoist's Inbox) or is overdue, each row once,
- * and every row in the Now section, the same number as its tab. The first is
- * part of the second.
+ * The three counts beside the page's name in the sidebar: the Overdue run,
+ * what to deal with today (the Today, Me, and Requests runs together), and
+ * every row in the Now section, the same number as its tab. The first two
+ * are part of the third.
  */
-export function sidebarCounts(items: readonly Item[], now: Date): { urgent: number; now: number } {
-  let urgent = 0;
-  let current = 0;
+export function sidebarCounts(items: readonly Item[], now: Date): { overdue: number; today: number; now: number } {
+  const counts = { overdue: 0, today: 0, now: 0 };
   for (const item of items) {
-    if (needsDecision(item) || isOverdue(item, now)) urgent++;
-    if (sectionOf(item) === "now") current++;
+    if (sectionOf(item) !== "now") continue;
+    counts.now++;
+    const run = nowGroupOf(item, now);
+    if (run === "overdue") counts.overdue++;
+    else if (TODAY_RUNS.has(run)) counts.today++;
   }
-  return { urgent, now: current };
+  return counts;
 }

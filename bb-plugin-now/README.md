@@ -6,10 +6,11 @@ Gmail inbox.
 
 ## What it adds
 
-A **Now** page in the left sidebar, whose entry shows two counts: how many
-rows need a decision (unread mail and tasks in Todoist's Inbox) or are overdue
-in a red circle, and then how many rows are in the Now section, the same number as its
-tab, which includes the first. A count of zero is left out. It loads every
+A **Now** page in the left sidebar, whose entry shows three counts: the
+overdue tasks in a red circle, what to deal with today (the Today, Me, and
+Requests runs described below) in a blue one, and then how many rows are in
+the Now section, the same number as its tab, which includes the other two. A
+count of zero is left out. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
@@ -403,7 +404,7 @@ list `server.ts` passes to `loadSources`.
 | `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
-| `now/sidebar-counts.tsx` | The red urgent badge and Now count beside the page's name in the sidebar |
+| `now/sidebar-counts.tsx` | The red overdue and blue today badges and the Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
