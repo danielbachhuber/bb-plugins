@@ -161,12 +161,14 @@ describe("panel", () => {
     expect(within(row).queryByText(/approved by hubber/)).toBeNull();
   });
 
-  it("counts failing checks in red, says no reviewer, and leaves out checks and size it does not have", async () => {
+  it("counts failing and cancelled checks in red, running ones with a clock, says no reviewer, and leaves out what it does not have", async () => {
     const slot = render(
       listing({
         rows: [
           rowFixture({ number: 1, title: "Failing", flags: ["ci-failing"], checks: { pass: 5, fail: 2, skip: 1, pending: 0, cancelled: 0, total: 8 } }),
           rowFixture({ number: 2, title: "No checks", flags: ["ci-absent"], checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 } }),
+          rowFixture({ number: 3, title: "Cancelled", flags: ["ci-cancelled"], checks: { pass: 6, fail: 0, skip: 0, pending: 0, cancelled: 1, total: 7 } }),
+          rowFixture({ number: 4, title: "Running", flags: ["ci-pending"], checks: { pass: 2, fail: 0, skip: 0, pending: 3, cancelled: 0, total: 5 } }),
         ],
       }),
     );
@@ -176,6 +178,13 @@ describe("panel", () => {
     expect(checks.querySelector('[data-icon="CircleX"]')).toHaveClass("text-destructive-text");
     expect(failing.querySelector('[data-part="reviewers"]')).toHaveTextContent("no reviewer");
     expect(failing.querySelector('[data-part="diff"]')).toBeNull();
+
+    const cancelled = await rowFor(slot, "Cancelled");
+    expect(cancelled.querySelector('[data-part="checks"] [data-icon="CircleX"]')).toHaveClass("text-destructive-text");
+    expect(cancelled.querySelector('[data-part="checks"]')).toHaveTextContent("1/7 cancelled");
+
+    const running = await rowFor(slot, "Running");
+    expect(running.querySelector('[data-part="checks"] [data-icon="Clock"]')).not.toBeNull();
 
     const none = await rowFor(slot, "No checks");
     expect(none.querySelector('[data-part="checks"]')).toBeNull();
@@ -323,6 +332,11 @@ describe("tiers", () => {
       "Ready to merge",
     ]);
     expect(await bannerOf({ flags: ["ci-pending"] })).toBeNull();
+    // Nothing flagged, but comments left to answer are why it needs you.
+    expect(await bannerOf({ flags: [], group: "clean", unresolvedThreads: 2, notedBy: ["hubber"] })).toEqual([
+      "blocked",
+      "2 unresolved comments · Review notes from hubber",
+    ]);
   });
 
   it("flags a pull request left awaiting review past the setting as stale", async () => {

@@ -100,8 +100,8 @@ shows them all.
 
 Within a run, the oldest request comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps. A chevron opens or closes any
-row. The row whose Harvest timer is running
-stays open, whatever its tier, so the timer stays in view.
+row. The row whose Harvest timer is running stays open, whatever its tier, so
+the timer stays in view.
 
 The sidebar count is requests with no thread that are neither ignored nor
 drafts.

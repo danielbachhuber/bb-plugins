@@ -25,4 +25,15 @@ describe("StatusBanner", () => {
     expect(screen.getByText("Ready to merge")).toHaveClass("text-success", "font-medium");
     expect(banner.querySelector('[data-icon="CircleCheck"]')).not.toBeNull();
   });
+
+  it("draws a detail after the status, lighter and not bold", () => {
+    render(
+      <StatusBanner tone="blocked" detail="hubber requested changes">
+        Merge conflict with main
+      </StatusBanner>,
+    );
+    const detail = screen.getByText(/hubber requested changes/);
+    expect(detail).toHaveClass("font-normal", "text-destructive-text/80");
+    expect(detail.closest("[data-tone]")).toHaveTextContent("Merge conflict with main · hubber requested changes");
+  });
 });

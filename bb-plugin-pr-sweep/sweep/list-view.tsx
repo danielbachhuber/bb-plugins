@@ -163,7 +163,7 @@ function StateIcon({ row }: { row: Row }) {
 
 const CHECKS_TONE = {
   passed: "text-success",
-  running: "text-amber-600 dark:text-amber-500",
+  running: "text-amber-600/70 dark:text-amber-500/70",
   failed: "text-destructive-text",
 } as const;
 
@@ -193,7 +193,7 @@ function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
       {checks ? (
         <span data-part="checks" className="inline-flex items-center gap-1" title={checksLabel(row.checks)}>
           <Icon
-            name={checks.tone === "failed" ? "CircleX" : "CircleCheck"}
+            name={checks.tone === "failed" ? "CircleX" : checks.tone === "running" ? "Clock" : "CircleCheck"}
             className={cn("size-3.5", CHECKS_TONE[checks.tone])}
           />
           <span className={checks.tone === "failed" ? CHECKS_TONE.failed : undefined}>{checks.text}</span>
@@ -226,7 +226,11 @@ function RowBody({ line, ...props }: BodyProps & { line: boolean }) {
   const banner = bannerFor(props.row);
   return (
     <>
-      {banner ? <StatusBanner tone={banner.tone}>{banner.text}</StatusBanner> : null}
+      {banner ? (
+        <StatusBanner tone={banner.tone} detail={banner.detail}>
+          {banner.text}
+        </StatusBanner>
+      ) : null}
       <div className="mt-1.5">{icons}</div>
     </>
   );

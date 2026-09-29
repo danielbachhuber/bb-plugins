@@ -64,11 +64,13 @@ describe("bannerFor", () => {
 
   it("adds who requested changes when there is reviewer feedback", () => {
     expect(
-      bannerFor(pr({ flags: ["conflict", "feedback"], baseRefName: "main", changesRequestedBy: ["hubber"] }))?.text,
-    ).toBe("Merge conflict with main · hubber requested changes");
-    expect(bannerFor(pr({ flags: ["ci-failing", "feedback"], checks: { ...GREEN, fail: 1 } }))?.text).toBe(
-      "1 failing check · reviewer feedback",
-    );
+      bannerFor(pr({ flags: ["conflict", "feedback"], baseRefName: "main", changesRequestedBy: ["hubber"] })),
+    ).toEqual({ tone: "blocked", text: "Merge conflict with main", detail: "hubber requested changes" });
+    expect(bannerFor(pr({ flags: ["ci-failing", "feedback"], checks: { ...GREEN, fail: 1 } }))).toEqual({
+      tone: "blocked",
+      text: "1 failing check",
+      detail: "reviewer feedback",
+    });
   });
 
   it("stands reviewer feedback alone when nothing else blocks", () => {
@@ -77,6 +79,23 @@ describe("bannerFor", () => {
       text: "hubber requested changes",
     });
     expect(bannerFor(pr({ flags: ["feedback"] }))?.text).toBe("Reviewer feedback");
+  });
+
+  it("names comments to read when nothing else explains the row", () => {
+    expect(bannerFor(pr({ unresolvedThreads: 2 }))).toEqual({ tone: "blocked", text: "2 unresolved comments" });
+    expect(bannerFor(pr({ unresolvedThreads: 1 }))?.text).toBe("1 unresolved comment");
+    expect(bannerFor(pr({ notedBy: ["hubber", "octocat"] }))?.text).toBe("Review notes from hubber, octocat");
+    expect(bannerFor(pr({ unresolvedThreads: 3, notedBy: ["hubber"] }))?.text).toBe(
+      "3 unresolved comments · Review notes from hubber",
+    );
+    expect(bannerFor(pr({ flags: ["ci-pending"], unresolvedThreads: 1 }))?.text).toBe("1 unresolved comment");
+  });
+
+  it("leaves comments to the banner another problem or a merge already owns", () => {
+    expect(bannerFor(pr({ flags: ["merge-blocked"], unresolvedThreads: 2 }))?.text).toBe("Merge blocked");
+    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2 }))?.tone).toBe(
+      "ready",
+    );
   });
 
   it("says ready to merge in green", () => {
@@ -103,8 +122,13 @@ describe("blockedStageOf", () => {
     expect(blockedStageOf(pr({ flags: ["merge-blocked"] }))).toBe(3);
   });
 
-  it("blocks Checks first when both are wrong, since that is the stage it is at", () => {
-    expect(blockedStageOf(pr({ flags: ["conflict", "ci-failing"] }))).toBe(1);
+  it("crosses out the stage of the problem the banner leads with", () => {
+    // The banner leads with the conflict, so the cross is on Merge.
+    expect(blockedStageOf(pr({ flags: ["conflict", "ci-failing"] }))).toBe(3);
+    expect(blockedStageOf(pr({ flags: ["ci-failing", "merge-blocked"] }))).toBe(1);
+    expect(blockedStageOf(pr({ flags: ["merge-blocked", "ci-cancelled"] }))).toBe(3);
+    // The banner leads with mergeability, which has no stage to cross out.
+    expect(blockedStageOf(pr({ flags: ["mergeable-unknown", "ci-cancelled"] }))).toBeNull();
   });
 
   it("blocks nothing otherwise", () => {
@@ -165,6 +189,13 @@ describe("checksGlyph", () => {
     expect(checksGlyph({ pass: 5, fail: 2, skip: 1, pending: 0, cancelled: 0, total: 8 })).toEqual({
       tone: "failed",
       text: "2/7 failing",
+    });
+  });
+
+  it("counts cancelled checks as failing, never as a green tick", () => {
+    expect(checksGlyph({ pass: 6, fail: 0, skip: 0, pending: 0, cancelled: 1, total: 7 })).toEqual({
+      tone: "failed",
+      text: "1/7 cancelled",
     });
   });
 

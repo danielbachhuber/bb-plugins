@@ -55,7 +55,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares` |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
-| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check |
+| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, and an optional lighter `detail` after a dot |
 | `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 

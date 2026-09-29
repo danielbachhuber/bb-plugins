@@ -71,15 +71,18 @@ conflict with main" (naming its base branch), else "2 failing checks", else
 the first of "Merge blocked", "Mergeability unknown", "Checks cancelled", "No
 checks", and "No reviewer". Reviewer feedback joins it as "hubber requested
 changes", or "reviewer feedback" when nobody's latest review requested
-changes, and stands alone when nothing else is wrong. A pull request ready to
-merge gets a green "Ready to merge" banner instead, and one that is only
+changes, in lighter text after a dot, and stands alone when nothing else is
+wrong. A pull request ready to merge gets a green "Ready to merge" banner
+instead. With nothing else to say, comments left to answer are the banner:
+"2 unresolved comments", "Review notes from hubber", or both. One that is only
 waiting gets none.
 
 Under the banner, a line of icons: each reviewer's avatar with a badge for
 where their review stands (requested, changes requested, approved, or
 commented), or "no reviewer"; the checks as a green check with how many passed
-out of those that ran, or a red cross with how many failed, skipped checks
-left out and nothing shown when the pull request has no checks; and the lines
+out of those that ran, a clock while some are running, or a red cross with how
+many failed or were cancelled, skipped checks left out and nothing shown when
+the pull request has no checks; and the lines
 added and removed. The repository joins the line only when more than one is in
 play. A pull request awaiting review that has not been updated for "Stale
 after (days)" shows "Waiting N days" in red there too. A one-line Later row
@@ -88,9 +91,9 @@ shows this line in place of its age.
 The track on the right names its four stages under their dots, with the
 current one in bold: **Draft**; **Checks** while any check is failing,
 running, cancelled, or missing; **Review** once checks are green; and
-**Merge** when it is ready to merge. The stage holding the pull request up is
-drawn as a red disc with a cross: Checks for failing or cancelled checks, and
-Merge for a conflict or a blocked merge. GitHub decides the stage, so the
+**Merge** when it is ready to merge. The stage of the problem the banner leads
+with is drawn as a red disc with a cross: Merge for a conflict or a blocked
+merge, and Checks for failing or cancelled checks. GitHub decides the stage, so the
 track cannot be clicked.
 
 An open row's actions are Start thread or Open thread, Archive thread on a row
