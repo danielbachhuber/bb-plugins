@@ -1,6 +1,6 @@
 // What the Now page draws, given a loaded list. It loads nothing itself, so
 // the story can render it with fixtures.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,7 +9,8 @@ import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
 import { SegmentedToggle } from "@/components/segmented";
 
-import { groupIntoSections, type SectionId } from "./sections.js";
+import { NowSummary } from "./now-summary.js";
+import { groupIntoSections, nowGroupOf, NOW_GROUPS, type NowGroupId, type SectionId } from "./sections.js";
 import type { Item, TodoistProject } from "./types.js";
 
 /** The dashed box bb's own list pages use for loading and empty states. */
@@ -73,10 +74,10 @@ function SourceProblem({ source }: { source: ProblemSource }) {
 }
 
 /**
- * What the list is narrowed to: one section, or every row from one source, or
- * nothing, which stacks the sections.
+ * What the list is narrowed to: one section (and, in Now, one of its runs), or
+ * every row from one source, or nothing, which stacks the sections.
  */
-export type Filter = { section: SectionId } | { source: string } | null;
+export type Filter = { section: SectionId; group?: NowGroupId } | { source: string } | null;
 
 export interface ItemListViewProps {
   /** Null until the stored list has been read. */
@@ -144,9 +145,37 @@ function FilteredList({
   const section = filter !== null && "section" in filter ? filter.section : null;
   const source = filter !== null && "source" in filter ? filter.source : null;
   let body: ReactNode;
+  const chosen = filter !== null && "section" in filter ? (filter.group ?? null) : null;
+  // A run emptied by its last row leaving, as by Complete or Archive, lets go
+  // of the filter, so it does not narrow the list again when a sync refills it.
+  const emptied = chosen !== null && !sections.find((each) => each.id === "now")!.items.some((item) => nowGroupOf(item, now) === chosen);
+  const group = emptied ? null : chosen;
+  useEffect(() => {
+    if (emptied) onFilter({ section: "now" });
+  }, [emptied, onFilter]);
   if (section !== null) {
     const shown = sections.find((each) => each.id === section)!;
-    body = <Rows label={shown.title} items={shown.items} empty={emptyText(section)} renderRow={renderRow} />;
+    const run = group === null ? null : NOW_GROUPS.find((each) => each.id === group)!;
+    body = (
+      <>
+        {section === "now" ? (
+          <div className="mb-3">
+            <NowSummary
+              items={shown.items}
+              now={now}
+              value={group}
+              onChange={(id) => onFilter(id === null ? { section: "now" } : { section: "now", group: id })}
+            />
+          </div>
+        ) : null}
+        <Rows
+          label={run?.label ?? shown.title}
+          items={run === null ? shown.items : shown.items.filter((item) => nowGroupOf(item, now) === run.id)}
+          empty={emptyText(section)}
+          renderRow={renderRow}
+        />
+      </>
+    );
   } else if (source !== null) {
     // The merged list's order: soonest first for tasks, newest first for mail.
     const name = sources.find((each) => each.id === source)?.name ?? source;

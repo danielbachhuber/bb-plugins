@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { groupIntoSections, isOverdue, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
+import { groupIntoSections, isOverdue, nowGroupOf, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
 import type { Item } from "./types.js";
 
 /** Thursday, September 24, 2026, 9:30 local. */
@@ -42,6 +42,31 @@ describe("isOverdue", () => {
     expect(isOverdue(mail("a", 48), now)).toBe(false);
     expect(isOverdue(mail("a", 49), now)).toBe(true);
     expect(isOverdue(mail("a", 49, true), now)).toBe(true);
+  });
+});
+
+describe("nowGroupOf", () => {
+  test("puts each Now row in the run it sorts into", () => {
+    expect(nowGroupOf(mail("a", 1, true), now)).toBe("decide");
+    expect(nowGroupOf(mail("a", 60, true), now)).toBe("decide");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-20") }), now)).toBe("decide");
+    expect(nowGroupOf(item("a", due("2026-09-23")), now)).toBe("overdue");
+    expect(nowGroupOf(item("a", due("2026-09-24T08:00:00")), now)).toBe("overdue");
+    expect(nowGroupOf(mail("a", 60), now)).toBe("overdue");
+    expect(nowGroupOf(item("a", due("2026-09-24T14:00:00")), now)).toBe("today");
+    expect(nowGroupOf(mail("a", 5), now)).toBe("read");
+    expect(nowGroupOf(item("a", due("2026-09-25")), now)).toBe("later");
+    expect(nowGroupOf(item("a", { deadline: "2026-09-24" }), now)).toBe("today");
+  });
+
+  test("agrees with the order groupIntoSections gives the Now section", () => {
+    const rows = [
+      item("later", due("2026-09-26")), mail("read", 3), item("today", due("2026-09-24")),
+      item("late", due("2026-09-20")), mail("stale", 60), mail("unread", 2, true), item("inbox", { inbox: true }),
+    ];
+    const order = ["decide", "overdue", "today", "read", "later"];
+    const groups = groupIntoSections(rows, now)[0]!.items.map((row) => order.indexOf(nowGroupOf(row, now)));
+    expect(groups).toEqual([...groups].sort((a, b) => a - b));
   });
 });
 

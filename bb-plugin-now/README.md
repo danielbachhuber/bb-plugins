@@ -31,6 +31,15 @@ sections, each under its heading. Each row goes in one section:
   you kept there to act on), and tasks dated later.
 - **Anytime**: every other task, which has no date.
 
+Under the header, while the Now section is showing, a row of small squares
+gives one square to each of its rows, in the list's order, colored by which of
+those runs it is in: blue for what needs a decision, red for overdue, yellow
+for due today, and gray for read mail and for tasks dated later. Each run is
+labelled with its count, such as "7 overdue", and hovering a square shows its
+row's title. Pressing a run shows only its rows and fades the others; pressing
+it again shows the whole section. When the last row of the chosen run leaves
+the page, the whole section shows again.
+
 The page opens on the Now section. Tasks within each of those groups, and in
 Anytime, go soonest first, then most urgent. Each row starts
 with its source's icon, drawn like bb's own outline icons (GitHub, Mail, and a
@@ -373,7 +382,8 @@ list `server.ts` passes to `loadSources`.
 | `now/reviewer-stack.tsx` | A pull request's reviewers, from GitHub Context's banner |
 | `now/github-favicon-icon.tsx` | The GitHub mark with a check-status dot, vendored from bb by way of GitHub Context |
 | `now/brand-icon.tsx` | The source icons: bb's GitHub, Mail, and file outlines, and a Todoist mark drawn to match |
-| `now/sections.ts` | Which section a row goes in, the short date each row shows, and the sidebar's counts |
+| `now/sections.ts` | Which section a row goes in, which run of the Now section, the short date each row shows, and the sidebar's counts |
+| `now/now-summary.tsx` | The squares under the header, one per row in Now, that filter the list to one run |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |

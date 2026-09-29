@@ -385,9 +385,23 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then the overdue rows (past-dated tasks and mail more than 48 hours old, tinted red and saying how late they are), tasks due today, recent read mail, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row."
+        hint="The page opens on Now: unread mail and Todoist's Inbox at the top, then the overdue rows (past-dated tasks and mail more than 48 hours old, tinted red and saying how late they are), tasks due today, recent read mail, and tasks dated later. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by the run it is in."
       >
         <Frame listing={stored(ok)} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** Pressing a run of squares under the toggles shows only its rows: here, the overdue ones. */
+export function FilteredToARun() {
+  return (
+    <StoryCard>
+      <StoryRow
+        label="Overdue chosen"
+        hint="The other runs fade. Pressing Overdue again shows every row in Now."
+      >
+        <Frame listing={stored(ok)} filter={{ section: "now", group: "overdue" }} />
       </StoryRow>
     </StoryCard>
   );

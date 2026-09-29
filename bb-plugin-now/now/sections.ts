@@ -147,6 +147,28 @@ export function groupIntoSections(items: readonly Item[], now: Date): Section[] 
   return SECTION_ORDER.map((id) => ({ id, title: TITLES[id], hint: HINTS[id], items: groups.get(id)! }));
 }
 
+/**
+ * The runs the Now section is ordered in, which its summary counts and filters
+ * by. Read mail over two days old counts as overdue, not as read mail.
+ */
+export type NowGroupId = "decide" | "overdue" | "today" | "read" | "later";
+
+export const NOW_GROUPS: readonly { id: NowGroupId; label: string }[] = [
+  { id: "decide", label: "Needs a decision" },
+  { id: "overdue", label: "Overdue" },
+  { id: "today", label: "Due today" },
+  { id: "read", label: "Read mail" },
+  { id: "later", label: "Later" },
+];
+
+/** Which of the Now section's runs a row in it belongs to. */
+export function nowGroupOf(item: Item, now: Date): NowGroupId {
+  if (needsDecision(item)) return "decide";
+  if (isOverdue(item, now)) return "overdue";
+  if (item.gmail !== null) return "read";
+  return dayOf(sortDate(item)!) === localDay(now) ? "today" : "later";
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function time(date: Date): string {
