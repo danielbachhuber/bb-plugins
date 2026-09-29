@@ -71,14 +71,18 @@ Under the title, a banner says where the pull request stands.
 - **Red, for what stops it**, the first that applies: "Merge conflict with
   main" (naming its base branch), "2 of 9 checks failing", "Approved, but
   GitHub won't merge it · a branch rule isn't met" (approved and passing, yet
-  a rule the listing cannot name still blocks it), "1 of 9 checks cancelled",
+  a rule the listing cannot name still blocks it; when the approval came with
+  feedback, the feedback leads instead), "1 of 9 checks cancelled",
   "No checks ran on the latest push", or "No reviewer requested".
 - **Reviewers' feedback** follows a blocker in lighter text after a dot, and
   stands alone in red when nothing else is wrong: "hubber requested changes",
   "octocat left review comments" (a review that neither approved nor
   requested changes), "hubber approved with notes", or "Review notes from
-  hubber". The unresolved comment count follows a reviewer's name, and is the
-  banner on its own when no review explains it: "2 unresolved comments".
+  hubber". The unresolved comment threads follow a reviewer's name, split
+  into those still unanswered and those you replied to last ("6 unanswered
+  comments, 1 replied"), since a reply often answers a thread nobody marks
+  resolved. Unanswered threads are the banner on their own when no review
+  explains them, and only they put a pull request in needs you.
 - **Green** "Ready to merge", followed by who approved, or by who has not
   reviewed yet when someone else was asked.
 - **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
@@ -207,7 +211,8 @@ first prompt names that pull request and nothing else.
 
 A pull request with a thread attached moves to **working**, whatever its flags
 say, so needs you only ever holds work that is actually waiting on you. The
-sidebar count follows the same rule.
+sidebar follows the same rule: the rows in needs you in a red circle, then
+those plus the ones ready to merge.
 
 A PR that is answered and awaiting re-review carries no flag: the ball is in the
 reviewer's court.

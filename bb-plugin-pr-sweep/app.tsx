@@ -17,6 +17,7 @@ import {
 } from "@/components/start-thread-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { isCounted, sectionForRow } from "./sweep/actions.js";
+import { SidebarCount } from "sweep-ui/sidebar-count";
 import {
   PrListView,
   type HarvestPanelState,
@@ -273,12 +274,19 @@ function Panel() {
   );
 }
 
+/**
+ * Beside Pull requests in the sidebar: the rows that need you in a red circle,
+ * then every row whose next move is yours, which includes them and the ones
+ * ready to merge.
+ */
 function NeedsActionCount() {
   const { listing } = useListing();
-  const count =
-    listing?.rows.filter((row) => isCounted(sectionForRow(row))).length ?? 0;
-  if (count === 0) return null;
-  return <span className="text-xs tabular-nums text-muted-foreground">{count}</span>;
+  const sections = listing?.rows.map((row) => sectionForRow(row)) ?? [];
+  const needYou = sections.filter((section) => section === "needs-action").length;
+  const total = sections.filter(isCounted).length;
+  return (
+    <SidebarCount urgent={needYou} total={total} urgentLabel={`${needYou} need you`} totalLabel={`${total} to act on`} />
+  );
 }
 
 export default definePluginApp((app) => {

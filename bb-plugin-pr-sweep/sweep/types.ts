@@ -57,6 +57,11 @@ export interface ClassifiedRow {
   /** Of those, how many sit on code that has since changed. */
   outdatedThreads: number;
   /**
+   * Of those, how many you answered last, which counts as answered. Absent
+   * on a row stored before the sweep read replies.
+   */
+  repliedThreads?: number;
+  /**
    * Reviewers whose latest review carries a written body.
    *
    * Invisible to every other signal: an approval with three paragraphs of

@@ -76,6 +76,7 @@ const rowSchema = z.object({
   lastCommentBy: z.string().nullable(),
   unresolvedThreads: z.number(),
   outdatedThreads: z.number(),
+  repliedThreads: z.number().optional(),
   notedBy: z.array(z.string()),
   /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
   updatedAt: z.number(),

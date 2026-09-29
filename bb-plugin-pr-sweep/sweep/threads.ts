@@ -5,17 +5,27 @@ export interface ThreadCounts {
   unresolved: number;
   /** Of the unresolved ones, how many sit on code that has since changed. */
   outdated: number;
+  /**
+   * Of the unresolved ones, how many you answered last. Threads often stay
+   * unresolved after a reply, so a reply is read as answering the thread.
+   */
+  replied: number;
 }
 
 export const THREADS_QUERY = `
 query($q: String!) {
+  viewer { login }
   search(query: $q, type: ISSUE, first: 100) {
     nodes {
       ... on PullRequest {
         number
         repository { nameWithOwner }
         reviewThreads(first: 100) {
-          nodes { isResolved isOutdated }
+          nodes {
+            isResolved
+            isOutdated
+            comments(last: 1) { nodes { author { login } } }
+          }
         }
       }
     }
@@ -32,12 +42,20 @@ export function threadKey(repo: string, number: number): string {
 interface RawNode {
   number?: number;
   repository?: { nameWithOwner?: string };
-  reviewThreads?: { nodes?: Array<{ isResolved?: boolean; isOutdated?: boolean } | null> | null };
+  reviewThreads?: {
+    nodes?: Array<{
+      isResolved?: boolean;
+      isOutdated?: boolean;
+      comments?: { nodes?: Array<{ author?: { login?: string } | null } | null> | null };
+    } | null> | null;
+  };
 }
 
 export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
   const counts = new Map<string, ThreadCounts>();
-  const parsed = JSON.parse(raw) as { data?: { search?: { nodes?: RawNode[] } } };
+  const parsed = JSON.parse(raw) as { data?: { viewer?: { login?: string }; search?: { nodes?: RawNode[] } } };
+  // The search is your own pull requests, so the viewer is the author.
+  const viewer = parsed.data?.viewer?.login;
 
   for (const node of parsed.data?.search?.nodes ?? []) {
     const repo = node.repository?.nameWithOwner;
@@ -45,12 +63,15 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
 
     let unresolved = 0;
     let outdated = 0;
+    let replied = 0;
     for (const thread of node.reviewThreads?.nodes ?? []) {
       if (!thread || thread.isResolved) continue;
       unresolved += 1;
       if (thread.isOutdated) outdated += 1;
+      const last = thread.comments?.nodes?.[0]?.author?.login;
+      if (viewer && last === viewer) replied += 1;
     }
-    counts.set(threadKey(repo, node.number), { unresolved, outdated });
+    counts.set(threadKey(repo, node.number), { unresolved, outdated, replied });
   }
 
   return counts;

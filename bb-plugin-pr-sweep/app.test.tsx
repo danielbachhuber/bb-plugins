@@ -335,7 +335,7 @@ describe("tiers", () => {
     // Nothing flagged, but comments left to answer are why it needs you.
     expect(await bannerOf({ flags: [], group: "clean", unresolvedThreads: 2, notedBy: ["hubber"] })).toEqual([
       "blocked",
-      "Review notes from hubber · 2 unresolved comments",
+      "Review notes from hubber · 2 unanswered comments",
     ]);
   });
 
@@ -951,7 +951,7 @@ describe("sidebar count", () => {
     return slot;
   }
 
-  it("counts rows that need work and rows ready to merge", async () => {
+  it("counts rows that need work and rows ready to merge, the first in a red circle", async () => {
     const slot = renderBadge(
       listing({
         rows: [
@@ -964,7 +964,8 @@ describe("sidebar count", () => {
         ],
       }),
     );
-    expect(await slot.findByText("2")).toBeInTheDocument();
+    expect(await slot.findByTitle("2 to act on")).toHaveTextContent("2");
+    expect(slot.getByTitle("1 need you")).toHaveClass("bg-red-600");
   });
 
   it("stops counting a row once a thread is running on it", async () => {

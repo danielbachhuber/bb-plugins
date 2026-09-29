@@ -16,6 +16,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection, returnsInLabel } from "./review/actions.js";
 import { runOf } from "./review/tiers.js";
+import { SidebarCount } from "sweep-ui/sidebar-count";
 import {
   ReviewListView,
   type HarvestPanelState,
@@ -313,25 +314,16 @@ function NeedsReviewCount() {
         displaySection(Boolean(row.threadId), row.isDraft, Boolean(row.snoozedUntil)) ===
         "needs-review",
     ) ?? [];
-  if (!listing || rows.length === 0) return null;
+  if (!listing) return null;
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };
   const overdue = rows.filter((row) => runOf(row, inputs) === "overdue").length;
   return (
-    // The total gets the same 20px centered box bb gives a lone count, so it
-    // lines up with the other rows' counts when the circle is beside it.
-    <span className="flex items-center justify-end gap-0.5 text-xs tabular-nums">
-      {overdue === 0 ? null : (
-        <span
-          title={`${overdue} waiting too long`}
-          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white"
-        >
-          {overdue}
-        </span>
-      )}
-      <span title={`${rows.length} to review`} className="inline-block min-w-5 text-center text-muted-foreground">
-        {rows.length}
-      </span>
-    </span>
+    <SidebarCount
+      urgent={overdue}
+      total={rows.length}
+      urgentLabel={`${overdue} waiting too long`}
+      totalLabel={`${rows.length} to review`}
+    />
   );
 }
 

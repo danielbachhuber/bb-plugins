@@ -36,6 +36,7 @@ export interface ListedPr {
   lastCommentBy: string | null;
   unresolvedThreads: number;
   outdatedThreads: number;
+  repliedThreads?: number;
   notedBy: string[];
   canSpawn: boolean;
   threadId: string | null;

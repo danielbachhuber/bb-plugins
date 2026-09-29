@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import { fetchThreadCounts, parseThreadCounts, threadKey } from "./threads.js";
 import type { GhRunner } from "@danielb/gh-shared/gh";
 
-const response = (nodes: unknown[]) => JSON.stringify({ data: { search: { nodes } } });
+const response = (nodes: unknown[]) => JSON.stringify({ data: { viewer: { login: "octocat" }, search: { nodes } } });
+
+/** A thread whose last comment is by `login`. */
+const lastBy = (login: string) => ({ comments: { nodes: [{ author: { login } }] } });
 
 const node = (
   number: number,
-  threads: Array<{ isResolved: boolean; isOutdated?: boolean }>,
+  threads: Array<{ isResolved: boolean; isOutdated?: boolean; comments?: unknown }>,
   repo = "acme/widgets",
 ) => ({
   number,
@@ -25,14 +28,27 @@ describe("parseThreadCounts", () => {
         ]),
       ]),
     );
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1 });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1, replied: 0 });
+  });
+
+  it("counts the unresolved threads you answered last as replied", () => {
+    const counts = parseThreadCounts(
+      response([
+        node(42, [
+          { isResolved: false, ...lastBy("octocat") },
+          { isResolved: false, ...lastBy("hubber") },
+          { isResolved: true, ...lastBy("octocat") },
+        ]),
+      ]),
+    );
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 0, replied: 1 });
   });
 
   it("reports zero for a pull request with no threads, not absence", () => {
     // The difference matters: absence means the query did not cover it, zero
     // means it genuinely has none.
     const counts = parseThreadCounts(response([node(42, [])]));
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0 });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0, replied: 0 });
   });
 
   it("keys by repository as well as number", () => {

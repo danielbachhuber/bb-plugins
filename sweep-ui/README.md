@@ -63,6 +63,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
 | `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, `tone="info"` in blue with an info icon, and an optional lighter `detail` after a dot |
 | `sweep-ui/pull-request` | What a pull request row draws: `PullRequestIcon` (green when open, muted for a draft), `ReviewerStack` (avatars with a badge per review state, and an optional `Tooltip`), `Avatar`, `ChecksBadge` (a tick, clock, or cross with a count, and every count on hover), and `DiffCount` ("+128 −12"). Also the `Reviewer`, `ReviewState`, and `ChecksSummary` types, and the pure `githubAvatar`, `checksGlyph`, and `checksLabel` |
+| `sweep-ui/sidebar-count` | `SidebarCount`, the counts beside a sweep in bb's sidebar: the rows that need you most in a red circle, then the total, lined up with the counts on other rows |
 | `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 

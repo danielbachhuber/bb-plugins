@@ -224,13 +224,20 @@ export function modelForFlags(
  *
  * Unresolved inline threads and written review notes are the same problem
  * wearing different hats — an approval that came with conditions — so they add
- * up rather than being tracked separately.
+ * up rather than being tracked separately. A thread you answered last is left
+ * out, since a reply is often all a thread gets before it is merged.
  */
 export function commentsToRead(row: {
   unresolvedThreads: number;
+  repliedThreads?: number;
   notedBy: readonly string[];
 }): number {
-  return row.unresolvedThreads + row.notedBy.length;
+  return unansweredThreads(row) + row.notedBy.length;
+}
+
+/** Unresolved threads you have not answered last; a reply counts as answering. */
+export function unansweredThreads(row: { unresolvedThreads: number; repliedThreads?: number }): number {
+  return Math.max(0, row.unresolvedThreads - (row.repliedThreads ?? 0));
 }
 
 export const PERMISSION_MODES = ["accept-edits", "auto", "full"] as const;
@@ -374,6 +381,7 @@ export function sectionForRow(row: {
   waitingOn: readonly string[];
   flags: readonly string[];
   unresolvedThreads: number;
+  repliedThreads?: number;
   notedBy: readonly string[];
   awaitingReReview: boolean;
 }): DisplaySection {

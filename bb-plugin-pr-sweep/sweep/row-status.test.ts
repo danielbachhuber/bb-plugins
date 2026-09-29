@@ -56,6 +56,12 @@ describe("bannerFor", () => {
     expect(text({ flags: ["no-reviewer"] })).toBe("No reviewer requested");
   });
 
+  it("leads a blocked merge with the feedback left alongside the approval", () => {
+    expect(
+      bannerFor(pr({ flags: ["merge-blocked"], approvedBy: ["hubber"], notedBy: ["hubber"], unresolvedThreads: 1 })),
+    ).toEqual({ tone: "blocked", text: "hubber approved with notes", detail: "1 unanswered comment" });
+  });
+
   it("says GitHub refuses a merge it has not explained", () => {
     expect(bannerFor(pr({ flags: ["merge-blocked"], approvedBy: ["hubber"], unresolvedThreads: 2 }))).toEqual({
       tone: "blocked",
@@ -77,7 +83,7 @@ describe("bannerFor", () => {
     expect(bannerFor(pr({ flags: ["feedback"], changesRequestedBy: ["hubber"], unresolvedThreads: 3 }))).toEqual({
       tone: "blocked",
       text: "hubber requested changes",
-      detail: "3 unresolved comments",
+      detail: "3 unanswered comments",
     });
     expect(text({ flags: ["feedback"], changesRequestedBy: ["hubber", "octocat"] })).toBe(
       "hubber and octocat requested changes",
@@ -95,19 +101,27 @@ describe("bannerFor", () => {
           unresolvedThreads: 7,
         }),
       ),
-    ).toEqual({ tone: "blocked", text: "octocat left review comments", detail: "7 unresolved comments" });
+    ).toEqual({ tone: "blocked", text: "octocat left review comments", detail: "7 unanswered comments" });
   });
 
-  it("counts unresolved comments when no reviewer's review explains the row", () => {
-    expect(bannerFor(pr({ unresolvedThreads: 2 }))).toEqual({ tone: "blocked", text: "2 unresolved comments" });
-    expect(text({ unresolvedThreads: 1 })).toBe("1 unresolved comment");
-    expect(text({ flags: ["ci-pending"], unresolvedThreads: 1 })).toBe("1 unresolved comment");
+  it("counts the threads you replied to apart from those still unanswered", () => {
+    const feedback = { flags: ["feedback"], changesRequestedBy: ["hubber"], unresolvedThreads: 7 };
+    expect(bannerFor(pr({ ...feedback, repliedThreads: 1 }))?.detail).toBe("6 unanswered comments, 1 replied");
+    expect(bannerFor(pr({ ...feedback, repliedThreads: 7 }))?.detail).toBe("7 comments replied");
+    // With no reviewer's review to name, replied threads leave nothing to say.
+    expect(bannerFor(pr({ unresolvedThreads: 2, repliedThreads: 2 }))).toBeNull();
+  });
+
+  it("counts unanswered comments when no reviewer's review explains the row", () => {
+    expect(bannerFor(pr({ unresolvedThreads: 2 }))).toEqual({ tone: "blocked", text: "2 unanswered comments" });
+    expect(text({ unresolvedThreads: 3, repliedThreads: 2 })).toBe("1 unanswered comment");
+    expect(text({ flags: ["ci-pending"], unresolvedThreads: 1 })).toBe("1 unanswered comment");
   });
 
   it("names notes left with an approval, or notes alone", () => {
     expect(text({ notedBy: ["hubber"], approvedBy: ["hubber"] })).toBe("hubber approved with notes");
     expect(text({ notedBy: ["hubber", "octocat", "hubot"] })).toBe("Review notes from hubber, octocat, and hubot");
-    expect(bannerFor(pr({ notedBy: ["hubber"], unresolvedThreads: 2 }))?.detail).toBe("2 unresolved comments");
+    expect(bannerFor(pr({ notedBy: ["hubber"], unresolvedThreads: 2 }))?.detail).toBe("2 unanswered comments");
   });
 
   it("says ready to merge in green, with who approved or who is still to review", () => {

@@ -1,4 +1,5 @@
 import { githubAvatar, type Reviewer, type ReviewState } from "sweep-ui/pull-request";
+import { unansweredThreads } from "./actions.js";
 import type { ListedPr } from "./tiers.js";
 
 /**
@@ -64,9 +65,22 @@ function blockerText(row: ListedPr, flag: string): string {
 }
 
 /**
+ * The unresolved threads as a detail: how many are unanswered and how many you
+ * replied to. Null when there are none.
+ */
+function threadsText(row: ListedPr): string | null {
+  const unanswered = unansweredThreads(row);
+  const replied = row.unresolvedThreads - unanswered;
+  if (unanswered > 0 && replied > 0) return `${plural(unanswered, "unanswered comment")}, ${replied} replied`;
+  if (unanswered > 0) return plural(unanswered, "unanswered comment");
+  if (replied > 0) return `${plural(replied, "comment")} replied`;
+  return null;
+}
+
+/**
  * What reviewers left for you to answer, or null: who requested changes,
  * then who reviewed with comments and neither approved nor requested
- * changes, then who wrote notes, then unresolved threads with no name.
+ * changes, then who wrote notes, then threads you have not answered.
  */
 function feedbackText(row: ListedPr): { text: string; byReviewer: boolean } | null {
   const requested = row.changesRequestedBy ?? [];
@@ -79,8 +93,15 @@ function feedbackText(row: ListedPr): { text: string; byReviewer: boolean } | nu
     const text = approved ? `${names(row.notedBy)} approved with notes` : `Review notes from ${names(row.notedBy)}`;
     return { text, byReviewer: true };
   }
-  if (row.unresolvedThreads > 0) return { text: plural(row.unresolvedThreads, "unresolved comment"), byReviewer: false };
+  const unanswered = unansweredThreads(row);
+  if (unanswered > 0) return { text: plural(unanswered, "unanswered comment"), byReviewer: false };
   return null;
+}
+
+/** A red banner for a reviewer's feedback, with the threads as its detail when there are any. */
+function withThreads(text: string, row: ListedPr): Banner {
+  const detail = threadsText(row);
+  return detail ? { tone: "blocked", text, detail } : { tone: "blocked", text };
 }
 
 /**
@@ -99,6 +120,9 @@ export function bannerFor(row: ListedPr): Banner | null {
   if (leading) {
     const main = blockerText(row, leading);
     if (leading === "merge-blocked") {
+      // Feedback left with the approval is the likelier thing to act on, and
+      // the track's cross on Merge already says the merge is blocked.
+      if (feedback?.byReviewer) return withThreads(feedback.text, row);
       return { tone: "blocked", text: main, detail: "a branch rule isn't met" };
     }
     return feedback ? { tone: "blocked", text: main, detail: feedback.text } : { tone: "blocked", text: main };
@@ -117,10 +141,8 @@ export function bannerFor(row: ListedPr): Banner | null {
     return { tone: "info", text: `Waiting on ${names(row.waitingOn)} to re-review` };
   }
   if (feedback) {
-    // A reviewer's name leads, so the unresolved threads follow as the detail.
-    return feedback.byReviewer && row.unresolvedThreads > 0
-      ? { tone: "blocked", text: feedback.text, detail: plural(row.unresolvedThreads, "unresolved comment") }
-      : { tone: "blocked", text: feedback.text };
+    // A reviewer's name leads, so the threads follow as the detail.
+    return feedback.byReviewer ? withThreads(feedback.text, row) : { tone: "blocked", text: feedback.text };
   }
   if (flags.includes("mergeable-unknown")) return { tone: "info", text: "GitHub is still checking for conflicts" };
   return null;

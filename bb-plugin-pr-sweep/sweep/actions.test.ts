@@ -573,6 +573,11 @@ describe("commentsToRead", () => {
     expect(commentsToRead({ unresolvedThreads: 2, notedBy: ["hubber"] })).toBe(3);
   });
 
+  it("leaves out the threads you answered last", () => {
+    expect(commentsToRead({ unresolvedThreads: 3, repliedThreads: 2, notedBy: [] })).toBe(1);
+    expect(commentsToRead({ unresolvedThreads: 3, repliedThreads: 3, notedBy: [] })).toBe(0);
+  });
+
   it("is zero for a row with neither", () => {
     expect(commentsToRead({ unresolvedThreads: 0, notedBy: [] })).toBe(0);
   });
