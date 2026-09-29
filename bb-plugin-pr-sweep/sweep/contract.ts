@@ -80,6 +80,11 @@ const rowSchema = z.object({
   /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
   updatedAt: z.number(),
   commentsCount: z.number(),
+  /** Missing on rows stored before the sweep read them, until the next sweep. */
+  changesRequestedBy: z.array(z.string()).optional(),
+  additions: z.number().optional(),
+  deletions: z.number().optional(),
+  baseRefName: z.string().optional(),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */

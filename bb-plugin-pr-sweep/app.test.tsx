@@ -141,13 +141,59 @@ describe("panel", () => {
     expect(await slot.findByText("#42")).toBeInTheDocument();
   });
 
-  it("shows the age, checks, and review on the number line", async () => {
-    const slot = render(listing({ rows: [rowFixture({ approvedBy: ["hubber"], waitingOn: ["octocat"] })] }));
+  it("shows the age on the title line, then reviewers, checks, and size as icons, in that order", async () => {
+    const slot = render(
+      listing({
+        rows: [rowFixture({ approvedBy: ["hubber"], waitingOn: ["octocat"], additions: 128, deletions: 12 })],
+      }),
+    );
     const row = await rowFor(slot, /Add the widget endpoint/);
     expect(within(row).getByText("3h ago")).toBeInTheDocument();
-    expect(within(row).getByText("3 pass, 1 skip")).toBeInTheDocument();
-    expect(within(row).getByText("approved by hubber")).toBeInTheDocument();
-    expect(within(row).getByText("waiting on octocat")).toBeInTheDocument();
+    const parts = Array.from(row.querySelectorAll("[data-part]"), (part) => part.getAttribute("data-part"));
+    expect(parts).toEqual(["reviewers", "checks", "diff"]);
+    expect(within(row).getByRole("img", { name: "Reviewers: octocat review pending, hubber approved" })).toBeInTheDocument();
+    const checks = row.querySelector('[data-part="checks"]')!;
+    expect(checks).toHaveTextContent("3/3");
+    expect(checks.querySelector('[data-icon="CircleCheck"]')).toHaveClass("text-success");
+    expect(row.querySelector('[data-part="diff"]')).toHaveTextContent("+128 −12");
+    // The sentences the icons replace are gone.
+    expect(within(row).queryByText("3 pass, 1 skip")).toBeNull();
+    expect(within(row).queryByText(/approved by hubber/)).toBeNull();
+  });
+
+  it("counts failing checks in red, says no reviewer, and leaves out checks and size it does not have", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Failing", flags: ["ci-failing"], checks: { pass: 5, fail: 2, skip: 1, pending: 0, cancelled: 0, total: 8 } }),
+          rowFixture({ number: 2, title: "No checks", flags: ["ci-absent"], checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 } }),
+        ],
+      }),
+    );
+    const failing = await rowFor(slot, "Failing");
+    const checks = failing.querySelector('[data-part="checks"]')!;
+    expect(checks).toHaveTextContent("2/7 failing");
+    expect(checks.querySelector('[data-icon="CircleX"]')).toHaveClass("text-destructive-text");
+    expect(failing.querySelector('[data-part="reviewers"]')).toHaveTextContent("no reviewer");
+    expect(failing.querySelector('[data-part="diff"]')).toBeNull();
+
+    const none = await rowFor(slot, "No checks");
+    expect(none.querySelector('[data-part="checks"]')).toBeNull();
+  });
+
+  it("marks an open pull request with a green icon and a draft with a muted one", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Open one" }),
+          rowFixture({ number: 2, title: "Draft one", isDraft: true, flags: [], group: "clean" }),
+        ],
+      }),
+    );
+    expect(within(await rowFor(slot, "Open one")).getByLabelText("Open pull request")).toHaveClass("text-success");
+    expect(within(await rowFor(slot, "Draft one")).getByLabelText("Draft pull request")).toHaveClass(
+      "text-muted-foreground",
+    );
   });
 
   it("names the repository only when more than one is in play", async () => {
@@ -213,7 +259,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens Now rows, closes Next rows to their number line, and draws Later rows as one line", async () => {
+  it("opens Now rows, closes Next rows to their banner and icons, and draws Later rows as one line", async () => {
     const slot = render(
       listing({
         rows: [
@@ -229,11 +275,12 @@ describe("tiers", () => {
 
     expect(within(now).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
     expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
-    expect(within(next).getByText("3 pass, 1 skip")).toBeInTheDocument();
+    expect(within(next).getByText("3/3")).toBeInTheDocument();
     expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
-    // One line: the age, and nothing else from the number line.
-    expect(within(later).getByText("3h ago")).toBeInTheDocument();
-    expect(within(later).queryByText("3 pass, 1 skip")).toBeNull();
+    // One line: the icons, inline, in place of the age.
+    expect(within(later).getByText("3/3")).toBeInTheDocument();
+    expect(within(later).getByRole("img", { name: "Reviewers: hubber review pending" })).toBeInTheDocument();
+    expect(within(later).queryByText("3h ago")).toBeNull();
   });
 
   it("draws needs you, ready, working, drafts, then waiting, whatever order the rows arrive in", async () => {
@@ -252,12 +299,30 @@ describe("tiers", () => {
     expect(titles(slot)).toEqual(["Conflict", "Ready", "Working", "Draft", "Waiting"]);
   });
 
-  it("names each problem on the number line, and leaves a run in flight to the track", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["conflict", "feedback", "ci-pending"] })] }));
-    const row = await rowFor(slot, /Add the widget endpoint/);
-    expect(within(row).getByText("merge conflict")).toBeInTheDocument();
-    expect(within(row).getByText("reviewer feedback")).toBeInTheDocument();
-    expect(within(row).queryByText("CI running")).toBeNull();
+  it("puts what stops the pull request in a red banner under the title", async () => {
+    const bannerOf = async (overrides: Record<string, unknown>) => {
+      const slot = render(listing({ rows: [rowFixture(overrides)] }));
+      const row = await rowFor(slot, /Add the widget endpoint/);
+      const banner = row.querySelector("[data-tone]");
+      const found = banner ? [banner.getAttribute("data-tone"), banner.textContent] : null;
+      slot.lifecycle.unmount();
+      return found;
+    };
+    expect(await bannerOf({ flags: ["conflict", "ci-pending"], baseRefName: "main" })).toEqual([
+      "blocked",
+      "Merge conflict with main",
+    ]);
+    expect(
+      await bannerOf({ flags: ["ci-failing"], checks: { pass: 7, fail: 2, skip: 0, pending: 0, cancelled: 0, total: 9 } }),
+    ).toEqual(["blocked", "2 failing checks"]);
+    expect(
+      await bannerOf({ flags: ["conflict", "feedback"], baseRefName: "main", changesRequestedBy: ["hubber"] }),
+    ).toEqual(["blocked", "Merge conflict with main · hubber requested changes"]);
+    expect(await bannerOf({ flags: ["merge-ready"], group: "ready-to-merge", approvedBy: ["hubber"] })).toEqual([
+      "ready",
+      "Ready to merge",
+    ]);
+    expect(await bannerOf({ flags: ["ci-pending"] })).toBeNull();
   });
 
   it("flags a pull request left awaiting review past the setting as stale", async () => {
@@ -292,15 +357,20 @@ describe("tiers", () => {
 });
 
 describe("track", () => {
-  /** The stage holding the row's large dot. Without moves the dots are not buttons, so it is found by size. */
+  /**
+   * The stage holding the row's large dot, or its red cross when the stage it
+   * is at is the one blocked. Without moves the dots are not buttons, so it is
+   * found by size.
+   */
   function currentStage(row: HTMLElement): string | null {
-    return row.querySelector("span[title] > span.size-3.rounded-full")?.parentElement?.getAttribute("title") ?? null;
+    const dot = row.querySelector('span[title] > span.size-3.rounded-full, span[title] > [aria-label^="Blocked at"]');
+    return dot?.parentElement?.getAttribute("title") ?? null;
   }
 
   it("names its stages under the track", async () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
-    for (const stage of ["Draft", "Checks", "Review", "Mergeable"]) {
+    for (const stage of ["Draft", "Checks", "Review", "Merge"]) {
       expect(slot.getAllByText(stage).length).toBeGreaterThan(0);
     }
   });
@@ -319,7 +389,22 @@ describe("track", () => {
     expect(currentStage(await rowFor(slot, "Draft"))).toBe("Draft");
     expect(currentStage(await rowFor(slot, "Failing"))).toBe("Checks");
     expect(currentStage(await rowFor(slot, "Green"))).toBe("Review");
-    expect(currentStage(await rowFor(slot, "Mergeable"))).toBe("Mergeable");
+    expect(currentStage(await rowFor(slot, "Mergeable"))).toBe("Merge");
+  });
+
+  it("crosses out Checks for failing checks and Merge for a conflict", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Failing", flags: ["ci-failing"] }),
+          rowFixture({ number: 2, title: "Conflicted" }),
+          rowFixture({ number: 3, title: "Feedback", flags: ["feedback"] }),
+        ],
+      }),
+    );
+    expect(within(await rowFor(slot, "Failing")).getByLabelText("Blocked at Checks")).toBeInTheDocument();
+    expect(within(await rowFor(slot, "Conflicted")).getByLabelText("Blocked at Merge")).toBeInTheDocument();
+    expect(within(await rowFor(slot, "Feedback")).queryByLabelText(/^Blocked at/)).toBeNull();
   });
 
   it("offers no moves, since GitHub decides the stage", async () => {
@@ -416,6 +501,8 @@ describe("thread action", () => {
     const slot = render(listing());
     const button = await slot.findByRole("button", { name: "Start thread" });
     expect(button).toHaveAttribute("title", "Resolve conflict");
+    // A plain line action like the rest, not a bordered button.
+    expect(button.className).not.toMatch(/\bborder\b/);
   });
 
   it("names the work after the row's worst flag", async () => {

@@ -47,6 +47,15 @@ export interface ListedPr {
   note: string | null;
   /** Comments since the pull request was last opened from here. */
   newComments: number;
+  /**
+   * Lines added and removed, the branch it merges into, and who requested
+   * changes in their latest review. Optional because rows stored before the
+   * sweep read them lack them until the next sweep.
+   */
+  additions?: number;
+  deletions?: number;
+  baseRefName?: string;
+  changesRequestedBy?: string[];
 }
 
 export interface TierInputs {
@@ -64,9 +73,9 @@ export const PR_RUNS: Run[] = [
 ];
 
 /** The track's stages, in order. `stageOf` returns an index into these. */
-export const PR_STAGES = ["Draft", "Checks", "Review", "Mergeable"] as const;
+export const PR_STAGES = ["Draft", "Checks", "Review", "Merge"] as const;
 
-/** Each flag as the badges named it, now the text of a problem on the number line. */
+/** Each flag in words, as the row's list flags carry it. */
 export const FLAG_LABELS: Record<string, string> = {
   conflict: "merge conflict",
   "ci-failing": "CI failing",
@@ -108,7 +117,7 @@ export function runOf(row: ListedPr): string {
 /**
  * The track's column. A draft is in Draft whatever its checks say, since it is
  * not offered to anyone yet. Checks that are failing, running, cancelled, or
- * missing hold it in Checks; `merge-ready` is Mergeable; the rest are with a
+ * missing hold it in Checks; `merge-ready` is Merge; the rest are with a
  * reviewer.
  */
 export function stageOf(row: ListedPr): number {
@@ -131,9 +140,10 @@ export function isStale(row: ListedPr, inputs: TierInputs): boolean {
 }
 
 /**
- * The flags on a row's number line: stale in red, then each flag that asks
- * something of the author, worst first. A run in flight and a finished pull
- * request are not problems, so they are left to the track.
+ * The row's flags as the list holds them: stale first, which tints the row
+ * red and which the icon line names, then each flag that asks something of
+ * the author, worst first, which the banner words for itself. A run in flight
+ * and a finished pull request are not problems, so they are left out.
  */
 export function flagsFor(row: ListedPr, inputs: TierInputs): Flag[] {
   const flags: Flag[] = [];

@@ -576,3 +576,28 @@ describe("activity", () => {
     expect(classifyOne(makePr({ comments: null }), "acme/widgets").commentsCount).toBe(0);
   });
 });
+
+describe("classifyOne row details", () => {
+  it("names who requested changes in their latest review", () => {
+    const row = classifyOne(
+      makePr({
+        latestReviews: [review("CHANGES_REQUESTED", "hubber"), review("APPROVED", "octocat")],
+        reviews: [review("CHANGES_REQUESTED", "octocat"), review("CHANGES_REQUESTED", "hubber"), review("APPROVED", "octocat")],
+      }),
+      "acme/widgets",
+    );
+    expect(row.changesRequestedBy).toEqual(["hubber"]);
+  });
+
+  it("carries the size and base branch through", () => {
+    const row = classifyOne(makePr({ additions: 128, deletions: 12, baseRefName: "main" }), "acme/widgets");
+    expect(row).toMatchObject({ additions: 128, deletions: 12, baseRefName: "main" });
+  });
+
+  it("leaves them out when gh did not return them", () => {
+    const row = classifyOne(makePr(), "acme/widgets");
+    expect(row.additions).toBeUndefined();
+    expect(row.deletions).toBeUndefined();
+    expect(row.baseRefName).toBeUndefined();
+  });
+});

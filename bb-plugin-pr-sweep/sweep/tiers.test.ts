@@ -96,7 +96,7 @@ describe("stageOf", () => {
     expect(stageOf(pr({ flags: ["merge-blocked"], approvedBy: ["hubber"] }))).toBe(2);
   });
 
-  it("puts a merge-ready pull request in Mergeable", () => {
+  it("puts a merge-ready pull request in Merge", () => {
     expect(stageOf(pr({ flags: ["merge-ready"], approvedBy: ["hubber"] }))).toBe(3);
   });
 });

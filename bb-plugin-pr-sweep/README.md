@@ -40,9 +40,9 @@ it again shows them all.
 
 | Tier | Runs, in order | Rows |
 | --- | --- | --- |
-| Now | needs you, ready to merge, working | Open: title, number line, note, and actions |
-| Next | drafts | Closed to the title and number line |
-| Later | waiting | One dimmed line each, folded after five |
+| Now | needs you, ready to merge, working | Open: title line, banner, icons, note, and actions |
+| Next | drafts | Closed to the title line, banner, and icons |
+| Later | waiting | One dimmed line each with its icons, folded after five |
 
 - **Needs you**: a flag or open comments that are yours to act on.
 - **Ready to merge**: approved, green, and nobody else asked to review.
@@ -55,32 +55,48 @@ Within a run, the worst flag comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps.
 
 A chevron opens or closes any row. The row whose Harvest timer is running
-stays open, whatever its tier, so the timer stays in view. A one-line Later row with a flag, such as "Waiting 4 days",
-shows the first one in place of its age.
+stays open, whatever its tier, so the timer stays in view.
 
 ## Each row
 
-The number line shows the pull request number, its problems in red (each flag
-below except CI running and ready to merge), how long ago it was updated, the
-checks, and where review stands: approvals, outstanding reviewers, unresolved
-comments, review notes, and who commented last. "N new" shows in blue when
-comments were posted since you last opened the pull request or its thread from
-the panel, or started one; the first sweep to see a pull request records its
-count, so nothing is new on the first sync. The repository joins the line only
-when more than one is in play.
+The title line starts with the pull request's icon, green when it is open and
+grey for a draft, then the title and number, "N new" in blue when comments
+were posted since you last opened the pull request or its thread from the
+panel, or started one, and how long ago it was updated on the right. The first
+sweep to see a pull request records its comment count, so nothing is new on
+the first sync.
 
-A pull request awaiting review that has not been updated for "Stale after
-(days)" is flagged "Waiting N days" in red.
+Under the title, a red banner names what stops the pull request: "Merge
+conflict with main" (naming its base branch), else "2 failing checks", else
+the first of "Merge blocked", "Mergeability unknown", "Checks cancelled", "No
+checks", and "No reviewer". Reviewer feedback joins it as "hubber requested
+changes", or "reviewer feedback" when nobody's latest review requested
+changes, and stands alone when nothing else is wrong. A pull request ready to
+merge gets a green "Ready to merge" banner instead, and one that is only
+waiting gets none.
 
-The track on the right has four stages: **Draft**; **Checks** while any check
-is failing, running, cancelled, or missing; **Review** once checks are green;
-and **Mergeable** when it is ready to merge. GitHub decides the stage, so the
+Under the banner, a line of icons: each reviewer's avatar with a badge for
+where their review stands (requested, changes requested, approved, or
+commented), or "no reviewer"; the checks as a green check with how many passed
+out of those that ran, or a red cross with how many failed, skipped checks
+left out and nothing shown when the pull request has no checks; and the lines
+added and removed. The repository joins the line only when more than one is in
+play. A pull request awaiting review that has not been updated for "Stale
+after (days)" shows "Waiting N days" in red there too. A one-line Later row
+shows this line in place of its age.
+
+The track on the right names its four stages under their dots, with the
+current one in bold: **Draft**; **Checks** while any check is failing,
+running, cancelled, or missing; **Review** once checks are green; and
+**Merge** when it is ready to merge. The stage holding the pull request up is
+drawn as a red disc with a cross: Checks for failing or cancelled checks, and
+Merge for a conflict or a blocked merge. GitHub decides the stage, so the
 track cannot be clicked.
 
 An open row's actions are Start thread or Open thread, Archive thread on a row
 whose thread has no flags left, a menu of earlier threads when there are any,
-Add note or Edit note, Copy link, and the Harvest clock when the Harvest plugin
-is installed. Start thread's tooltip names the work, such as "Resolve
+Copy link, the Harvest clock when the Harvest plugin is installed, and Add
+note or Edit note. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
 A note is a one-line next step, stored only on this machine and never sent to

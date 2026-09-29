@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
+import { StatusBanner } from "sweep-ui/banner";
 import { SweepList } from "sweep-ui/list";
 import type { Stage, SweepItem } from "sweep-ui/types";
+import { ReviewerStack } from "@/components/reviewer-stack";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,13 +16,15 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
 import { actionSummary, commentsToRead, hasNothingToDo } from "./actions.js";
-import { factsFor } from "./format.js";
+import { checksLabel, relativeTime } from "./format.js";
+import { bannerFor, blockedStageOf, checksGlyph, diffOf, reviewersFor } from "./row-status.js";
 import {
   PR_RUNS,
   PR_STAGES,
@@ -145,6 +149,86 @@ function ThreadAction({
       />
       {label}
     </button>
+  );
+}
+
+/** Green for an open pull request, muted for a draft. */
+function StateIcon({ row }: { row: Row }) {
+  return row.isDraft ? (
+    <Icon name="GitPullRequestDraft" aria-label="Draft pull request" className="size-4 text-muted-foreground" />
+  ) : (
+    <Icon name="GitPullRequestArrow" aria-label="Open pull request" className="size-4 text-success" />
+  );
+}
+
+const CHECKS_TONE = {
+  passed: "text-success",
+  running: "text-amber-600 dark:text-amber-500",
+  failed: "text-destructive-text",
+} as const;
+
+interface BodyProps {
+  row: Row;
+  item: SweepItem;
+  showRepo: boolean;
+  avatarFor?: (owner: string) => string;
+}
+
+/**
+ * The row's facts as icons with numbers: reviewers, then checks, then size,
+ * then the repository when the list spans several and a stale flag when there
+ * is one. The checks are left out when the pull request has none, and the
+ * size when the row was stored before the sweep read it.
+ */
+function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
+  const reviewers = reviewersFor(row, avatarFor);
+  const checks = checksGlyph(row.checks);
+  const diff = diffOf(row);
+  const stale = item.flags.find((flag) => flag.kind === "stale");
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span data-part="reviewers" className="inline-flex items-center">
+        {reviewers.length > 0 ? <ReviewerStack reviewers={reviewers} /> : "no reviewer"}
+      </span>
+      {checks ? (
+        <span data-part="checks" className="inline-flex items-center gap-1" title={checksLabel(row.checks)}>
+          <Icon
+            name={checks.tone === "failed" ? "CircleX" : "CircleCheck"}
+            className={cn("size-3.5", CHECKS_TONE[checks.tone])}
+          />
+          <span className={checks.tone === "failed" ? CHECKS_TONE.failed : undefined}>{checks.text}</span>
+        </span>
+      ) : null}
+      {diff ? (
+        <span data-part="diff" className="tabular-nums">
+          <span className="text-success">+{diff.additions}</span>{" "}
+          <span className="text-destructive-text">−{diff.deletions}</span>
+        </span>
+      ) : null}
+      {showRepo ? <span data-part="repo">{row.repo}</span> : null}
+      {stale ? (
+        <span data-part="stale" className="font-medium text-destructive-text">
+          {stale.text}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Under the title: a red banner naming what stops the pull request, or a green
+ * one when it is ready to merge, then the fact icons. On a one-line Later row,
+ * only the icons, inline.
+ */
+function RowBody({ line, ...props }: BodyProps & { line: boolean }) {
+  const icons = <FactIcons {...props} />;
+  if (line) return icons;
+  const banner = bannerFor(props.row);
+  return (
+    <>
+      {banner ? <StatusBanner tone={banner.tone}>{banner.text}</StatusBanner> : null}
+      <div className="mt-1.5">{icons}</div>
+    </>
   );
 }
 
@@ -395,6 +479,11 @@ export interface PrListViewProps {
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the pull request is about to open. */
   onOpenLink: (row: Row) => void;
+  /**
+   * A user's or organization's picture. Defaults to GitHub's; the stories
+   * pass drawn ones so they need no network.
+   */
+  avatarFor?: (owner: string) => string;
 }
 
 export function PrListView({
@@ -407,12 +496,13 @@ export function PrListView({
   onArchive,
   onNoteSave,
   onOpenLink,
+  avatarFor,
 }: PrListViewProps): ReactNode {
   if (!listing) return <SweepingPullRequests />;
 
   const inputs: TierInputs = { staleAfterDays: listing.staleAfterDays, now };
 
-  // The repository only earns a place on the number line when it varies.
+  // The repository only earns a place on the row when it varies.
   const showRepo = new Set(listing.rows.map((row) => row.repo)).size > 1;
 
   const sorted = sortPrs(listing.rows);
@@ -425,10 +515,13 @@ export function PrListView({
     number: row.number,
     newComments: row.newComments,
     flags: flagsFor(row, inputs),
-    facts: factsFor(row, now, showRepo),
+    // Only the age: the body draws the rest as icons.
+    facts: [relativeTime(row.updatedAt, now)],
     parent: null,
     note: row.note,
     stage: stageOf(row),
+    blockedStage: blockedStageOf(row),
+    icon: <StateIcon row={row} />,
     // A running timer must stay in view, and it lives in the action line.
     forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
@@ -484,6 +577,10 @@ export function PrListView({
             onOpenLink={(item) => {
               const row = rowsByKey.get(item.key);
               if (row) onOpenLink(row);
+            }}
+            renderBody={(item, _open, line) => {
+              const row = rowsByKey.get(item.key);
+              return row ? <RowBody row={row} item={item} line={line} showRepo={showRepo} avatarFor={avatarFor} /> : null;
             }}
             renderActions={(item) => {
               const row = rowsByKey.get(item.key);

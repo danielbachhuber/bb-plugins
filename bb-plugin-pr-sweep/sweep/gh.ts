@@ -22,6 +22,8 @@ export const PR_LIST_FIELDS = [
   "comments",
   // How long a pull request has sat with its reviewers, for the stale flag.
   "updatedAt",
+  // The row's size and the branch a conflict is with.
+  "additions", "deletions", "baseRefName",
 ].join(",");
 
 const SEARCH_LIMIT = 100;

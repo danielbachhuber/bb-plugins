@@ -181,4 +181,10 @@ describe("PR_LIST_FIELDS", () => {
     expect(PR_LIST_FIELDS.split(",")).toContain("updatedAt");
     expect(PR_LIST_FIELDS.split(",")).toContain("comments");
   });
+
+  it("asks for the size and base branch the row shows, in the same call", () => {
+    for (const field of ["additions", "deletions", "baseRefName"]) {
+      expect(PR_LIST_FIELDS.split(",")).toContain(field);
+    }
+  });
 });

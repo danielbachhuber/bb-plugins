@@ -111,6 +111,14 @@ function approvers(pr: RawPullRequest): string[] {
     .filter((login): login is string => Boolean(login));
 }
 
+/** Reviewers whose latest review requested changes. */
+function changesRequesters(pr: RawPullRequest): string[] {
+  return pr.latestReviews
+    .filter((entry) => entry.state === "CHANGES_REQUESTED")
+    .map((entry) => entry.author?.login)
+    .filter((login): login is string => Boolean(login));
+}
+
 /** Everyone who ever commented, minus the author's own replies, deduplicated. */
 function commenters(pr: RawPullRequest): string[] {
   const authorLogin = pr.author?.login ?? null;
@@ -318,6 +326,10 @@ export function classifyOne(
     // Zero for a missing or unreadable date, which the listing reads as unknown.
     updatedAt: Date.parse(pr.updatedAt ?? "") || 0,
     commentsCount: pr.comments?.length ?? 0,
+    changesRequestedBy: changesRequesters(pr),
+    additions: pr.additions,
+    deletions: pr.deletions,
+    baseRefName: pr.baseRefName,
   };
 }
 

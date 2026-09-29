@@ -77,6 +77,12 @@ export interface ClassifiedRow {
   updatedAt?: number;
   /** How many general comments the pull request has, for "N new". Optional for the same reason. */
   commentsCount?: number;
+  /** Logins whose latest review requested changes. Optional for the same reason. */
+  changesRequestedBy?: string[];
+  /** Lines added and removed, and the branch it merges into. Optional for the same reason. */
+  additions?: number;
+  deletions?: number;
+  baseRefName?: string;
 }
 
 /** The subset of `gh pr list --json` output this plugin reads. */
@@ -99,6 +105,9 @@ export interface RawPullRequest {
   reviewDecision: string | null;
   comments?: Array<{ author?: { login: string } | null; createdAt?: string }> | null;
   updatedAt?: string;
+  additions?: number;
+  deletions?: number;
+  baseRefName?: string;
   statusCheckRollup: Array<{
     __typename?: string;
     name?: string;

@@ -23,6 +23,18 @@ const noop = () => {};
 
 const GREEN = { pass: 8, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 9 };
 
+/** A drawn picture for each account, so the stories need no network. */
+function avatar(letter: string, color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+const AVATARS: Record<string, string> = {
+  hubber: avatar("H", "#d0703c"),
+  octocat: avatar("O", "#7c5cc4"),
+  acme: avatar("A", "#4a6b8a"),
+};
+const avatarFor = (owner: string) => AVATARS[owner] ?? avatar(owner[0]!.toUpperCase(), "#6e7781");
+
 function checks(overrides: Partial<Row["checks"]>): Row["checks"] {
   const merged = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, ...overrides };
   return {
@@ -63,6 +75,9 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     commentsCount: 0,
     note: null,
     newComments: 0,
+    additions: 40 + ((overrides.number * 37) % 200),
+    deletions: (overrides.number * 13) % 60,
+    baseRefName: "main",
     ...overrides,
   };
 }
@@ -80,6 +95,7 @@ const conflictAndFeedback = row({
   flags: ["conflict", "feedback"],
   checks: checks({ pass: 6, skip: 1 }),
   commentedBy: ["hubber"],
+  changesRequestedBy: ["hubber"],
   lastCommentBy: "hubber",
   updatedAt: now - 2 * HOUR,
   commentsCount: 4,
@@ -107,7 +123,7 @@ const inProgress = row({
 const awaitingReview = row({
   number: 501,
   title: "Show a gadget's owner on its detail page",
-  waitingOn: ["hubber", "widgets-api-reviewers"],
+  waitingOn: ["hubber", "acme/api-reviewers"],
   updatedAt: now - DAY,
 });
 
@@ -149,7 +165,7 @@ const everySection: Listing = {
       title: "Add keyboard shortcuts to the gadget editor",
       flags: ["merge-ready"],
       approvedBy: ["hubber"],
-      waitingOn: ["widgets-design"],
+      waitingOn: ["acme/design"],
     }),
     conflictAndFeedback,
     failingCi,
@@ -200,7 +216,7 @@ const everySection: Listing = {
   ],
 };
 
-/** Every flag the classifier sets, plus each review fact the number line can show. */
+/** Every flag the classifier sets, each drawn as the banner and track show it. */
 const everyStatus: Listing = {
   ...baseline,
   rows: [
@@ -222,6 +238,7 @@ const everyStatus: Listing = {
       title: "Allow widgets to be archived instead of deleted",
       flags: ["feedback"],
       commentedBy: ["hubber"],
+      changesRequestedBy: ["hubber"],
       unresolvedThreads: 4,
       outdatedThreads: 2,
     }),
@@ -261,7 +278,7 @@ const everyStatus: Listing = {
       title: "Rewrite the gadget sync queue",
       flags: ["conflict", "ci-failing", "ci-pending"],
       checks: checks({ fail: 1, pending: 2, pass: 4 }),
-      waitingOn: ["hubber", "widgets-api-reviewers"],
+      waitingOn: ["hubber", "acme/api-reviewers"],
     }),
     row({
       number: 410,
@@ -296,6 +313,9 @@ const everyStatus: Listing = {
     row({
       number: 414,
       title: "Tidy the widget changelog",
+      // Stored before the sweep read sizes, so the row shows none.
+      additions: undefined,
+      deletions: undefined,
     }),
   ],
 };
@@ -356,6 +376,7 @@ function Frame({
             onArchive={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
+            avatarFor={avatarFor}
           />
         </div>
       </div>
@@ -365,8 +386,9 @@ function Frame({
 
 /**
  * A typical day. The pull requests that need you, the one ready to merge, and
- * the one with a thread are open at the top; the draft is closed to its number
- * line; the one awaiting review is a single dimmed line.
+ * the one with a thread are open at the top, each with a red banner naming
+ * what stops it or a green one when it can merge; the draft is closed to its
+ * banner and icons; the one awaiting review is a single dimmed line.
  */
 export function Baseline() {
   return (
@@ -384,7 +406,7 @@ export function Baseline() {
 /**
  * Every run the list can draw: needs you, ready to merge, and working in Now;
  * drafts in Next; waiting in Later, including one stale after six days with
- * its reviewer. Then every flag as a problem on the number line, the list
+ * its reviewer. Then every flag in the banner and on the track, the list
  * across two repositories, a thread being started with a timer running, and
  * the panel without Harvest.
  */
@@ -399,11 +421,11 @@ export function Rows() {
       </StoryRow>
       <StoryRow
         label="Every flag"
-        hint="One problem per flag, several on one row, No project here where nothing is checked out, the last comment, review notes, and an unflagged row."
+        hint="One banner per flag, several flags on one row, No project here where nothing is checked out, a team reviewer, and an unflagged row stored before sizes were read."
       >
         <Frame listing={everyStatus} />
       </StoryRow>
-      <StoryRow label="Two repositories" hint="The repository joins the number line once it varies.">
+      <StoryRow label="Two repositories" hint="The repository joins the icons once it varies.">
         <Frame listing={twoRepos} />
       </StoryRow>
       <StoryRow
