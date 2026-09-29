@@ -235,23 +235,17 @@ export function shortDate(date: string, now: Date, { clock: withClock = false } 
   return withClock && clock !== null ? `${dated} ${clock}` : dated;
 }
 
-/** The runs the sidebar's blue count adds up: what to deal with today. */
-const TODAY_RUNS: ReadonlySet<NowGroupId> = new Set(["today", "me", "requests"]);
-
 /**
- * The three counts beside the page's name in the sidebar: the Overdue run,
- * what to deal with today (the Today, Me, and Requests runs together), and
- * every row in the Now section, the same number as its tab. The first two
- * are part of the third.
+ * The two counts beside the page's name in the sidebar: the Overdue run, and
+ * every row in the Now section, the same number as its tab. The first is part
+ * of the second.
  */
-export function sidebarCounts(items: readonly Item[], now: Date): { overdue: number; today: number; now: number } {
-  const counts = { overdue: 0, today: 0, now: 0 };
+export function sidebarCounts(items: readonly Item[], now: Date): { overdue: number; now: number } {
+  const counts = { overdue: 0, now: 0 };
   for (const item of items) {
     if (sectionOf(item) !== "now") continue;
     counts.now++;
-    const run = nowGroupOf(item, now);
-    if (run === "overdue") counts.overdue++;
-    else if (TODAY_RUNS.has(run)) counts.today++;
+    if (nowGroupOf(item, now) === "overdue") counts.overdue++;
   }
   return counts;
 }

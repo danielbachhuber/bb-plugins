@@ -213,7 +213,7 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts the Overdue run, the Today, Me, and Requests runs together, and every row in the Now section as its tab does", () => {
+  test("counts the Overdue run and every row in the Now section as its tab does", () => {
     const items = [
       item("overdue", due("2026-09-20")),
       item("today", due("2026-09-24")),
@@ -230,12 +230,12 @@ describe("sidebarCounts", () => {
       item("later", due("2026-10-02")),
       item("undated"),
     ];
-    expect(sidebarCounts(items, now)).toEqual({ overdue: 1, today: 5, now: 8 });
+    expect(sidebarCounts(items, now)).toEqual({ overdue: 1, now: 8 });
     expect(sidebarCounts(items, now).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([], now)).toEqual({ overdue: 0, today: 0, now: 0 });
+    expect(sidebarCounts([], now)).toEqual({ overdue: 0, now: 0 });
   });
 });
 
