@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
@@ -123,6 +123,12 @@ describe("panel", () => {
     expect(within(row).getByText("4d ago")).toBeInTheDocument();
     expect(within(row).getByText("octocat")).toBeInTheDocument();
     expect(within(row).getByText("+120 −8")).toBeInTheDocument();
+  });
+
+  it("names the requested reviewers after the author", async () => {
+    const slot = render(listing({ rows: [rowFixture({ requestedReviewers: ["you", "platform"] })] }));
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(within(row).getByText("you, platform")).toBeInTheDocument();
   });
 
   it("names the repository only when more than one is in play", async () => {
@@ -377,6 +383,23 @@ describe("seen comments", () => {
     await waitFor(() => expect(seen.calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 
+  it("logs a failed markSeen rather than leaving the rejection unhandled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const slot = render(listing({ rows: [rowFixture({ newComments: 2 })] }), {
+        markSeen: () => {
+          throw new Error("server went away");
+        },
+      });
+      const link = await slot.findByRole("link", { name: /Add the widget endpoint/ });
+      link.addEventListener("click", (event) => event.preventDefault());
+      fireEvent.click(link);
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("records the count when its thread is opened, even with nothing new showing", async () => {
     const seen = recordingMarkSeen();
     const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }), seen.rpc);
@@ -541,6 +564,19 @@ describe("harvest", () => {
   it("offers a clock on an open row when Harvest is available", async () => {
     const slot = render(available(), HARVEST_RPC);
     expect(await slot.findByRole("button", { name: /track time for #42/i })).toBeTruthy();
+  });
+
+  it("keeps the row whose timer is running open, even when its tier would close it", async () => {
+    // A fresh request is in Next, which is closed to its number line by default.
+    const slot = render(
+      listing({
+        rows: [freshRow()],
+        harvest: { available: true, running: { externalId: "42", groupId: "widgets" } },
+      }),
+      HARVEST_RPC,
+    );
+    expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Collapse" })).toBeNull();
   });
 });
 

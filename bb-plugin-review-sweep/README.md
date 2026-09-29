@@ -100,7 +100,8 @@ shows them all.
 
 Within a run, the oldest request comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps. A chevron opens or closes any
-row, and "Expand all" opens every row.
+row, and "Expand all" opens every row. The row whose Harvest timer is running
+stays open, whatever its tier, so the timer stays in view.
 
 The sidebar count is requests with no thread that are neither ignored nor
 drafts.
@@ -108,8 +109,8 @@ drafts.
 ## Each row
 
 The number line shows the pull request number, how long ago the review was
-requested of you, the author, and the size in lines added and removed
-("+18 −4"). An ignored request also says when it returns. "N new" shows in
+requested of you, the author, who was asked to review ("you, platform"), and
+the size in lines added and removed ("+18 −4"). An ignored request also says when it returns. "N new" shows in
 blue when comments were posted since you last opened the pull request or its
 thread from the panel, or started one; the first sweep to see a request
 records its count, so nothing is new on the first sync. The repository joins

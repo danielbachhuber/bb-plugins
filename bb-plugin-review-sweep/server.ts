@@ -423,7 +423,9 @@ export default async function plugin(bb: BbPluginApi) {
     markSeen({ repo, number }) {
       const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
       if (!row) return { ok: false };
-      store.markSeen(repo, number, row.comments ?? 0, Date.now());
+      // A row stored before counts were kept has none to record. Recording 0
+      // would make every comment read as new once the sweep stores the count.
+      if (row.comments !== undefined) store.markSeen(repo, number, row.comments, Date.now());
       return { ok: true };
     },
 
@@ -534,7 +536,7 @@ export default async function plugin(bb: BbPluginApi) {
         // Starting or reopening the thread is reading the pull request, so its
         // new comments are no longer new.
         const markSeen = () => {
-          if (row) store.markSeen(repo, number, row.comments ?? 0, Date.now());
+          if (row?.comments !== undefined) store.markSeen(repo, number, row.comments, Date.now());
         };
 
         const existingThreadId = await links.threadFor(repo, number);

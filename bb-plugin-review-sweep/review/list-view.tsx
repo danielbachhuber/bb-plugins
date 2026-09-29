@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepList } from "sweep-ui/list";
 import type { Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
@@ -80,10 +81,6 @@ const STAGES: Stage[] = REVIEW_STAGES.map((name, index) => ({
   name,
   color: ["bg-slate-400", "bg-amber-500", "bg-sky-500"][index]!,
 }));
-
-/** The row actions' look, matching the list's own "Add note" button. */
-const LINE_ACTION =
-  "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60";
 
 function keyOf(row: Row): string {
   return `${row.repo}#${row.number}`;
@@ -173,34 +170,6 @@ function DeferAction({
     <button type="button" className={LINE_ACTION} onClick={() => onSnooze(row)}>
       <Icon name="Clock" className="size-3" />
       {SNOOZE_LABEL}
-    </button>
-  );
-}
-
-/** How long "Copied" stays up before the label returns. */
-const COPIED_MS = 1500;
-
-/** Copies the title and link as a rich-text link, labelled like the row's other actions. */
-function CopyLinkAction({ row }: { row: Row }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // A sweep can unmount the row mid-tick.
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  const onCopy = useCallback(async () => {
-    if (!(await writeLinkToClipboard(`${row.title} (#${row.number})`, row.url))) return;
-    setCopied(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), COPIED_MS);
-  }, [row.number, row.title, row.url]);
-
-  return (
-    <button type="button" className={LINE_ACTION} onClick={() => void onCopy()}>
-      <Icon name={copied ? "Check" : "Copy"} className="size-3" />
-      {copied ? "Copied" : "Copy link"}
     </button>
   );
 }
@@ -420,6 +389,8 @@ export function ReviewListView({
     parent: null,
     note: row.note,
     stage: stageOf(row),
+    // A running timer must stay in view, and it lives in the action line.
+    forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
 
   return (
@@ -471,7 +442,11 @@ export function ReviewListView({
                     onSnooze={onSnooze}
                     onUnsnooze={onUnsnooze}
                   />
-                  <CopyLinkAction row={row} />
+                  <CopyLinkAction
+                    text={`${row.title} (#${row.number})`}
+                    url={row.url}
+                    write={writeLinkToClipboard}
+                  />
                   {harvest.available ? (
                     <HarvestRowClock
                       surface="reviews"

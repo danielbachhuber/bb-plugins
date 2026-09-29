@@ -37,7 +37,8 @@ export function shortSizeLabel(size: ChangeSize): string {
 /**
  * Every fact for one row. The age of the request comes first, because a Later
  * row's single line shows only the first fact. The repository earns a place
- * only when the list spans more than one. An ignored review also says when it
+ * only when the list spans more than one. The author is followed by who was
+ * asked to review. An ignored review also says when it
  * comes back, since the deferral undoes itself.
  */
 export function factsFor(
@@ -48,6 +49,7 @@ export function factsFor(
     size: ChangeSize;
     snoozedUntil: number | null;
     threadId: string | null;
+    requestedReviewers: readonly string[];
   },
   now: number,
   showRepo: boolean,
@@ -56,6 +58,9 @@ export function factsFor(
     relativeTime(row.requestedAt, now),
     ...(showRepo ? [row.repo] : []),
     row.author,
+    // "you, platform": you first, as the classifier orders them. Left out when
+    // the set came back empty, which is a data gap rather than "nobody".
+    ...(row.requestedReviewers.length ? [row.requestedReviewers.join(", ")] : []),
     shortSizeLabel(row.size),
     ...(row.snoozedUntil !== null && !row.threadId ? [returnsInLabel(row.snoozedUntil, now)] : []),
   ];

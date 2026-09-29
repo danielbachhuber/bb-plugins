@@ -13,6 +13,7 @@ function row(overrides: Partial<Parameters<typeof factsFor>[0]> = {}) {
     size: { additions: 18, deletions: 4, changedFiles: 2 },
     snoozedUntil: null,
     threadId: null,
+    requestedReviewers: [] as string[],
     ...overrides,
   };
 }
@@ -35,6 +36,19 @@ describe("shortSizeLabel", () => {
 describe("factsFor", () => {
   it("leads with the age of the request, since a Later row shows only the first fact", () => {
     expect(factsFor(row(), NOW, false)).toEqual(["5h ago", "octocat", "+18 −4"]);
+  });
+
+  it("names who was asked after the author, you first, as the old Reviewers column did", () => {
+    expect(factsFor(row({ requestedReviewers: ["you", "platform"] }), NOW, false)).toEqual([
+      "5h ago",
+      "octocat",
+      "you, platform",
+      "+18 −4",
+    ]);
+  });
+
+  it("leaves the reviewers out when none came back, rather than claiming nobody was asked", () => {
+    expect(factsFor(row({ requestedReviewers: [] }), NOW, false)).toEqual(["5h ago", "octocat", "+18 −4"]);
   });
 
   it("names the repository only when asked to", () => {
