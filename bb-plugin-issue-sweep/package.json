@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Issue Sweep",
-    "description": "Open GitHub issues assigned to you, newest activity first. Needs gh-context.",
+    "description": "Open GitHub issues assigned to you in one list, ordered Now, Next, and Later by what needs you, with local notes and new comment counts. Needs gh-context.",
     "branding": {
       "icon": "ListTodo"
     },

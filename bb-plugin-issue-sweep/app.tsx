@@ -4,7 +4,6 @@ import {
   useBbNavigate,
   useRealtime,
   useRpc,
-  UrlLink,
   type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
@@ -108,9 +107,35 @@ function Panel() {
   const [starting, setStarting] = useState<ReadonlySet<string>>(new Set());
   const navigate = useBbNavigate();
 
+  // Opening the issue or its thread is reading it, so its new comments stop
+  // being new. Fire and forget: the link or thread opens either way.
+  const markSeen = useCallback(
+    (row: Row) => {
+      if (row.newComments === 0) return;
+      void rpc.call("markSeen", { repo: row.repo, number: row.number }).then(reload);
+    },
+    [reload, rpc],
+  );
+
   const onOpen = useCallback(
-    (threadId: string) => navigate.toThread(threadId),
-    [navigate],
+    (row: Row) => {
+      if (row.threadId) navigate.toThread(row.threadId);
+      markSeen(row);
+    },
+    [markSeen, navigate],
+  );
+
+  const onNoteSave = useCallback(
+    async (row: Row, body: string) => {
+      const result = await rpc.call("setNote", { repo: row.repo, number: row.number, body });
+      if (!result.ok) {
+        toast.error("Could not save the note.");
+        return false;
+      }
+      await reload();
+      return true;
+    },
+    [reload, rpc],
   );
 
   const harvestClient = useHarvestClient(rpc);
@@ -241,6 +266,8 @@ function Panel() {
         onPick={(row, status) => void onPick(row, status)}
         onStart={onStart}
         onOpen={onOpen}
+        onNoteSave={onNoteSave}
+        onOpenLink={markSeen}
       />
 
       <StartThreadDialog

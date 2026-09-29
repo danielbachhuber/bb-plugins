@@ -80,6 +80,15 @@ const rowSchema = z.object({
       source: z.enum(["sub-issues", "tasks"]),
     })
     .nullish(),
+  /**
+   * The issue this one is a sub-issue of. Nullish for the same reason as
+   * subtasks.
+   */
+  parent: z.object({ number: z.number(), title: z.string(), url: z.string() }).nullish(),
+  /** The local next-step note, or null. Never sent to GitHub. */
+  note: z.string().nullable(),
+  /** Comments since the issue was last opened from the panel. */
+  newComments: z.number(),
   /** The thread this plugin started for the issue, or null. */
   threadId: z.string().nullable(),
   /** False when no bb project is checked out for the issue's repository. */
@@ -94,7 +103,12 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({
       rows: z.array(rowSchema),
-      statusOrder: z.array(z.string()),
+      /** The track's stages, in order: the "Board stages, in order" setting. */
+      boardStages: z.array(z.string()),
+      /** Days a counted issue can sit untouched before it is stale. */
+      staleAfterDays: z.number(),
+      /** The status that means "waiting on a reviewer". */
+      reviewStatus: z.string(),
       /**
        * The board's own Status options, by name and in the board's order. The
        * panel picks by name and never sees an option id: the ids are the
@@ -257,6 +271,19 @@ export const rpcContract = defineRpcContract({
         })
         .nullable(),
     }),
+  },
+  /** Saves the row's local note. An empty body deletes it. */
+  setNote: {
+    input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /**
+   * Records the issue's current comment count as seen, so its "N new" clears.
+   * Called when its link or thread is opened.
+   */
+  markSeen: {
+    input: z.object({ repo: z.string(), number: z.number() }).strict(),
+    output: z.object({ ok: z.boolean() }),
   },
   setBoardStatus: {
     input: z.object({ repo: z.string(), number: z.number(), status: z.string() }),

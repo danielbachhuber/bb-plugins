@@ -1,16 +1,8 @@
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { CopyLink } from "@/components/ui/copy-link";
-import { TitleLink } from "@/components/ui/title-link";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { SweepList } from "sweep-ui/list";
+import type { Flag, Stage, SweepItem } from "sweep-ui/types";
+import { writeLinkToClipboard } from "@/components/ui/copy-link";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
@@ -21,33 +13,28 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { commentsLabel, relativeTime, subtasksLabel } from "./format.js";
-import { sectionOrder } from "./board.js";
+import {
+  ISSUE_RUNS,
+  isStale,
+  runOf,
+  sortIssues,
+  stageOf,
+  type ListedIssue,
+  type TierInputs,
+} from "./tiers.js";
 
 /**
  * What the Issues panel draws, given a listing. No RPC or realtime here, so
  * the stories can render every state from fixtures; app.tsx loads the listing
  * and owns the actions.
  */
-export type Row = {
-  repo: string;
-  number: number;
-  title: string;
-  url: string;
-  labels: string[];
-  boardStatus: string | null;
-  onBoard: boolean;
-  blockedBy: number;
-  subtasks?: { completed: number; total: number; source: "sub-issues" | "tasks" } | null;
-  threadId: string | null;
-  canSpawn: boolean;
-  createdAt: number;
-  updatedAt: number;
-  commentsCount: number;
-};
+export type Row = ListedIssue;
 
 export type Listing = {
   rows: Row[];
-  statusOrder: string[];
+  boardStages: string[];
+  staleAfterDays: number;
+  reviewStatus: string;
   statusOptions: string[];
   countedStatuses: string[];
   boardName: string;
@@ -58,36 +45,21 @@ export type Listing = {
   harvest: { available: boolean; running: RunningReference };
 };
 
-const BADGE =
-  "rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground";
-
-/** Where an issue lands when it is on no board, or on a different one. */
-const NO_BOARD = "No board status";
-
-/**
- * Issues something else has to happen to first, via GitHub's own issue
- * dependencies rather than a label or a board column.
- *
- * Last, and out of its board section: an issue nobody can start does not
- * belong beside issues that are ready, whatever the board says about it. The
- * board tracks where work stands, not whether it can proceed, so these two
- * facts genuinely disagree and the blocking one wins.
- */
-const BLOCKED = "Blocked";
-
-/** Shared header cell styling, so every column is declared the same way. */
-const HEAD =
-  "text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground";
+const DAY = 24 * 60 * 60_000;
 
 /** What the picker offers when an issue has no status to show. */
 const ADD_TO_BOARD = "Add to board";
 const NO_STATUS = "No status";
 
+/** The row actions' look, matching the list's own "Add note" button. */
+const LINE_ACTION =
+  "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60";
+
 /**
- * The dot beside a status, coloured by what the status means rather than by
- * its exact name, so a board that calls its first column "Ready" and one that
- * calls it "Ready for Dev" read the same. Anything unrecognised stays muted:
- * a wrong colour is worse than no colour.
+ * A status's colour, by what the status means rather than by its exact name,
+ * so a board that calls its first column "Ready" and one that calls it "Ready
+ * for Dev" read the same. Anything unrecognised stays muted: a wrong colour is
+ * worse than no colour. Used for the picker's dot and the track's stages.
  */
 function statusDot(status: string | null): string {
   const name = (status ?? "").toLowerCase();
@@ -97,17 +69,20 @@ function statusDot(status: string | null): string {
   return "bg-muted-foreground/40";
 }
 
+/** A stage's colour on the track: the status colour, with a visible grey for the rest. */
+function stageColor(status: string): string {
+  const color = statusDot(status);
+  return color === "bg-muted-foreground/40" ? "bg-slate-400" : color;
+}
+
 /**
- * The board's Status column for one issue, as a picker.
+ * A picker in place of the track, for an issue with no status to place it.
  *
- * A plain label would only repeat the section heading above it. The value of
- * the column is that it is a control: it is the one place an issue can be
- * moved along the board, or put on it in the first place.
- *
- * An issue that is not on the board gets the same control with "Add to board"
- * as its placeholder, because adding and setting a status are one gesture —
- * adding alone would drop the issue into the board's "No Status" column, which
- * is the state this panel exists to get issues out of.
+ * An issue that is not on the board gets "Add to board" as its placeholder,
+ * because adding and setting a status are one gesture — adding alone would
+ * drop the issue into the board's "No Status" column, which is the state this
+ * panel exists to get issues out of. One already in that column gets the same
+ * picker reading "No status", since offering to add it would do nothing.
  */
 function StatusCell({
   row,
@@ -143,17 +118,16 @@ function StatusCell({
       ? [row.boardStatus, ...options]
       : options;
 
-  // Shrink-wrapped, not stretched to the column: a full-width select pins the
-  // caret to the column's right edge, a long way from the text it belongs to.
+  // Shrink-wrapped, not stretched to the track's width: a full-width select
+  // pins the caret a long way from the text it belongs to.
   //
-  // The border, height and hover fill are the shared Button's `outline`
-  // variant, copied rather than composed because the control is a native
-  // <select> — it cannot be a Button and still open the platform's own menu.
-  // Matching it matters: this sits beside a real Button in the next column,
-  // and a bare label there would read as text you cannot change.
+  // The border and hover fill are the shared Button's `outline` variant,
+  // copied rather than composed because the control is a native <select> — it
+  // cannot be a Button and still open the platform's own menu. The border is
+  // what tells it apart from a status name, which is text you cannot change.
   return (
     <span
-      className={`relative inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-input bg-transparent pl-2 pr-2 transition-colors ${
+      className={`relative inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-input bg-transparent pl-2 pr-2 transition-colors ${
         busy ? "opacity-50" : "hover:bg-state-hover"
       }`}
     >
@@ -223,11 +197,8 @@ function isRunningFor(running: RunningReference, row: Row): boolean {
 }
 
 /**
- * Start or open the thread for one issue.
- *
- * This column replaced "Updated", which is the right trade: the age of an
- * issue is context, and context belongs under the title, while starting work
- * is the thing you came to the panel to do.
+ * Start or open the thread for one issue, as a labelled action in the row's
+ * action line.
  */
 function ThreadAction({
   row,
@@ -238,156 +209,82 @@ function ThreadAction({
   row: Row;
   isStarting: boolean;
   onStart: (row: Row) => void;
-  onOpen: (threadId: string) => void;
+  onOpen: (row: Row) => void;
 }) {
   if (row.threadId) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="sm"
-            variant="outline"
-            className="size-8 shrink-0 p-0"
-            aria-label={`Open the thread for #${row.number}`}
-            onClick={() => onOpen(row.threadId!)}
-          >
-            <Icon name="MessageSquare" className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Open the thread</TooltipContent>
-      </Tooltip>
+      <button type="button" className={LINE_ACTION} onClick={() => onOpen(row)}>
+        <Icon name="MessageSquare" className="size-3" />
+        Open thread
+      </button>
     );
   }
-
-  const label = isStarting ? "Starting…" : `Start a thread for #${row.number}`;
-
+  // Disabled with its reason as the label, rather than hidden: a row that
+  // silently lacks the action reads as a bug.
+  const label = !row.canSpawn ? "No project here" : isStarting ? "Starting…" : "Start thread";
   return (
-    // The tooltip hangs off the wrapper, not the Button: a disabled button
-    // fires no pointer events, so one on the button itself would never show.
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-block">
-          <Button
-            size="sm"
-            variant="outline"
-            className="size-8 shrink-0 p-0"
-            disabled={!row.canSpawn || isStarting}
-            aria-label={label}
-            onClick={() => onStart(row)}
-          >
-            <Icon
-              name={isStarting ? "Spinner" : "MessageSquarePlus"}
-              className={`size-4${isStarting ? " animate-spin" : ""}`}
-            />
-          </Button>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>
-        {row.canSpawn ? label : `No bb project is checked out for ${row.repo}`}
-      </TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      className={LINE_ACTION}
+      disabled={!row.canSpawn || isStarting}
+      title={row.canSpawn ? undefined : `No bb project is checked out for ${row.repo}`}
+      onClick={() => onStart(row)}
+    >
+      <Icon
+        name={isStarting ? "Spinner" : "MessageSquarePlus"}
+        className={`size-3${isStarting ? " animate-spin" : ""}`}
+      />
+      {label}
+    </button>
   );
 }
 
-function IssueTable({
-  rows,
-  showRepo,
-  statusOptions,
-  busyKeys,
-  starting,
-  onPick,
-  onStart,
-  onOpen,
-  harvest,
-  now,
-}: {
-  rows: Row[];
-  showRepo: boolean;
-  statusOptions: string[];
-  busyKeys: ReadonlySet<string>;
-  starting: ReadonlySet<string>;
-  onPick: (row: Row, status: string) => void;
-  onStart: (row: Row) => void;
-  onOpen: (threadId: string) => void;
-  harvest: HarvestPanelState;
-  now: number;
-}) {
+/** How long "Copied" stays up before the label returns. */
+const COPIED_MS = 1500;
+
+/** Copies the title and link as a rich-text link, labelled like the row's other actions. */
+function CopyLinkAction({ row }: { row: Row }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A sweep can unmount the row mid-tick.
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const onCopy = useCallback(async () => {
+    if (!(await writeLinkToClipboard(`${row.title} (#${row.number})`, row.url))) return;
+    setCopied(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), COPIED_MS);
+  }, [row.number, row.title, row.url]);
+
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <Table className="table-fixed">
-        <TableHeader>
-          <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableHead className={HEAD}>Title</TableHead>
-            {/* A little wider than the bare label needed: the control now
-                carries its own border and padding. */}
-            <TableHead className={`w-[11rem] ${HEAD}`}>Status</TableHead>
-            {/* One 2rem icon button plus the cell's own px-3 padding. */}
-            <TableHead className="w-[3.5rem]" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const comments = commentsLabel(row.commentsCount);
-            const subtasks = subtasksLabel(row.subtasks);
-            return (
-              <TableRow key={`${row.repo}#${row.number}`}>
-                <TableCell className="align-top">
-                  <TitleLink href={row.url} text={`${row.title} (#${row.number})`} />
-                  {/*
-                    The age and comment count used to be their own column. The
-                    action took that column, and they are context rather than
-                    something to act on, so they read better under the title
-                    than they did beside it.
-                  */}
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="truncate">
-                      {[
-                        showRepo ? row.repo : null,
-                        relativeTime(row.updatedAt, now),
-                        comments,
-                        subtasks,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    <CopyLink
-                      title={`${row.title} (#${row.number})`}
-                      url={row.url}
-                    />
-                    {harvest.available ? (
-                      <HarvestRowClock
-                        surface="issues"
-                        row={row}
-                        running={isRunningFor(harvest.running, row) ? harvest.running : null}
-                        client={harvest.client}
-                        onChanged={harvest.onStarted}
-                      />
-                    ) : null}
-                  </span>
-                </TableCell>
-                <TableCell className="align-top">
-                  <StatusCell
-                    row={row}
-                    options={statusOptions}
-                    busy={busyKeys.has(`${row.repo}#${row.number}`)}
-                    onPick={(status) => onPick(row, status)}
-                  />
-                </TableCell>
-                <TableCell className="align-top">
-                  <ThreadAction
-                    row={row}
-                    isStarting={starting.has(`${row.repo}#${row.number}`)}
-                    onStart={onStart}
-                    onOpen={onOpen}
-                  />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <button type="button" className={LINE_ACTION} onClick={() => void onCopy()}>
+      <Icon name={copied ? "Check" : "Copy"} className="size-3" />
+      {copied ? "Copied" : "Copy link"}
+    </button>
   );
+}
+
+function keyOf(row: Row): string {
+  return `${row.repo}#${row.number}`;
+}
+
+/** The flags on a row's number line: stale in red, blocked in slate. */
+function flagsFor(row: Row, inputs: TierInputs): Flag[] {
+  const flags: Flag[] = [];
+  if (isStale(row, inputs)) {
+    const days = Math.floor((inputs.now - row.updatedAt) / DAY);
+    flags.push({ kind: "stale", text: `No activity for ${days} days` });
+  }
+  if (row.blockedBy > 0) {
+    flags.push({
+      kind: "blocked",
+      text: `Blocked by ${row.blockedBy} ${row.blockedBy === 1 ? "issue" : "issues"}`,
+    });
+  }
+  return flags;
 }
 
 /**
@@ -550,7 +447,11 @@ export interface IssueListViewProps {
   harvest: HarvestPanelState;
   onPick: (row: Row, status: string) => void;
   onStart: (row: Row) => void;
-  onOpen: (threadId: string) => void;
+  onOpen: (row: Row) => void;
+  /** Saves the row's note; "" deletes it. Resolves true once saved. */
+  onNoteSave: (row: Row, body: string) => Promise<boolean>;
+  /** The title was clicked, and the issue is about to open. */
+  onOpenLink: (row: Row) => void;
 }
 
 export function IssueListView({
@@ -562,34 +463,65 @@ export function IssueListView({
   onPick,
   onStart,
   onOpen,
+  onNoteSave,
+  onOpenLink,
 }: IssueListViewProps): ReactNode {
   if (!listing) return <SweepingBoard />;
 
-  // The repository only earns a column when it actually varies.
+  const inputs: TierInputs = {
+    countedStatuses: listing.countedStatuses,
+    reviewStatus: listing.reviewStatus,
+    boardStages: listing.boardStages,
+    staleAfterDays: listing.staleAfterDays,
+    now,
+  };
+  const stages: Stage[] = listing.boardStages.map((name) => ({ name, color: stageColor(name) }));
+
+  // The repository only earns a place on the number line when it varies.
   const showRepo = new Set(listing.rows.map((row) => row.repo)).size > 1;
 
-  // Grouped by the board's own column, in the board's own order. An issue that
-  // is on no board, or on a different one, still has to appear somewhere.
-  // Drawn from the blocked rows too, so a status that only blocked issues
-  // carry does not silently lose its place in the order.
-  const present = listing.rows
-    .map((row) => row.boardStatus)
-    .filter((status): status is string => status !== null);
-
-  const blocked = listing.rows.filter((row) => row.blockedBy > 0);
-  const actionable = listing.rows.filter((row) => row.blockedBy === 0);
-
-  const sections = [
-    ...sectionOrder(listing.statusOrder, present).map((status) => ({
-      status,
-      rows: actionable.filter((row) => row.boardStatus === status),
-    })),
-    {
-      status: NO_BOARD,
-      rows: actionable.filter((row) => row.boardStatus === null),
-    },
-    { status: BLOCKED, rows: blocked },
-  ].filter((section) => section.rows.length > 0);
+  const sorted = sortIssues(listing.rows, inputs);
+  const rowsByKey = new Map(sorted.map((row) => [keyOf(row), row]));
+  const items: SweepItem[] = sorted.map((row) => {
+    const stage = stageOf(row, listing.boardStages);
+    return {
+      key: keyOf(row),
+      runId: runOf(row, inputs),
+      title: row.title,
+      url: row.url,
+      number: row.number,
+      newComments: row.newComments,
+      flags: flagsFor(row, inputs),
+      // The age first: a Later row's single line shows only the first fact.
+      facts: [
+        relativeTime(row.updatedAt, now),
+        showRepo ? row.repo : null,
+        commentsLabel(row.commentsCount),
+        subtasksLabel(row.subtasks),
+      ].filter((fact): fact is string => fact !== null),
+      parent: row.parent,
+      note: row.note,
+      stage,
+      // With no status there is nothing to place, so the picker offers one.
+      // A status the stages do not name is shown by name: it is real, just not
+      // on the track.
+      offTrack:
+        stage !== null ? undefined : row.boardStatus === null ? (
+          <StatusCell
+            row={row}
+            options={listing.statusOptions}
+            busy={busyKeys.has(keyOf(row))}
+            onPick={(status) => onPick(row, status)}
+          />
+        ) : (
+          row.boardStatus
+        ),
+      progress:
+        row.subtasks && row.subtasks.total > 0
+          ? { done: row.subtasks.completed, total: row.subtasks.total }
+          : null,
+    };
+  });
 
   return (
     <div className="h-full overflow-auto p-4 md:p-5">
@@ -635,25 +567,51 @@ export function IssueListView({
             )}
           </EmptyGraphic>
         ) : (
-          sections.map(({ status, rows }) => (
-            <section key={status} className="space-y-2">
-              <h2 className="text-sm font-medium">
-                {status} ({rows.length})
-              </h2>
-              <IssueTable
-                rows={rows}
-                showRepo={showRepo}
-                statusOptions={listing.statusOptions}
-                busyKeys={busyKeys}
-                starting={starting}
-                onPick={onPick}
-                onStart={onStart}
-                onOpen={onOpen}
-                harvest={harvest}
-                now={now}
-              />
-            </section>
-          ))
+          <SweepList
+            noun={listing.rows.length === 1 ? "issue" : "issues"}
+            stages={stages}
+            runs={ISSUE_RUNS}
+            items={items}
+            Link={UrlLink}
+            busyKeys={busyKeys}
+            onMove={(item, index) => {
+              const row = rowsByKey.get(item.key);
+              const status = listing.boardStages[index];
+              if (row && status) onPick(row, status);
+            }}
+            onNoteSave={(item, body) => {
+              const row = rowsByKey.get(item.key);
+              return row ? onNoteSave(row, body) : Promise.resolve(false);
+            }}
+            onOpenLink={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (row) onOpenLink(row);
+            }}
+            renderActions={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row) return null;
+              return (
+                <>
+                  <ThreadAction
+                    row={row}
+                    isStarting={starting.has(item.key)}
+                    onStart={onStart}
+                    onOpen={onOpen}
+                  />
+                  <CopyLinkAction row={row} />
+                  {harvest.available ? (
+                    <HarvestRowClock
+                      surface="issues"
+                      row={row}
+                      running={isRunningFor(harvest.running, row) ? harvest.running : null}
+                      client={harvest.client}
+                      onChanged={harvest.onStarted}
+                    />
+                  ) : null}
+                </>
+              );
+            }}
+          />
         )}
       </div>
     </div>

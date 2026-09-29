@@ -81,7 +81,7 @@ interface RawField {
 /**
  * The board's own Status options, in the board's own order.
  *
- * Worth taking from the board rather than from the `statusOrder` setting: that
+ * Worth taking from the board rather than from the `boardStages` setting: that
  * setting is a display preference and can name a column that does not exist,
  * whereas an option offered in the picker has to be one `item-edit` will
  * accept.

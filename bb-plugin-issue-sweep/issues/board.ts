@@ -52,24 +52,14 @@ export function boardStatus(
 }
 
 /**
- * The order the panel lists statuses in, as configured. Anything the board
- * reports that is not named here still gets a section, after these, so a new
- * column on the board shows up rather than vanishing.
+ * A comma-separated list of status names from a setting, such as the board
+ * stages or the statuses the sidebar counts.
  */
 export function parseStatusOrder(raw: string): string[] {
   return raw
     .split(",")
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "");
-}
-
-/** Sections in configured order, then any other status, then the unfiled. */
-export function sectionOrder(configured: string[], present: readonly string[]): string[] {
-  const seen = new Set(configured.map((s) => s.toLowerCase()));
-  const extra = [...new Set(present)]
-    .filter((status) => !seen.has(status.toLowerCase()))
-    .sort((a, b) => a.localeCompare(b));
-  return [...configured, ...extra];
 }
 
 /**
@@ -103,9 +93,9 @@ export function shouldAutoApply(
 /**
  * The rows the sidebar badge counts.
  *
- * Blocked rows never count, whatever their status says. The panel already
- * lifts them out of their board section and files them last, so counting one
- * would put a number on the badge that no visible section accounts for.
+ * Blocked rows never count, whatever their status says. The panel files them
+ * in Later, so counting one would put a number on the badge for an issue
+ * nobody can start.
  *
  * An empty `counted` counts everything, which is what a board-less setup wants.
  */

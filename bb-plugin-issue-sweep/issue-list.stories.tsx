@@ -32,7 +32,11 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     boardStatus: "Ready",
     onBoard: true,
     blockedBy: 0,
+    closingPr: null,
     subtasks: null,
+    parent: null,
+    note: null,
+    newComments: 0,
     threadId: null,
     canSpawn: true,
     createdAt: now - 12 * DAY,
@@ -48,6 +52,7 @@ const baselineRows: Row[] = [
     title: "Let a widget remember its last export format",
     updatedAt: now - 3 * HOUR,
     commentsCount: 2,
+    newComments: 2,
   }),
   row({
     number: 187,
@@ -62,6 +67,7 @@ const baselineRows: Row[] = [
     commentsCount: 5,
     subtasks: { completed: 2, total: 5, source: "sub-issues" },
     threadId: "thr_fixture1",
+    note: "Finish the quota bar, then ask octocat to review",
   }),
   row({
     number: 156,
@@ -74,9 +80,11 @@ const baselineRows: Row[] = [
 /** The panel with invented names. */
 const baseline: Listing = {
   rows: baselineRows,
-  statusOrder: ["Ready", "In Progress", "Backlog", "In Review"],
+  boardStages: ["Backlog", "Ready", "In Progress", "In Review"],
+  staleAfterDays: 7,
+  reviewStatus: "In Review",
   statusOptions: STATUS_OPTIONS,
-  countedStatuses: ["Ready", "In Progress", "In Review"],
+  countedStatuses: ["Ready", "In Progress"],
   boardName: "Acme Board",
   sweptAt: now - 3 * 60_000,
   skippedRepos: [],
@@ -85,7 +93,13 @@ const baseline: Listing = {
   harvest: { available: true, running: null },
 };
 
-/** Every section and every row variation at once. */
+const EXPORT_EPIC = {
+  number: 140,
+  title: "Widget export, second pass",
+  url: "https://github.com/acme/widgets/issues/140",
+};
+
+/** Every tier, run, and row variation at once. */
 const everything: Listing = {
   ...baseline,
   rows: [
@@ -96,6 +110,14 @@ const everything: Listing = {
       updatedAt: now - 5 * HOUR,
       commentsCount: 1,
       subtasks: { completed: 1, total: 4, source: "tasks" },
+      parent: EXPORT_EPIC,
+    }),
+    row({
+      number: 237,
+      title: "Widget previews render blank on first open",
+      boardStatus: "In Progress",
+      updatedAt: now - 11 * DAY,
+      commentsCount: 4,
     }),
     row({
       number: 219,
@@ -103,13 +125,15 @@ const everything: Listing = {
       boardStatus: "In Review",
       updatedAt: now - 20 * HOUR,
       commentsCount: 8,
-      threadId: "thr_fixture2",
+      closingPr: 251,
     }),
     row({
       number: 248,
       title: "Gadget search returns archived widgets",
       boardStatus: "Ready",
       updatedAt: now - 15 * 60_000,
+      commentsCount: 1,
+      newComments: 1,
       canSpawn: false,
     }),
     row({
@@ -204,6 +228,8 @@ function Frame({
             onPick={noop}
             onStart={noop}
             onOpen={noop}
+            onNoteSave={async () => true}
+            onOpenLink={noop}
           />
         </div>
       </div>
@@ -212,15 +238,16 @@ function Frame({
 }
 
 /**
- * Four issues assigned to you, grouped under the Acme Board's columns in the
- * board's own order. The one in progress already has a thread.
+ * Four issues assigned to you. The one with new comments and the one with a
+ * thread are open at the top; the ready one is closed to its number line; the
+ * backlog one is a single dimmed line.
  */
 export function Baseline() {
   return (
     <StoryCard>
       <StoryRow
         label="Baseline"
-        hint="Two ready, one in progress with a thread, one in the backlog."
+        hint="One ready with two new comments, one ready, one in progress with a thread and a note, one in the backlog."
       >
         <Frame listing={baseline} height="h-[36rem]" />
       </StoryRow>
@@ -229,31 +256,31 @@ export function Baseline() {
 }
 
 /**
- * Every section and row the panel can draw: board columns in order, a column
- * the settings do not list, issues on no board, and blocked issues last. Rows
- * show sub-issue and task counts, comments, a thread, and a disabled start
- * button where no project is checked out. Then the same list across two
- * repositories, a thread being started with a timer running, and the panel
- * without Harvest.
+ * Every run the list can draw: new comments, stale, and working in Now; to
+ * start in Next; then waiting on review, later, and blocked. Rows show a
+ * parent chip, sub-issue and task counts, a status the track does not name,
+ * issues off the board, and "No project here" where nothing is checked out.
+ * Then the same list across two repositories, a thread being started with a
+ * timer running, and the panel without Harvest.
  */
 export function Rows() {
   return (
     <StoryCard>
       <StoryRow
-        label="Every section"
-        hint="Ready, In Progress, Backlog, In Review, an unlisted Stalled column, No board status, and Blocked."
+        label="Every run"
+        hint="Each summary run, a stale row, a parent, a Stalled status off the track, issues with no board status, and a blocked issue."
       >
-        <Frame listing={everything} height="h-[80rem]" />
+        <Frame listing={everything} height="h-[56rem]" />
       </StoryRow>
       <StoryRow
         label="Two repositories"
-        hint="The repository joins the line under each title once it varies."
+        hint="The repository joins the number line once it varies."
       >
-        <Frame listing={multiRepo} height="h-[80rem]" />
+        <Frame listing={multiRepo} height="h-[56rem]" />
       </StoryRow>
       <StoryRow
         label="Starting, saving, and timing"
-        hint="A thread being created for #187, a status change saving on #156, and a Harvest timer running on #214."
+        hint="A thread being created for #214, a status change saving on #156, and a Harvest timer running on #231."
       >
         <Frame
           listing={{
@@ -261,7 +288,7 @@ export function Rows() {
             harvest: {
               available: true,
               running: {
-                externalId: "214",
+                externalId: "231",
                 groupId: null,
                 entryId: 1,
                 startedAt: new Date(now - 25 * 60_000).toISOString(),
@@ -270,12 +297,12 @@ export function Rows() {
               },
             },
           }}
-          starting={new Set(["acme/widgets#187"])}
+          starting={new Set(["acme/widgets#214"])}
           busyKeys={new Set(["acme/widgets#156"])}
           height="h-[36rem]"
         />
       </StoryRow>
-      <StoryRow label="Without Harvest" hint="No clock beside the copy control.">
+      <StoryRow label="Without Harvest" hint="No clock in the action line.">
         <Frame
           listing={{ ...baseline, harvest: { available: false, running: null } }}
           height="h-[36rem]"
@@ -313,7 +340,7 @@ export function States() {
 /**
  * What the panel shows when something is wrong: a failed sweep above the last
  * good rows, gh-context missing so no row can start a thread, and no board
- * configured so the status column cannot be changed.
+ * configured so every row shows its status as text in place of the track.
  */
 export function Warnings() {
   return (
@@ -348,7 +375,7 @@ export function Warnings() {
       </StoryRow>
       <StoryRow
         label="No board"
-        hint="No board is configured or it could not be read, so every issue lands in No board status and the status is read-only."
+        hint="No board is configured or it could not be read, so no issue is on the track and none can be added."
       >
         <Frame
           listing={{
@@ -358,6 +385,52 @@ export function Warnings() {
             rows: baselineRows.map((r) => ({ ...r, boardStatus: null, onBoard: false })),
           }}
         />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+const LONG_TITLES = [
+  "Widget grid jumps when a row is added",
+  "Keyboard focus lost after closing the gadget drawer",
+  "Import widgets from a spreadsheet",
+  "Bulk-rename gadgets",
+  "Undo for widget deletes",
+  "Widget previews in search results",
+  "Share a gadget by link",
+  "Printable widget sheets",
+  "Keyboard shortcuts for the gadget tray",
+  "Widget templates",
+  "Gadget usage chart per week",
+  "Archive widgets older than a year",
+];
+
+/** A long backlog, most of it in Later, so the fold after five rows shows. */
+const long: Listing = {
+  ...baseline,
+  rows: [
+    ...baselineRows,
+    ...LONG_TITLES.map((title, index) =>
+      row({
+        number: 300 + index,
+        title,
+        boardStatus: index % 4 === 3 ? null : "Backlog",
+        onBoard: index % 4 !== 3,
+        updatedAt: now - (index + 2) * 5 * DAY,
+      }),
+    ),
+  ],
+};
+
+/**
+ * A long list: the Now and Next rows at the top, then the first five Later
+ * rows, with the rest folded into "N more".
+ */
+export function LongList() {
+  return (
+    <StoryCard>
+      <StoryRow label="Long list" hint="Thirteen Later rows, eight of them folded.">
+        <Frame listing={long} height="h-[44rem]" />
       </StoryRow>
     </StoryCard>
   );

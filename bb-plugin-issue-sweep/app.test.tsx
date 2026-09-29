@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app.js"));
 
 const HOUR = 60 * 60_000;
+const DAY = 24 * HOUR;
 
+const OPTIONS = ["Backlog", "Ready", "In Progress", "In Review"];
+
+/** A row in Next by default: on the board, Ready, touched three hours ago. */
 function rowFixture(overrides: Record<string, unknown> = {}) {
   return {
     repo: "acme/widgets",
@@ -18,23 +22,31 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     createdAt: Date.now() - 48 * HOUR,
     updatedAt: Date.now() - 3 * HOUR,
     commentsCount: 2,
-    boardStatus: null,
-    onBoard: false,
+    boardStatus: "Ready",
+    onBoard: true,
     blockedBy: 0,
     closingPr: null,
     subtasks: null,
+    parent: null,
+    note: null,
+    newComments: 0,
     threadId: null,
     canSpawn: true,
     ...overrides,
   };
 }
 
+/** The same row in Now, open with its action line, because it has a thread. */
+const nowRow = (overrides: Record<string, unknown> = {}) => rowFixture({ threadId: "thr_1", ...overrides });
+
 function listing(overrides: Record<string, unknown> = {}) {
   return {
     rows: [rowFixture()],
-    statusOrder: [],
-    statusOptions: [],
-    countedStatuses: [],
+    boardStages: OPTIONS,
+    staleAfterDays: 7,
+    reviewStatus: "In Review",
+    statusOptions: OPTIONS,
+    countedStatuses: ["Ready", "In Progress"],
     boardName: "Acme Board",
     sweptAt: 1_700_000_000_000,
     skippedRepos: [],
@@ -79,12 +91,28 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
       rpc: {
         listRows: () => result,
         refresh: () => ({ ok: true, error: null }),
+        markSeen: () => ({ ok: true }),
         ...extraRpc,
       },
     },
   );
   mounted = slot;
   return slot;
+}
+
+type Slot = ReturnType<typeof render>;
+
+/** The list item holding a title, so a query can stay inside one row. */
+async function rowFor(slot: Slot, title: RegExp | string) {
+  const link = await slot.findByRole("link", { name: title });
+  return link.closest("li")! as HTMLElement;
+}
+
+/** The titles in the order the list draws them. */
+function titles(slot: Slot): string[] {
+  return Array.from(slot.container.querySelectorAll("li a"), (link) => link.textContent ?? "").filter(
+    (text) => text !== "",
+  );
 }
 
 describe("panel", () => {
@@ -95,60 +123,25 @@ describe("panel", () => {
 
   it("lists an assigned issue, linked out to GitHub", async () => {
     const slot = render(listing());
-    const link = await slot.findByRole("link", {
-      name: /Widget rotation drifts after a resize/i,
-    });
+    const link = await slot.findByRole("link", { name: "Widget rotation drifts after a resize" });
     expect(link).toHaveAttribute("href", "https://github.com/acme/widgets/issues/42");
-    // An explicit target keeps the issue out of BB's in-app browser.
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(await slot.findByText(/\(#42\)$/)).toBeInTheDocument();
+    expect(await slot.findByText("#42")).toBeInTheDocument();
   });
 
-  it("shows the age and comment count under the title", async () => {
-    // Both used to be their own column; the action took it, so they moved to
-    // the title cell rather than being dropped.
-    const slot = render(listing());
-    expect(await slot.findByText(/3h ago · 2 comments/)).toBeInTheDocument();
-  });
-
-  it("shows how much of an issue's checklist is done", async () => {
+  it("shows the age, comment count, and checklist on the number line", async () => {
     const slot = render(
-      listing({
-        rows: [
-          rowFixture({ subtasks: { completed: 8, total: 14, source: "sub-issues" } }),
-        ],
-      }),
+      listing({ rows: [rowFixture({ subtasks: { completed: 8, total: 14, source: "tasks" } })] }),
     );
-    expect(await slot.findByText(/2 comments · 8\/14 sub-issues/)).toBeInTheDocument();
-  });
-
-  it("says nothing about an issue with no checklist", async () => {
-    const slot = render(listing());
-    expect(await slot.findByText(/3h ago · 2 comments$/)).toBeInTheDocument();
-  });
-
-  it("keeps its own order, since the server already sorted", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 7, title: "Newer issue", updatedAt: Date.now() - HOUR }),
-          rowFixture({ number: 3, title: "Older issue", updatedAt: Date.now() - 90 * HOUR }),
-        ],
-      }),
-    );
-    await slot.findByText(/^Newer issue \(#/);
-    // The title cell also carries the age line now, so read the link itself.
-    const titles = Array.from(
-      slot.container.querySelectorAll("tbody tr td:first-child a"),
-      (link) => link.textContent,
-    );
-    expect(titles).toEqual(["Newer issue (#7)", "Older issue (#3)"]);
+    const row = await rowFor(slot, /Widget rotation/);
+    expect(within(row).getByText("3h ago")).toBeInTheDocument();
+    expect(within(row).getByText("2 comments")).toBeInTheDocument();
+    expect(within(row).getByText("8/14 tasks")).toBeInTheDocument();
   });
 
   it("names the repository only when more than one is in play", async () => {
     const one = render(listing());
-    await one.findByText(/Widget rotation/i);
-    expect(one.queryByText(/acme\/widgets/)).not.toBeInTheDocument();
+    await one.findByText("#42");
+    expect(one.queryByText("acme/widgets")).not.toBeInTheDocument();
     one.lifecycle.unmount();
 
     const many = render(
@@ -156,9 +149,8 @@ describe("panel", () => {
         rows: [rowFixture(), rowFixture({ repo: "acme/gadgets", number: 8, title: "Other" })],
       }),
     );
-    // The repository now shares its line with the age, so match within it.
-    expect(await many.findByText(/^acme\/widgets · /)).toBeInTheDocument();
-    expect(await many.findByText(/^acme\/gadgets · /)).toBeInTheDocument();
+    expect(await many.findByText("acme/widgets")).toBeInTheDocument();
+    expect(await many.findByText("acme/gadgets")).toBeInTheDocument();
   });
 
   it("says so when nothing is assigned, over the panel's own graphic", async () => {
@@ -173,8 +165,6 @@ describe("panel", () => {
     // reads as an empty assignment queue.
     const slot = render(listing({ rows: [], skippedRepos: ["acme/widgets", "acme/gadgets"] }));
     expect(await slot.findByText(/acme\/widgets, acme\/gadgets/)).toBeInTheDocument();
-    // The headline moves with it: "No issues assigned to you" is untrue on a
-    // machine that simply cannot see them.
     expect(
       await slot.findByText(/Nothing from the repositories checked out here/i),
     ).toBeInTheDocument();
@@ -185,7 +175,7 @@ describe("panel", () => {
     expect(await slot.findByText(/Not swept: acme\/gadgets/)).toBeInTheDocument();
   });
 
-  it("surfaces the last sweep error above the table", async () => {
+  it("surfaces the last sweep error above the list", async () => {
     const slot = render(listing({ lastError: "`gh` was not found on PATH." }));
     expect(await slot.findByText(/was not found on PATH/i)).toBeInTheDocument();
     // The stale rows stay visible underneath rather than being replaced.
@@ -205,121 +195,213 @@ describe("panel", () => {
   });
 });
 
-describe("board sections", () => {
-  it("groups by the board's column, in the configured order", async () => {
+describe("tiers", () => {
+  it("opens Now rows, closes Next rows to their number line, and draws Later rows as one line", async () => {
     const slot = render(
       listing({
-        statusOrder: ["Ready for Dev", "Needs Definition", "In Progress", "In Review"],
         rows: [
-          rowFixture({ number: 1, title: "A", boardStatus: "In Review" }),
-          rowFixture({ number: 2, title: "B", boardStatus: "Ready for Dev" }),
-          rowFixture({ number: 3, title: "C", boardStatus: "In Progress" }),
+          rowFixture({ number: 1, title: "Backlog item", boardStatus: "Backlog" }),
+          rowFixture({ number: 2, title: "Ready item" }),
+          nowRow({ number: 3, title: "Working item" }),
         ],
       }),
     );
-    const ready = await slot.findByText(/^Ready for Dev \(1\)$/);
-    const progress = await slot.findByText(/^In Progress \(1\)$/);
-    const review = await slot.findByText(/^In Review \(1\)$/);
-    expect(ready.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(progress.compareDocumentPosition(review) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const now = await rowFor(slot, "Working item");
+    const next = await rowFor(slot, "Ready item");
+    const later = await rowFor(slot, "Backlog item");
+
+    expect(within(now).getByRole("button", { name: "Open thread" })).toBeInTheDocument();
+    expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    expect(within(next).getByText("2 comments")).toBeInTheDocument();
+    expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
+    // One line: the age, and nothing else from the number line.
+    expect(within(later).getByText("3h ago")).toBeInTheDocument();
+    expect(within(later).queryByText("2 comments")).toBeNull();
   });
 
-  it("omits a configured status nothing is in", async () => {
+  it("draws Now, then Next, then Later, whatever order the rows arrive in", async () => {
     const slot = render(
       listing({
-        statusOrder: ["Ready for Dev", "In Progress"],
-        rows: [rowFixture({ boardStatus: "In Progress" })],
+        rows: [
+          rowFixture({ number: 1, title: "Backlog item", boardStatus: "Backlog" }),
+          rowFixture({ number: 2, title: "Ready item" }),
+          rowFixture({ number: 3, title: "Commented item", newComments: 2, boardStatus: "Backlog" }),
+        ],
       }),
     );
-    await slot.findByText(/^In Progress \(1\)$/);
-    expect(slot.queryByText(/^Ready for Dev/)).toBeNull();
+    await slot.findByText("Backlog item");
+    expect(titles(slot)).toEqual(["Commented item", "Ready item", "Backlog item"]);
   });
 
-  it("still shows a status the board has that the setting does not name", async () => {
-    // A new column on the board should appear rather than vanish.
+  it("shows the new comment count, and the stale and blocked flags", async () => {
     const slot = render(
       listing({
-        statusOrder: ["In Progress"],
-        rows: [rowFixture({ boardStatus: "Blocked" })],
+        rows: [
+          rowFixture({ number: 1, title: "Commented", newComments: 3 }),
+          rowFixture({ number: 2, title: "Untouched", updatedAt: Date.now() - 12 * DAY - HOUR }),
+          rowFixture({ number: 3, title: "Waiting on another", blockedBy: 1 }),
+        ],
       }),
     );
-    await slot.findByText(/^Blocked \(1\)$/);
+    expect(await slot.findByText("3 new")).toBeInTheDocument();
+    expect(slot.getByText("No activity for 12 days")).toBeInTheDocument();
+    fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
+    expect(slot.getByText("Blocked by 1 issue")).toBeInTheDocument();
   });
 
-  it("files an issue on no board under its own heading", async () => {
-    const slot = render(
-      listing({ statusOrder: ["In Progress"], rows: [rowFixture({ boardStatus: null })] }),
+  it("shows a sub-issue's parent on its number line", async () => {
+    const parent = { number: 140, title: "Widget export, second pass", url: "https://github.com/acme/widgets/issues/140" };
+    const slot = render(listing({ rows: [rowFixture({ parent })] }));
+    expect(await slot.findByRole("link", { name: "Widget export, second pass" })).toHaveAttribute("href", parent.url);
+  });
+
+  it("folds Later after five rows", async () => {
+    const rows = Array.from({ length: 7 }, (_, index) =>
+      rowFixture({ number: index + 1, title: `Backlog item ${index + 1}`, boardStatus: "Backlog" }),
     );
-    await slot.findByText(/^No board status \(1\)$/);
+    const slot = render(listing({ rows }));
+    expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
+  });
+
+  it("shows a tab of only Later rows as the list, not the empty state", async () => {
+    const rows = Array.from({ length: 7 }, (_, index) =>
+      rowFixture({ number: index + 1, title: `Backlog item ${index + 1}`, boardStatus: "Backlog" }),
+    );
+    const slot = render(listing({ rows }));
+    expect(await slot.findByText("Backlog item 1")).toBeInTheDocument();
+    expect(slot.getByRole("group", { name: "Rows by run" })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "7 later" })).toBeInTheDocument();
+    expect(slot.queryByText(/No issues assigned to you/i)).toBeNull();
+  });
+
+  it("shows a status the stages do not name in place of the track, and still sorts it by the rules", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Ready item" }),
+          nowRow({ number: 2, title: "Stalled item", boardStatus: "Stalled" }),
+        ],
+      }),
+    );
+    const stalled = await rowFor(slot, "Stalled item");
+    expect(within(stalled).getByText("Stalled")).toBeInTheDocument();
+    expect(within(stalled).queryByRole("button", { name: /^Move to/ })).toBeNull();
+    // It has a thread, so it is in Now, above the Next row.
+    expect(titles(slot)).toEqual(["Stalled item", "Ready item"]);
   });
 });
 
-describe("blocked section", () => {
-  it("files a blocked issue last, under its own heading", async () => {
-    const slot = render(
-      listing({
-        statusOrder: ["Ready", "In Progress"],
-        rows: [
-          rowFixture({ number: 1, title: "Ready one", boardStatus: "Ready" }),
-          rowFixture({ number: 2, title: "Blocked one", boardStatus: "Ready", blockedBy: 1 }),
-        ],
-      }),
-    );
+describe("track", () => {
+  it("moves an issue to the stage whose dot was clicked", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing(), {
+      setBoardStatus: (input: unknown) => {
+        calls.push(input);
+        return { ok: true, added: false, error: null };
+      },
+    });
 
-    const headings = (await slot.findAllByRole("heading")).map((node) => node.textContent);
-    expect(headings).toEqual(["Ready (1)", "Blocked (1)"]);
+    fireEvent.click(await slot.findByRole("button", { name: "Move to In Progress" }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    // By name, never by option id: the ids are the board's private node ids.
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "In Progress" });
   });
 
-  it("takes a blocked issue out of its board section", async () => {
-    // The board says where the work stands; the dependency says it cannot
-    // proceed. Leaving it in "In Progress" would overstate what is moving.
-    const slot = render(
-      listing({
-        statusOrder: ["In Progress"],
-        rows: [rowFixture({ boardStatus: "In Progress", blockedBy: 2 })],
-      }),
-    );
-    const headings = (await slot.findAllByRole("heading")).map((node) => node.textContent);
-    expect(headings).toEqual(["Blocked (1)"]);
+  it("marks the row's current stage", async () => {
+    const slot = render(listing());
+    expect(await slot.findByRole("button", { name: "Move to Ready" })).toHaveAttribute("aria-current", "step");
   });
 
-  it("sits below the issues on no board, not just below the board columns", async () => {
-    const slot = render(
-      listing({
-        statusOrder: ["Ready"],
-        rows: [
-          rowFixture({ number: 1, boardStatus: "Ready" }),
-          rowFixture({ number: 2, boardStatus: null }),
-          rowFixture({ number: 3, boardStatus: null, blockedBy: 1 }),
-        ],
-      }),
-    );
-    const headings = (await slot.findAllByRole("heading")).map((node) => node.textContent);
-    expect(headings).toEqual(["Ready (1)", "No board status (1)", "Blocked (1)"]);
+  it("offers to add an issue that is on no board, and sends the picked status", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ onBoard: false, boardStatus: null })] }), {
+      setBoardStatus: (input: unknown) => {
+        calls.push(input);
+        return { ok: true, added: true, error: null };
+      },
+    });
+    expect(await slot.findByText("Add to board")).toBeInTheDocument();
+
+    fireEvent.change(slot.getByLabelText("Board status for #42"), { target: { value: "Ready" } });
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "Ready" });
   });
 
-  it("shows no Blocked section when nothing is blocked", async () => {
-    const slot = render(
-      listing({ statusOrder: ["Ready"], rows: [rowFixture({ boardStatus: "Ready" })] }),
-    );
-    await slot.findByText("Ready (1)");
-    expect(slot.queryByText(/^Blocked/)).toBeNull();
+  it("does not offer to add an issue already on the board with no status", async () => {
+    // Adding it again would be a no-op, and the label would be a lie.
+    const slot = render(listing({ rows: [rowFixture({ onBoard: true, boardStatus: null })] }));
+    expect(await slot.findByText("No status")).toBeInTheDocument();
+    expect(slot.queryByText("Add to board")).toBeNull();
   });
 
-  it("still keeps a board column that only blocked issues carry in the order", async () => {
-    // Otherwise unblocking the issue would move it to a section that has since
-    // lost its configured position and drifted to the end.
-    const slot = render(
-      listing({
-        statusOrder: ["Ready"],
-        rows: [
-          rowFixture({ number: 1, boardStatus: "Ready" }),
-          rowFixture({ number: 2, boardStatus: "In Review", blockedBy: 1 }),
-        ],
-      }),
-    );
-    const headings = (await slot.findAllByRole("heading")).map((node) => node.textContent);
-    expect(headings).toEqual(["Ready (1)", "Blocked (1)"]);
+  it("falls back to plain text when the board could not be read", async () => {
+    const slot = render(listing({ statusOptions: [], rows: [rowFixture({ onBoard: false, boardStatus: null })] }));
+    expect(await slot.findByText("Add to board")).toBeInTheDocument();
+    expect(slot.queryByLabelText("Board status for #42")).toBeNull();
+  });
+});
+
+describe("notes", () => {
+  it("shows the note in an open row", async () => {
+    const slot = render(listing({ rows: [nowRow({ note: "Ask hubber about the resize case" })] }));
+    expect(await slot.findByText("Ask hubber about the resize case")).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "Edit note" })).toBeInTheDocument();
+  });
+
+  it("saves an edited note for that row, then reloads the listing", async () => {
+    const calls: unknown[] = [];
+    let loads = 0;
+    const slot = render(listing(), {
+      listRows: () => {
+        loads += 1;
+        return listing({ rows: [nowRow()] });
+      },
+      setNote: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Add note" }));
+    const field = slot.getByRole("textbox", { name: "Note" });
+    fireEvent.change(field, { target: { value: "  Reply to octocat  " } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Reply to octocat" });
+    await waitFor(() => expect(loads).toBe(2));
+    await waitFor(() => expect(slot.queryByRole("textbox", { name: "Note" })).toBeNull());
+  });
+});
+
+describe("seen comments", () => {
+  it("marks the issue seen when its title is clicked", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ newComments: 2 })] }), {
+      markSeen: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+    const link = await slot.findByRole("link", { name: /Widget rotation/ });
+    // jsdom cannot follow a link, and says so loudly.
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+
+  it("marks the issue seen when its thread is opened", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow({ newComments: 2 })] }), {
+      markSeen: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 });
 
@@ -354,8 +436,8 @@ describe("sidebar badge", () => {
   });
 
   it("leaves out a blocked issue that would otherwise count", async () => {
-    // Its row is filed under Blocked, not under In Progress, so counting it
-    // would put a number on the badge no visible section accounts for.
+    // Nobody can start it, and its row is filed in Later, so it is not on
+    // you right now.
     const slot = renderBadge(
       listing({
         countedStatuses: ["In Progress"],
@@ -399,182 +481,104 @@ const SEED = {
 };
 
 describe("thread action", () => {
+  /** Opens every row, so a Next row shows its action line. */
+  async function expanded(slot: Slot) {
+    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    return slot;
+  }
+
   it("offers to start a thread when the issue has none", async () => {
-    const slot = render(listing());
-    expect(await slot.findByRole("button", { name: /^Start a thread for #/ })).toBeEnabled();
+    const slot = await expanded(render(listing()));
+    expect(slot.getByRole("button", { name: "Start thread" })).toBeEnabled();
   });
 
   it("offers to open the thread once one exists", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    expect(await slot.findByRole("button", { name: /^Open the thread for #/ })).toBeInTheDocument();
-    expect(slot.queryByRole("button", { name: /^Start a thread for #/ })).toBeNull();
+    const slot = render(listing({ rows: [nowRow()] }));
+    expect(await slot.findByRole("button", { name: "Open thread" })).toBeInTheDocument();
+    expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
   });
 
   it("will not offer to start one for a repository with no checkout", async () => {
     // The spawn would fail on the server; a disabled button says so up front.
-    const slot = render(listing({ rows: [rowFixture({ canSpawn: false })] }));
-    expect(await slot.findByRole("button", { name: /^Start a thread for #/ })).toBeDisabled();
+    const slot = await expanded(render(listing({ rows: [rowFixture({ canSpawn: false })] })));
+    expect(slot.getByRole("button", { name: "No project here" })).toBeDisabled();
   });
 
   it("asks for a draft for the issue that was clicked", async () => {
-    // Start no longer spawns. It fetches the seeds and opens BB's composer,
-    // so the assertion is about which row the seeds were asked for.
     const calls: unknown[] = [];
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, title: "First" }),
-          rowFixture({ number: 2, title: "Second" }),
-        ],
-      }),
-      {
-        startThreadDraft: (input: unknown) => {
-          calls.push(input);
-          return { existingThreadId: null, reason: null, seed: SEED };
+    const slot = await expanded(
+      render(
+        listing({
+          rows: [
+            rowFixture({ number: 1, title: "First", updatedAt: Date.now() - HOUR }),
+            rowFixture({ number: 2, title: "Second", updatedAt: Date.now() - 2 * HOUR }),
+          ],
+        }),
+        {
+          startThreadDraft: (input: unknown) => {
+            calls.push(input);
+            return { existingThreadId: null, reason: null, seed: SEED };
+          },
         },
-      },
+      ),
     );
 
-    const buttons = await slot.findAllByRole("button", { name: /^Start a thread for #/ });
-    fireEvent.click(buttons[1]!);
+    fireEvent.click(within(await rowFor(slot, "Second")).getByRole("button", { name: "Start thread" }));
 
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 2 });
   });
 
   it("opens the composer naming the issue, rather than spawning", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ number: 7, title: "Second" })] }),
-      {
-        startThreadDraft: () => ({
-          existingThreadId: null,
-          reason: null,
-          seed: SEED,
-        }),
-      },
+    const slot = await expanded(
+      render(listing({ rows: [rowFixture({ number: 7, title: "Second" })] }), {
+        startThreadDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
+      }),
     );
 
-    fireEvent.click(await slot.findByRole("button", { name: /^Start a thread for #/ }));
+    fireEvent.click(slot.getByRole("button", { name: "Start thread" }));
 
     expect(await slot.findByText("Start a thread for #7")).toBeInTheDocument();
   });
 
   it("refuses without opening the composer when the server says why", async () => {
-    const slot = render(listing(), {
-      startThreadDraft: () => ({
-        existingThreadId: null,
-        reason: "No bb project is checked out for acme/widgets.",
-        seed: null,
+    const slot = await expanded(
+      render(listing(), {
+        startThreadDraft: () => ({
+          existingThreadId: null,
+          reason: "No bb project is checked out for acme/widgets.",
+          seed: null,
+        }),
       }),
-    });
-
-    fireEvent.click(await slot.findByRole("button", { name: /^Start a thread for #/ }));
-
-    await waitFor(() =>
-      expect(slot.queryByText(/^Start a thread for/)).toBeNull(),
     );
+
+    fireEvent.click(slot.getByRole("button", { name: "Start thread" }));
+
+    await waitFor(() => expect(slot.queryByText(/^Start a thread for/)).toBeNull());
   });
 
   it("disables the button while the draft is in flight", async () => {
     // A second click before the first returns is how two threads got created
     // for one row in pr-sweep.
     let release: (() => void) | null = null;
-    const slot = render(listing(), {
-      startThreadDraft: () =>
-        new Promise((resolve) => {
-          release = () =>
-            resolve({ existingThreadId: null, reason: null, seed: SEED });
-        }),
-    });
-
-    const button = await slot.findByRole("button", { name: /^Start a thread for #/ });
-    fireEvent.click(button);
-
-    await waitFor(() =>
-      expect(slot.getByRole("button", { name: "Starting…" })).toBeDisabled(),
+    const slot = await expanded(
+      render(listing(), {
+        startThreadDraft: () =>
+          new Promise((resolve) => {
+            release = () => resolve({ existingThreadId: null, reason: null, seed: SEED });
+          }),
+      }),
     );
+
+    fireEvent.click(slot.getByRole("button", { name: "Start thread" }));
+
+    await waitFor(() => expect(slot.getByRole("button", { name: "Starting…" })).toBeDisabled());
     release?.();
   });
 
-  it("keeps the age line, which the action column replaced", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    await slot.findByRole("button", { name: /^Open the thread for #/ });
-    expect(slot.getByText(/3h ago/)).toBeInTheDocument();
-  });
-});
-
-const OPTIONS = ["Backlog", "Ready", "In Progress", "In Review"];
-
-describe("status column", () => {
-  it("offers the board's own options, in the board's order", async () => {
-    const slot = render(
-      listing({ statusOptions: OPTIONS, rows: [rowFixture({ boardStatus: "Ready", onBoard: true })] }),
-    );
-    const picker = (await slot.findByLabelText("Board status for #42")) as HTMLSelectElement;
-    expect(picker.value).toBe("Ready");
-    // The placeholder leads, then the board's options untouched.
-    expect([...picker.options].slice(1).map((option) => option.text)).toEqual(OPTIONS);
-  });
-
-  it("offers to add an issue that is on no board", async () => {
-    const slot = render(
-      listing({ statusOptions: OPTIONS, rows: [rowFixture({ onBoard: false, boardStatus: null })] }),
-    );
-    expect(await slot.findByText("Add to board")).toBeInTheDocument();
-  });
-
-  it("does not offer to add an issue already on the board with no status", async () => {
-    // Adding it again would be a no-op, and the label would be a lie.
-    const slot = render(
-      listing({ statusOptions: OPTIONS, rows: [rowFixture({ onBoard: true, boardStatus: null })] }),
-    );
-    expect(await slot.findByText("No status")).toBeInTheDocument();
-    expect(slot.queryByText("Add to board")).toBeNull();
-  });
-
-  it("keeps showing a status the board no longer offers", async () => {
-    // Otherwise the picker selects nothing and the row reads as unfiled.
-    const slot = render(
-      listing({
-        statusOptions: OPTIONS,
-        rows: [rowFixture({ boardStatus: "Retired column", onBoard: true })],
-      }),
-    );
-    const picker = (await slot.findByLabelText("Board status for #42")) as HTMLSelectElement;
-    expect(picker.value).toBe("Retired column");
-  });
-
-  it("falls back to plain text when the board could not be read", async () => {
-    // No options means no picker, but the status is still worth showing.
-    const slot = render(
-      listing({ statusOptions: [], rows: [rowFixture({ boardStatus: "Ready", onBoard: true })] }),
-    );
-    await slot.findByText("Ready");
-    expect(slot.queryByLabelText("Board status for #42")).toBeNull();
-  });
-
-  it("sends the picked status, by name, for that row", async () => {
-    const calls: unknown[] = [];
-    const slot = render(
-      listing({
-        statusOptions: OPTIONS,
-        rows: [rowFixture({ number: 42, boardStatus: "Backlog", onBoard: true })],
-      }),
-      {
-        setBoardStatus: (input: unknown) => {
-          calls.push(input);
-          return { ok: true, added: false, error: null };
-        },
-      },
-    );
-
-    const picker = (await slot.findByLabelText("Board status for #42")) as HTMLSelectElement;
-    fireEvent.change(picker, { target: { value: "In Review" } });
-
-    await waitFor(() => expect(calls).toHaveLength(1));
-    // By name, never by option id: the ids are the board's private node ids
-    // and the panel never sees them.
-    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "In Review" });
+  it("copies the issue's link from the action line", async () => {
+    const slot = render(listing({ rows: [nowRow()] }));
+    expect(await slot.findByRole("button", { name: "Copy link" })).toBeInTheDocument();
   });
 });
 
@@ -617,45 +621,33 @@ describe("sync header", () => {
 
 
 describe("harvest", () => {
-  const available = (extra: Record<string, unknown> = {}) =>
-    listing({ harvest: { available: true, running: null, ...extra } });
+  const available = (extra: Record<string, unknown> = {}, rows = [nowRow()]) =>
+    listing({ rows, harvest: { available: true, running: null, ...extra } });
 
   it("offers no clock when the Harvest plugin is not installed", async () => {
-    const slot = render(listing());
-    await slot.findByRole("link", { name: /Widget rotation drifts/i });
+    const slot = render(listing({ rows: [nowRow()] }));
+    await slot.findByRole("button", { name: "Open thread" });
 
     // Issue Sweep has to stay fully useful with no Harvest plugin present.
     expect(slot.queryByRole("button", { name: /track time/i })).toBeNull();
   });
 
-  it("offers a clock on each row when Harvest is available", async () => {
+  it("offers a clock on an open row when Harvest is available", async () => {
     const slot = render(available(), HARVEST_RPC);
     expect(await slot.findByRole("button", { name: /track time for #42/i })).toBeTruthy();
   });
 
-  it("names the issue in the clock's label, since the row has many controls", async () => {
-    const slot = render(available(), HARVEST_RPC);
-    const clock = await slot.findByRole("button", { name: /track time for #42/i });
-    expect(clock.getAttribute("aria-label")).toContain("#42");
-  });
-
   it("marks the row whose timer is running", async () => {
-    const slot = render(
-      listing({
-        harvest: { available: true, running: { externalId: "42", groupId: "widgets" } },
-      }),
-      HARVEST_RPC,
-    );
-
+    const slot = render(available({ running: { externalId: "42", groupId: "widgets" } }), HARVEST_RPC);
     expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
   });
 
   it("leaves other rows unmarked when a timer runs on one of them", async () => {
     const slot = render(
-      listing({
-        rows: [rowFixture(), rowFixture({ number: 43, title: "Another issue" })],
-        harvest: { available: true, running: { externalId: "42", groupId: "widgets" } },
-      }),
+      available({ running: { externalId: "42", groupId: "widgets" } }, [
+        nowRow(),
+        nowRow({ number: 43, title: "Another issue", threadId: "thr_2" }),
+      ]),
       HARVEST_RPC,
     );
 
@@ -666,14 +658,9 @@ describe("harvest", () => {
   it("does not mark a row when the running timer is for the same number in another repo", async () => {
     // Harvest can only filter references by id, so the group has to be part
     // of the comparison or every repo's #42 would light up together.
-    const slot = render(
-      listing({
-        harvest: { available: true, running: { externalId: "42", groupId: "other-repo" } },
-      }),
-      HARVEST_RPC,
-    );
+    const slot = render(available({ running: { externalId: "42", groupId: "other-repo" } }), HARVEST_RPC);
 
-    await slot.findByRole("link", { name: /Widget rotation drifts/i });
+    await slot.findByRole("button", { name: /track time for #42/i });
     expect(slot.queryByRole("button", { name: /timer running/i })).toBeNull();
   });
 });

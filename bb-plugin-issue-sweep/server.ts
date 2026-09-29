@@ -33,6 +33,7 @@ import {
   type RepoFilter,
 } from "./issues/spawn-target.js";
 import { MIGRATIONS, createStore } from "./issues/store.js";
+import { parseStaleAfterDays } from "./issues/tiers.js";
 import type { IssueRow } from "./issues/types.js";
 
 export { rpcContract };
@@ -60,15 +61,18 @@ export default async function plugin(bb: BbPluginApi) {
       // the rest ignored. Blank takes the first status found anywhere.
       default: "",
     },
-    statusOrder: {
+    boardStages: {
       type: "string",
-      label: "Status order",
-      // The order the board's columns are listed in. A status the board
-      // reports that is not named here still gets a section, after these, so a
-      // new column shows up rather than vanishing.
-      // In Review last of the four: the work is out of your hands there, so
-      // it sits below the Backlog you could actually pick something up from.
-      default: "Ready,In Progress,Backlog,In Review",
+      label: "Board stages, in order",
+      // The track drawn on every row, one column per status. A status the
+      // board has that is not named here shows its name in place of the track.
+      default: "Backlog,Ready,In Progress,In Review",
+    },
+    staleAfterDays: {
+      type: "string",
+      label: "Stale after (days)",
+      // A counted issue untouched for this long moves up into Now, flagged.
+      default: "7",
     },
     ghPath: {
       type: "string",
@@ -276,6 +280,9 @@ export default async function plugin(bb: BbPluginApi) {
         await repoFilter(),
       );
       store.replaceAll(result);
+      // Every row's count on first sight, so a row is never "N new" just
+      // because this is the first sweep to list it.
+      store.recordFirstSeen(result.rows, result.sweptAt);
       // Before the publish, so the panel's reload finds the options already
       // there and renders pickers on its first paint rather than its second.
       await warmBoards(result.rows);
@@ -591,8 +598,11 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     async listRows() {
       const meta = store.readMeta();
-      const { statusOrder, projectBoard, countedStatuses } = await settings.get();
+      const { boardStages, staleAfterDays, statusOnPullRequest, projectBoard, countedStatuses } =
+        await settings.get();
       const rows = store.readRows();
+      const notes = store.notes();
+      const seen = store.seenCounts();
 
       let candidates: ProjectCandidate[] = [];
       try {
@@ -613,20 +623,32 @@ export default async function plugin(bb: BbPluginApi) {
       }
 
       return {
-        // The panel groups by status but must not invent the order; the board's
-        // columns are the user's, so their order is a setting.
-        statusOrder: parseStatusOrder(statusOrder),
-        // Offered options come from the board, not from statusOrder: that
+        // The board's columns are the user's, so the track's order is a
+        // setting rather than something the panel invents.
+        boardStages: parseStatusOrder(boardStages),
+        staleAfterDays: parseStaleAfterDays(staleAfterDays),
+        reviewStatus: statusOnPullRequest.trim(),
+        // Offered options come from the board, not from boardStages: that
         // setting is a display preference and can name a column that does not
         // exist, and the picker must only offer what `item-edit` will accept.
         statusOptions: statusOptionsFor(rows),
         countedStatuses: parseStatusOrder(countedStatuses),
         boardName: projectBoard,
-        rows: rows.map((row) => ({
-          ...row,
-          canSpawn: threadMap !== null && spawnable.has(row.repo),
-          threadId: threadMap?.get(`${row.repo}#${row.number}`)?.[0] ?? null,
-        })),
+        rows: rows.map((row) => {
+          const key = `${row.repo}#${row.number}`;
+          // No record yet reads as nothing new: the sweep records the count on
+          // first sight, and until it has, every comment is one already there.
+          // Floored at zero, since deleted comments can drop the count.
+          const seenCount = seen.get(key);
+          return {
+            ...row,
+            parent: row.parent ?? null,
+            note: notes.get(key) ?? null,
+            newComments: seenCount === undefined ? 0 : Math.max(0, row.commentsCount - seenCount),
+            canSpawn: threadMap !== null && spawnable.has(row.repo),
+            threadId: threadMap?.get(key)?.[0] ?? null,
+          };
+        }),
         sweptAt: meta.sweptAt,
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
@@ -720,12 +742,19 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
+        const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
+        // Starting or reopening the thread is reading the issue, so its new
+        // comments are no longer new.
+        const markSeen = () => {
+          if (row) store.markSeen(repo, number, row.commentsCount, Date.now());
+        };
+
         const existingThreadId = await links.threadFor(repo, number);
         if (existingThreadId) {
+          markSeen();
           return { threadId: existingThreadId, existing: true, reason: null };
         }
 
-        const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
         if (!row) {
           return { threadId: null, existing: false, reason: `#${number} is no longer in the sweep.` };
         }
@@ -750,6 +779,7 @@ export default async function plugin(bb: BbPluginApi) {
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
         await links.link(repo, number, thread.id, "spawned");
+        markSeen();
 
         // Starting work is the one moment the plugin knows more than the board
         // does, so it says so. After the spawn deliberately: a board that
@@ -767,6 +797,18 @@ export default async function plugin(bb: BbPluginApi) {
       } finally {
         spawning.delete(key);
       }
+    },
+
+    setNote({ repo, number, body }) {
+      store.setNote(repo, number, body, Date.now());
+      return { ok: true };
+    },
+
+    markSeen({ repo, number }) {
+      const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
+      if (!row) return { ok: false };
+      store.markSeen(repo, number, row.commentsCount, Date.now());
+      return { ok: true };
     },
 
     async setBoardStatus({ repo, number, status }) {
