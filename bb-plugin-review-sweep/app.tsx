@@ -317,7 +317,9 @@ function NeedsReviewCount() {
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };
   const overdue = rows.filter((row) => runOf(row, inputs) === "overdue").length;
   return (
-    <span className="flex items-center gap-1.5 text-xs tabular-nums">
+    // The total gets the same 20px centered box bb gives a lone count, so it
+    // lines up with the other rows' counts when the circle is beside it.
+    <span className="flex items-center justify-end gap-0.5 text-xs tabular-nums">
       {overdue === 0 ? null : (
         <span
           title={`${overdue} waiting too long`}
@@ -326,7 +328,7 @@ function NeedsReviewCount() {
           {overdue}
         </span>
       )}
-      <span title={`${rows.length} to review`} className="text-muted-foreground">
+      <span title={`${rows.length} to review`} className="inline-block min-w-5 text-center text-muted-foreground">
         {rows.length}
       </span>
     </span>
