@@ -315,6 +315,9 @@ export function classifyOne(
     unresolvedThreads: 0,
     outdatedThreads: 0,
     awaitingReReview,
+    // Zero for a missing or unreadable date, which the listing reads as unknown.
+    updatedAt: Date.parse(pr.updatedAt ?? "") || 0,
+    commentsCount: pr.comments?.length ?? 0,
   };
 }
 

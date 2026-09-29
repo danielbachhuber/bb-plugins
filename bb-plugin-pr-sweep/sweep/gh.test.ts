@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REPO_SLUG_PATTERN, discoverRepos, fetchRepoPullRequests, runSweep } from "./gh.js";
+import { PR_LIST_FIELDS, REPO_SLUG_PATTERN, discoverRepos, fetchRepoPullRequests, runSweep } from "./gh.js";
 import type { GhRunner } from "./gh.js";
 import { makePr } from "./fixtures.js";
 
@@ -175,3 +175,10 @@ describe("runSweep repository filter", () => {
   });
 });
 
+
+describe("PR_LIST_FIELDS", () => {
+  it("asks for updatedAt, which the stale rule reads, in the call the sweep already makes", () => {
+    expect(PR_LIST_FIELDS.split(",")).toContain("updatedAt");
+    expect(PR_LIST_FIELDS.split(",")).toContain("comments");
+  });
+});

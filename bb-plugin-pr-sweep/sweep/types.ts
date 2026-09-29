@@ -70,6 +70,13 @@ export interface ClassifiedRow {
   notedBy: string[];
   /** Answered and re-requested: the ball is in the reviewer's court. */
   awaitingReReview: boolean;
+  /**
+   * When GitHub last saw activity, in milliseconds. Optional because rows
+   * stored before the field existed lack it until the next sweep.
+   */
+  updatedAt?: number;
+  /** How many general comments the pull request has, for "N new". Optional for the same reason. */
+  commentsCount?: number;
 }
 
 /** The subset of `gh pr list --json` output this plugin reads. */
@@ -91,6 +98,7 @@ export interface RawPullRequest {
   reviews: Array<{ state: string; author?: { login: string } | null; body?: string | null }>;
   reviewDecision: string | null;
   comments?: Array<{ author?: { login: string } | null; createdAt?: string }> | null;
+  updatedAt?: string;
   statusCheckRollup: Array<{
     __typename?: string;
     name?: string;

@@ -66,6 +66,24 @@ export const MIGRATIONS = [
   // what was recorded, and the flag is the best account of them there is.
   `UPDATE pr_thread_links SET reasons = json_array(reason)
      WHERE reasons IS NULL AND reason IS NOT NULL`,
+  // The local next-step note on a row. Kept apart from `rows`, which each
+  // sweep replaces wholesale, and never sent to GitHub.
+  `CREATE TABLE IF NOT EXISTS notes (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     body TEXT NOT NULL,
+     updated_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
+  // The comment count when a pull request was last opened from the panel, so
+  // the row can say how many are new since.
+  `CREATE TABLE IF NOT EXISTS seen (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     comments INTEGER NOT NULL,
+     seen_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
 ];
 
 export interface SweepMeta {
@@ -102,6 +120,20 @@ export interface Store {
   legacyThreadLinks(): Array<{ repo: string; number: number; threadId: string; createdAt: number }>;
   /** Drops the legacy link and scan tables once gh-context holds their rows. */
   dropLegacyThreadLinks(): void;
+  /** Every note, keyed `repo#number`. */
+  notes(): Map<string, string>;
+  /** Saves a note. Empty or blank text deletes it instead. */
+  setNote(repo: string, number: number, body: string, now: number): void;
+  /** The comment count each pull request was last seen at, keyed `repo#number`. */
+  seenCounts(): Map<string, number>;
+  /**
+   * Records the current count for every row not seen before, and leaves the
+   * rest alone. Run on every sweep, so a pull request is never "new" merely
+   * because this is the first sweep to list it.
+   */
+  recordFirstSeen(rows: readonly ClassifiedRow[], now: number): void;
+  /** Records the count a pull request has now, when it is opened from the panel. */
+  markSeen(repo: string, number: number, comments: number, now: number): void;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -126,6 +158,24 @@ export function createStore(db: DatabaseLike): Store {
      VALUES (1, NULL, '[]', '[]', 0, ?)
      ON CONFLICT(id) DO UPDATE SET last_error = excluded.last_error`,
   );
+
+  const selectNotes = db.prepare(`SELECT repo, number, body FROM notes`);
+  const upsertNote = db.prepare(
+    `INSERT INTO notes (repo, number, body, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+  );
+  const deleteNote = db.prepare(`DELETE FROM notes WHERE repo = ? AND number = ?`);
+  const selectSeen = db.prepare(`SELECT repo, number, comments FROM seen`);
+  const insertSeen = db.prepare(
+    `INSERT OR IGNORE INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)`,
+  );
+  const upsertSeen = db.prepare(
+    `INSERT INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET comments = excluded.comments, seen_at = excluded.seen_at`,
+  );
+  const writeFirstSeen = db.transaction(((rows: readonly ClassifiedRow[], now: number) => {
+    for (const row of rows) insertSeen.run(row.repo, row.number, row.commentsCount ?? 0, now);
+  }) as (rows: readonly ClassifiedRow[], now: number) => void);
 
   function hasTable(name: string): boolean {
     return (
@@ -232,6 +282,30 @@ export function createStore(db: DatabaseLike): Store {
       db.exec(`DROP TABLE IF EXISTS pr_thread_links`);
       db.exec(`DROP TABLE IF EXISTS pr_threads`);
       db.exec(`DROP TABLE IF EXISTS thread_scan`);
+    },
+
+    notes() {
+      const rows = selectNotes.all() as Array<{ repo: string; number: number; body: string }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.body]));
+    },
+
+    setNote(repo, number, body, now) {
+      const trimmed = body.trim();
+      if (trimmed === "") deleteNote.run(repo, number);
+      else upsertNote.run(repo, number, trimmed, now);
+    },
+
+    seenCounts() {
+      const rows = selectSeen.all() as Array<{ repo: string; number: number; comments: number }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.comments]));
+    },
+
+    recordFirstSeen(rows, now) {
+      writeFirstSeen(rows, now);
+    },
+
+    markSeen(repo, number, comments, now) {
+      upsertSeen.run(repo, number, comments, now);
     },
   };
 }

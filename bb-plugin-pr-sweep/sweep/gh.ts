@@ -20,6 +20,8 @@ export const PR_LIST_FIELDS = [
   // Who spoke last: an approved PR whose newest comment is not the author's is
   // usually waiting on a reply, and that is invisible in the review states.
   "comments",
+  // How long a pull request has sat with its reviewers, for the stale flag.
+  "updatedAt",
 ].join(",");
 
 const SEARCH_LIMIT = 100;

@@ -563,3 +563,16 @@ describe("reviewNotes", () => {
     expect(reviewNotes(raw)).toEqual(["hubber"]);
   });
 });
+
+describe("activity", () => {
+  it("carries when the pull request was last updated, in milliseconds", () => {
+    const row = classifyOne(makePr({ updatedAt: "2026-09-20T12:00:00Z" }), "acme/widgets");
+    expect(row.updatedAt).toBe(Date.parse("2026-09-20T12:00:00Z"));
+  });
+
+  it("counts its comments, for the seen count", () => {
+    const comments = [{ author: { login: "hubber" } }, { author: { login: "octocat" } }];
+    expect(classifyOne(makePr({ comments }), "acme/widgets").commentsCount).toBe(2);
+    expect(classifyOne(makePr({ comments: null }), "acme/widgets").commentsCount).toBe(0);
+  });
+});
