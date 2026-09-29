@@ -110,6 +110,11 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
+/** Opens every closed row from its chevron. */
+async function expandAll(slot: Slot) {
+  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
+}
+
 /** The list item holding a title, so a query can stay inside one row. */
 async function rowFor(slot: Slot, title: RegExp | string) {
   const link = await slot.findByRole("link", { name: title });
@@ -257,7 +262,7 @@ describe("tiers", () => {
 
   it("flags a pull request left awaiting review past the setting as stale", async () => {
     const slot = render(listing({ rows: [waitingRow({ updatedAt: Date.now() - 5 * DAY - HOUR })] }));
-    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     expect(slot.getByText("Waiting 5 days")).toBeInTheDocument();
   });
 
@@ -292,7 +297,7 @@ describe("track", () => {
     return row.querySelector("span[title] > span.size-3.rounded-full")?.parentElement?.getAttribute("title") ?? null;
   }
 
-  it("names its stages in the header", async () => {
+  it("names its stages under the track", async () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
     for (const stage of ["Draft", "Checks", "Review", "Mergeable"]) {
@@ -436,7 +441,7 @@ describe("thread action", () => {
 
   it("offers no start on a row only waiting for a run to finish", async () => {
     const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"], group: "needs-action" })] }));
-    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
   });
 

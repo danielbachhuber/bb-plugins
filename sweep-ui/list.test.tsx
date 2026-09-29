@@ -39,7 +39,6 @@ function item(number: number, runId: string, overrides: Partial<SweepItem> = {})
 
 function props(items: SweepItem[], overrides: Partial<SweepListProps> = {}): SweepListProps {
   return {
-    noun: "issues",
     stages: STAGES,
     runs: RUNS,
     items,
@@ -75,13 +74,10 @@ describe("SweepList", () => {
     expect(screen.queryByRole("button", { name: /more$/ })).toBeNull();
   });
 
-  it("opens every row from Expand all, which then reads Collapse all", () => {
+  it("draws no header: no row count and no Expand all", () => {
     render(<SweepList {...props([item(1, "new"), item(2, "to-start"), ...later(2)])} />);
-    expect(screen.getByText("4 issues")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
-    expect(screen.getAllByRole("button", { name: "Start thread" })).toHaveLength(4);
-    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
-    expect(screen.getAllByRole("button", { name: "Start thread" })).toHaveLength(1);
+    expect(screen.queryByText("4 issues")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Expand|Collapse) all$/ })).toBeNull();
   });
 
   it("filters to a run from the summary, and clears on a second press", () => {
@@ -184,10 +180,6 @@ describe("SweepList", () => {
     }
     expect(within(row("Widget task 3")).queryByRole("button", { name: "Start thread" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
-    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
-    expect(within(row("Widget task 1")).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
-    expect(within(row("Widget task 2")).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
   });
 
   it("shows a one-line Later row's first flag in place of its first fact, in the flag's color", () => {
@@ -203,5 +195,68 @@ describe("SweepList", () => {
     expect(within(flagged).getByText("No activity for 9 days")).toHaveClass("text-destructive-text");
     expect(within(flagged).queryByText("3d ago")).toBeNull();
     expect(within(row("Widget task 2")).getByText("5h ago")).toBeInTheDocument();
+  });
+
+  it("names the stages under every row's track, and marks a blocked stage", () => {
+    render(<SweepList {...props([item(1, "new", { stage: 1, blockedStage: 2 }), item(2, "to-start")])} />);
+    expect(within(row("Widget task 1")).getByText("Ready")).toHaveClass("text-foreground");
+    expect(within(row("Widget task 1")).getByLabelText("Blocked at In progress")).toBeInTheDocument();
+    expect(within(row("Widget task 2")).getByText("Backlog")).toHaveClass("text-foreground");
+    expect(within(row("Widget task 2")).queryByLabelText(/^Blocked at/)).toBeNull();
+  });
+
+  describe("with renderBody", () => {
+    const body = (subject: SweepItem, open: boolean, line: boolean) => (
+      <span data-testid={`body-${subject.number}`}>{`body ${open ? "open" : "closed"}${line ? " line" : ""}`}</span>
+    );
+    const icon = <span data-testid="state-icon" />;
+
+    it("draws the icon, title, number, new count, and age on the title line, then the body, then the note and actions when open", () => {
+      render(
+        <SweepList
+          {...props(
+            [item(1, "new", { icon, newComments: 2, facts: ["2h ago", "acme/gadgets"], note: "Ask about the hinge" })],
+            { renderBody: body },
+          )}
+        />,
+      );
+      const open = row("Widget task 1");
+      expect(within(open).getByTestId("state-icon")).toBeInTheDocument();
+      expect(within(open).getByText("#1")).toBeInTheDocument();
+      expect(within(open).getByText("2 new")).toBeInTheDocument();
+      expect(within(open).getByText("2h ago")).toBeInTheDocument();
+      // The rest of the facts are the body's to draw.
+      expect(within(open).queryByText("acme/gadgets")).toBeNull();
+      expect(within(open).getByText("body open")).toBeInTheDocument();
+      expect(within(open).getByText("Ask about the hinge")).toBeInTheDocument();
+      expect(within(open).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+      expect(within(open).getByRole("button", { name: "Edit note" })).toBeInTheDocument();
+      // The body comes after the title line and before the note.
+      const text = open.textContent ?? "";
+      expect(text.indexOf("2h ago")).toBeLessThan(text.indexOf("body open"));
+      expect(text.indexOf("body open")).toBeLessThan(text.indexOf("Ask about the hinge"));
+    });
+
+    it("draws a closed Next row's body without its note or actions", () => {
+      render(<SweepList {...props([item(2, "to-start", { note: "Later" })], { renderBody: body })} />);
+      const closed = row("Widget task 2");
+      expect(within(closed).getByText("body closed")).toBeInTheDocument();
+      expect(within(closed).queryByText("Later")).toBeNull();
+      expect(within(closed).queryByRole("button", { name: "Start thread" })).toBeNull();
+    });
+
+    it("draws a one-line Later row's body inline in place of its first fact", () => {
+      render(<SweepList {...props([item(3, "later", { icon, facts: ["5h ago"] })], { renderBody: body })} />);
+      const line = row("Widget task 3");
+      expect(within(line).getByTestId("state-icon")).toBeInTheDocument();
+      expect(within(line).getByText("#3")).toBeInTheDocument();
+      expect(within(line).getByText("body closed line")).toBeInTheDocument();
+      expect(within(line).queryByText("5h ago")).toBeNull();
+    });
+
+    it("leaves rows without renderBody drawn with their number line", () => {
+      render(<SweepList {...props([item(4, "new", { facts: ["3h ago", "acme/gadgets"] })])} />);
+      expect(within(row("Widget task 4")).getByText("acme/gadgets")).toBeInTheDocument();
+    });
   });
 });

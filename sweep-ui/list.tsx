@@ -6,14 +6,11 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Icon } from "./icons";
 import { SweepRow, type SweepLinkProps } from "./row";
 import { SummarySquares } from "./summary";
-import { TrackHeader } from "./track";
 import type { Run, Stage, SweepItem, Tier } from "./types";
 
 export type { SweepLinkProps };
 
 export interface SweepListProps {
-  /** "issues", used as "29 issues". */
-  noun: string;
   stages: Stage[];
   /** In list order; each item's tier comes from its run. */
   runs: Run[];
@@ -36,12 +33,19 @@ export interface SweepListProps {
   laterShown?: number;
   /** Rows dimmed while a request for them runs. */
   busyKeys?: ReadonlySet<string>;
+  /**
+   * Draws the row's body under its title line, in place of the number line:
+   * the title line keeps the icon, title, number, "N new", and the first fact
+   * as the age, and an open row adds the note and actions after the body. On a
+   * one-line Later row it is drawn inline, with `line` true, where the first
+   * fact would be. Without it, rows draw their number line.
+   */
+  renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
 }
 
 const TIERS: Tier[] = ["now", "next", "later"];
 
 export function SweepList({
-  noun,
   stages,
   runs,
   items,
@@ -52,9 +56,9 @@ export function SweepList({
   Link,
   laterShown = 5,
   busyKeys,
+  renderBody,
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   // Rows opened or closed by hand. Open state lives only as long as the panel.
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [showAllLater, setShowAllLater] = useState(false);
@@ -79,13 +83,8 @@ export function SweepList({
   const fold = active === null && !showAllLater && later.length > laterShown;
   const visibleLater = fold ? later.slice(0, laterShown) : later;
 
-  const setAll = (open: boolean) => {
-    setExpanded(open);
-    setToggled({});
-  };
-
   const rowFor = (item: SweepItem, tier: Tier) => {
-    const open = item.forceOpen === true || (toggled[item.key] ?? (expanded || tier === "now"));
+    const open = item.forceOpen === true || (toggled[item.key] ?? tier === "now");
     return (
       <SweepRow
         key={item.key}
@@ -107,6 +106,7 @@ export function SweepList({
         }}
         onNoteCancel={() => setEditing(null)}
         busy={busyKeys?.has(item.key) ?? false}
+        renderBody={renderBody}
       />
     );
   };
@@ -114,43 +114,23 @@ export function SweepList({
   return (
     <div className="space-y-3">
       <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
-      <div>
-        <TrackHeader
-          stages={stages}
-          label={
-            <>
-              <span>
-                {items.length} {noun}
-              </span>
-              <button
-                type="button"
-                onClick={() => setAll(!expanded)}
-                className="inline-flex items-center gap-1 rounded px-1 font-normal hover:bg-accent hover:text-foreground"
-              >
-                <Icon name={expanded ? "ChevronRight" : "ChevronDown"} className="size-3" />
-                {expanded ? "Collapse all" : "Expand all"}
-              </button>
-            </>
-          }
-        />
-        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-          {now.map((item) => rowFor(item, "now"))}
-          {next.map((item) => rowFor(item, "next"))}
-          {visibleLater.map((item) => rowFor(item, "later"))}
-          {fold ? (
-            <li>
-              <button
-                type="button"
-                onClick={() => setShowAllLater(true)}
-                className="flex w-full items-center gap-1.5 py-2 pl-8 text-left text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Icon name="ChevronDown" className="size-3" />
-                {later.length - laterShown} more
-              </button>
-            </li>
-          ) : null}
-        </ul>
-      </div>
+      <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+        {now.map((item) => rowFor(item, "now"))}
+        {next.map((item) => rowFor(item, "next"))}
+        {visibleLater.map((item) => rowFor(item, "later"))}
+        {fold ? (
+          <li>
+            <button
+              type="button"
+              onClick={() => setShowAllLater(true)}
+              className="flex w-full items-center gap-1.5 py-2 pl-8 text-left text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Icon name="ChevronDown" className="size-3" />
+              {later.length - laterShown} more
+            </button>
+          </li>
+        ) : null}
+      </ul>
     </div>
   );
 }

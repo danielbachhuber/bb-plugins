@@ -37,6 +37,13 @@ export interface SweepItem {
   stage: number | null;
   /** Shown in place of the track when stage is null: "Add to board", "Stalled". */
   offTrack?: ReactNode;
+  /**
+   * The stage that is holding the row up, drawn as a red disc with a cross
+   * and its name in red. Null or left out when nothing is.
+   */
+  blockedStage?: number | null;
+  /** Drawn before the title, such as a pull request's state icon. */
+  icon?: ReactNode;
   progress?: { done: number; total: number } | null;
   /**
    * Drawn open whatever its tier, with no chevron to close it. For a row

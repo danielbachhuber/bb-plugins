@@ -17,6 +17,7 @@
     "./track": "./track.tsx",
     "./summary": "./summary.tsx",
     "./note": "./note.tsx",
+    "./banner": "./banner.tsx",
     "./actions": "./actions.tsx",
     "./types": "./types.ts"
   },

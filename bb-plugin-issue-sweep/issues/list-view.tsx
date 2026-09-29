@@ -541,7 +541,6 @@ export function IssueListView({
           </EmptyGraphic>
         ) : (
           <SweepList
-            noun={listing.rows.length === 1 ? "issue" : "issues"}
             stages={stages}
             runs={ISSUE_RUNS}
             items={items}

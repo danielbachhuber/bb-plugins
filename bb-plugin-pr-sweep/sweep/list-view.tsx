@@ -473,7 +473,6 @@ export function PrListView({
           </EmptyGraphic>
         ) : (
           <SweepList
-            noun={listing.rows.length === 1 ? "pull request" : "pull requests"}
             stages={STAGES}
             runs={PR_RUNS}
             items={items}

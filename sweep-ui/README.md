@@ -8,12 +8,23 @@ passes the results in.
 A tab is one bordered list. Now rows are open, with their note and a line of
 actions. Next rows are closed to their title and number line. Later rows are
 one dimmed line each, and fold into "N more" after five. A chevron in the left
-column opens or closes a row, and "Expand all" in the header opens every row.
-A row with `forceOpen` set stays open in any tier and has no chevron to close
-it; the plugins set it on the row whose Harvest timer is running. A one-line
-Later row with a flag shows the flag where its first fact would be.
-Above the list, one square per row, grouped by run, narrows the list to one
-run when pressed. Every row carries a track on the right showing its stage.
+column opens or closes a row. A row with `forceOpen` set stays open in any
+tier and has no chevron to close it; the plugins set it on the row whose
+Harvest timer is running. A one-line Later row with a flag shows the flag
+where its first fact would be. Above the list, one square per row, grouped by
+run, narrows the list to one run when pressed.
+
+Every row carries a track on the right: a dot for each stage with the stage
+names under it, the current stage's name in bold. A row with `blockedStage`
+set draws that stage as a red disc with a white cross and names it in red.
+
+A plugin that passes `renderBody` draws its own row body. The row keeps its
+chevron, the title line (the item's `icon`, the title, the number, "N new",
+and the first fact on the right as the age), and, when open, the note and the
+action line; `renderBody` fills the space between the title line and the
+note. On a one-line Later row it is drawn inline where the first fact would
+be. `StatusBanner` is the red or green line such a body can put under the
+title.
 
 ## Installing
 
@@ -39,11 +50,12 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 
 | Path | What it holds |
 | --- | --- |
-| `sweep-ui/list` | `SweepList`, the whole tab: summary, header, rows, fold, and the run filter |
+| `sweep-ui/list` | `SweepList`, the whole tab: summary, rows, fold, and the run filter |
 | `sweep-ui/row` | `SweepRow`, one row, used by `SweepList` |
-| `sweep-ui/track` | `Track`, `TrackHeader`, and `TRACK_WIDTH` |
+| `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares` |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
+| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check |
 | `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 
@@ -51,7 +63,6 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 
 | Prop | What it does |
 | --- | --- |
-| `noun` | Names the rows in the header: "29 issues" |
 | `stages` | The track's stages, in order, each with its Tailwind color class |
 | `runs` | Every run in list order. Each row's tier comes from its run. The summary names a run with `label` ("3 new comments"), or `labelOne` when it holds one row ("1 new comment") |
 | `items` | The rows, already sorted by the plugin |
@@ -62,6 +73,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `Link` | Optional. Draws the title and parent chip. Pass `UrlLink` from `@get-bb/plugin-sdk/app`, so links open through bb's navigation and follow the user's browser choice. Defaults to a plain anchor, for tests and stories |
 | `laterShown` | Later rows shown before "N more". Defaults to 5 |
 | `busyKeys` | Keys of rows to dim while a request for them runs |
+| `renderBody` | Optional. `(item, open, line)` draws the row's body in place of its number line. `line` is true on a one-line Later row, where it is drawn inline in place of the first fact |
 
 ## Working on it
 
@@ -71,5 +83,6 @@ npx tsc --noEmit -p tsconfig.json
 npm test
 ```
 
-`sweep.stories.tsx` draws the list with issue-shaped fixtures; run
+`sweep.stories.tsx` draws the list with issue-shaped fixtures, and once with
+a custom body; run
 `npm run storybook` at the repository root to see it.

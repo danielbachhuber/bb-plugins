@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 
+import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 import type { Stage } from "./types";
 
-/** Every row's track, and the header naming its stages, share this width so the columns line up. */
+/** Every row's track shares this width so the columns line up down the list. */
 export const TRACK_WIDTH = "w-[18rem]";
 
 export interface TrackProps {
@@ -14,10 +15,16 @@ export interface TrackProps {
   offTrack?: ReactNode;
   /** Makes each dot a button that moves the row to its stage. */
   onMove?: (stage: number) => void;
+  /** The stage holding the row up: a red disc with a cross, and its name in red. */
+  blocked?: number | null;
 }
 
-/** The line through every stage, and the row's dot in its own, with the stages before it filled in. */
-export function Track({ stages, stage, offTrack, onMove }: TrackProps) {
+/**
+ * The line through every stage, the row's dot in its own with the stages
+ * before it filled in, and each stage's name under its dot. The current
+ * stage's name is bold; a blocked stage's is red.
+ */
+export function Track({ stages, stage, offTrack, onMove, blocked = null }: TrackProps) {
   if (stage === null) {
     return (
       <div className={cn("flex shrink-0 items-center justify-center text-xs text-muted-foreground", TRACK_WIDTH)}>
@@ -28,65 +35,71 @@ export function Track({ stages, stage, offTrack, onMove }: TrackProps) {
   const n = stages.length;
   const edge = `${50 / n}%`;
   const color = stages[stage]?.color;
+  const columns = { gridTemplateColumns: `repeat(${n}, 1fr)` };
   return (
-    <div
-      className={cn("relative grid shrink-0 items-center self-center", TRACK_WIDTH)}
-      style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}
-    >
-      <span className="absolute top-1/2 h-px bg-border" style={{ left: edge, right: edge }} aria-hidden="true" />
-      {stage > 0 ? (
-        <span
-          className={cn("absolute top-1/2 h-0.5 -translate-y-1/2", color)}
-          style={{ left: edge, width: `${(stage / n) * 100}%` }}
-          aria-hidden="true"
-        />
-      ) : null}
-      {stages.map((each, index) => {
-        const dot =
-          index === stage ? (
-            <span className={cn("size-3 rounded-full ring-2 ring-card", color)} />
-          ) : (
-            <span className={cn("size-1.5 rounded-full", index < stage ? color : "bg-border")} />
-          );
-        if (!onMove) {
+    <div className={cn("shrink-0 self-center", TRACK_WIDTH)}>
+      <div className="relative grid items-center" style={columns}>
+        <span className="absolute top-1/2 h-px bg-border" style={{ left: edge, right: edge }} aria-hidden="true" />
+        {stage > 0 ? (
+          <span
+            className={cn("absolute top-1/2 h-0.5 -translate-y-1/2", color)}
+            style={{ left: edge, width: `${(stage / n) * 100}%` }}
+            aria-hidden="true"
+          />
+        ) : null}
+        {stages.map((each, index) => {
+          const dot =
+            index === blocked ? (
+              <span
+                role="img"
+                aria-label={`Blocked at ${each.name}`}
+                className="flex size-3.5 items-center justify-center rounded-full bg-destructive ring-2 ring-card"
+              >
+                <Icon name="X" className="size-2.5 text-white" />
+              </span>
+            ) : index === stage ? (
+              <span className={cn("size-3 rounded-full ring-2 ring-card", color)} />
+            ) : (
+              <span className={cn("size-1.5 rounded-full", index < stage ? color : "bg-border")} />
+            );
+          if (!onMove) {
+            return (
+              <span key={each.name} className="relative flex h-5 items-center justify-center" title={each.name}>
+                {dot}
+              </span>
+            );
+          }
           return (
-            <span key={each.name} className="relative flex justify-center py-1" title={each.name}>
+            <button
+              key={each.name}
+              type="button"
+              aria-label={`Move to ${each.name}`}
+              aria-current={index === stage ? "step" : undefined}
+              title={each.name}
+              onClick={() => {
+                if (index !== stage) onMove(index);
+              }}
+              className="relative flex h-5 items-center justify-center rounded hover:bg-state-hover"
+            >
               {dot}
-            </span>
+            </button>
           );
-        }
-        return (
-          <button
+        })}
+      </div>
+      <div className="grid text-center text-[11px] leading-4" style={columns}>
+        {stages.map((each, index) => (
+          <span
             key={each.name}
-            type="button"
-            aria-label={`Move to ${each.name}`}
-            aria-current={index === stage ? "step" : undefined}
-            title={each.name}
-            onClick={() => {
-              if (index !== stage) onMove(index);
-            }}
-            className="relative flex justify-center rounded py-1 hover:bg-state-hover"
+            className={cn(
+              "truncate",
+              index === blocked
+                ? "font-medium text-destructive-text"
+                : index === stage
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground/60",
+            )}
           >
-            {dot}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The stage names above the tracks, with the list's own label on the left. */
-export function TrackHeader({ stages, label }: { stages: Stage[]; label: ReactNode }) {
-  return (
-    <div className="flex items-end gap-3 px-4 pb-1.5 text-xs font-medium text-muted-foreground">
-      <span className="flex flex-1 items-center gap-3 pl-8">{label}</span>
-      <div
-        className={cn("grid shrink-0 text-center", TRACK_WIDTH)}
-        style={{ gridTemplateColumns: `repeat(${stages.length}, 1fr)` }}
-      >
-        {stages.map((stage) => (
-          <span key={stage.name} className="truncate">
-            {stage.name}
+            {each.name}
           </span>
         ))}
       </div>

@@ -412,7 +412,6 @@ export function ReviewListView({
           <NothingToReview skippedRepos={listing.skippedRepos} />
         ) : (
           <SweepList
-            noun={listing.rows.length === 1 ? "review" : "reviews"}
             stages={STAGES}
             runs={REVIEW_RUNS}
             items={items}

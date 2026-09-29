@@ -54,9 +54,8 @@ it again shows them all.
 Within a run, the worst flag comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps.
 
-A chevron opens or closes any row, and "Expand all" opens every row. The row
-whose Harvest timer is running stays open, whatever its tier, so the timer
-stays in view. A one-line Later row with a flag, such as "Waiting 4 days",
+A chevron opens or closes any row. The row whose Harvest timer is running
+stays open, whatever its tier, so the timer stays in view. A one-line Later row with a flag, such as "Waiting 4 days",
 shows the first one in place of its age.
 
 ## Each row

@@ -103,6 +103,11 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
+/** Opens every closed row from its chevron. */
+async function expandAll(slot: Slot) {
+  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
+}
+
 /** The list item holding a title, so a query can stay inside one row. */
 async function rowFor(slot: Slot, title: RegExp | string) {
   const link = await slot.findByRole("link", { name: title });
@@ -246,7 +251,7 @@ describe("tiers", () => {
     );
     expect(await slot.findByText("3 new")).toBeInTheDocument();
     expect(slot.getByText("No activity for 12 days")).toBeInTheDocument();
-    fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     expect(slot.getByText("Blocked by 1 issue")).toBeInTheDocument();
   });
 
@@ -545,7 +550,7 @@ const SEED = {
 describe("thread action", () => {
   /** Opens every row, so a Next row shows its action line. */
   async function expanded(slot: Slot) {
-    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     return slot;
   }
 

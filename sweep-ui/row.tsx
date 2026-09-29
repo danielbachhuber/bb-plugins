@@ -143,6 +143,11 @@ export interface SweepRowProps {
   onNoteCancel: () => void;
   /** Dimmed while a request for this row runs. */
   busy?: boolean;
+  /**
+   * The plugin's own body, drawn under the title line in place of the number
+   * line. `line` is true for a one-line Later row, where it is drawn inline.
+   */
+  renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
 }
 
 export function SweepRow({
@@ -160,10 +165,14 @@ export function SweepRow({
   onNoteSave,
   onNoteCancel,
   busy = false,
+  renderBody,
 }: SweepRowProps) {
   const line = tier === "later" && !open;
   const unread = item.newComments > 0;
-  const track = <Track stages={stages} stage={item.stage} offTrack={item.offTrack} onMove={onMove} />;
+  const track = (
+    <Track stages={stages} stage={item.stage} offTrack={item.offTrack} onMove={onMove} blocked={item.blockedStage} />
+  );
+  const icon = item.icon ? <span className="flex shrink-0 items-center">{item.icon}</span> : null;
   const iconColumn = (
     <div className={cn("flex w-5 shrink-0 flex-col items-center gap-1.5", !line && "pt-0.5")}>
       <Chevron open={open} small={line} onToggle={onToggle} />
@@ -186,11 +195,14 @@ export function SweepRow({
         {iconColumn}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
+            {icon}
             {title}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
           </span>
           {/* One slot on the right: a flag outranks the first fact, or it would never show on a line. */}
-          {item.flags[0] ? (
+          {renderBody ? (
+            <span className="ml-auto flex shrink-0 items-center">{renderBody(item, false, true)}</span>
+          ) : item.flags[0] ? (
             <span className="ml-auto shrink-0 text-xs">
               <FlagText flag={item.flags[0]} />
             </span>
@@ -206,8 +218,32 @@ export function SweepRow({
     <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item), busy && "opacity-50")}>
       {iconColumn}
       <div className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">{title}</span>
-        <NumberLine item={item} Link={Link} />
+        {renderBody ? (
+          <>
+            <div className="flex min-w-0 items-center gap-2">
+              {icon}
+              <span className="flex min-w-0 items-center gap-1.5">
+                {title}
+                <span className="shrink-0 text-muted-foreground">#{item.number}</span>
+              </span>
+              {unread ? (
+                <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>
+              ) : null}
+              {item.facts[0] ? (
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.facts[0]}</span>
+              ) : null}
+            </div>
+            {renderBody(item, open, false)}
+          </>
+        ) : (
+          <>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {icon}
+              {title}
+            </span>
+            <NumberLine item={item} Link={Link} />
+          </>
+        )}
         {open ? (
           <>
             {editing ? (

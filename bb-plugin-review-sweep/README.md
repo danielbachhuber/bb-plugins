@@ -100,7 +100,7 @@ shows them all.
 
 Within a run, the oldest request comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps. A chevron opens or closes any
-row, and "Expand all" opens every row. The row whose Harvest timer is running
+row. The row whose Harvest timer is running
 stays open, whatever its tier, so the timer stays in view.
 
 The sidebar count is requests with no thread that are neither ignored nor
@@ -122,7 +122,8 @@ The age is how long ago the review was requested of you, read from the
 `ReviewRequestedEvent` timeline described above, not from the pull request's
 own timestamps.
 
-The track on the right has three stages: **Requested**, **Reviewing** once a
+The track on the right names its three stages under their dots, with the
+current one in bold: **Requested**, **Reviewing** once a
 thread exists, and **Re-review** for a request that came back after you
 reviewed it. GitHub and the thread decide the stage, so the track cannot be
 clicked.

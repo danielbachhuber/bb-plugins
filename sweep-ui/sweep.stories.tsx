@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
+import { StatusBanner } from "./banner";
 import { Icon } from "./icons";
 import { SweepList, type SweepListProps } from "./list";
 import type { Run, Stage, SweepItem } from "./types";
@@ -91,6 +92,8 @@ const ITEMS: SweepItem[] = [
   item(302, "blocked", "Move widgets between accounts", {
     flags: [{ kind: "blocked", text: "Blocked by #296" }],
     facts: ["3mo ago"],
+    stage: 1,
+    blockedStage: 2,
   }),
   item(299, "blocked", "Gadget history view", { flags: [{ kind: "blocked", text: "Blocked by #412" }], facts: ["3mo ago"] }),
 ];
@@ -105,7 +108,6 @@ function LineAction({ label, icon }: { label: string; icon: "Copy" | "ChevronRig
 }
 
 const props: SweepListProps = {
-  noun: "issues",
   stages: STAGES,
   runs: RUNS,
   items: ITEMS,
@@ -168,15 +170,44 @@ export function Filtered() {
   );
 }
 
-/** "Expand all" opens every row, with its note and action line. */
-export function Expanded() {
+// A plugin's own row body, drawn by renderBody. PR Sweep draws its rows this way.
+const BODY_ITEMS: SweepItem[] = [
+  item(431, "new", "Widget export drops the header row", {
+    icon: <Icon name="AlertCircle" className="size-4 text-destructive-text" />,
+    facts: ["2h ago"],
+    stage: 1,
+    blockedStage: 1,
+    newComments: 2,
+  }),
+  item(428, "stale", "Remember the gadget tray's width", {
+    icon: <Icon name="CircleCheck" className="size-4 text-success" />,
+    facts: ["5h ago"],
+    stage: 3,
+    note: "Merge after octocat's release",
+  }),
+  item(425, "to-start", "Gadget tray keyboard order", { facts: ["1d ago"], stage: 2 }),
+  item(419, "later", "Widget thumbnails in search", { facts: ["3d ago"], stage: 2 }),
+];
+
+function body(each: SweepItem, _open: boolean, line: boolean): ReactNode {
+  const detail = <span className="text-xs text-muted-foreground">Detail for #{each.number}</span>;
+  if (line) return detail;
+  return (
+    <>
+      {each.blockedStage != null ? <StatusBanner tone="blocked">2 failing checks</StatusBanner> : null}
+      {each.stage === 3 ? <StatusBanner tone="ready">Ready to merge</StatusBanner> : null}
+      <div className="mt-1.5">{detail}</div>
+    </>
+  );
+}
+
+/** A row body the plugin draws itself: the title line keeps its icon, number, and age, with a red or green banner under it. */
+export function CustomBody() {
   return (
     <StoryCard>
-      <StoryRow label="Every row open" hint="After pressing Expand all, which now reads Collapse all.">
+      <StoryRow label="With renderBody" hint="A blocked banner and a red cross on the track, a ready banner, a closed row, and a one-line row.">
         <Frame>
-          <Pressed name="Expand all">
-            <SweepList {...props} />
-          </Pressed>
+          <SweepList {...props} items={BODY_ITEMS} renderBody={body} />
         </Frame>
       </StoryRow>
     </StoryCard>

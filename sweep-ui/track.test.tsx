@@ -25,11 +25,34 @@ describe("Track", () => {
   it("draws dots without buttons when nothing can move", () => {
     render(<Track stages={STAGES} stage={2} />);
     expect(screen.queryAllByRole("button")).toHaveLength(0);
-    expect(screen.getByTitle("In progress")).toBeInTheDocument();
+  });
+
+  it("names every stage under its dot, the current one bold and the rest muted", () => {
+    render(<Track stages={STAGES} stage={1} />);
+    expect(screen.getByText("Ready")).toHaveClass("font-medium", "text-foreground");
+    for (const name of ["Backlog", "In progress"]) {
+      expect(screen.getByText(name)).not.toHaveClass("font-medium");
+      expect(screen.getByText(name).className).toContain("text-muted-foreground");
+    }
+  });
+
+  it("draws a blocked stage as a red disc with a cross, and names it in red", () => {
+    render(<Track stages={STAGES} stage={1} blocked={2} />);
+    expect(screen.getByText("In progress")).toHaveClass("font-medium", "text-destructive-text");
+    const cross = screen.getByLabelText("Blocked at In progress");
+    expect(cross).toHaveClass("bg-destructive");
+    expect(cross.querySelector('[data-icon="X"]')).not.toBeNull();
+    expect(screen.getByText("Ready")).toHaveClass("text-foreground");
+  });
+
+  it("marks nothing blocked when blocked is null", () => {
+    render(<Track stages={STAGES} stage={1} blocked={null} />);
+    expect(screen.queryByLabelText(/^Blocked at/)).toBeNull();
   });
 
   it("shows the off-track content when the row has no stage", () => {
     render(<Track stages={STAGES} stage={null} offTrack="Stalled" />);
     expect(screen.getByText("Stalled")).toBeInTheDocument();
+    expect(screen.queryByText("Backlog")).toBeNull();
   });
 });

@@ -91,6 +91,11 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
+/** Opens every closed row from its chevron. */
+async function expandAll(slot: Slot) {
+  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
+}
+
 /** The list item holding a title, so a query can stay inside one row. */
 async function rowFor(slot: Slot, title: RegExp | string) {
   const link = await slot.findByRole("link", { name: title });
@@ -253,7 +258,7 @@ describe("tiers", () => {
     const patient = render(
       listing({ staleAfterDays: 14, rows: [rowFixture({ requestedAt: daysAgo(6) - HOUR })] }),
     );
-    fireEvent.click(await patient.findByRole("button", { name: "Expand all" }));
+    await expandAll(patient);
     expect(patient.queryByText("Waiting 6 days")).toBeNull();
   });
 
@@ -266,7 +271,7 @@ describe("tiers", () => {
     const slot = render(
       listing({ rows: [freshRow({ snoozedUntil: Date.now() + 41 * HOUR + 60_000 })] }),
     );
-    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     expect(await slot.findByText(/returns in 42 hours/)).toBeInTheDocument();
   });
 
@@ -296,7 +301,7 @@ describe("track", () => {
     return row.querySelector("span[title] > span.size-3.rounded-full")?.parentElement?.getAttribute("title") ?? null;
   }
 
-  it("names its stages in the header", async () => {
+  it("names its stages under the track", async () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
     for (const stage of ["Requested", "Reviewing", "Re-review"]) {
@@ -520,7 +525,7 @@ describe("ignoring a review", () => {
     const slot = render(listing({ rows: [rowFixture({ snoozedUntil: Date.now() + 41 * HOUR })] }), {
       unsnooze: () => ({ ok: true }),
     });
-    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    await expandAll(slot);
     fireEvent.click(await slot.findByRole("button", { name: "Stop ignoring" }));
     expect(slot.queryByRole("button", { name: "Ignore for 48 hours" })).toBeNull();
     await waitFor(() => {

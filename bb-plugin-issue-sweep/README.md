@@ -76,10 +76,9 @@ recently updated issue comes first, tie-broken by repository then number:
 issues bulk-edited in one action share a timestamp to the second, and without
 the tiebreak those rows would reshuffle between sweeps.
 
-A chevron opens or closes any row, and "Expand all" opens every row. The row
-whose Harvest timer is running stays open, whatever its tier, so the timer
-stays in view. A one-line Later row with a stale or blocked flag shows the flag
-in place of its age.
+A chevron opens or closes any row. The row whose Harvest timer is running stays
+open, whatever its tier, so the timer stays in view. A one-line Later row with
+a stale or blocked flag shows the flag in place of its age.
 
 ## Each row
 
@@ -88,11 +87,12 @@ it was updated, the comment count, sub-issue or task progress, and "N new" in
 blue when there are new comments. A sub-issue shows its parent as a chip. The
 repository joins the line only when more than one is in play.
 
-The track on the right has one column per "Board stages, in order". Clicking a
-stage moves the issue to that status on the board. An issue the track cannot
-place gets a status picker in its place: "Add to board" for one off the board,
-"No status" for one on the board without a status, and the status name for one
-in a status that is not a stage, so it can be moved back onto the track.
+The track on the right has one column per "Board stages, in order", each named
+under its dot, with the current stage in bold. Clicking a stage moves the issue
+to that status on the board. An issue the track cannot place gets a status
+picker in its place: "Add to board" for one off the board, "No status" for one
+on the board without a status, and the status name for one in a status that is
+not a stage, so it can be moved back onto the track.
 
 An open row's actions are Start thread or Open thread, Add note or Edit note,
 Copy link, and the Harvest clock when the Harvest plugin is installed. Start
