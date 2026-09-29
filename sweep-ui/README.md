@@ -17,6 +17,7 @@ run, narrows the list to one run when pressed.
 Every row carries a track on the right: a dot for each stage with the stage
 names under it, the current stage's name in bold. A row with `blockedStage`
 set draws that stage as a red disc with a white cross and names it in red.
+A stale row draws its current dot and stage name in red.
 
 A plugin that passes `renderBody` draws its own row body. The row keeps its
 chevron, the title line (the item's `icon`, the title, the number, "N new",
@@ -52,7 +53,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | --- | --- |
 | `sweep-ui/list` | `SweepList`, the whole tab: summary, rows, fold, and the run filter |
 | `sweep-ui/row` | `SweepRow`, one row, used by `SweepList` |
-| `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
+| `sweep-ui/track` | `Track`, with its stage names, blocked stage, and late dot, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares` |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
 | `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, and an optional lighter `detail` after a dot |

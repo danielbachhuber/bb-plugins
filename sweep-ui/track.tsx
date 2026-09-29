@@ -17,14 +17,16 @@ export interface TrackProps {
   onMove?: (stage: number) => void;
   /** The stage holding the row up: a red disc with a cross, and its name in red. */
   blocked?: number | null;
+  /** The row is overdue: its dot and its stage's name are red. */
+  late?: boolean;
 }
 
 /**
  * The line through every stage, the row's dot in its own with the stages
  * before it filled in, and each stage's name under its dot. The current
- * stage's name is bold; a blocked stage's is red.
+ * stage's name is bold; a blocked or late stage's is red.
  */
-export function Track({ stages, stage, offTrack, onMove, blocked = null }: TrackProps) {
+export function Track({ stages, stage, offTrack, onMove, blocked = null, late = false }: TrackProps) {
   if (stage === null) {
     return (
       <div className={cn("flex shrink-0 items-center justify-center text-xs text-muted-foreground", TRACK_WIDTH)}>
@@ -58,7 +60,10 @@ export function Track({ stages, stage, offTrack, onMove, blocked = null }: Track
                 <Icon name="X" className="size-2.5 text-white" />
               </span>
             ) : index === stage ? (
-              <span className={cn("size-3 rounded-full ring-2 ring-card", color)} />
+              <span
+                data-late={late || undefined}
+                className={cn("size-3 rounded-full ring-2 ring-card", late ? "bg-destructive" : color)}
+              />
             ) : (
               <span className={cn("size-1.5 rounded-full", index < stage ? color : "bg-border")} />
             );
@@ -92,7 +97,7 @@ export function Track({ stages, stage, offTrack, onMove, blocked = null }: Track
             key={each.name}
             className={cn(
               "truncate",
-              index === blocked
+              index === blocked || (late && index === stage)
                 ? "font-medium text-destructive-text"
                 : index === stage
                   ? "font-medium text-foreground"
