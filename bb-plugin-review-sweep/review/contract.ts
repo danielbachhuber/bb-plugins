@@ -75,6 +75,12 @@ const rowSchema = z.object({
     deletions: z.number(),
     changedFiles: z.number(),
   }),
+  /** How many general comments the pull request has. */
+  comments: z.number(),
+  /** The local next-step note, or null. Never sent to GitHub. */
+  note: z.string().nullable(),
+  /** Comments since the pull request was last opened from the panel. */
+  newComments: z.number(),
   canSpawn: z.boolean(),
   /** The thread already started for this review, if any. */
   threadId: z.string().nullable(),
@@ -195,6 +201,19 @@ export const rpcContract = defineRpcContract({
   refresh: {
     input: z.null(),
     output: z.object({ ok: z.boolean(), error: z.string().nullable() }),
+  },
+  /** Saves the row's local note. An empty body deletes it. */
+  setNote: {
+    input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /**
+   * Records the pull request's current comment count as seen, so its "N new"
+   * clears. Called when its link or thread is opened.
+   */
+  markSeen: {
+    input: z.object({ repo: z.string(), number: z.number() }).strict(),
+    output: z.object({ ok: z.boolean() }),
   },
   archiveThread: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),

@@ -34,6 +34,9 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     canSpawn: true,
     threadId: null,
     snoozedUntil: null,
+    comments: 0,
+    note: null,
+    newComments: 0,
     ...overrides,
   };
 }
@@ -42,7 +45,7 @@ const needsReview: Row[] = [
   row({
     number: 412,
     title: "test(widgets): cover the widget export for every account type",
-    requestedAt: now - 40 * HOUR,
+    requestedAt: now - 60 * HOUR,
     requestedReviewers: ["widgets-api-experts"],
     size: { additions: 15208, deletions: 64, changedFiles: 71 },
   }),
@@ -52,6 +55,8 @@ const needsReview: Row[] = [
     requestedAt: now - 9 * HOUR,
     requestedReviewers: ["widgets-committers"],
     size: { additions: 18, deletions: 4, changedFiles: 2 },
+    comments: 3,
+    newComments: 2,
   }),
 ];
 
@@ -63,10 +68,11 @@ const inProgress: Row[] = [
     requestedAt: now - 17 * HOUR,
     size: { additions: 96, deletions: 0, changedFiles: 1 },
     threadId: "thr_fixture1",
+    note: "Check the theme override example against the gadget docs",
   }),
 ];
 
-/** The panel as it looked on 2026-09-24, with invented names. */
+/** A typical day, with invented names. */
 const baseline: Listing = {
   rows: [...needsReview, ...inProgress],
   sweptAt: now - 2 * 60_000,
@@ -77,7 +83,7 @@ const baseline: Listing = {
   harvest: { available: true, running: null },
 };
 
-/** Every section and every row state at once. */
+/** Every run and every row state at once. */
 const everything: Listing = {
   ...baseline,
   rows: [
@@ -153,15 +159,16 @@ function harvestFor(listing: Listing): HarvestPanelState {
 function Frame({
   listing,
   starting = new Set(),
-  height = "h-[26rem]",
+  height,
 }: {
   listing: Listing | null;
   starting?: Set<string>;
+  /** Fixed for the loading and empty states; otherwise the frame fits its rows. */
   height?: string;
 }): ReactNode {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className={`flex w-full flex-col rounded-lg border border-border bg-background ${height}`}>
+      <div className={`flex w-full flex-col rounded-lg border border-border bg-background ${height ?? ""}`}>
         <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
           <span className="flex items-center gap-2 text-sm font-medium">
             <Icon name="Eye" className="size-4 text-muted-foreground" />
@@ -180,6 +187,8 @@ function Frame({
             onArchive={noop}
             onSnooze={noop}
             onUnsnooze={noop}
+            onNoteSave={async () => true}
+            onOpenLink={noop}
           />
         </div>
       </div>
@@ -187,31 +196,45 @@ function Frame({
   );
 }
 
+/**
+ * A typical day. The one waited on too long and the one with a thread are open
+ * at the top; the fresh request, with two new comments, is closed to its
+ * number line.
+ */
 export function Baseline() {
   return (
     <StoryCard>
-      <StoryRow label="Baseline" hint="Two waiting on you, one with a thread already running.">
+      <StoryRow
+        label="Baseline"
+        hint="One waiting too long, one with a thread and a note, and a fresh one with two new comments."
+      >
         <Frame listing={baseline} />
       </StoryRow>
     </StoryCard>
   );
 }
 
+/**
+ * Every run the list can draw: re-review, waiting too long, and reviewing in
+ * Now; to review in Next; drafts and ignored in Later. Then the list across
+ * two repositories, a thread being started with a timer running, and the
+ * panel without Harvest.
+ */
 export function Rows() {
   return (
     <StoryCard>
       <StoryRow
-        label="Every section"
-        hint="First look, stale re-review, no reviewers, no project checked out, a thread, a draft, and an ignored review."
+        label="Every run"
+        hint="Two re-reviews, one with a thread; one waiting too long; one reviewing with a note; two to review, one with no reviewers and no project checked out; a draft; and an ignored review."
       >
-        <Frame listing={everything} height="h-[58rem]" />
+        <Frame listing={everything} />
       </StoryRow>
-      <StoryRow label="Two repositories" hint="The repository joins the author line once it varies.">
-        <Frame listing={multiRepo} height="h-[58rem]" />
+      <StoryRow label="Two repositories" hint="The repository joins the number line once it varies.">
+        <Frame listing={multiRepo} />
       </StoryRow>
       <StoryRow
         label="Starting and timing"
-        hint="A thread being created on #437, and a Harvest timer running on #412."
+        hint="A thread being created on #412, and a Harvest timer running on #425."
       >
         <Frame
           listing={{
@@ -219,7 +242,7 @@ export function Rows() {
             harvest: {
               available: true,
               running: {
-                externalId: "412",
+                externalId: "425",
                 groupId: null,
                 entryId: 1,
                 startedAt: new Date(now - 25 * 60_000).toISOString(),
@@ -228,30 +251,31 @@ export function Rows() {
               },
             },
           }}
-          starting={new Set(["acme/widgets#437"])}
+          starting={new Set(["acme/widgets#412"])}
         />
       </StoryRow>
-      <StoryRow label="Without Harvest" hint="No clock beside the copy control.">
+      <StoryRow label="Without Harvest" hint="No clock in the action line.">
         <Frame listing={{ ...baseline, harvest: { available: false, running: null } }} />
       </StoryRow>
     </StoryCard>
   );
 }
 
+/** Loading, empty, and the notices the panel shows above and below its rows. */
 export function States() {
   const empty: Listing = { ...baseline, rows: [] };
   return (
     <StoryCard>
       <StoryRow label="Loading" hint="The first load, before the listing arrives.">
-        <Frame listing={null} />
+        <Frame listing={null} height="h-[26rem]" />
       </StoryRow>
       <StoryRow label="Empty" hint="Nothing waiting on you.">
-        <Frame listing={empty} />
+        <Frame listing={empty} height="h-[26rem]" />
       </StoryRow>
       <StoryRow label="Empty, repositories hidden" hint="Requests exist in repositories with no project here.">
-        <Frame listing={{ ...empty, skippedRepos: ["acme/gadgets"] }} />
+        <Frame listing={{ ...empty, skippedRepos: ["acme/gadgets"] }} height="h-[26rem]" />
       </StoryRow>
-      <StoryRow label="Warnings" hint="A failed sweep, the search ceiling, and a hidden repository, above rows.">
+      <StoryRow label="Warnings" hint="A failed sweep, the search ceiling, and a hidden repository.">
         <Frame
           listing={{
             ...baseline,
@@ -259,8 +283,49 @@ export function States() {
             truncated: true,
             skippedRepos: ["acme/gadgets"],
           }}
-          height="h-[32rem]"
         />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+const LONG_TITLES = [
+  "WIP: widget bulk edit",
+  "Draft: gadget webhooks v2",
+  "Try a card layout for widgets",
+  "Spike: gadget offline mode",
+  "WIP: widget import from CSV",
+  "Draft: split the gadget API client",
+  "Explore widget tagging",
+  "WIP: gadget usage charts",
+];
+
+/** Many draft requests, so the fold after five Later rows shows. */
+const long: Listing = {
+  ...baseline,
+  rows: [
+    ...baseline.rows,
+    ...LONG_TITLES.map((title, index) =>
+      row({
+        number: 450 + index,
+        title,
+        isDraft: true,
+        author: index % 2 ? "hubber" : "octocat",
+        requestedAt: now - (index + 1) * 11 * HOUR,
+      }),
+    ),
+  ],
+};
+
+/**
+ * A long list: the Now and Next rows at the top, then the first five Later
+ * rows, with the rest folded into "N more".
+ */
+export function LongList() {
+  return (
+    <StoryCard>
+      <StoryRow label="Long list" hint="Eight draft requests, three of them folded.">
+        <Frame listing={long} />
       </StoryRow>
     </StoryCard>
   );

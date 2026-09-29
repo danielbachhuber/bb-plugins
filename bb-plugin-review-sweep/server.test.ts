@@ -1,3 +1,6 @@
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createFakePluginHost as createHost,
@@ -135,6 +138,8 @@ describe("server", () => {
         "archiveThread",
         "snooze",
         "unsnooze",
+        "setNote",
+        "markSeen",
       ]),
     );
     expect(harness.registrations.services.map((service) => service.name)).toContain("sweep");
@@ -542,5 +547,132 @@ describe("gh-context", () => {
     const listing = await harness.behavior.callRpc("listRows", null);
     expect(listing.rows.every((row: { canSpawn: boolean }) => row.canSpawn === false)).toBe(true);
     expect(listing.lastError).toMatch(/gh-context/);
+  });
+});
+
+describe("notes and seen counts", () => {
+  /**
+   * A stand-in for gh that prints one search result, so a real sweep runs
+   * without the network. The pull request has `comments` comments.
+   */
+  function fakeGh(comments: number): string {
+    const dir = mkdtempSync(join(tmpdir(), "review-sweep-gh-"));
+    const path = join(dir, "gh");
+    const response = {
+      data: {
+        viewer: { login: "hubber" },
+        search: {
+          nodes: [
+            {
+              number: 42,
+              title: "Add the widget endpoint",
+              url: "https://github.com/acme/widgets/pull/42",
+              isDraft: false,
+              createdAt: "2026-03-01T12:00:00Z",
+              additions: 40,
+              deletions: 6,
+              changedFiles: 3,
+              repository: { nameWithOwner: "acme/widgets" },
+              author: { login: "octocat" },
+              comments: { totalCount: comments },
+              reviews: { nodes: [] },
+              reviewRequests: { nodes: [{ requestedReviewer: { login: "hubber" } }] },
+              timelineItems: {
+                nodes: [
+                  { createdAt: "2026-03-06T12:00:00Z", requestedReviewer: { login: "hubber" } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    };
+    writeFileSync(path, `#!/bin/sh\ncat <<'JSON'\n${JSON.stringify(response)}\nJSON\n`);
+    chmodSync(path, 0o755);
+    return path;
+  }
+
+  it("returns each row's comment count, note, and new comments", async () => {
+    const { harness } = await seededHost({ row: { comments: 3 } });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]).toMatchObject({
+      comments: 3,
+      note: null,
+      newComments: 0,
+    });
+  });
+
+  it("reads a row stored before the count existed as having none", async () => {
+    const { harness } = await seededHost();
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.comments).toBe(0);
+  });
+
+  it("saves a note and lists it with the row", async () => {
+    const { harness } = await seededHost();
+    expect(
+      await harness.behavior.callRpc("setNote", {
+        repo: "acme/widgets",
+        number: 42,
+        body: "Ask hubber first",
+      }),
+    ).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.note).toBe(
+      "Ask hubber first",
+    );
+  });
+
+  it("deletes the note when it is saved empty, rather than keeping blank text", async () => {
+    const { bb, harness } = await seededHost();
+    await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "Later" });
+    await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "" });
+
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.note).toBeNull();
+    expect(createStore(bb.storage.database() as never).notes().size).toBe(0);
+  });
+
+  it("shows nothing new on the first sweep after an upgrade", async () => {
+    const { harness } = await seededHost({
+      settings: { ghPath: fakeGh(9), filterToProjects: "off" },
+    });
+    expect((await harness.behavior.callRpc("refresh", null)).ok).toBe(true);
+    const row = (await harness.behavior.callRpc("listRows", null)).rows[0]!;
+    expect(row.comments).toBe(9);
+    expect(row.newComments).toBe(0);
+  });
+
+  it("counts comments since the first sweep saw it, and clears them once seen", async () => {
+    const { bb, harness } = await seededHost({ row: { comments: 2 } });
+    const store = createStore(bb.storage.database() as never);
+    store.recordFirstSeen(store.readRows(), 1);
+    store.replaceAll({
+      rows: [seedRow({ comments: 5 })],
+      skippedRepos: [],
+      truncated: false,
+      sweptAt: 2,
+    });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(3);
+
+    expect(
+      await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 42 }),
+    ).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
+  });
+
+  it("never shows a negative count when comments were deleted", async () => {
+    const { bb, harness } = await seededHost({ row: { comments: 1 } });
+    createStore(bb.storage.database() as never).markSeen("acme/widgets", 42, 4, 1);
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
+  });
+
+  it("refuses to mark a review the sweep does not have", async () => {
+    const { harness } = await seededHost();
+    expect(
+      await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 41 }),
+    ).toEqual({ ok: false });
+  });
+
+  it("marks the review seen when a thread is started for it", async () => {
+    const { bb, harness } = await seededHost({ row: { comments: 6 } });
+    await reviewThis(harness, { repo: "acme/widgets", number: 42 });
+    expect(createStore(bb.storage.database() as never).seenCounts().get("acme/widgets#42")).toBe(6);
   });
 });

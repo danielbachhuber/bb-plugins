@@ -1,66 +1,36 @@
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { CopyLink } from "@/components/ui/copy-link";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { SweepList } from "sweep-ui/list";
+import type { Stage, SweepItem } from "sweep-ui/types";
+import { writeLinkToClipboard } from "@/components/ui/copy-link";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
-import { TitleLink } from "@/components/ui/title-link";
 import { Icon } from "@/components/ui/icon";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
+import { SNOOZE_LABEL, START_REVIEW_LABEL, UNSNOOZE_LABEL } from "./actions.js";
+import { factsFor } from "./format.js";
 import {
-  DISPLAY_SECTIONS,
-  SECTION_TITLES,
-  SNOOZE_LABEL,
-  START_THREAD_LABEL,
-  UNSNOOZE_LABEL,
-  ageLabel,
-  ageTone,
-  displaySection,
-  returnsInLabel,
-  reviewersLabel,
-  sizeLabel,
-} from "./actions.js";
+  REVIEW_RUNS,
+  REVIEW_STAGES,
+  flagsFor,
+  runOf,
+  sortReviews,
+  stageOf,
+  type ListedReview,
+  type TierInputs,
+} from "./tiers.js";
 
 /**
  * What the Reviews panel draws, given a listing. No RPC or realtime here, so
  * the stories can render every state from fixtures; app.tsx loads the listing
  * and owns the actions.
  */
-export type Row = {
-  repo: string;
-  number: number;
-  title: string;
-  url: string;
-  author: string;
-  isDraft: boolean;
-  state: "first-look" | "re-review";
-  requestedAt: number;
-  lastReviewedAt: number | null;
-  requestedReviewers: string[];
-  size: { additions: number; deletions: number; changedFiles: number };
-  canSpawn: boolean;
-  threadId: string | null;
-  snoozedUntil: number | null;
-};
+export type Row = ListedReview;
 
 export type Listing = {
   rows: Row[];
@@ -71,24 +41,6 @@ export type Listing = {
   staleAfterDays: number;
   harvest: { available: boolean; running: RunningReference };
 };
-
-const STATE_LABELS: Record<Row["state"], string> = {
-  "first-look": "first look",
-  "re-review": "re-review",
-};
-
-const BADGE = "rounded-md px-1.5 py-0.5 text-xs font-medium";
-
-/**
- * A shallow palette on purpose. Nothing in a review queue is an error, so the
- * loudest thing here is an overdue wait; a re-review is merely worth spotting,
- * because the author is blocked on you and it is usually the quickest to clear.
- */
-const TONE_CLASSES = {
-  quiet: "bg-muted text-muted-foreground",
-  attention: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-  stale: "bg-destructive/10 text-destructive",
-} as const;
 
 export type RunningReference =
   | {
@@ -123,98 +75,74 @@ function isRunningFor(running: RunningReference, row: Row): boolean {
   return running.groupId === null || running.groupId === groupId;
 }
 
+/** Each stage's colour on the track: grey while requested, amber while a thread runs, sky for a re-review. */
+const STAGES: Stage[] = REVIEW_STAGES.map((name, index) => ({
+  name,
+  color: ["bg-slate-400", "bg-amber-500", "bg-sky-500"][index]!,
+}));
+
+/** The row actions' look, matching the list's own "Add note" button. */
+const LINE_ACTION =
+  "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60";
+
+function keyOf(row: Row): string {
+  return `${row.repo}#${row.number}`;
+}
+
 /**
- * Three states, because a click that looks like nothing happened is what makes
- * someone click again: the action, an immediate "Starting…" while the thread is
- * created, then a link to the thread once one exists.
+ * Start or open the review thread.
  *
- * Whichever it is, a kebab menu sits beside it holding the row's secondary
- * actions. One shape for every row: the labelled thing you usually want, then
- * everything else behind the same affordance, rather than an icon button that
- * appears only on rows with a thread.
+ * Three states, because a click that looks like nothing happened is what
+ * makes someone click again: the action, "Starting…" while the draft is
+ * fetched, then "Open thread" once one exists.
  */
-function Action({
+function ThreadAction({
   row,
   isStarting,
   onReview,
   onOpen,
-  onArchive,
-  onSnooze,
-  onUnsnooze,
 }: {
   row: Row;
   isStarting: boolean;
   onReview: (row: Row) => void;
-  onOpen: (threadId: string) => void;
-  onArchive: (row: Row) => void;
-  onSnooze: (row: Row) => void;
-  onUnsnooze: (row: Row) => void;
+  onOpen: (row: Row, threadId: string) => void;
 }) {
+  if (row.threadId) {
+    const threadId = row.threadId;
+    return (
+      <button type="button" className={LINE_ACTION} onClick={() => onOpen(row, threadId)}>
+        <Icon name="MessageSquare" className="size-3" />
+        Open thread
+      </button>
+    );
+  }
+
+  // Disabled with its reason as the label, rather than hidden: a row that
+  // silently lacks the action reads as a bug.
+  const label = !row.canSpawn ? "No project here" : isStarting ? "Starting…" : START_REVIEW_LABEL;
   return (
-    <span className="flex items-center justify-end gap-1">
-      {row.threadId ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              className="size-8 shrink-0 p-0"
-              aria-label={`Open the thread for #${row.number}`}
-              onClick={() => onOpen(row.threadId!)}
-            >
-              <Icon name="MessageSquare" className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Open the thread</TooltipContent>
-        </Tooltip>
-      ) : (
-        // The tooltip hangs off the wrapper, not the Button: a disabled button
-        // fires no pointer events, so one on the button itself would never show.
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-block">
-              <Button
-                size="sm"
-                variant="outline"
-                className="size-8 shrink-0 p-0"
-                disabled={!row.canSpawn || isStarting}
-                aria-label={
-                  isStarting ? "Starting…" : `${START_THREAD_LABEL} for #${row.number}`
-                }
-                onClick={() => onReview(row)}
-              >
-                <Icon
-                  name={isStarting ? "Spinner" : "MessageSquarePlus"}
-                  className={`size-4${isStarting ? " animate-spin" : ""}`}
-                />
-              </Button>
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {row.canSpawn
-              ? START_THREAD_LABEL
-              : `No bb project is checked out for ${row.repo}`}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      <RowMenu
-        row={row}
-        onArchive={onArchive}
-        onSnooze={onSnooze}
-        onUnsnooze={onUnsnooze}
+    <button
+      type="button"
+      className={LINE_ACTION}
+      disabled={!row.canSpawn || isStarting}
+      title={row.canSpawn ? undefined : `No bb project is checked out for ${row.repo}`}
+      onClick={() => onReview(row)}
+    >
+      <Icon
+        name={isStarting ? "Spinner" : "MessageSquarePlus"}
+        className={`size-3${isStarting ? " animate-spin" : ""}`}
       />
-    </span>
+      {label}
+    </button>
   );
 }
 
 /**
- * The row's secondary actions.
- *
- * What it offers follows what the row is, so the menu never lists something
+ * The second action follows what the row is, so it never offers something
  * that cannot happen: a thread can be archived, an ignored review can be taken
  * back, and anything else can be put off.
  */
-function RowMenu({
+function DeferAction({
   row,
   onArchive,
   onSnooze,
@@ -225,212 +153,55 @@ function RowMenu({
   onSnooze: (row: Row) => void;
   onUnsnooze: (row: Row) => void;
 }) {
+  if (row.threadId) {
+    return (
+      <button type="button" className={LINE_ACTION} onClick={() => onArchive(row)}>
+        <Icon name="Archive" className="size-3" />
+        Archive thread
+      </button>
+    );
+  }
+  if (row.snoozedUntil !== null) {
+    return (
+      <button type="button" className={LINE_ACTION} onClick={() => onUnsnooze(row)}>
+        <Icon name="RotateCcw" className="size-3" />
+        {UNSNOOZE_LABEL}
+      </button>
+    );
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="ghost" className="size-8 shrink-0 p-0" aria-label="More actions">
-          {/*
-            A vertical kebab, turned rather than swapped. The registry that
-            ships MoreHorizontal has no vertical twin, and components/ui is
-            vendored byte-identical from bb, so adding one here would drift
-            from the copy the other sweeps carry and be lost on the next sync.
-            The glyph is three dots on the box's centre line, so a quarter turn
-            is the same icon rather than an approximation of a different one.
-          */}
-          <Icon name="MoreHorizontal" className="size-4 rotate-90" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {row.threadId ? (
-          <DropdownMenuItem onSelect={() => onArchive(row)}>
-            <Icon name="Archive" className="size-4" />
-            Archive thread
-          </DropdownMenuItem>
-        ) : row.snoozedUntil ? (
-          <DropdownMenuItem onSelect={() => onUnsnooze(row)}>
-            <Icon name="RotateCcw" className="size-4" />
-            {UNSNOOZE_LABEL}
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onSelect={() => onSnooze(row)}>
-            <Icon name="Clock" className="size-4" />
-            {SNOOZE_LABEL}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <button type="button" className={LINE_ACTION} onClick={() => onSnooze(row)}>
+      <Icon name="Clock" className="size-3" />
+      {SNOOZE_LABEL}
+    </button>
   );
 }
 
-/** Shared header cell styling, so every column is declared the same way. */
-const HEAD = "text-[0.6875rem] font-medium uppercase tracking-wider text-muted-foreground";
+/** How long "Copied" stays up before the label returns. */
+const COPIED_MS = 1500;
 
-function ReviewTable({
-  rows,
-  showRepo,
-  staleAfterDays,
-  now,
-  starting,
-  onReview,
-  onOpen,
-  onArchive,
-  onSnooze,
-  onUnsnooze,
-  harvest,
-}: {
-  rows: Row[];
-  showRepo: boolean;
-  staleAfterDays: number;
-  now: number;
-  starting: Set<string>;
-  onReview: (row: Row) => void;
-  onOpen: (threadId: string) => void;
-  onArchive: (row: Row) => void;
-  onSnooze: (row: Row) => void;
-  onUnsnooze: (row: Row) => void;
-  harvest: HarvestPanelState;
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      {/*
-        table-fixed with an explicit width per column, so the section tables
-        line up with each other. Auto layout sizes each table to its own
-        contents, which pulls the columns out of step between sections.
-      */}
-      <Table className="table-fixed">
-        <TableHeader>
-          <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableHead className={HEAD}>Title</TableHead>
-            <TableHead className={`w-[7rem] ${HEAD}`}>Status</TableHead>
-            <TableHead className={`w-[5.5rem] ${HEAD}`}>Age</TableHead>
-            <TableHead className={`hidden w-[10rem] xl:table-cell ${HEAD}`}>Reviewers</TableHead>
-            <TableHead className={`hidden w-[10rem] lg:table-cell ${HEAD}`}>Size</TableHead>
-            {/*
-              11.5rem, not 11: the cell padding went from px-2 to px-3 to match
-              the bundled GitHub plugin, and the extra 0.5rem has to come from
-              somewhere. The button does not wrap, so taking it out of the
-              content box is what put a horizontal scrollbar on this table once
-              before.
-            */}
-            <TableHead className="w-[5.75rem]" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const tone = ageTone(row.requestedAt, now, staleAfterDays);
-            return (
-              <TableRow key={`${row.repo}#${row.number}`}>
-                <TableCell className="align-top">
-                  <TitleLink href={row.url} text={`${row.title} (#${row.number})`} />
-                  {/*
-                    The repository joins the line that was already here rather
-                    than taking one above the title. Below, because the title is
-                    what you scan for; on this line, because a second muted line
-                    would cost a row of height to say one more thing.
-                  */}
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="truncate">
-                      {[
-                        showRepo ? row.repo : null,
-                        row.author,
-                        row.isDraft ? "draft" : null,
-                        // Only in the Ignored section, where the section title
-                        // says what happened and this says when it undoes
-                        // itself.
-                        row.snoozedUntil && !row.threadId
-                          ? returnsInLabel(row.snoozedUntil, now)
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    <CopyLink title={`${row.title} (#${row.number})`} url={row.url} />
-                  {harvest.available ? (
-                    <HarvestRowClock
-                      surface="reviews"
-                      preferredTaskName="Code Review"
-                      row={row}
-                      running={isRunningFor(harvest.running, row) ? harvest.running : null}
-                      client={harvest.client}
-                      onChanged={harvest.onStarted}
-                    />
-                  ) : null}
-                  </span>
-                </TableCell>
-                <TableCell className="align-top">
-                  <span
-                    className={`${BADGE} ${
-                      row.state === "re-review" ? TONE_CLASSES.attention : TONE_CLASSES.quiet
-                    }`}
-                  >
-                    {STATE_LABELS[row.state]}
-                  </span>
-                </TableCell>
-                <TableCell className="align-top text-xs tabular-nums">
-                  <span className={tone === "stale" ? "text-destructive" : "text-muted-foreground"}>
-                    {ageLabel(row.requestedAt, now)}
-                  </span>
-                </TableCell>
-                {/*
-                  Wraps rather than truncates, the same as pr-sweep's Review
-                  column and for the same reason: these are team slugs, and
-                  clipping one hides the part that says which team.
-                */}
-                <TableCell
-                  className="hidden break-words align-top text-xs text-muted-foreground xl:table-cell"
-                  title={reviewersLabel(row.requestedReviewers)}
-                >
-                  {reviewersLabel(row.requestedReviewers)}
-                </TableCell>
-                <TableCell className="hidden align-top text-xs tabular-nums text-muted-foreground lg:table-cell">
-                  {sizeLabel(row.size)}
-                </TableCell>
-                <TableCell className="align-top text-right">
-                  <Action
-                    row={row}
-                    isStarting={starting.has(`${row.repo}#${row.number}`)}
-                    onReview={onReview}
-                    onOpen={onOpen}
-                    onArchive={onArchive}
-                    onSnooze={onSnooze}
-                    onUnsnooze={onUnsnooze}
-                  />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
+/** Copies the title and link as a rich-text link, labelled like the row's other actions. */
+function CopyLinkAction({ row }: { row: Row }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-function Section({
-  title,
-  rows,
-  ...rest
-}: {
-  title: string;
-  rows: Row[];
-  showRepo: boolean;
-  staleAfterDays: number;
-  now: number;
-  starting: Set<string>;
-  onReview: (row: Row) => void;
-  onOpen: (threadId: string) => void;
-  onArchive: (row: Row) => void;
-  onSnooze: (row: Row) => void;
-  onUnsnooze: (row: Row) => void;
-  harvest: HarvestPanelState;
-}) {
-  if (rows.length === 0) return null;
+  // A sweep can unmount the row mid-tick.
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const onCopy = useCallback(async () => {
+    if (!(await writeLinkToClipboard(`${row.title} (#${row.number})`, row.url))) return;
+    setCopied(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), COPIED_MS);
+  }, [row.number, row.title, row.url]);
+
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-medium">
-        {title} ({rows.length})
-      </h2>
-      <ReviewTable rows={rows} {...rest} />
-    </section>
+    <button type="button" className={LINE_ACTION} onClick={() => void onCopy()}>
+      <Icon name={copied ? "Check" : "Copy"} className="size-3" />
+      {copied ? "Copied" : "Copy link"}
+    </button>
   );
 }
 
@@ -596,14 +367,23 @@ function NothingToReview({ skippedRepos }: { skippedRepos: string[] }) {
 export interface ReviewListViewProps {
   /** Null until the first listing arrives. */
   listing: Listing | null;
+  /**
+   * One clock for the whole render, so two rows requested a second apart never
+   * disagree about what "now" is.
+   */
   now: number;
-  starting: Set<string>;
+  /** Rows whose thread is being created, keyed `repo#number`. */
+  starting: ReadonlySet<string>;
   harvest: HarvestPanelState;
   onReview: (row: Row) => void;
-  onOpen: (threadId: string) => void;
+  onOpen: (row: Row, threadId: string) => void;
   onArchive: (row: Row) => void;
   onSnooze: (row: Row) => void;
   onUnsnooze: (row: Row) => void;
+  /** Saves the row's note; "" deletes it. Resolves true once saved. */
+  onNoteSave: (row: Row, body: string) => Promise<boolean>;
+  /** The title was clicked, and the pull request is about to open. */
+  onOpenLink: (row: Row) => void;
 }
 
 export function ReviewListView({
@@ -616,17 +396,31 @@ export function ReviewListView({
   onArchive,
   onSnooze,
   onUnsnooze,
+  onNoteSave,
+  onOpenLink,
 }: ReviewListViewProps): ReactNode {
   if (!listing) return <SweepingReviews />;
 
-  const inSection = (section: string) =>
-    listing.rows.filter(
-      (row) =>
-        displaySection(Boolean(row.threadId), row.isDraft, Boolean(row.snoozedUntil)) === section,
-    );
+  const inputs: TierInputs = { staleAfterDays: listing.staleAfterDays, now };
 
-  // The repository only earns a column when it actually varies.
+  // The repository only earns a place on the number line when it varies.
   const showRepo = new Set(listing.rows.map((row) => row.repo)).size > 1;
+
+  const sorted = sortReviews(listing.rows, inputs);
+  const rowsByKey = new Map(sorted.map((row) => [keyOf(row), row]));
+  const items: SweepItem[] = sorted.map((row) => ({
+    key: keyOf(row),
+    runId: runOf(row, inputs),
+    title: row.title,
+    url: row.url,
+    number: row.number,
+    newComments: row.newComments,
+    flags: flagsFor(row, inputs),
+    facts: factsFor(row, now, showRepo),
+    parent: null,
+    note: row.note,
+    stage: stageOf(row),
+  }));
 
   return (
     <div className="h-full overflow-auto p-4 md:p-5">
@@ -645,31 +439,60 @@ export function ReviewListView({
 
         {listing.rows.length === 0 ? (
           <NothingToReview skippedRepos={listing.skippedRepos} />
-        ) : null}
+        ) : (
+          <SweepList
+            noun={listing.rows.length === 1 ? "review" : "reviews"}
+            stages={STAGES}
+            runs={REVIEW_RUNS}
+            items={items}
+            Link={UrlLink}
+            onNoteSave={(item, body) => {
+              const row = rowsByKey.get(item.key);
+              return row ? onNoteSave(row, body) : Promise.resolve(false);
+            }}
+            onOpenLink={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (row) onOpenLink(row);
+            }}
+            renderActions={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row) return null;
+              return (
+                <>
+                  <ThreadAction
+                    row={row}
+                    isStarting={starting.has(item.key)}
+                    onReview={onReview}
+                    onOpen={onOpen}
+                  />
+                  <DeferAction
+                    row={row}
+                    onArchive={onArchive}
+                    onSnooze={onSnooze}
+                    onUnsnooze={onUnsnooze}
+                  />
+                  <CopyLinkAction row={row} />
+                  {harvest.available ? (
+                    <HarvestRowClock
+                      surface="reviews"
+                      preferredTaskName="Code Review"
+                      row={row}
+                      running={isRunningFor(harvest.running, row) ? harvest.running : null}
+                      client={harvest.client}
+                      onChanged={harvest.onStarted}
+                    />
+                  ) : null}
+                </>
+              );
+            }}
+          />
+        )}
 
         {listing.rows.length > 0 && listing.skippedRepos.length ? (
           <p className="text-xs break-words text-muted-foreground">
             Not shown: {listing.skippedRepos.join(", ")} — no project checked out here.
           </p>
         ) : null}
-
-        {DISPLAY_SECTIONS.map((section) => (
-          <Section
-            key={section}
-            title={SECTION_TITLES[section]}
-            rows={inSection(section)}
-            showRepo={showRepo}
-            staleAfterDays={listing.staleAfterDays}
-            now={now}
-            harvest={harvest}
-            starting={starting}
-            onReview={onReview}
-            onOpen={onOpen}
-            onArchive={onArchive}
-            onSnooze={onSnooze}
-            onUnsnooze={onUnsnooze}
-          />
-        ))}
       </div>
     </div>
   );

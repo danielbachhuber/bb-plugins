@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Review Sweep",
-    "description": "Open pull requests waiting on a review from you, oldest request first. Needs gh-context.",
+    "description": "Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes and new comment counts. Needs gh-context.",
     "branding": {
       "icon": "Eye"
     },

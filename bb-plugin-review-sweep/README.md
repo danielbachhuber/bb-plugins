@@ -1,11 +1,12 @@
 # bb-plugin-review-sweep
 
 A bb sidebar panel listing every open pull request waiting on a review from you,
-across all repositories, oldest request first.
+across all repositories, in one list ordered by what needs you: Now, then Next,
+then Later, and oldest request first within each run.
 
 The sweep is deterministic: it runs one `gh` query, classifies the result with
 pure functions, and spends no model tokens. An agent is only involved when you
-click a row's action.
+click "Start review" on a row.
 
 ## Install on a new machine
 
@@ -27,7 +28,8 @@ bb plugin install . --yes
 - A bb project is needed only for the row action, which matches a PR's
   repository against every git remote in the project's checkout, so a fork's
   upstream counts as well as its origin. PRs in repositories with no matching
-  project are still listed; their button is disabled.
+  project are still listed; their action reads "No project here" and is
+  disabled.
 
 ## What lands in the list
 
@@ -54,7 +56,8 @@ and `updatedAt` bumps on every unrelated comment, so a PR that has sat with you
 for three weeks would read as "20 minutes". A review queue whose age column is a
 guess is not worth having.
 
-So: one `gh api graphql` call, with an exact `requestedAt` per row. It also
+So: one `gh api graphql` call, with an exact `requestedAt` per row. The same
+call reads `comments { totalCount }`, the count behind each row's "N new". It also
 means there is no per-repository partial-failure state to carry; the sweep
 either returns the whole queue or fails and keeps the last known rows.
 
@@ -68,33 +71,68 @@ throwing:
 3. The pull request's own `createdAt`, if the timeline window did not reach the
    event.
 
-## Sections
+## How the list is ordered
 
-| Section | What is in it |
-| --- | --- |
-| Needs Review | Non-draft requests with no thread yet, oldest first. |
-| In Progress | A review thread has been started. |
-| Draft | A draft was assigned to you: a real request, but not offered for review yet. |
+Every review request is in one run, and every run is in one tier. The summary
+squares above the list show one square per request, grouped by run and counted
+("2 to review"). Pressing a run shows only its requests; pressing it again
+shows them all.
 
-A row with a thread leaves Needs Review whatever else is true, so the queue only
-ever holds work actually waiting on you. The sidebar count follows the same rule.
+| Tier | Runs, in order | Rows |
+| --- | --- | --- |
+| Now | re-review, waiting too long, reviewing | Open: title, number line, note, and actions |
+| Next | to review | Closed to the title and number line |
+| Later | drafts, ignored | One dimmed line each, folded after five |
 
-The **Age** column is how long ago the review was requested of you, and it
-reddens once that is past the **Stale after (days)** setting. Colouring every age
-makes the column noise; colouring the overdue ones makes it a signal.
+- **Re-review**: you reviewed it, the author pushed, and it came back. The
+  author is blocked on you, and it is usually the quickest row to clear, so it
+  comes first, even with a thread running. An ignored or draft re-review goes
+  to ignored or drafts instead.
+- **Waiting too long**: requested of you at least "Stale after (days)" ago,
+  counted in whole days.
+- **Reviewing**: a review thread has been started, whether or not the request
+  is ignored or a draft.
+- **To review**: every other request.
+- **Drafts**: a draft was assigned to you: a real request, but not offered for
+  review yet.
+- **Ignored**: put off with "Ignore for 48 hours". It comes back on its own
+  when the time is up.
 
-The **Reviewers** column names everyone whose review is still outstanding, you
-first. Your own entry reads "you" rather than your login, because every row here
-is a request of you and repeating the same login down the column carries no
-information — whereas "you, platform" versus "platform" answers the question the
-column exists for: is this mine alone, or could a teammate take it? It reads
-`reviewRequests`, the set of requests still open, which is a different thing from
-the `ReviewRequestedEvent` timeline used for the age (a history, including
-requests already answered or withdrawn).
+Within a run, the oldest request comes first, tie-broken by repository then
+number, so rows do not reshuffle between sweeps. A chevron opens or closes any
+row, and "Expand all" opens every row.
 
-A **re-review** — you reviewed it, the author pushed, and it came back — gets the
-badge that stands out. The author is blocked on you, and it is usually the
-cheapest row in the queue to clear.
+The sidebar count is requests with no thread that are neither ignored nor
+drafts.
+
+## Each row
+
+The number line shows the pull request number, how long ago the review was
+requested of you, the author, and the size in lines added and removed
+("+18 −4"). An ignored request also says when it returns. "N new" shows in
+blue when comments were posted since you last opened the pull request or its
+thread from the panel, or started one; the first sweep to see a request
+records its count, so nothing is new on the first sync. The repository joins
+the line only when more than one is in play.
+
+A request in the waiting too long run is flagged "Waiting N days" in red.
+
+The age is how long ago the review was requested of you, read from the
+`ReviewRequestedEvent` timeline described above, not from the pull request's
+own timestamps.
+
+The track on the right has three stages: **Requested**, **Reviewing** once a
+thread exists, and **Re-review** for a request that came back after you
+reviewed it. GitHub and the thread decide the stage, so the track cannot be
+clicked.
+
+An open row's actions are Start review or Open thread; Archive thread on a row
+with a thread, Stop ignoring on an ignored one, or Ignore for 48 hours on the
+rest; Add note or Edit note; Copy link; and the Harvest clock when the Harvest
+plugin is installed.
+
+A note is a one-line next step, stored only on this machine and never sent to
+GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.
 
 ## Settings
 
@@ -110,7 +148,8 @@ cheapest row in the queue to clear.
 - **Also show these repositories** — comma or newline separated `owner/name`,
   for a repository you review in without a checkout here. Ignored when the
   filter is off.
-- **Stale after (days)** — when a wait starts reading as overdue. Default 2.
+- **Stale after (days)** — how many whole days a request can wait before it
+  moves into Now as waiting too long, flagged "Waiting N days". Default 2.
 - **Model for review threads** — blank takes the provider's default. There is
   only one action here, so this is a single value rather than pr-sweep's
   model-by-action JSON.
@@ -147,7 +186,8 @@ before trusting it unattended.
 
 ## Threads
 
-A thread started from a row is linked to its pull request in gh-context, and
+"Start review" opens bb's composer in a dialog, so you can read and edit the
+prompt first. A thread started from a row is linked to its pull request in gh-context, and
 the row then opens that thread rather than starting another. A review thread
 is not on the pull request's branch, so bb itself finds no pull request for it;
 gh-context's banner above the composer shows the one this plugin linked.

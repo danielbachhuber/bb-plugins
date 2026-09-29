@@ -119,11 +119,36 @@ function Panel() {
   // one paint is measured against the same instant.
   const now = Date.now();
 
-  const onOpen = useCallback(
-    (threadId: string) => {
-      navigate.toThread(threadId);
+  // Opening the pull request or its thread is reading it, so the count it has
+  // now is the one seen. Recorded on every open, not only when "N new" shows,
+  // so a count that dropped when comments were deleted catches up too. Fire
+  // and forget: the link or thread opens either way.
+  const markSeen = useCallback(
+    (row: Row) => {
+      void rpc.call("markSeen", { repo: row.repo, number: row.number }).then(reload);
     },
-    [navigate],
+    [reload, rpc],
+  );
+
+  const onOpen = useCallback(
+    (row: Row, threadId: string) => {
+      navigate.toThread(threadId);
+      markSeen(row);
+    },
+    [markSeen, navigate],
+  );
+
+  const onNoteSave = useCallback(
+    async (row: Row, body: string) => {
+      const result = await rpc.call("setNote", { repo: row.repo, number: row.number, body });
+      if (!result.ok) {
+        toast.error("Could not save the note.");
+        return false;
+      }
+      await reload();
+      return true;
+    },
+    [reload, rpc],
   );
 
   // The review whose composer is open, with the seeds the backend resolved for
@@ -147,7 +172,7 @@ function Panel() {
           });
           // A review that already has a thread never composes a second one.
           if (result.existingThreadId) {
-            navigate.toThread(result.existingThreadId);
+            onOpen(row, result.existingThreadId);
             return;
           }
           if (result.seed === null) {
@@ -164,7 +189,7 @@ function Panel() {
         }
       })();
     },
-    [navigate, rpc],
+    [onOpen, rpc],
   );
 
   const onSubmitDraft = useCallback(
@@ -246,6 +271,8 @@ function Panel() {
         onArchive={onArchive}
         onSnooze={onSnooze}
         onUnsnooze={onUnsnooze}
+        onNoteSave={onNoteSave}
+        onOpenLink={markSeen}
       />
 
       <StartThreadDialog

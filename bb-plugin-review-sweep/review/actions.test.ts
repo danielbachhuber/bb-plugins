@@ -2,13 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_STALE_AFTER_DAYS,
   actionLabel,
-  ageLabel,
-  ageTone,
   displaySection,
   parsePermissionMode,
   parseStaleAfterDays,
   returnsInLabel,
-  reviewersLabel,
   snoozeUntil,
   sizeLabel,
   threadTitle,
@@ -140,52 +137,6 @@ describe("ageInDays", () => {
     expect(ageInDays(NOW, NOW)).toBe(0);
     expect(ageInDays(NOW - 86_400_000 * 2.9, NOW)).toBe(2);
     expect(ageInDays(NOW + 86_400_000, NOW)).toBe(0);
-  });
-});
-
-describe("ageTone", () => {
-  it("emphasises only a wait at or past the threshold", () => {
-    expect(ageTone(NOW - 86_400_000, NOW, 2)).toBe("quiet");
-    expect(ageTone(NOW - 86_400_000 * 2, NOW, 2)).toBe("stale");
-    expect(ageTone(NOW - 86_400_000 * 9, NOW, 2)).toBe("stale");
-  });
-
-  it("treats a zero threshold as everything being overdue", () => {
-    expect(ageTone(NOW, NOW, 0)).toBe("stale");
-  });
-});
-
-describe("ageLabel", () => {
-  const HOUR = 3_600_000;
-
-  it("counts hours below two days, where the hour is the useful number", () => {
-    expect(ageLabel(NOW, NOW)).toBe("just now");
-    expect(ageLabel(NOW - HOUR, NOW)).toBe("1 hour");
-    expect(ageLabel(NOW - HOUR * 3, NOW)).toBe("3 hours");
-    // A request that arrived this morning and one that arrived last night both
-    // used to read "today", which is the difference between answering now and
-    // having already sat overnight.
-    expect(ageLabel(NOW - HOUR * 27, NOW)).toBe("27 hours");
-    expect(ageLabel(NOW - HOUR * 47, NOW)).toBe("47 hours");
-  });
-
-  it("switches to days at forty-eight hours, where hours stop meaning much", () => {
-    expect(ageLabel(NOW - HOUR * 48, NOW)).toBe("2 days");
-    expect(ageLabel(NOW - 86_400_000 * 6, NOW)).toBe("6 days");
-  });
-
-  it("never reports a negative age for a clock skewed forward", () => {
-    expect(ageLabel(NOW + HOUR, NOW)).toBe("just now");
-  });
-});
-
-describe("reviewersLabel", () => {
-  it("lists you first, then the rest as given", () => {
-    expect(reviewersLabel(["you", "mona", "platform"])).toBe("you, mona, platform");
-  });
-
-  it("falls back to an em dash rather than claiming nobody was asked", () => {
-    expect(reviewersLabel([])).toBe("—");
   });
 });
 

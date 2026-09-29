@@ -60,8 +60,9 @@ export default async function plugin(bb: BbPluginApi) {
     staleAfterDays: {
       type: "string",
       label: "Stale after (days)",
-      // How long a request may sit before its age is emphasised. A personal
-      // number rather than a universal one, which is why it is a setting.
+      // How long a request may sit before it moves up into Now, flagged
+      // "Waiting N days". A personal number rather than a universal one,
+      // which is why it is a setting.
       default: "2",
     },
     model: {
@@ -269,6 +270,9 @@ export default async function plugin(bb: BbPluginApi) {
     try {
       const result = await runSweep(createGhRunner(ghPath), () => Date.now(), await repoFilter());
       store.replaceAll(result);
+      // Every row's count on first sight, so a row is never "N new" just
+      // because this is the first sweep to list it.
+      store.recordFirstSeen(result.rows, result.sweptAt);
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: result.sweptAt });
       bb.log.info(
         `swept ${result.rows.length} review request(s)` +
@@ -356,6 +360,8 @@ export default async function plugin(bb: BbPluginApi) {
     async listRows() {
       const meta = store.readMeta();
       const rows = store.readRows();
+      const notes = store.notes();
+      const seen = store.seenCounts();
       const { staleAfterDays } = await settings.get();
 
       let candidates: ProjectCandidate[] = [];
@@ -379,12 +385,23 @@ export default async function plugin(bb: BbPluginApi) {
       const snoozes = store.snoozesUntil(Date.now());
 
       return {
-        rows: rows.map((row) => ({
-          ...row,
-          canSpawn: threadMap !== null && spawnable.has(row.repo),
-          threadId: threadMap?.get(`${row.repo}#${row.number}`)?.[0] ?? null,
-          snoozedUntil: snoozes.get(`${row.repo}#${row.number}`) ?? null,
-        })),
+        rows: rows.map((row) => {
+          const key = `${row.repo}#${row.number}`;
+          const comments = row.comments ?? 0;
+          // No record yet reads as nothing new: the sweep records the count on
+          // first sight, and until it has, every comment is one already there.
+          // Floored at zero, since deleted comments can drop the count.
+          const seenCount = seen.get(key);
+          return {
+            ...row,
+            comments,
+            note: notes.get(key) ?? null,
+            newComments: seenCount === undefined ? 0 : Math.max(0, comments - seenCount),
+            canSpawn: threadMap !== null && spawnable.has(row.repo),
+            threadId: threadMap?.get(key)?.[0] ?? null,
+            snoozedUntil: snoozes.get(key) ?? null,
+          };
+        }),
         sweptAt: meta.sweptAt,
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
@@ -396,6 +413,18 @@ export default async function plugin(bb: BbPluginApi) {
 
     async refresh() {
       return sweepNow();
+    },
+
+    setNote({ repo, number, body }) {
+      store.setNote(repo, number, body, Date.now());
+      return { ok: true };
+    },
+
+    markSeen({ repo, number }) {
+      const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
+      if (!row) return { ok: false };
+      store.markSeen(repo, number, row.comments ?? 0, Date.now());
+      return { ok: true };
     },
 
     async archiveThread({ repo, number }) {
@@ -499,14 +528,21 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
-        const existingThreadId = await links.threadFor(repo, number);
-        if (existingThreadId) {
-          return { threadId: existingThreadId, existing: true, reason: null };
-        }
-
         const row = store
           .readRows()
           .find((entry) => entry.repo === repo && entry.number === number);
+        // Starting or reopening the thread is reading the pull request, so its
+        // new comments are no longer new.
+        const markSeen = () => {
+          if (row) store.markSeen(repo, number, row.comments ?? 0, Date.now());
+        };
+
+        const existingThreadId = await links.threadFor(repo, number);
+        if (existingThreadId) {
+          markSeen();
+          return { threadId: existingThreadId, existing: true, reason: null };
+        }
+
         if (!row) {
           return {
             threadId: null,
@@ -538,6 +574,7 @@ export default async function plugin(bb: BbPluginApi) {
 
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
         await links.link(repo, number, thread.id, "spawned");
+        markSeen();
         bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
         return { threadId: thread.id, existing: false, reason: null };
       })();

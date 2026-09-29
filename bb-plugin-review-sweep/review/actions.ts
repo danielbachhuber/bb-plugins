@@ -24,13 +24,13 @@ export function actionLabel(state: ReviewState): string {
 }
 
 /**
- * The button says what the click does, not what kind of review it is: every
- * row here starts a thread, and "Review" read like it opened the diff.
+ * The action says what the click does, not what kind of review it is: the
+ * row's run and track already say whether it is a re-review.
  *
  * The thread title still uses actionLabel, so the sidebar keeps the
- * first-look/re-review distinction that the button no longer carries.
+ * first-look/re-review distinction that the action does not carry.
  */
-export const START_THREAD_LABEL = "Start thread";
+export const START_REVIEW_LABEL = "Start review";
 
 /**
  * Conventional-commit and ticket prefixes carry no information once the number
@@ -106,9 +106,9 @@ export function snoozeUntil(now: number): number {
 }
 
 /**
- * "returns in 41 hours". Counts up from the same clock as `ageLabel`, and
- * rounds up rather than down: a deadline 30 minutes out is "returns in 1 hour",
- * never "returns in 0 hours".
+ * "returns in 41 hours". Counts in hours below two days, where the hour is the
+ * useful number, and rounds up rather than down: a deadline 30 minutes out is
+ * "returns in 1 hour", never "returns in 0 hours".
  */
 export function returnsInLabel(until: number, now: number): string {
   const hours = Math.ceil(Math.max(0, until - now) / 3_600_000);
@@ -123,27 +123,21 @@ export const DISPLAY_SECTIONS = ["needs-review", "in-progress", "draft", "snooze
 
 export type DisplaySection = (typeof DISPLAY_SECTIONS)[number];
 
-export const SECTION_TITLES: Record<DisplaySection, string> = {
-  "needs-review": "Needs Review",
-  "in-progress": "In Progress",
-  draft: "Draft",
-  snoozed: "Ignored",
-};
-
 /**
- * Where a row belongs in the panel.
+ * Which rows the sidebar counts as waiting on you: `needs-review` only.
  *
- * A pull request with a thread is being worked on, so it leaves the section
- * that means "this is waiting for you" — otherwise the queue overstates itself
- * and invites a second click on a review already running.
+ * A pull request with a thread is being worked on, so it is not waiting on
+ * you, otherwise the count overstates the queue and invites a second click on
+ * a review already running.
  *
  * A draft requested of you is a real request, but it is not offered for review
- * yet, so it sits apart rather than aging in the main queue.
+ * yet, so it is not counted either.
  *
- * An ignored review still shows, in its own section at the bottom: hiding it
- * outright would leave no way to see what you deferred, or to take it back
- * before the deadline. A thread outranks the deferral, because a review being
- * worked on is stronger evidence than a click from two days ago.
+ * An ignored review is left out, since counting it would undo the point of
+ * ignoring it. A thread outranks the deferral, because a review being worked
+ * on is stronger evidence than a click from two days ago.
+ *
+ * The list's own placement is `runOf` in tiers.ts.
  */
 export function displaySection(
   hasThread: boolean,
@@ -155,51 +149,8 @@ export function displaySection(
   return isDraft ? "draft" : "needs-review";
 }
 
-export type AgeTone = "quiet" | "stale";
-
-/**
- * An age only earns emphasis once it is past the threshold. Colouring every
- * row's age makes the column noise; colouring the overdue ones makes it a
- * signal.
- */
-export function ageTone(requestedAt: number, now: number, staleAfterDays: number): AgeTone {
-  return ageInDays(requestedAt, now) >= staleAfterDays ? "stale" : "quiet";
-}
-
-/** Below this, an age is reported in hours; at or above it, in days. */
+/** Below this, a return time is reported in hours; at or above it, in days. */
 export const HOURS_BEFORE_DAYS = 48;
-
-/**
- * "3 hours", "27 hours", "2 days", "6 days".
- *
- * Under two days the hour count is the useful number: a request that arrived
- * this morning and one that arrived last night both read "today", which is
- * the difference between answering now and having already sat overnight. Past
- * two days the hour count stops meaning anything and days read better.
- */
-export function ageLabel(requestedAt: number, now: number): string {
-  const hours = ageInHours(requestedAt, now);
-  if (hours < HOURS_BEFORE_DAYS) {
-    if (hours < 1) return "just now";
-    return hours === 1 ? "1 hour" : `${hours} hours`;
-  }
-  const days = ageInDays(requestedAt, now);
-  return days === 1 ? "1 day" : `${days} days`;
-}
-
-/** Whole hours since the request, never negative for a clock skewed forward. */
-export function ageInHours(requestedAt: number, now: number): number {
-  return Math.max(0, Math.floor((now - requestedAt) / 3_600_000));
-}
-
-/**
- * The Reviewers cell. An em dash rather than "none" for the empty case, which
- * only happens when the outstanding-request set came back empty even though the
- * search matched — a data gap, not a meaningful "nobody".
- */
-export function reviewersLabel(reviewers: readonly string[]): string {
-  return reviewers.length ? reviewers.join(", ") : "—";
-}
 
 /** "+120 −8, 6 files". An en dash for the deletions, not a hyphen. */
 export function sizeLabel(size: ChangeSize): string {
