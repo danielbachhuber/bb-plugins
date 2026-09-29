@@ -170,14 +170,7 @@ export function SweepRow({
   const line = tier === "later" && !open;
   const unread = item.newComments > 0;
   const track = (
-    <Track
-      stages={stages}
-      stage={item.stage}
-      offTrack={item.offTrack}
-      onMove={onMove}
-      blocked={item.blockedStage}
-      late={item.flags.some((flag) => flag.kind === "stale")}
-    />
+    <Track stages={stages} stage={item.stage} offTrack={item.offTrack} onMove={onMove} blocked={item.blockedStage} />
   );
   const icon = item.icon ? <span className="flex shrink-0 items-center">{item.icon}</span> : null;
   const iconColumn = (

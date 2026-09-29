@@ -50,12 +50,6 @@ describe("Track", () => {
     expect(screen.queryByLabelText(/^Blocked at/)).toBeNull();
   });
 
-  it("draws a late row's dot and stage name in red", () => {
-    const { container } = render(<Track stages={STAGES} stage={1} late />);
-    expect(container.querySelector("[data-late]")).toHaveClass("bg-destructive");
-    expect(screen.getByText("Ready")).toHaveClass("font-medium", "text-destructive-text");
-  });
-
   it("shows the off-track content when the row has no stage", () => {
     render(<Track stages={STAGES} stage={null} offTrack="Stalled" />);
     expect(screen.getByText("Stalled")).toBeInTheDocument();
