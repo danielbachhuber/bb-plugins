@@ -371,60 +371,11 @@ describe("tiers", () => {
 });
 
 describe("track", () => {
-  /**
-   * The stage holding the row's large dot, or its red cross when the stage it
-   * is at is the one blocked. Without moves the dots are not buttons, so it is
-   * found by size.
-   */
-  function currentStage(row: HTMLElement): string | null {
-    const dot = row.querySelector('span[title] > span.size-3.rounded-full, span[title] > [aria-label^="Blocked at"]');
-    return dot?.parentElement?.getAttribute("title") ?? null;
-  }
-
-  it("names its stages under the track", async () => {
+  it("draws no stage track: the banner and the icons say where a pull request stands", async () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
-    for (const stage of ["Draft", "Checks", "Review", "Merge"]) {
-      expect(slot.getAllByText(stage).length).toBeGreaterThan(0);
-    }
-  });
-
-  it("places a draft, failing checks, a green pull request, and a mergeable one", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, title: "Draft", isDraft: true, flags: [], group: "clean" }),
-          rowFixture({ number: 2, title: "Failing", flags: ["ci-failing"] }),
-          rowFixture({ number: 3, title: "Green" }),
-          rowFixture({ number: 4, title: "Mergeable", flags: ["merge-ready"], group: "ready-to-merge" }),
-        ],
-      }),
-    );
-    expect(currentStage(await rowFor(slot, "Draft"))).toBe("Draft");
-    expect(currentStage(await rowFor(slot, "Failing"))).toBe("Checks");
-    expect(currentStage(await rowFor(slot, "Green"))).toBe("Review");
-    expect(currentStage(await rowFor(slot, "Mergeable"))).toBe("Merge");
-  });
-
-  it("crosses out Checks for failing checks and Merge for a conflict", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, title: "Failing", flags: ["ci-failing"] }),
-          rowFixture({ number: 2, title: "Conflicted" }),
-          rowFixture({ number: 3, title: "Feedback", flags: ["feedback"] }),
-        ],
-      }),
-    );
-    expect(within(await rowFor(slot, "Failing")).getByLabelText("Blocked at Checks")).toBeInTheDocument();
-    expect(within(await rowFor(slot, "Conflicted")).getByLabelText("Blocked at Merge")).toBeInTheDocument();
-    expect(within(await rowFor(slot, "Feedback")).queryByLabelText(/^Blocked at/)).toBeNull();
-  });
-
-  it("offers no moves, since GitHub decides the stage", async () => {
-    const slot = render(listing());
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByRole("button", { name: /^Move to/ })).toBeNull();
+    for (const stage of ["Draft", "Checks", "Review", "Merge"]) expect(slot.queryByText(stage)).toBeNull();
+    expect(slot.queryByLabelText(/^Blocked at/)).toBeNull();
   });
 });
 

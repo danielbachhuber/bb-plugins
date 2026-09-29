@@ -369,38 +369,10 @@ describe("tiers", () => {
 });
 
 describe("track", () => {
-  /** The stage holding the row's large dot. Without moves the dots are not buttons, so it is found by size. */
-  function currentStage(row: HTMLElement): string | null {
-    return row.querySelector("span[title] > span.size-3.rounded-full")?.parentElement?.getAttribute("title") ?? null;
-  }
-
-  it("names its stages under the track", async () => {
+  it("draws no stage track: the banner and the icons say where a review stands", async () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
-    for (const stage of ["Requested", "Reviewing", "Re-review"]) {
-      expect(slot.getAllByText(stage).length).toBeGreaterThan(0);
-    }
-  });
-
-  it("places a request, a review with a thread, and a re-review", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, title: "Requested" }),
-          rowFixture({ number: 2, title: "Reviewing", threadId: "thr_1" }),
-          rowFixture({ number: 3, title: "Re-review", state: "re-review" }),
-        ],
-      }),
-    );
-    expect(currentStage(await rowFor(slot, "Requested"))).toBe("Requested");
-    expect(currentStage(await rowFor(slot, "Reviewing"))).toBe("Reviewing");
-    expect(currentStage(await rowFor(slot, "Re-review"))).toBe("Re-review");
-  });
-
-  it("offers no moves, since GitHub decides the stage", async () => {
-    const slot = render(listing());
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByRole("button", { name: /^Move to/ })).toBeNull();
+    for (const stage of ["Requested", "Reviewing", "Re-review"]) expect(slot.queryByText(stage)).toBeNull();
   });
 });
 

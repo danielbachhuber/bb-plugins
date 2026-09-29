@@ -510,6 +510,8 @@ export function ReviewListView({
               const row = rowsByKey.get(item.key);
               if (row) onOpenLink(row);
             }}
+            // No stage track: the banner and the icons say where a review stands.
+            renderTrack={() => null}
             renderBody={(item, _open, line) => {
               const row = rowsByKey.get(item.key);
               return row ? (

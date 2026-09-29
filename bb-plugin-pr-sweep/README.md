@@ -91,7 +91,7 @@ Under the title, a banner says where the pull request stands.
 - **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
   or "GitHub is still checking for conflicts".
 - **None** for a draft, a first review not yet given, or checks still
-  running, which the track and the icons already show.
+  running, which the icons already show.
 
 Under the banner, a line of icons: each reviewer's avatar with a badge for
 where their review stands (requested, changes requested, approved, or
@@ -104,13 +104,8 @@ play. A pull request awaiting review that has not been updated for "Stale
 after (days)" shows "Waiting N days" in red there too. A one-line Later row
 shows this line in place of its age.
 
-The track on the right names its four stages under their dots, with the
-current one in bold: **Draft**; **Checks** while any check is failing,
-running, cancelled, or missing; **Review** once checks are green; and
-**Merge** when it is ready to merge. The stage of the problem the banner leads
-with is drawn as a red disc with a cross: Merge for a conflict or a blocked
-merge, and Checks for failing or cancelled checks. GitHub decides the stage, so the
-track cannot be clicked.
+A row has no stage track on the right, unlike Issue Sweep's: the banner and
+the icons say where a pull request stands.
 
 An open row's actions are Start thread or Open thread, Archive thread on a row
 whose thread has no flags left, a menu of earlier threads when there are any,

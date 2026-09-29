@@ -481,7 +481,10 @@ export interface PrListViewProps {
    * pass drawn ones so they need no network.
    */
   avatarFor?: (owner: string) => string;
-  /** Draws each row's right-hand column in place of the stage track; null leaves it out. */
+  /**
+   * Draws each row's right-hand column. Rows have none by default: the banner
+   * and the icons say where a pull request stands.
+   */
   renderTrack?: (item: SweepItem, line: boolean, row: Row) => ReactNode;
 }
 
@@ -584,7 +587,7 @@ export function PrListView({
                     const row = rowsByKey.get(item.key);
                     return row ? renderTrack(item, line, row) : null;
                   }
-                : undefined
+                : () => null
             }
             renderBody={(item, _open, line) => {
               const row = rowsByKey.get(item.key);

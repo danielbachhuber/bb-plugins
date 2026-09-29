@@ -216,7 +216,7 @@ const everySection: Listing = {
   ],
 };
 
-/** Every flag the classifier sets, each drawn as the banner and track show it. */
+/** Every flag the classifier sets, each drawn as the banner shows it. */
 const everyStatus: Listing = {
   ...baseline,
   rows: [
@@ -428,7 +428,7 @@ export function Baseline() {
 /**
  * Every run the list can draw: needs you, ready to merge, and working in Now;
  * drafts in Next; waiting in Later, including one stale after six days with
- * its reviewer. Then every flag in the banner and on the track, the list
+ * its reviewer. Then every flag in the banner, the list
  * across two repositories, a thread being started with a timer running, and
  * the panel without Harvest.
  */

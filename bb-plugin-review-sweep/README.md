@@ -147,11 +147,8 @@ The age is how long ago the review was requested of you, read from the
 `ReviewRequestedEvent` timeline described above, not from the pull request's
 own timestamps.
 
-The track on the right names its three stages under their dots, with the
-current one in bold: **Requested**, **Reviewing** once a
-thread exists, and **Re-review** for a request that came back after you
-reviewed it. GitHub and the thread decide the stage, so the track cannot be
-clicked.
+A row has no stage track on the right, unlike Issue Sweep's: the banner and
+the icons say where a review stands.
 
 An open row's actions are Start review or Open thread; Archive thread on a row
 with a thread, Stop ignoring on an ignored one, or Ignore for 48 hours on the
