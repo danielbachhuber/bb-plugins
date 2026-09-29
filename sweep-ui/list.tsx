@@ -1,0 +1,147 @@
+// One list per tab: Now rows open, Next rows closed to their number line, and
+// Later rows one line each, folded after a few. The summary squares above it
+// narrow the list to one run.
+import { useEffect, useState, type ReactNode } from "react";
+
+import { Icon } from "./icons";
+import { SweepRow } from "./row";
+import { SummarySquares } from "./summary";
+import { TrackHeader } from "./track";
+import type { Run, Stage, SweepItem, Tier } from "./types";
+
+export interface SweepListProps {
+  /** "issues", used as "29 issues". */
+  noun: string;
+  stages: Stage[];
+  /** In list order; each item's tier comes from its run. */
+  runs: Run[];
+  /** Already sorted by the caller. */
+  items: SweepItem[];
+  /** The action line's contents, drawn before the list's own note button. */
+  renderActions: (item: SweepItem) => ReactNode;
+  /** Makes the track's dots clickable. */
+  onMove?: (item: SweepItem, stage: number) => void;
+  /** "" deletes the note. Resolves true once saved, which closes the field. */
+  onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
+  /** Called when the title is clicked, before the link opens. */
+  onOpenLink?: (item: SweepItem) => void;
+  /** Later rows shown before "N more". */
+  laterShown?: number;
+  /** Rows dimmed while a request for them runs. */
+  busyKeys?: ReadonlySet<string>;
+}
+
+const TIERS: Tier[] = ["now", "next", "later"];
+
+export function SweepList({
+  noun,
+  stages,
+  runs,
+  items,
+  renderActions,
+  onMove,
+  onNoteSave,
+  onOpenLink,
+  laterShown = 5,
+  busyKeys,
+}: SweepListProps) {
+  const [filter, setFilter] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  // Rows opened or closed by hand. Open state lives only as long as the panel.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const [showAllLater, setShowAllLater] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+
+  // A sync can empty the chosen run. Then the filter would hide every row, so
+  // it clears. The check below also covers the render before this runs.
+  const filterHasRows = filter !== null && items.some((item) => item.runId === filter);
+  useEffect(() => {
+    if (filter !== null && !filterHasRows) setFilter(null);
+  }, [filter, filterHasRows]);
+  const active = filterHasRows ? filter : null;
+
+  if (items.length === 0) return null;
+
+  const tierOf = new Map(runs.map((run) => [run.id, run.tier]));
+  const shown = active === null ? items : items.filter((item) => item.runId === active);
+  // Stable by tier, so a caller that sorts within tiers gets Now, Next, Later.
+  const byTier = TIERS.map((tier) => shown.filter((item) => (tierOf.get(item.runId) ?? "later") === tier));
+  const [now, next, later] = byTier as [SweepItem[], SweepItem[], SweepItem[]];
+  // A filtered list is short already, so its Later rows all show.
+  const fold = active === null && !showAllLater && later.length > laterShown;
+  const visibleLater = fold ? later.slice(0, laterShown) : later;
+
+  const setAll = (open: boolean) => {
+    setExpanded(open);
+    setToggled({});
+  };
+
+  const rowFor = (item: SweepItem, tier: Tier) => {
+    const open = toggled[item.key] ?? (expanded || tier === "now");
+    return (
+      <SweepRow
+        key={item.key}
+        item={item}
+        tier={tier}
+        open={open}
+        onToggle={() => setToggled((current) => ({ ...current, [item.key]: !open }))}
+        stages={stages}
+        onMove={onMove ? (stage) => onMove(item, stage) : undefined}
+        onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}
+        actions={renderActions(item)}
+        editing={editing === item.key}
+        onEditNote={() => setEditing(item.key)}
+        onNoteSave={async (body) => {
+          const saved = await onNoteSave(item, body);
+          if (saved) setEditing((current) => (current === item.key ? null : current));
+          return saved;
+        }}
+        onNoteCancel={() => setEditing(null)}
+        busy={busyKeys?.has(item.key) ?? false}
+      />
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
+      <div>
+        <TrackHeader
+          stages={stages}
+          label={
+            <>
+              <span>
+                {items.length} {noun}
+              </span>
+              <button
+                type="button"
+                onClick={() => setAll(!expanded)}
+                className="inline-flex items-center gap-1 rounded px-1 font-normal hover:bg-accent hover:text-foreground"
+              >
+                <Icon name={expanded ? "ChevronRight" : "ChevronDown"} className="size-3" />
+                {expanded ? "Collapse all" : "Expand all"}
+              </button>
+            </>
+          }
+        />
+        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+          {now.map((item) => rowFor(item, "now"))}
+          {next.map((item) => rowFor(item, "next"))}
+          {visibleLater.map((item) => rowFor(item, "later"))}
+          {fold ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => setShowAllLater(true)}
+                className="flex w-full items-center gap-1.5 py-2 pl-8 text-left text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Icon name="ChevronDown" className="size-3" />
+                {later.length - laterShown} more
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      </div>
+    </div>
+  );
+}
