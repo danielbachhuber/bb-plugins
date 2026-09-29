@@ -10,7 +10,8 @@ export interface SweepLinkProps {
   href: string;
   className?: string;
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
-  children: ReactNode;
+  // Optional, as it is on the SDK's UrlLink, or UrlLink would not fit here.
+  children?: ReactNode;
 }
 
 /**
