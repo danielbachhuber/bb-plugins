@@ -104,7 +104,8 @@ row. The row whose Harvest timer is running stays open, whatever its tier, so
 the timer stays in view.
 
 The sidebar count is requests with no thread that are neither ignored nor
-drafts.
+drafts. Before it, a red circle counts the ones waiting too long, as Now
+counts its urgent rows.
 
 ## Each row
 

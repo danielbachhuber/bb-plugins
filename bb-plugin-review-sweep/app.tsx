@@ -15,6 +15,7 @@ import {
 } from "@/components/start-thread-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection, returnsInLabel } from "./review/actions.js";
+import { runOf } from "./review/tiers.js";
 import {
   ReviewListView,
   type HarvestPanelState,
@@ -298,16 +299,38 @@ function Panel() {
   );
 }
 
+/**
+ * Beside Reviews in the sidebar: the requests waiting too long in a red
+ * circle, as Now shows its urgent rows, then every request still to review,
+ * which includes them. The circle is left out at zero, and both are when
+ * nothing is waiting.
+ */
 function NeedsReviewCount() {
   const { listing } = useListing();
-  const count =
+  const rows =
     listing?.rows.filter(
       (row) =>
         displaySection(Boolean(row.threadId), row.isDraft, Boolean(row.snoozedUntil)) ===
         "needs-review",
-    ).length ?? 0;
-  if (count === 0) return null;
-  return <span className="text-xs tabular-nums text-muted-foreground">{count}</span>;
+    ) ?? [];
+  if (!listing || rows.length === 0) return null;
+  const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };
+  const overdue = rows.filter((row) => runOf(row, inputs) === "overdue").length;
+  return (
+    <span className="flex items-center gap-1.5 text-xs tabular-nums">
+      {overdue === 0 ? null : (
+        <span
+          title={`${overdue} waiting too long`}
+          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white"
+        >
+          {overdue}
+        </span>
+      )}
+      <span title={`${rows.length} to review`} className="text-muted-foreground">
+        {rows.length}
+      </span>
+    </span>
+  );
 }
 
 export default definePluginApp((app) => {

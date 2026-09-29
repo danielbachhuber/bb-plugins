@@ -545,8 +545,24 @@ describe("ignoring a review", () => {
   }
 
   it("counts a review that is waiting", async () => {
-    const slot = renderCount(listing());
+    const slot = renderCount(listing({ rows: [rowFixture({ requestedAt: daysAgo(1) })] }));
     await waitFor(() => expect(slot.container.textContent).toBe("1"));
+    expect(slot.queryByTitle(/waiting too long/)).toBeNull();
+  });
+
+  it("puts the reviews waiting too long in a red circle before the total", async () => {
+    const slot = renderCount(
+      listing({
+        rows: [
+          rowFixture({ number: 1, requestedAt: daysAgo(4) }),
+          rowFixture({ number: 2, requestedAt: daysAgo(1) }),
+        ],
+      }),
+    );
+    const badge = await slot.findByTitle("1 waiting too long");
+    expect(badge).toHaveTextContent("1");
+    expect(badge).toHaveClass("bg-red-600");
+    expect(slot.getByTitle("2 to review")).toHaveTextContent("2");
   });
 
   it("keeps an ignored review out of the sidebar count", async () => {
