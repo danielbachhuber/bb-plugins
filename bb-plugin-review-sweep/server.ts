@@ -24,6 +24,8 @@ export { rpcContract };
 
 const REALTIME_CHANNEL = "reviews-updated";
 
+const NO_CHECKS = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 };
+
 const GH_CONTEXT_REQUIRED =
   "Review Sweep needs the gh-context plugin, which records which threads belong to which pull requests. Install it, then reload Review Sweep.";
 
@@ -395,6 +397,9 @@ export default async function plugin(bb: BbPluginApi) {
           return {
             ...row,
             comments,
+            // Rows stored before the sweep read these draw no checks and no reviewers.
+            checks: row.checks ?? NO_CHECKS,
+            reviewers: row.reviewers ?? [],
             note: notes.get(key) ?? null,
             newComments: seenCount === undefined ? 0 : Math.max(0, comments - seenCount),
             canSpawn: threadMap !== null && spawnable.has(row.repo),

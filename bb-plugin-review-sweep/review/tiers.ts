@@ -1,5 +1,5 @@
 import type { Flag, Run } from "sweep-ui/types";
-import { ageInDays, type ChangeSize, type ReviewState } from "./types.js";
+import { ageInDays, type ChangeSize, type ChecksSummary, type ReviewState, type RowReviewer } from "./types.js";
 
 /**
  * Which run, and so which tier, each review request belongs in, and the order
@@ -26,6 +26,10 @@ export interface ListedReview {
   snoozedUntil: number | null;
   /** How many general comments the pull request has. */
   comments: number;
+  /** The head commit's checks, all zero when it has none. */
+  checks: ChecksSummary;
+  /** Everyone else asked to review or who has reviewed. */
+  reviewers: RowReviewer[];
   /** The local next-step note, never sent to GitHub. */
   note: string | null;
   /** Comments since the pull request was last opened from here. */

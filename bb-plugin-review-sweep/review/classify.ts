@@ -1,9 +1,13 @@
 import {
   groupForRow,
+  type ChecksSummary,
   type ClassifiedRow,
   type RawPullRequest,
   type RawReviewRequestedEvent,
+  type RawStateCount,
   type ReviewState,
+  type ReviewerState,
+  type RowReviewer,
 } from "./types.js";
 
 /** Epoch ms, or null for a missing or unparseable timestamp. */
@@ -144,6 +148,118 @@ export function hasAnswered(pr: RawPullRequest, viewer: string): boolean {
   return direct === null || reviewed > direct;
 }
 
+type Outcome = Exclude<keyof ChecksSummary, "total">;
+
+/**
+ * A check run's state, as `checkRunCountsByState` names it. NEUTRAL counts as
+ * skipped, as PR Sweep counts it, so one pull request shows the same count on
+ * both tabs.
+ */
+const CHECK_RUN_OUTCOME: Record<string, Outcome> = {
+  SUCCESS: "pass",
+  NEUTRAL: "skip",
+  SKIPPED: "skip",
+  STALE: "skip",
+  FAILURE: "fail",
+  TIMED_OUT: "fail",
+  ACTION_REQUIRED: "fail",
+  STARTUP_FAILURE: "fail",
+  CANCELLED: "cancelled",
+  IN_PROGRESS: "pending",
+  QUEUED: "pending",
+  PENDING: "pending",
+  WAITING: "pending",
+  REQUESTED: "pending",
+};
+
+/** A commit status's state, as `statusContextCountsByState` names it. */
+const STATUS_CONTEXT_OUTCOME: Record<string, Outcome> = {
+  SUCCESS: "pass",
+  FAILURE: "fail",
+  ERROR: "fail",
+  PENDING: "pending",
+  EXPECTED: "pending",
+};
+
+/**
+ * The head commit's checks, from the counts GitHub keeps per state. A state
+ * this does not know counts as still running, as PR Sweep treats an
+ * unrecognised conclusion, so it is never shown as a pass. All zero when the
+ * commit has no checks or the rollup is missing.
+ */
+export function checksOf(pr: RawPullRequest): ChecksSummary {
+  const summary: ChecksSummary = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 };
+  const contexts = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup?.contexts;
+  const add = (counts: Array<RawStateCount | null> | null | undefined, outcomes: Record<string, Outcome>) => {
+    for (const entry of counts ?? []) {
+      const count = entry?.count ?? 0;
+      if (count <= 0) continue;
+      summary[outcomes[(entry?.state ?? "").toUpperCase()] ?? "pending"] += count;
+      summary.total += count;
+    }
+  };
+  add(contexts?.checkRunCountsByState, CHECK_RUN_OUTCOME);
+  add(contexts?.statusContextCountsByState, STATUS_CONTEXT_OUTCOME);
+  return summary;
+}
+
+/** Review states that settle where someone stands, as opposed to a comment. */
+const VERDICTS: Record<string, ReviewerState> = {
+  APPROVED: "approved",
+  CHANGES_REQUESTED: "changes_requested",
+  DISMISSED: "dismissed",
+};
+
+/** The order reviewers are drawn in: whoever is still owed first. */
+const REVIEWER_ORDER: ReviewerState[] = ["pending", "changes_requested", "approved", "commented", "dismissed"];
+
+/**
+ * Everyone else on the pull request, once each, and where their review stands.
+ *
+ * A request still outstanding is pending, whatever that reviewer said before,
+ * since the author is waiting on it. A team is named `org/team`, with the
+ * repository's owner as the organization, so it can show that organization's
+ * picture. Otherwise a reviewer's latest approval, change request, or
+ * dismissal decides, and a reviewer who only commented is a commenter: a
+ * comment after an approval does not take the approval back.
+ *
+ * The viewer is left out, since every row already waits on them, and so is
+ * the author, whose replies to review comments GitHub files as reviews.
+ */
+export function reviewersOf(pr: RawPullRequest, viewer: string): RowReviewer[] {
+  const owner = (pr.repository?.nameWithOwner ?? "").split("/")[0] ?? "";
+  const author = pr.author?.login;
+  const states = new Map<string, { state: ReviewerState; team: boolean }>();
+
+  for (const request of pr.reviewRequests?.nodes ?? []) {
+    const reviewer = request?.requestedReviewer;
+    if (!reviewer) continue;
+    if (reviewer.login) {
+      if (reviewer.login !== viewer) states.set(reviewer.login, { state: "pending", team: false });
+    } else if (reviewer.slug) {
+      states.set(`${owner}/${reviewer.slug}`, { state: "pending", team: true });
+    }
+  }
+
+  const verdicts = new Map<string, ReviewerState>();
+  const commented = new Set<string>();
+  for (const review of pr.reviews?.nodes ?? []) {
+    const login = review?.author?.login;
+    if (!login || login === viewer || login === author) continue;
+    const state = (review?.state ?? "").toUpperCase();
+    const verdict = VERDICTS[state];
+    // Nodes arrive oldest first, so the last verdict seen is the latest.
+    if (verdict) verdicts.set(login, verdict);
+    else if (state === "COMMENTED") commented.add(login);
+  }
+  for (const [login, state] of verdicts) if (!states.has(login)) states.set(login, { state, team: false });
+  for (const login of commented) if (!states.has(login)) states.set(login, { state: "commented", team: false });
+
+  return [...states]
+    .map(([login, { state, team }]) => ({ login, state, team }))
+    .sort((a, b) => REVIEWER_ORDER.indexOf(a.state) - REVIEWER_ORDER.indexOf(b.state));
+}
+
 /** Returns null for a node too incomplete to act on, rather than a broken row. */
 export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow | null {
   const repo = pr.repository?.nameWithOwner;
@@ -173,6 +289,8 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
       changedFiles: pr.changedFiles ?? 0,
     },
     comments: pr.comments?.totalCount ?? 0,
+    checks: checksOf(pr),
+    reviewers: reviewersOf(pr, viewer),
   };
 }
 

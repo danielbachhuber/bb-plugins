@@ -26,6 +26,15 @@ describe("StatusBanner", () => {
     expect(banner.querySelector('[data-icon="CircleCheck"]')).not.toBeNull();
   });
 
+  it("draws an info banner in blue with an info icon", () => {
+    render(<StatusBanner tone="info">Asked to review again</StatusBanner>);
+    const banner = screen.getByText("Asked to review again").closest("[data-tone]")!;
+    expect(banner).toHaveAttribute("data-tone", "info");
+    expect(banner).toHaveClass("bg-[#0b57d0]/[0.07]");
+    expect(screen.getByText("Asked to review again")).toHaveClass("text-[#0b57d0]", "font-medium");
+    expect(banner.querySelector('[data-icon="Info"]')).not.toBeNull();
+  });
+
   it("draws a detail after the status, lighter and not bold", () => {
     render(
       <StatusBanner tone="blocked" detail="hubber requested changes">

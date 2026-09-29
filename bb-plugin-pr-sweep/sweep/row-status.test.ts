@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bannerFor, blockedStageOf, checksGlyph, diffOf, reviewersFor } from "./row-status.js";
+import { bannerFor, blockedStageOf, diffOf, reviewersFor } from "./row-status.js";
 import type { ListedPr } from "./tiers.js";
 
 const GREEN = { pass: 4, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 5 };
@@ -177,38 +177,6 @@ describe("reviewersFor", () => {
 
   it("is empty when nobody has been asked or has reviewed", () => {
     expect(reviewersFor(pr())).toEqual([]);
-  });
-});
-
-describe("checksGlyph", () => {
-  it("counts passing checks out of those that ran, leaving skips out", () => {
-    expect(checksGlyph(GREEN)).toEqual({ tone: "passed", text: "4/4" });
-  });
-
-  it("counts failing checks when any fail", () => {
-    expect(checksGlyph({ pass: 5, fail: 2, skip: 1, pending: 0, cancelled: 0, total: 8 })).toEqual({
-      tone: "failed",
-      text: "2/7 failing",
-    });
-  });
-
-  it("counts cancelled checks as failing, never as a green tick", () => {
-    expect(checksGlyph({ pass: 6, fail: 0, skip: 0, pending: 0, cancelled: 1, total: 7 })).toEqual({
-      tone: "failed",
-      text: "1/7 cancelled",
-    });
-  });
-
-  it("marks checks still running", () => {
-    expect(checksGlyph({ pass: 2, fail: 0, skip: 0, pending: 3, cancelled: 0, total: 5 })).toEqual({
-      tone: "running",
-      text: "2/5",
-    });
-  });
-
-  it("is null when the pull request has no checks", () => {
-    expect(checksGlyph({ pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 })).toBeNull();
-    expect(checksGlyph({ pass: 0, fail: 0, skip: 2, pending: 0, cancelled: 0, total: 2 })).toBeNull();
   });
 });
 

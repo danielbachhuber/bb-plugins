@@ -1,3 +1,7 @@
+import type { ChecksSummary, ReviewState as ReviewerState } from "sweep-ui/pull-request";
+
+export type { ChecksSummary, ReviewerState };
+
 /**
  * A review request is not a defect, so this plugin has no equivalent of
  * pr-sweep's severity-ordered flag list. Every row is simply waiting on you;
@@ -11,6 +15,17 @@ export interface ChangeSize {
   additions: number;
   deletions: number;
   changedFiles: number;
+}
+
+/**
+ * Someone else on the pull request and where their review stands. The viewer
+ * is never one: every row is already waiting on them.
+ */
+export interface RowReviewer {
+  /** A user's login, or a team's `org/team` slug. */
+  login: string;
+  state: ReviewerState;
+  team: boolean;
 }
 
 /** Coarse buckets, so a glance can find the small one to clear now. */
@@ -50,6 +65,13 @@ export interface ClassifiedRow {
    * because rows stored before the field existed lack it until the next sweep.
    */
   comments?: number;
+  /**
+   * The head commit's checks. Optional, as `comments` is, for rows stored
+   * before the sweep read them; the listing reads a missing one as no checks.
+   */
+  checks?: ChecksSummary;
+  /** The other reviewers, requested or having reviewed. Optional for the same reason. */
+  reviewers?: RowReviewer[];
 }
 
 export interface SweepResult {
@@ -79,6 +101,23 @@ export interface RawReview {
   author?: { login?: string } | null;
 }
 
+export interface RawStateCount {
+  state?: string;
+  count?: number;
+}
+
+/**
+ * The head commit's checks, counted by GitHub. `contexts(first: 1)` is asked
+ * for only to reach the counts, which cover every check whatever the page size.
+ */
+export interface RawStatusCheckRollup {
+  state?: string;
+  contexts?: {
+    checkRunCountsByState?: Array<RawStateCount | null> | null;
+    statusContextCountsByState?: Array<RawStateCount | null> | null;
+  } | null;
+}
+
 export interface RawPullRequest {
   number?: number;
   title?: string;
@@ -94,6 +133,9 @@ export interface RawPullRequest {
   reviews?: { nodes?: Array<RawReview | null> | null } | null;
   reviewRequests?: { nodes?: Array<RawReviewRequest | null> | null } | null;
   timelineItems?: { nodes?: Array<RawReviewRequestedEvent | null> | null } | null;
+  commits?: {
+    nodes?: Array<{ commit?: { statusCheckRollup?: RawStatusCheckRollup | null } | null } | null> | null;
+  } | null;
 }
 
 export interface RawSearchResponse {

@@ -23,8 +23,14 @@ chevron, the title line (the item's `icon`, the title, the number, "N new",
 and the first fact on the right as the age), and, when open, the note and the
 action line; `renderBody` fills the space between the title line and the
 note. On a one-line Later row it is drawn inline where the first fact would
-be. `StatusBanner` is the red or green line such a body can put under the
-title.
+be. `StatusBanner` is the red, green, or blue line such a body can put under
+the title.
+
+PR Sweep and Review Sweep both draw pull requests, and take what they draw for
+one from `sweep-ui/pull-request`, so a pull request looks the same on both
+tabs. Each passes `ReviewerStack` a `Tooltip`, a small wrapper around its own
+tooltip component, because a tooltip's portal belongs to the plugin and this
+package cannot import it. Without one, each avatar gets a native `title`.
 
 ## Installing
 
@@ -55,7 +61,8 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares` |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
-| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, and an optional lighter `detail` after a dot |
+| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, `tone="info"` in blue with an info icon, and an optional lighter `detail` after a dot |
+| `sweep-ui/pull-request` | What a pull request row draws: `PullRequestIcon` (green when open, muted for a draft), `ReviewerStack` (avatars with a badge per review state, and an optional `Tooltip`), `Avatar`, `ChecksBadge` (a tick, clock, or cross with a count, and every count on hover), and `DiffCount` ("+128 −12"). Also the `Reviewer`, `ReviewState`, and `ChecksSummary` types, and the pure `githubAvatar`, `checksGlyph`, and `checksLabel` |
 | `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 

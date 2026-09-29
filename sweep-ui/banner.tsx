@@ -1,15 +1,22 @@
 // A one-line status under a row's title: red when something stops the work,
-// green when it is ready to finish.
+// green when it is ready to finish, blue for news that asks nothing urgent.
 import type { ReactNode } from "react";
 
 import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 
-export type BannerTone = "blocked" | "ready";
+export type BannerTone = "blocked" | "ready" | "info";
 
 const TONES = {
   blocked: { box: "bg-destructive/[0.07]", icon: "AlertCircle", text: "text-destructive-text", detail: "text-destructive-text/80" },
   ready: { box: "bg-success/[0.08]", icon: "CircleCheck", text: "text-success", detail: "text-success/80" },
+  // The blue the row draws "N new" in.
+  info: {
+    box: "bg-[#0b57d0]/[0.07] dark:bg-[#a8c7fa]/[0.1]",
+    icon: "Info",
+    text: "text-[#0b57d0] dark:text-[#a8c7fa]",
+    detail: "text-[#0b57d0]/80 dark:text-[#a8c7fa]/80",
+  },
 } as const;
 
 export interface StatusBannerProps {

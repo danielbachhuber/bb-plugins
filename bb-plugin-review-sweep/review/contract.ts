@@ -77,6 +77,23 @@ const rowSchema = z.object({
   }),
   /** How many general comments the pull request has. */
   comments: z.number(),
+  /** The head commit's checks, all zero when it has none. */
+  checks: z.object({
+    pass: z.number(),
+    fail: z.number(),
+    skip: z.number(),
+    pending: z.number(),
+    cancelled: z.number(),
+    total: z.number(),
+  }),
+  /** Everyone else asked to review or who has reviewed, never the viewer. */
+  reviewers: z.array(
+    z.object({
+      login: z.string(),
+      state: z.enum(["approved", "changes_requested", "commented", "dismissed", "pending"]),
+      team: z.boolean(),
+    }),
+  ),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */

@@ -35,6 +35,8 @@ function review(overrides: Partial<ListedReview> = {}): ListedReview {
     threadId: null,
     snoozedUntil: null,
     comments: 0,
+    checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 },
+    reviewers: [],
     note: null,
     newComments: 0,
     ...overrides,

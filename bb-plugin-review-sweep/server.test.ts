@@ -606,6 +606,21 @@ describe("notes and seen counts", () => {
     expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.comments).toBe(0);
   });
 
+  it("lists each row's checks and other reviewers", async () => {
+    const checks = { pass: 5, fail: 1, skip: 0, pending: 0, cancelled: 0, total: 6 };
+    const reviewers = [{ login: "hubber", state: "approved" as const, team: false }];
+    const { harness } = await seededHost({ row: { checks, reviewers } });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]).toMatchObject({ checks, reviewers });
+  });
+
+  it("reads a row stored before checks and reviewers existed as having none", async () => {
+    const { harness } = await seededHost();
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]).toMatchObject({
+      checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 },
+      reviewers: [],
+    });
+  });
+
   it("saves a note and lists it with the row", async () => {
     const { harness } = await seededHost();
     expect(

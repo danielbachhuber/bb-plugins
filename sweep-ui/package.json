@@ -18,6 +18,7 @@
     "./summary": "./summary.tsx",
     "./note": "./note.tsx",
     "./banner": "./banner.tsx",
+    "./pull-request": "./pull-request.tsx",
     "./actions": "./actions.tsx",
     "./types": "./types.ts"
   },

@@ -32,6 +32,8 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     threadId: null,
     snoozedUntil: null,
     comments: 2,
+    checks: { pass: 3, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 4 },
+    reviewers: [],
     note: null,
     newComments: 0,
     ...overrides,
@@ -122,18 +124,69 @@ describe("panel", () => {
     expect(await slot.findByText("#42")).toBeInTheDocument();
   });
 
-  it("shows the age of the request, the author, and the size on the number line", async () => {
-    const slot = render(listing());
+  it("shows the age on the title line, then the author, reviewers, checks, and size as icons, in that order", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({
+            reviewers: [
+              { login: "hubber", state: "approved", team: false },
+              { login: "acme/reviewers", state: "pending", team: true },
+            ],
+          }),
+        ],
+      }),
+    );
     const row = await rowFor(slot, /Add the widget endpoint/);
     expect(within(row).getByText("4d ago")).toBeInTheDocument();
-    expect(within(row).getByText("octocat")).toBeInTheDocument();
-    expect(within(row).getByText("+120 −8")).toBeInTheDocument();
+    const parts = Array.from(row.querySelectorAll("[data-part]"), (part) => part.getAttribute("data-part"));
+    expect(parts).toEqual(["author", "reviewers", "checks", "diff"]);
+    const author = row.querySelector('[data-part="author"]')!;
+    expect(author).toHaveTextContent("octocat");
+    expect(author.querySelector("img")).toHaveAttribute("src", "https://github.com/octocat.png?size=40");
+    expect(
+      within(row).getByRole("img", { name: "Reviewers: hubber approved, @acme/reviewers review pending" }),
+    ).toBeInTheDocument();
+    const checks = row.querySelector('[data-part="checks"]')!;
+    expect(checks).toHaveTextContent("3/3");
+    expect(checks.querySelector('[data-icon="CircleCheck"]')).toHaveClass("text-success");
+    expect(row.querySelector('[data-part="diff"]')).toHaveTextContent("+120 −8");
   });
 
-  it("names the requested reviewers after the author", async () => {
-    const slot = render(listing({ rows: [rowFixture({ requestedReviewers: ["you", "platform"] })] }));
+  it("leaves out the reviewers when there are none and the checks when the pull request has none", async () => {
+    const slot = render(
+      listing({
+        rows: [rowFixture({ checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 } })],
+      }),
+    );
     const row = await rowFor(slot, /Add the widget endpoint/);
-    expect(within(row).getByText("you, platform")).toBeInTheDocument();
+    expect(row.querySelector('[data-part="reviewers"]')).toBeNull();
+    expect(row.querySelector('[data-part="checks"]')).toBeNull();
+    expect(row.querySelector('[data-part="diff"]')).toHaveTextContent("+120 −8");
+  });
+
+  it("counts failing checks in red", async () => {
+    const slot = render(
+      listing({ rows: [rowFixture({ checks: { pass: 5, fail: 2, skip: 1, pending: 0, cancelled: 0, total: 8 } })] }),
+    );
+    const checks = (await rowFor(slot, /Add the widget endpoint/)).querySelector('[data-part="checks"]')!;
+    expect(checks).toHaveTextContent("2/7 failing");
+    expect(checks.querySelector('[data-icon="CircleX"]')).toHaveClass("text-destructive-text");
+  });
+
+  it("marks an open pull request with a green icon and a draft with a muted one", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Open one" }),
+          freshRow({ number: 2, title: "Draft one", isDraft: true }),
+        ],
+      }),
+    );
+    expect(within(await rowFor(slot, "Open one")).getByLabelText("Open pull request")).toHaveClass("text-success");
+    expect(within(await rowFor(slot, "Draft one")).getByLabelText("Draft pull request")).toHaveClass(
+      "text-muted-foreground",
+    );
   });
 
   it("names the repository only when more than one is in play", async () => {
@@ -197,7 +250,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens Now rows, closes Next rows to their number line, and draws Later rows as one line", async () => {
+  it("opens Now rows, closes Next rows to their banner and icons, and draws Later rows as one line", async () => {
     const slot = render(
       listing({
         rows: [
@@ -215,9 +268,10 @@ describe("tiers", () => {
     expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
     expect(within(next).getByText("octocat")).toBeInTheDocument();
     expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
-    // One line: the age, and nothing else from the number line.
-    expect(within(later).getByText("5h ago")).toBeInTheDocument();
-    expect(within(later).queryByText("octocat")).toBeNull();
+    // One line: the icons, inline, in place of the age.
+    expect(within(later).getByText("octocat")).toBeInTheDocument();
+    expect(within(later).getByText("3/3")).toBeInTheDocument();
+    expect(within(later).queryByText("5h ago")).toBeNull();
   });
 
   it("draws re-review, overdue, reviewing, to review, drafts, then ignored, whatever order the rows arrive in", async () => {
@@ -250,16 +304,35 @@ describe("tiers", () => {
     expect(titles(slot)).toEqual(["Older", "Newer"]);
   });
 
-  it("flags a request waited on past the setting, and honours the setting", async () => {
+  it("says in a red banner how long a request past the setting has waited, and honours the setting", async () => {
     const stale = render(listing({ rows: [rowFixture({ requestedAt: daysAgo(6) - HOUR })] }));
-    expect(await stale.findByText("Waiting 6 days")).toBeInTheDocument();
+    const row = await rowFor(stale, /Add the widget endpoint/);
+    const banner = row.querySelector("[data-tone]")!;
+    expect(banner).toHaveAttribute("data-tone", "blocked");
+    expect(banner).toHaveTextContent("Waiting on you for 6 days");
+    // The banner says it once; the row keeps its red tint.
+    expect(within(row).queryByText("Waiting 6 days")).toBeNull();
+    expect(row).toHaveClass("border-l-destructive");
     stale.lifecycle.unmount();
 
     const patient = render(
       listing({ staleAfterDays: 14, rows: [rowFixture({ requestedAt: daysAgo(6) - HOUR })] }),
     );
     await expandAll(patient);
-    expect(patient.queryByText("Waiting 6 days")).toBeNull();
+    expect(patient.queryByText(/Waiting on you/)).toBeNull();
+  });
+
+  it("says in a blue banner that a re-review was asked for again", async () => {
+    const slot = render(listing({ rows: [freshRow({ state: "re-review", lastReviewedAt: daysAgo(2) })] }));
+    const banner = (await rowFor(slot, /Add the widget endpoint/)).querySelector("[data-tone]")!;
+    expect(banner).toHaveAttribute("data-tone", "info");
+    expect(banner).toHaveTextContent("Asked to review again");
+  });
+
+  it("draws no banner on a fresh first look", async () => {
+    const slot = render(listing({ rows: [freshRow()] }));
+    await expandAll(slot);
+    expect((await rowFor(slot, /Add the widget endpoint/)).querySelector("[data-tone]")).toBeNull();
   });
 
   it("shows the new comment count", async () => {

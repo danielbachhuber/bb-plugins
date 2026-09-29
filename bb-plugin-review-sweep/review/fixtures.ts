@@ -26,6 +26,33 @@ export function submittedReview(state: string, login: string, at: string) {
   return { state, submittedAt: at, author: { login } };
 }
 
+/**
+ * A head commit whose checks GitHub counted by state, as
+ * `statusCheckRollup.contexts` reports them.
+ */
+export function withChecks(
+  checkRuns: Record<string, number>,
+  statuses: Record<string, number> = {},
+): RawPullRequest["commits"] {
+  const counts = (byState: Record<string, number>) =>
+    Object.entries(byState).map(([state, count]) => ({ state, count }));
+  return {
+    nodes: [
+      {
+        commit: {
+          statusCheckRollup: {
+            state: "SUCCESS",
+            contexts: {
+              checkRunCountsByState: counts(checkRuns),
+              statusContextCountsByState: counts(statuses),
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
 export function makePr(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
   return {
     number: 1,

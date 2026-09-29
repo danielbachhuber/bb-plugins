@@ -3,8 +3,15 @@ import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
 import { SweepList } from "sweep-ui/list";
+import {
+  ChecksBadge,
+  DiffCount,
+  PullRequestIcon,
+  ReviewerStack,
+  type ReviewerTooltipProps,
+} from "sweep-ui/pull-request";
 import type { Stage, SweepItem } from "sweep-ui/types";
-import { ReviewerStack } from "@/components/reviewer-stack";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,15 +23,14 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
 import { actionSummary, commentsToRead, hasNothingToDo } from "./actions.js";
-import { checksLabel, relativeTime } from "./format.js";
-import { bannerFor, blockedStageOf, checksGlyph, diffOf, reviewersFor } from "./row-status.js";
+import { relativeTime } from "./format.js";
+import { bannerFor, blockedStageOf, diffOf, reviewersFor } from "./row-status.js";
 import {
   PR_RUNS,
   PR_STAGES,
@@ -152,20 +158,15 @@ function ThreadAction({
   );
 }
 
-/** Green for an open pull request, muted for a draft. */
-function StateIcon({ row }: { row: Row }) {
-  return row.isDraft ? (
-    <Icon name="GitPullRequestDraft" aria-label="Draft pull request" className="size-4 text-muted-foreground" />
-  ) : (
-    <Icon name="GitPullRequestArrow" aria-label="Open pull request" className="size-4 text-success" />
+/** One reviewer's name and review, in this plugin's tooltip. */
+function ReviewerTooltip({ label, children }: ReviewerTooltipProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }
-
-const CHECKS_TONE = {
-  passed: "text-success",
-  running: "text-amber-600/70 dark:text-amber-500/70",
-  failed: "text-destructive-text",
-} as const;
 
 interface BodyProps {
   row: Row;
@@ -182,29 +183,21 @@ interface BodyProps {
  */
 function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
   const reviewers = reviewersFor(row, avatarFor);
-  const checks = checksGlyph(row.checks);
   const diff = diffOf(row);
   const stale = item.flags.find((flag) => flag.kind === "stale");
   return (
     <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span data-part="reviewers" className="inline-flex items-center">
-        {reviewers.length > 0 ? <ReviewerStack reviewers={reviewers} /> : "no reviewer"}
+        {reviewers.length > 0 ? (
+          <TooltipProvider delayDuration={150}>
+            <ReviewerStack reviewers={reviewers} Tooltip={ReviewerTooltip} />
+          </TooltipProvider>
+        ) : (
+          "no reviewer"
+        )}
       </span>
-      {checks ? (
-        <span data-part="checks" className="inline-flex items-center gap-1" title={checksLabel(row.checks)}>
-          <Icon
-            name={checks.tone === "failed" ? "CircleX" : checks.tone === "running" ? "Clock" : "CircleCheck"}
-            className={cn("size-3.5", CHECKS_TONE[checks.tone])}
-          />
-          <span className={checks.tone === "failed" ? CHECKS_TONE.failed : undefined}>{checks.text}</span>
-        </span>
-      ) : null}
-      {diff ? (
-        <span data-part="diff" className="tabular-nums">
-          <span className="text-success">+{diff.additions}</span>{" "}
-          <span className="text-destructive-text">−{diff.deletions}</span>
-        </span>
-      ) : null}
+      <ChecksBadge checks={row.checks} />
+      {diff ? <DiffCount {...diff} /> : null}
       {showRepo ? <span data-part="repo">{row.repo}</span> : null}
       {stale ? (
         <span data-part="stale" className="font-medium text-destructive-text">
@@ -525,7 +518,7 @@ export function PrListView({
     note: row.note,
     stage: stageOf(row),
     blockedStage: blockedStageOf(row),
-    icon: <StateIcon row={row} />,
+    icon: <PullRequestIcon draft={row.isDraft} />,
     // A running timer must stay in view, and it lives in the action line.
     forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));

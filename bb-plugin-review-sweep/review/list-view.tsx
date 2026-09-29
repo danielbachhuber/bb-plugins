@@ -1,9 +1,20 @@
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
+import { StatusBanner } from "sweep-ui/banner";
 import { SweepList } from "sweep-ui/list";
+import {
+  Avatar,
+  ChecksBadge,
+  DiffCount,
+  PullRequestIcon,
+  ReviewerStack,
+  githubAvatar,
+  type ReviewerTooltipProps,
+} from "sweep-ui/pull-request";
 import type { Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
@@ -13,8 +24,9 @@ import {
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
-import { SNOOZE_LABEL, START_REVIEW_LABEL, UNSNOOZE_LABEL } from "./actions.js";
-import { factsFor } from "./format.js";
+import { SNOOZE_LABEL, START_REVIEW_LABEL, UNSNOOZE_LABEL, returnsInLabel } from "./actions.js";
+import { relativeTime } from "./format.js";
+import { bannerFor, reviewersFor } from "./row-status.js";
 import {
   REVIEW_RUNS,
   REVIEW_STAGES,
@@ -171,6 +183,72 @@ function DeferAction({
       <Icon name="Clock" className="size-3" />
       {SNOOZE_LABEL}
     </button>
+  );
+}
+
+/** One reviewer's name and review, in this plugin's tooltip. */
+function ReviewerTooltip({ label, children }: ReviewerTooltipProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+interface BodyProps {
+  row: Row;
+  now: number;
+  showRepo: boolean;
+  avatarFor: (owner: string) => string;
+}
+
+/**
+ * The row's facts as icons with numbers, as PR Sweep draws them: the author,
+ * whose pull request it is, then the other reviewers, the checks, and the
+ * size. Then the repository when the list spans several, and when an ignored
+ * review comes back. The reviewers are left out when there are none, and the
+ * checks when the pull request has none.
+ */
+function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
+  const reviewers = reviewersFor(row, avatarFor);
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <span data-part="author" className="inline-flex items-center gap-1.5">
+        <Avatar login={row.author} avatarUrl={avatarFor(row.author)} />
+        {row.author}
+      </span>
+      {reviewers.length > 0 ? (
+        <span data-part="reviewers" className="inline-flex items-center">
+          <TooltipProvider delayDuration={150}>
+            <ReviewerStack reviewers={reviewers} Tooltip={ReviewerTooltip} />
+          </TooltipProvider>
+        </span>
+      ) : null}
+      <ChecksBadge checks={row.checks} />
+      <DiffCount additions={row.size.additions} deletions={row.size.deletions} />
+      {showRepo ? <span data-part="repo">{row.repo}</span> : null}
+      {row.snoozedUntil !== null && !row.threadId ? (
+        <span data-part="returns">{returnsInLabel(row.snoozedUntil, now)}</span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Under the title: a red banner for a request waited on too long, or a blue
+ * one for a re-review, then the fact icons. On a one-line Later row, only the
+ * icons, inline.
+ */
+function RowBody({ line, inputs, ...props }: BodyProps & { line: boolean; inputs: TierInputs }) {
+  const icons = <FactIcons {...props} />;
+  if (line) return icons;
+  const banner = bannerFor(props.row, inputs);
+  return (
+    <>
+      {banner ? <StatusBanner tone={banner.tone}>{banner.text}</StatusBanner> : null}
+      <div className="mt-1.5">{icons}</div>
+    </>
   );
 }
 
@@ -353,6 +431,11 @@ export interface ReviewListViewProps {
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the pull request is about to open. */
   onOpenLink: (row: Row) => void;
+  /**
+   * A user's or organization's picture. Defaults to GitHub's; the stories
+   * pass drawn ones so they need no network.
+   */
+  avatarFor?: (owner: string) => string;
 }
 
 export function ReviewListView({
@@ -367,12 +450,13 @@ export function ReviewListView({
   onUnsnooze,
   onNoteSave,
   onOpenLink,
+  avatarFor = githubAvatar,
 }: ReviewListViewProps): ReactNode {
   if (!listing) return <SweepingReviews />;
 
   const inputs: TierInputs = { staleAfterDays: listing.staleAfterDays, now };
 
-  // The repository only earns a place on the number line when it varies.
+  // The repository only earns a place on the row when it varies.
   const showRepo = new Set(listing.rows.map((row) => row.repo)).size > 1;
 
   const sorted = sortReviews(listing.rows, inputs);
@@ -385,10 +469,12 @@ export function ReviewListView({
     number: row.number,
     newComments: row.newComments,
     flags: flagsFor(row, inputs),
-    facts: factsFor(row, now, showRepo),
+    // Only the age: the body draws the rest as icons.
+    facts: [relativeTime(row.requestedAt, now)],
     parent: null,
     note: row.note,
     stage: stageOf(row),
+    icon: <PullRequestIcon draft={row.isDraft} />,
     // A running timer must stay in view, and it lives in the action line.
     forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
@@ -423,6 +509,12 @@ export function ReviewListView({
             onOpenLink={(item) => {
               const row = rowsByKey.get(item.key);
               if (row) onOpenLink(row);
+            }}
+            renderBody={(item, _open, line) => {
+              const row = rowsByKey.get(item.key);
+              return row ? (
+                <RowBody row={row} line={line} now={now} inputs={inputs} showRepo={showRepo} avatarFor={avatarFor} />
+              ) : null;
             }}
             renderActions={(item) => {
               const row = rowsByKey.get(item.key);

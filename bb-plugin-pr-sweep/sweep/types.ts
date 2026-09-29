@@ -1,3 +1,5 @@
+import type { ChecksSummary } from "sweep-ui/pull-request";
+
 /** Ordered worst-first. Index in this array IS the severity rank. */
 export const FLAG_SEVERITY = [
   "conflict",
@@ -21,14 +23,8 @@ export function groupForFlags(flags: readonly Flag[]): RowGroup {
   return flags.length > 0 ? "needs-action" : "clean";
 }
 
-export interface ChecksSummary {
-  pass: number;
-  fail: number;
-  skip: number;
-  pending: number;
-  cancelled: number;
-  total: number;
-}
+// Shared with Review Sweep, which draws the same checks badge.
+export type { ChecksSummary };
 
 export interface ClassifiedRow {
   repo: string;

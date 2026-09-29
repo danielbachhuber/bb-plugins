@@ -46,8 +46,9 @@ bump are all still review requests, so they are all still listed.
 ## Why GraphQL rather than `gh pr list`
 
 pr-sweep discovers repositories with `gh search prs` and then fans out one
-`gh pr list` per repository, because `statusCheckRollup` and `mergeable` are
-unavailable from search. This plugin reads neither.
+`gh pr list` per repository, because it needs `mergeable` and every check run
+by name. This plugin needs neither: the only checks it shows are the head
+commit's counts, which the search query can return.
 
 What it does need is **when the review was requested of you**, and `gh pr list`
 has no field for it at any verbosity. The only honest sources are the
@@ -57,7 +58,10 @@ for three weeks would read as "20 minutes". A review queue whose age column is a
 guess is not worth having.
 
 So: one `gh api graphql` call, with an exact `requestedAt` per row. The same
-call reads `comments { totalCount }`, the count behind each row's "N new". It also
+call reads `comments { totalCount }`, the count behind each row's "N new", and
+the head commit's `statusCheckRollup` counts by state, behind each row's checks.
+The reviewers come from the `reviews` and `reviewRequests` it already reads for
+the request time. It also
 means there is no per-repository partial-failure state to carry; the sweep
 either returns the whole queue or fails and keeps the last known rows.
 
@@ -80,9 +84,9 @@ shows them all.
 
 | Tier | Runs, in order | Rows |
 | --- | --- | --- |
-| Now | re-review, waiting too long, reviewing | Open: title, number line, note, and actions |
-| Next | to review | Closed to the title and number line |
-| Later | drafts, ignored | One dimmed line each, folded after five |
+| Now | re-review, waiting too long, reviewing | Open: title line, banner, icons, note, and actions |
+| Next | to review | Closed to the title line, banner, and icons |
+| Later | drafts, ignored | One dimmed line each with the icons inline, folded after five |
 
 - **Re-review**: you reviewed it, the author pushed, and it came back. The
   author is blocked on you, and it is usually the quickest row to clear, so it
@@ -109,15 +113,35 @@ counts its urgent rows.
 
 ## Each row
 
-The number line shows the pull request number, how long ago the review was
-requested of you, the author, who was asked to review ("you, platform"), and
-the size in lines added and removed ("+18 −4"). An ignored request also says when it returns. "N new" shows in
-blue when comments were posted since you last opened the pull request or its
-thread from the panel, or started one; the first sweep to see a request
-records its count, so nothing is new on the first sync. The repository joins
-the line only when more than one is in play.
+Each row is drawn the way PR Sweep draws a pull request. The title line has
+the pull request icon (green when open, muted for a draft), the title, the
+number, "N new" in blue when comments were posted since you last opened the
+pull request or its thread from the panel, and how long ago the review was
+requested of you on the right. The first sweep to see a request records its
+comment count, so nothing is new on the first sync.
 
-A request in the waiting too long run is flagged "Waiting N days" in red.
+Under the title, a banner appears for two kinds of request:
+
+- **Waiting on you for N days**, in red, for a request in the waiting too long
+  run. The row keeps its red tint and bar.
+- **Asked to review again**, in blue, for a re-review.
+
+Then a line of icons:
+
+- the author's picture and login
+- the other reviewers' pictures, each with a badge for where their review
+  stands: pending while a request is outstanding, otherwise their latest
+  approval, change request, or dismissal, or a comment if that is all they
+  left. A team shows its organization's picture. You are never in it, and it
+  is left out when nobody else is on the pull request.
+- the head commit's checks as a count, such as a green tick with "13/13", an
+  amber clock while any run, or a red cross with "2/15 failing". Hovering it
+  names every count. Left out when the pull request has no checks.
+- the size in lines added and removed ("+18 −4")
+- the repository, only when more than one is in play
+- when an ignored request returns
+
+On a one-line Later row, the icons sit inline in place of the age.
 
 The age is how long ago the review was requested of you, read from the
 `ReviewRequestedEvent` timeline described above, not from the pull request's
@@ -200,8 +224,9 @@ gh-context's banner above the composer shows the one this plugin linked.
 `bb-plugin-pr-sweep` covers pull requests *you authored*; this one covers
 requests *made of you*. They are deliberately separate plugins, which means
 `review/spawn-target.ts`, `review/store.ts`, the `gh` runner and the vendored
-`components/` are a second copy of pr-sweep's. If a third sweep plugin ever
-appears, that is the point to extract a shared package.
+`components/` are a second copy of pr-sweep's. What the two draw for a pull
+request (the icon, the reviewer avatars, the checks badge, and the size) comes
+from `sweep-ui/pull-request`, so a row looks the same on both tabs.
 
 ## Development
 

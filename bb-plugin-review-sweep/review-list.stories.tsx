@@ -20,6 +20,29 @@ const now = Date.now();
 const HOUR = 3_600_000;
 const noop = () => {};
 
+/** A drawn picture for each account, so the stories need no network. */
+function avatar(letter: string, color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" fill="${color}"/><text x="10" y="14" font-family="sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">${letter}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+const AVATARS: Record<string, string> = {
+  hubber: avatar("H", "#d0703c"),
+  octocat: avatar("O", "#7c5cc4"),
+  acme: avatar("A", "#4a6b8a"),
+};
+const avatarFor = (owner: string) => AVATARS[owner] ?? avatar(owner[0]!.toUpperCase(), "#6e7781");
+
+function checks(overrides: Partial<Row["checks"]>): Row["checks"] {
+  const merged = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, ...overrides };
+  return {
+    ...merged,
+    total: merged.pass + merged.fail + merged.skip + merged.pending + merged.cancelled,
+  };
+}
+
+const GREEN = checks({ pass: 11, skip: 2 });
+const TEAM_PENDING: Row["reviewers"] = [{ login: "acme/widgets-reviewers", state: "pending", team: true }];
+
 function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
   return {
     repo: "acme/widgets",
@@ -35,6 +58,8 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     threadId: null,
     snoozedUntil: null,
     comments: 0,
+    checks: GREEN,
+    reviewers: TEAM_PENDING,
     note: null,
     newComments: 0,
     ...overrides,
@@ -48,11 +73,17 @@ const needsReview: Row[] = [
     requestedAt: now - 60 * HOUR,
     requestedReviewers: ["widgets-api-experts"],
     size: { additions: 15208, deletions: 64, changedFiles: 71 },
+    checks: checks({ pass: 9, pending: 4, skip: 1 }),
+    reviewers: [
+      { login: "acme/widgets-api-experts", state: "pending", team: true },
+      { login: "octocat", state: "commented", team: false },
+    ],
   }),
   row({
     number: 437,
     title: "fix(gadgets): keep the `sort` order when a gadget is renamed",
     requestedAt: now - 9 * HOUR,
+    author: "hubber",
     requestedReviewers: ["widgets-committers"],
     size: { additions: 18, deletions: 4, changedFiles: 2 },
     comments: 3,
@@ -95,8 +126,13 @@ const everything: Listing = {
       state: "re-review",
       requestedAt: now - 5 * 24 * HOUR,
       lastReviewedAt: now - 6 * 24 * HOUR,
-      requestedReviewers: ["you", "hubber", "widgets-committers", "widgets-api-experts"],
+      requestedReviewers: ["you", "widgets-committers"],
       size: { additions: 320, deletions: 118, changedFiles: 14 },
+      checks: checks({ pass: 10, fail: 2, skip: 1 }),
+      reviewers: [
+        { login: "acme/widgets-committers", state: "pending", team: true },
+        { login: "octocat", state: "changes_requested", team: false },
+      ],
     }),
     row({
       number: 441,
@@ -105,6 +141,8 @@ const everything: Listing = {
       requestedAt: now - 20 * 60_000,
       requestedReviewers: [],
       size: { additions: 2, deletions: 2, changedFiles: 1 },
+      checks: checks({}),
+      reviewers: [],
       canSpawn: false,
     }),
     ...inProgress,
@@ -114,6 +152,7 @@ const everything: Listing = {
       state: "re-review",
       requestedAt: now - 3 * 24 * HOUR,
       threadId: "thr_fixture2",
+      reviewers: [{ login: "hubber", state: "approved", team: false }],
     }),
     row({
       number: 443,
@@ -189,6 +228,7 @@ function Frame({
             onUnsnooze={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
+            avatarFor={avatarFor}
           />
         </div>
       </div>
@@ -197,9 +237,9 @@ function Frame({
 }
 
 /**
- * A typical day. The one waited on too long and the one with a thread are open
- * at the top; the fresh request, with two new comments, is closed to its
- * number line.
+ * A typical day. The one waited on too long, with its red banner, and the one
+ * with a thread are open at the top; the fresh request, with two new comments,
+ * is closed to its icons: author, reviewers, checks, and size.
  */
 export function Baseline() {
   return (
@@ -215,21 +255,21 @@ export function Baseline() {
 }
 
 /**
- * Every run the list can draw: re-review, waiting too long, and reviewing in
- * Now; to review in Next; drafts and ignored in Later. Then the list across
- * two repositories, a thread being started with a timer running, and the
- * panel without Harvest.
+ * Every run the list can draw: re-review, with its blue banner, waiting too
+ * long, and reviewing in Now; to review in Next; drafts and ignored in Later,
+ * each one line with its icons inline. Then the list across two repositories,
+ * a thread being started with a timer running, and the panel without Harvest.
  */
 export function Rows() {
   return (
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Two re-reviews, one with a thread; one waiting too long; one reviewing with a note; two to review, one with no reviewers and no project checked out; a draft; and an ignored review."
+        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored review that says when it returns."
       >
         <Frame listing={everything} />
       </StoryRow>
-      <StoryRow label="Two repositories" hint="The repository joins the number line once it varies.">
+      <StoryRow label="Two repositories" hint="The repository joins the icons once it varies.">
         <Frame listing={multiRepo} />
       </StoryRow>
       <StoryRow

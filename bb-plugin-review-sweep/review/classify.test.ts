@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checksOf,
   classify,
   classifyOne,
   lastReviewedAt,
@@ -7,6 +8,7 @@ import {
   requestedAt,
   requestedReviewers,
   reviewState,
+  reviewersOf,
 } from "./classify.js";
 import {
   NOW,
@@ -15,6 +17,7 @@ import {
   pendingRequest,
   reviewRequest,
   submittedReview,
+  withChecks,
 } from "./fixtures.js";
 
 const ME = "hubot";
@@ -320,5 +323,153 @@ describe("a request the viewer has already answered", () => {
       reviews: { nodes: [review("2026-01-03T00:00:00Z", "someone-else")] },
     });
     expect(classifyOne(node, VIEWER)).not.toBeNull();
+  });
+});
+
+describe("checksOf", () => {
+  it("sorts check run counts into pass, fail, skip, cancelled, and running", () => {
+    const pr = makePr({
+      commits: withChecks({
+        SUCCESS: 8,
+        NEUTRAL: 1,
+        SKIPPED: 2,
+        STALE: 1,
+        FAILURE: 1,
+        TIMED_OUT: 1,
+        ACTION_REQUIRED: 1,
+        STARTUP_FAILURE: 1,
+        CANCELLED: 1,
+        IN_PROGRESS: 2,
+        QUEUED: 1,
+        PENDING: 1,
+        WAITING: 1,
+        REQUESTED: 1,
+      }),
+    });
+    expect(checksOf(pr)).toEqual({ pass: 8, skip: 4, fail: 4, cancelled: 1, pending: 6, total: 23 });
+  });
+
+  it("adds commit statuses to the check runs", () => {
+    const pr = makePr({
+      commits: withChecks({ SUCCESS: 3 }, { SUCCESS: 1, FAILURE: 1, ERROR: 1, PENDING: 1, EXPECTED: 1 }),
+    });
+    expect(checksOf(pr)).toEqual({ pass: 4, skip: 0, fail: 2, cancelled: 0, pending: 2, total: 8 });
+  });
+
+  it("leaves out states with no checks, and counts an unknown state as running rather than passing", () => {
+    const pr = makePr({ commits: withChecks({ SUCCESS: 2, FAILURE: 0, COMPLETED: 1 }) });
+    expect(checksOf(pr)).toEqual({ pass: 2, skip: 0, fail: 0, cancelled: 0, pending: 1, total: 3 });
+  });
+
+  it("is all zero when the commit has no checks or the rollup is missing", () => {
+    const none = { pass: 0, skip: 0, fail: 0, cancelled: 0, pending: 0, total: 0 };
+    expect(checksOf(makePr())).toEqual(none);
+    expect(checksOf(makePr({ commits: { nodes: [{ commit: { statusCheckRollup: null } }] } }))).toEqual(none);
+    expect(checksOf(makePr({ commits: null }))).toEqual(none);
+  });
+
+  it("is stored on the classified row", () => {
+    expect(classifyOne(makePr({ commits: withChecks({ SUCCESS: 5 }) }), ME)?.checks).toEqual({
+      pass: 5,
+      skip: 0,
+      fail: 0,
+      cancelled: 0,
+      pending: 0,
+      total: 5,
+    });
+  });
+});
+
+describe("reviewersOf", () => {
+  const states = (pr: Parameters<typeof reviewersOf>[0]) =>
+    reviewersOf(pr, ME).map(({ login, state }) => [login, state]);
+
+  it("shows outstanding requests as pending, leaving me out", () => {
+    const pr = makePr({
+      reviewRequests: { nodes: [pendingRequest({ login: ME }), pendingRequest({ login: "hubber" })] },
+    });
+    expect(states(pr)).toEqual([["hubber", "pending"]]);
+  });
+
+  it("names a requested team org/team, with the repository owner's picture to show", () => {
+    const pr = makePr({ reviewRequests: { nodes: [pendingRequest({ slug: "reviewers" })] } });
+    expect(reviewersOf(pr, ME)).toEqual([{ login: "acme/reviewers", state: "pending", team: true }]);
+  });
+
+  it("takes each other reviewer's latest verdict, in the order they are owed", () => {
+    const pr = makePr({
+      author: { login: "mona" },
+      reviewRequests: { nodes: [] },
+      reviews: {
+        nodes: [
+          submittedReview("APPROVED", "hubber", daysAgo(5)),
+          submittedReview("CHANGES_REQUESTED", "hubber", daysAgo(3)),
+          submittedReview("COMMENTED", "acme-bot", daysAgo(2)),
+          submittedReview("CHANGES_REQUESTED", "octocat", daysAgo(4)),
+          submittedReview("APPROVED", "octocat", daysAgo(2)),
+        ],
+      },
+    });
+    expect(states(pr)).toEqual([
+      ["hubber", "changes_requested"],
+      ["octocat", "approved"],
+      ["acme-bot", "commented"],
+    ]);
+  });
+
+  it("shows a dismissed review after everyone else", () => {
+    const pr = makePr({
+      author: { login: "mona" },
+      reviewRequests: { nodes: [] },
+      reviews: {
+        nodes: [
+          submittedReview("APPROVED", "hubber", daysAgo(4)),
+          submittedReview("DISMISSED", "hubber", daysAgo(1)),
+          submittedReview("COMMENTED", "octocat", daysAgo(2)),
+        ],
+      },
+    });
+    expect(states(pr)).toEqual([
+      ["octocat", "commented"],
+      ["hubber", "dismissed"],
+    ]);
+  });
+
+  it("keeps an approval over a later comment", () => {
+    const pr = makePr({
+      reviewRequests: { nodes: [] },
+      reviews: {
+        nodes: [submittedReview("APPROVED", "hubber", daysAgo(3)), submittedReview("COMMENTED", "hubber", daysAgo(1))],
+      },
+    });
+    expect(states(pr)).toEqual([["hubber", "approved"]]);
+  });
+
+  it("shows a reviewer asked again as pending, whatever they said before", () => {
+    const pr = makePr({
+      reviewRequests: { nodes: [pendingRequest({ login: "hubber" })] },
+      reviews: { nodes: [submittedReview("CHANGES_REQUESTED", "hubber", daysAgo(3))] },
+    });
+    expect(states(pr)).toEqual([["hubber", "pending"]]);
+  });
+
+  it("leaves out my own reviews, the author's replies, and drafts", () => {
+    const pr = makePr({
+      reviewRequests: { nodes: [] },
+      reviews: {
+        nodes: [
+          submittedReview("APPROVED", ME, daysAgo(3)),
+          submittedReview("COMMENTED", "octocat", daysAgo(2)),
+          submittedReview("PENDING", "hubber", daysAgo(1)),
+        ],
+      },
+    });
+    expect(states(pr)).toEqual([]);
+  });
+
+  it("is stored on the classified row", () => {
+    expect(classifyOne(makePr({ reviewRequests: { nodes: [pendingRequest({ login: "hubber" })] } }), ME)?.reviewers).toEqual(
+      [{ login: "hubber", state: "pending", team: false }],
+    );
   });
 });

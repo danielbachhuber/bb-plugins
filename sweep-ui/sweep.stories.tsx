@@ -196,16 +196,17 @@ function body(each: SweepItem, _open: boolean, line: boolean): ReactNode {
     <>
       {each.blockedStage != null ? <StatusBanner tone="blocked">2 failing checks</StatusBanner> : null}
       {each.stage === 3 ? <StatusBanner tone="ready">Ready to merge</StatusBanner> : null}
+      {each.number === 425 ? <StatusBanner tone="info">Asked to review again</StatusBanner> : null}
       <div className="mt-1.5">{detail}</div>
     </>
   );
 }
 
-/** A row body the plugin draws itself: the title line keeps its icon, number, and age, with a red or green banner under it. */
+/** A row body the plugin draws itself: the title line keeps its icon, number, and age, with a red, green, or blue banner under it. */
 export function CustomBody() {
   return (
     <StoryCard>
-      <StoryRow label="With renderBody" hint="A blocked banner and a red cross on the track, a ready banner, a closed row, and a one-line row.">
+      <StoryRow label="With renderBody" hint="A blocked banner and a red cross on the track, a ready banner, a closed row with an info banner, and a one-line row.">
         <Frame>
           <SweepList {...props} items={BODY_ITEMS} renderBody={body} />
         </Frame>

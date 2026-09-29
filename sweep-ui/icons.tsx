@@ -8,8 +8,12 @@ import {
   Cancel01Icon,
   CancelCircleIcon,
   CheckmarkCircle02Icon,
+  Clock01Icon,
   Copy01Icon,
   Edit02Icon,
+  GitPullRequestArrow,
+  GitPullRequestDraftIcon,
+  InformationCircleIcon,
   Layers01Icon,
   LockIcon,
   Tick02Icon,
@@ -22,8 +26,12 @@ const ICONS = {
   Check: Tick02Icon,
   CircleCheck: CheckmarkCircle02Icon,
   CircleX: CancelCircleIcon,
+  Clock: Clock01Icon,
   Copy: Copy01Icon,
   Edit: Edit02Icon,
+  GitPullRequestArrow: GitPullRequestArrow,
+  GitPullRequestDraft: GitPullRequestDraftIcon,
+  Info: InformationCircleIcon,
   Layers: Layers01Icon,
   Lock: LockIcon,
   X: Cancel01Icon,
@@ -31,6 +39,11 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-export function Icon({ name, className }: { name: IconName; className?: string }) {
-  return <HugeiconsIcon icon={ICONS[name]} className={className} aria-hidden="true" data-icon={name} />;
+/** Hidden from assistive technology unless it has a `label`, which then names it. */
+export function Icon({ name, className, label }: { name: IconName; className?: string; label?: string }) {
+  return label ? (
+    <HugeiconsIcon icon={ICONS[name]} className={className} aria-label={label} data-icon={name} />
+  ) : (
+    <HugeiconsIcon icon={ICONS[name]} className={className} aria-hidden="true" data-icon={name} />
+  );
 }

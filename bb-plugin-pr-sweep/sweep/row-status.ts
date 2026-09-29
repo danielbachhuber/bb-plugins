@@ -1,10 +1,11 @@
-import type { ChecksSummary } from "./types.js";
+import { githubAvatar, type Reviewer, type ReviewState } from "sweep-ui/pull-request";
 import type { ListedPr } from "./tiers.js";
 
 /**
  * What a pull request's row says about it beyond its title: the banner under
- * the title, the stage on the track that is holding it up, the reviewers, the
- * checks, and the size. Pure, and read only from what the sweep already
+ * the title, the stage on the track that is holding it up, the reviewers, and
+ * the size. The checks' count and the pieces both sweeps draw live in
+ * sweep-ui/pull-request. Pure, and read only from what the sweep already
  * fetched.
  */
 
@@ -104,21 +105,6 @@ export function blockedStageOf(row: ListedPr): number | null {
   return leading === null ? null : (BLOCKED_STAGE[leading] ?? null);
 }
 
-export type ReviewState = "approved" | "changes_requested" | "commented" | "dismissed" | "pending";
-
-export interface Reviewer {
-  /** A user's login, or a team's `org/team` slug. */
-  login: string;
-  state: ReviewState;
-  team: boolean;
-  avatarUrl: string;
-}
-
-/** GitHub's picture for a user or organization. */
-export function githubAvatar(owner: string): string {
-  return `https://github.com/${encodeURIComponent(owner)}.png?size=40`;
-}
-
 /**
  * Everyone asked for a review or who gave one, once each. A reviewer asked
  * again is pending whatever they said before, since that is what the author is
@@ -141,21 +127,6 @@ export function reviewersFor(row: ListedPr, avatarFor: (owner: string) => string
     const owner = team ? login.split("/")[0]! : login;
     return { login, state, team, avatarUrl: avatarFor(owner) };
   });
-}
-
-export type ChecksGlyph = { tone: "passed" | "failed" | "running"; text: string };
-
-/**
- * The checks as a count: failing out of those that ran when any fail, then
- * cancelled when any were, otherwise passing out of those that ran. Skipped checks are left out of
- * both. Null when nothing ran.
- */
-export function checksGlyph(checks: ChecksSummary): ChecksGlyph | null {
-  const ran = checks.total - checks.skip;
-  if (ran <= 0) return null;
-  if (checks.fail > 0) return { tone: "failed", text: `${checks.fail}/${ran} failing` };
-  if (checks.cancelled > 0) return { tone: "failed", text: `${checks.cancelled}/${ran} cancelled` };
-  return { tone: checks.pending > 0 ? "running" : "passed", text: `${checks.pass}/${ran}` };
 }
 
 /** Lines added and removed, or null for a row stored before the sweep read them. */
