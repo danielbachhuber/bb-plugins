@@ -1,11 +1,12 @@
 # bb-plugin-pr-sweep
 
 A bb sidebar panel listing every open pull request you authored, across all
-repositories, with the ones needing your action flagged.
+repositories, in one list ordered by what needs you: Now, then Next, then
+Later.
 
 The sweep is deterministic: it runs `gh`, classifies the result with pure
 functions, and spends no model tokens. An agent is only involved when you click
-"Work on this" on a flagged row.
+"Start thread" on a row.
 
 ## Install on a new machine
 
@@ -24,10 +25,64 @@ bb plugin install . --yes
   that it needs configuring.
 - `gh` on PATH and authenticated as you (`gh auth login`). The plugin reports a
   missing or unauthenticated `gh` as a configuration state, not an error.
-- A bb project is needed only for "Work on this", which matches a PR's
+- A bb project is needed only for "Start thread", which matches a PR's
   repository against every git remote in the project's checkout, so a fork's
   upstream counts as well as its origin. PRs in repositories with no matching
-  project are still listed; their button is disabled.
+  project are still listed; their action reads "No project here" and is
+  disabled.
+
+## How the list is ordered
+
+Every pull request is in one run, and every run is in one tier. The summary
+squares above the list show one square per pull request, grouped by run and
+counted ("2 need you"). Pressing a run shows only its pull requests; pressing
+it again shows them all.
+
+| Tier | Runs, in order | Rows |
+| --- | --- | --- |
+| Now | needs you, ready to merge, working | Open: title, number line, note, and actions |
+| Next | drafts | Closed to the title and number line |
+| Later | waiting | One dimmed line each, folded after five |
+
+- **Needs you**: a flag or open comments that are yours to act on.
+- **Ready to merge**: approved, green, and nobody else asked to review.
+- **Working**: has a thread, whatever its flags say.
+- **Drafts**: not offered for review yet, flagged or not.
+- **Waiting**: only a CI run in flight, approved with another reviewer still
+  asked, or awaiting review. In that order within the run.
+
+Within a run, the worst flag comes first, tie-broken by repository then
+number, so rows do not reshuffle between sweeps.
+
+A chevron opens or closes any row, and "Expand all" opens every row.
+
+## Each row
+
+The number line shows the pull request number, its problems in red (each flag
+below except CI running and ready to merge), how long ago it was updated, the
+checks, and where review stands: approvals, outstanding reviewers, unresolved
+comments, review notes, and who commented last. "N new" shows in blue when
+comments were posted since you last opened the pull request or its thread from
+the panel, or started one; the first sweep to see a pull request records its
+count, so nothing is new on the first sync. The repository joins the line only
+when more than one is in play.
+
+A pull request awaiting review that has not been updated for "Stale after
+(days)" is flagged "Waiting N days" in red.
+
+The track on the right has four stages: **Draft**; **Checks** while any check
+is failing, running, cancelled, or missing; **Review** once checks are green;
+and **Mergeable** when it is ready to merge. GitHub decides the stage, so the
+track cannot be clicked.
+
+An open row's actions are Start thread or Open thread, Archive thread on a row
+whose thread has no flags left, a menu of earlier threads when there are any,
+Add note or Edit note, Copy link, and the Harvest clock when the Harvest plugin
+is installed. Start thread's tooltip names the work, such as "Resolve
+conflict". A row only waiting for a run to finish offers no Start thread.
+
+A note is a one-line next step, stored only on this machine and never sent to
+GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.
 
 ## Threads
 
@@ -36,7 +91,7 @@ the row then opens that thread rather than starting another. gh-context's
 banner above the composer shows the pull request on every thread, so this
 plugin adds nothing to the thread itself.
 
-A row's button opens bb's composer in a dialog, so you can read and edit the
+A row's Start thread opens bb's composer in a dialog, so you can read and edit the
 prompt first. The thread runs in a worktree on the pull request's own branch,
 beside the checkout as `<checkout>-pr-<number>`, so its commits land on the
 pull request and bb shows the pull request's checks and merge state on the
@@ -77,11 +132,14 @@ first prompt names that pull request and nothing else.
   the normal state rather than something to chase, so the no-reviewer flag is
   skipped for these repositories. Only that flag: a conflict or a red check in
   one of them still reads the same. The row loses the flag as it is classified,
-  so with nothing else outstanding it moves to Clean rather than sitting in
-  Needs action with a badge you have decided to ignore.
+  so with nothing else outstanding it waits rather than sitting under needs you
+  with a problem you have decided to ignore.
 - **Also sweep these repositories** — comma or newline separated `owner/name`,
   for a repository worth watching without a checkout here. Ignored when the
   filter is off.
+- **Stale after (days)** — how long a pull request awaiting review can go
+  without an update before it is flagged. Default 3; anything but a positive
+  whole number is read as 3.
 - **Provider for spawned threads** — defaults to `claude-code`, which is the
   provider the routed skills belong to. Blank uses bb's default.
 - **Permission mode for spawned threads** — defaults to `full`. `accept-edits` stops
@@ -117,17 +175,17 @@ first prompt names that pull request and nothing else.
 | CI running | Still in flight. |
 | ready to merge | Approved, green, no conflict, not a draft. |
 
-A pull request with a thread attached moves to **In progress**, whatever its
-flags say, so Needs action only ever holds work that is actually waiting on
-you. The sidebar count follows the same rule.
+A pull request with a thread attached moves to **working**, whatever its flags
+say, so needs you only ever holds work that is actually waiting on you. The
+sidebar count follows the same rule.
 
 A PR that is answered and awaiting re-review carries no flag: the ball is in the
 reviewer's court.
 
 ## Where an action sends the work
 
-The row's worst flag picks both the button label and the skill the spawned
-thread is told to use:
+The row's worst flag picks both the work Start thread names and the skill the
+spawned thread is told to use:
 
 | Worst flag | Skill |
 | --- | --- |

@@ -77,6 +77,13 @@ const rowSchema = z.object({
   unresolvedThreads: z.number(),
   outdatedThreads: z.number(),
   notedBy: z.array(z.string()),
+  /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
+  updatedAt: z.number(),
+  commentsCount: z.number(),
+  /** The local next-step note, or null. Never sent to GitHub. */
+  note: z.string().nullable(),
+  /** Comments since the pull request was last opened from the panel. */
+  newComments: z.number(),
   canSpawn: z.boolean(),
   /** The newest thread for this PR, which its action opens. Null when it has none. */
   threadId: z.string().nullable(),
@@ -93,6 +100,8 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({
       rows: z.array(rowSchema),
+      /** Days a pull request can await review untouched before it is stale. */
+      staleAfterDays: z.number(),
       sweptAt: z.number().nullable(),
       failedRepos: z.array(z.string()),
       /** Discovered but not swept: no project here matches their remote. */
@@ -227,6 +236,19 @@ export const rpcContract = defineRpcContract({
       worktree: z.string().nullable(),
       error: z.string().nullable(),
     }),
+  },
+  /** Saves the row's local note. An empty body deletes it. */
+  setNote: {
+    input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /**
+   * Records the pull request's current comment count as seen, so its "N new"
+   * clears. Called when its link or thread is opened.
+   */
+  markSeen: {
+    input: z.object({ repo: z.string(), number: z.number() }).strict(),
+    output: z.object({ ok: z.boolean() }),
   },
   archiveThread: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),

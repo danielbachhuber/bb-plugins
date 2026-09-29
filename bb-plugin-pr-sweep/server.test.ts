@@ -717,3 +717,121 @@ describe("upgrading from links kept here", () => {
     expect(listing.rows[0]!.threadId).toBe("thr_mine");
   });
 });
+
+describe("notes, seen counts, and the stale setting", () => {
+  async function seededHost(overrides: Record<string, unknown> = {}, settings: Record<string, string> = {}) {
+    spawnCount = 0;
+    const fixture = createFakePluginHost({
+      pluginId: "pr-sweep",
+      settings,
+      sdk: {
+        projects: {
+          list: async () => [
+            { id: "proj_a", gitRemoteUrl: "git@github.com:acme/widgets.git", sources: [] },
+          ],
+        },
+        threads: { spawn: async () => ({ id: `thr_${++spawnCount}` }) },
+      },
+    });
+    await plugin(fixture.bb);
+    createStore(fixture.bb.storage.database() as never).replaceRepoRows("acme/widgets", [
+      { ...seedRow(), updatedAt: 1_700_000_000_000, commentsCount: 0, ...overrides },
+    ] as never);
+    return fixture;
+  }
+
+  it("offers the stale setting, defaulting to three days", async () => {
+    const { bb, harness } = createFakePluginHost({ pluginId: "pr-sweep" });
+    await plugin(bb);
+    const descriptors = harness.registrations.settingsDescriptors as Record<string, { label: string; default: string }>;
+    expect(descriptors.staleAfterDays).toMatchObject({ label: "Stale after (days)", default: "3" });
+    expect(harness.registrations.rpcMethods).toEqual(expect.arrayContaining(["setNote", "markSeen"]));
+  });
+
+  it("returns what the list needs to place each row", async () => {
+    const { harness } = await seededHost();
+    const listing = await harness.behavior.callRpc("listRows", null);
+    expect(listing.staleAfterDays).toBe(3);
+    expect(listing.rows[0]).toMatchObject({
+      updatedAt: 1_700_000_000_000,
+      commentsCount: 0,
+      note: null,
+      newComments: 0,
+    });
+  });
+
+  it("falls back to three days when the stale setting is not a positive number", async () => {
+    const { harness } = await seededHost({}, { staleAfterDays: "soon" });
+    expect((await harness.behavior.callRpc("listRows", null)).staleAfterDays).toBe(3);
+  });
+
+  it("reads a row stored before updatedAt existed as updated at the last sweep, so it is not stale", async () => {
+    const { bb, harness } = await seededHost({ updatedAt: undefined, commentsCount: undefined });
+    const store = createStore(bb.storage.database() as never);
+    store.replaceAll({
+      rows: store.readRows(),
+      repos: ["acme/widgets"],
+      failedRepos: [],
+      skippedRepos: [],
+      truncated: false,
+      sweptAt: 1_750_000_000_000,
+    });
+    const row = (await harness.behavior.callRpc("listRows", null)).rows[0]!;
+    expect(row.updatedAt).toBe(1_750_000_000_000);
+    expect(row.commentsCount).toBe(0);
+  });
+
+  it("saves a note and lists it with the row", async () => {
+    const { harness } = await seededHost();
+    expect(
+      await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "Ask hubber first" }),
+    ).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.note).toBe("Ask hubber first");
+  });
+
+  it("deletes the note when it is saved empty, rather than keeping blank text", async () => {
+    const { bb, harness } = await seededHost();
+    await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "Ask hubber first" });
+    await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "" });
+
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.note).toBeNull();
+    expect(createStore(bb.storage.database() as never).notes().size).toBe(0);
+  });
+
+  it("shows nothing new for a pull request no sweep has recorded a count for", async () => {
+    // The first listing after an upgrade, before the sweep has run.
+    const { harness } = await seededHost({ commentsCount: 9 });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
+  });
+
+  it("counts comments since the count was recorded, and clears them once seen", async () => {
+    const { bb, harness } = await seededHost({ commentsCount: 2 });
+    const store = createStore(bb.storage.database() as never);
+    store.recordFirstSeen(store.readRows(), 1);
+    store.replaceRepoRows(
+      "acme/widgets",
+      store.readRows().map((row) => ({ ...row, commentsCount: 5 })),
+    );
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(3);
+
+    expect(await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 42 })).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
+  });
+
+  it("never shows a negative count when comments were deleted", async () => {
+    const { bb, harness } = await seededHost({ commentsCount: 1 });
+    createStore(bb.storage.database() as never).markSeen("acme/widgets", 42, 4, 1);
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.newComments).toBe(0);
+  });
+
+  it("refuses to mark a pull request the sweep does not have", async () => {
+    const { harness } = await seededHost();
+    expect(await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 41 })).toEqual({ ok: false });
+  });
+
+  it("marks the pull request seen when a thread is started for it", async () => {
+    const { bb, harness } = await seededHost({ commentsCount: 6 });
+    await workOnThis(harness, { repo: "acme/widgets", number: 42 });
+    expect(createStore(bb.storage.database() as never).seenCounts().get("acme/widgets#42")).toBe(6);
+  });
+});

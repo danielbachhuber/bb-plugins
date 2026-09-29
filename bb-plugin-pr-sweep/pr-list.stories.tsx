@@ -15,8 +15,10 @@ export default {
   title: "pr-sweep/PR list",
 };
 
-/** The real clock, so the synced-ago label in the title bar reads as recent. */
+/** The real clock, so the synced-ago label in the title bar agrees with the ages. */
 const now = Date.now();
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 const noop = () => {};
 
 const GREEN = { pass: 8, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 9 };
@@ -31,7 +33,7 @@ function checks(overrides: Partial<Row["checks"]>): Row["checks"] {
 
 // Each fixture matches what sweep/classify.ts would produce for some real pull
 // request shape: the flags, the group, and the review fields agree with each
-// other, so every row lands in the section the live panel would put it in.
+// other, so every row lands in the run the live panel would put it in.
 function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
   const repo = overrides.repo ?? "acme/widgets";
   const flags = overrides.flags ?? [];
@@ -57,6 +59,10 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     canSpawn: true,
     threadId: overrides.threadIds?.[0] ?? null,
     threadIds: [],
+    updatedAt: now - 5 * HOUR,
+    commentsCount: 0,
+    note: null,
+    newComments: 0,
     ...overrides,
   };
 }
@@ -74,6 +80,10 @@ const conflictAndFeedback = row({
   flags: ["conflict", "feedback"],
   checks: checks({ pass: 6, skip: 1 }),
   commentedBy: ["hubber"],
+  lastCommentBy: "hubber",
+  updatedAt: now - 2 * HOUR,
+  commentsCount: 4,
+  newComments: 2,
 });
 
 const failingCi = row({
@@ -91,17 +101,28 @@ const inProgress = row({
   checks: checks({ fail: 1, pass: 8 }),
   waitingOn: ["hubber"],
   threadIds: ["thr_fixture1"],
+  note: "Rerun the theme snapshot job after the rebase",
 });
 
 const awaitingReview = row({
   number: 501,
   title: "Show a gadget's owner on its detail page",
   waitingOn: ["hubber", "widgets-api-reviewers"],
+  updatedAt: now - DAY,
 });
 
-/** A few pull requests in the sections they usually sit in. */
+const draft = row({
+  number: 522,
+  title: "Try a denser layout for the gadget grid",
+  isDraft: true,
+  checks: checks({ pass: 2 }),
+  updatedAt: now - 2 * DAY,
+});
+
+/** A few pull requests in the runs they usually sit in. */
 const baseline: Listing = {
-  rows: [readyToMerge, conflictAndFeedback, failingCi, inProgress, awaitingReview],
+  rows: [readyToMerge, conflictAndFeedback, failingCi, inProgress, draft, awaitingReview],
+  staleAfterDays: 3,
   sweptAt: now - 3 * 60_000,
   failedRepos: [],
   skippedRepos: [],
@@ -110,7 +131,7 @@ const baseline: Listing = {
   harvest: { available: true, running: null },
 };
 
-/** One or more rows in each of the seven sections. */
+/** One or more rows in each of today's seven sections, and so in every run. */
 const everySection: Listing = {
   ...baseline,
   rows: [
@@ -156,6 +177,12 @@ const everySection: Listing = {
     }),
     awaitingReview,
     row({
+      number: 468,
+      title: "Explain gadget quotas on the billing page",
+      waitingOn: ["octocat"],
+      updatedAt: now - 6 * DAY,
+    }),
+    row({
       number: 470,
       title: "Validate gadget names before saving",
       commentedBy: ["hubber"],
@@ -169,16 +196,11 @@ const everySection: Listing = {
       flags: ["ci-failing"],
       checks: checks({ fail: 1, pass: 3 }),
     }),
-    row({
-      number: 522,
-      title: "Try a denser layout for the gadget grid",
-      isDraft: true,
-      checks: checks({ pass: 2 }),
-    }),
+    draft,
   ],
 };
 
-/** Every flag the classifier sets, plus each line the Review column can show. */
+/** Every flag the classifier sets, plus each review fact the number line can show. */
 const everyStatus: Listing = {
   ...baseline,
   rows: [
@@ -326,11 +348,14 @@ function Frame({
         <div className="min-h-0 flex-1">
           <PrListView
             listing={listing}
+            now={now}
             starting={starting}
             harvest={harvestFor(listing)}
             onWork={noop}
             onOpen={noop}
             onArchive={noop}
+            onNoteSave={async () => true}
+            onOpenLink={noop}
           />
         </div>
       </div>
@@ -338,13 +363,17 @@ function Frame({
   );
 }
 
-/** A typical day: one ready to merge, two needing action, one being worked on, one with a reviewer. */
+/**
+ * A typical day. The pull requests that need you, the one ready to merge, and
+ * the one with a thread are open at the top; the draft is closed to its number
+ * line; the one awaiting review is a single dimmed line.
+ */
 export function Baseline() {
   return (
     <StoryCard>
       <StoryRow
         label="Baseline"
-        hint="Ready to Merge first, then Needs Action, In Progress, and Awaiting Review."
+        hint="A conflict with two new comments, failing CI, one ready to merge, one with a thread and a note, a draft, and one awaiting review."
       >
         <Frame listing={baseline} />
       </StoryRow>
@@ -352,23 +381,29 @@ export function Baseline() {
   );
 }
 
-/** Every section the panel can show, and every status badge, review line, and row action. */
+/**
+ * Every run the list can draw: needs you, ready to merge, and working in Now;
+ * drafts in Next; waiting in Later, including one stale after six days with
+ * its reviewer. Then every flag as a problem on the number line, the list
+ * across two repositories, a thread being started with a timer running, and
+ * the panel without Harvest.
+ */
 export function Rows() {
   return (
     <StoryCard>
       <StoryRow
-        label="Every section"
-        hint="All seven sections. Approved with open comments, a thread with earlier threads and an archive button, a re-review, and drafts with and without a flag."
+        label="Every run"
+        hint="Every run, a merge-ready row with open comments, a thread with earlier threads and Archive thread, a stale row awaiting review, a re-review, and drafts with and without a flag."
       >
         <Frame listing={everySection} />
       </StoryRow>
       <StoryRow
-        label="Every status"
-        hint="One badge per flag, several flags on one row, a disabled button where no project is checked out, the last comment, review notes, and a clean row."
+        label="Every flag"
+        hint="One problem per flag, several on one row, No project here where nothing is checked out, the last comment, review notes, and an unflagged row."
       >
         <Frame listing={everyStatus} />
       </StoryRow>
-      <StoryRow label="Two repositories" hint="The repository joins the copy line once it varies.">
+      <StoryRow label="Two repositories" hint="The repository joins the number line once it varies.">
         <Frame listing={twoRepos} />
       </StoryRow>
       <StoryRow
@@ -391,14 +426,10 @@ export function Rows() {
             },
           }}
           starting={new Set(["acme/widgets#503"])}
-         
         />
       </StoryRow>
-      <StoryRow label="Without Harvest" hint="No clock beside the copy control.">
-        <Frame
-          listing={{ ...baseline, harvest: { available: false, running: null } }}
-         
-        />
+      <StoryRow label="Without Harvest" hint="No clock in the action line.">
+        <Frame listing={{ ...baseline, harvest: { available: false, running: null } }} />
       </StoryRow>
     </StoryCard>
   );
@@ -432,14 +463,56 @@ export function States() {
             truncated: true,
             failedRepos: ["acme/gadgets"],
           }}
-         
         />
       </StoryRow>
       <StoryRow
         label="Repositories not swept"
-        hint="A repository with no project checked out here, named below the last section."
+        hint="A repository with no project checked out here, named below the list."
       >
         <Frame listing={{ ...baseline, skippedRepos: ["acme/gadgets"] }} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+const LONG_TITLES = [
+  "Lazy-load widget previews",
+  "Add a gadget export endpoint",
+  "Trim whitespace in widget names",
+  "Cache gadget lookups per request",
+  "Show widget counts in the sidebar",
+  "Retry failed gadget webhooks",
+  "Sort widgets by last edit",
+  "Add alt text to gadget icons",
+  "Paginate the widget audit log",
+  "Warn before deleting a shared gadget",
+];
+
+/** Many pull requests waiting on reviewers, so the fold after five Later rows shows. */
+const long: Listing = {
+  ...baseline,
+  rows: [
+    ...baseline.rows,
+    ...LONG_TITLES.map((title, index) =>
+      row({
+        number: 600 + index,
+        title,
+        waitingOn: [index % 2 ? "hubber" : "octocat"],
+        updatedAt: now - (index + 1) * 7 * HOUR,
+      }),
+    ),
+  ],
+};
+
+/**
+ * A long list: the Now and Next rows at the top, then the first five Later
+ * rows, with the rest folded into "N more".
+ */
+export function LongList() {
+  return (
+    <StoryCard>
+      <StoryRow label="Long list" hint="Eleven pull requests waiting on reviewers, six of them folded.">
+        <Frame listing={long} />
       </StoryRow>
     </StoryCard>
   );

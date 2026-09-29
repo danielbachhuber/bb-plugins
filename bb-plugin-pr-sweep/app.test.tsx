@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app.js"));
 
+const HOUR = 60 * 60_000;
+const DAY = 24 * HOUR;
+
+/** A row in Now by default: a merge conflict, which needs you. */
 function rowFixture(overrides: Record<string, unknown> = {}) {
   return {
     repo: "acme/widgets",
@@ -27,9 +31,17 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     canSpawn: true,
     threadId: null,
     threadIds: [],
+    updatedAt: Date.now() - 3 * HOUR,
+    commentsCount: 2,
+    note: null,
+    newComments: 0,
     ...overrides,
   };
 }
+
+/** Unflagged with a reviewer outstanding: awaiting review, so in Later. */
+const waitingRow = (overrides: Record<string, unknown> = {}) =>
+  rowFixture({ flags: [], group: "clean", waitingOn: ["hubber"], ...overrides });
 
 /**
  * A row with several threads, the way the server stamps one: `threadId` is the
@@ -42,6 +54,7 @@ function rowWithThreads(threadIds: string[], overrides: Record<string, unknown> 
 function listing(overrides: Record<string, unknown> = {}) {
   return {
     rows: [rowFixture()],
+    staleAfterDays: 3,
     sweptAt: 1_700_000_000_000,
     failedRepos: [],
     skippedRepos: [],
@@ -86,6 +99,7 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
       rpc: {
         listRows: () => result,
         refresh: () => ({ ok: true, error: null }),
+        markSeen: () => ({ ok: true }),
         ...extraRpc,
       },
     },
@@ -94,91 +108,58 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
   return slot;
 }
 
+type Slot = ReturnType<typeof render>;
+
+/** The list item holding a title, so a query can stay inside one row. */
+async function rowFor(slot: Slot, title: RegExp | string) {
+  const link = await slot.findByRole("link", { name: title });
+  return link.closest("li")! as HTMLElement;
+}
+
+/** The titles in the order the list draws them. */
+function titles(slot: Slot): string[] {
+  return Array.from(slot.container.querySelectorAll("li a"), (link) => link.textContent ?? "").filter(
+    (text) => text !== "",
+  );
+}
+
 describe("panel", () => {
-  it("registers one nav panel", () => {
+  it("registers one list panel and the Open pull request page", () => {
     expect(app.navPanels.map((panel) => panel.id).sort()).toEqual(["open-pr", "prs"]);
     expect(app.navPanels.find((panel) => panel.id === "prs")!.path).toBe("prs");
   });
 
-  it("shows a flagged PR under Needs action", async () => {
+  it("lists a pull request, linked out to GitHub", async () => {
     const slot = render(listing());
-    await slot.findByText(/Needs action/i);
-    await slot.findByText(/Add the widget endpoint/);
-    await slot.findByText(/merge conflict/i);
+    const link = await slot.findByRole("link", { name: "Add the widget endpoint" });
+    expect(link).toHaveAttribute("href", "https://github.com/acme/widgets/pull/42");
+    expect(await slot.findByText("#42")).toBeInTheDocument();
   });
 
-  it("shows a merge-ready PR under Ready to merge", async () => {
-    const slot = render(
+  it("shows the age, checks, and review on the number line", async () => {
+    const slot = render(listing({ rows: [rowFixture({ approvedBy: ["hubber"], waitingOn: ["octocat"] })] }));
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(within(row).getByText("3h ago")).toBeInTheDocument();
+    expect(within(row).getByText("3 pass, 1 skip")).toBeInTheDocument();
+    expect(within(row).getByText("approved by hubber")).toBeInTheDocument();
+    expect(within(row).getByText("waiting on octocat")).toBeInTheDocument();
+  });
+
+  it("names the repository only when more than one is in play", async () => {
+    const one = render(listing());
+    const row = await rowFor(one, /Add the widget endpoint/);
+    expect(within(row).queryByText("acme/widgets")).toBeNull();
+    one.lifecycle.unmount();
+
+    const two = render(
       listing({
         rows: [
-          rowFixture({ flags: ["merge-ready"], group: "ready-to-merge", approvedBy: ["hubber"] }),
+          rowFixture({ number: 1, title: "Widgets row" }),
+          rowFixture({ number: 2, title: "Gadgets row", repo: "acme/gadgets" }),
         ],
       }),
     );
-    await slot.findByText(/Ready to Merge \(1\)/);
-    await slot.findByText(/approved by hubber/i);
-  });
-
-  it("files an unflagged non-draft under Awaiting Review", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: [], group: "clean" })] }));
-    await slot.findByText(/Awaiting Review \(1\)/);
-    await slot.findByText(/Add the widget endpoint/);
-  });
-
-  it("files an unflagged draft under Draft, below Awaiting Review", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, flags: [], group: "clean" }),
-          rowFixture({ number: 2, flags: [], group: "clean", isDraft: true }),
-        ],
-      }),
-    );
-    const awaiting = await slot.findByText(/Awaiting Review \(1\)/);
-    const draft = await slot.findByText(/^Draft \(1\)$/);
-    expect(
-      awaiting.compareDocumentPosition(draft) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("files a flagged draft under Draft, keeping its flags in Status", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: ["ci-failing"], isDraft: true })] }),
-    );
-    await slot.findByText(/^Draft \(1\)$/);
-    expect(slot.queryByText(/Needs Action \(/)).toBeNull();
-    // The draft state and the fault are both true, so both are shown.
-    await slot.findByText("draft");
-    await slot.findByText("CI failing");
-  });
-
-  it("capitalizes every section heading", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1, flags: ["conflict"] }),
-          rowFixture({ number: 2, flags: ["merge-ready"], group: "ready-to-merge" }),
-          rowFixture({ number: 3, flags: [], group: "clean", threadId: "thr_1" }),
-          rowFixture({ number: 4, flags: [], group: "clean" }),
-          rowFixture({ number: 5, flags: [], group: "clean", isDraft: true }),
-        ],
-      }),
-    );
-    for (const title of [
-      "Needs Action",
-      "In Progress",
-      "Ready to Merge",
-      "Awaiting Review",
-      "Draft",
-    ]) {
-      await slot.findByText(new RegExp(`^${title} \\(`));
-    }
-  });
-
-  it("gives a clean row no action button", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: [], group: "clean" })] }));
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByRole("button", { name: /resolve conflict|work on this/i })).toBeNull();
+    expect(within(await rowFor(two, "Gadgets row")).getByText("acme/gadgets")).toBeInTheDocument();
   });
 
   it("says so when nothing is open, over the panel's own graphic", async () => {
@@ -200,26 +181,17 @@ describe("panel", () => {
     expect(slot.queryByText(/^No open pull requests\.$/)).toBeNull();
   });
 
-  it("still mentions held-back repositories alongside rows that did match", async () => {
-    const slot = render(listing({ skippedRepos: ["acme/gadgets"] }));
-    await slot.findByText(/acme\/gadgets/);
-  });
-
-  it("puts that mention below the sections, not above them", async () => {
-    // A standing fact about this machine, not news. Above the first section it
-    // pushed the work down the page on every load.
+  it("puts a mention of held-back repositories below the list, not above it", async () => {
+    // A standing fact about this machine, not news. Above the list it would
+    // push the work down the page on every load.
     const slot = render(listing({ skippedRepos: ["acme/gadgets"] }));
     const notice = await slot.findByText(/Not swept: acme\/gadgets/);
-    const heading = await slot.findByText(/Needs Action \(/);
-    expect(
-      heading.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    const list = (await rowFor(slot, /Add the widget endpoint/)).closest("ul")!;
+    expect(list.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("surfaces a sweep error without blanking the rows", async () => {
-    const slot = render(
-      listing({ lastError: "`gh` is not authenticated. Run `gh auth login`." }),
-    );
+    const slot = render(listing({ lastError: "`gh` is not authenticated. Run `gh auth login`." }));
     await slot.findByText(/gh auth login/);
     await slot.findByText(/Add the widget endpoint/);
   });
@@ -231,380 +203,295 @@ describe("panel", () => {
 
   it("names a repository it could not refresh", async () => {
     const slot = render(listing({ failedRepos: ["acme/gadgets"] }));
-    await slot.findByText(/acme\/gadgets/);
+    await slot.findByText(/Could not refresh acme\/gadgets/);
   });
+});
 
-  it("disables Work on this when no project matches", async () => {
-    const slot = render(listing({ rows: [rowFixture({ canSpawn: false })] }));
-    const button = await slot.findByRole("button", { name: /resolve conflict/i });
-    expect(button).toBeDisabled();
-  });
-
-  it("says Address issues on a row that needs more than one thing", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["conflict", "feedback"] })] }));
-    await slot.findByRole("button", { name: /^Address issues on #/i });
-  });
-
-  it("gives every flag its own badge, not just the worst one", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["conflict", "feedback"] })] }));
-    const conflict = await slot.findByText("merge conflict");
-    const feedback = await slot.findByText("reviewer feedback");
-    // Both carry the badge chrome, so the second reads as a second problem
-    // rather than as a caption on the first.
-    for (const badge of [conflict, feedback]) {
-      expect(badge.className).toMatch(/rounded-md/);
-      expect(badge.className).toMatch(/bg-destructive/);
-    }
-  });
-
-  it("names the action after the row's worst flag", async () => {
+describe("tiers", () => {
+  it("opens Now rows, closes Next rows to their number line, and draws Later rows as one line", async () => {
     const slot = render(
       listing({
         rows: [
-          rowFixture({ number: 1, flags: ["ci-failing"] }),
-          rowFixture({ number: 2, flags: ["conflict"] }),
-          rowFixture({ number: 3, flags: ["no-reviewer"] }),
+          waitingRow({ number: 1, title: "Waiting item" }),
+          rowFixture({ number: 2, title: "Draft item", flags: [], group: "clean", isDraft: true }),
+          rowFixture({ number: 3, title: "Conflict item" }),
         ],
       }),
     );
-    await slot.findByRole("button", { name: /fix failing ci/i });
-    await slot.findByRole("button", { name: /resolve conflict/i });
-    await slot.findByRole("button", { name: /add a reviewer/i });
-    expect(slot.queryByRole("button", { name: /work on this/i })).toBeNull();
+    const now = await rowFor(slot, "Conflict item");
+    const next = await rowFor(slot, "Draft item");
+    const later = await rowFor(slot, "Waiting item");
+
+    expect(within(now).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+    expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    expect(within(next).getByText("3 pass, 1 skip")).toBeInTheDocument();
+    expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
+    // One line: the age, and nothing else from the number line.
+    expect(within(later).getByText("3h ago")).toBeInTheDocument();
+    expect(within(later).queryByText("3 pass, 1 skip")).toBeNull();
   });
 
-  it("opens a pull request in a real browser tab, not the in-app one", async () => {
+  it("draws needs you, ready, working, drafts, then waiting, whatever order the rows arrive in", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          waitingRow({ number: 1, title: "Waiting" }),
+          rowFixture({ number: 2, title: "Draft", flags: [], group: "clean", isDraft: true }),
+          rowFixture({ number: 3, title: "Working", threadId: "thr_1", threadIds: ["thr_1"] }),
+          rowFixture({ number: 4, title: "Ready", flags: ["merge-ready"], group: "ready-to-merge" }),
+          rowFixture({ number: 5, title: "Conflict" }),
+        ],
+      }),
+    );
+    await slot.findByText("Waiting");
+    expect(titles(slot)).toEqual(["Conflict", "Ready", "Working", "Draft", "Waiting"]);
+  });
+
+  it("names each problem on the number line, and leaves a run in flight to the track", async () => {
+    const slot = render(listing({ rows: [rowFixture({ flags: ["conflict", "feedback", "ci-pending"] })] }));
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(within(row).getByText("merge conflict")).toBeInTheDocument();
+    expect(within(row).getByText("reviewer feedback")).toBeInTheDocument();
+    expect(within(row).queryByText("CI running")).toBeNull();
+  });
+
+  it("flags a pull request left awaiting review past the setting as stale", async () => {
+    const slot = render(listing({ rows: [waitingRow({ updatedAt: Date.now() - 5 * DAY - HOUR })] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    expect(slot.getByText("Waiting 5 days")).toBeInTheDocument();
+  });
+
+  it("shows the new comment count", async () => {
+    const slot = render(listing({ rows: [rowFixture({ newComments: 3 })] }));
+    expect(await slot.findByText("3 new")).toBeInTheDocument();
+  });
+
+  it("folds Later after five rows", async () => {
+    const rows = Array.from({ length: 7 }, (_, index) =>
+      waitingRow({ number: index + 1, title: `Waiting item ${index + 1}` }),
+    );
+    const slot = render(listing({ rows }));
+    expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
+  });
+
+  it("shows a tab of only Later rows as the list, not the empty state", async () => {
+    const rows = Array.from({ length: 7 }, (_, index) =>
+      waitingRow({ number: index + 1, title: `Waiting item ${index + 1}` }),
+    );
+    const slot = render(listing({ rows }));
+    expect(await slot.findByText("Waiting item 1")).toBeInTheDocument();
+    expect(slot.getByRole("group", { name: "Rows by run" })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "7 waiting" })).toBeInTheDocument();
+    expect(slot.queryByText(/No open pull requests/i)).toBeNull();
+  });
+});
+
+describe("track", () => {
+  /** The stage holding the row's large dot. Without moves the dots are not buttons, so it is found by size. */
+  function currentStage(row: HTMLElement): string | null {
+    return row.querySelector("span[title] > span.size-3.rounded-full")?.parentElement?.getAttribute("title") ?? null;
+  }
+
+  it("names its stages in the header", async () => {
     const slot = render(listing());
+    await slot.findByText(/Add the widget endpoint/);
+    for (const stage of ["Draft", "Checks", "Review", "Mergeable"]) {
+      expect(slot.getAllByText(stage).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("places a draft, failing checks, a green pull request, and a mergeable one", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Draft", isDraft: true, flags: [], group: "clean" }),
+          rowFixture({ number: 2, title: "Failing", flags: ["ci-failing"] }),
+          rowFixture({ number: 3, title: "Green" }),
+          rowFixture({ number: 4, title: "Mergeable", flags: ["merge-ready"], group: "ready-to-merge" }),
+        ],
+      }),
+    );
+    expect(currentStage(await rowFor(slot, "Draft"))).toBe("Draft");
+    expect(currentStage(await rowFor(slot, "Failing"))).toBe("Checks");
+    expect(currentStage(await rowFor(slot, "Green"))).toBe("Review");
+    expect(currentStage(await rowFor(slot, "Mergeable"))).toBe("Mergeable");
+  });
+
+  it("offers no moves, since GitHub decides the stage", async () => {
+    const slot = render(listing());
+    await slot.findByText(/Add the widget endpoint/);
+    expect(slot.queryByRole("button", { name: /^Move to/ })).toBeNull();
+  });
+});
+
+describe("notes", () => {
+  it("shows the note in an open row", async () => {
+    const slot = render(listing({ rows: [rowFixture({ note: "Ask hubber about the retry" })] }));
+    expect(await slot.findByText("Ask hubber about the retry")).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "Edit note" })).toBeInTheDocument();
+  });
+
+  it("saves an edited note for that row, then reloads the listing", async () => {
+    const calls: unknown[] = [];
+    let loads = 0;
+    const slot = render(listing(), {
+      listRows: () => {
+        loads += 1;
+        return listing();
+      },
+      setNote: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Add note" }));
+    const field = slot.getByRole("textbox", { name: "Note" });
+    fireEvent.change(field, { target: { value: "  Reply to octocat  " } });
+    fireEvent.keyDown(field, { key: "Enter" });
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Reply to octocat" });
+    await waitFor(() => expect(loads).toBe(2));
+    await waitFor(() => expect(slot.queryByRole("textbox", { name: "Note" })).toBeNull());
+  });
+});
+
+describe("seen comments", () => {
+  function recordingMarkSeen() {
+    const calls: unknown[] = [];
+    return {
+      calls,
+      rpc: {
+        markSeen: (input: unknown) => {
+          calls.push(input);
+          return { ok: true };
+        },
+      },
+    };
+  }
+
+  it("marks the pull request seen when its title is clicked", async () => {
+    const seen = recordingMarkSeen();
+    const slot = render(listing({ rows: [rowFixture({ newComments: 2 })] }), seen.rpc);
     const link = await slot.findByRole("link", { name: /Add the widget endpoint/ });
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("href", "https://github.com/acme/widgets/pull/42");
+    // jsdom cannot follow a link, and says so loudly.
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    await waitFor(() => expect(seen.calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 
-  it("colours a merge-ready status green and an unflagged one blue", async () => {
-    const ready = render(
-      listing({ rows: [rowFixture({ flags: ["merge-ready"], group: "ready-to-merge" })] }),
-    );
-    expect((await ready.findByText("ready to merge")).className).toMatch(/emerald/);
-    ready.lifecycle.unmount();
+  it("records the count when its thread is opened, even with nothing new showing", async () => {
+    const seen = recordingMarkSeen();
+    const slot = render(listing({ rows: [rowWithThreads(["thr_1"])] }), seen.rpc);
+    fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
+    await waitFor(() => expect(seen.calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+});
 
-    const clean = render(listing({ rows: [rowFixture({ flags: [], group: "clean" })] }));
-    expect((await clean.findByText("clean")).className).toMatch(/sky/);
+describe("thread action", () => {
+  it("offers to start a thread, named for the work in its title", async () => {
+    const slot = render(listing());
+    const button = await slot.findByRole("button", { name: "Start thread" });
+    expect(button).toHaveAttribute("title", "Resolve conflict");
   });
 
-  it("says awaiting review when an unflagged row still has a reviewer out", async () => {
+  it("names the work after the row's worst flag", async () => {
+    const titleFor = async (flags: string[], extra: Record<string, unknown> = {}) => {
+      const slot = render(listing({ rows: [rowFixture({ flags, ...extra })] }));
+      const title = (await slot.findByRole("button", { name: "Start thread" })).getAttribute("title");
+      slot.lifecycle.unmount();
+      return title;
+    };
+    expect(await titleFor(["ci-failing"])).toMatch(/fix failing ci/i);
+    expect(await titleFor(["no-reviewer"])).toMatch(/add a reviewer/i);
+    expect(await titleFor(["conflict", "feedback"])).toBe("Address issues");
+  });
+
+  it("says it will read outstanding comments before merging", async () => {
     const slot = render(
       listing({
-        rows: [rowFixture({ flags: [], group: "clean", waitingOn: ["hubber"] })],
+        rows: [rowFixture({ flags: ["merge-ready"], group: "ready-to-merge", unresolvedThreads: 3 })],
       }),
     );
-    await slot.findByText("awaiting review");
-    expect(slot.queryByText("clean")).toBeNull();
+    expect(await slot.findByRole("button", { name: "Start thread" })).toHaveAttribute("title", "Review and merge");
   });
 
-  it("says awaiting review when a re-review is pending", async () => {
-    const slot = render(
-      listing({
-        rows: [rowFixture({ flags: [], group: "clean", awaitingReReview: true })],
-      }),
-    );
-    await slot.findByText("awaiting review");
+  it("offers no start on a row only waiting for a run to finish", async () => {
+    const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"], group: "needs-action" })] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+    expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
   });
 
-  it("offers Archive thread once an in-progress row has no flags left", async () => {
+  it("still offers one when that row is carrying comments", async () => {
+    // Approved with an unresolved thread and a nit in the review body while
+    // checks ran. Neither is a flag, and both are work.
     const slot = render(
-      listing({ rows: [rowFixture({ flags: [], group: "clean", threadId: "thr_1" })] }),
+      listing({ rows: [rowFixture({ flags: ["ci-pending"], unresolvedThreads: 1, notedBy: ["hubber"] })] }),
     );
-    const archive = await slot.findByRole("button", { name: /archive thread/i });
-    // Secondary: an icon button carrying its label as an accessible name, not
-    // as visible text. Asserting the accessible name rather than opening the
-    // tooltip, which Radix drives from events jsdom does not synthesize.
-    expect(archive.textContent).toBe("");
-    expect(archive).toHaveAttribute("aria-label", "Archive thread");
+    expect(await slot.findByRole("button", { name: "Start thread" })).toHaveAttribute("title", "Review comments");
+  });
 
-    // The open action stays put, so the cell does not change shape as the work
-    // finishes. Same icon-only treatment as archive beside it.
-    const open = await slot.findByRole("button", { name: /^Open the thread for #/ });
-    expect(open.textContent).toBe("");
+  it("will not offer to start one for a repository with no checkout", async () => {
+    const slot = render(listing({ rows: [rowFixture({ canSpawn: false })] }));
+    expect(await slot.findByRole("button", { name: "No project here" })).toBeDisabled();
+  });
+
+  it("offers to open the thread once one exists, and navigates to it", async () => {
+    const slot = render(listing({ rows: [rowWithThreads(["thr_1"])] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
+    expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
+    await waitFor(() =>
+      expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_1" }),
+    );
+  });
+
+  it("disables the button and says Starting while the draft is fetched, and fires once", async () => {
+    let release: (() => void) | undefined;
+    const slot = render(listing(), {
+      workOnThisDraft: async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return { existingThreadId: null, reason: null, seed: SEED };
+      },
+    });
+
+    const button = await slot.findByRole("button", { name: "Start thread" });
+    fireEvent.click(button);
+    const starting = await slot.findByRole("button", { name: "Starting…" });
+    expect(starting).toBeDisabled();
+    fireEvent.click(starting);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(slot.inspection.rpcCalls.filter((call) => call.method === "workOnThisDraft")).toHaveLength(1);
+
+    release?.();
+  });
+
+  it("opens the composer naming the pull request, rather than spawning", async () => {
+    const slot = render(listing(), {
+      workOnThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Start thread" }));
+    expect(await slot.findByText("Start a thread for #42")).toBeInTheDocument();
+    expect(slot.inspection.rpcCalls.some((call) => call.method === "workOnThisSubmit")).toBe(false);
+  });
+
+  it("offers Archive thread once a row with a thread has no flags left", async () => {
+    const slot = render(
+      listing({ rows: [rowWithThreads(["thr_1"], { flags: [], group: "clean" })] }),
+      { archiveThread: () => ({ ok: true, reason: null }) },
+    );
+    fireEvent.click(await slot.findByRole("button", { name: "Archive thread" }));
+    await waitFor(() =>
+      expect(slot.inspection.rpcCalls.some((call) => call.method === "archiveThread")).toBe(true),
+    );
   });
 
   it("does not offer Archive thread while the row still has flags", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    await slot.findByRole("button", { name: /^Open the thread for #/ });
-    expect(slot.queryByRole("button", { name: /archive thread/i })).toBeNull();
-  });
-
-  it("calls archiveThread when Archive thread is clicked", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: [], group: "clean", threadId: "thr_1" })] }),
-      { archiveThread: () => ({ ok: true, reason: null }) },
-    );
-    (await slot.findByRole("button", { name: /archive thread/i })).click();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(slot.inspection.rpcCalls.some((call) => call.method === "archiveThread")).toBe(true);
-  });
-
-  it("renders column headers", async () => {
-    const slot = render(listing());
-    await slot.findByText("Title");
-    // No number column: the number rides the title so the table has one less
-    // thing to align.
-    expect(slot.queryByText("PR")).toBeNull();
-    // "Status" rather than "Needs": the same header sits above Clean and
-    // Ready to merge, where "needs" would be wrong.
-    await slot.findByText("Status");
-    expect(slot.queryByText("Needs")).toBeNull();
-  });
-
-  it("uses one fixed column layout so every section table lines up", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1 }),
-          rowFixture({ number: 2, flags: [], group: "clean" }),
-        ],
-      }),
-    );
-    await slot.findByText(/Needs Action \(1\)/);
-    const tables = slot.container.querySelectorAll("table");
-    expect(tables.length).toBe(2);
-    for (const table of tables) {
-      expect(table.className).toMatch(/table-fixed/);
-    }
-
-    // Same widths declared in the same order in both tables.
-    const widths = [...tables].map((table) =>
-      [...table.querySelectorAll("thead th")].map(
-        (cell) => (cell.className.match(/w-\[[^\]]+\]/) ?? ["auto"])[0],
-      ),
-    );
-    expect(widths[0]).toEqual(widths[1]);
-  });
-
-  it("omits the repository when every row shares one", async () => {
-    const slot = render(listing());
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByText("acme/widgets")).toBeNull();
-  });
-
-  it("shows the repository once the list spans more than one", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1 }),
-          rowFixture({ number: 2, repo: "acme/gadgets" }),
-        ],
-      }),
-    );
-    await slot.findByText("acme/widgets");
-    await slot.findByText("acme/gadgets");
-  });
-
-  it("leads the checks column with the counts that matter", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            checks: { pass: 20, fail: 1, skip: 7, pending: 0, cancelled: 0, total: 28 },
-          }),
-        ],
-      }),
-    );
-    await slot.findByText("1 fail · 20 pass · 7 skip");
-  });
-
-  it("shows an approval alongside an outstanding reviewer, not instead of it", async () => {
-    // A merge-ready PR with a reviewer still pending: the approval is the
-    // reason it is mergeable, so it must not be hidden by the pending request.
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            flags: ["merge-ready"],
-            group: "ready-to-merge",
-            approvedBy: ["hubber"],
-            waitingOn: ["acme/reviewers"],
-          }),
-        ],
-      }),
-    );
-    await slot.findByText("approved by hubber");
-    const line = await slot.findByText("waiting on acme/reviewers");
-    // Wrapped, not truncated: a team slug clipped at the column edge hides the
-    // only part that says which team, and there is no link to click through.
-    expect(line.className).not.toMatch(/truncate/);
-    expect(line.className).toMatch(/break-words/);
-  });
-
-  it("emphasizes the approval over the pending request", async () => {
-    const slot = render(
-      listing({
-        rows: [rowFixture({ approvedBy: ["hubber"], waitingOn: ["mona"] })],
-      }),
-    );
-    expect((await slot.findByText("approved by hubber")).className).toMatch(/text-foreground/);
-    expect((await slot.findByText("waiting on mona")).className).toMatch(
-      /text-muted-foreground/,
-    );
-  });
-
-  it("names a commenter only when they did not also approve", async () => {
-    const slot = render(
-      listing({
-        rows: [rowFixture({ approvedBy: ["hubber"], commentedBy: ["hubber", "mona"] })],
-      }),
-    );
-    await slot.findByText("approved by hubber");
-    await slot.findByText("comments from mona");
-  });
-
-  it("reports awaiting re-review", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            flags: [],
-            group: "clean",
-            awaitingReReview: true,
-            waitingOn: ["hubber"],
-          }),
-        ],
-      }),
-    );
-    await slot.findByText("awaiting re-review");
-    await slot.findByText("waiting on hubber");
-  });
-
-  it("says so when a PR has no reviews at all", async () => {
-    const slot = render(listing({ rows: [rowFixture()] }));
-    await slot.findByText("no reviews yet");
-  });
-
-  it("marks the leading flag as the one driving the action", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["conflict", "feedback"] })] }));
-    const primary = await slot.findByText("merge conflict");
-    const secondary = await slot.findByText("reviewer feedback");
-    expect(primary.className).toMatch(/text-destructive/);
-    expect(secondary.className).toMatch(/text-destructive/);
-  });
-
-  it("moves a row with a thread out of Needs action and into In progress", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ number: 1 }),
-          rowFixture({ number: 2, threadId: "thr_1" }),
-        ],
-      }),
-    );
-    await slot.findByText(/Needs Action \(1\)/);
-    await slot.findByText(/In Progress \(1\)/);
-  });
-
-  it("puts a merge-ready row with a thread in In progress too", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ flags: ["merge-ready"], group: "ready-to-merge", threadId: "thr_1" }),
-        ],
-      }),
-    );
-    await slot.findByText(/In Progress \(1\)/);
-    // The row's own flag badge also reads "ready to merge", so assert on the
-    // section heading, which carries a count.
-    expect(slot.queryByText(/Ready to Merge \(/)).toBeNull();
-  });
-
-  it("shows no In progress section when nothing is being worked on", async () => {
-    const slot = render(listing());
-    await slot.findByText(/Needs Action \(1\)/);
-    expect(slot.queryByText(/In Progress/)).toBeNull();
-  });
-
-  it("swaps the start icon for the open icon once a thread exists", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    await slot.findByRole("button", { name: /^Open the thread for #/ });
-    expect(slot.queryByRole("button", { name: /resolve conflict/i })).toBeNull();
-  });
-
-  it("navigates to the thread when the open icon is clicked", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    (await slot.findByRole("button", { name: /^Open the thread for #/ })).click();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(slot.inspection.navigateCalls.length).toBeGreaterThan(0);
-  });
-
-  it("offers the open icon even for a clean row that has one", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: [], group: "clean", threadId: "thr_1" })] }),
-    );
-    await slot.findByRole("button", { name: /^Open the thread for #/ });
-  });
-
-  it("disables the button and says Starting while the draft is fetched", async () => {
-    let release: (() => void) | undefined;
-    const slot = render(listing(), {
-      workOnThisDraft: async () => {
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        return { existingThreadId: null, reason: null, seed: SEED };
-      },
-    });
-
-    const button = await slot.findByRole("button", { name: /resolve conflict/i });
-    button.click();
-
-    const starting = await slot.findByRole("button", { name: /starting/i });
-    expect(starting).toBeDisabled();
-
-    release?.();
-  });
-
-  it("does not fire a second call when the button is clicked twice", async () => {
-    let release: (() => void) | undefined;
-    const slot = render(listing(), {
-      workOnThisDraft: async () => {
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        return { existingThreadId: null, reason: null, seed: SEED };
-      },
-    });
-
-    const button = await slot.findByRole("button", { name: /resolve conflict/i });
-    button.click();
-    await slot.findByRole("button", { name: /starting/i });
-    button.click();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    expect(
-      slot.inspection.rpcCalls.filter((call) => call.method === "workOnThisDraft"),
-    ).toHaveLength(1);
-
-    release?.();
-  });
-
-  it("asks for a draft when the button is clicked, rather than spawning", async () => {
-    const slot = render(listing(), {
-      workOnThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
-    });
-    const button = await slot.findByRole("button", { name: /resolve conflict/i });
-    button.click();
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(
-      slot.inspection.rpcCalls.some((call) => call.method === "workOnThisDraft"),
-    ).toBe(true);
-    expect(
-      slot.inspection.rpcCalls.some((call) => call.method === "workOnThisSubmit"),
-    ).toBe(false);
-  });
-
-  it("opens the composer naming the pull request", async () => {
-    const slot = render(listing(), {
-      workOnThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
-    });
-    (await slot.findByRole("button", { name: /resolve conflict/i })).click();
-    expect(await slot.findByText("Start a thread for #42")).toBeInTheDocument();
+    const slot = render(listing({ rows: [rowWithThreads(["thr_1"])] }));
+    await slot.findByRole("button", { name: "Open thread" });
+    expect(slot.queryByRole("button", { name: "Archive thread" })).toBeNull();
   });
 });
 
@@ -623,70 +510,52 @@ const SEED = {
   },
 };
 
-describe("a run still in flight", () => {
-  it("files it under Waiting on CI, not Needs Action", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"] })] }));
-    await slot.findByText(/Waiting on CI \(1\)/);
-    expect(slot.queryByText(/Needs Action \(/)).toBeNull();
+describe("a pull request with more than one thread", () => {
+  /**
+   * Radix opens a dropdown on pointerdown, not click, and jsdom synthesizes
+   * neither from `.click()`. Enter on the trigger is a real way a user opens
+   * this menu.
+   */
+  async function openEarlierThreads(slot: Slot) {
+    const trigger = await slot.findByRole("button", { name: /earlier thread/i });
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    return trigger;
+  }
+
+  it("offers nothing extra on the common single-thread row", async () => {
+    const slot = render(listing({ rows: [rowWithThreads(["thr_2"])] }));
+    await slot.findByRole("button", { name: "Open thread" });
+    expect(slot.queryByRole("button", { name: /earlier thread/i })).toBeNull();
   });
 
-  it("offers no button, because the run decides", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"] })] }));
-    await slot.findByText(/Waiting on CI \(1\)/);
-    expect(slot.queryByRole("button", { name: /check on ci/i })).toBeNull();
+  it("counts the earlier threads on the trigger, in the singular for one", async () => {
+    const three = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
+    await three.findByRole("button", { name: "2 earlier threads" });
+    three.lifecycle.unmount();
+
+    const two = render(listing({ rows: [rowWithThreads(["thr_2", "thr_1"])] }));
+    await two.findByRole("button", { name: "1 earlier thread" });
   });
 
-  it("does not colour the badge as a fault", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"] })] }));
-    expect((await slot.findByText("CI running")).className).toMatch(/sky/);
-  });
-
-  it("keeps a row in Needs Action when something else is also wrong", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: ["ci-failing", "ci-pending"] })] }),
+  it("opens the newest thread from Open thread", async () => {
+    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
+    await waitFor(() =>
+      expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_3" }),
     );
-    await slot.findByText(/Needs Action \(1\)/);
-    expect(slot.queryByText(/Waiting on CI \(/)).toBeNull();
   });
 
-  it("keeps a row in Needs Action when it is carrying comments", async () => {
-    // #5914: approved with one unresolved thread and a nit in the review body
-    // while three checks ran. Neither is a flag, so Waiting on CI swallowed
-    // the row and hid its button behind the one thing nobody had to do.
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({ flags: ["ci-pending"], unresolvedThreads: 1, notedBy: ["hubber"] }),
-        ],
-      }),
+  it("lists the earlier threads, newest of them first, and opens the one chosen", async () => {
+    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
+    await openEarlierThreads(slot);
+
+    const items = await slot.findAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["Earlier thread 1", "Earlier thread 2"]);
+    (await slot.findByRole("menuitem", { name: "Earlier thread 2" })).click();
+
+    await waitFor(() =>
+      expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thr_1" }),
     );
-    await slot.findByText(/Needs Action \(1\)/);
-    expect(slot.queryByText(/Waiting on CI \(/)).toBeNull();
-    expect(await slot.findByRole("button", { name: /review comments on #/i })).toBeTruthy();
-  });
-});
-
-describe("the draft badge", () => {
-  it("marks an unflagged draft without inventing a fault", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: [], group: "clean", isDraft: true })] }),
-    );
-    const badge = await slot.findByText("draft");
-    // A state, not a verdict: it stays out of the red/green/blue vocabulary.
-    expect(badge.className).toMatch(/bg-muted/);
-  });
-
-  it("does not repeat the marker under the title", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ flags: [], group: "clean", isDraft: true })] }),
-    );
-    expect(await slot.findAllByText("draft")).toHaveLength(1);
-  });
-
-  it("says nothing about drafting on a pull request that is open", async () => {
-    const slot = render(listing({ rows: [rowFixture({ isDraft: false })] }));
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByText("draft")).toBeNull();
   });
 });
 
@@ -774,70 +643,6 @@ describe("the Open pull request page", () => {
   });
 });
 
-describe("unresolved review threads", () => {
-  it("reports them even on a pull request that is otherwise ready", async () => {
-    // #5801's shape: approved, green, and three inline comments to address.
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            flags: ["merge-ready"],
-            group: "ready-to-merge",
-            approvedBy: ["hubber"],
-            unresolvedThreads: 3,
-          }),
-        ],
-      }),
-    );
-    await slot.findByText("approved by hubber");
-    await slot.findByText("3 unresolved comments");
-  });
-
-  it("names how many sit on code that has since changed", async () => {
-    const slot = render(
-      listing({ rows: [rowFixture({ unresolvedThreads: 3, outdatedThreads: 1 })] }),
-    );
-    await slot.findByText("3 unresolved comments, 1 outdated");
-  });
-
-  it("uses the singular for one", async () => {
-    const slot = render(listing({ rows: [rowFixture({ unresolvedThreads: 1 })] }));
-    await slot.findByText("1 unresolved comment");
-  });
-
-  it("says nothing when every thread is resolved", async () => {
-    const slot = render(listing({ rows: [rowFixture({ unresolvedThreads: 0 })] }));
-    await slot.findByText(/Add the widget endpoint/);
-    expect(slot.queryByText(/unresolved comment/)).toBeNull();
-  });
-});
-
-describe("the merge button when comments are outstanding", () => {
-  it("says it will read them first", async () => {
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            flags: ["merge-ready"],
-            group: "ready-to-merge",
-            unresolvedThreads: 3,
-          }),
-        ],
-      }),
-    );
-    await slot.findByRole("button", { name: /^Review and merge on #/ });
-    expect(slot.queryByRole("button", { name: /^Merge on #/ })).toBeNull();
-  });
-
-  it("still says Merge when nothing is outstanding", async () => {
-    const slot = render(
-      listing({
-        rows: [rowFixture({ flags: ["merge-ready"], group: "ready-to-merge" })],
-      }),
-    );
-    await slot.findByRole("button", { name: /^Merge on #/ });
-  });
-});
 
 describe("copy link", () => {
   // This jsdom ships Blob without Blob.prototype.text, and Node's Response
@@ -880,30 +685,11 @@ describe("copy link", () => {
     return writes;
   }
 
-  it("offers one copy button per row, labelled Copy", async () => {
-    const writes = stubClipboard();
-    const slot = render(
-      listing({ rows: [rowFixture({ number: 1 }), rowFixture({ number: 2 })] }),
-    );
-    expect(await slot.findAllByRole("button", { name: "Copy" })).toHaveLength(2);
-    expect(writes).toHaveLength(0);
-  });
-
   it("copies the title and link as HTML, with plain text alongside", async () => {
     const writes = stubClipboard();
-    const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            number: 42,
-            title: "Add the widget endpoint",
-            url: "https://github.com/acme/widgets/pull/42",
-          }),
-        ],
-      }),
-    );
+    const slot = render(listing());
 
-    fireEvent.click(await slot.findByRole("button", { name: "Copy" }));
+    fireEvent.click(await slot.findByRole("button", { name: "Copy link" }));
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]!["text/html"]).toBe(
@@ -914,21 +700,18 @@ describe("copy link", () => {
     );
   });
 
-  it("switches to a tick, then back", async () => {
+  it("says Copied, then goes back", async () => {
     stubClipboard();
     const slot = render(listing());
 
-    fireEvent.click(await slot.findByRole("button", { name: "Copy" }));
+    fireEvent.click(await slot.findByRole("button", { name: "Copy link" }));
     await waitFor(() => expect(slot.getByRole("button", { name: "Copied" })).toBeInTheDocument());
-
-    // The label is what a screen reader hears, so it has to carry the same
-    // confirmation the icon gives everyone else — and it has to expire.
-    await waitFor(() => expect(slot.getByRole("button", { name: "Copy" })).toBeInTheDocument(), {
+    await waitFor(() => expect(slot.getByRole("button", { name: "Copy link" })).toBeInTheDocument(), {
       timeout: 3000,
     });
   });
 
-  it("stays on Copy when the clipboard refuses", async () => {
+  it("stays on Copy link when the clipboard refuses", async () => {
     // A denied permission must not claim success.
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -942,40 +725,44 @@ describe("copy link", () => {
       },
     });
     const slot = render(listing());
-    fireEvent.click(await slot.findByRole("button", { name: "Copy" }));
-    await waitFor(() => expect(slot.getByRole("button", { name: "Copy" })).toBeInTheDocument());
+    fireEvent.click(await slot.findByRole("button", { name: "Copy link" }));
+    await waitFor(() => expect(slot.getByRole("button", { name: "Copy link" })).toBeInTheDocument());
     expect(slot.queryByRole("button", { name: "Copied" })).toBeNull();
   });
 });
 
-describe("title tooltip", () => {
-  const LONG = "refactor(profile): hide the profile toggles from the per-instance menu";
+describe("harvest", () => {
+  const available = (extra = {}) => listing({ harvest: { available: true, running: null, ...extra } });
 
-  it("shows the full title on focus, for the part the column cut off", async () => {
-    const slot = render(listing({ rows: [rowFixture({ number: 5840, title: LONG })] }));
-    const link = await slot.findByRole("link", { name: /hide the profile toggles/i });
-
-    fireEvent.focus(link);
-
-    const tip = await slot.findByRole("tooltip");
-    expect(tip).toHaveTextContent(`${LONG} (#5840)`);
+  it("offers no clock when the Harvest plugin is not installed", async () => {
+    const slot = render(listing(), HARVEST_RPC);
+    await slot.findByRole("button", { name: "Start thread" });
+    // The panel has to stay fully useful with no Harvest plugin present.
+    expect(slot.queryByRole("button", { name: /track time/i })).toBeNull();
   });
 
-  it("keeps the link working, so the tooltip is not in the way of the click", async () => {
+  it("offers a clock on an open row when Harvest is available", async () => {
+    const slot = render(available(), HARVEST_RPC);
+    expect(await slot.findByRole("button", { name: /track time for #42/i })).toBeTruthy();
+  });
+
+  it("marks the row whose timer is running", async () => {
     const slot = render(
-      listing({
-        rows: [
-          rowFixture({
-            number: 5840,
-            title: LONG,
-            url: "https://github.com/acme/widgets/pull/5840",
-          }),
-        ],
-      }),
+      listing({ harvest: { available: true, running: { externalId: "42", groupId: "widgets" } } }),
+      HARVEST_RPC,
     );
-    const link = await slot.findByRole("link", { name: /hide the profile toggles/i });
-    expect(link).toHaveAttribute("href", "https://github.com/acme/widgets/pull/5840");
-    expect(link).toHaveAttribute("target", "_blank");
+    expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+  });
+
+  it("does not mark a row when the running timer is the same number in another repo", async () => {
+    // Harvest can only filter references by id, so the group has to be part of
+    // the comparison or every repository's #42 would light up together.
+    const slot = render(
+      listing({ harvest: { available: true, running: { externalId: "42", groupId: "somewhere-else" } } }),
+      HARVEST_RPC,
+    );
+    await slot.findByRole("button", { name: /track time for #42/i });
+    expect(slot.queryByRole("button", { name: /timer running/i })).toBeNull();
   });
 });
 
@@ -1054,116 +841,6 @@ describe("sidebar count", () => {
   });
 });
 
-
-describe("a pull request with more than one thread", () => {
-  /**
-   * Radix opens a dropdown on pointerdown, not click, and jsdom synthesizes
-   * neither from `.click()` — both leave the menu shut and every item query
-   * times out. Enter on the trigger is a real way a user opens this menu.
-   */
-  async function openEarlierThreads(slot: {
-    findByRole: (role: string, options?: Record<string, unknown>) => Promise<HTMLElement>;
-  }) {
-    const trigger = await slot.findByRole("button", { name: /earlier thread/i });
-    fireEvent.keyDown(trigger, { key: "Enter" });
-    return trigger;
-  }
-
-  it("offers nothing extra on the common single-thread row", async () => {
-    const slot = render(listing({ rows: [rowWithThreads(["thr_2"])] }));
-    await slot.findByRole("button", { name: /^Open the thread for #/ });
-    expect(slot.queryByRole("button", { name: /earlier thread/i })).toBeNull();
-  });
-
-  it("opens the newest thread from the button", async () => {
-    // Newest first, so the button acts on the work in progress rather than on
-    // whichever thread happened to be started first.
-    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
-    (await slot.findByRole("button", { name: /^Open the thread for #/ })).click();
-    await waitFor(() => expect(slot.inspection.navigateCalls.length).toBeGreaterThan(0));
-  });
-
-  it("counts the earlier threads on the trigger, so the row says there are more", async () => {
-    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
-    await slot.findByRole("button", { name: "2 earlier threads" });
-  });
-
-  it("says one thread in the singular", async () => {
-    const slot = render(listing({ rows: [rowWithThreads(["thr_2", "thr_1"])] }));
-    await slot.findByRole("button", { name: "1 earlier thread" });
-  });
-
-  it("lists the earlier threads, newest of them first", async () => {
-    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
-    await openEarlierThreads(slot);
-
-    const items = await slot.findAllByRole("menuitem");
-    expect(items.map((item) => item.textContent)).toEqual([
-      "Earlier thread 1",
-      "Earlier thread 2",
-    ]);
-  });
-
-  it("opens the earlier thread that was chosen, not the newest", async () => {
-    const slot = render(listing({ rows: [rowWithThreads(["thr_3", "thr_2", "thr_1"])] }));
-    await openEarlierThreads(slot);
-    (await slot.findByRole("menuitem", { name: "Earlier thread 2" })).click();
-
-    await waitFor(() =>
-      expect(slot.inspection.navigateCalls).toContainEqual({
-        method: "toThread",
-        threadId: "thr_1",
-      }),
-    );
-  });
-});
-
-describe("harvest", () => {
-  const available = (extra = {}) =>
-    listing({ harvest: { available: true, running: null, ...extra } });
-
-  it("offers no clock when the Harvest plugin is not installed", async () => {
-    const slot = render(listing(), HARVEST_RPC);
-    await waitFor(() => expect(slot.queryByRole("table")).toBeTruthy());
-
-    // The panel has to stay fully useful with no Harvest plugin present.
-    expect(slot.queryByRole("button", { name: /track time/i })).toBeNull();
-  });
-
-  it("offers a clock on each row when Harvest is available", async () => {
-    const slot = render(available(), HARVEST_RPC);
-    expect(
-      await slot.findByRole("button", { name: /track time for #42/i }),
-    ).toBeTruthy();
-  });
-
-  it("marks the row whose timer is running", async () => {
-    const slot = render(
-      listing({
-        harvest: { available: true, running: { externalId: "42", groupId: "widgets" } },
-      }),
-      HARVEST_RPC,
-    );
-
-    expect(
-      await slot.findByRole("button", { name: /timer running for #42/i }),
-    ).toBeTruthy();
-  });
-
-  it("does not mark a row when the running timer is the same number in another repo", async () => {
-    // Harvest can only filter references by id, so the group has to be part of
-    // the comparison or every repository's #42 would light up together.
-    const slot = render(
-      listing({
-        harvest: { available: true, running: { externalId: "42", groupId: "somewhere-else" } },
-      }),
-      HARVEST_RPC,
-    );
-
-    await waitFor(() => expect(slot.queryByRole("table")).toBeTruthy());
-    expect(slot.queryByRole("button", { name: /timer running/i })).toBeNull();
-  });
-});
 
 describe("loading state", () => {
   // Never resolves, so the panel stays in the state it shows before its rows
