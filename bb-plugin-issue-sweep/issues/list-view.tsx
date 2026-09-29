@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepList } from "sweep-ui/list";
 import type { Flag, Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
@@ -16,6 +17,7 @@ import { commentsLabel, relativeTime, subtasksLabel } from "./format.js";
 import {
   ISSUE_RUNS,
   isStale,
+  lastActivity,
   runOf,
   sortIssues,
   stageOf,
@@ -51,10 +53,6 @@ const DAY = 24 * 60 * 60_000;
 const ADD_TO_BOARD = "Add to board";
 const NO_STATUS = "No status";
 
-/** The row actions' look, matching the list's own "Add note" button. */
-const LINE_ACTION =
-  "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-60";
-
 /**
  * A status's colour, by what the status means rather than by its exact name,
  * so a board that calls its first column "Ready" and one that calls it "Ready
@@ -76,7 +74,10 @@ function stageColor(status: string): string {
 }
 
 /**
- * A picker in place of the track, for an issue with no status to place it.
+ * A picker in place of the track, for an issue the track cannot place: off
+ * the board, with no status, or in a status the stages do not name. The last
+ * shows its status as the picker's value, so it can be moved back onto the
+ * track.
  *
  * An issue that is not on the board gets "Add to board" as its placeholder,
  * because adding and setting a status are one gesture — adding alone would
@@ -239,34 +240,6 @@ function ThreadAction({
   );
 }
 
-/** How long "Copied" stays up before the label returns. */
-const COPIED_MS = 1500;
-
-/** Copies the title and link as a rich-text link, labelled like the row's other actions. */
-function CopyLinkAction({ row }: { row: Row }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // A sweep can unmount the row mid-tick.
-  useEffect(() => () => {
-    if (timer.current) clearTimeout(timer.current);
-  }, []);
-
-  const onCopy = useCallback(async () => {
-    if (!(await writeLinkToClipboard(`${row.title} (#${row.number})`, row.url))) return;
-    setCopied(true);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), COPIED_MS);
-  }, [row.number, row.title, row.url]);
-
-  return (
-    <button type="button" className={LINE_ACTION} onClick={() => void onCopy()}>
-      <Icon name={copied ? "Check" : "Copy"} className="size-3" />
-      {copied ? "Copied" : "Copy link"}
-    </button>
-  );
-}
-
 function keyOf(row: Row): string {
   return `${row.repo}#${row.number}`;
 }
@@ -275,8 +248,8 @@ function keyOf(row: Row): string {
 function flagsFor(row: Row, inputs: TierInputs): Flag[] {
   const flags: Flag[] = [];
   if (isStale(row, inputs)) {
-    const days = Math.floor((inputs.now - row.updatedAt) / DAY);
-    flags.push({ kind: "stale", text: `No activity for ${days} days` });
+    const days = Math.floor((inputs.now - lastActivity(row)) / DAY);
+    flags.push({ kind: "stale", text: `No activity for ${days} ${days === 1 ? "day" : "days"}` });
   }
   if (row.blockedBy > 0) {
     flags.push({
@@ -502,24 +475,24 @@ export function IssueListView({
       parent: row.parent,
       note: row.note,
       stage,
-      // With no status there is nothing to place, so the picker offers one.
-      // A status the stages do not name is shown by name: it is real, just not
-      // on the track.
+      // Off the track, whether off the board, with no status, or in a status
+      // the stages do not name, the picker stands in so the issue can still
+      // be moved.
       offTrack:
-        stage !== null ? undefined : row.boardStatus === null ? (
+        stage !== null ? undefined : (
           <StatusCell
             row={row}
             options={listing.statusOptions}
             busy={busyKeys.has(keyOf(row))}
             onPick={(status) => onPick(row, status)}
           />
-        ) : (
-          row.boardStatus
         ),
       progress:
         row.subtasks && row.subtasks.total > 0
           ? { done: row.subtasks.completed, total: row.subtasks.total }
           : null,
+      // A running timer must stay in view, and it lives in the action line.
+      forceOpen: harvest.available && isRunningFor(harvest.running, row),
     };
   });
 
@@ -598,7 +571,11 @@ export function IssueListView({
                     onStart={onStart}
                     onOpen={onOpen}
                   />
-                  <CopyLinkAction row={row} />
+                  <CopyLinkAction
+                    text={`${row.title} (#${row.number})`}
+                    url={row.url}
+                    write={writeLinkToClipboard}
+                  />
                   {harvest.available ? (
                     <HarvestRowClock
                       surface="issues"

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
@@ -250,6 +250,13 @@ describe("tiers", () => {
     expect(slot.getByText("Blocked by 1 issue")).toBeInTheDocument();
   });
 
+  it("names a single day of inactivity in the singular", async () => {
+    const slot = render(
+      listing({ staleAfterDays: 1, rows: [rowFixture({ updatedAt: Date.now() - DAY - HOUR })] }),
+    );
+    expect(await slot.findByText("No activity for 1 day")).toBeInTheDocument();
+  });
+
   it("does not call an issue stale right after it was moved from here", async () => {
     const slot = render(
       listing({ rows: [rowFixture({ updatedAt: Date.now() - 20 * DAY, movedAt: Date.now() - HOUR })] }),
@@ -293,7 +300,7 @@ describe("tiers", () => {
       }),
     );
     const stalled = await rowFor(slot, "Stalled item");
-    expect(within(stalled).getByText("Stalled")).toBeInTheDocument();
+    expect(within(stalled).getByLabelText("Board status for #2")).toHaveValue("Stalled");
     expect(within(stalled).queryByRole("button", { name: /^Move to/ })).toBeNull();
     // It has a thread, so it is in Now, above the Next row.
     expect(titles(slot)).toEqual(["Stalled item", "Ready item"]);
@@ -333,6 +340,23 @@ describe("track", () => {
     expect(await slot.findByText("Add to board")).toBeInTheDocument();
 
     fireEvent.change(slot.getByLabelText("Board status for #42"), { target: { value: "Ready" } });
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "Ready" });
+  });
+
+  it("offers the picker for a status the stages do not name, so the issue can be moved back", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ boardStatus: "Stalled" })] }), {
+      setBoardStatus: (input: unknown) => {
+        calls.push(input);
+        return { ok: true, added: false, error: null };
+      },
+    });
+    const picker = await slot.findByLabelText("Board status for #42");
+    expect(picker).toHaveValue("Stalled");
+
+    fireEvent.change(picker, { target: { value: "Ready" } });
 
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "Ready" });
@@ -399,6 +423,23 @@ describe("seen comments", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+
+  it("logs a failed markSeen rather than leaving the rejection unhandled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const slot = render(listing({ rows: [rowFixture({ newComments: 2 })] }), {
+        markSeen: () => {
+          throw new Error("server went away");
+        },
+      });
+      const link = await slot.findByRole("link", { name: /Widget rotation/ });
+      link.addEventListener("click", (event) => event.preventDefault());
+      fireEvent.click(link);
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("records the count on every open, even with nothing new showing", async () => {
@@ -661,6 +702,13 @@ describe("harvest", () => {
   it("marks the row whose timer is running", async () => {
     const slot = render(available({ running: { externalId: "42", groupId: "widgets" } }), HARVEST_RPC);
     expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+  });
+
+  it("keeps the row whose timer is running open, even when its tier would close it", async () => {
+    // A Next row, which is closed to its number line by default.
+    const slot = render(available({ running: { externalId: "42", groupId: "widgets" } }, [rowFixture()]), HARVEST_RPC);
+    expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Collapse" })).toBeNull();
   });
 
   it("leaves other rows unmarked when a timer runs on one of them", async () => {
