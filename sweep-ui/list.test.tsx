@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { SweepList, type SweepListProps } from "./list";
+import { SweepList, type SweepLinkProps, type SweepListProps } from "./list";
 import type { Run, Stage, SweepItem } from "./types";
 
 afterEach(cleanup);
@@ -129,6 +129,24 @@ describe("SweepList", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     expect(onNoteSave).toHaveBeenCalledWith(expect.objectContaining({ number: 1 }), "Ask about the hinge");
     expect(await screen.findByRole("button", { name: "Add note" })).toBeInTheDocument();
+  });
+
+  it("draws the title and parent chip through a custom Link", () => {
+    const onOpenLink = vi.fn();
+    function Link({ href, className, onClick, children }: SweepLinkProps) {
+      return (
+        <a href={href} className={className} onClick={onClick} data-custom-link="">
+          {children}
+        </a>
+      );
+    }
+    const parent = { number: 7, title: "Widget roadmap", url: "https://github.com/acme/widgets/issues/7" };
+    render(<SweepList {...props([item(1, "new", { parent })], { Link, onOpenLink })} />);
+    const title = screen.getByRole("link", { name: "Widget task 1" });
+    expect(title).toHaveAttribute("data-custom-link");
+    expect(screen.getByRole("link", { name: "Widget roadmap" })).toHaveAttribute("data-custom-link");
+    fireEvent.click(title);
+    expect(onOpenLink).toHaveBeenCalledWith(expect.objectContaining({ number: 1 }));
   });
 
   it("marks unread rows and shows flags on the number line", () => {

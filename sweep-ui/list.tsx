@@ -1,13 +1,15 @@
 // One list per tab: Now rows open, Next rows closed to their number line, and
 // Later rows one line each, folded after a few. The summary squares above it
 // narrow the list to one run.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 
 import { Icon } from "./icons";
-import { SweepRow } from "./row";
+import { SweepRow, type SweepLinkProps } from "./row";
 import { SummarySquares } from "./summary";
 import { TrackHeader } from "./track";
 import type { Run, Stage, SweepItem, Tier } from "./types";
+
+export type { SweepLinkProps };
 
 export interface SweepListProps {
   /** "issues", used as "29 issues". */
@@ -25,6 +27,11 @@ export interface SweepListProps {
   onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
   /** Called when the title is clicked, before the link opens. */
   onOpenLink?: (item: SweepItem) => void;
+  /**
+   * Draws the title and parent chip. Plugins pass the SDK's `UrlLink` so links
+   * open the way every other bb link does; defaults to a plain anchor.
+   */
+  Link?: ComponentType<SweepLinkProps>;
   /** Later rows shown before "N more". */
   laterShown?: number;
   /** Rows dimmed while a request for them runs. */
@@ -42,6 +49,7 @@ export function SweepList({
   onMove,
   onNoteSave,
   onOpenLink,
+  Link,
   laterShown = 5,
   busyKeys,
 }: SweepListProps) {
@@ -88,6 +96,7 @@ export function SweepList({
         stages={stages}
         onMove={onMove ? (stage) => onMove(item, stage) : undefined}
         onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}
+        Link={Link}
         actions={renderActions(item)}
         editing={editing === item.key}
         onEditNote={() => setEditing(item.key)}

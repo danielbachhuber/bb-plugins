@@ -1,10 +1,30 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ComponentType, type MouseEvent, type ReactNode } from "react";
 
 import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 import { NoteBox, NoteField } from "./note";
 import { Track } from "./track";
 import type { Flag, Stage, SweepItem, Tier } from "./types";
+
+export interface SweepLinkProps {
+  href: string;
+  className?: string;
+  onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+  children: ReactNode;
+}
+
+/**
+ * The link the title and parent chip are drawn with. Plugins pass the SDK's
+ * `UrlLink`, which opens through bb's navigation and so follows the user's
+ * browser choice. This plain anchor stands in for it in tests and stories.
+ */
+export function PlainLink({ href, className, onClick, children }: SweepLinkProps) {
+  return (
+    <a href={href} className={className} onClick={onClick}>
+      {children}
+    </a>
+  );
+}
 
 const BLUE_TEXT = "text-[#0b57d0] dark:text-[#a8c7fa]";
 const BLUE_DOT = "bg-[#0b57d0] dark:bg-[#a8c7fa]";
@@ -30,18 +50,17 @@ function FlagText({ flag }: { flag: Flag }) {
   return <span className="font-medium text-destructive-text">{flag.text}</span>;
 }
 
-function ParentChip({ parent }: { parent: NonNullable<SweepItem["parent"]> }) {
+function ParentChip({ parent, Link }: { parent: NonNullable<SweepItem["parent"]>; Link: ComponentType<SweepLinkProps> }) {
   return (
-    <a
+    <Link
       href={parent.url}
-      target="_blank"
-      rel="noreferrer"
-      title={`#${parent.number} ${parent.title}`}
       className="inline-flex max-w-[14rem] items-center gap-1 rounded border border-border px-1 text-[11px] leading-4 text-muted-foreground hover:text-foreground"
     >
       <Icon name="Layers" className="size-3 shrink-0" />
-      <span className="truncate">{parent.title}</span>
-    </a>
+      <span className="truncate" title={`#${parent.number} ${parent.title}`}>
+        {parent.title}
+      </span>
+    </Link>
   );
 }
 
@@ -60,7 +79,7 @@ function Progress({ done, total }: { done: number; total: number }) {
 }
 
 /** `#123`, the flags, the facts, "N new", and the parent chip, joined by dots. */
-function NumberLine({ item }: { item: SweepItem }) {
+function NumberLine({ item, Link }: { item: SweepItem; Link: ComponentType<SweepLinkProps> }) {
   const parts: ReactNode[] = [
     ...item.flags.map((flag) => <FlagText flag={flag} />),
     ...item.facts.map((fact) => <span>{fact}</span>),
@@ -77,7 +96,7 @@ function NumberLine({ item }: { item: SweepItem }) {
           {part}
         </Fragment>
       ))}
-      {item.parent ? <ParentChip parent={item.parent} /> : null}
+      {item.parent ? <ParentChip parent={item.parent} Link={Link} /> : null}
     </div>
   );
 }
@@ -104,6 +123,8 @@ export interface SweepRowProps {
   stages: Stage[];
   onMove?: (stage: number) => void;
   onOpenLink?: () => void;
+  /** Draws the title and parent chip. Defaults to a plain anchor. */
+  Link?: ComponentType<SweepLinkProps>;
   /** The plugin's own actions, drawn before the note button. */
   actions: ReactNode;
   editing: boolean;
@@ -122,6 +143,7 @@ export function SweepRow({
   stages,
   onMove,
   onOpenLink,
+  Link = PlainLink,
   actions,
   editing,
   onEditNote,
@@ -139,15 +161,13 @@ export function SweepRow({
     </div>
   );
   const title = (
-    <a
+    <Link
       href={item.url}
-      target="_blank"
-      rel="noreferrer"
       onClick={onOpenLink}
       className={cn("truncate hover:underline", line ? "text-muted-foreground" : "text-foreground", unread && "font-semibold")}
     >
       {item.title}
-    </a>
+    </Link>
   );
 
   if (line) {
@@ -170,7 +190,7 @@ export function SweepRow({
       {iconColumn}
       <div className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">{title}</span>
-        <NumberLine item={item} />
+        <NumberLine item={item} Link={Link} />
         {open ? (
           <>
             {editing ? (

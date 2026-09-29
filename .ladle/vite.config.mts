@@ -67,7 +67,7 @@ function newStoryFiles(): Plugin {
     name: "bb-plugins:new-story-files",
     configureServer(server) {
       for (const entry of readdirSync(pluginsDir!, { withFileTypes: true })) {
-        if (entry.isDirectory() && /^(bb-plugin-|gh-shared$)/.test(entry.name)) {
+        if (entry.isDirectory() && /^(bb-plugin-|gh-shared$|sweep-ui$)/.test(entry.name)) {
           server.watcher.add(path.join(pluginsDir!, entry.name));
         }
       }

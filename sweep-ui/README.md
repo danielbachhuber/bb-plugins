@@ -36,6 +36,22 @@ directory once it is installed there.
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 
+## SweepList's props
+
+| Prop | What it does |
+| --- | --- |
+| `noun` | Names the rows in the header: "29 issues" |
+| `stages` | The track's stages, in order, each with its Tailwind color class |
+| `runs` | Every run in list order. Each row's tier comes from its run |
+| `items` | The rows, already sorted by the plugin |
+| `renderActions` | The plugin's own actions for an open row, drawn before "Add note" or "Edit note" |
+| `onMove` | Optional. Makes the track's dots buttons that move a row to that stage |
+| `onNoteSave` | Saves a note. An empty string deletes it. Resolves true once saved, which closes the field |
+| `onOpenLink` | Optional. Called when the title is clicked, before the link opens |
+| `Link` | Optional. Draws the title and parent chip. Pass `UrlLink` from `@get-bb/plugin-sdk/app`, so links open through bb's navigation and follow the user's browser choice. Defaults to a plain anchor, for tests and stories |
+| `laterShown` | Later rows shown before "N more". Defaults to 5 |
+| `busyKeys` | Keys of rows to dim while a request for them runs |
+
 ## Working on it
 
 ```sh
