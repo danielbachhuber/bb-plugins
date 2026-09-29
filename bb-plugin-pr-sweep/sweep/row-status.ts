@@ -78,19 +78,28 @@ function threadsText(row: ListedPr): string | null {
 }
 
 /**
- * What reviewers left for you to answer, or null: who requested changes,
- * then who reviewed with comments and neither approved nor requested
- * changes, then who wrote notes, then threads you have not answered.
+ * What reviewers left for you to answer, or null. Who requested changes
+ * leads. Otherwise everyone waiting on you: the last commenter on each
+ * unanswered thread, most threads first, then reviewers whose review was a
+ * comment, then reviewers who wrote notes. Named by what they left when that
+ * is all one kind, and as "Comments from" when it is a mix.
  */
 function feedbackText(row: ListedPr): { text: string; byReviewer: boolean } | null {
   const requested = row.changesRequestedBy ?? [];
   if (requested.length > 0) return { text: `${names(requested)} requested changes`, byReviewer: true };
   const settled = new Set([...row.approvedBy, ...requested]);
   const commented = row.flags.includes("feedback") ? row.commentedBy.filter((login) => !settled.has(login)) : [];
-  if (commented.length > 0) return { text: `${names(commented)} left review comments`, byReviewer: true };
-  if (row.notedBy.length > 0) {
-    const approved = row.notedBy.every((login) => row.approvedBy.includes(login));
-    const text = approved ? `${names(row.notedBy)} approved with notes` : `Review notes from ${names(row.notedBy)}`;
+  const threads = row.unansweredBy ?? [];
+  const people = [...new Set([...threads, ...commented, ...row.notedBy])];
+  if (people.length > 0) {
+    const approvedWithNotes = people.every((login) => row.notedBy.includes(login) && row.approvedBy.includes(login));
+    const text = approvedWithNotes
+      ? `${names(people)} approved with notes`
+      : threads.length === 0 && row.notedBy.length === 0
+        ? `${names(people)} left review comments`
+        : threads.length === 0 && commented.length === 0
+          ? `Review notes from ${names(people)}`
+          : `Comments from ${names(people)}`;
     return { text, byReviewer: true };
   }
   const unanswered = unansweredThreads(row);
@@ -107,7 +116,7 @@ function withThreads(text: string, row: ListedPr): Banner {
 /**
  * The banner under the title. Red for what stops the pull request, with the
  * reviewers' feedback after it as a lighter detail; red for feedback alone,
- * with the unresolved count as its detail; green when it can merge; blue for
+ * with the threads as its detail; green when it can merge; blue for
  * a wait that asks nothing of you but is worth knowing. Nothing for a draft,
  * a first review not yet given, or checks still running, which the track and
  * the icons already show.

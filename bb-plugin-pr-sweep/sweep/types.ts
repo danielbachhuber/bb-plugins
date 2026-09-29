@@ -62,6 +62,11 @@ export interface ClassifiedRow {
    */
   repliedThreads?: number;
   /**
+   * Who is waiting on a reply: the last commenter on each unanswered thread,
+   * most threads first. Absent on a row stored before the sweep read it.
+   */
+  unansweredBy?: string[];
+  /**
    * Reviewers whose latest review carries a written body.
    *
    * Invisible to every other signal: an approval with three paragraphs of

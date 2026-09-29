@@ -10,6 +10,11 @@ export interface ThreadCounts {
    * unresolved after a reply, so a reply is read as answering the thread.
    */
   replied: number;
+  /**
+   * Who wrote the last comment on each thread still unanswered, most threads
+   * first, then alphabetical: the people waiting on a reply.
+   */
+  unansweredBy: string[];
 }
 
 export const THREADS_QUERY = `
@@ -64,14 +69,19 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
     let unresolved = 0;
     let outdated = 0;
     let replied = 0;
+    const waiting = new Map<string, number>();
     for (const thread of node.reviewThreads?.nodes ?? []) {
       if (!thread || thread.isResolved) continue;
       unresolved += 1;
       if (thread.isOutdated) outdated += 1;
       const last = thread.comments?.nodes?.[0]?.author?.login;
       if (viewer && last === viewer) replied += 1;
+      else if (last) waiting.set(last, (waiting.get(last) ?? 0) + 1);
     }
-    counts.set(threadKey(repo, node.number), { unresolved, outdated, replied });
+    const unansweredBy = [...waiting]
+      .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
+      .map(([login]) => login);
+    counts.set(threadKey(repo, node.number), { unresolved, outdated, replied, unansweredBy });
   }
 
   return counts;

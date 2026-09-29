@@ -28,7 +28,7 @@ describe("parseThreadCounts", () => {
         ]),
       ]),
     );
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1, replied: 0 });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1, replied: 0, unansweredBy: [] });
   });
 
   it("counts the unresolved threads you answered last as replied", () => {
@@ -36,19 +36,27 @@ describe("parseThreadCounts", () => {
       response([
         node(42, [
           { isResolved: false, ...lastBy("octocat") },
+          { isResolved: false, ...lastBy("hubot") },
+          { isResolved: false, ...lastBy("hubber") },
           { isResolved: false, ...lastBy("hubber") },
           { isResolved: true, ...lastBy("octocat") },
         ]),
       ]),
     );
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 0, replied: 1 });
+    // Whoever spoke last on an unanswered thread is waiting on you, most threads first.
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({
+      unresolved: 4,
+      outdated: 0,
+      replied: 1,
+      unansweredBy: ["hubber", "hubot"],
+    });
   });
 
   it("reports zero for a pull request with no threads, not absence", () => {
     // The difference matters: absence means the query did not cover it, zero
     // means it genuinely has none.
     const counts = parseThreadCounts(response([node(42, [])]));
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0, replied: 0 });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0, replied: 0, unansweredBy: [] });
   });
 
   it("keys by repository as well as number", () => {

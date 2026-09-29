@@ -37,6 +37,7 @@ export interface ListedPr {
   unresolvedThreads: number;
   outdatedThreads: number;
   repliedThreads?: number;
+  unansweredBy?: string[];
   notedBy: string[];
   canSpawn: boolean;
   threadId: string | null;

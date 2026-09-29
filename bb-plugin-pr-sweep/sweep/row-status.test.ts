@@ -104,6 +104,31 @@ describe("bannerFor", () => {
     ).toEqual({ tone: "blocked", text: "octocat left review comments", detail: "7 unanswered comments" });
   });
 
+  it("names everyone waiting on a reply, most threads first, as comments when the kinds mix", () => {
+    // An approval with notes and inline threads, and a comment-only review.
+    expect(
+      bannerFor(
+        pr({
+          flags: ["feedback"],
+          approvedBy: ["hubber"],
+          notedBy: ["hubber"],
+          commentedBy: ["hubber", "octocat"],
+          unresolvedThreads: 7,
+          repliedThreads: 1,
+          unansweredBy: ["hubber", "octocat"],
+        }),
+      ),
+    ).toEqual({ tone: "blocked", text: "Comments from hubber and octocat", detail: "6 unanswered comments, 1 replied" });
+    // Threads alone, from someone whose review was an approval.
+    expect(text({ approvedBy: ["hubber"], unresolvedThreads: 2, unansweredBy: ["hubber"] })).toBe(
+      "Comments from hubber",
+    );
+    // An approver with notes whose only thread is theirs too stays "approved with notes".
+    expect(
+      text({ approvedBy: ["hubber"], notedBy: ["hubber"], unresolvedThreads: 1, unansweredBy: ["hubber"] }),
+    ).toBe("hubber approved with notes");
+  });
+
   it("counts the threads you replied to apart from those still unanswered", () => {
     const feedback = { flags: ["feedback"], changesRequestedBy: ["hubber"], unresolvedThreads: 7 };
     expect(bannerFor(pr({ ...feedback, repliedThreads: 1 }))?.detail).toBe("6 unanswered comments, 1 replied");

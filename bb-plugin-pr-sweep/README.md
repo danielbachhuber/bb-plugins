@@ -75,10 +75,13 @@ Under the title, a banner says where the pull request stands.
   feedback, the feedback leads instead), "1 of 9 checks cancelled",
   "No checks ran on the latest push", or "No reviewer requested".
 - **Reviewers' feedback** follows a blocker in lighter text after a dot, and
-  stands alone in red when nothing else is wrong: "hubber requested changes",
-  "octocat left review comments" (a review that neither approved nor
-  requested changes), "hubber approved with notes", or "Review notes from
-  hubber". The unresolved comment threads follow a reviewer's name, split
+  stands alone in red when nothing else is wrong. Who requested changes
+  leads ("hubber requested changes"). Otherwise the banner names everyone
+  waiting on you, most unanswered threads first: "octocat left review
+  comments" (a review that neither approved nor requested changes), "hubber
+  approved with notes", "Review notes from hubber", or "Comments from hubber
+  and octocat" when it is a mix, including inline comments from someone who
+  approved. The unresolved comment threads follow a reviewer's name, split
   into those still unanswered and those you replied to last ("6 unanswered
   comments, 1 replied"), since a reply often answers a thread nobody marks
   resolved. Unanswered threads are the banner on their own when no review

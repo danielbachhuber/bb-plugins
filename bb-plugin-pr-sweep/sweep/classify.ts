@@ -323,6 +323,7 @@ export function classifyOne(
     unresolvedThreads: 0,
     outdatedThreads: 0,
     repliedThreads: 0,
+    unansweredBy: [],
     awaitingReReview,
     // Zero for a missing or unreadable date, which the listing reads as unknown.
     updatedAt: Date.parse(pr.updatedAt ?? "") || 0,
