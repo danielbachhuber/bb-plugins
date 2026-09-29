@@ -18,13 +18,13 @@ const STAGES: Stage[] = [
 
 // Issue Sweep's runs, in list order.
 const RUNS: Run[] = [
-  { id: "new", label: "new comments", tone: "new", tier: "now" },
-  { id: "stale", label: "stale", tone: "late", tier: "now" },
-  { id: "working", label: "working", tone: "underway", tier: "now" },
-  { id: "to-start", label: "to start", tone: "next", tier: "next" },
-  { id: "review", label: "waiting on review", tone: "later", tier: "later" },
-  { id: "later", label: "later", tone: "later", tier: "later" },
-  { id: "blocked", label: "blocked", tone: "later", tier: "later" },
+  { id: "new", label: "new comments", labelOne: "new comment", tone: "new", tier: "now" },
+  { id: "stale", label: "stale", labelOne: "stale", tone: "late", tier: "now" },
+  { id: "working", label: "working", labelOne: "working", tone: "underway", tier: "now" },
+  { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
+  { id: "review", label: "waiting on review", labelOne: "waiting on review", tone: "later", tier: "later" },
+  { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
+  { id: "blocked", label: "blocked", labelOne: "blocked", tone: "later", tier: "later" },
 ];
 
 function item(number: number, runId: string, title: string, overrides: Partial<SweepItem> = {}): SweepItem {

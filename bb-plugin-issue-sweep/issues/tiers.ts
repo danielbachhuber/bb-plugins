@@ -46,13 +46,13 @@ export interface TierInputs {
  * an issue with a thread and new comments is in "new comments".
  */
 export const ISSUE_RUNS: Run[] = [
-  { id: "new-comments", label: "new comments", tone: "new", tier: "now" },
-  { id: "stale", label: "stale", tone: "late", tier: "now" },
-  { id: "working", label: "working", tone: "underway", tier: "now" },
-  { id: "to-start", label: "to start", tone: "next", tier: "next" },
-  { id: "waiting", label: "waiting on review", tone: "later", tier: "later" },
-  { id: "later", label: "later", tone: "later", tier: "later" },
-  { id: "blocked", label: "blocked", tone: "later", tier: "later" },
+  { id: "new-comments", label: "new comments", labelOne: "new comment", tone: "new", tier: "now" },
+  { id: "stale", label: "stale", labelOne: "stale", tone: "late", tier: "now" },
+  { id: "working", label: "working", labelOne: "working", tone: "underway", tier: "now" },
+  { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
+  { id: "waiting", label: "waiting on review", labelOne: "waiting on review", tone: "later", tier: "later" },
+  { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
+  { id: "blocked", label: "blocked", labelOne: "blocked", tone: "later", tier: "later" },
 ];
 
 const DAY = 24 * 60 * 60_000;

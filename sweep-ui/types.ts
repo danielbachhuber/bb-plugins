@@ -14,6 +14,8 @@ export interface Run {
   id: string;
   /** Lowercase noun phrase after the count: "new comments". */
   label: string;
+  /** The same phrase after a count of one: "new comment". */
+  labelOne: string;
   tone: RunTone;
   tier: Tier;
 }

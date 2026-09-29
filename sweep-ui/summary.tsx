@@ -45,7 +45,8 @@ export function SummarySquares({ runs, items, value, onChange }: SummarySquaresP
             ))}
           </span>
           <span className={cn("block text-xs text-muted-foreground group-hover:text-foreground", run.id === value && "text-foreground")}>
-            <span className="font-medium tabular-nums text-foreground">{runItems.length}</span> {run.label}
+            <span className="font-medium tabular-nums text-foreground">{runItems.length}</span>{" "}
+            {runItems.length === 1 ? run.labelOne : run.label}
           </span>
         </button>
       ))}

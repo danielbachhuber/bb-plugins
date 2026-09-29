@@ -42,7 +42,7 @@ directory once it is installed there.
 | --- | --- |
 | `noun` | Names the rows in the header: "29 issues" |
 | `stages` | The track's stages, in order, each with its Tailwind color class |
-| `runs` | Every run in list order. Each row's tier comes from its run |
+| `runs` | Every run in list order. Each row's tier comes from its run. The summary names a run with `label` ("3 new comments"), or `labelOne` when it holds one row ("1 new comment") |
 | `items` | The rows, already sorted by the plugin |
 | `renderActions` | The plugin's own actions for an open row, drawn before "Add note" or "Edit note" |
 | `onMove` | Optional. Makes the track's dots buttons that move a row to that stage |

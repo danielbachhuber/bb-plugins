@@ -15,9 +15,9 @@ const STAGES: Stage[] = [
 ];
 
 const RUNS: Run[] = [
-  { id: "new", label: "new comments", tone: "new", tier: "now" },
-  { id: "to-start", label: "to start", tone: "next", tier: "next" },
-  { id: "later", label: "later", tone: "later", tier: "later" },
+  { id: "new", label: "new comments", labelOne: "new comment", tone: "new", tier: "now" },
+  { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
+  { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
 ];
 
 function item(number: number, runId: string, overrides: Partial<SweepItem> = {}): SweepItem {
@@ -92,6 +92,13 @@ describe("SweepList", () => {
     expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
+  it("names a run of one in the singular", () => {
+    render(<SweepList {...props([item(1, "new"), item(2, "new"), item(3, "to-start")])} />);
+    expect(screen.getByRole("button", { name: "2 new comments" })).toBeInTheDocument();
+    render(<SweepList {...props([item(4, "new")])} />);
+    expect(screen.getByRole("button", { name: "1 new comment" })).toBeInTheDocument();
+  });
+
   it("shows every Later row of a chosen run, with no fold", () => {
     render(<SweepList {...props([item(1, "new"), ...later(8)])} laterShown={5} />);
     fireEvent.click(screen.getByRole("button", { name: /later/ }));
@@ -101,7 +108,7 @@ describe("SweepList", () => {
 
   it("clears the filter when a new list empties the chosen run", () => {
     const { rerender } = render(<SweepList {...props([item(1, "new"), item(2, "to-start")])} />);
-    fireEvent.click(screen.getByRole("button", { name: /new comments/ }));
+    fireEvent.click(screen.getByRole("button", { name: "1 new comment" }));
     expect(screen.getAllByRole("link")).toHaveLength(1);
 
     rerender(<SweepList {...props([item(2, "to-start"), item(3, "later")])} />);
