@@ -1,6 +1,7 @@
 {
   "name": "sweep-ui",
   "version": "1.0.0",
+  "description": "The list Issue Sweep, PR Sweep, and Review Sweep draw each tab with: summary squares, rows ordered Now, Next, and Later, and a stage track.",
   "private": true,
   "type": "module",
   "exports": {

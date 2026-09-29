@@ -226,12 +226,19 @@ const plugins = new Map();
 for (const id of stories) {
   const story = storyMeta[id];
   const dir = id.split("--")[0];
-  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+)\//)?.[1];
+  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+|gh-shared|sweep-ui)\//)?.[1];
   if (!sourceDir) throw new Error(`Cannot tell which plugin ${story.filePath} belongs to.`);
   const file = join(repoRoot, sourceDir, story.filePath.split(`${sourceDir}/`)[1]);
   if (!plugins.has(dir)) {
-    const bb = JSON.parse(readFileSync(join(repoRoot, sourceDir, "package.json"), "utf8")).bb ?? {};
-    plugins.set(dir, { dir, sourceDir, name: bb.name ?? dir, description: bb.description ?? "", stories: [] });
+    const pkg = JSON.parse(readFileSync(join(repoRoot, sourceDir, "package.json"), "utf8"));
+    const bb = pkg.bb ?? {};
+    plugins.set(dir, {
+      dir,
+      sourceDir,
+      name: bb.name ?? pkg.name ?? dir,
+      description: bb.description ?? pkg.description ?? "",
+      stories: [],
+    });
   }
   plugins.get(dir).stories.push({
     id,
@@ -293,16 +300,16 @@ A picture of every story in [bb-plugins](${REPO_URL}),
 taken after each commit there. The images live here so bb-plugins keeps a
 small history while the visual history is still available.
 
-## The plugins
+## The plugins and shared packages
 
 | Plugin | What it does | Screenshots |
 | --- | --- | --- |
 ${pluginRows.join("\n")}
 
-Each directory is a plugin, named for the first part of its story titles.
-Its README describes the plugin and shows each story, in the light theme,
-under a heading for the part of the plugin it draws. Each commit message
-starts with the bb-plugins commit it was taken from and links to it.
+Each directory is a plugin or a shared package, named for the first part of
+its story titles. Its README describes it and shows each story, in the light
+theme, under a heading for the part it draws. Each commit message starts with
+the bb-plugins commit it was taken from and links to it.
 
 To see how a story changed, look at the history of its file:
 
