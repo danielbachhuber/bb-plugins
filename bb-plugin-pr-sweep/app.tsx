@@ -122,7 +122,11 @@ function Panel() {
   // and forget: the link or thread opens either way.
   const markSeen = useCallback(
     (row: Row) => {
-      void rpc.call("markSeen", { repo: row.repo, number: row.number }).then(reload);
+      rpc
+        .call("markSeen", { repo: row.repo, number: row.number })
+        .then(reload)
+        // Nothing to show for it: the count catches up on the next open.
+        .catch((error: unknown) => console.warn(`could not mark #${row.number} seen`, error));
     },
     [reload, rpc],
   );

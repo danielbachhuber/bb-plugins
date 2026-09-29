@@ -829,6 +829,15 @@ describe("notes, seen counts, and the stale setting", () => {
     expect(await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 41 })).toEqual({ ok: false });
   });
 
+  it("records nothing when a row stored before the count existed is opened", async () => {
+    // Recording 0 would make every comment on it read as new once the next
+    // sweep stores the real count.
+    const { bb, harness } = await seededHost({ commentsCount: undefined });
+    expect(await harness.behavior.callRpc("markSeen", { repo: "acme/widgets", number: 42 })).toEqual({ ok: true });
+    await workOnThis(harness, { repo: "acme/widgets", number: 42 });
+    expect(createStore(bb.storage.database() as never).seenCounts().has("acme/widgets#42")).toBe(false);
+  });
+
   it("marks the pull request seen when a thread is started for it", async () => {
     const { bb, harness } = await seededHost({ commentsCount: 6 });
     await workOnThis(harness, { repo: "acme/widgets", number: 42 });

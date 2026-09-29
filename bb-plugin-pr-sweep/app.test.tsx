@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
@@ -381,6 +381,23 @@ describe("seen comments", () => {
     await waitFor(() => expect(seen.calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 
+  it("logs a failed markSeen rather than leaving the rejection unhandled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const slot = render(listing({ rows: [rowFixture({ newComments: 2 })] }), {
+        markSeen: () => {
+          throw new Error("server went away");
+        },
+      });
+      const link = await slot.findByRole("link", { name: /Add the widget endpoint/ });
+      link.addEventListener("click", (event) => event.preventDefault());
+      fireEvent.click(link);
+      await waitFor(() => expect(warn).toHaveBeenCalled());
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("records the count when its thread is opened, even with nothing new showing", async () => {
     const seen = recordingMarkSeen();
     const slot = render(listing({ rows: [rowWithThreads(["thr_1"])] }), seen.rpc);
@@ -752,6 +769,19 @@ describe("harvest", () => {
       HARVEST_RPC,
     );
     expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+  });
+
+  it("keeps the row whose timer is running open, even when its tier would close it", async () => {
+    // Awaiting review is in Later, one line by default.
+    const slot = render(
+      listing({
+        rows: [waitingRow()],
+        harvest: { available: true, running: { externalId: "42", groupId: "widgets" } },
+      }),
+      HARVEST_RPC,
+    );
+    expect(await slot.findByRole("button", { name: /timer running for #42/i })).toBeTruthy();
+    expect(slot.queryByRole("button", { name: "Collapse" })).toBeNull();
   });
 
   it("does not mark a row when the running timer is the same number in another repo", async () => {
