@@ -91,6 +91,19 @@ describe("nowGroupOf", () => {
     const invite = (response: "needsAction" | "accepted") => item("i", { gmail: { threadIds: ["i"], unread: true }, activityAt: hoursAgo(1), invite: { eventId: "e", response, cancelled: false } });
     expect(nowGroupOf(invite("needsAction"), now)).toBe("requests");
     expect(nowGroupOf(invite("accepted"), now)).toBe("archive");
+    const proposal = (current: string) =>
+      item("p", {
+        gmail: { threadIds: ["p"], unread: true, toYou: true },
+        activityAt: hoursAgo(1),
+        proposal: {
+          eventId: "e",
+          proposed: { start: "2026-10-14T18:00:00.000Z", end: "2026-10-14T19:00:00.000Z" },
+          current: { start: current, end: "2026-10-14T19:00:00.000Z" },
+          cancelled: false,
+        },
+      });
+    expect(nowGroupOf(proposal("2026-10-14T18:30:00.000Z"), now)).toBe("requests");
+    expect(nowGroupOf(proposal("2026-10-14T18:00:00.000Z"), now)).toBe("archive");
   });
 });
 

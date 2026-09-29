@@ -5,6 +5,8 @@
 // header, and its body links to the event with an `eid`: the event's id and
 // the invited address, base64url-encoded together ("abc123 you@example.com").
 
+import { fromEventField, type ProposedTime } from "./proposal.js";
+
 export type InviteResponse = "accepted" | "declined" | "tentative" | "needsAction";
 export type Reply = Exclude<InviteResponse, "needsAction">;
 
@@ -12,6 +14,8 @@ export interface InviteState {
   /** Your reply, or null when you are not one of its guests (as its organizer, say). */
   response: InviteResponse | null;
   cancelled: boolean;
+  /** When the event is now, which a proposal of a new time is compared with. Null when Calendar did not say. */
+  time: ProposedTime | null;
 }
 
 export const CALENDAR_HEADER = "X-Google-Calendar-Notification";
@@ -21,11 +25,13 @@ export const CALENDAR_HEADER = "X-Google-Calendar-Notification";
  * list: `eventCreated` for a new invitation, `timeOrRecurrenceUpdated`,
  * `descriptionUpdated`, and the like for a changed one, `eventCancelled`, or
  * `rsvpAccepted` and its kin for someone else's reply, which asks nothing of
- * you.
+ * you unless it comes with `rsvpProposeNewTime`: a guest proposing another
+ * time for an event you organize.
  */
-export function notificationKind(header: string | null): "invitation" | "cancelled" | null {
+export function notificationKind(header: string | null): "invitation" | "cancelled" | "proposal" | null {
   const kinds = (header ?? "").split(",").map((kind) => kind.trim());
   if (kinds.includes("eventCancelled")) return "cancelled";
+  if (kinds.includes("rsvpProposeNewTime")) return "proposal";
   if (kinds.some((kind) => kind === "eventCreated" || /Updated$/.test(kind))) return "invitation";
   return null;
 }
@@ -40,7 +46,7 @@ export function eventIdFromBody(body: string): string | null {
 }
 
 type Attendee = { self?: unknown; responseStatus?: unknown };
-type CalendarEvent = { status?: unknown; attendees?: unknown };
+type CalendarEvent = { status?: unknown; attendees?: unknown; start?: unknown; end?: unknown };
 
 function attendeesOf(event: CalendarEvent): Attendee[] {
   return Array.isArray(event.attendees) ? event.attendees.filter((each) => typeof each === "object" && each !== null) : [];
@@ -52,7 +58,9 @@ const RESPONSES = new Set<unknown>(["accepted", "declined", "tentative", "needsA
 export function inviteState(event: CalendarEvent): InviteState {
   const self = attendeesOf(event).find((attendee) => attendee.self === true);
   const response = self !== undefined && RESPONSES.has(self.responseStatus) ? (self.responseStatus as InviteResponse) : null;
-  return { response, cancelled: event.status === "cancelled" };
+  const start = fromEventField(event.start);
+  const end = fromEventField(event.end);
+  return { response, cancelled: event.status === "cancelled", time: start === null || end === null ? null : { start, end } };
 }
 
 /**

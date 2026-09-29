@@ -5,7 +5,7 @@ import type { Source, SourceResult } from "../now/sources.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
 import { fallbackDirs } from "../now/find-command.js";
 import type { InviteState } from "../calendar/invite.js";
-import { githubRefs, inboxItems, METADATA_HEADERS, needsBody } from "./inbox.js";
+import { githubRefs, inboxItems, METADATA_HEADERS, needsBody, proposalAttachment } from "./inbox.js";
 import { SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_QUERY = "in:inbox";
@@ -39,7 +39,7 @@ export interface GmailSourceOptions {
    * email reported.
    */
   githubStates?: (refs: GitHubRef[]) => Promise<Map<string, GitHubState>>;
-  /** Your reply to each invitation's event, from Calendar. Optional, and allowed to fail. */
+  /** Your reply to each invitation's event, and when each proposal's event is now, from Calendar. Optional, and allowed to fail. */
   inviteStates?: (eventIds: string[]) => Promise<Map<string, InviteState>>;
   onWarn?: (message: string) => void;
 }
@@ -95,7 +95,7 @@ export function gmailSource(options: GmailSourceOptions): Source {
     ]);
 
     // Google's comment notifications say who wrote what only in their bodies,
-    // and an invitation names its event only there, so those threads, and
+    // and an invitation or a proposal names its event only there, so those threads, and
     // only those, are fetched again in full.
     await mapLimit(
       threads.map((thread, index) => ({ thread, index })).filter(({ thread }) => needsBody(thread)),
@@ -112,6 +112,27 @@ export function gmailSource(options: GmailSourceOptions): Source {
       },
     );
 
+    // A proposal's time is only in its invite.ics, which Gmail leaves out of
+    // the full thread as an attachment, so that one part is fetched as well.
+    await mapLimit(
+      threads.flatMap((thread) => {
+        const found = proposalAttachment(thread);
+        return found === null ? [] : [found];
+      }),
+      CONCURRENCY,
+      async ({ messageId, part, attachmentId }) => {
+        try {
+          const attachment = await runJson<{ data?: unknown }>(options.run, [
+            "gmail", "users", "messages", "attachments", "get",
+            "--params", JSON.stringify({ userId: "me", messageId, id: attachmentId }),
+          ]);
+          if (typeof attachment.data === "string") part.body = { ...(part.body as object), data: attachment.data };
+        } catch (error) {
+          options.onWarn?.(`Could not read a proposed time: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      },
+    );
+
     const refs = githubRefs(threads);
     let states = new Map<string, GitHubState>();
     if (refs.length > 0 && options.githubStates !== undefined) {
@@ -123,11 +144,17 @@ export function gmailSource(options: GmailSourceOptions): Source {
     }
     let items = inboxItems(threads, account, states);
 
-    const eventIds = [...new Set(items.flatMap((item) => (item.invite?.eventId ? [item.invite.eventId] : [])))];
+    const eventIds = [
+      ...new Set(items.flatMap((item) => [item.invite?.eventId, item.proposal?.eventId].filter((id): id is string => !!id))),
+    ];
     if (eventIds.length > 0 && options.inviteStates !== undefined) {
       try {
         const replies = await options.inviteStates(eventIds);
         items = items.map((item) => {
+          if (item.proposal?.eventId) {
+            const state = replies.get(item.proposal.eventId);
+            return state === undefined ? item : { ...item, proposal: { ...item.proposal, current: state.time, cancelled: state.cancelled } };
+          }
           const state = item.invite?.eventId ? replies.get(item.invite.eventId) : undefined;
           if (state === undefined || !item.invite) return item;
           return { ...item, invite: { ...item.invite, response: state.response, cancelled: item.invite.cancelled || state.cancelled } };

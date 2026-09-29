@@ -33,10 +33,12 @@ Now is split into six runs, in this order:
   email with your address in its To field.
 - **Requests**: what asks something of you: a review requested of you or
   your team, a mention, an assignment, a document comment that mentions you,
-  an invitation you have not answered, and any other email.
+  an invitation you have not answered, a new time a guest proposed for your
+  event, and any other email.
 - **Archive**: what has nothing left to do: a pull request or issue that has
   merged or closed, a review you have given, a review someone else was asked
-  for, and an invitation you have answered or that was canceled.
+  for, an invitation you have answered or that was canceled, and a proposed
+  time your event has been moved to.
 - **Minor**: what you only follow, such as a subscription or a comment on
   someone else's item or document, and tasks dated after today.
 
@@ -138,7 +140,7 @@ good sync, with a note saying how many.
   threads read in Gmail and leaves them in the inbox, so the row stays on the
   page and moves down its run, below the unread mail.
 - **Open** (on an email row that is not a GitHub notification, a document
-  comment, or an invitation, after Archive) opens the email in full in the
+  comment, an invitation, or a proposed new time, after Archive) opens the email in full in the
   page's **Email** tab, in the side panel beside the list, and marks it read
   in Gmail. The row stays highlighted while its email is in the tab. The tab
   shows the subject and then each message in order: the latest open, laid out
@@ -158,6 +160,15 @@ good sync, with a note saying how many.
   each sync, so a reply made in Calendar or Gmail shows here too. The row
   stays where it is, and once you have replied its Archive is tinted and says
   "you replied". A canceled event says so instead, and suggests Archive.
+- **Accept new time** (under a "Proposed new time" email's snippet, when a
+  guest proposes another time for an event you organize) moves the event in
+  Google Calendar to the proposed time and emails every guest the change, as
+  accepting the proposal in Calendar does. Beside it the row says the time
+  proposed and the time the event is at now: "Proposed Mon Sep 28, 3pm – 3:30pm,
+  instead of 2pm – 2:30pm". Once the event is at the proposed time, however
+  it got there, the line says "Moved to" that time and Archive is tinted and
+  says "it's moved". To keep the current time, archive the row. There is no
+  Undo, since the guests have already been emailed.
 
 While one of these waits on Todoist, Gmail, or the plugin's server, its row
 dims and its buttons are disabled, and the button says what it is doing
@@ -353,9 +364,17 @@ from its guest list. Replying sends that guest list back with your entry
 changed (`gws calendar events patch`), since Calendar replaces the whole list
 on a patch.
 
+A guest's proposal of a new time carries `rsvpProposeNewTime` among the
+header's kinds, and its `invite.ics` (`METHOD:COUNTER`) holds the time
+proposed. Gmail leaves that file out of the full thread as an attachment, so
+each sync fetches it (`gws gmail users messages attachments get`) for each
+proposal thread. The same `events get` gives the event's current time.
+Accepting sends the new `start` and `end` with `sendUpdates: all`, keeping the
+time zone the event is shown in.
+
 One sync runs `gws gmail users threads list` with the search, then
 `threads get` for each thread's headers, five at a time, and once more in full
-for each thread of Google comment notifications or calendar invitations. The signed-in
+for each thread of Google comment notifications or calendar invitations and proposals. The signed-in
 address is asked for once per plugin load, for the links. If `gws` cannot be
 found, a red alert above the list names where the plugin looked and how to set
 `gwsPath`; if it fails (an expired sign-in, for example), the alert shows its
@@ -419,7 +438,8 @@ list `server.ts` passes to `loadSources`.
 | `github/state.ts` | The GraphQL query for every reference's state, checks, and whether you can merge it, and reading its answer |
 | `github/gh.ts` | The only module that runs `gh`: the state query, merging, and posting a comment |
 | `calendar/invite.ts` | Which event an invitation is about, your reply to it, and the guest list that changes it |
-| `calendar/api.ts` | The only module that asks Google Calendar: each event's reply, and replying |
+| `calendar/proposal.ts` | The time a proposal's invite.ics names, whether the event is at it, and how the row writes both |
+| `calendar/api.ts` | The only module that asks Google Calendar: each event's reply and time, replying, and moving an event to a proposed time |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |

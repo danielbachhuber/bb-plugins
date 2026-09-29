@@ -197,6 +197,14 @@ export const rpcContract = defineRpcContract({
       error: z.string().nullable(),
     }),
   },
+  /**
+   * Move a proposal row's event to the time its guest proposed, emailing every
+   * guest. The row keeps its place and shows the event at its new time.
+   */
+  items_accept_proposal: {
+    input: z.object({ id: z.string() }),
+    output: z.object({ moved: z.boolean(), error: z.string().nullable() }),
+  },
   /** Merge a GitHub row's pull request, as you. */
   items_merge: {
     input: z.object({ id: z.string(), method: z.enum(["merge", "squash", "rebase"]) }),

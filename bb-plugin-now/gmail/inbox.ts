@@ -14,6 +14,7 @@ import {
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
 import { CALENDAR_HEADER, eventIdFromBody, notificationKind } from "../calendar/invite.js";
+import { proposedTime } from "../calendar/proposal.js";
 import { APP_NAMES, DOCS_SENDER, documentUrl, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
 import type { Item } from "../now/types.js";
 import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
@@ -55,7 +56,7 @@ export function isDocsThread(thread: unknown): boolean {
 }
 
 /** The latest calendar notification in a thread that asks something of you, with what it is. */
-function calendarNotification(thread: unknown): { message: Raw; kind: "invitation" | "cancelled" } | null {
+function calendarNotification(thread: unknown): { message: Raw; kind: "invitation" | "cancelled" | "proposal" } | null {
   const messages = messagesOf(thread);
   for (let index = messages.length - 1; index >= 0; index--) {
     const kind = notificationKind(header(messages[index]!, CALENDAR_HEADER));
@@ -64,7 +65,7 @@ function calendarNotification(thread: unknown): { message: Raw; kind: "invitatio
   return null;
 }
 
-/** Whether a thread's body is worth fetching: Google's comment emails, and calendar invitations. */
+/** Whether a thread's body is worth fetching: Google's comment emails, and calendar invitations and proposals. */
 export function needsBody(thread: unknown): boolean {
   return isDocsThread(thread) || calendarNotification(thread) !== null;
 }
@@ -72,7 +73,7 @@ export function needsBody(thread: unknown): boolean {
 /** The event an invitation thread is about, read from its body when it was fetched in full. */
 function inviteOf(thread: unknown): Item["invite"] {
   const found = calendarNotification(thread);
-  if (found === null) return null;
+  if (found === null || found.kind === "proposal") return null;
   const body = htmlBody(found.message);
   return {
     eventId: body === null ? null : eventIdFromBody(body),
@@ -81,20 +82,55 @@ function inviteOf(thread: unknown): Item["invite"] {
   };
 }
 
-/** A message's HTML body, when the thread was fetched in full. */
-function htmlBody(message: Raw): string | null {
-  let found: string | null = null;
+/** The time a proposal thread proposes, read from its invite.ics once that has been fetched. */
+function proposalOf(thread: unknown): Item["proposal"] {
+  const found = calendarNotification(thread);
+  if (found === null || found.kind !== "proposal") return null;
+  const ics = calendarPart(found.message);
+  const data = isRecord(ics?.body) && typeof ics.body.data === "string" ? ics.body.data : null;
+  const proposed = data === null ? null : proposedTime(Buffer.from(data, "base64url").toString("utf8"));
+  if (proposed === null) return null;
+  const body = htmlBody(found.message);
+  return { eventId: body === null ? null : eventIdFromBody(body), proposed, current: null, cancelled: false };
+}
+
+/**
+ * The invite.ics of a proposal thread's latest proposal, when Gmail left it
+ * as an attachment to fetch rather than including it, which it does for any
+ * part with a file name.
+ */
+export function proposalAttachment(thread: unknown): { messageId: string; part: Raw; attachmentId: string } | null {
+  const found = calendarNotification(thread);
+  if (found === null || found.kind !== "proposal" || typeof found.message.id !== "string") return null;
+  const part = calendarPart(found.message);
+  const body = part?.body;
+  if (part === null || !isRecord(body) || typeof body.data === "string" || typeof body.attachmentId !== "string") return null;
+  return { messageId: found.message.id, part, attachmentId: body.attachmentId };
+}
+
+/** A message's first part that passes `test`, when the thread was fetched in full. */
+function partOf(message: Raw, test: (part: Raw) => boolean): Raw | null {
+  let found: Raw | null = null;
   const walk = (part: unknown) => {
     if (found !== null || !isRecord(part)) return;
-    const body = part.body;
-    if (part.mimeType === "text/html" && isRecord(body) && typeof body.data === "string") {
-      found = Buffer.from(body.data, "base64url").toString("utf8");
+    if (test(part)) {
+      found = part;
       return;
     }
     if (Array.isArray(part.parts)) part.parts.forEach(walk);
   };
   walk(message.payload);
   return found;
+}
+
+function calendarPart(message: Raw): Raw | null {
+  return partOf(message, (part) => part.mimeType === "text/calendar");
+}
+
+/** A message's HTML body, when the thread was fetched in full. */
+function htmlBody(message: Raw): string | null {
+  const part = partOf(message, (each) => each.mimeType === "text/html" && isRecord(each.body) && typeof each.body.data === "string");
+  return part === null ? null : Buffer.from((part.body as { data: string }).data, "base64url").toString("utf8");
 }
 
 /** The comment notifications in a thread, oldest first, each with its message. */
@@ -284,7 +320,8 @@ export function inboxItems(
       const item = normalizeThread(thread, account);
       if (item !== null) {
         const invite = inviteOf(thread);
-        rows.push(invite === null ? item : { ...item, invite });
+        const proposal = invite === null ? proposalOf(thread) : null;
+        rows.push(invite !== null ? { ...item, invite } : proposal !== null ? { ...item, proposal } : item);
       }
       continue;
     }

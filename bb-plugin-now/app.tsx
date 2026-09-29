@@ -189,6 +189,13 @@ function useRowActions(
           else toast.success(`Replied ${response === "accepted" ? "yes" : response === "declined" ? "no" : "maybe"}`);
         }).catch(fail);
       },
+      onAcceptProposal: (item) => {
+        void run(item.id, "accept", async () => {
+          const result = await rpc.call("items_accept_proposal", { id: item.id });
+          if (result.error !== null) toast.error(result.error);
+          else toast.success("Moved to the proposed time, and emailed the guests");
+        }).catch(fail);
+      },
       onMerge: (item, method) => {
         void run(item.id, "merge", async () => {
           const result = await rpc.call("items_merge", { id: item.id, method });

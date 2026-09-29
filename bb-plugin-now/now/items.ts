@@ -44,9 +44,9 @@ export function mergeItems(lists: readonly (readonly Item[])[]): Item[] {
 
 /**
  * An email with nothing but its message to show, which the Email tab reads in
- * full: not a GitHub notification, a document comment, or an invitation, each
- * of which its row already sums up.
+ * full: not a GitHub notification, a document comment, an invitation, or a
+ * proposed new time, each of which its row already sums up.
  */
 export function readable(item: Item): boolean {
-  return item.gmail !== null && item.github === null && item.doc == null && item.invite == null;
+  return item.gmail !== null && item.github === null && item.doc == null && item.invite == null && item.proposal == null;
 }

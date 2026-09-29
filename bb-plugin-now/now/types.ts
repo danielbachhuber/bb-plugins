@@ -107,6 +107,21 @@ export const invitePartSchema = z.object({
 });
 export type InvitePart = z.infer<typeof invitePartSchema>;
 
+/** A start and end on a Calendar event: `YYYY-MM-DD` when all day, or an ISO 8601 date-time. */
+const eventSpanSchema = z.object({ start: z.string(), end: z.string() });
+
+/** A guest's proposal of a new time for an event you organize, and when the event is now. */
+export const proposalPartSchema = z.object({
+  /** Null when the email did not say, which leaves nothing to move. */
+  eventId: z.string().nullable(),
+  /** The time proposed, from the email's invite.ics. */
+  proposed: eventSpanSchema,
+  /** When the event is now, from Calendar. Null when Calendar could not be asked. */
+  current: eventSpanSchema.nullable(),
+  cancelled: z.boolean(),
+});
+export type ProposalPart = z.infer<typeof proposalPartSchema>;
+
 /** One open subtask of a Todoist task, which the row lists under it. */
 export const todoistSubtaskSchema = z.object({
   /** Todoist's own id, without the `todoist:` prefix. */
@@ -164,6 +179,7 @@ export const itemSchema = z.object({
   github: githubPartSchema.nullable(),
   doc: docPartSchema.nullable().optional(),
   invite: invitePartSchema.nullable().optional(),
+  proposal: proposalPartSchema.nullable().optional(),
   todoist: todoistPartSchema.nullable().optional(),
 });
 export type Item = z.infer<typeof itemSchema>;

@@ -1,7 +1,7 @@
 // bb-plugin-now — what needs doing now, gathered from every configured source.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
+import { acceptProposal, fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
 import { createGhRunner, fetchStates, mergePullRequest, postComment, type GhRunner } from "./github/gh.js";
 import { emailThread } from "./gmail/body.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
@@ -513,6 +513,23 @@ export function createPlugin(deps: PluginDeps = {}) {
         } catch (error) {
           bb.log.warn(`Could not reply to ${id}: ${messageOf(error)}`);
           return { response: null, error: messageOf(error) };
+        }
+      },
+      items_accept_proposal: async ({ id }) => {
+        const item = findItem(id);
+        const proposal = item?.proposal;
+        if (item == null || proposal == null || !proposal.eventId) return { moved: false, error: "Only a proposed new time can be accepted." };
+        if (proposal.cancelled) return { moved: false, error: "This event was canceled." };
+        try {
+          const { gwsPath } = await settings.get();
+          const state = await acceptProposal(gwsFor(gwsPath.trim() || "gws").run, proposal.eventId, proposal.proposed);
+          updateRow({ ...item, proposal: { ...proposal, current: state.time, cancelled: state.cancelled } });
+          announce();
+          bb.log.info(`Moved the event of ${id} to its proposed time`);
+          return { moved: true, error: null };
+        } catch (error) {
+          bb.log.warn(`Could not accept the proposal of ${id}: ${messageOf(error)}`);
+          return { moved: false, error: messageOf(error) };
         }
       },
       items_merge: async ({ id, method }) => {

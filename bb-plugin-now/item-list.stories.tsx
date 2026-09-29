@@ -283,6 +283,16 @@ const invitation: Item = {
   invite: { eventId: "evt1", response: "needsAction", cancelled: false },
 };
 
+const proposal: Item = {
+  ...email("t5", "Proposed new time: Gadget planning @ Mon Sep 28, 2026 2pm - 2:30pm (PDT) (Hubber)", "Octocat", new Date(2026, 8, 24, 8, 20), 'Gadget planning Octocat has replied "Maybe" to this invitation and proposed a new time: Mon Sep 28, 2026 3pm – 3:30pm "The supplier call runs until 2:45."', true),
+  proposal: {
+    eventId: "evt2",
+    proposed: { start: new Date(2026, 8, 28, 15).toISOString(), end: new Date(2026, 8, 28, 15, 30).toISOString() },
+    current: { start: new Date(2026, 8, 28, 14).toISOString(), end: new Date(2026, 8, 28, 14, 30).toISOString() },
+    cancelled: false,
+  },
+};
+
 const emails: Item[] = [
   // Addressed to you, so it counts as Me rather than Requests.
   { ...email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true), gmail: { threadIds: ["t1"], unread: true, toYou: true } },
@@ -290,6 +300,7 @@ const emails: Item[] = [
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
   docComments,
   invitation,
+  proposal,
 ];
 
 const todoistOk: LoadedSource = {
@@ -361,6 +372,7 @@ function stored(list: NowList, syncing = false): Listing {
 
 const actions = {
   onRsvp: noop,
+  onAcceptProposal: noop,
   onMerge: noop,
   onArchive: noop,
   onMarkRead: noop,

@@ -10,6 +10,7 @@ describe("notificationKind", () => {
     expect(notificationKind("eventCancelled")).toBe("cancelled");
     expect(notificationKind("rsvpAccepted")).toBeNull();
     expect(notificationKind("rsvpDeclined,rsvpWithNote")).toBeNull();
+    expect(notificationKind("rsvpTentative,rsvpWithNote,rsvpProposeNewTime")).toBe("proposal");
     expect(notificationKind(null)).toBeNull();
   });
 });
@@ -34,7 +35,10 @@ describe("inviteState and attendeesWithReply", () => {
   };
 
   test("reads your reply, and whether the event was canceled", () => {
-    expect(inviteState(event)).toEqual({ response: "needsAction", cancelled: false });
+    expect(inviteState(event)).toEqual({ response: "needsAction", cancelled: false, time: null });
+    expect(
+      inviteState({ ...event, start: { dateTime: "2026-10-14T11:30:00-07:00" }, end: { dateTime: "2026-10-14T12:00:00-07:00" } }).time,
+    ).toEqual({ start: "2026-10-14T11:30:00-07:00", end: "2026-10-14T12:00:00-07:00" });
     expect(inviteState({ ...event, status: "cancelled" }).cancelled).toBe(true);
     expect(inviteState({ attendees: [{ email: "octocat@example.com", self: false }] }).response).toBeNull();
   });

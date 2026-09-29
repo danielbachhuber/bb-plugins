@@ -93,6 +93,7 @@ const listing: Listing = {
 
 const actions: RowActions = {
   onRsvp: noop,
+  onAcceptProposal: noop,
   onMerge: noop,
   onArchive: noop,
   onMarkRead: noop,

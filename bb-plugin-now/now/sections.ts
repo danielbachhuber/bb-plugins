@@ -1,5 +1,6 @@
 // The page's sections, and the short date each row shows. No I/O here.
 import { daysBetween, localDay } from "./due.js";
+import { isAtProposedTime } from "../calendar/proposal.js";
 import { sortDate } from "./items.js";
 import type { Item } from "./types.js";
 
@@ -102,12 +103,14 @@ export function sectionOf(item: Item): SectionId {
  * do, and neither does one whose review you have given and nobody has asked
  * for again, or one you hear about only because someone else, or a team you
  * are not on, was asked to review it. An invitation you have answered, or
- * one that was canceled, is done too.
+ * one that was canceled, is done too, and so is a proposed time the event is
+ * already at.
  */
 export function archiveReason(item: Item): string | null {
   const github = item.github;
   if (item.gmail === null) return null;
-  if (item.invite?.cancelled === true) return "it's canceled";
+  if (item.invite?.cancelled === true || item.proposal?.cancelled === true) return "it's canceled";
+  if (item.proposal != null && isAtProposedTime(item.proposal.proposed, item.proposal.current)) return "it's moved";
   if (item.invite?.response === "accepted" || item.invite?.response === "declined" || item.invite?.response === "tentative") {
     return "you replied";
   }
@@ -149,7 +152,7 @@ const ME_REASONS = new Set(["author", "ci_activity", "your_activity"]);
  *   its To field.
  * - Requests: what asks something of you: a review, a mention, an
  *   assignment, a document comment that mentions you, an invitation to
- *   answer, and any other email.
+ *   answer, a proposed new time for your event, and any other email.
  * - Archive: a row with nothing left to do (see `archiveReason`).
  * - Minor: what you only follow, such as a subscription or a comment on
  *   someone else's item or document, and tasks dated after today.
@@ -166,7 +169,7 @@ export function nowGroupOf(item: Item, now: Date): NowGroupId {
     return REQUEST_REASONS.has(reason) ? "requests" : "minor";
   }
   if (item.doc != null) return item.doc.mentioned ? "requests" : "minor";
-  if (item.invite != null) return "requests";
+  if (item.invite != null || item.proposal != null) return "requests";
   return item.gmail.toYou === true ? "me" : "requests";
 }
 

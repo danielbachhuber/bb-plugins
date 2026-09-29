@@ -369,6 +369,87 @@ describe("items_list with Gmail", () => {
     expect(listing.list?.items[0]?.invite?.response).toBe("accepted");
   });
 
+  test("reads a proposed new time from its invite.ics, and moves the event there", async () => {
+    const eid = Buffer.from("evt2_20261014T183000Z hubber@example.com").toString("base64url");
+    const headers = [
+      { name: "Subject", value: "Proposed new time: Widget sync @ Wed Oct 14, 2026 10am - 10:30am (PDT) (Hubber)" },
+      { name: "From", value: "Octocat <octocat@example.com>" },
+      { name: "To", value: "Hubber <hubber@example.com>" },
+      { name: "X-Google-Calendar-Notification", value: "rsvpTentative,rsvpWithNote,rsvpProposeNewTime" },
+    ];
+    const html = `<a href="https://calendar.google.com/calendar/event?action=VIEW&amp;eid=${eid}&amp;es=1">View</a>`;
+    const ics = ["BEGIN:VCALENDAR", "METHOD:COUNTER", "BEGIN:VEVENT", "DTSTART:20261014T180000Z", "DTEND:20261014T190000Z", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    let event: Record<string, unknown> = {
+      id: "evt2_20261014T183000Z",
+      status: "confirmed",
+      start: { dateTime: "2026-10-14T11:30:00-07:00", timeZone: "America/Los_Angeles" },
+      end: { dateTime: "2026-10-14T12:00:00-07:00", timeZone: "America/Los_Angeles" },
+    };
+    const patches: Array<{ params: unknown; body: unknown }> = [];
+    const gws = fakeGws({
+      "threads list": () => ({ threads: [{ id: "p1" }] }),
+      "threads get": (params) => ({
+        id: "p1",
+        messages: [
+          {
+            id: "p1-1",
+            internalDate: "1790237080000",
+            snippet: "Octocat has replied \"Maybe\" to this invitation and proposed a new time",
+            payload:
+              params.format === "full"
+                ? {
+                    headers,
+                    parts: [
+                      { mimeType: "text/html", body: { data: Buffer.from(html).toString("base64url") } },
+                      { mimeType: "text/calendar", filename: "invite.ics", body: { attachmentId: "att1", size: ics.length } },
+                    ],
+                  }
+                : { headers },
+          },
+        ],
+      }),
+      "messages attachments get": (params) => {
+        expect(params).toEqual({ userId: "me", messageId: "p1-1", id: "att1" });
+        return { data: Buffer.from(ics).toString("base64url") };
+      },
+      getProfile: () => ({ emailAddress: "hubber@example.com" }),
+      "calendar events get": () => event,
+    });
+    const run: GwsRunner = async (args) => {
+      if (args.slice(0, 3).join(" ") === "calendar events patch") {
+        const body = JSON.parse(args[args.indexOf("--json") + 1]!);
+        patches.push({ params: JSON.parse(args[args.indexOf("--params") + 1]!), body });
+        event = { ...event, start: { dateTime: "2026-10-14T11:00:00-07:00" }, end: { dateTime: "2026-10-14T12:00:00-07:00" } };
+        return JSON.stringify(event);
+      }
+      return gws.run(args);
+    };
+    const { bb, harness, plugin } = host({}, { gmailEnabled: true }, run);
+    await plugin(bb);
+
+    const list = await syncAndRead(harness);
+    expect(list.items[0]?.invite ?? null).toBeNull();
+    expect(list.items[0]?.proposal).toEqual({
+      eventId: "evt2_20261014T183000Z",
+      proposed: { start: "2026-10-14T18:00:00.000Z", end: "2026-10-14T19:00:00.000Z" },
+      current: { start: "2026-10-14T11:30:00-07:00", end: "2026-10-14T12:00:00-07:00" },
+      cancelled: false,
+    });
+
+    await expect(harness.behavior.callRpc("items_accept_proposal", { id: "gmail:p1" })).resolves.toEqual({ moved: true, error: null });
+    expect(patches).toEqual([
+      {
+        params: { calendarId: "primary", eventId: "evt2_20261014T183000Z", sendUpdates: "all" },
+        body: {
+          start: { dateTime: "2026-10-14T18:00:00.000Z", timeZone: "America/Los_Angeles", date: null },
+          end: { dateTime: "2026-10-14T19:00:00.000Z", timeZone: "America/Los_Angeles", date: null },
+        },
+      },
+    ]);
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.list?.items[0]?.proposal?.current).toEqual({ start: "2026-10-14T11:00:00-07:00", end: "2026-10-14T12:00:00-07:00" });
+  });
+
   test("will not reply to an email that is not an invitation", async () => {
     const gws = fakeGws({
       "threads list": () => ({ threads: [{ id: "t1" }] }),

@@ -14,6 +14,7 @@ import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
 import { readable } from "./items.js";
+import { isAtProposedTime, spanText } from "../calendar/proposal.js";
 import { archiveReason, isOverdue, overdueText, shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
@@ -24,7 +25,7 @@ import type { GitHubPart, Item, TodoistProject } from "./types.js";
 export type Reply = "accepted" | "declined" | "tentative";
 
 /** An action a row is waiting on. The whole row is disabled until it lands. */
-export type PendingAction = "complete" | "archive" | "read" | "merge" | "save" | "delete" | "postpone" | `rsvp:${Reply}`;
+export type PendingAction = "complete" | "archive" | "read" | "merge" | "save" | "delete" | "postpone" | "accept" | `rsvp:${Reply}`;
 
 const PENDING_LABEL: Record<PendingAction, string> = {
   complete: "Completing…",
@@ -34,6 +35,7 @@ const PENDING_LABEL: Record<PendingAction, string> = {
   save: "Saving…",
   delete: "Deleting…",
   postpone: "Postponing…",
+  accept: "Moving…",
   "rsvp:accepted": "Replying…",
   "rsvp:declined": "Replying…",
   "rsvp:tentative": "Replying…",
@@ -44,6 +46,8 @@ export interface RowActions {
   onMarkRead: (item: Item) => void;
   onComplete: (item: Item) => void;
   onRsvp: (item: Item, response: Reply) => void;
+  /** Moves a proposal row's event to the time its guest proposed. */
+  onAcceptProposal: (item: Item) => void;
   onMerge: (item: Item, method: MergeMethod) => void;
   /** Resolves true once the comment is posted, so the box can close. */
   onReply: (item: Item, body: string) => Promise<boolean>;
@@ -226,6 +230,59 @@ function RsvpControl({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The time a guest proposed for your event, beside the time it is at now, and
+ * a button that moves it there. Once it is there, the line says so instead.
+ */
+function ProposalControl({
+  proposal,
+  now,
+  pending,
+  disabled,
+  onAccept,
+}: {
+  proposal: NonNullable<Item["proposal"]>;
+  now: Date;
+  pending: PendingAction | null;
+  disabled: boolean;
+  onAccept?: () => void;
+}) {
+  if (proposal.cancelled) {
+    return <p className="mt-1.5 text-xs text-muted-foreground">This event was canceled.</p>;
+  }
+  const proposed = spanText(proposal.proposed, now);
+  if (isAtProposedTime(proposal.proposed, proposal.current)) {
+    return (
+      <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+        <Icon name="Check" className="size-3" />
+        Moved to <span className="font-medium text-foreground">{proposed}</span>
+      </p>
+    );
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <span className="text-muted-foreground">
+        Proposed <span className="font-medium text-foreground">{proposed}</span>
+        {proposal.current === null ? null : <>, instead of {spanText(proposal.current, now, proposal.proposed)}</>}
+      </span>
+      {proposal.eventId === null ? null : (
+        <button
+          type="button"
+          disabled={disabled || onAccept === undefined}
+          onClick={onAccept}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-accent",
+            "disabled:pointer-events-none disabled:opacity-60",
+          )}
+        >
+          {pending === "accept" ? <Icon name="Loading" className="size-3 animate-spin" /> : <Icon name="Check" className="size-3" />}
+          Accept new time
+        </button>
+      )}
     </div>
   );
 }
@@ -432,6 +489,15 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
               pending={pending}
               disabled={busy}
               onRsvp={actions === undefined ? undefined : (response) => actions.onRsvp(item, response)}
+            />
+          )}
+          {item.proposal == null ? null : (
+            <ProposalControl
+              proposal={item.proposal}
+              now={now}
+              pending={pending}
+              disabled={busy}
+              onAccept={actions === undefined ? undefined : () => actions.onAcceptProposal(item)}
             />
           )}
           {quotes.length === 0 ? null : (
