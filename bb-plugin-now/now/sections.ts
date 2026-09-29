@@ -16,7 +16,7 @@ export interface Section {
 const TITLES: Record<SectionId, string> = { now: "Now", anytime: "Anytime" };
 
 const HINTS: Record<SectionId, string> = {
-  now: "Overdue and today's tasks, what is yours, what asks for you, what can be archived, and what is minor",
+  now: "Overdue tasks and Todoist's Inbox, today's tasks, what is yours, what asks for you, what can be archived, and what is minor",
   anytime: "Tasks with no date",
 };
 
@@ -122,10 +122,10 @@ export function archiveReason(item: Item): string | null {
  * The runs the Now section is ordered in, which its summary counts and filters
  * by. Each row is in exactly one.
  */
-export type NowGroupId = "overdue" | "today" | "me" | "requests" | "archive" | "minor";
+export type NowGroupId = "urgent" | "today" | "me" | "requests" | "archive" | "minor";
 
 export const NOW_GROUPS: readonly { id: NowGroupId; label: string }[] = [
-  { id: "overdue", label: "Overdue" },
+  { id: "urgent", label: "Urgent" },
   { id: "today", label: "Today" },
   { id: "me", label: "Me" },
   { id: "requests", label: "Requests" },
@@ -142,9 +142,9 @@ const ME_REASONS = new Set(["author", "ci_activity", "your_activity"]);
 /**
  * Which of the Now section's runs a row in it belongs to:
  *
- * - Overdue: a task whose day or time has passed.
- * - Today: a task due today, or one in Todoist's Inbox with no date, since
- *   filing it is today's job.
+ * - Urgent: a task whose day or time has passed, and every task in
+ *   Todoist's Inbox, whatever its date, since it has not been filed yet.
+ * - Today: any other task due today.
  * - Me: activity on your own pull requests and issues, and email with you in
  *   its To field.
  * - Requests: what asks something of you: a review, a mention, an
@@ -156,9 +156,8 @@ const ME_REASONS = new Set(["author", "ci_activity", "your_activity"]);
  */
 export function nowGroupOf(item: Item, now: Date): NowGroupId {
   if (item.gmail === null) {
-    if (isOverdue(item, now)) return "overdue";
-    const date = sortDate(item);
-    return date === null || dayOf(date) === localDay(now) ? "today" : "minor";
+    if (item.inbox === true || isOverdue(item, now)) return "urgent";
+    return dayOf(sortDate(item)!) === localDay(now) ? "today" : "minor";
   }
   if (archiveReason(item) !== null) return "archive";
   if (item.github !== null) {
@@ -176,8 +175,8 @@ export function nowGroupOf(item: Item, now: Date): NowGroupId {
  * header can count it. Now goes run by run, in `NOW_GROUPS` order. Within a
  * run, mail comes first, unread and then newest first; then dated tasks,
  * oldest day first and most urgent first within a day, so the most overdue
- * leads; then undated Inbox tasks, newest added first. Anytime keeps the
- * list's order.
+ * leads; then undated tasks, which are Inbox tasks, newest added first.
+ * Anytime keeps the list's order.
  */
 export function groupIntoSections(items: readonly Item[], now: Date): Section[] {
   const groups = new Map<SectionId, Item[]>(SECTION_ORDER.map((id) => [id, []]));
@@ -236,16 +235,16 @@ export function shortDate(date: string, now: Date, { clock: withClock = false } 
 }
 
 /**
- * The two counts beside the page's name in the sidebar: the Overdue run, and
+ * The two counts beside the page's name in the sidebar: the Urgent run, and
  * every row in the Now section, the same number as its tab. The first is part
  * of the second.
  */
-export function sidebarCounts(items: readonly Item[], now: Date): { overdue: number; now: number } {
-  const counts = { overdue: 0, now: 0 };
+export function sidebarCounts(items: readonly Item[], now: Date): { urgent: number; now: number } {
+  const counts = { urgent: 0, now: 0 };
   for (const item of items) {
     if (sectionOf(item) !== "now") continue;
     counts.now++;
-    if (nowGroupOf(item, now) === "overdue") counts.overdue++;
+    if (nowGroupOf(item, now) === "urgent") counts.urgent++;
   }
   return counts;
 }

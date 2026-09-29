@@ -386,7 +386,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now, run by run: overdue tasks (tinted red and saying how late they are), today's tasks and undated Inbox tasks, your own items and email to you, requests of you, what can be archived, and what is minor. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by its run."
+        hint="The page opens on Now, run by run: urgent tasks (overdue ones, tinted red and saying how late they are, and Todoist's Inbox), today's tasks, your own items and email to you, requests of you, what can be archived, and what is minor. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by its run."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>
@@ -394,15 +394,15 @@ export function Default() {
   );
 }
 
-/** Pressing a run of squares under the toggles shows only its rows: here, the overdue ones. */
+/** Pressing a run of squares under the toggles shows only its rows: here, the urgent ones. */
 export function FilteredToARun() {
   return (
     <StoryCard>
       <StoryRow
-        label="Overdue chosen"
-        hint="The other runs fade. Pressing Overdue again shows every row in Now."
+        label="Urgent chosen"
+        hint="The other runs fade. Pressing Urgent again shows every row in Now."
       >
-        <Frame listing={stored(ok)} filter={{ section: "now", group: "overdue" }} />
+        <Frame listing={stored(ok)} filter={{ section: "now", group: "urgent" }} />
       </StoryRow>
     </StoryCard>
   );

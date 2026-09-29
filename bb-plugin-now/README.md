@@ -7,9 +7,9 @@ Gmail inbox.
 ## What it adds
 
 A **Now** page in the left sidebar, whose entry shows two counts: the
-overdue tasks in a red circle, and then how many rows are in the Now section,
-the same number as its tab, which includes the first. The red circle is left
-out when nothing is overdue. It loads every
+Urgent run described below in a red circle, and then how many rows are in the
+Now section, the same number as its tab, which includes the first. The red
+circle is left out when nothing is urgent. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its
@@ -25,10 +25,10 @@ sections, each under its heading. Each row goes in one section:
 
 Now is split into six runs, in this order:
 
-- **Overdue**: tasks dated before today, or due earlier today at a time that
-  has passed.
-- **Today**: tasks due today, and tasks in Todoist's Inbox with no date,
-  since filing them is today's job.
+- **Urgent**: tasks dated before today, or due earlier today at a time that
+  has passed, and every task in Todoist's Inbox, whatever its date, since it
+  has not been filed yet.
+- **Today**: the other tasks due today.
 - **Me**: GitHub notifications about your own pull requests and issues, and
   email with your address in its To field.
 - **Requests**: what asks something of you: a review requested of you or
@@ -45,8 +45,8 @@ tasks, oldest first, then undated Inbox tasks, newest added first.
 
 Under the header, while the Now section is showing, a line of small squares
 gives one square to each of its rows, in the list's order, colored by run: red
-for Overdue, yellow for Today, green for Me, blue for Requests, and gray for
-Archive and Minor. Each run is labelled with its count, such as "4 overdue",
+for Urgent, yellow for Today, green for Me, blue for Requests, and gray for
+Archive and Minor. Each run is labelled with its count, such as "4 urgent",
 and hovering a square shows its row's title. The squares shrink, down to 4px,
 to keep the runs on one line; on a page too narrow even for that, each label
 keeps only its count, with the name on hover. Pressing a run shows only its
@@ -70,7 +70,7 @@ latest message is more than 48 hours old) is tinted red with a red bar down its
 left edge, and says how late it is in place of its date: "3 days late" for a
 task, "2 hours late" or "20 minutes late" for one due earlier today, "4 days
 old" for mail. Mail that old stays in its run rather than joining
-Overdue, which holds only tasks. A deadline that is today is red too;
+Urgent, which holds only tasks. A deadline that is today is red too;
 nothing else is colored for its date. A recurring item
 has a repeat icon.
 
@@ -403,7 +403,7 @@ list `server.ts` passes to `loadSources`.
 | `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
-| `now/sidebar-counts.tsx` | The red overdue badge and the Now count beside the page's name in the sidebar |
+| `now/sidebar-counts.tsx` | The red urgent badge and the Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |

@@ -53,15 +53,16 @@ describe("nowGroupOf", () => {
       github: { repo: "acme/widgets", number: 1, kind: "pull", state: "open", review: null, closedAs: null, reason: "mention", comment: null, ...overrides },
     });
 
-  test("sorts tasks by date, with an undated Inbox task counted as today's", () => {
-    expect(nowGroupOf(item("a", due("2026-09-23")), now)).toBe("overdue");
-    expect(nowGroupOf(item("a", due("2026-09-24T08:00:00")), now)).toBe("overdue");
-    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-20") }), now)).toBe("overdue");
+  test("counts overdue tasks and every Todoist Inbox task as urgent, and sorts the rest by date", () => {
+    expect(nowGroupOf(item("a", due("2026-09-23")), now)).toBe("urgent");
+    expect(nowGroupOf(item("a", due("2026-09-24T08:00:00")), now)).toBe("urgent");
+    expect(nowGroupOf(item("a", { inbox: true }), now)).toBe("urgent");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-20") }), now)).toBe("urgent");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-24") }), now)).toBe("urgent");
+    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-26") }), now)).toBe("urgent");
     expect(nowGroupOf(item("a", due("2026-09-24T14:00:00")), now)).toBe("today");
     expect(nowGroupOf(item("a", { deadline: "2026-09-24" }), now)).toBe("today");
-    expect(nowGroupOf(item("a", { inbox: true }), now)).toBe("today");
     expect(nowGroupOf(item("a", due("2026-09-25")), now)).toBe("minor");
-    expect(nowGroupOf(item("a", { inbox: true, ...due("2026-09-26") }), now)).toBe("minor");
   });
 
   test("sorts GitHub notifications by why they came, after anything left to archive", () => {
@@ -128,7 +129,7 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, and orders Now run by run: overdue, today, me, requests, archive, minor", () => {
+  test("keeps every section, and orders Now run by run: urgent, today, me, requests, archive, minor", () => {
     const toYou = item("to-you", { gmail: { threadIds: ["to-you"], unread: false, toYou: true }, activityAt: hoursAgo(3) });
     const merged = item("merged", {
       gmail: { threadIds: ["merged"], unread: true },
@@ -161,25 +162,25 @@ describe("groupIntoSections", () => {
       [
         "Now",
         // Within a run, unread mail leads, then newest first; tasks keep the list's order, undated ones last.
-        ["late", "this-morning", "today", "filed", "to-you", "new-mail", "recent-mail", "stale-mail", "merged", "followed", "later"],
+        ["late", "this-morning", "filed", "today", "to-you", "new-mail", "recent-mail", "stale-mail", "merged", "followed", "later"],
       ],
       ["Anytime", ["someday"]],
     ]);
     expect(groupIntoSections([], now).map((section) => section.items.length)).toEqual([0, 0]);
   });
 
-  test("puts undated Inbox tasks after today's dated ones, newest added first", () => {
-    const today = groupIntoSections(
+  test("puts Inbox tasks with a date ahead of undated ones, which go newest added first", () => {
+    const urgent = groupIntoSections(
       [
         item("old", { inbox: true, createdAt: "2026-09-01T10:00:00.000000Z" }),
         item("dated", { inbox: true, ...due("2026-09-24") }),
         item("new", { inbox: true, createdAt: "2026-09-23T10:00:00.000000Z", priority: 3 }),
         item("urgent-but-older", { inbox: true, createdAt: "2026-09-10T10:00:00.000000Z", priority: 1 }),
-        item("due-today", due("2026-09-24")),
+        item("overdue", due("2026-09-20")),
       ],
       now,
     ).find((section) => section.id === "now")!;
-    expect(today.items.map((kept) => kept.id)).toEqual(["dated", "due-today", "new", "urgent-but-older", "old"]);
+    expect(urgent.items.map((kept) => kept.id)).toEqual(["overdue", "dated", "new", "urgent-but-older", "old"]);
   });
 
   test("agrees with nowGroupOf, so each run's rows sit together in NOW_GROUPS order", () => {
@@ -213,7 +214,7 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts the Overdue run and every row in the Now section as its tab does", () => {
+  test("counts the Urgent run and every row in the Now section as its tab does", () => {
     const items = [
       item("overdue", due("2026-09-20")),
       item("today", due("2026-09-24")),
@@ -230,12 +231,12 @@ describe("sidebarCounts", () => {
       item("later", due("2026-10-02")),
       item("undated"),
     ];
-    expect(sidebarCounts(items, now)).toEqual({ overdue: 1, now: 8 });
+    expect(sidebarCounts(items, now)).toEqual({ urgent: 2, now: 8 });
     expect(sidebarCounts(items, now).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([], now)).toEqual({ overdue: 0, now: 0 });
+    expect(sidebarCounts([], now)).toEqual({ urgent: 0, now: 0 });
   });
 });
 

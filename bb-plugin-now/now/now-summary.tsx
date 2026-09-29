@@ -10,7 +10,7 @@ import type { Item } from "./types.js";
 // Red, yellow, green, and blue pass a colorblind-separation check in each
 // mode. The grays are quiet on purpose: Archive and Minor ask nothing of you.
 const COLORS: Record<NowGroupId, string> = {
-  overdue: "bg-[#d03b3b] dark:bg-[#d03b3b]",
+  urgent: "bg-[#d03b3b] dark:bg-[#d03b3b]",
   today: "bg-[#eda100] dark:bg-[#c98500]",
   me: "bg-[#1baf7a] dark:bg-[#199e70]",
   requests: "bg-[#2a78d6] dark:bg-[#3987e5]",
