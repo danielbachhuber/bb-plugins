@@ -38,6 +38,12 @@ export interface SweepItem {
   /** Shown in place of the track when stage is null: "Add to board", "Stalled". */
   offTrack?: ReactNode;
   progress?: { done: number; total: number } | null;
+  /**
+   * Drawn open whatever its tier, with no chevron to close it. For a row
+   * whose action line holds something that must stay in view, such as a
+   * running timer.
+   */
+  forceOpen?: boolean;
 }
 
 export interface Stage {

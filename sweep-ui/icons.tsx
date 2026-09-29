@@ -8,11 +8,13 @@ import {
   Edit02Icon,
   Layers01Icon,
   LockIcon,
+  Tick02Icon,
 } from "@hugeicons/core-free-icons";
 
 const ICONS = {
   ChevronDown: ArrowDown01Icon,
   ChevronRight: ArrowRight01Icon,
+  Check: Tick02Icon,
   Copy: Copy01Icon,
   Edit: Edit02Icon,
   Layers: Layers01Icon,

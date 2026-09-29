@@ -171,4 +171,37 @@ describe("SweepList", () => {
     expect(row("Widget task 1").className).toContain("border-l-destructive");
     expect(row("Widget task 2").className).toContain("border-l-slate-400");
   });
+
+  it("keeps a forceOpen row open in any tier, with no chevron to close it", () => {
+    render(
+      <SweepList
+        {...props([item(1, "to-start", { forceOpen: true }), item(2, "later", { forceOpen: true }), item(3, "to-start")])}
+      />,
+    );
+    for (const title of ["Widget task 1", "Widget task 2"]) {
+      expect(within(row(title)).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+      expect(within(row(title)).queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
+    }
+    expect(within(row("Widget task 3")).queryByRole("button", { name: "Start thread" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(within(row("Widget task 1")).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+    expect(within(row("Widget task 2")).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+  });
+
+  it("shows a one-line Later row's first flag in place of its first fact, in the flag's color", () => {
+    render(
+      <SweepList
+        {...props([
+          item(1, "later", { facts: ["3d ago", "acme/gadgets"], flags: [{ kind: "stale", text: "No activity for 9 days" }] }),
+          item(2, "later", { facts: ["5h ago"] }),
+        ])}
+      />,
+    );
+    const flagged = row("Widget task 1");
+    expect(within(flagged).getByText("No activity for 9 days")).toHaveClass("text-destructive-text");
+    expect(within(flagged).queryByText("3d ago")).toBeNull();
+    expect(within(row("Widget task 2")).getByText("5h ago")).toBeInTheDocument();
+  });
 });

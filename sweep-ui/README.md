@@ -9,6 +9,9 @@ A tab is one bordered list. Now rows are open, with their note and a line of
 actions. Next rows are closed to their title and number line. Later rows are
 one dimmed line each, and fold into "N more" after five. A chevron in the left
 column opens or closes a row, and "Expand all" in the header opens every row.
+A row with `forceOpen` set stays open in any tier and has no chevron to close
+it; the plugins set it on the row whose Harvest timer is running. A one-line
+Later row with a flag shows the flag where its first fact would be.
 Above the list, one square per row, grouped by run, narrows the list to one
 run when pressed. Every row carries a track on the right showing its stage.
 
@@ -34,6 +37,7 @@ directory once it is installed there.
 | `sweep-ui/track` | `Track`, `TrackHeader`, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares` |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
+| `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 
 ## SweepList's props

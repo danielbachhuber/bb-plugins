@@ -9,6 +9,7 @@
     "./track": "./track.tsx",
     "./summary": "./summary.tsx",
     "./note": "./note.tsx",
+    "./actions": "./actions.tsx",
     "./types": "./types.ts"
   },
   "peerDependencies": {

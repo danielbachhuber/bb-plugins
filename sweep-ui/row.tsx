@@ -102,7 +102,15 @@ function NumberLine({ item, Link }: { item: SweepItem; Link: ComponentType<Sweep
   );
 }
 
-function Chevron({ open, small, onToggle }: { open: boolean; small: boolean; onToggle: () => void }) {
+function Chevron({ open, small, onToggle }: { open: boolean; small: boolean; onToggle?: () => void }) {
+  // A row held open has nothing to toggle, so the chevron is drawn but is not a button.
+  if (!onToggle) {
+    return (
+      <span className="-m-1 inline-flex shrink-0 items-center justify-center p-1 text-muted-foreground/50">
+        <Icon name="ChevronDown" className={small ? "size-3" : "size-3.5"} />
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -120,7 +128,8 @@ export interface SweepRowProps {
   item: SweepItem;
   tier: Tier;
   open: boolean;
-  onToggle: () => void;
+  /** Left out for a row that cannot be closed, which then has no chevron button. */
+  onToggle?: () => void;
   stages: Stage[];
   onMove?: (stage: number) => void;
   onOpenLink?: () => void;
@@ -180,7 +189,14 @@ export function SweepRow({
             {title}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
           </span>
-          {item.facts[0] ? <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.facts[0]}</span> : null}
+          {/* One slot on the right: a flag outranks the first fact, or it would never show on a line. */}
+          {item.flags[0] ? (
+            <span className="ml-auto shrink-0 text-xs">
+              <FlagText flag={item.flags[0]} />
+            </span>
+          ) : item.facts[0] ? (
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.facts[0]}</span>
+          ) : null}
         </div>
         {track}
       </li>

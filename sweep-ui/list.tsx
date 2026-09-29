@@ -85,14 +85,14 @@ export function SweepList({
   };
 
   const rowFor = (item: SweepItem, tier: Tier) => {
-    const open = toggled[item.key] ?? (expanded || tier === "now");
+    const open = item.forceOpen === true || (toggled[item.key] ?? (expanded || tier === "now"));
     return (
       <SweepRow
         key={item.key}
         item={item}
         tier={tier}
         open={open}
-        onToggle={() => setToggled((current) => ({ ...current, [item.key]: !open }))}
+        onToggle={item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
         stages={stages}
         onMove={onMove ? (stage) => onMove(item, stage) : undefined}
         onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}
