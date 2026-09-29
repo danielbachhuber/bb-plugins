@@ -51,18 +51,23 @@ all.
 - **New comments**: comments posted since you last opened the issue or its
   thread from the panel, or started one. The first sweep to see an issue
   records its count, so nothing is new on the first sync.
-- **Stale**: in one of the "Statuses counted in the sidebar", not blocked, and
-  not updated for "Stale after (days)". Flagged in red.
+- **Stale**: in one of the "Statuses counted in the sidebar", not blocked, not
+  a parent, and not updated for "Stale after (days)". Flagged in red. A parent
+  is never stale, because its sub-issues are the work.
 - **Working**: has a thread.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.
 - **Waiting on review**: in the "Board status when a closing pull request
   opens" status.
-- **Later**: every other status in board order, then issues with no board
-  status, then issues with sub-issues.
+- **Later**: statuses that are board stages, in stage order; then statuses the
+  board has that are not stages (a "Stalled" column, say), alphabetically;
+  then issues with no board status; then issues with sub-issues.
 - **Blocked**: blocked by an open issue, through GitHub's issue dependencies.
 
-An issue that fits more than one run takes the first. Within a run, the most
+An issue that fits more than one run takes the first in the order above. So
+an issue with a thread and new comments is in "new comments", a blocked issue
+in the review status is in "waiting on review", and a blocked parent is in
+"blocked". Within a run, the most
 recently updated issue comes first, tie-broken by repository then number:
 issues bulk-edited in one action share a timestamp to the second, and without
 the tiebreak those rows would reshuffle between sweeps.

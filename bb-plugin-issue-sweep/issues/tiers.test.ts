@@ -71,6 +71,12 @@ describe("runOf, Now", () => {
 });
 
 describe("isStale", () => {
+  it("never calls a parent stale, since its sub-issues are the work", () => {
+    const parent = issue({ subtasks: PARENT, updatedAt: NOW - 20 * DAY });
+    expect(isStale(parent, inputs)).toBe(false);
+    expect(runOf(parent, inputs)).toBe("later");
+  });
+
   it("needs a counted status", () => {
     expect(isStale(issue({ boardStatus: "Backlog", updatedAt: NOW - 20 * DAY }), inputs)).toBe(false);
   });

@@ -87,11 +87,16 @@ function isWaiting(row: ListedIssue, inputs: TierInputs): boolean {
   return inputs.reviewStatus.trim() !== "" && row.boardStatus !== null && same(row.boardStatus, inputs.reviewStatus);
 }
 
-/** Something you meant to be doing that has not moved for the configured number of days. */
+/**
+ * Something you meant to be doing that has not moved for the configured number
+ * of days. Never a parent: its sub-issues are the work, and they carry their
+ * own activity.
+ */
 export function isStale(row: ListedIssue, inputs: TierInputs): boolean {
   return (
     isCounted(row, inputs) &&
     row.blockedBy === 0 &&
+    !isParent(row) &&
     inputs.now - row.updatedAt > inputs.staleAfterDays * DAY
   );
 }

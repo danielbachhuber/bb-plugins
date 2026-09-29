@@ -107,11 +107,12 @@ function Panel() {
   const [starting, setStarting] = useState<ReadonlySet<string>>(new Set());
   const navigate = useBbNavigate();
 
-  // Opening the issue or its thread is reading it, so its new comments stop
-  // being new. Fire and forget: the link or thread opens either way.
+  // Opening the issue or its thread is reading it, so the count it has now is
+  // the one seen. Recorded on every open, not only when "N new" shows, so a
+  // count that dropped when comments were deleted catches up too. Fire and
+  // forget: the link or thread opens either way.
   const markSeen = useCallback(
     (row: Row) => {
-      if (row.newComments === 0) return;
       void rpc.call("markSeen", { repo: row.repo, number: row.number }).then(reload);
     },
     [reload, rpc],

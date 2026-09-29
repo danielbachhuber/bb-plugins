@@ -204,12 +204,13 @@ function Frame({
   listing: Listing | null;
   starting?: Set<string>;
   busyKeys?: Set<string>;
+  /** A Tailwind height class, or "fit" to grow with the list. */
   height?: string;
 }): ReactNode {
   return (
     <TooltipProvider delayDuration={300}>
       <div
-        className={`flex w-full flex-col rounded-lg border border-border bg-background ${height}`}
+        className={`flex w-full flex-col rounded-lg border border-border bg-background ${height === "fit" ? "" : height}`}
       >
         <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
           <span className="flex items-center gap-2 text-sm font-medium">
@@ -430,7 +431,7 @@ export function LongList() {
   return (
     <StoryCard>
       <StoryRow label="Long list" hint="Thirteen Later rows, eight of them folded.">
-        <Frame listing={long} height="h-[44rem]" />
+        <Frame listing={long} height="fit" />
       </StoryRow>
     </StoryCard>
   );

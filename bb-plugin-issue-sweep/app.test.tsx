@@ -392,6 +392,18 @@ describe("seen comments", () => {
     await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 
+  it("records the count on every open, even with nothing new showing", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow({ newComments: 0 })] }), {
+      markSeen: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+
   it("marks the issue seen when its thread is opened", async () => {
     const calls: unknown[] = [];
     const slot = render(listing({ rows: [nowRow({ newComments: 2 })] }), {
