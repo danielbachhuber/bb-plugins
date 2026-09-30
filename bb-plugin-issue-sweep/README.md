@@ -104,11 +104,9 @@ current stage filled. Pressing a stage moves the issue to it on the board,
 adding the issue to the board first if it is not on it. The last segment opens
 a menu of every status the board has, and names the status when it is not a
 stage: "Stalled", say, "No status", or "Not on board". In the left column the
-buttons sit beside the title, under the reason the issue needs you:
-"Working", "In progress", or "To start". An issue with new comments or gone
-stale has no label there, since its blue dot or red edge already says so. In
-the narrower right column the buttons have a line of their own under the
-number line.
+buttons sit beside the title, with no label saying why the issue needs you:
+the squares above the column name each run. In the narrower right column the
+buttons have a line of their own under the number line.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note, then the comment count and the progress bar. The Harvest clock, when the Harvest plugin is installed, sits at

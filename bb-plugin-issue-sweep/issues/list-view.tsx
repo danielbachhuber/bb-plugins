@@ -19,6 +19,7 @@ import {
   ISSUE_RUNS,
   isStale,
   lastActivity,
+  NEEDS_YOU_RUNS,
   needsYou,
   runOf,
   sortIssues,
@@ -688,19 +689,6 @@ export function IssueListView({
   );
 }
 
-/**
- * Why a row is in "Needs you", as the word over its stage buttons. New
- * comments and stale rows have none: the blue dot and "N new", and the red
- * edge and "No activity for N days", already say so.
- */
-const REASONS: Record<string, { label: string; className: string } | null> = {
-  "new-comments": null,
-  stale: null,
-  working: { label: "Working", className: "text-[#c2620a] dark:text-[#f08a24]" },
-  "in-progress": { label: "In progress", className: "text-sky-700 dark:text-sky-400" },
-  "to-start": { label: "To start", className: "text-muted-foreground" },
-};
-
 const TONES = new Map<string, RunTone>(ISSUE_RUNS.map((run) => [run.id, run.tone]));
 
 interface SplitListProps {
@@ -756,7 +744,7 @@ function SplitList({
   const [restFilter, setRestFilter] = useState<string | null>(null);
 
   const itemsByKey = new Map(items.map((item) => [item.key, item]));
-  const mine = items.filter((item) => item.runId in REASONS);
+  const mine = items.filter((item) => NEEDS_YOU_RUNS.has(item.runId));
   const restCount = groups.reduce((total, group) => total + group.rows.length, 0);
 
   // A sync can empty the chosen group, and then the filter would hide every
@@ -785,7 +773,6 @@ function SplitList({
   const rowFor = (item: SweepItem, side: "mine" | "rest") => {
     const row = rowsByKey.get(item.key)!;
     const open = side === "mine" || item.forceOpen === true || opened[item.key] === true;
-    const reason = REASONS[item.runId];
     return (
       <SweepRow
         key={item.key}
@@ -819,12 +806,9 @@ function SplitList({
         trackPlacement={side === "mine" ? "header" : "below"}
         renderTrack={(_, line) =>
           line ? null : side === "mine" ? (
-            <div className="flex shrink-0 flex-col items-end gap-1 self-start">
-              {reason ? (
-                <span className={`text-xs font-medium ${reason.className}`}>{reason.label}</span>
-              ) : null}
-              {renderStatus(row, false)}
-            </div>
+            // No label over it: the squares above the column name each run,
+            // and the row's dot, edge, or flag says the rest.
+            <div className="flex shrink-0 self-start">{renderStatus(row, false)}</div>
           ) : (
             renderStatus(row, true)
           )

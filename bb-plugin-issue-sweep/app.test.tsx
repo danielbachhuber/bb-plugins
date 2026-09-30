@@ -223,7 +223,8 @@ describe("tiers", () => {
     expect(within(working).getByRole("button", { name: "Open thread" })).toBeInTheDocument();
     expect(within(working).getByRole("button", { name: "Add note" })).toBeInTheDocument();
     expect(within(ready).getByRole("button", { name: "Add note" })).toBeInTheDocument();
-    expect(within(ready).getByText("To start")).toBeInTheDocument();
+    // No reason label over the stage buttons; the squares name the runs.
+    expect(within(ready).queryByText("To start")).toBeNull();
     // One line: the age, and nothing else from the number line.
     expect(within(later).getByText("3h ago")).toBeInTheDocument();
     expect(within(later).queryByText("2 comments")).toBeNull();
