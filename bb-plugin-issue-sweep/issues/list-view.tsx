@@ -168,6 +168,95 @@ function StatusCell({
 }
 
 
+/**
+ * Every board stage as a button, the current one filled with its dot, so
+ * moving an issue is one click on the stage it goes to. A status the stages do
+ * not name, "No status", or "Not on board" shows in the last segment, whose
+ * native menu offers every status the board has. `stretch` spreads the
+ * buttons across their line, for the narrow column where they sit under the
+ * title rather than beside it.
+ */
+function StageButtons({
+  row,
+  stages,
+  options,
+  busy,
+  stretch,
+  onPick,
+}: {
+  row: Row;
+  stages: string[];
+  options: string[];
+  busy: boolean;
+  stretch: boolean;
+  onPick: (status: string) => void;
+}) {
+  // No options means the board could not be read, so nothing can be moved.
+  if (options.length === 0) {
+    return <StatusCell row={row} options={options} busy={busy} onPick={onPick} />;
+  }
+  const stage = stageOf(row, stages);
+  const offStage = stage !== null ? null : row.onBoard ? (row.boardStatus ?? NO_STATUS) : "Not on board";
+  const placeholder = row.onBoard ? NO_STATUS : ADD_TO_BOARD;
+  const offered =
+    row.boardStatus && !options.includes(row.boardStatus) ? [row.boardStatus, ...options] : options;
+  const segment = "flex items-center justify-center gap-1 whitespace-nowrap border-r border-input px-2 py-1";
+
+  return (
+    <div
+      role="group"
+      aria-label={`Stages for #${row.number}`}
+      className={`overflow-hidden rounded-md border border-input text-[11px] ${stretch ? "grid w-full max-w-md" : "inline-flex"} ${busy ? "opacity-50" : ""}`}
+      style={stretch ? { gridTemplateColumns: `repeat(${stages.length}, 1fr) auto` } : undefined}
+    >
+      {stages.map((name, index) => {
+        const on = index === stage;
+        return (
+          <button
+            key={name}
+            type="button"
+            aria-pressed={on}
+            disabled={busy}
+            onClick={() => {
+              if (!on) onPick(name);
+            }}
+            className={`${segment} ${on ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-state-hover hover:text-foreground"}`}
+          >
+            {on ? <span aria-hidden className={`size-1.5 rounded-full ${statusDot(name)}`} /> : null}
+            {name}
+          </button>
+        );
+      })}
+      <span
+        className={`relative flex items-center justify-center gap-1 px-2 py-1 ${offStage ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-state-hover hover:text-foreground"}`}
+      >
+        <span aria-hidden className="whitespace-nowrap">
+          {offStage ? `${busy ? "Saving…" : offStage} ▾` : "…"}
+        </span>
+        {/* A native select over the segment, so the platform's own menu opens. */}
+        <select
+          aria-label={`Board status for #${row.number}`}
+          title={row.boardStatus ?? placeholder}
+          value={offStage && row.boardStatus ? row.boardStatus : ""}
+          disabled={busy}
+          onChange={(event) => onPick(event.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-default"
+        >
+          <option value="" disabled>
+            {placeholder}
+          </option>
+          {offered.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </span>
+    </div>
+  );
+}
+
+
 export type RunningReference =
   | {
       externalId: string;
@@ -541,11 +630,13 @@ export function IssueListView({
             )}
             stages={stages}
             busyKeys={busyKeys}
-            renderStatus={(row) => (
-              <StatusCell
+            renderStatus={(row, stretch) => (
+              <StageButtons
                 row={row}
+                stages={listing.boardStages}
                 options={listing.statusOptions}
                 busy={busyKeys.has(keyOf(row))}
+                stretch={stretch}
                 onPick={(status) => onPick(row, status)}
               />
             )}
@@ -616,7 +707,8 @@ interface SplitListProps {
   groups: ReturnType<typeof statusGroups>;
   stages: Stage[];
   busyKeys: ReadonlySet<string>;
-  renderStatus: (row: Row) => ReactNode;
+  /** `stretch` is true in the narrow column, where the control has a line of its own. */
+  renderStatus: (row: Row, stretch: boolean) => ReactNode;
   renderActions: (item: SweepItem) => ReactNode;
   renderTrailing: (item: SweepItem) => ReactNode;
   onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
@@ -717,14 +809,20 @@ function SplitList({
         }}
         onNoteCancel={() => setEditing(null)}
         busy={busyKeys.has(item.key)}
+        // Beside the title in the wide column, so the action line and its
+        // Harvest clock run the full width underneath; on a line of its own in
+        // the narrow one.
+        trackPlacement={side === "mine" ? "header" : "below"}
         renderTrack={(_, line) =>
-          line ? null : (
-            <div className="flex w-36 shrink-0 flex-col items-end gap-1 self-start">
+          line ? null : side === "mine" ? (
+            <div className="flex shrink-0 flex-col items-end gap-1 self-start">
               {reason ? (
                 <span className={`text-xs font-medium ${reason.className}`}>{reason.label}</span>
               ) : null}
-              {renderStatus(row)}
+              {renderStatus(row, false)}
             </div>
+          ) : (
+            renderStatus(row, true)
           )
         }
       />

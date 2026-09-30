@@ -96,11 +96,14 @@ it was updated, the comment count, sub-issue or task progress, and "N new" in
 blue when there are new comments. A sub-issue shows its parent as a chip. The
 repository joins the line only when more than one is in play.
 
-An open row has a status picker on the right, under the reason the issue
-needs you when it is in the left column: "New comments", "Stale", "Working",
-"In progress", or "To start". Picking a status moves the issue to it on the board. The picker
-reads "Add to board" for an issue off the board and "No status" for one on the
-board without a status.
+An open row has a button for each of the "Board stages, in order", with the
+current stage filled. Pressing a stage moves the issue to it on the board,
+adding the issue to the board first if it is not on it. The last segment opens
+a menu of every status the board has, and names the status when it is not a
+stage: "Stalled", say, "No status", or "Not on board". In the left column the
+buttons sit beside the title, under the reason the issue needs you: "New
+comments", "Stale", "Working", "In progress", or "To start". In the narrower
+right column they have a line of their own under the number line.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note. The Harvest clock, when the Harvest plugin is installed, sits at
@@ -128,8 +131,8 @@ note deletes it.
   filter is off.
 - **Project board** — the board whose status each issue is read from. Blank
   takes the first status found on any board.
-- **Board stages, in order** — the order of the status groups in the right
-  column, drawn furthest along first. Default
+- **Board stages, in order** — the stage buttons on each open row, and the
+  order of the status groups in the right column, drawn furthest along first. Default
   `Backlog,Ready,In Progress,In Review`.
 - **Statuses counted in the sidebar** — the statuses the sidebar count and "to
   start" are made of. Default `In Progress,Ready`.

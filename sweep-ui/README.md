@@ -61,7 +61,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | Path | What it holds |
 | --- | --- |
 | `sweep-ui/list` | `SweepList`, the whole tab: summary, rows, fold, and the run filter |
-| `sweep-ui/row` | `SweepRow`, one row, used by `SweepList` |
+| `sweep-ui/row` | `SweepRow`, one row, used by `SweepList`. `trackPlacement` draws the track down the right-hand side, beside the title only so the action line runs full width, or on its own line |
 | `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares`, one square per row grouped by run, coloured by the run's `tone` or its own `color`, with a `label` for a page that draws more than one |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |

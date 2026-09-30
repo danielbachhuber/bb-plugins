@@ -250,7 +250,8 @@ describe("tiers", () => {
     const row = await rowFor(slot, "Widget rotation drifts after a resize");
     expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
-    expect(within(row).getByLabelText("Board status for #42")).toHaveValue("Backlog");
+    // Its stage buttons sit on a line of their own in the narrow column.
+    expect(within(row).getByRole("button", { name: "Backlog" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("narrows each column to the group pressed in its squares, and back", async () => {
@@ -376,7 +377,7 @@ describe("tiers", () => {
 });
 
 describe("status picker", () => {
-  it("moves an issue to the status picked", async () => {
+  it("moves an issue to the stage whose button was pressed", async () => {
     const calls: unknown[] = [];
     const slot = render(listing(), {
       setBoardStatus: (input: unknown) => {
@@ -385,13 +386,28 @@ describe("status picker", () => {
       },
     });
 
-    const picker = await slot.findByLabelText("Board status for #42");
-    expect(picker).toHaveValue("Ready");
-    fireEvent.change(picker, { target: { value: "In Progress" } });
+    const stages = await slot.findByRole("group", { name: "Stages for #42" });
+    expect(within(stages).getByRole("button", { name: "Ready" })).toHaveAttribute("aria-pressed", "true");
+    // Pressing the current stage moves nothing.
+    fireEvent.click(within(stages).getByRole("button", { name: "Ready" }));
+    fireEvent.click(within(stages).getByRole("button", { name: "In Progress" }));
 
     await waitFor(() => expect(calls).toHaveLength(1));
     // By name, never by option id: the ids are the board's private node ids.
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "In Progress" });
+  });
+
+  it("offers every status the board has behind the last segment", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ statusOptions: [...OPTIONS, "Stalled"] }), {
+      setBoardStatus: (input: unknown) => {
+        calls.push(input);
+        return { ok: true, added: false, error: null };
+      },
+    });
+    fireEvent.change(await slot.findByLabelText("Board status for #42"), { target: { value: "Stalled" } });
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "Stalled" });
   });
 
   it("offers to add an issue that is on no board, and sends the picked status", async () => {

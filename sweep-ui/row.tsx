@@ -163,6 +163,15 @@ export interface SweepRowProps {
   renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
   /** Draws the right-hand column in place of the track; null leaves it out. */
   renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
+  /**
+   * Where an open or closed row draws its track. "column", the default, is a
+   * column down the row's right-hand side. "header" puts it beside the title
+   * and number line only, so the action line below runs the row's full width
+   * and its trailing item sits at the far right. "below" gives it its own line
+   * under the number line, for a column too narrow for it beside the title.
+   * A one-line row always draws it in the column.
+   */
+  trackPlacement?: "column" | "header" | "below";
 }
 
 export function SweepRow({
@@ -185,6 +194,7 @@ export function SweepRow({
   busy = false,
   renderBody,
   renderTrack,
+  trackPlacement = "column",
 }: SweepRowProps) {
   const line = tier === "later" && !open;
   const unread = item.newComments > 0;
@@ -236,37 +246,46 @@ export function SweepRow({
       </li>
     );
   }
+  const head = renderBody ? (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        {icon}
+        <span className="flex min-w-0 items-center gap-1.5">
+          {title}
+          <span className="shrink-0 text-muted-foreground">#{item.number}</span>
+        </span>
+        {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
+        {unread ? (
+          <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>
+        ) : null}
+        {item.facts[0] ? (
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.facts[0]}</span>
+        ) : null}
+      </div>
+      {renderBody(item, open, false)}
+    </>
+  ) : (
+    <>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {icon}
+        {title}
+      </span>
+      <NumberLine item={item} Link={Link} />
+    </>
+  );
   return (
     <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item, tone), busy && "opacity-50")}>
       {iconColumn}
       <div className="min-w-0 flex-1">
-        {renderBody ? (
-          <>
-            <div className="flex min-w-0 items-center gap-2">
-              {icon}
-              <span className="flex min-w-0 items-center gap-1.5">
-                {title}
-                <span className="shrink-0 text-muted-foreground">#{item.number}</span>
-              </span>
-              {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
-              {unread ? (
-                <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>
-              ) : null}
-              {item.facts[0] ? (
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">{item.facts[0]}</span>
-              ) : null}
-            </div>
-            {renderBody(item, open, false)}
-          </>
+        {trackPlacement === "header" ? (
+          <div className="flex gap-3">
+            <div className="min-w-0 flex-1">{head}</div>
+            {track}
+          </div>
         ) : (
-          <>
-            <span className="flex min-w-0 items-center gap-1.5">
-              {icon}
-              {title}
-            </span>
-            <NumberLine item={item} Link={Link} />
-          </>
+          head
         )}
+        {trackPlacement === "below" && track ? <div className="mt-2">{track}</div> : null}
         {open ? (
           <>
             {editing ? (
@@ -293,7 +312,7 @@ export function SweepRow({
           </>
         ) : null}
       </div>
-      {track}
+      {trackPlacement === "column" ? track : null}
     </li>
   );
 }
