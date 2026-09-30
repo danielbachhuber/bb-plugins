@@ -62,7 +62,7 @@ function ParentChip({ parent, Link }: { parent: NonNullable<SweepItem["parent"]>
   return (
     <Link
       href={parent.url}
-      className="inline-flex max-w-[14rem] items-center gap-1 rounded border border-border px-1 text-[11px] leading-4 text-muted-foreground hover:text-foreground"
+      className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 rounded border border-border px-1 text-[11px] leading-4 text-muted-foreground hover:text-foreground"
     >
       <Icon name="Layers" className="size-3 shrink-0" />
       <span className="truncate" title={`#${parent.number} ${parent.title}`}>
@@ -86,7 +86,7 @@ function Progress({ done, total }: { done: number; total: number }) {
   );
 }
 
-/** `#123`, the flags, the facts, "N new", and the parent chip, joined by dots. */
+/** `#123`, the flags, the facts, and "N new", joined by dots. */
 function NumberLine({ item, Link }: { item: SweepItem; Link: ComponentType<SweepLinkProps> }) {
   const parts: ReactNode[] = [
     ...item.flags.map((flag) => <FlagText flag={flag} />),
@@ -104,7 +104,6 @@ function NumberLine({ item, Link }: { item: SweepItem; Link: ComponentType<Sweep
           {part}
         </Fragment>
       ))}
-      {item.parent ? <ParentChip parent={item.parent} Link={Link} /> : null}
     </div>
   );
 }
@@ -269,6 +268,8 @@ export function SweepRow({
       <span className="flex min-w-0 items-center gap-1.5">
         {icon}
         {title}
+        {/* At the end of the title, so a sub-issue's number line keeps to one line. */}
+        {item.parent ? <ParentChip parent={item.parent} Link={Link} /> : null}
       </span>
       <NumberLine item={item} Link={Link} />
     </>

@@ -142,6 +142,14 @@ describe("SweepList", () => {
     expect(await screen.findByRole("button", { name: "Add note" })).toBeInTheDocument();
   });
 
+  it("puts a sub-issue's parent chip at the end of its title line", () => {
+    const parent = { number: 7, title: "Widget roadmap", url: "https://github.com/acme/widgets/issues/7" };
+    render(<SweepList {...props([item(1, "new", { parent })])} />);
+    const title = screen.getByRole("link", { name: "Widget task 1" });
+    expect(title.parentElement!.contains(screen.getByRole("link", { name: "Widget roadmap" }))).toBe(true);
+    expect(title.parentElement!.contains(screen.getByText("#1"))).toBe(false);
+  });
+
   it("draws the title and parent chip through a custom Link", () => {
     const onOpenLink = vi.fn();
     function Link({ href, className, onClick, children }: SweepLinkProps) {

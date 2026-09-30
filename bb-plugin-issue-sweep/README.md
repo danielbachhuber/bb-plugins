@@ -96,7 +96,7 @@ stale or blocked flag shows the flag in place of its age.
 The number line shows the issue number, any stale or blocked flag, how long ago
 it was updated, and "N new" in blue when there are new comments. The comment
 count and the sub-issue or task progress bar are at the end of the action
-line instead, the count first. A sub-issue shows its parent as a chip. The
+line instead, the count first. A sub-issue shows its parent as a chip at the end of its title. The
 repository joins the line only when more than one is in play.
 
 An open row has a button for each of the "Board stages, in order", with the
