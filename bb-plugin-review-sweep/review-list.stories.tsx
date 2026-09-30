@@ -243,8 +243,7 @@ function Frame({
 
 /**
  * A typical day. The one waited on too long, with its red banner, and the one
- * with a thread are open at the top; the fresh request, with two new comments,
- * is closed to its icons: author, reviewers, checks, and size.
+ * with a thread at the top; then the fresh request, with two new comments.
  */
 export function Baseline() {
   return (

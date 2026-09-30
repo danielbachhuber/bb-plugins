@@ -101,7 +101,8 @@ thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
 
 A note is a one-line next step, stored only on this machine and never sent to
-GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.
+GitHub. Save or Enter saves it, Cancel or Escape cancels, and saving an empty
+note deletes it.
 
 ## Settings
 

@@ -83,7 +83,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `busyKeys` | Keys of rows to dim while a request for them runs |
 | `renderBody` | Optional. `(item, open, line)` draws the row's body in place of its number line. `line` is true on a one-line Later row, where it is drawn inline in place of the first fact |
 | `renderTrack` | Optional. `(item, line)` draws the right-hand column in place of the stage track. Returning null leaves the column out, so the row takes the full width |
-| `allOpen` | Optional. Every row starts open, whatever its tier, rather than only Now rows. Rows can still be closed by hand |
+| `collapsible` | Optional, default true. False keeps every row open, whatever its tier, with no chevron and no column for one |
 | `renderTrailing` | Optional. `(item)` draws at the right end of an open row's action line, after the note button. The sweeps put the Harvest timer there |
 
 ## Working on it

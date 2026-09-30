@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { NoteBox, NoteField } from "./note";
 
@@ -24,6 +24,19 @@ describe("NoteField", () => {
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Note" }), { key: "Escape" });
     expect(onCancel).toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("saves from the Save button and cancels from the Cancel button", async () => {
+    const onSave = vi.fn(async () => true);
+    const onCancel = vi.fn();
+    render(<NoteField initial="Old" onSave={onSave} onCancel={onCancel} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "New" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("New");
+    // Cancel waits out the save it would otherwise race.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalled();
   });
 
   it("saves an emptied field as the empty string, which deletes the note", () => {

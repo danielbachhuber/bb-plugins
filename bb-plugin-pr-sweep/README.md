@@ -38,11 +38,11 @@ squares above the list show one square per pull request, grouped by run and
 counted ("2 need you"). Pressing a run shows only its pull requests; pressing
 it again shows them all.
 
-| Tier | Runs, in order | Rows |
-| --- | --- | --- |
-| Now | needs you, ready to merge, working | Open: title line, banner, icons, note, and actions |
-| Next | drafts | Closed to the title line, banner, and icons |
-| Later | waiting | One dimmed line each with its icons, folded after five |
+| Tier | Runs, in order |
+| --- | --- |
+| Now | needs you, ready to merge, working |
+| Next | drafts |
+| Later | waiting, folded after five |
 
 - **Needs you**: a flag or open comments that are yours to act on.
 - **Ready to merge**: approved, green, and nobody else asked to review.
@@ -54,8 +54,8 @@ it again shows them all.
 Within a run, the worst flag comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps.
 
-A chevron opens or closes any row. The row whose Harvest timer is running
-stays open, whatever its tier, so the timer stays in view.
+Every row is open, with its title line, banner, icons, note, and actions.
+There is no chevron to close one.
 
 ## Each row
 
@@ -114,7 +114,8 @@ plugin is installed, sits at the right end of that line. Start thread's tooltip 
 conflict". A row only waiting for a run to finish offers no Start thread.
 
 A note is a one-line next step, stored only on this machine and never sent to
-GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.
+GitHub. Save or Enter saves it, Cancel or Escape cancels, and saving an empty
+note deletes it.
 
 ## Threads
 

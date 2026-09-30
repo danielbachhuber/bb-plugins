@@ -82,11 +82,11 @@ squares above the list show one square per request, grouped by run and counted
 ("2 to review"). Pressing a run shows only its requests; pressing it again
 shows them all.
 
-| Tier | Runs, in order | Rows |
-| --- | --- | --- |
-| Now | re-review, waiting too long, reviewing | Open |
-| Next | to review | Open |
-| Later | drafts, ignored | Open, folded after five |
+| Tier | Runs, in order |
+| --- | --- |
+| Now | re-review, waiting too long, reviewing |
+| Next | to review |
+| Later | drafts, ignored, folded after five |
 
 - **Re-review**: you reviewed it, the author pushed, and it came back. The
   author is blocked on you, and it is usually the quickest row to clear, so it
@@ -103,11 +103,9 @@ shows them all.
   when the time is up.
 
 Within a run, the oldest request comes first, tie-broken by repository then
-number, so rows do not reshuffle between sweeps. Every row starts open, with
-its title line, banner, icons, note, and actions, since each request is one
-for you to do. A chevron closes a row, and a closed Later row draws as one
-dimmed line with the icons inline. The row whose Harvest timer is running
-stays open, so the timer stays in view.
+number, so rows do not reshuffle between sweeps. Every row is open, with its
+title line, banner, icons, note, and actions, since each request is one for
+you to do. There is no chevron to close one.
 
 The sidebar count is requests with no thread that are neither ignored nor
 drafts. Before it, a red circle counts the ones waiting too long, as Now
@@ -159,7 +157,8 @@ rest; Add note or Edit note; and Copy link. The Harvest clock, when the Harvest
 plugin is installed, sits at the right end of that line.
 
 A note is a one-line next step, stored only on this machine and never sent to
-GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.
+GitHub. Save or Enter saves it, Cancel or Escape cancels, and saving an empty
+note deletes it.
 
 ## Settings
 

@@ -525,8 +525,6 @@ export function PrListView({
     stage: stageOf(row),
     blockedStage: blockedStageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
-    // A running timer must stay in view, and it lives in the action line.
-    forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
 
   return (
@@ -572,6 +570,8 @@ export function PrListView({
             stages={STAGES}
             runs={PR_RUNS}
             items={items}
+            // Every row stays open, so each pull request shows its actions.
+            collapsible={false}
             Link={UrlLink}
             onNoteSave={(item, body) => {
               const row = rowsByKey.get(item.key);

@@ -46,8 +46,11 @@ export interface SweepListProps {
    * leaves the column out, so the row takes the full width.
    */
   renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
-  /** Every row starts open, whatever its tier, rather than only Now rows. Rows can still be closed. */
-  allOpen?: boolean;
+  /**
+   * False keeps every row open, whatever its tier, with no chevron to close it
+   * and no column for one. Defaults to true: Now rows open, the rest closed.
+   */
+  collapsible?: boolean;
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
 }
@@ -67,7 +70,7 @@ export function SweepList({
   busyKeys,
   renderBody,
   renderTrack,
-  allOpen = false,
+  collapsible = true,
   renderTrailing,
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
@@ -96,14 +99,15 @@ export function SweepList({
   const visibleLater = fold ? later.slice(0, laterShown) : later;
 
   const rowFor = (item: SweepItem, tier: Tier) => {
-    const open = item.forceOpen === true || (toggled[item.key] ?? (allOpen || tier === "now"));
+    const open = !collapsible || item.forceOpen === true || (toggled[item.key] ?? tier === "now");
     return (
       <SweepRow
         key={item.key}
         item={item}
         tier={tier}
         open={open}
-        onToggle={item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
+        onToggle={!collapsible || item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
+        chevron={collapsible}
         stages={stages}
         onMove={onMove ? (stage) => onMove(item, stage) : undefined}
         onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}

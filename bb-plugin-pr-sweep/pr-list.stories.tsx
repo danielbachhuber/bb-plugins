@@ -408,9 +408,9 @@ function Frame({
 
 /**
  * A typical day. The pull requests that need you, the one ready to merge, and
- * the one with a thread are open at the top, each with a red banner naming
- * what stops it or a green one when it can merge; the draft is closed to its
- * banner and icons; the one awaiting review is a single dimmed line.
+ * the one with a thread at the top, each with a red banner naming what stops
+ * it or a green one when it can merge; then the draft and the one awaiting
+ * review.
  */
 export function Baseline() {
   return (

@@ -475,8 +475,6 @@ export function ReviewListView({
     note: row.note,
     stage: stageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
-    // A running timer must stay in view, and it lives in the action line.
-    forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
 
   return (
@@ -518,8 +516,8 @@ export function ReviewListView({
                 <RowBody row={row} line={line} now={now} inputs={inputs} showRepo={showRepo} avatarFor={avatarFor} />
               ) : null;
             }}
-            // Every row opens: each review is one to do, so none hides its actions.
-            allOpen
+            // Every row stays open: each review is one to do, so none hides its actions.
+            collapsible={false}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
               const row = rowsByKey.get(item.key);

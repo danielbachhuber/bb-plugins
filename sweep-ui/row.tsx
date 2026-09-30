@@ -130,6 +130,8 @@ export interface SweepRowProps {
   open: boolean;
   /** Left out for a row that cannot be closed, which then has no chevron button. */
   onToggle?: () => void;
+  /** False leaves out the chevron column, for a list whose rows never close. */
+  chevron?: boolean;
   stages: Stage[];
   onMove?: (stage: number) => void;
   onOpenLink?: () => void;
@@ -159,6 +161,7 @@ export function SweepRow({
   tier,
   open,
   onToggle,
+  chevron = true,
   stages,
   onMove,
   onOpenLink,
@@ -181,7 +184,7 @@ export function SweepRow({
     <Track stages={stages} stage={item.stage} offTrack={item.offTrack} onMove={onMove} blocked={item.blockedStage} />
   );
   const icon = item.icon ? <span className="flex shrink-0 items-center">{item.icon}</span> : null;
-  const iconColumn = (
+  const iconColumn = !chevron ? null : (
     <div className={cn("flex w-5 shrink-0 flex-col items-center gap-1.5", !line && "pt-0.5")}>
       <Chevron open={open} small={line} onToggle={onToggle} />
       {unread ? <span className={cn("size-1.5 rounded-full", BLUE_DOT)} aria-label="New" /> : null}
@@ -261,14 +264,17 @@ export function SweepRow({
             )}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {actions}
-              <button
-                type="button"
-                onClick={onEditNote}
-                className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground"
-              >
-                <Icon name="Edit" className="size-3" />
-                {item.note === null ? "Add note" : "Edit note"}
-              </button>
+              {/* The field has its own Save and Cancel, so the button that opened it steps aside. */}
+              {editing ? null : (
+                <button
+                  type="button"
+                  onClick={onEditNote}
+                  className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground"
+                >
+                  <Icon name="Edit" className="size-3" />
+                  {item.note === null ? "Add note" : "Edit note"}
+                </button>
+              )}
               {item.progress ? <Progress {...item.progress} /> : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>

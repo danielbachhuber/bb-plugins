@@ -182,13 +182,21 @@ describe("SweepList", () => {
 
   });
 
-  it("opens every row with allOpen, and still lets one close", () => {
-    render(<SweepList {...props([item(1, "new"), item(2, "to-start"), item(3, "later")])} allOpen />);
+  it("keeps every row open with no chevron when not collapsible", () => {
+    render(<SweepList {...props([item(1, "new"), item(2, "to-start"), item(3, "later")])} collapsible={false} />);
     for (const title of ["Widget task 1", "Widget task 2", "Widget task 3"]) {
       expect(within(row(title)).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
     }
-    fireEvent.click(within(row("Widget task 2")).getByRole("button", { name: "Collapse" }));
-    expect(within(row("Widget task 2")).queryByRole("button", { name: "Start thread" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
+  });
+
+  it("swaps Add note for the field's own Save and Cancel while editing", () => {
+    render(<SweepList {...props([item(1, "new")])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(screen.queryByRole("button", { name: "Add note" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add note" })).toBeInTheDocument();
   });
 
   it("draws renderTrailing last on the action line, after the note button", () => {

@@ -245,7 +245,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens every row, whatever its tier, with its note button and actions", async () => {
+  it("keeps every row open, whatever its tier, with no chevron", async () => {
     const slot = render(
       listing({
         rows: [
@@ -260,8 +260,8 @@ describe("tiers", () => {
       expect(within(row).getByRole("button", { name: "Start review" })).toBeInTheDocument();
       expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
       expect(within(row).getByText("octocat")).toBeInTheDocument();
-      expect(within(row).getByRole("button", { name: "Collapse" })).toBeInTheDocument();
     }
+    expect(slot.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
   });
 
   it("draws re-review, overdue, reviewing, to review, drafts, then ignored, whatever order the rows arrive in", async () => {

@@ -110,11 +110,6 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
-/** Opens every closed row from its chevron. */
-async function expandAll(slot: Slot) {
-  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
-}
-
 /** The list item holding a title, so a query can stay inside one row. */
 async function rowFor(slot: Slot, title: RegExp | string) {
   const link = await slot.findByRole("link", { name: title });
@@ -268,7 +263,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens Now rows, closes Next rows to their banner and icons, and draws Later rows as one line", async () => {
+  it("keeps every row open, whatever its tier, with no chevron", async () => {
     const slot = render(
       listing({
         rows: [
@@ -278,18 +273,12 @@ describe("tiers", () => {
         ],
       }),
     );
-    const now = await rowFor(slot, "Conflict item");
-    const next = await rowFor(slot, "Draft item");
-    const later = await rowFor(slot, "Waiting item");
-
-    expect(within(now).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
-    expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
-    expect(within(next).getByText("3/3")).toBeInTheDocument();
-    expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
-    // One line: the icons, inline, in place of the age.
-    expect(within(later).getByText("3/3")).toBeInTheDocument();
-    expect(within(later).getByRole("img", { name: "Reviewers: hubber review pending" })).toBeInTheDocument();
-    expect(within(later).queryByText("3h ago")).toBeNull();
+    for (const title of ["Conflict item", "Draft item", "Waiting item"]) {
+      const row = await rowFor(slot, title);
+      expect(within(row).getByText("3/3")).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    }
+    expect(slot.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
   });
 
   it("draws needs you, ready, working, drafts, then waiting, whatever order the rows arrive in", async () => {
@@ -341,7 +330,7 @@ describe("tiers", () => {
 
   it("flags a pull request left awaiting review past the setting as stale", async () => {
     const slot = render(listing({ rows: [waitingRow({ updatedAt: Date.now() - 5 * DAY - HOUR })] }));
-    await expandAll(slot);
+    await slot.findAllByRole("link");
     expect(slot.getByText("Waiting 5 days")).toBeInTheDocument();
   });
 
@@ -493,7 +482,7 @@ describe("thread action", () => {
 
   it("offers no start on a row only waiting for a run to finish", async () => {
     const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"], group: "needs-action" })] }));
-    await expandAll(slot);
+    await slot.findAllByRole("link");
     expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
   });
 
