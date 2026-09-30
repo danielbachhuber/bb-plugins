@@ -21,15 +21,17 @@ export interface SummarySquaresProps {
   /** The run the list is narrowed to, or null for all of them. */
   value: string | null;
   onChange: (value: string | null) => void;
+  /** The group's accessible name, for a page with more than one. */
+  label?: string;
 }
 
-export function SummarySquares({ runs, items, value, onChange }: SummarySquaresProps) {
+export function SummarySquares({ runs, items, value, onChange, label = "Rows by run" }: SummarySquaresProps) {
   const shown = runs
     .map((run) => ({ run, items: items.filter((item) => item.runId === run.id) }))
     .filter((entry) => entry.items.length > 0);
   if (shown.length === 0) return null;
   return (
-    <div role="group" aria-label="Rows by run" className="flex flex-wrap items-start gap-1">
+    <div role="group" aria-label={label} className="flex flex-wrap items-start gap-1">
       {shown.map(({ run, items: runItems }) => (
         <button
           key={run.id}
@@ -41,7 +43,7 @@ export function SummarySquares({ runs, items, value, onChange }: SummarySquaresP
           {/* A run not chosen fades while another one is. */}
           <span className={cn("flex flex-wrap gap-[2px] transition-opacity", value !== null && run.id !== value && "opacity-30")}>
             {runItems.map((item) => (
-              <span key={item.key} title={item.title} className={cn("size-3 rounded-[3px]", COLORS[run.tone])} />
+              <span key={item.key} title={item.title} className={cn("size-3 rounded-[3px]", run.color ?? COLORS[run.tone])} />
             ))}
           </span>
           <span className={cn("block text-xs text-muted-foreground group-hover:text-foreground", run.id === value && "text-foreground")}>

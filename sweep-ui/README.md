@@ -63,7 +63,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/list` | `SweepList`, the whole tab: summary, rows, fold, and the run filter |
 | `sweep-ui/row` | `SweepRow`, one row, used by `SweepList` |
 | `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
-| `sweep-ui/summary` | `SummarySquares` |
+| `sweep-ui/summary` | `SummarySquares`, one square per row grouped by run, coloured by the run's `tone` or its own `color`, with a `label` for a page that draws more than one |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
 | `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, `tone="info"` in blue with an info icon, and an optional lighter `detail` after a dot |
 | `sweep-ui/pull-request` | What a pull request row draws: `PullRequestIcon` (green when open, muted for a draft), `ReviewerStack` (avatars with a badge per review state, and an optional `Tooltip`), `Avatar`, `ChecksBadge` (a tick, clock, or cross with a count, and every count on hover), and `DiffCount` ("+128 −12"). Also the `Reviewer`, `ReviewState`, and `ChecksSummary` types, and the pure `githubAvatar`, `checksGlyph`, and `checksLabel` |

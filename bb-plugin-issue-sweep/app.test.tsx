@@ -241,6 +241,7 @@ describe("tiers", () => {
     expect(within(mine).getByText("Ready item")).toBeInTheDocument();
     expect(within(rest).getByText("Backlog item")).toBeInTheDocument();
     expect(within(rest).getByRole("heading", { name: "Backlog 1" })).toBeInTheDocument();
+    expect(within(rest).getByRole("button", { name: "1 backlog" })).toBeInTheDocument();
   });
 
   it("opens a row in the rest to its note and actions", async () => {
@@ -250,6 +251,34 @@ describe("tiers", () => {
     expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
     expect(within(row).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
     expect(within(row).getByLabelText("Board status for #42")).toHaveValue("Backlog");
+  });
+
+  it("narrows each column to the group pressed in its squares, and back", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Backlog item", boardStatus: "Backlog" }),
+          rowFixture({ number: 2, title: "Review item", boardStatus: "In Review" }),
+          rowFixture({ number: 3, title: "Ready item" }),
+          nowRow({ number: 4, title: "Working item" }),
+        ],
+      }),
+    );
+    const mine = await slot.findByRole("group", { name: "Needs you by run" });
+    const rest = slot.getByRole("group", { name: "Everything else by status" });
+
+    fireEvent.click(within(mine).getByRole("button", { name: "1 working" }));
+    expect(slot.queryByText("Ready item")).toBeNull();
+    expect(slot.getByText("Working item")).toBeInTheDocument();
+    // The other column is not narrowed.
+    expect(slot.getByText("Backlog item")).toBeInTheDocument();
+
+    fireEvent.click(within(rest).getByRole("button", { name: "1 backlog" }));
+    expect(slot.queryByText("Review item")).toBeNull();
+    expect(slot.getByText("Backlog item")).toBeInTheDocument();
+
+    fireEvent.click(within(rest).getByRole("button", { name: "1 backlog" }));
+    expect(slot.getByText("Review item")).toBeInTheDocument();
   });
 
   it("says so when nothing needs you", async () => {

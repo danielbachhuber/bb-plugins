@@ -20,6 +20,8 @@ export interface Run {
   labelOne: string;
   tone: RunTone;
   tier: Tier;
+  /** A Tailwind background class for the run's squares, in place of its tone's. */
+  color?: string;
 }
 
 export interface SweepItem {

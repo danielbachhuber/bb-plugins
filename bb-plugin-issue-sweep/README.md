@@ -38,7 +38,11 @@ rather than quietly showing a subset.
 ## How the list is ordered
 
 Every issue is in one run. The runs that need you fill the left column, and
-the rest go in the right one:
+the rest go in the right one. Each column has summary squares at its top, one
+square per issue: the left column's grouped by run ("2 new comments"), the
+right column's by status group ("4 backlog"), coloured as the status dots are.
+Pressing a group shows only its issues in that column; pressing it again shows
+them all.
 
 | Column | Runs, in order | Rows |
 | --- | --- | --- |

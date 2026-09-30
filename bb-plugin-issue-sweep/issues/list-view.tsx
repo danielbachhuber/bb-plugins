@@ -2,7 +2,8 @@ import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
-import type { Flag, RunTone, Stage, SweepItem } from "sweep-ui/types";
+import { SummarySquares } from "sweep-ui/summary";
+import type { Flag, Run, RunTone, Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
 import {
   LoadingGraphic,
@@ -24,6 +25,7 @@ import {
   stageOf,
   statusGroups,
   type ListedIssue,
+  type StatusGroup,
   type TierInputs,
 } from "./tiers.js";
 
@@ -621,9 +623,22 @@ interface SplitListProps {
 }
 
 /**
- * Two columns. On the left, only what needs you, every row open with its
- * actions, why it is there, and a status picker. On the right, everything
- * else grouped by status, one line each, opening to the same actions.
+ * A status group's squares: the colour its status dot has, slate for blocked,
+ * and the quiet Later grey for the rest.
+ */
+function groupSquares(group: StatusGroup): string | undefined {
+  if (group.blocked) return "bg-slate-400";
+  const dot = statusDot(group.status);
+  return dot === "bg-muted-foreground/40" ? undefined : dot;
+}
+
+/**
+ * Two columns, each under its own summary squares. On the left, only what
+ * needs you, every row open with its actions, why it is there, and a status
+ * picker, with a square per issue grouped by run. On the right, everything
+ * else grouped by status, one line each, opening to the same actions, with a
+ * square per issue grouped by status. Pressing a group in either shows only
+ * its rows in that column; pressing it again shows them all.
  */
 function SplitList({
   items,
@@ -640,10 +655,35 @@ function SplitList({
   // Rows opened by hand in the right column. Open state lives only as long as the panel.
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(null);
+  const [mineFilter, setMineFilter] = useState<string | null>(null);
+  const [restFilter, setRestFilter] = useState<string | null>(null);
 
   const itemsByKey = new Map(items.map((item) => [item.key, item]));
   const mine = items.filter((item) => REASONS[item.runId]);
   const restCount = groups.reduce((total, group) => total + group.rows.length, 0);
+
+  // A sync can empty the chosen group, and then the filter would hide every
+  // row, so a filter with nothing left in it is read as no filter.
+  const mineActive = mine.some((item) => item.runId === mineFilter) ? mineFilter : null;
+  const mineShown = mineActive === null ? mine : mine.filter((item) => item.runId === mineActive);
+
+  const groupRuns: Run[] = groups.map((group) => ({
+    id: group.name.toLowerCase(),
+    label: group.name.toLowerCase(),
+    labelOne: group.name.toLowerCase(),
+    tone: "later",
+    tier: "later",
+    color: groupSquares(group),
+  }));
+  const groupItems = groups.flatMap((group) =>
+    group.rows.flatMap((row) => {
+      const item = itemsByKey.get(keyOf(row));
+      return item ? [{ ...item, runId: group.name.toLowerCase() }] : [];
+    }),
+  );
+  const restActive = groupRuns.some((run) => run.id === restFilter) ? restFilter : null;
+  const groupsShown =
+    restActive === null ? groups : groups.filter((group) => group.name.toLowerCase() === restActive);
 
   const rowFor = (item: SweepItem, side: "mine" | "rest") => {
     const row = rowsByKey.get(item.key)!;
@@ -693,13 +733,19 @@ function SplitList({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <section aria-label="Needs you" className="min-w-0 lg:basis-3/5">
-        <h2 className="mb-1.5 text-sm font-medium text-foreground">
-          Needs you <span className="text-muted-foreground">{mine.length}</span>
-        </h2>
         {mine.length ? (
-          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-            {mine.map((item) => rowFor(item, "mine"))}
-          </ul>
+          <div className="space-y-3">
+            <SummarySquares
+              label="Needs you by run"
+              runs={ISSUE_RUNS}
+              items={mine}
+              value={mineActive}
+              onChange={setMineFilter}
+            />
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+              {mineShown.map((item) => rowFor(item, "mine"))}
+            </ul>
+          </div>
         ) : (
           <p className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
             Nothing needs you right now.
@@ -708,11 +754,15 @@ function SplitList({
       </section>
       {restCount ? (
         <section aria-label="Everything else" className="min-w-0 lg:basis-2/5">
-          <h2 className="mb-1.5 text-sm font-medium text-foreground">
-            Everything else <span className="text-muted-foreground">{restCount}</span>
-          </h2>
-          <div className="space-y-3">
-            {groups.map((group) => (
+          <SummarySquares
+            label="Everything else by status"
+            runs={groupRuns}
+            items={groupItems}
+            value={restActive}
+            onChange={setRestFilter}
+          />
+          <div className="mt-3 space-y-3">
+            {groupsShown.map((group) => (
               <div key={group.name}>
                 <h3 className="mb-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   {group.blocked ? (
