@@ -1,4 +1,5 @@
 import type { ChecksSummary, ReviewState as ReviewerState } from "sweep-ui/pull-request";
+import type { StackPosition } from "@danielb/gh-shared/gh";
 
 export type { ChecksSummary, ReviewerState };
 
@@ -72,6 +73,8 @@ export interface ClassifiedRow {
   checks?: ChecksSummary;
   /** The other reviewers, requested or having reviewed. Optional for the same reason. */
   reviewers?: RowReviewer[];
+  /** Where it sits in a stack of pull requests, or null when it is in none. Optional for the same reason. */
+  stack?: StackPosition | null;
 }
 
 export interface SweepResult {

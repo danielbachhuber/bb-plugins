@@ -525,6 +525,13 @@ export function PrListView({
     stage: stageOf(row),
     blockedStage: blockedStageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
+    stack: row.stack
+      ? {
+          index: row.stack.index,
+          size: row.stack.size,
+          on: row.stack.on === null ? null : { number: row.stack.on, url: `https://github.com/${row.repo}/pull/${row.stack.on}` },
+        }
+      : null,
   }));
 
   return (

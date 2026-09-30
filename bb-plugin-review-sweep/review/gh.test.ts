@@ -58,11 +58,48 @@ describe("parseSearch", () => {
 });
 
 describe("runSweep", () => {
-  it("makes exactly one gh call for the whole sweep", async () => {
+  it("makes two gh calls for the whole sweep: the search, then the stacks", async () => {
     const gh = stubRunner(makeSearchResponse([makePr(), makePr({ number: 2 })]));
     await runSweep(gh, () => NOW);
-    expect(gh.calls).toHaveLength(1);
+    expect(gh.calls).toHaveLength(2);
     expect(gh.calls[0]!.slice(0, 2)).toEqual(["api", "graphql"]);
+    expect(gh.calls[1]!).toEqual(expect.arrayContaining(["o0=acme", "n0=widgets"]));
+  });
+
+  it("puts each row in its stack from the second call", async () => {
+    const search = JSON.stringify(makeSearchResponse([makePr({ number: 2 })]));
+    const stacks = JSON.stringify({
+      data: {
+        r0: {
+          nameWithOwner: "acme/widgets",
+          defaultBranchRef: { name: "main" },
+          pullRequests: {
+            nodes: [
+              { number: 1, baseRefName: "main", headRefName: "a", isCrossRepository: false },
+              { number: 2, baseRefName: "a", headRefName: "b", isCrossRepository: false },
+            ],
+          },
+        },
+      },
+    });
+    const replies = [search, stacks];
+    const gh: GhRunner = { run: async () => replies.shift()! };
+    const result = await runSweep(gh, () => NOW);
+    expect(result.rows[0]!.stack).toEqual({ index: 2, size: 2, on: 1 });
+  });
+
+  it("keeps the rows out of any stack when the second call fails", async () => {
+    const search = JSON.stringify(makeSearchResponse([makePr()]));
+    let call = 0;
+    const gh: GhRunner = {
+      run: async () => {
+        call += 1;
+        if (call === 2) throw new Error("HTTP 502");
+        return search;
+      },
+    };
+    const result = await runSweep(gh, () => NOW);
+    expect(result.rows[0]!.stack).toBeNull();
   });
 
   it("passes the query as a raw string and the limit as an Int", async () => {
@@ -122,8 +159,10 @@ describe("runSweep repository filter", () => {
     const result = await runSweep(gh, () => NOW, { allows: (repo) => repo === "acme/widgets" });
     expect(result.rows.map((row) => row.repo)).toEqual(["acme/widgets"]);
     expect(result.skippedRepos).toEqual(["acme/gadgets"]);
-    // Still one call: the filter cannot save a request it cannot scope.
-    expect(gh.calls).toHaveLength(1);
+    // The search cannot be scoped, so it still runs whole; the stacks are read
+    // only for the repositories that stayed.
+    expect(gh.calls).toHaveLength(2);
+    expect(gh.calls[1]!).not.toContain("n0=gadgets");
   });
 
   it("keeps every row and skips nothing without a filter", async () => {

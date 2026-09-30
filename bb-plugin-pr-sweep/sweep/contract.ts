@@ -78,6 +78,8 @@ const rowSchema = z.object({
   outdatedThreads: z.number(),
   repliedThreads: z.number().optional(),
   unansweredBy: z.array(z.string()).optional(),
+  /** Where it sits in a stack of pull requests built on each other's branches. */
+  stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable().optional(),
   notedBy: z.array(z.string()),
   /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
   updatedAt: z.number(),

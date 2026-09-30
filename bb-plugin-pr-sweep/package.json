@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "PR Sweep",
-    "description": "Open pull requests you authored in one list, ordered Now, Next, and Later by what needs you, with local notes and new comment counts. Needs gh-context.",
+    "description": "Open pull requests you authored in one list, ordered Now, Next, and Later by what needs you, with local notes, new comment counts, and where a stacked pull request sits in its stack. Needs gh-context.",
     "branding": {
       "icon": "GitPullRequest"
     },

@@ -1,6 +1,7 @@
 import { Fragment, type ComponentType, type MouseEvent, type ReactNode } from "react";
 
 import { Icon } from "./icons";
+import { StackChip } from "./stack-chip";
 import { cn } from "./lib/cn";
 import { NoteBox, NoteField } from "./note";
 import { Track } from "./track";
@@ -209,6 +210,7 @@ export function SweepRow({
             {icon}
             {title}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
+            {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
           </span>
           {/* One slot on the right: a flag outranks the first fact, or it would never show on a line. */}
           {renderBody ? (
@@ -237,6 +239,7 @@ export function SweepRow({
                 {title}
                 <span className="shrink-0 text-muted-foreground">#{item.number}</span>
               </span>
+              {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
               {unread ? (
                 <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>
               ) : null}

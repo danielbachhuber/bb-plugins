@@ -1,3 +1,4 @@
+import type { StackPosition } from "@danielb/gh-shared/gh";
 import type { Flag, Run } from "sweep-ui/types";
 import { DISPLAY_SECTIONS, hasOnlyPassiveFlags, sectionForRow } from "./actions.js";
 import { FLAG_SEVERITY } from "./types.js";
@@ -38,6 +39,7 @@ export interface ListedPr {
   outdatedThreads: number;
   repliedThreads?: number;
   unansweredBy?: string[];
+  stack?: StackPosition | null;
   notedBy: string[];
   canSpawn: boolean;
   threadId: string | null;

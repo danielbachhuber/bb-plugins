@@ -297,6 +297,8 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
     comments: pr.comments?.totalCount ?? 0,
     checks: checksOf(pr),
     reviewers: reviewersOf(pr, viewer),
+    // Filled in by the sweep, which reads the rest of each stack in one more call.
+    stack: null,
   };
 }
 

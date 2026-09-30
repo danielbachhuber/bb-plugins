@@ -86,7 +86,7 @@ const rowSchema = z.object({
     cancelled: z.number(),
     total: z.number(),
   }),
-  /** Everyone else asked to review or who has reviewed, never the viewer. */
+  /** Everyone asked to review or who has reviewed but the author, the viewer first. */
   reviewers: z.array(
     z.object({
       login: z.string(),
@@ -94,6 +94,8 @@ const rowSchema = z.object({
       team: z.boolean(),
     }),
   ),
+  /** Where it sits in a stack of pull requests built on each other's branches, or null. */
+  stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable(),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */

@@ -8,6 +8,8 @@ import {
 export { GhUnavailableError, createGhRunner };
 export type { GhRunner };
 
+import { fetchStacks, stackKey } from "@danielb/gh-shared/gh";
+
 import { classify } from "./classify.js";
 import type { RawSearchResponse, SweepResult } from "./types.js";
 
@@ -146,6 +148,16 @@ export async function runSweep(
   const skipped = new Set(
     scope ? classified.filter((row) => !scope.allows(row.repo)).map((row) => row.repo) : [],
   );
+
+  // One more call for the whole sweep: a stack's other layers are rarely in
+  // this list, so it reads every open pull request in the rows' repositories.
+  // A failure loses the chips, not the sweep.
+  try {
+    const stacks = await fetchStacks(gh, [...new Set(rows.map((row) => row.repo))].sort());
+    for (const row of rows) row.stack = stacks.get(stackKey(row.repo, row.number)) ?? null;
+  } catch {
+    // Leave every row out of a stack.
+  }
 
   return {
     rows,

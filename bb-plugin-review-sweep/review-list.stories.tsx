@@ -63,6 +63,7 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     comments: 0,
     checks: GREEN,
     reviewers: [YOU],
+    stack: null,
     note: null,
     newComments: 0,
     ...overrides,
@@ -158,11 +159,14 @@ const everything: Listing = {
       requestedAt: now - 3 * 24 * HOUR,
       threadId: "thr_fixture2",
       reviewers: [YOU, { login: "hubber", state: "approved", team: false }],
+      // The middle of a stack of three, on a pull request not in this list.
+      stack: { index: 2, size: 3, on: 404 },
     }),
     row({
       number: 443,
       title: "WIP: widget search",
       isDraft: true,
+      stack: { index: 3, size: 3, on: 405 },
       requestedAt: now - 26 * HOUR,
       size: { additions: 890, deletions: 45, changedFiles: 21 },
     }),
@@ -261,7 +265,9 @@ export function Baseline() {
 /**
  * Every run the list can draw: re-review, with its blue banner, waiting too
  * long, and reviewing in Now; to review in Next; drafts and ignored in Later.
- * Every row is open, with the timer at the bottom right. Then the list across
+ * Every row is open, with the timer at the bottom right. The thread re-review
+ * and the draft are layers of one stack, each with a chip saying where it
+ * sits and what it is built on. Then the list across
  * two repositories, a thread being started with a timer running, and the panel
  * without Harvest.
  */
@@ -270,7 +276,7 @@ export function Rows() {
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored review that says when it returns."
+        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored review that says when it returns. The re-review with a thread and the draft are in one stack."
       >
         <Frame listing={everything} />
       </StoryRow>

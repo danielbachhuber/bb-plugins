@@ -1,3 +1,4 @@
+import type { StackPosition } from "@danielb/gh-shared/gh";
 import type { ChecksSummary } from "sweep-ui/pull-request";
 
 /** Ordered worst-first. Index in this array IS the severity rank. */
@@ -66,6 +67,11 @@ export interface ClassifiedRow {
    * most threads first. Absent on a row stored before the sweep read it.
    */
   unansweredBy?: string[];
+  /**
+   * Where it sits in a stack of pull requests built on each other's branches,
+   * or null when it is in none. Absent on a row stored before the sweep read it.
+   */
+  stack?: StackPosition | null;
   /**
    * Reviewers whose latest review carries a written body.
    *

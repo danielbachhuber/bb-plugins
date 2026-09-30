@@ -120,6 +120,40 @@ describe("runSweep", () => {
   });
 });
 
+describe("runSweep stacks", () => {
+  it("puts each row in its stack from one more call, for the swept repositories only", async () => {
+    const stackCalls: string[][] = [];
+    const gh: GhRunner = {
+      async run(args) {
+        if (args[0] === "search") return JSON.stringify([{ repository: { nameWithOwner: "acme/widgets" }, number: 2 }]);
+        if (args[0] === "pr") return JSON.stringify([makePr({ number: 2 })]);
+        if (args.some((arg) => arg.startsWith("o0="))) {
+          stackCalls.push(args);
+          return JSON.stringify({
+            data: {
+              r0: {
+                nameWithOwner: "acme/widgets",
+                defaultBranchRef: { name: "main" },
+                pullRequests: {
+                  nodes: [
+                    { number: 1, baseRefName: "main", headRefName: "a", isCrossRepository: false },
+                    { number: 2, baseRefName: "a", headRefName: "b", isCrossRepository: false },
+                  ],
+                },
+              },
+            },
+          });
+        }
+        return JSON.stringify({ data: {} });
+      },
+    };
+    const result = await runSweep(gh, () => 1);
+    expect(stackCalls).toHaveLength(1);
+    expect(stackCalls[0]).toEqual(expect.arrayContaining(["o0=acme", "n0=widgets"]));
+    expect(result.rows[0]!.stack).toEqual({ index: 2, size: 2, on: 1 });
+  });
+});
+
 describe("runSweep repository filter", () => {
   /** Records every repository a detail call was made for. */
   function trackingRunner(fetched: string[]): GhRunner {

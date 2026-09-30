@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import type { StackChipProps } from "./stack-chip";
+
 export type Tier = "now" | "next" | "later";
 
 /** Now's five colors, by meaning. See the spec's color table. */
@@ -44,6 +46,12 @@ export interface SweepItem {
   blockedStage?: number | null;
   /** Drawn before the title, such as a pull request's state icon. */
   icon?: ReactNode;
+  /**
+   * Where a pull request sits in a stack of pull requests built on each
+   * other's branches, drawn as a chip after the number. Left out when it is
+   * not in one.
+   */
+  stack?: StackChipProps["stack"] | null;
   progress?: { done: number; total: number } | null;
   /**
    * Drawn open whatever its tier, with no chevron to close it. For a row

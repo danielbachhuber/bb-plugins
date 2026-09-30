@@ -1,3 +1,4 @@
+import { fetchStacks, stackKey } from "@danielb/gh-shared/gh";
 import { fetchThreadCounts, threadKey } from "./threads.js";
 import {
   GhUnavailableError,
@@ -150,6 +151,16 @@ export async function runSweep(
     }
   } catch {
     // Leave the counts at zero.
+  }
+
+  // And one for the stacks: a pull request's base is often not yours, so this
+  // reads every open pull request in the swept repositories. A failure loses
+  // the chips, not the sweep.
+  try {
+    const stacks = await fetchStacks(gh, repos);
+    for (const row of rows) row.stack = stacks.get(stackKey(row.repo, row.number)) ?? null;
+  } catch {
+    // Leave every row out of a stack.
   }
 
   return { rows, repos, failedRepos, skippedRepos, truncated, sweptAt: now() };

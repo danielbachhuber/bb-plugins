@@ -324,6 +324,8 @@ export function classifyOne(
     outdatedThreads: 0,
     repliedThreads: 0,
     unansweredBy: [],
+    // Filled in by the sweep, which reads the rest of each stack in one more call.
+    stack: null,
     awaitingReReview,
     // Zero for a missing or unreadable date, which the listing reads as unknown.
     updatedAt: Date.parse(pr.updatedAt ?? "") || 0,

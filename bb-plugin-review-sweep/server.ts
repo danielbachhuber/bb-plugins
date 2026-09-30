@@ -400,6 +400,7 @@ export default async function plugin(bb: BbPluginApi) {
             // Rows stored before the sweep read these draw no checks and no reviewers.
             checks: row.checks ?? NO_CHECKS,
             reviewers: row.reviewers ?? [],
+            stack: row.stack ?? null,
             note: notes.get(key) ?? null,
             newComments: seenCount === undefined ? 0 : Math.max(0, comments - seenCount),
             canSpawn: threadMap !== null && spawnable.has(row.repo),

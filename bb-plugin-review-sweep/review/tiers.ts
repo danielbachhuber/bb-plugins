@@ -1,4 +1,5 @@
 import type { Flag, Run } from "sweep-ui/types";
+import type { StackPosition } from "@danielb/gh-shared/gh";
 import { ageInDays, type ChangeSize, type ChecksSummary, type ReviewState, type RowReviewer } from "./types.js";
 
 /**
@@ -30,6 +31,8 @@ export interface ListedReview {
   checks: ChecksSummary;
   /** Everyone else asked to review or who has reviewed. */
   reviewers: RowReviewer[];
+  /** Where it sits in a stack of pull requests, or null when it is in none. */
+  stack: StackPosition | null;
   /** The local next-step note, never sent to GitHub. */
   note: string | null;
   /** Comments since the pull request was last opened from here. */

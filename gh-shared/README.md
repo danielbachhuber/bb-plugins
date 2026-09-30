@@ -25,6 +25,12 @@ and nothing else:
   validation that keeps a repository name from reaching a shell. Each plugin keeps its own fetching:
   pull requests fan out per repository, reviews run one GraphQL search, issues
   run a different one.
+- **`stacks`**, served from the `gh` path — `fetchStacks`, one GraphQL call
+  reading every open pull request in the swept repositories, and the pure
+  `stackPositions`, which places each in its stack of pull requests built on
+  each other's branches. PR Sweep and Review Sweep both draw the result as a
+  chip. It is re-exported from `gh` rather than given a subpath of its own
+  because bb caches a package's exports map for as long as its server runs.
 - **`projects`** — matching a repository to a bb project by its git remotes,
   and `buildRepoFilter`, which turns that matching into the sweep scope.
   `toProjectCandidates` reads every remote out of a project's checkout rather

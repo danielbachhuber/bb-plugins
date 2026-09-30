@@ -87,6 +87,8 @@ const readyToMerge = row({
   title: "Cache widget thumbnails between page loads",
   flags: ["merge-ready"],
   approvedBy: ["hubber"],
+  // The bottom of a stack, with #495 built on it.
+  stack: { index: 1, size: 2, on: null },
 });
 
 const conflictAndFeedback = row({
@@ -118,6 +120,7 @@ const inProgress = row({
   waitingOn: ["hubber"],
   threadIds: ["thr_fixture1"],
   note: "Rerun the theme snapshot job after the rebase",
+  stack: { index: 2, size: 2, on: 512 },
 });
 
 const awaitingReview = row({
@@ -410,14 +413,15 @@ function Frame({
  * A typical day. The pull requests that need you, the one ready to merge, and
  * the one with a thread at the top, each with a red banner naming what stops
  * it or a green one when it can merge; then the draft and the one awaiting
- * review.
+ * review. The one with a thread is stacked on the one ready to merge, so each
+ * has a chip: "1 of 2 · base" and "2 of 2 · on #512".
  */
 export function Baseline() {
   return (
     <StoryCard>
       <StoryRow
         label="Baseline"
-        hint="A conflict with two new comments, failing CI, one ready to merge, one with a thread and a note, a draft, and one awaiting review."
+        hint="A conflict with two new comments, failing CI, one ready to merge, one with a thread and a note, a draft, and one awaiting review. The one with a thread is stacked on the one ready to merge."
       >
         <Frame listing={baseline} />
       </StoryRow>

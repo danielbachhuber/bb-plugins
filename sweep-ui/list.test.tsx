@@ -199,6 +199,16 @@ describe("SweepList", () => {
     expect(screen.getByRole("button", { name: "Add note" })).toBeInTheDocument();
   });
 
+  it("draws a stacked row's chip after its number, through the list's Link", () => {
+    render(
+      <SweepList
+        {...props([item(2, "new", { stack: { index: 2, size: 3, on: { number: 1, url: "https://github.com/acme/widgets/pull/1" } } })])}
+        renderBody={() => null}
+      />,
+    );
+    expect(within(row("Widget task 2")).getByText(/2 of 3/)).toHaveTextContent("2 of 3 · on #1");
+  });
+
   it("draws renderTrailing last on the action line, after the note button", () => {
     render(
       <SweepList {...props([item(1, "new")])} renderTrailing={() => <button type="button">Timer</button>} />,

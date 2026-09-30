@@ -116,3 +116,8 @@ export async function readGitRemoteUrls(path: string): Promise<string[]> {
     return [];
   }
 }
+
+// Served from this path rather than a `./stacks` export of its own: bb caches
+// a package's exports map for as long as its server runs, so a new subpath
+// would not load in a running bb until it restarted.
+export * from "./stacks.js";

@@ -66,6 +66,15 @@ panel, or started one, and how long ago it was updated on the right. The first
 sweep to see a pull request records its comment count, so nothing is new on
 the first sync.
 
+A pull request in a stack, built on another open pull request's branch or
+with one built on its own, has a chip after its number: "3 of 5 · on #612",
+with the number linking to the pull request below it, or "1 of 5 · base" at
+the bottom. Two pull requests on one base share an index, and the count is
+every open pull request in the stack, whoever opened it. Rows keep their place
+in the list, so a stack's layers can sit apart. The stacks come from one more
+GraphQL call per sweep, reading the open pull requests in each swept
+repository; a failure there drops the chips, not the sweep.
+
 Under the title, a banner says where the pull request stands.
 
 - **Red, for what stops it**, the first that applies: "Merge conflict with
