@@ -53,6 +53,12 @@ export interface SweepListProps {
   collapsible?: boolean;
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
+  /**
+   * "tier", the default, draws Now, then Next, then Later, folding Later after
+   * `laterShown`. "given" draws the rows in the order `items` has them, with
+   * nothing folded, for a caller that orders them itself.
+   */
+  order?: "tier" | "given";
 }
 
 const TIERS: Tier[] = ["now", "next", "later"];
@@ -72,6 +78,7 @@ export function SweepList({
   renderTrack,
   collapsible = true,
   renderTrailing,
+  order = "tier",
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
   // Rows opened or closed by hand. Open state lives only as long as the panel.
@@ -96,7 +103,7 @@ export function SweepList({
   const byTier = TIERS.map((tier) => shown.filter((item) => (tierOf.get(item.runId) ?? "later") === tier));
   const [now, next, later] = byTier as [SweepItem[], SweepItem[], SweepItem[]];
   // A filtered list is short already, so its Later rows all show.
-  const fold = active === null && !showAllLater && later.length > laterShown;
+  const fold = order === "tier" && active === null && !showAllLater && later.length > laterShown;
   const visibleLater = fold ? later.slice(0, laterShown) : later;
 
   const rowFor = (item: SweepItem, tier: Tier) => {
@@ -135,9 +142,15 @@ export function SweepList({
     <div className="space-y-3">
       <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
       <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-        {now.map((item) => rowFor(item, "now"))}
-        {next.map((item) => rowFor(item, "next"))}
-        {visibleLater.map((item) => rowFor(item, "later"))}
+        {order === "given" ? (
+          shown.map((item) => rowFor(item, tierOf.get(item.runId) ?? "later"))
+        ) : (
+          <>
+            {now.map((item) => rowFor(item, "now"))}
+            {next.map((item) => rowFor(item, "next"))}
+            {visibleLater.map((item) => rowFor(item, "later"))}
+          </>
+        )}
         {fold ? (
           <li>
             <button

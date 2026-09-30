@@ -281,20 +281,20 @@ describe("tiers", () => {
     expect(slot.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
   });
 
-  it("draws needs you, ready, working, drafts, then waiting, whatever order the rows arrive in", async () => {
+  it("draws the newest first, with the overdue and then the ones being worked on pinned on top", async () => {
     const slot = render(
       listing({
         rows: [
-          waitingRow({ number: 1, title: "Waiting" }),
-          rowFixture({ number: 2, title: "Draft", flags: [], group: "clean", isDraft: true }),
-          rowFixture({ number: 3, title: "Working", threadId: "thr_1", threadIds: ["thr_1"] }),
-          rowFixture({ number: 4, title: "Ready", flags: ["merge-ready"], group: "ready-to-merge" }),
-          rowFixture({ number: 5, title: "Conflict" }),
+          waitingRow({ number: 1, title: "Overdue", updatedAt: Date.now() - 5 * DAY }),
+          rowFixture({ number: 2, title: "Draft", flags: [], group: "clean", isDraft: true, updatedAt: Date.now() - HOUR }),
+          rowFixture({ number: 3, title: "Working", threadId: "thr_1", threadIds: ["thr_1"], updatedAt: Date.now() - 2 * DAY }),
+          rowFixture({ number: 4, title: "Ready", flags: ["merge-ready"], group: "ready-to-merge", updatedAt: Date.now() - 2 * HOUR }),
+          rowFixture({ number: 5, title: "Conflict", updatedAt: Date.now() - 3 * HOUR }),
         ],
       }),
     );
-    await slot.findByText("Waiting");
-    expect(titles(slot)).toEqual(["Conflict", "Ready", "Working", "Draft", "Waiting"]);
+    await slot.findByText("Overdue");
+    expect(titles(slot)).toEqual(["Overdue", "Working", "Draft", "Ready", "Conflict"]);
   });
 
   it("puts what stops the pull request in a red banner under the title", async () => {
@@ -339,12 +339,13 @@ describe("tiers", () => {
     expect(await slot.findByText("3 new")).toBeInTheDocument();
   });
 
-  it("folds Later after five rows", async () => {
+  it("folds nothing, however many rows are waiting", async () => {
     const rows = Array.from({ length: 7 }, (_, index) =>
       waitingRow({ number: index + 1, title: `Waiting item ${index + 1}` }),
     );
     const slot = render(listing({ rows }));
-    expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
+    expect(await slot.findByText("Waiting item 7")).toBeInTheDocument();
+    expect(slot.queryByRole("button", { name: /more$/ })).toBeNull();
   });
 
   it("shows a tab of only Later rows as the list, not the empty state", async () => {

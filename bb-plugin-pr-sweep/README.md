@@ -1,8 +1,8 @@
 # bb-plugin-pr-sweep
 
 A bb sidebar panel listing every open pull request you authored, across all
-repositories, in one list ordered by what needs you: Now, then Next, then
-Later.
+repositories, in one list, newest first, with the overdue ones and the ones
+being worked on pinned at the top.
 
 The sweep is deterministic: it runs `gh`, classifies the result with pure
 functions, and spends no model tokens. An agent is only involved when you click
@@ -33,27 +33,27 @@ bb plugin install . --yes
 
 ## How the list is ordered
 
-Every pull request is in one run, and every run is in one tier. The summary
-squares above the list show one square per pull request, grouped by run and
-counted ("2 need you"). Pressing a run shows only its pull requests; pressing
-it again shows them all.
+Newest first, by when GitHub last saw activity on the pull request, with two
+kinds pinned above the rest:
 
-| Tier | Runs, in order |
-| --- | --- |
-| Now | needs you, ready to merge, working |
-| Next | drafts |
-| Later | waiting, folded after five |
+1. **Overdue**: awaiting review and not updated for "Stale after (days)".
+   Tinted red, with "Waiting N days" on its icon line.
+2. **Being worked on**: has a thread. Its rows have an orange left edge.
+
+Each pinned group is newest first too. Pull requests with the same timestamp
+are ordered by repository then number, so rows do not reshuffle between
+sweeps.
+
+Every pull request is also in one run, which the summary squares above the
+list count, one square per pull request ("2 need you"). Pressing a run shows
+only its pull requests, in the same order; pressing it again shows them all.
 
 - **Needs you**: a flag or open comments that are yours to act on.
 - **Ready to merge**: approved, green, and nobody else asked to review.
-- **Working**: has a thread, whatever its flags say. Its squares are orange,
-  and so is its rows' left edge.
+- **Working**: has a thread, whatever its flags say. Its squares are orange.
 - **Drafts**: not offered for review yet, flagged or not.
 - **Waiting**: only a CI run in flight, approved with another reviewer still
-  asked, or awaiting review. In that order within the run.
-
-Within a run, the worst flag comes first, tie-broken by repository then
-number, so rows do not reshuffle between sweeps.
+  asked, or awaiting review.
 
 Every row is open, with its title line, banner, icons, note, and actions.
 There is no chevron to close one.
@@ -111,8 +111,7 @@ many failed or were cancelled, skipped checks left out and nothing shown when
 the pull request has no checks; and the lines
 added and removed. The repository joins the line only when more than one is in
 play. A pull request awaiting review that has not been updated for "Stale
-after (days)" shows "Waiting N days" in red there too. A one-line Later row
-shows this line in place of its age.
+after (days)" shows "Waiting N days" in red there too.
 
 A row has no stage track on the right, unlike Issue Sweep's: the banner and
 the icons say where a pull request stands.

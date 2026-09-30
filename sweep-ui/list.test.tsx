@@ -75,6 +75,13 @@ describe("SweepList", () => {
     expect(screen.queryByRole("button", { name: /more$/ })).toBeNull();
   });
 
+  it("draws the rows in the order given, unfolded, when told to", () => {
+    const items = [...later(6), item(1, "new"), item(2, "to-start")];
+    render(<SweepList {...props(items)} order="given" laterShown={5} />);
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(items.map((each) => each.title));
+    expect(screen.queryByRole("button", { name: /more$/ })).toBeNull();
+  });
+
   it("draws no header: no row count and no Expand all", () => {
     render(<SweepList {...props([item(1, "new"), item(2, "to-start"), ...later(2)])} />);
     expect(screen.queryByText("4 issues")).toBeNull();

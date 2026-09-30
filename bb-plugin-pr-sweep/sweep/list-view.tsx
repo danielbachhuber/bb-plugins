@@ -508,7 +508,7 @@ export function PrListView({
   // The repository only earns a place on the row when it varies.
   const showRepo = new Set(listing.rows.map((row) => row.repo)).size > 1;
 
-  const sorted = sortPrs(listing.rows);
+  const sorted = sortPrs(listing.rows, inputs);
   const rowsByKey = new Map(sorted.map((row) => [keyOf(row), row]));
   const items: SweepItem[] = sorted.map((row) => ({
     key: keyOf(row),
@@ -579,6 +579,8 @@ export function PrListView({
             items={items}
             // Every row stays open, so each pull request shows its actions.
             collapsible={false}
+            // Newest first with the pinned rows on top, not grouped by tier.
+            order="given"
             Link={UrlLink}
             onNoteSave={(item, body) => {
               const row = rowsByKey.get(item.key);

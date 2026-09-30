@@ -1,7 +1,6 @@
 import type { StackPosition } from "@danielb/gh-shared/gh";
 import type { Flag, Run } from "sweep-ui/types";
 import { DISPLAY_SECTIONS, hasOnlyPassiveFlags, sectionForRow } from "./actions.js";
-import { FLAG_SEVERITY } from "./types.js";
 
 /**
  * Which run, and so which tier, each pull request belongs in, and the order
@@ -162,36 +161,28 @@ export function flagsFor(row: ListedPr, inputs: TierInputs): Flag[] {
   return flags;
 }
 
-/** The worst flag's place in FLAG_SEVERITY, with an unflagged row last. */
-function severity(row: ListedPr): number {
-  const first = row.flags[0];
-  const index = first === undefined ? -1 : (FLAG_SEVERITY as readonly string[]).indexOf(first);
-  return index === -1 ? FLAG_SEVERITY.length : index;
+/**
+ * Where a row is pinned above the rest: 0 for one waiting on a reviewer past
+ * "Stale after (days)", 1 for one with a thread at work on it, and null for
+ * the rest.
+ */
+export function pinOf(row: ListedPr, inputs: TierInputs): 0 | 1 | null {
+  if (isStale(row, inputs)) return 0;
+  if (runOf(row) === "working") return 1;
+  return null;
 }
 
 /**
- * Run order first, which also puts Now before Next before Later. Within a run,
- * the table's order: its sections in their old order, then the worst flag
- * first, as the classifier sorts. Repository and number break ties, so rows
- * do not reshuffle between sweeps.
+ * Newest first, by GitHub's last activity, with the overdue pull requests and
+ * then the ones being worked on pinned above the rest. Repository and number
+ * break ties, so rows sharing a timestamp do not reshuffle between sweeps.
  */
-export function sortPrs(rows: ListedPr[]): ListedPr[] {
-  const runOrder = new Map(PR_RUNS.map((run, index) => [run.id, index]));
-  const sectionOrder = new Map(DISPLAY_SECTIONS.map((section, index) => [section, index]));
-  const keyed = rows.map((row) => {
-    const section = sectionForRow(row);
-    return {
-      row,
-      run: runOrder.get(RUN_OF_SECTION[section]) ?? PR_RUNS.length,
-      section: sectionOrder.get(section) ?? DISPLAY_SECTIONS.length,
-      severity: severity(row),
-    };
-  });
+export function sortPrs(rows: ListedPr[], inputs: TierInputs): ListedPr[] {
+  const keyed = rows.map((row) => ({ row, pin: pinOf(row, inputs) ?? 2 }));
   keyed.sort(
     (a, b) =>
-      a.run - b.run ||
-      a.section - b.section ||
-      a.severity - b.severity ||
+      a.pin - b.pin ||
+      b.row.updatedAt - a.row.updatedAt ||
       a.row.repo.localeCompare(b.row.repo) ||
       a.row.number - b.row.number,
   );

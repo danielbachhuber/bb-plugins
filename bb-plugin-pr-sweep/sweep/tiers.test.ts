@@ -4,6 +4,7 @@ import {
   flagsFor,
   isStale,
   parseStaleAfterDays,
+  pinOf,
   runOf,
   sortPrs,
   stageOf,
@@ -149,38 +150,32 @@ describe("flagsFor", () => {
 });
 
 describe("sortPrs", () => {
-  it("orders the waiting run as waiting on CI, partly approved, then awaiting review", () => {
-    const awaiting = pr({ title: "awaiting" });
-    const partial = pr({ title: "partial", flags: ["merge-ready"], approvedBy: ["hubber"], waitingOn: ["octocat"] });
-    const onCi = pr({ title: "ci", flags: ["ci-pending"] });
-    expect(sortPrs([awaiting, partial, onCi]).map((row) => row.title)).toEqual(["ci", "partial", "awaiting"]);
+  it("puts the newest first", () => {
+    const old = pr({ title: "old", updatedAt: NOW - 2 * DAY });
+    const fresh = pr({ title: "fresh", updatedAt: NOW - HOUR });
+    const draft = pr({ title: "draft", isDraft: true, updatedAt: NOW - 2 * HOUR });
+    expect(sortPrs([old, draft, fresh], inputs).map((row) => row.title)).toEqual(["fresh", "draft", "old"]);
   });
 
-  it("puts the worst flag first within a run, then repository and number", () => {
-    const noReviewer = pr({ title: "no reviewer", repo: "acme/widgets", number: 5, flags: ["no-reviewer"], waitingOn: [] });
-    const conflictGadgets = pr({ title: "gadgets", repo: "acme/gadgets", number: 9, flags: ["conflict"] });
-    const conflictWidgets = pr({ title: "widgets", repo: "acme/widgets", number: 2, flags: ["conflict"] });
-    expect(sortPrs([noReviewer, conflictWidgets, conflictGadgets]).map((row) => row.title)).toEqual([
+  it("pins the overdue and then the ones being worked on above the newest", () => {
+    const fresh = pr({ title: "fresh", flags: ["ci-failing"], updatedAt: NOW - HOUR });
+    const working = pr({ title: "working", threadId: "thr_1", updatedAt: NOW - 2 * DAY });
+    const overdue = pr({ title: "overdue", updatedAt: NOW - 5 * DAY });
+    expect(pinOf(overdue, inputs)).toBe(0);
+    expect(pinOf(working, inputs)).toBe(1);
+    expect(pinOf(fresh, inputs)).toBeNull();
+    expect(sortPrs([fresh, working, overdue], inputs).map((row) => row.title)).toEqual(["overdue", "working", "fresh"]);
+  });
+
+  it("breaks a tie in time by repository, then number", () => {
+    const gadgets = pr({ title: "gadgets", repo: "acme/gadgets", number: 9, updatedAt: NOW - HOUR });
+    const widgets2 = pr({ title: "widgets 2", repo: "acme/widgets", number: 2, updatedAt: NOW - HOUR });
+    const widgets5 = pr({ title: "widgets 5", repo: "acme/widgets", number: 5, updatedAt: NOW - HOUR });
+    expect(sortPrs([widgets5, widgets2, gadgets], inputs).map((row) => row.title)).toEqual([
       "gadgets",
-      "widgets",
-      "no reviewer",
+      "widgets 2",
+      "widgets 5",
     ]);
-  });
-
-  it("lists rows in the order of the runs, so a filtered list keeps its order", () => {
-    const rows = [
-      pr({ isDraft: true }),
-      pr({ flags: ["ci-pending"] }),
-      pr(),
-      pr({ threadId: "thr_1" }),
-      pr({ flags: ["merge-ready"], approvedBy: ["hubber"], waitingOn: [] }),
-      pr({ flags: ["ci-failing"] }),
-      pr({ flags: ["merge-ready"], approvedBy: ["hubber"], waitingOn: ["octocat"] }),
-    ];
-    const order = PR_RUNS.map((run) => run.id);
-    const runs = sortPrs(rows).map((row) => order.indexOf(runOf(row)));
-    expect(runs).toEqual([...runs].sort((a, b) => a - b));
-    expect(new Set(runs).size).toBe(PR_RUNS.length);
   });
 });
 

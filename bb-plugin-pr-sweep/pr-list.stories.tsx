@@ -430,9 +430,9 @@ export function Baseline() {
 }
 
 /**
- * Every run the list can draw: needs you, ready to merge, and working in Now;
- * drafts in Next; waiting in Later, including one stale after six days with
- * its reviewer. Then every flag in the banner, the list
+ * Every run the list can draw: needs you, ready to merge, working, drafts,
+ * and waiting, including one stale after six days with its reviewer, pinned
+ * on top with the one being worked on, and the rest newest first. Then every flag in the banner, the list
  * across two repositories, a thread being started with a timer running, and
  * the panel without Harvest.
  */
@@ -536,7 +536,7 @@ const LONG_TITLES = [
   "Warn before deleting a shared gadget",
 ];
 
-/** Many pull requests waiting on reviewers, so the fold after five Later rows shows. */
+/** Many pull requests waiting on reviewers. */
 const long: Listing = {
   ...baseline,
   rows: [
@@ -553,13 +553,13 @@ const long: Listing = {
 };
 
 /**
- * A long list: the Now and Next rows at the top, then the first five Later
- * rows, with the rest folded into "N more".
+ * A long list: the pinned rows at the top, then every other pull request
+ * newest first, with nothing folded.
  */
 export function LongList() {
   return (
     <StoryCard>
-      <StoryRow label="Long list" hint="Eleven pull requests waiting on reviewers, six of them folded.">
+      <StoryRow label="Long list" hint="Eleven more pull requests waiting on reviewers.">
         <Frame listing={long} />
       </StoryRow>
     </StoryCard>
