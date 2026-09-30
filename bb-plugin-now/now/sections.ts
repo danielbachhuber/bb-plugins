@@ -42,12 +42,12 @@ function instantOf(date: string): number | null {
 }
 
 /** How long a Gmail row can wait in the inbox before it counts as overdue. */
-export const MAIL_OVERDUE_MS = 48 * 60 * 60 * 1000;
+export const MAIL_OVERDUE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Whether a row is overdue: a task whose date (due or deadline, whichever is
  * sooner) is a day already past, or is today at a time already past, or a
- * Gmail row, read or unread, whose latest message is more than 48 hours old.
+ * Gmail row, read or unread, whose latest message is more than 24 hours old.
  */
 export function isOverdue(item: Item, now: Date): boolean {
   if (item.gmail !== null) {

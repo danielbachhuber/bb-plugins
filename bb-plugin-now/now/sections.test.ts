@@ -37,11 +37,11 @@ describe("isOverdue", () => {
     expect(isOverdue(item("a", due(new Date(now.getTime() + 60 * 1000).toISOString())), now)).toBe(false);
   });
 
-  test("counts mail, read or unread, once its latest message is more than 48 hours old", () => {
-    expect(isOverdue(mail("a", 47), now)).toBe(false);
-    expect(isOverdue(mail("a", 48), now)).toBe(false);
-    expect(isOverdue(mail("a", 49), now)).toBe(true);
-    expect(isOverdue(mail("a", 49, true), now)).toBe(true);
+  test("counts mail, read or unread, once its latest message is more than 24 hours old", () => {
+    expect(isOverdue(mail("a", 23), now)).toBe(false);
+    expect(isOverdue(mail("a", 24), now)).toBe(false);
+    expect(isOverdue(mail("a", 25), now)).toBe(true);
+    expect(isOverdue(mail("a", 25, true), now)).toBe(true);
   });
 });
 
@@ -112,6 +112,7 @@ describe("overdueText", () => {
     expect(overdueText(item("a", due("2026-09-23")), now)).toBe("1 day late");
     expect(overdueText(item("a", due("2026-09-16")), now)).toBe("8 days late");
     expect(overdueText(item("a", { ...due("2026-09-23T14:00:00"), deadline: "2026-09-20" }), now)).toBe("4 days late");
+    expect(overdueText(mail("a", 25), now)).toBe("1 day old");
     expect(overdueText(mail("a", 49), now)).toBe("2 days old");
     expect(overdueText(item("a", due("2026-09-24T09:10:00")), now)).toBe("20 minutes late");
     expect(overdueText(item("a", due("2026-09-24T09:29:00")), now)).toBe("1 minute late");
@@ -234,7 +235,7 @@ describe("sidebarCounts", () => {
       item("inbox", { inbox: true }),
       item("to-you", { gmail: { threadIds: ["t0"], unread: false, toYou: true }, activityAt: hoursAgo(1) }),
       mail("request", 2, true),
-      // Mail over two days old is not overdue here; it counts in its own run.
+      // Mail over a day old is not overdue here; it counts in its own run.
       mail("stale", 60),
       item("merged", {
         gmail: { threadIds: ["t9"], unread: true },

@@ -68,7 +68,7 @@ look as they do in Todoist, and its open subtasks are listed under it as
 bullets. A task's
 P1–P3 tag sits under its Todoist icon. An overdue row (a task dated before
 today or due today at a time that has passed, or mail, read or unread, whose
-latest message is more than 48 hours old) is tinted red with a red bar down its
+latest message is more than 24 hours old) is tinted red with a red bar down its
 left edge, and says how late it is in place of its date: "3 days late" for a
 task, "2 hours late" or "20 minutes late" for one due earlier today, "4 days
 old" for mail. Mail that old stays in its run rather than joining
