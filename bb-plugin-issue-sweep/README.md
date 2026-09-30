@@ -1,8 +1,8 @@
 # bb-plugin-issue-sweep
 
 A bb sidebar panel listing every open GitHub issue assigned to you, across all
-repositories, in one list ordered by what needs you: Now, then Next, then
-Later.
+repositories, in two columns: what needs you, and everything else grouped by
+board status.
 
 The sweep is deterministic: it runs `gh`, parses the result with pure functions,
 and spends no model tokens. No agent is involved at any point.
@@ -37,16 +37,13 @@ rather than quietly showing a subset.
 
 ## How the list is ordered
 
-Every issue is in one run, and every run is in one tier. The summary squares
-above the list show one square per issue, grouped by run and counted ("3 new
-comments"). Pressing a run shows only its issues; pressing it again shows them
-all.
+Every issue is in one run. The runs that need you fill the left column, and
+the rest go in the right one:
 
-| Tier | Runs, in order | Rows |
+| Column | Runs, in order | Rows |
 | --- | --- | --- |
-| Now | new comments, stale, working | Open: title, number line, note, and actions |
-| Next | to start | Closed to the title and number line |
-| Later | waiting on review, later, blocked | One dimmed line each, folded after five |
+| Needs you | new comments, stale, working, to start | Open: title, number line, note, actions, and why the issue is there |
+| Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
 - **New comments**: comments posted since you last opened the issue or its
   thread from the panel, or started one. The first sweep to see an issue
@@ -55,18 +52,16 @@ all.
   a parent, and not updated for "Stale after (days)". Flagged in red. A parent
   is never stale, because its sub-issues are the work. A board move does not
   change the issue's updated time on GitHub, so the plugin counts the moves it
-  makes itself, from the track, the picker, or its own automatic moves, as
-  activity. A move made on the board in GitHub is not seen, and the issue can
-  still read as stale after one.
-- **Working**: has a thread. Its squares are orange, and so is its rows' left
-  edge.
+  makes itself, from the picker or its own automatic moves, as activity. A
+  move made on the board in GitHub is not seen, and the issue can still read
+  as stale after one.
+- **Working**: has a thread. Its rows have an orange left edge.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.
 - **Waiting on review**: in the "Board status when a closing pull request
   opens" status.
-- **Later**: statuses that are board stages, in stage order; then statuses the
-  board has that are not stages (a "Stalled" column, say), alphabetically;
-  then issues with no board status; then issues with sub-issues.
+- **Later**: everything else that is not blocked, including issues with
+  sub-issues.
 - **Blocked**: blocked by an open issue, through GitHub's issue dependencies.
 
 An issue that fits more than one run takes the first in the order above. So
@@ -77,9 +72,14 @@ recently updated issue comes first, tie-broken by repository then number:
 issues bulk-edited in one action share a timestamp to the second, and without
 the tiebreak those rows would reshuffle between sweeps.
 
-A chevron opens or closes any row. The row whose Harvest timer is running stays
-open, whatever its tier, so the timer stays in view. A one-line Later row with
-a stale or blocked flag shows the flag in place of its age.
+The right column groups its issues under headings: the "Board stages, in
+order" from the furthest along back, then Blocked, then statuses the board has
+that are not stages (a "Stalled" column, say), alphabetically, then No status,
+then Not on board. Within a group, the order is the run order above.
+
+A chevron opens or closes a row in the right column. The row whose Harvest
+timer is running stays open, so the timer stays in view. A one-line row with a
+stale or blocked flag shows the flag in place of its age.
 
 ## Each row
 
@@ -88,12 +88,11 @@ it was updated, the comment count, sub-issue or task progress, and "N new" in
 blue when there are new comments. A sub-issue shows its parent as a chip. The
 repository joins the line only when more than one is in play.
 
-The track on the right has one column per "Board stages, in order", each named
-under its dot, with the current stage in bold. Clicking a stage moves the issue
-to that status on the board. An issue the track cannot place gets a status
-picker in its place: "Add to board" for one off the board, "No status" for one
-on the board without a status, and the status name for one in a status that is
-not a stage, so it can be moved back onto the track.
+An open row has a status picker on the right, under the reason the issue
+needs you when it is in the left column: "New comments", "Stale", "Working",
+or "To start". Picking a status moves the issue to it on the board. The picker
+reads "Add to board" for an issue off the board and "No status" for one on the
+board without a status.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note. The Harvest clock, when the Harvest plugin is installed, sits at
@@ -121,12 +120,13 @@ note deletes it.
   filter is off.
 - **Project board** — the board whose status each issue is read from. Blank
   takes the first status found on any board.
-- **Board stages, in order** — the track's columns. Default
+- **Board stages, in order** — the order of the status groups in the right
+  column, drawn furthest along first. Default
   `Backlog,Ready,In Progress,In Review`.
-- **Statuses counted in the sidebar** — the statuses the sidebar count and Next
-  are made of. Default `In Progress,Ready`.
+- **Statuses counted in the sidebar** — the statuses the sidebar count and "to
+  start" are made of. Default `In Progress,Ready`.
 - **Stale after (days)** — how long a counted issue can go without an update
-  before it moves up into Now. Default 7; anything but a positive whole number
+  before it is flagged stale. Default 7; anything but a positive whole number
   is read as 7.
 - **Board status when a closing pull request opens** — the board move made when
   a pull request that closes the issue opens, and the status the list reads as

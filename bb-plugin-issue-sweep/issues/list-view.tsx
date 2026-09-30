@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
-import { SweepList } from "sweep-ui/list";
-import type { Flag, Stage, SweepItem } from "sweep-ui/types";
+import { SweepRow } from "sweep-ui/row";
+import type { Flag, RunTone, Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
 import {
   LoadingGraphic,
@@ -18,9 +18,11 @@ import {
   ISSUE_RUNS,
   isStale,
   lastActivity,
+  needsYou,
   runOf,
   sortIssues,
   stageOf,
+  statusGroups,
   type ListedIssue,
   type TierInputs,
 } from "./tiers.js";
@@ -475,18 +477,6 @@ export function IssueListView({
       parent: row.parent,
       note: row.note,
       stage,
-      // Off the track, whether off the board, with no status, or in a status
-      // the stages do not name, the picker stands in so the issue can still
-      // be moved.
-      offTrack:
-        stage !== null ? undefined : (
-          <StatusCell
-            row={row}
-            options={listing.statusOptions}
-            busy={busyKeys.has(keyOf(row))}
-            onPick={(status) => onPick(row, status)}
-          />
-        ),
       progress:
         row.subtasks && row.subtasks.total > 0
           ? { done: row.subtasks.completed, total: row.subtasks.total }
@@ -498,7 +488,7 @@ export function IssueListView({
 
   return (
     <div className="h-full overflow-auto p-4 md:p-5">
-      <div className="mx-auto w-full max-w-6xl space-y-5">
+      <div className="mx-auto w-full max-w-7xl space-y-5">
         {listing.lastError ? (
           <p className="rounded-lg border border-border p-3 text-sm text-destructive">
             {listing.lastError}
@@ -540,17 +530,23 @@ export function IssueListView({
             )}
           </EmptyGraphic>
         ) : (
-          <SweepList
-            stages={stages}
-            runs={ISSUE_RUNS}
+          <SplitList
             items={items}
-            Link={UrlLink}
+            rowsByKey={rowsByKey}
+            groups={statusGroups(
+              listing.rows.filter((row) => !needsYou(row, inputs)),
+              inputs,
+            )}
+            stages={stages}
             busyKeys={busyKeys}
-            onMove={(item, index) => {
-              const row = rowsByKey.get(item.key);
-              const status = listing.boardStages[index];
-              if (row && status) onPick(row, status);
-            }}
+            renderStatus={(row) => (
+              <StatusCell
+                row={row}
+                options={listing.statusOptions}
+                busy={busyKeys.has(keyOf(row))}
+                onPick={(status) => onPick(row, status)}
+              />
+            )}
             onNoteSave={(item, body) => {
               const row = rowsByKey.get(item.key);
               return row ? onNoteSave(row, body) : Promise.resolve(false);
@@ -595,6 +591,149 @@ export function IssueListView({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Why a row is in "Needs you", as the word over its status picker. */
+const REASONS: Record<string, { label: string; className: string }> = {
+  "new-comments": { label: "New comments", className: "text-[#0b57d0] dark:text-[#a8c7fa]" },
+  stale: { label: "Stale", className: "text-destructive-text" },
+  working: { label: "Working", className: "text-[#c2620a] dark:text-[#f08a24]" },
+  "to-start": { label: "To start", className: "text-muted-foreground" },
+};
+
+const TONES = new Map<string, RunTone>(ISSUE_RUNS.map((run) => [run.id, run.tone]));
+
+interface SplitListProps {
+  /** Every row, already sorted. */
+  items: SweepItem[];
+  rowsByKey: Map<string, Row>;
+  /** The rows that do not need you, grouped by status. */
+  groups: ReturnType<typeof statusGroups>;
+  stages: Stage[];
+  busyKeys: ReadonlySet<string>;
+  renderStatus: (row: Row) => ReactNode;
+  renderActions: (item: SweepItem) => ReactNode;
+  renderTrailing: (item: SweepItem) => ReactNode;
+  onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
+  onOpenLink: (item: SweepItem) => void;
+}
+
+/**
+ * Two columns. On the left, only what needs you, every row open with its
+ * actions, why it is there, and a status picker. On the right, everything
+ * else grouped by status, one line each, opening to the same actions.
+ */
+function SplitList({
+  items,
+  rowsByKey,
+  groups,
+  stages,
+  busyKeys,
+  renderStatus,
+  renderActions,
+  renderTrailing,
+  onNoteSave,
+  onOpenLink,
+}: SplitListProps) {
+  // Rows opened by hand in the right column. Open state lives only as long as the panel.
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const itemsByKey = new Map(items.map((item) => [item.key, item]));
+  const mine = items.filter((item) => REASONS[item.runId]);
+  const restCount = groups.reduce((total, group) => total + group.rows.length, 0);
+
+  const rowFor = (item: SweepItem, side: "mine" | "rest") => {
+    const row = rowsByKey.get(item.key)!;
+    const open = side === "mine" || item.forceOpen === true || opened[item.key] === true;
+    const reason = REASONS[item.runId];
+    return (
+      <SweepRow
+        key={item.key}
+        item={item}
+        tier={side === "mine" ? "now" : "later"}
+        open={open}
+        chevron={side === "rest"}
+        onToggle={
+          side === "rest" && !item.forceOpen
+            ? () => setOpened((current) => ({ ...current, [item.key]: !open }))
+            : undefined
+        }
+        tone={TONES.get(item.runId)}
+        stages={stages}
+        onOpenLink={() => onOpenLink(item)}
+        Link={UrlLink}
+        actions={renderActions(item)}
+        trailing={renderTrailing(item)}
+        editing={editing === item.key}
+        onEditNote={() => setEditing(item.key)}
+        onNoteSave={async (body) => {
+          const saved = await onNoteSave(item, body);
+          if (saved) setEditing((current) => (current === item.key ? null : current));
+          return saved;
+        }}
+        onNoteCancel={() => setEditing(null)}
+        busy={busyKeys.has(item.key)}
+        renderTrack={(_, line) =>
+          line ? null : (
+            <div className="flex w-36 shrink-0 flex-col items-end gap-1 self-start">
+              {reason ? (
+                <span className={`text-xs font-medium ${reason.className}`}>{reason.label}</span>
+              ) : null}
+              {renderStatus(row)}
+            </div>
+          )
+        }
+      />
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <section aria-label="Needs you" className="min-w-0 lg:basis-3/5">
+        <h2 className="mb-1.5 text-sm font-medium text-foreground">
+          Needs you <span className="text-muted-foreground">{mine.length}</span>
+        </h2>
+        {mine.length ? (
+          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
+            {mine.map((item) => rowFor(item, "mine"))}
+          </ul>
+        ) : (
+          <p className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground">
+            Nothing needs you right now.
+          </p>
+        )}
+      </section>
+      {restCount ? (
+        <section aria-label="Everything else" className="min-w-0 lg:basis-2/5">
+          <h2 className="mb-1.5 text-sm font-medium text-foreground">
+            Everything else <span className="text-muted-foreground">{restCount}</span>
+          </h2>
+          <div className="space-y-3">
+            {groups.map((group) => (
+              <div key={group.name}>
+                <h3 className="mb-0.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {group.blocked ? (
+                    <Icon name="CircleX" className="size-3" />
+                  ) : (
+                    <span aria-hidden className={`size-2 rounded-full ${statusDot(group.status)}`} />
+                  )}
+                  {group.name}
+                  <span>{group.rows.length}</span>
+                </h3>
+                <ul className="divide-y divide-border rounded-lg border border-border bg-card px-4">
+                  {group.rows.map((row) => {
+                    const item = itemsByKey.get(keyOf(row));
+                    return item ? rowFor(item, "rest") : null;
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

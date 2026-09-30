@@ -100,7 +100,7 @@ const EXPORT_EPIC = {
   url: "https://github.com/acme/widgets/issues/140",
 };
 
-/** Every tier, run, and row variation at once. */
+/** Every run and row variation at once. */
 const everything: Listing = {
   ...baseline,
   rows: [
@@ -240,9 +240,9 @@ function Frame({
 }
 
 /**
- * Four issues assigned to you. The one with new comments and the one with a
- * thread are open at the top; the ready one is closed to its number line; the
- * backlog one is a single dimmed line.
+ * Four issues assigned to you. The one with new comments, the one with a
+ * thread, and the ready one need you, open on the left; the backlog one is a
+ * single line on the right.
  */
 export function Baseline() {
   return (
@@ -258,9 +258,10 @@ export function Baseline() {
 }
 
 /**
- * Every run the list can draw: new comments, stale, and working in Now; to
- * start in Next; then waiting on review, later, and blocked. Rows show a
- * parent chip, sub-issue and task counts, a status the track does not name,
+ * Every run the list can draw: new comments, stale, working, and to start
+ * under Needs you; waiting on review, later, and blocked grouped by status
+ * beside them. Rows show a parent chip, sub-issue and task counts, a status
+ * the stages do not name,
  * issues off the board, and "No project here" where nothing is checked out.
  * Then the same list across two repositories, a thread being started with a
  * timer running, and the panel without Harvest.
@@ -270,7 +271,7 @@ export function Rows() {
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Each summary run, a stale row, a parent, a Stalled status off the track, issues with no board status, and a blocked issue."
+        hint="Each run, a stale row, a parent, a Stalled status, issues with no board status, and a blocked issue."
       >
         <Frame listing={everything} height="h-[56rem]" />
       </StoryRow>
@@ -342,7 +343,7 @@ export function States() {
 /**
  * What the panel shows when something is wrong: a failed sweep above the last
  * good rows, gh-context missing so no row can start a thread, and no board
- * configured so every row shows its status as text in place of the track.
+ * configured so every row shows its status as text in place of the picker.
  */
 export function Warnings() {
   return (
@@ -377,7 +378,7 @@ export function Warnings() {
       </StoryRow>
       <StoryRow
         label="No board"
-        hint="No board is configured or it could not be read, so no issue is on the track and none can be added."
+        hint="No board is configured or it could not be read, so no issue has a status and none can be added."
       >
         <Frame
           listing={{
@@ -407,7 +408,7 @@ const LONG_TITLES = [
   "Archive widgets older than a year",
 ];
 
-/** A long backlog, most of it in Later, so the fold after five rows shows. */
+/** A long backlog, most of it waiting in the right column. */
 const long: Listing = {
   ...baseline,
   rows: [
@@ -425,13 +426,13 @@ const long: Listing = {
 };
 
 /**
- * A long list: the Now and Next rows at the top, then the first five Later
- * rows, with the rest folded into "N more".
+ * A long list: what needs you on the left, and a long backlog grouped on the
+ * right, with the issues off the board after it.
  */
 export function LongList() {
   return (
     <StoryCard>
-      <StoryRow label="Long list" hint="Thirteen Later rows, eight of them folded.">
+      <StoryRow label="Long list" hint="Twelve more issues in Backlog or off the board.">
         <Frame listing={long} height="fit" />
       </StoryRow>
     </StoryCard>

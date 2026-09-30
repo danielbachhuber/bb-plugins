@@ -103,9 +103,10 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
-/** Opens every closed row from its chevron. */
+/** Opens every closed row from its chevron, once the list has drawn. */
 async function expandAll(slot: Slot) {
-  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
+  await slot.findAllByRole("link");
+  for (const button of slot.queryAllByRole("button", { name: "Expand" })) fireEvent.click(button);
 }
 
 /** The list item holding a title, so a query can stay inside one row. */
@@ -202,7 +203,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens Now rows, closes Next rows to their number line, and draws Later rows as one line", async () => {
+  it("opens every row that needs you, and draws the rest as one line each", async () => {
     const slot = render(
       listing({
         rows: [
@@ -212,17 +213,48 @@ describe("tiers", () => {
         ],
       }),
     );
-    const now = await rowFor(slot, "Working item");
-    const next = await rowFor(slot, "Ready item");
+    const working = await rowFor(slot, "Working item");
+    const ready = await rowFor(slot, "Ready item");
     const later = await rowFor(slot, "Backlog item");
 
-    expect(within(now).getByRole("button", { name: "Open thread" })).toBeInTheDocument();
-    expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
-    expect(within(next).getByText("2 comments")).toBeInTheDocument();
-    expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
+    expect(within(working).getByRole("button", { name: "Open thread" })).toBeInTheDocument();
+    expect(within(working).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    expect(within(ready).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    expect(within(ready).getByText("To start")).toBeInTheDocument();
     // One line: the age, and nothing else from the number line.
     expect(within(later).getByText("3h ago")).toBeInTheDocument();
     expect(within(later).queryByText("2 comments")).toBeNull();
+    expect(within(later).queryByRole("button", { name: "Add note" })).toBeNull();
+  });
+
+  it("puts what needs you in one column and the rest in the other", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Backlog item", boardStatus: "Backlog" }),
+          rowFixture({ number: 2, title: "Ready item" }),
+        ],
+      }),
+    );
+    const mine = await slot.findByRole("region", { name: "Needs you" });
+    const rest = slot.getByRole("region", { name: "Everything else" });
+    expect(within(mine).getByText("Ready item")).toBeInTheDocument();
+    expect(within(rest).getByText("Backlog item")).toBeInTheDocument();
+    expect(within(rest).getByRole("heading", { name: "Backlog 1" })).toBeInTheDocument();
+  });
+
+  it("opens a row in the rest to its note and actions", async () => {
+    const slot = render(listing({ rows: [rowFixture({ boardStatus: "Backlog" })] }));
+    await expandAll(slot);
+    const row = await rowFor(slot, "Widget rotation drifts after a resize");
+    expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+    expect(within(row).getByLabelText("Board status for #42")).toHaveValue("Backlog");
+  });
+
+  it("says so when nothing needs you", async () => {
+    const slot = render(listing({ rows: [rowFixture({ boardStatus: "Backlog" })] }));
+    expect(await slot.findByText("Nothing needs you right now.")).toBeInTheDocument();
   });
 
   it("draws Now, then Next, then Later, whatever order the rows arrive in", async () => {
@@ -276,26 +308,29 @@ describe("tiers", () => {
     expect(await slot.findByRole("link", { name: "Widget export, second pass" })).toHaveAttribute("href", parent.url);
   });
 
-  it("folds Later after five rows", async () => {
-    const rows = Array.from({ length: 7 }, (_, index) =>
-      rowFixture({ number: index + 1, title: `Backlog item ${index + 1}`, boardStatus: "Backlog" }),
+  it("groups the rest by status, furthest along first, with blocked and off-board issues after", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Off the board", onBoard: false, boardStatus: null }),
+          rowFixture({ number: 2, title: "Backlog item", boardStatus: "Backlog" }),
+          rowFixture({ number: 3, title: "Blocked item", blockedBy: 1 }),
+          rowFixture({ number: 4, title: "Stalled item", boardStatus: "Stalled" }),
+          rowFixture({ number: 5, title: "Review item", boardStatus: "In Review" }),
+        ],
+      }),
     );
-    const slot = render(listing({ rows }));
-    expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
+    const rest = await slot.findByRole("region", { name: "Everything else" });
+    expect(within(rest).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)).toEqual([
+      "In Review1",
+      "Backlog1",
+      "Blocked1",
+      "Stalled1",
+      "Not on board1",
+    ]);
   });
 
-  it("shows a tab of only Later rows as the list, not the empty state", async () => {
-    const rows = Array.from({ length: 7 }, (_, index) =>
-      rowFixture({ number: index + 1, title: `Backlog item ${index + 1}`, boardStatus: "Backlog" }),
-    );
-    const slot = render(listing({ rows }));
-    expect(await slot.findByText("Backlog item 1")).toBeInTheDocument();
-    expect(slot.getByRole("group", { name: "Rows by run" })).toBeInTheDocument();
-    expect(slot.getByRole("button", { name: "7 later" })).toBeInTheDocument();
-    expect(slot.queryByText(/No issues assigned to you/i)).toBeNull();
-  });
-
-  it("shows a status the stages do not name in place of the track, and still sorts it by the rules", async () => {
+  it("shows a status the stages do not name in its picker, and still sorts it by the rules", async () => {
     const slot = render(
       listing({
         rows: [
@@ -306,14 +341,13 @@ describe("tiers", () => {
     );
     const stalled = await rowFor(slot, "Stalled item");
     expect(within(stalled).getByLabelText("Board status for #2")).toHaveValue("Stalled");
-    expect(within(stalled).queryByRole("button", { name: /^Move to/ })).toBeNull();
-    // It has a thread, so it is in Now, above the Next row.
+    // It has a thread, so it is working, above the row still to start.
     expect(titles(slot)).toEqual(["Stalled item", "Ready item"]);
   });
 });
 
-describe("track", () => {
-  it("moves an issue to the stage whose dot was clicked", async () => {
+describe("status picker", () => {
+  it("moves an issue to the status picked", async () => {
     const calls: unknown[] = [];
     const slot = render(listing(), {
       setBoardStatus: (input: unknown) => {
@@ -322,16 +356,13 @@ describe("track", () => {
       },
     });
 
-    fireEvent.click(await slot.findByRole("button", { name: "Move to In Progress" }));
+    const picker = await slot.findByLabelText("Board status for #42");
+    expect(picker).toHaveValue("Ready");
+    fireEvent.change(picker, { target: { value: "In Progress" } });
 
     await waitFor(() => expect(calls).toHaveLength(1));
     // By name, never by option id: the ids are the board's private node ids.
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "In Progress" });
-  });
-
-  it("marks the row's current stage", async () => {
-    const slot = render(listing());
-    expect(await slot.findByRole("button", { name: "Move to Ready" })).toHaveAttribute("aria-current", "step");
   });
 
   it("offers to add an issue that is on no board, and sends the picked status", async () => {
@@ -342,6 +373,7 @@ describe("track", () => {
         return { ok: true, added: true, error: null };
       },
     });
+    await expandAll(slot);
     expect(await slot.findByText("Add to board")).toBeInTheDocument();
 
     fireEvent.change(slot.getByLabelText("Board status for #42"), { target: { value: "Ready" } });
@@ -358,6 +390,7 @@ describe("track", () => {
         return { ok: true, added: false, error: null };
       },
     });
+    await expandAll(slot);
     const picker = await slot.findByLabelText("Board status for #42");
     expect(picker).toHaveValue("Stalled");
 
@@ -370,12 +403,14 @@ describe("track", () => {
   it("does not offer to add an issue already on the board with no status", async () => {
     // Adding it again would be a no-op, and the label would be a lie.
     const slot = render(listing({ rows: [rowFixture({ onBoard: true, boardStatus: null })] }));
-    expect(await slot.findByText("No status")).toBeInTheDocument();
+    await expandAll(slot);
+    expect(await slot.findByRole("option", { name: "No status" })).toBeInTheDocument();
     expect(slot.queryByText("Add to board")).toBeNull();
   });
 
   it("falls back to plain text when the board could not be read", async () => {
     const slot = render(listing({ statusOptions: [], rows: [rowFixture({ onBoard: false, boardStatus: null })] }));
+    await expandAll(slot);
     expect(await slot.findByText("Add to board")).toBeInTheDocument();
     expect(slot.queryByLabelText("Board status for #42")).toBeNull();
   });

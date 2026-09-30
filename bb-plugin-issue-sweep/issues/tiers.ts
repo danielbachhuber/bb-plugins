@@ -174,3 +174,66 @@ export function sortIssues(rows: ListedIssue[], inputs: TierInputs): ListedIssue
   });
   return keyed.map((entry) => entry.row);
 }
+
+/** The runs drawn in the "Needs you" column. Every other run goes beside it. */
+export const NEEDS_YOU_RUNS = new Set(["new-comments", "stale", "working", "to-start"]);
+
+export function needsYou(row: ListedIssue, inputs: TierInputs): boolean {
+  return NEEDS_YOU_RUNS.has(runOf(row, inputs));
+}
+
+export interface StatusGroup {
+  /** The heading: a status name, "Blocked", "No status", or "Not on board". */
+  name: string;
+  /** The status whose colour the heading's dot takes, or null for none. */
+  status: string | null;
+  blocked: boolean;
+  rows: ListedIssue[];
+}
+
+/**
+ * The rows that do not need you, grouped for the column beside "Needs you":
+ * the stages furthest along first, then blocked issues, then statuses the
+ * stages do not name, alphabetically, then issues with no status and issues
+ * off the board. Each group keeps the order `sortIssues` gave its rows.
+ */
+export function statusGroups(rows: ListedIssue[], inputs: TierInputs): StatusGroup[] {
+  const groups = new Map<string, StatusGroup>();
+  const rank = new Map<string, [number, number, string]>();
+  for (const row of sortIssues(rows, inputs)) {
+    let name: string;
+    let key: [number, number, string];
+    let status: string | null = row.boardStatus;
+    const blocked = runOf(row, inputs) === "blocked";
+    const stage = stageOf(row, inputs.boardStages);
+    if (blocked) {
+      name = "Blocked";
+      key = [1, 0, ""];
+      status = null;
+    } else if (!row.onBoard) {
+      name = "Not on board";
+      key = [4, 0, ""];
+    } else if (row.boardStatus === null) {
+      name = "No status";
+      key = [3, 0, ""];
+    } else if (stage !== null) {
+      name = inputs.boardStages[stage]!;
+      key = [0, inputs.boardStages.length - stage, ""];
+    } else {
+      name = row.boardStatus;
+      key = [2, 0, row.boardStatus.toLowerCase()];
+    }
+    const id = name.toLowerCase();
+    const group = groups.get(id) ?? { name, status, blocked, rows: [] };
+    group.rows.push(row);
+    groups.set(id, group);
+    rank.set(id, key);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      const x = rank.get(a)!;
+      const y = rank.get(b)!;
+      return x[0] - y[0] || x[1] - y[1] || x[2].localeCompare(y[2]);
+    })
+    .map(([, group]) => group);
+}
