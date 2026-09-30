@@ -93,11 +93,6 @@ function render(result: Record<string, unknown>, extraRpc: Record<string, unknow
 
 type Slot = ReturnType<typeof render>;
 
-/** Opens every closed row from its chevron. */
-async function expandAll(slot: Slot) {
-  for (const button of await slot.findAllByRole("button", { name: "Expand" })) fireEvent.click(button);
-}
-
 /** The list item holding a title, so a query can stay inside one row. */
 async function rowFor(slot: Slot, title: RegExp | string) {
   const link = await slot.findByRole("link", { name: title });
@@ -250,7 +245,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("opens Now rows, closes Next rows to their banner and icons, and draws Later rows as one line", async () => {
+  it("opens every row, whatever its tier, with its note button and actions", async () => {
     const slot = render(
       listing({
         rows: [
@@ -260,18 +255,13 @@ describe("tiers", () => {
         ],
       }),
     );
-    const now = await rowFor(slot, "Overdue item");
-    const next = await rowFor(slot, "Fresh item");
-    const later = await rowFor(slot, "Draft item");
-
-    expect(within(now).getByRole("button", { name: "Start review" })).toBeInTheDocument();
-    expect(within(now).getByRole("button", { name: "Add note" })).toBeInTheDocument();
-    expect(within(next).getByText("octocat")).toBeInTheDocument();
-    expect(within(next).queryByRole("button", { name: "Add note" })).toBeNull();
-    // One line: the icons, inline, in place of the age.
-    expect(within(later).getByText("octocat")).toBeInTheDocument();
-    expect(within(later).getByText("3/3")).toBeInTheDocument();
-    expect(within(later).queryByText("5h ago")).toBeNull();
+    for (const title of ["Overdue item", "Fresh item", "Draft item"]) {
+      const row = await rowFor(slot, title);
+      expect(within(row).getByRole("button", { name: "Start review" })).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+      expect(within(row).getByText("octocat")).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Collapse" })).toBeInTheDocument();
+    }
   });
 
   it("draws re-review, overdue, reviewing, to review, drafts, then ignored, whatever order the rows arrive in", async () => {
@@ -318,7 +308,6 @@ describe("tiers", () => {
     const patient = render(
       listing({ staleAfterDays: 14, rows: [rowFixture({ requestedAt: daysAgo(6) - HOUR })] }),
     );
-    await expandAll(patient);
     expect(patient.queryByText(/Waiting on you/)).toBeNull();
   });
 
@@ -331,7 +320,6 @@ describe("tiers", () => {
 
   it("draws no banner on a fresh first look", async () => {
     const slot = render(listing({ rows: [freshRow()] }));
-    await expandAll(slot);
     expect((await rowFor(slot, /Add the widget endpoint/)).querySelector("[data-tone]")).toBeNull();
   });
 
@@ -344,7 +332,6 @@ describe("tiers", () => {
     const slot = render(
       listing({ rows: [freshRow({ snoozedUntil: Date.now() + 41 * HOUR + 60_000 })] }),
     );
-    await expandAll(slot);
     expect(await slot.findByText(/returns in 42 hours/)).toBeInTheDocument();
   });
 
@@ -570,7 +557,6 @@ describe("ignoring a review", () => {
     const slot = render(listing({ rows: [rowFixture({ snoozedUntil: Date.now() + 41 * HOUR })] }), {
       unsnooze: () => ({ ok: true }),
     });
-    await expandAll(slot);
     fireEvent.click(await slot.findByRole("button", { name: "Stop ignoring" }));
     expect(slot.queryByRole("button", { name: "Ignore for 48 hours" })).toBeNull();
     await waitFor(() => {

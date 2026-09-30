@@ -94,8 +94,9 @@ picker in its place: "Add to board" for one off the board, "No status" for one
 on the board without a status, and the status name for one in a status that is
 not a stage, so it can be moved back onto the track.
 
-An open row's actions are Start thread or Open thread, Add note or Edit note,
-Copy link, and the Harvest clock when the Harvest plugin is installed. Start
+An open row's actions are Start thread or Open thread, Copy link, and Add note
+or Edit note. The Harvest clock, when the Harvest plugin is installed, sits at
+the right end of that line. Start
 thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
 

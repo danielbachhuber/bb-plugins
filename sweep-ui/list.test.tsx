@@ -182,6 +182,25 @@ describe("SweepList", () => {
 
   });
 
+  it("opens every row with allOpen, and still lets one close", () => {
+    render(<SweepList {...props([item(1, "new"), item(2, "to-start"), item(3, "later")])} allOpen />);
+    for (const title of ["Widget task 1", "Widget task 2", "Widget task 3"]) {
+      expect(within(row(title)).getByRole("button", { name: "Start thread" })).toBeInTheDocument();
+    }
+    fireEvent.click(within(row("Widget task 2")).getByRole("button", { name: "Collapse" }));
+    expect(within(row("Widget task 2")).queryByRole("button", { name: "Start thread" })).toBeNull();
+  });
+
+  it("draws renderTrailing last on the action line, after the note button", () => {
+    render(
+      <SweepList {...props([item(1, "new")])} renderTrailing={() => <button type="button">Timer</button>} />,
+    );
+    const buttons = within(row("Widget task 1")).getAllByRole("button").map((b) => b.textContent);
+    expect(buttons.at(-1)).toBe("Timer");
+    expect(buttons.indexOf("Add note")).toBeLessThan(buttons.indexOf("Timer"));
+    expect(screen.getByRole("button", { name: "Timer" }).parentElement!.className).toContain("ml-auto");
+  });
+
   it("shows a one-line Later row's first flag in place of its first fact, in the flag's color", () => {
     render(
       <SweepList

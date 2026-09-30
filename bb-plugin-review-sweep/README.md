@@ -84,9 +84,9 @@ shows them all.
 
 | Tier | Runs, in order | Rows |
 | --- | --- | --- |
-| Now | re-review, waiting too long, reviewing | Open: title line, banner, icons, note, and actions |
-| Next | to review | Closed to the title line, banner, and icons |
-| Later | drafts, ignored | One dimmed line each with the icons inline, folded after five |
+| Now | re-review, waiting too long, reviewing | Open |
+| Next | to review | Open |
+| Later | drafts, ignored | Open, folded after five |
 
 - **Re-review**: you reviewed it, the author pushed, and it came back. The
   author is blocked on you, and it is usually the quickest row to clear, so it
@@ -103,9 +103,11 @@ shows them all.
   when the time is up.
 
 Within a run, the oldest request comes first, tie-broken by repository then
-number, so rows do not reshuffle between sweeps. A chevron opens or closes any
-row. The row whose Harvest timer is running stays open, whatever its tier, so
-the timer stays in view.
+number, so rows do not reshuffle between sweeps. Every row starts open, with
+its title line, banner, icons, note, and actions, since each request is one
+for you to do. A chevron closes a row, and a closed Later row draws as one
+dimmed line with the icons inline. The row whose Harvest timer is running
+stays open, so the timer stays in view.
 
 The sidebar count is requests with no thread that are neither ignored nor
 drafts. Before it, a red circle counts the ones waiting too long, as Now
@@ -152,8 +154,8 @@ the icons say where a review stands.
 
 An open row's actions are Start review or Open thread; Archive thread on a row
 with a thread, Stop ignoring on an ignored one, or Ignore for 48 hours on the
-rest; Add note or Edit note; Copy link; and the Harvest clock when the Harvest
-plugin is installed.
+rest; Add note or Edit note; and Copy link. The Harvest clock, when the Harvest
+plugin is installed, sits at the right end of that line.
 
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. Enter saves it, Escape cancels, and saving an empty note deletes it.

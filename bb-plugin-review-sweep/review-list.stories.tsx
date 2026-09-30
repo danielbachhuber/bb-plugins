@@ -256,9 +256,10 @@ export function Baseline() {
 
 /**
  * Every run the list can draw: re-review, with its blue banner, waiting too
- * long, and reviewing in Now; to review in Next; drafts and ignored in Later,
- * each one line with its icons inline. Then the list across two repositories,
- * a thread being started with a timer running, and the panel without Harvest.
+ * long, and reviewing in Now; to review in Next; drafts and ignored in Later.
+ * Every row is open, with the timer at the bottom right. Then the list across
+ * two repositories, a thread being started with a timer running, and the panel
+ * without Harvest.
  */
 export function Rows() {
   return (

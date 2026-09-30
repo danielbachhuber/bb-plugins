@@ -137,6 +137,8 @@ export interface SweepRowProps {
   Link?: ComponentType<SweepLinkProps>;
   /** The plugin's own actions, drawn before the note button. */
   actions: ReactNode;
+  /** Drawn at the right end of the action line. */
+  trailing?: ReactNode;
   editing: boolean;
   onEditNote: () => void;
   onNoteSave: (body: string) => Promise<boolean>;
@@ -162,6 +164,7 @@ export function SweepRow({
   onOpenLink,
   Link = PlainLink,
   actions,
+  trailing,
   editing,
   onEditNote,
   onNoteSave,
@@ -267,6 +270,7 @@ export function SweepRow({
                 {item.note === null ? "Add note" : "Edit note"}
               </button>
               {item.progress ? <Progress {...item.progress} /> : null}
+              {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
           </>
         ) : null}

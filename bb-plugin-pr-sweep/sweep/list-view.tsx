@@ -593,6 +593,20 @@ export function PrListView({
               const row = rowsByKey.get(item.key);
               return row ? <RowBody row={row} item={item} line={line} showRepo={showRepo} avatarFor={avatarFor} /> : null;
             }}
+            // The timer sits at the bottom right of the row, apart from the actions.
+            renderTrailing={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row || !harvest.available) return null;
+              return (
+                <HarvestRowClock
+                  surface="pull-requests"
+                  row={row}
+                  running={isRunningFor(harvest.running, row) ? harvest.running : null}
+                  client={harvest.client}
+                  onChanged={harvest.onStarted}
+                />
+              );
+            }}
             renderActions={(item) => {
               const row = rowsByKey.get(item.key);
               if (!row) return null;
@@ -618,15 +632,6 @@ export function PrListView({
                     url={row.url}
                     write={writeLinkToClipboard}
                   />
-                  {harvest.available ? (
-                    <HarvestRowClock
-                      surface="pull-requests"
-                      row={row}
-                      running={isRunningFor(harvest.running, row) ? harvest.running : null}
-                      client={harvest.client}
-                      onChanged={harvest.onStarted}
-                    />
-                  ) : null}
                 </>
               );
             }}

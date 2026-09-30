@@ -46,6 +46,10 @@ export interface SweepListProps {
    * leaves the column out, so the row takes the full width.
    */
   renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
+  /** Every row starts open, whatever its tier, rather than only Now rows. Rows can still be closed. */
+  allOpen?: boolean;
+  /** Drawn at the right end of an open row's action line, such as a timer. */
+  renderTrailing?: (item: SweepItem) => ReactNode;
 }
 
 const TIERS: Tier[] = ["now", "next", "later"];
@@ -63,6 +67,8 @@ export function SweepList({
   busyKeys,
   renderBody,
   renderTrack,
+  allOpen = false,
+  renderTrailing,
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
   // Rows opened or closed by hand. Open state lives only as long as the panel.
@@ -90,7 +96,7 @@ export function SweepList({
   const visibleLater = fold ? later.slice(0, laterShown) : later;
 
   const rowFor = (item: SweepItem, tier: Tier) => {
-    const open = item.forceOpen === true || (toggled[item.key] ?? tier === "now");
+    const open = item.forceOpen === true || (toggled[item.key] ?? (allOpen || tier === "now"));
     return (
       <SweepRow
         key={item.key}
@@ -103,6 +109,7 @@ export function SweepList({
         onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}
         Link={Link}
         actions={renderActions(item)}
+        trailing={renderTrailing?.(item)}
         editing={editing === item.key}
         onEditNote={() => setEditing(item.key)}
         onNoteSave={async (body) => {

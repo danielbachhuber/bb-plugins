@@ -109,8 +109,8 @@ the icons say where a pull request stands.
 
 An open row's actions are Start thread or Open thread, Archive thread on a row
 whose thread has no flags left, a menu of earlier threads when there are any,
-Copy link, the Harvest clock when the Harvest plugin is installed, and Add
-note or Edit note. Start thread's tooltip names the work, such as "Resolve
+Copy link, and Add note or Edit note. The Harvest clock, when the Harvest
+plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
 A note is a one-line next step, stored only on this machine and never sent to
