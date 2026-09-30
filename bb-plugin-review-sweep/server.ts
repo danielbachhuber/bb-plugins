@@ -6,7 +6,6 @@ import { buildPromptParts, headerItem, trailerItem } from "./review/prompt.js";
 import {
   parsePermissionMode,
   parseStaleAfterDays,
-  snoozeUntil,
   threadTitle,
 } from "./review/actions.js";
 import {
@@ -234,11 +233,6 @@ export default async function plugin(bb: BbPluginApi) {
       }
     }
 
-    // Expired deadlines are already ignored on read; this is only so the table
-    // does not accumulate a row per review ever deferred.
-    const pruned = store.pruneSnoozes(Date.now());
-    if (pruned > 0) bb.log.info(`${pruned} ignored review(s) came back`);
-
     return outcome;
   }
 
@@ -384,7 +378,6 @@ export default async function plugin(bb: BbPluginApi) {
       } catch (error) {
         bb.log.warn(`could not read thread links: ${String(error)}`);
       }
-      const snoozes = store.snoozesUntil(Date.now());
 
       return {
         rows: rows.map((row) => {
@@ -405,7 +398,6 @@ export default async function plugin(bb: BbPluginApi) {
             newComments: seenCount === undefined ? 0 : Math.max(0, comments - seenCount),
             canSpawn: threadMap !== null && spawnable.has(row.repo),
             threadId: threadMap?.get(key)?.[0] ?? null,
-            snoozedUntil: snoozes.get(key) ?? null,
           };
         }),
         sweptAt: meta.sweptAt,
@@ -446,22 +438,6 @@ export default async function plugin(bb: BbPluginApi) {
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`archived ${threadId} for ${repo}#${number}`);
       return { ok: true, reason: null };
-    },
-
-    async snooze({ repo, number }) {
-      const now = Date.now();
-      const until = snoozeUntil(now);
-      store.snooze(repo, number, until, now);
-      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
-      bb.log.info(`ignoring ${repo}#${number} until ${new Date(until).toISOString()}`);
-      return { until };
-    },
-
-    async unsnooze({ repo, number }) {
-      store.unsnooze(repo, number);
-      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
-      bb.log.info(`no longer ignoring ${repo}#${number}`);
-      return { ok: true };
     },
 
     async reviewThisDraft({ repo, number }) {

@@ -14,7 +14,7 @@ import {
   type StartThreadSeed,
 } from "@/components/start-thread-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { displaySection, returnsInLabel } from "./review/actions.js";
+import { displaySection } from "./review/actions.js";
 import { runOf } from "./review/tiers.js";
 import { SidebarCount } from "sweep-ui/sidebar-count";
 import {
@@ -232,28 +232,6 @@ function Panel() {
     [reload, rpc],
   );
 
-  const onSnooze = useCallback(
-    (row: Row) => {
-      void (async () => {
-        const { until } = await rpc.call("snooze", { repo: row.repo, number: row.number });
-        toast.success(`Ignoring ${row.repo}#${row.number}, ${returnsInLabel(until, Date.now())}`);
-        await reload();
-      })();
-    },
-    [reload, rpc],
-  );
-
-  const onUnsnooze = useCallback(
-    (row: Row) => {
-      void (async () => {
-        await rpc.call("unsnooze", { repo: row.repo, number: row.number });
-        toast.success(`${row.repo}#${row.number} is back in the queue`);
-        await reload();
-      })();
-    },
-    [reload, rpc],
-  );
-
   const onRefresh = useCallback(async () => {
     setBusy(true);
     try {
@@ -275,8 +253,6 @@ function Panel() {
         onReview={onReview}
         onOpen={onOpen}
         onArchive={onArchive}
-        onSnooze={onSnooze}
-        onUnsnooze={onUnsnooze}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
       />
@@ -311,8 +287,7 @@ function NeedsReviewCount() {
   const rows =
     listing?.rows.filter(
       (row) =>
-        displaySection(Boolean(row.threadId), row.isDraft, Boolean(row.snoozedUntil)) ===
-        "needs-review",
+        displaySection(Boolean(row.threadId), row.isDraft) === "needs-review",
     ) ?? [];
   if (!listing) return null;
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };

@@ -53,6 +53,8 @@ export const MIGRATIONS = [
      seen_at INTEGER NOT NULL,
      PRIMARY KEY (repo, number)
    )`,
+  // "Ignore for 48 hours" was removed, and its deadlines with it.
+  `DROP TABLE IF EXISTS snoozes`,
 ];
 
 export interface SweepMeta {
@@ -92,23 +94,6 @@ export interface Store {
   legacyThreadLinks(): Array<{ repo: string; number: number; threadId: string; createdAt: number }>;
   /** Drops the legacy link table once gh-context holds its rows. */
   dropLegacyThreadLinks(): void;
-  /**
-   * Hides a review until `until`. Snoozing an already-snoozed review replaces
-   * the old deadline rather than extending it, so a second click is idempotent
-   * from the same instant rather than compounding.
-   */
-  snooze(repo: string, number: number, until: number, now: number): void;
-  unsnooze(repo: string, number: number): void;
-  /**
-   * repo#number -> deadline, for stamping the whole listing in one read.
-   *
-   * Filtered by `now` rather than trusted wholesale: a deadline that has passed
-   * is not a snooze, and reading is the moment that matters. Expired rows are
-   * left on disk for `pruneSnoozes` to clear, because a read must not write.
-   */
-  snoozesUntil(now: number): Map<string, number>;
-  /** Drops deadlines already in the past. Returns how many went. */
-  pruneSnoozes(now: number): number;
   /** Every note, keyed `repo#number`. */
   notes(): Map<string, string>;
   /** Saves a note. Empty or blank text deletes it instead. */
@@ -152,20 +137,6 @@ export function createStore(db: DatabaseLike): Store {
       undefined
     );
   }
-  const insertSnooze = db.prepare(
-    `INSERT INTO snoozes (repo, number, until, created_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(repo, number) DO UPDATE SET
-       until = excluded.until,
-       created_at = excluded.created_at`,
-  );
-  const deleteSnooze = db.prepare(`DELETE FROM snoozes WHERE repo = ? AND number = ?`);
-  const selectSnoozes = db.prepare(`SELECT repo, number, until FROM snoozes WHERE until > ?`);
-  const deleteExpiredSnoozes = db.prepare(`DELETE FROM snoozes WHERE until <= ?`);
-  const countExpiredSnoozes = db.prepare(
-    `SELECT COUNT(*) AS expired FROM snoozes WHERE until <= ?`,
-  );
-
   const selectNotes = db.prepare(`SELECT repo, number, body FROM notes`);
   const upsertNote = db.prepare(
     `INSERT INTO notes (repo, number, body, updated_at) VALUES (?, ?, ?, ?)
@@ -248,29 +219,6 @@ export function createStore(db: DatabaseLike): Store {
 
     dropLegacyThreadLinks() {
       db.exec(`DROP TABLE IF EXISTS review_threads`);
-    },
-
-    snooze(repo, number, until, now) {
-      insertSnooze.run(repo, number, until, now);
-    },
-
-    unsnooze(repo, number) {
-      deleteSnooze.run(repo, number);
-    },
-
-    snoozesUntil(now) {
-      const snoozes = selectSnoozes.all(now) as Array<{
-        repo: string;
-        number: number;
-        until: number;
-      }>;
-      return new Map(snoozes.map((entry) => [`${entry.repo}#${entry.number}`, entry.until]));
-    },
-
-    pruneSnoozes(now) {
-      const { expired } = countExpiredSnoozes.get(now) as { expired: number };
-      if (expired > 0) deleteExpiredSnoozes.run(now);
-      return expired;
     },
 
     notes() {

@@ -30,7 +30,6 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     size: { additions: 120, deletions: 8, changedFiles: 6 },
     canSpawn: true,
     threadId: null,
-    snoozedUntil: null,
     comments: 2,
     checks: { pass: 3, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 4 },
     reviewers: [],
@@ -264,11 +263,10 @@ describe("tiers", () => {
     expect(slot.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
   });
 
-  it("draws re-review, overdue, reviewing, to review, drafts, then ignored, whatever order the rows arrive in", async () => {
+  it("draws re-review, overdue, reviewing, to review, then drafts, whatever order the rows arrive in", async () => {
     const slot = render(
       listing({
         rows: [
-          freshRow({ number: 1, title: "Ignored", snoozedUntil: Date.now() + DAY }),
           freshRow({ number: 2, title: "Draft", isDraft: true }),
           freshRow({ number: 3, title: "Fresh" }),
           freshRow({ number: 4, title: "Reviewing", threadId: "thr_1" }),
@@ -277,8 +275,8 @@ describe("tiers", () => {
         ],
       }),
     );
-    await slot.findByText("Ignored");
-    expect(titles(slot)).toEqual(["Re-review", "Overdue", "Reviewing", "Fresh", "Draft", "Ignored"]);
+    await slot.findByText("Draft");
+    expect(titles(slot)).toEqual(["Re-review", "Overdue", "Reviewing", "Fresh", "Draft"]);
   });
 
   it("puts the oldest request first within a run", async () => {
@@ -326,13 +324,6 @@ describe("tiers", () => {
   it("shows the new comment count", async () => {
     const slot = render(listing({ rows: [rowFixture({ newComments: 3 })] }));
     expect(await slot.findByText("3 new")).toBeInTheDocument();
-  });
-
-  it("says when an ignored review comes back", async () => {
-    const slot = render(
-      listing({ rows: [freshRow({ snoozedUntil: Date.now() + 41 * HOUR + 60_000 })] }),
-    );
-    expect(await slot.findByText(/returns in 42 hours/)).toBeInTheDocument();
   });
 
   it("folds Later after five rows", async () => {
@@ -535,36 +526,15 @@ describe("thread action", () => {
       expect(slot.inspection.rpcCalls.some((call) => call.method === "archiveThread")).toBe(true),
     );
   });
+
+  it("offers no Archive thread on a row without a thread", async () => {
+    const slot = render(listing());
+    await slot.findByRole("button", { name: "Start review" });
+    expect(slot.queryByRole("button", { name: "Archive thread" })).toBeNull();
+  });
 });
 
-describe("ignoring a review", () => {
-  it("offers Ignore for 48 hours and calls snooze", async () => {
-    const slot = render(listing(), { snooze: () => ({ until: Date.now() + 48 * HOUR }) });
-    fireEvent.click(await slot.findByRole("button", { name: "Ignore for 48 hours" }));
-    await waitFor(() => {
-      const call = slot.inspection.rpcCalls.find((entry) => entry.method === "snooze");
-      expect(call?.input).toEqual({ repo: "acme/widgets", number: 42 });
-    });
-  });
-
-  it("offers no way to ignore a review already being worked on", async () => {
-    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
-    await slot.findByRole("button", { name: "Archive thread" });
-    expect(slot.queryByRole("button", { name: "Ignore for 48 hours" })).toBeNull();
-  });
-
-  it("offers to take back an ignored review, and calls unsnooze", async () => {
-    const slot = render(listing({ rows: [rowFixture({ snoozedUntil: Date.now() + 41 * HOUR })] }), {
-      unsnooze: () => ({ ok: true }),
-    });
-    fireEvent.click(await slot.findByRole("button", { name: "Stop ignoring" }));
-    expect(slot.queryByRole("button", { name: "Ignore for 48 hours" })).toBeNull();
-    await waitFor(() => {
-      const call = slot.inspection.rpcCalls.find((entry) => entry.method === "unsnooze");
-      expect(call?.input).toEqual({ repo: "acme/widgets", number: 42 });
-    });
-  });
-
+describe("sidebar count", () => {
   function renderCount(result: Record<string, unknown>) {
     const slot = renderSlot(
       { component: app.navPanels[0]!.experimental_sidebarAccessory! },
@@ -594,13 +564,6 @@ describe("ignoring a review", () => {
     expect(badge).toHaveTextContent("1");
     expect(badge).toHaveClass("bg-red-600");
     expect(slot.getByTitle("2 to review")).toHaveTextContent("2");
-  });
-
-  it("keeps an ignored review out of the sidebar count", async () => {
-    // The count is what says the queue is not empty, so an ignored review that
-    // still counted would undo the point of ignoring it.
-    const slot = renderCount(listing({ rows: [rowFixture({ snoozedUntil: Date.now() + DAY })] }));
-    await waitFor(() => expect(slot.container.textContent).toBe(""));
   });
 });
 

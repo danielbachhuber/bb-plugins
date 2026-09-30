@@ -33,7 +33,6 @@ function review(overrides: Partial<ListedReview> = {}): ListedReview {
     size: { additions: 18, deletions: 4, changedFiles: 2 },
     canSpawn: true,
     threadId: null,
-    snoozedUntil: null,
     comments: 0,
     checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 },
     reviewers: [],
@@ -44,7 +43,6 @@ function review(overrides: Partial<ListedReview> = {}): ListedReview {
 }
 
 const old = NOW - 3 * DAY;
-const snoozed = NOW + 30 * HOUR;
 
 describe("runOf", () => {
   it("puts a re-review in re-review, even with a thread", () => {
@@ -53,18 +51,10 @@ describe("runOf", () => {
     expect(runOf(review({ state: "re-review", requestedAt: old }), inputs)).toBe("re-review");
   });
 
-  it("puts one with a thread in reviewing, whether snoozed, a draft, or overdue", () => {
+  it("puts one with a thread in reviewing, whether a draft or overdue", () => {
     expect(runOf(review({ threadId: "thr_1" }), inputs)).toBe("reviewing");
-    expect(runOf(review({ threadId: "thr_1", snoozedUntil: snoozed }), inputs)).toBe("reviewing");
     expect(runOf(review({ threadId: "thr_1", isDraft: true }), inputs)).toBe("reviewing");
     expect(runOf(review({ threadId: "thr_1", requestedAt: old }), inputs)).toBe("reviewing");
-  });
-
-  it("puts a snoozed one in snoozed, re-review, draft, or overdue", () => {
-    expect(runOf(review({ snoozedUntil: snoozed }), inputs)).toBe("snoozed");
-    expect(runOf(review({ snoozedUntil: snoozed, state: "re-review" }), inputs)).toBe("snoozed");
-    expect(runOf(review({ snoozedUntil: snoozed, isDraft: true }), inputs)).toBe("snoozed");
-    expect(runOf(review({ snoozedUntil: snoozed, requestedAt: old }), inputs)).toBe("snoozed");
   });
 
   it("puts a draft in drafts, re-review or overdue", () => {
@@ -113,7 +103,6 @@ describe("flagsFor", () => {
     expect(flagsFor(review({ requestedAt: old, state: "re-review" }), inputs)).toEqual([]);
     expect(flagsFor(review({ requestedAt: old, threadId: "thr_1" }), inputs)).toEqual([]);
     expect(flagsFor(review({ requestedAt: old, isDraft: true }), inputs)).toEqual([]);
-    expect(flagsFor(review({ requestedAt: old, snoozedUntil: snoozed }), inputs)).toEqual([]);
   });
 });
 
@@ -131,7 +120,6 @@ describe("sortReviews", () => {
 
   it("lists rows in the order of the runs, so a filtered list keeps its order", () => {
     const rows = [
-      review({ snoozedUntil: snoozed }),
       review({ isDraft: true }),
       review(),
       review({ threadId: "thr_1" }),
@@ -153,7 +141,6 @@ describe("REVIEW_RUNS", () => {
       ["reviewing", "underway", "now"],
       ["to-review", "next", "next"],
       ["drafts", "later", "later"],
-      ["snoozed", "later", "later"],
     ]);
   });
 

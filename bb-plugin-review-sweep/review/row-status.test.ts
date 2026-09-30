@@ -23,7 +23,6 @@ function review(overrides: Partial<ListedReview> = {}): ListedReview {
     size: { additions: 18, deletions: 4, changedFiles: 2 },
     canSpawn: true,
     threadId: null,
-    snoozedUntil: null,
     comments: 0,
     checks: { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 },
     reviewers: [],
@@ -44,11 +43,10 @@ describe("bannerFor", () => {
     );
   });
 
-  it("says nothing of the wait once a thread, a draft, or ignoring it explains the row", () => {
+  it("says nothing of the wait once a thread or a draft explains the row", () => {
     const old = NOW - 6 * DAY;
     expect(bannerFor(review({ requestedAt: old, threadId: "thr_1" }), inputs)).toBeNull();
     expect(bannerFor(review({ requestedAt: old, isDraft: true }), inputs)).toBeNull();
-    expect(bannerFor(review({ requestedAt: old, snoozedUntil: NOW + DAY }), inputs)).toBeNull();
   });
 
   it("says a re-review was asked for again, in blue", () => {

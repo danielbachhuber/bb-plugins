@@ -90,29 +90,26 @@ shows them all.
 | --- | --- |
 | Now | re-review, waiting too long, reviewing |
 | Next | to review |
-| Later | drafts, ignored, folded after five |
+| Later | drafts, folded after five |
 
 - **Re-review**: you reviewed it, the author pushed, and it came back. The
   author is blocked on you, and it is usually the quickest row to clear, so it
-  comes first, even with a thread running. An ignored or draft re-review goes
-  to ignored or drafts instead.
+  comes first, even with a thread running. A draft re-review goes to drafts
+  instead.
 - **Waiting too long**: requested of you at least "Stale after (days)" ago,
   counted in whole days.
 - **Reviewing**: a review thread has been started, whether or not the request
-  is ignored or a draft.
+  is a draft.
 - **To review**: every other request.
 - **Drafts**: a draft was assigned to you: a real request, but not offered for
   review yet.
-- **Ignored**: put off with "Ignore for 48 hours". It comes back on its own
-  when the time is up.
 
 Within a run, the oldest request comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps. Every row is open, with its
 title line, banner, icons, note, and actions, since each request is one for
 you to do. There is no chevron to close one.
 
-The sidebar count is requests with no thread that are neither ignored nor
-drafts. Before it, a red circle counts the ones waiting too long, as Now
+The sidebar count is requests with no thread that are not drafts. Before it, a red circle counts the ones waiting too long, as Now
 counts its urgent rows.
 
 ## Each row
@@ -156,9 +153,6 @@ Then a line of icons:
   names every count. Left out when the pull request has no checks.
 - the size in lines added and removed ("+18 −4")
 - the repository, only when more than one is in play
-- when an ignored request returns
-
-On a one-line Later row, the icons sit inline in place of the age.
 
 The age is how long ago the review was requested of you, read from the
 `ReviewRequestedEvent` timeline described above, not from the pull request's
@@ -168,8 +162,7 @@ A row has no stage track on the right, unlike Issue Sweep's: the banner and
 the icons say where a review stands.
 
 An open row's actions are Start review or Open thread; Archive thread on a row
-with a thread, Stop ignoring on an ignored one, or Ignore for 48 hours on the
-rest; Add note or Edit note; and Copy link. The Harvest clock, when the Harvest
+with a thread; Copy link; and Add note or Edit note. The Harvest clock, when the Harvest
 plugin is installed, sits at the right end of that line.
 
 A note is a one-line next step, stored only on this machine and never sent to

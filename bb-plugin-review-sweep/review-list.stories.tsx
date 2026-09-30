@@ -59,7 +59,6 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     size: { additions: 40, deletions: 6, changedFiles: 3 },
     canSpawn: true,
     threadId: null,
-    snoozedUntil: null,
     comments: 0,
     checks: GREEN,
     reviewers: [YOU],
@@ -170,12 +169,6 @@ const everything: Listing = {
       requestedAt: now - 26 * HOUR,
       size: { additions: 890, deletions: 45, changedFiles: 21 },
     }),
-    row({
-      number: 390,
-      title: "Move the gadget cache to a worker",
-      requestedAt: now - 4 * 24 * HOUR,
-      snoozedUntil: now + 30 * HOUR,
-    }),
   ],
 };
 
@@ -233,8 +226,6 @@ function Frame({
             onReview={noop}
             onOpen={noop}
             onArchive={noop}
-            onSnooze={noop}
-            onUnsnooze={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
             avatarFor={avatarFor}
@@ -264,7 +255,7 @@ export function Baseline() {
 
 /**
  * Every run the list can draw: re-review, with its blue banner, waiting too
- * long, and reviewing in Now; to review in Next; drafts and ignored in Later.
+ * long, and reviewing in Now; to review in Next; drafts in Later.
  * Every row is open, with the timer at the bottom right. The thread re-review
  * and the draft are layers of one stack, each with a chip saying where it
  * sits and what it is built on. Then the list across
@@ -276,7 +267,7 @@ export function Rows() {
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored review that says when it returns. The re-review with a thread and the draft are in one stack."
+        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; and a draft. The re-review with a thread and the draft are in one stack."
       >
         <Frame listing={everything} />
       </StoryRow>

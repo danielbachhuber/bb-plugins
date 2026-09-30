@@ -24,7 +24,6 @@ export interface ListedReview {
   size: ChangeSize;
   canSpawn: boolean;
   threadId: string | null;
-  snoozedUntil: number | null;
   /** How many general comments the pull request has. */
   comments: number;
   /** The head commit's checks, all zero when it has none. */
@@ -51,8 +50,6 @@ export const REVIEW_RUNS: Run[] = [
   { id: "reviewing", label: "reviewing", labelOne: "reviewing", tone: "underway", tier: "now" },
   { id: "to-review", label: "to review", labelOne: "to review", tone: "next", tier: "next" },
   { id: "drafts", label: "drafts", labelOne: "draft", tone: "later", tier: "later" },
-  // "Ignored", as the row's action says, rather than the table's name for it.
-  { id: "snoozed", label: "ignored", labelOne: "ignored", tone: "later", tier: "later" },
 ];
 
 /** The track's stages, in order. `stageOf` returns an index into these. */
@@ -65,16 +62,12 @@ function isOverdue(row: ListedReview, inputs: TierInputs): boolean {
 
 /**
  * A re-review comes first, because the author is blocked on you and it is
- * usually the quickest to clear, unless you ignored it or it went back to
- * draft. A thread outranks the deferral and the draft, as the old sections
- * did: a review being worked on is stronger evidence than a click from two
- * days ago.
+ * usually the quickest to clear, unless it went back to draft. A thread
+ * outranks the draft: a review being worked on is stronger evidence.
  */
 export function runOf(row: ListedReview, inputs: TierInputs): string {
-  const snoozed = row.snoozedUntil !== null;
-  if (row.state === "re-review" && !snoozed && !row.isDraft) return "re-review";
+  if (row.state === "re-review" && !row.isDraft) return "re-review";
   if (row.threadId) return "reviewing";
-  if (snoozed) return "snoozed";
   if (row.isDraft) return "drafts";
   if (isOverdue(row, inputs)) return "overdue";
   return "to-review";
@@ -91,7 +84,7 @@ const DAY = 86_400_000;
 
 /**
  * "Waiting 5 days", on a request in the overdue run only. Elsewhere the run
- * already says why the row is where it is, and a red flag on an ignored or
+ * already says why the row is where it is, and a red flag on a draft or a
  * running review would contradict it.
  */
 export function flagsFor(row: ListedReview, inputs: TierInputs): Flag[] {

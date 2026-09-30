@@ -86,40 +86,7 @@ export function parseStaleAfterDays(raw: string | undefined): number {
   return Math.floor(parsed);
 }
 
-/**
- * How long "Ignore" ignores for. One duration, not a menu of them: the useful
- * question is "not today", and two days answers it without asking a second
- * question at the moment you are trying to clear the queue.
- *
- * A fixed timer, deliberately. Waking a snoozed row on the author's next push
- * would let a chatty pull request undo the deferral within minutes, which is
- * the opposite of what the click asked for.
- */
-export const SNOOZE_HOURS = 48;
-
-export const SNOOZE_LABEL = `Ignore for ${SNOOZE_HOURS} hours`;
-
-export const UNSNOOZE_LABEL = "Stop ignoring";
-
-export function snoozeUntil(now: number): number {
-  return now + SNOOZE_HOURS * 3_600_000;
-}
-
-/**
- * "returns in 41 hours". Counts in hours below two days, where the hour is the
- * useful number, and rounds up rather than down: a deadline 30 minutes out is
- * "returns in 1 hour", never "returns in 0 hours".
- */
-export function returnsInLabel(until: number, now: number): string {
-  const hours = Math.ceil(Math.max(0, until - now) / 3_600_000);
-  if (hours <= 0) return "returning";
-  if (hours < HOURS_BEFORE_DAYS)
-    return hours === 1 ? "returns in 1 hour" : `returns in ${hours} hours`;
-  const days = Math.ceil(hours / 24);
-  return days === 1 ? "returns in 1 day" : `returns in ${days} days`;
-}
-
-export const DISPLAY_SECTIONS = ["needs-review", "in-progress", "draft", "snoozed"] as const;
+export const DISPLAY_SECTIONS = ["needs-review", "in-progress", "draft"] as const;
 
 export type DisplaySection = (typeof DISPLAY_SECTIONS)[number];
 
@@ -133,24 +100,12 @@ export type DisplaySection = (typeof DISPLAY_SECTIONS)[number];
  * A draft requested of you is a real request, but it is not offered for review
  * yet, so it is not counted either.
  *
- * An ignored review is left out, since counting it would undo the point of
- * ignoring it. A thread outranks the deferral, because a review being worked
- * on is stronger evidence than a click from two days ago.
- *
  * The list's own placement is `runOf` in tiers.ts.
  */
-export function displaySection(
-  hasThread: boolean,
-  isDraft: boolean,
-  isSnoozed = false,
-): DisplaySection {
+export function displaySection(hasThread: boolean, isDraft: boolean): DisplaySection {
   if (hasThread) return "in-progress";
-  if (isSnoozed) return "snoozed";
   return isDraft ? "draft" : "needs-review";
 }
-
-/** Below this, a return time is reported in hours; at or above it, in days. */
-export const HOURS_BEFORE_DAYS = 48;
 
 /** "+120 −8, 6 files". An en dash for the deletions, not a hyphen. */
 export function sizeLabel(size: ChangeSize): string {

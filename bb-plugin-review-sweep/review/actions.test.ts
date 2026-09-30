@@ -5,8 +5,6 @@ import {
   displaySection,
   parsePermissionMode,
   parseStaleAfterDays,
-  returnsInLabel,
-  snoozeUntil,
   sizeLabel,
   threadTitle,
 } from "./actions.js";
@@ -99,36 +97,6 @@ describe("displaySection", () => {
 
   it("puts everything else in the queue", () => {
     expect(displaySection(false, false)).toBe("needs-review");
-  });
-
-  it("sets an ignored review apart, draft or not", () => {
-    expect(displaySection(false, false, true)).toBe("snoozed");
-    expect(displaySection(false, true, true)).toBe("snoozed");
-  });
-
-  it("lets a thread outrank the deferral, since the work is already happening", () => {
-    expect(displaySection(true, false, true)).toBe("in-progress");
-  });
-});
-
-describe("snoozeUntil", () => {
-  it("defers by exactly 48 hours", () => {
-    expect(snoozeUntil(NOW) - NOW).toBe(48 * 3_600_000);
-  });
-});
-
-describe("returnsInLabel", () => {
-  it("counts the hours left, rounding up so nothing reads as zero", () => {
-    expect(returnsInLabel(NOW + 41 * 3_600_000, NOW)).toBe("returns in 41 hours");
-    expect(returnsInLabel(NOW + 1_800_000, NOW)).toBe("returns in 1 hour");
-  });
-
-  it("switches to days past the point where an hour count stops meaning anything", () => {
-    expect(returnsInLabel(NOW + 48 * 3_600_000, NOW)).toBe("returns in 2 days");
-  });
-
-  it("says returning rather than a negative count for a deadline already passed", () => {
-    expect(returnsInLabel(NOW - 3_600_000, NOW)).toBe("returning");
   });
 });
 

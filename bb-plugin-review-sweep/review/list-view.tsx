@@ -24,7 +24,7 @@ import {
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
-import { SNOOZE_LABEL, START_REVIEW_LABEL, UNSNOOZE_LABEL, returnsInLabel } from "./actions.js";
+import { START_REVIEW_LABEL } from "./actions.js";
 import { relativeTime } from "./format.js";
 import { bannerFor, reviewersFor } from "./row-status.js";
 import {
@@ -146,42 +146,13 @@ function ThreadAction({
   );
 }
 
-/**
- * The second action follows what the row is, so it never offers something
- * that cannot happen: a thread can be archived, an ignored review can be taken
- * back, and anything else can be put off.
- */
-function DeferAction({
-  row,
-  onArchive,
-  onSnooze,
-  onUnsnooze,
-}: {
-  row: Row;
-  onArchive: (row: Row) => void;
-  onSnooze: (row: Row) => void;
-  onUnsnooze: (row: Row) => void;
-}) {
-  if (row.threadId) {
-    return (
-      <button type="button" className={LINE_ACTION} onClick={() => onArchive(row)}>
-        <Icon name="Archive" className="size-3" />
-        Archive thread
-      </button>
-    );
-  }
-  if (row.snoozedUntil !== null) {
-    return (
-      <button type="button" className={LINE_ACTION} onClick={() => onUnsnooze(row)}>
-        <Icon name="RotateCcw" className="size-3" />
-        {UNSNOOZE_LABEL}
-      </button>
-    );
-  }
+/** Archive thread, on a row with a thread. Other rows have no second action. */
+function ArchiveAction({ row, onArchive }: { row: Row; onArchive: (row: Row) => void }) {
+  if (!row.threadId) return null;
   return (
-    <button type="button" className={LINE_ACTION} onClick={() => onSnooze(row)}>
-      <Icon name="Clock" className="size-3" />
-      {SNOOZE_LABEL}
+    <button type="button" className={LINE_ACTION} onClick={() => onArchive(row)}>
+      <Icon name="Archive" className="size-3" />
+      Archive thread
     </button>
   );
 }
@@ -206,9 +177,9 @@ interface BodyProps {
 /**
  * The row's facts as icons with numbers, as PR Sweep draws them: the author,
  * whose pull request it is, then the reviewers with you first, the checks,
- * and the size. Then the repository when the list spans several, and when an ignored
- * review comes back. The reviewers are left out when there are none, and the
- * checks when the pull request has none.
+ * and the size. Then the repository when the list spans several. The
+ * reviewers are left out when there are none, and the checks when the pull
+ * request has none.
  */
 function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
   const reviewers = reviewersFor(row, avatarFor);
@@ -228,9 +199,6 @@ function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
       <ChecksBadge checks={row.checks} />
       <DiffCount additions={row.size.additions} deletions={row.size.deletions} />
       {showRepo ? <span data-part="repo">{row.repo}</span> : null}
-      {row.snoozedUntil !== null && !row.threadId ? (
-        <span data-part="returns">{returnsInLabel(row.snoozedUntil, now)}</span>
-      ) : null}
     </span>
   );
 }
@@ -425,8 +393,6 @@ export interface ReviewListViewProps {
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
   onArchive: (row: Row) => void;
-  onSnooze: (row: Row) => void;
-  onUnsnooze: (row: Row) => void;
   /** Saves the row's note; "" deletes it. Resolves true once saved. */
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the pull request is about to open. */
@@ -446,8 +412,6 @@ export function ReviewListView({
   onReview,
   onOpen,
   onArchive,
-  onSnooze,
-  onUnsnooze,
   onNoteSave,
   onOpenLink,
   avatarFor = githubAvatar,
@@ -551,12 +515,7 @@ export function ReviewListView({
                     onReview={onReview}
                     onOpen={onOpen}
                   />
-                  <DeferAction
-                    row={row}
-                    onArchive={onArchive}
-                    onSnooze={onSnooze}
-                    onUnsnooze={onUnsnooze}
-                  />
+                  <ArchiveAction row={row} onArchive={onArchive} />
                   <CopyLinkAction
                     text={`${row.title} (#${row.number})`}
                     url={row.url}

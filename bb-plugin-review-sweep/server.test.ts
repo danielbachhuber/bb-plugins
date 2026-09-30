@@ -136,8 +136,6 @@ describe("server", () => {
         "reviewThisDraft",
         "reviewThisSubmit",
         "archiveThread",
-        "snooze",
-        "unsnooze",
         "setNote",
         "markSeen",
       ]),
@@ -469,48 +467,6 @@ describe("archiveThread", () => {
     });
     expect(result.ok).toBe(false);
     expect(harness.inspection.sdk.callsTo("threads.archive")).toHaveLength(0);
-  });
-});
-
-describe("ignoring a review", () => {
-  it("stamps a listing row with its deadline once it is ignored", async () => {
-    const { harness } = await seededHost();
-
-    const before = await harness.behavior.callRpc("listRows", null);
-    expect(before.rows[0].snoozedUntil).toBeNull();
-
-    const { until } = await harness.behavior.callRpc("snooze", {
-      repo: "acme/widgets",
-      number: 42,
-    });
-    // 48 hours, give or take the milliseconds between the two clock reads.
-    expect(until - Date.now()).toBeGreaterThan(47.9 * 3_600_000);
-    expect(until - Date.now()).toBeLessThanOrEqual(48 * 3_600_000);
-
-    const after = await harness.behavior.callRpc("listRows", null);
-    expect(after.rows[0].snoozedUntil).toBe(until);
-  });
-
-  it("puts an ignored review back when asked", async () => {
-    const { harness } = await seededHost();
-    await harness.behavior.callRpc("snooze", { repo: "acme/widgets", number: 42 });
-    await harness.behavior.callRpc("unsnooze", { repo: "acme/widgets", number: 42 });
-
-    const listing = await harness.behavior.callRpc("listRows", null);
-    expect(listing.rows[0].snoozedUntil).toBeNull();
-  });
-
-  it("keeps a review ignored across a sweep, which rewrites every row", async () => {
-    // A broken gh on purpose: the sweep must not reach the network here, and a
-    // failed sweep still exercises the path that could have dropped the snooze.
-    const { harness } = await seededHost({
-      settings: { ghPath: "/nonexistent/gh-does-not-exist" },
-    });
-    await harness.behavior.callRpc("snooze", { repo: "acme/widgets", number: 42 });
-    await harness.behavior.callRpc("refresh", null);
-
-    const listing = await harness.behavior.callRpc("listRows", null);
-    expect(listing.rows[0]?.snoozedUntil).not.toBeNull();
   });
 });
 
