@@ -55,6 +55,7 @@ export const ISSUE_RUNS: Run[] = [
   { id: "new-comments", label: "new comments", labelOne: "new comment", tone: "new", tier: "now" },
   { id: "stale", label: "stale", labelOne: "stale", tone: "late", tier: "now" },
   { id: "working", label: "working", labelOne: "working", tone: "underway", tier: "now" },
+  { id: "in-progress", label: "in progress", labelOne: "in progress", tone: "next", tier: "now", color: "bg-sky-500" },
   { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
   { id: "waiting", label: "waiting on review", labelOne: "waiting on review", tone: "later", tier: "later" },
   { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
@@ -89,6 +90,22 @@ function isParent(row: ListedIssue): boolean {
   return row.subtasks?.source === "sub-issues" && row.subtasks.total > 0;
 }
 
+/**
+ * In a counted status further along the stages than the first counted one:
+ * with the defaults, In Progress rather than Ready. Started, so not done, and
+ * that holds for a parent too, whose sub-issues are still under way.
+ */
+function isUnderway(row: ListedIssue, inputs: TierInputs): boolean {
+  if (!isCounted(row, inputs) || row.blockedBy > 0) return false;
+  const stage = stageOf(row, inputs.boardStages);
+  if (stage === null) return false;
+  const counted = inputs.boardStages
+    .map((name, index) => ({ name, index }))
+    .filter(({ name }) => inputs.countedStatuses.some((status) => same(status, name)));
+  const first = counted[0]?.index;
+  return first !== undefined && stage > first;
+}
+
 function isWaiting(row: ListedIssue, inputs: TierInputs): boolean {
   return inputs.reviewStatus.trim() !== "" && row.boardStatus !== null && same(row.boardStatus, inputs.reviewStatus);
 }
@@ -119,6 +136,7 @@ export function runOf(row: ListedIssue, inputs: TierInputs): string {
   if (row.newComments > 0) return "new-comments";
   if (isStale(row, inputs)) return "stale";
   if (row.threadId) return "working";
+  if (isUnderway(row, inputs)) return "in-progress";
   if (isCounted(row, inputs) && row.blockedBy === 0 && !isParent(row)) return "to-start";
   // Waiting before blocked: an issue in review is out of your hands already,
   // whatever else it depends on.
@@ -176,7 +194,7 @@ export function sortIssues(rows: ListedIssue[], inputs: TierInputs): ListedIssue
 }
 
 /** The runs drawn in the "Needs you" column. Every other run goes beside it. */
-export const NEEDS_YOU_RUNS = new Set(["new-comments", "stale", "working", "to-start"]);
+export const NEEDS_YOU_RUNS = new Set(["new-comments", "stale", "working", "in-progress", "to-start"]);
 
 export function needsYou(row: ListedIssue, inputs: TierInputs): boolean {
   return NEEDS_YOU_RUNS.has(runOf(row, inputs));

@@ -46,7 +46,7 @@ them all.
 
 | Column | Runs, in order | Rows |
 | --- | --- | --- |
-| Needs you | new comments, stale, working, to start | Open: title, number line, note, actions, and why the issue is there |
+| Needs you | new comments, stale, working, in progress, to start | Open: title, number line, note, actions, and why the issue is there |
 | Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
 - **New comments**: comments posted since you last opened the issue or its
@@ -60,12 +60,16 @@ them all.
   move made on the board in GitHub is not seen, and the issue can still read
   as stale after one.
 - **Working**: has a thread. Its rows have an orange left edge.
+- **In progress**: in a counted status further along the "Board stages, in
+  order" than the first counted one (In Progress, with the defaults), and not
+  blocked. A parent counts, since its sub-issues are not done. Its squares are
+  sky blue.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.
 - **Waiting on review**: in the "Board status when a closing pull request
   opens" status.
 - **Later**: everything else that is not blocked, including issues with
-  sub-issues.
+  sub-issues that are not in progress.
 - **Blocked**: blocked by an open issue, through GitHub's issue dependencies.
 
 An issue that fits more than one run takes the first in the order above. So
@@ -94,7 +98,7 @@ repository joins the line only when more than one is in play.
 
 An open row has a status picker on the right, under the reason the issue
 needs you when it is in the left column: "New comments", "Stale", "Working",
-or "To start". Picking a status moves the issue to it on the board. The picker
+"In progress", or "To start". Picking a status moves the issue to it on the board. The picker
 reads "Add to board" for an issue off the board and "No status" for one on the
 board without a status.
 

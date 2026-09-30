@@ -602,6 +602,7 @@ const REASONS: Record<string, { label: string; className: string }> = {
   "new-comments": { label: "New comments", className: "text-[#0b57d0] dark:text-[#a8c7fa]" },
   stale: { label: "Stale", className: "text-destructive-text" },
   working: { label: "Working", className: "text-[#c2620a] dark:text-[#f08a24]" },
+  "in-progress": { label: "In progress", className: "text-sky-700 dark:text-sky-400" },
   "to-start": { label: "To start", className: "text-muted-foreground" },
 };
 

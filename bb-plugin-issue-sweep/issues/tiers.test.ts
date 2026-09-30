@@ -114,7 +114,17 @@ describe("lastActivity", () => {
 
 describe("runOf, Next", () => {
   it("puts a counted, unblocked issue on the board in to start", () => {
-    expect(runOf(issue({ boardStatus: "In Progress" }), inputs)).toBe("to-start");
+    expect(runOf(issue({ boardStatus: "Ready" }), inputs)).toBe("to-start");
+  });
+
+  it("puts an issue in a counted status past the first one in progress, parent or not", () => {
+    expect(runOf(issue({ boardStatus: "In Progress" }), inputs)).toBe("in-progress");
+    expect(runOf(issue({ boardStatus: "In Progress", subtasks: PARENT }), inputs)).toBe("in-progress");
+    expect(runOf(issue({ boardStatus: "In Progress", blockedBy: 1 }), inputs)).toBe("blocked");
+  });
+
+  it("reads the only counted status as to start", () => {
+    expect(runOf(issue({ boardStatus: "In Progress" }), { ...inputs, countedStatuses: ["In Progress"] })).toBe("to-start");
   });
 
   it("matches the counted status however it is cased", () => {
@@ -177,6 +187,7 @@ describe("sortIssues", () => {
       issue({ boardStatus: "Backlog" }),
       issue({ boardStatus: "In Review" }),
       issue({ boardStatus: "Ready", updatedAt: NOW - 2 * HOUR }),
+      issue({ boardStatus: "In Progress", updatedAt: NOW - HOUR }),
       issue({ threadId: "thr_1" }),
       issue({ updatedAt: NOW - 9 * DAY }),
       issue({ newComments: 1, boardStatus: "Backlog" }),
