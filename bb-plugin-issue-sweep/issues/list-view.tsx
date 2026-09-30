@@ -688,10 +688,14 @@ export function IssueListView({
   );
 }
 
-/** Why a row is in "Needs you", as the word over its status picker. */
-const REASONS: Record<string, { label: string; className: string }> = {
-  "new-comments": { label: "New comments", className: "text-[#0b57d0] dark:text-[#a8c7fa]" },
-  stale: { label: "Stale", className: "text-destructive-text" },
+/**
+ * Why a row is in "Needs you", as the word over its stage buttons. New
+ * comments and stale rows have none: the blue dot and "N new", and the red
+ * edge and "No activity for N days", already say so.
+ */
+const REASONS: Record<string, { label: string; className: string } | null> = {
+  "new-comments": null,
+  stale: null,
   working: { label: "Working", className: "text-[#c2620a] dark:text-[#f08a24]" },
   "in-progress": { label: "In progress", className: "text-sky-700 dark:text-sky-400" },
   "to-start": { label: "To start", className: "text-muted-foreground" },
@@ -752,7 +756,7 @@ function SplitList({
   const [restFilter, setRestFilter] = useState<string | null>(null);
 
   const itemsByKey = new Map(items.map((item) => [item.key, item]));
-  const mine = items.filter((item) => REASONS[item.runId]);
+  const mine = items.filter((item) => item.runId in REASONS);
   const restCount = groups.reduce((total, group) => total + group.rows.length, 0);
 
   // A sync can empty the chosen group, and then the filter would hide every

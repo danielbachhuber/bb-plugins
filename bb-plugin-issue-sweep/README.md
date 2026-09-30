@@ -49,9 +49,11 @@ them all.
 | Needs you | new comments, stale, working, in progress, to start | Open: title, number line, note, actions, and why the issue is there |
 | Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
-- **New comments**: comments posted since you last opened the issue or its
-  thread from the panel, or started one. The first sweep to see an issue
-  records its count, so nothing is new on the first sync.
+- **New comments**: comments others posted since you last opened the issue or
+  its thread from the panel, started one, or commented yourself. A comment of
+  yours is never new, and neither is anything before it, since you read the
+  thread to reply. The first sweep to see an issue records its count, so
+  nothing is new on the first sync.
 - **Stale**: in one of the "Statuses counted in the sidebar", not blocked, not
   a parent, and not updated for "Stale after (days)". Flagged in red. A parent
   is never stale, because its sub-issues are the work. A board move does not
@@ -101,9 +103,11 @@ current stage filled. Pressing a stage moves the issue to it on the board,
 adding the issue to the board first if it is not on it. The last segment opens
 a menu of every status the board has, and names the status when it is not a
 stage: "Stalled", say, "No status", or "Not on board". In the left column the
-buttons sit beside the title, under the reason the issue needs you: "New
-comments", "Stale", "Working", "In progress", or "To start". In the narrower
-right column they have a line of their own under the number line.
+buttons sit beside the title, under the reason the issue needs you:
+"Working", "In progress", or "To start". An issue with new comments or gone
+stale has no label there, since its blue dot or red edge already says so. In
+the narrower right column the buttons have a line of their own under the
+number line.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note. The Harvest clock, when the Harvest plugin is installed, sits at

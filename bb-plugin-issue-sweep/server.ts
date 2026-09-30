@@ -8,7 +8,15 @@ import {
 } from "bb-plugin-gh-context/links";
 import { rpcContract } from "./issues/contract.js";
 import { parseStatusOrder, shouldAutoApply } from "./issues/board.js";
-import { GhUnavailableError, createGhRunner, runSweep } from "./issues/gh.js";
+import { seenThroughOwn } from "./issues/comments.js";
+import {
+  GhUnavailableError,
+  createGhRunner,
+  fetchCommentAuthors,
+  fetchViewerLogin,
+  runSweep,
+  type GhRunner,
+} from "./issues/gh.js";
 import {
   BoardUnavailableError,
   fetchBoardProject,
@@ -272,9 +280,10 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function sweepNow(): Promise<{ ok: boolean; error: string | null }> {
     const { ghPath, projectBoard } = await settings.get();
+    const gh = createGhRunner(ghPath);
     try {
       const result = await runSweep(
-        createGhRunner(ghPath),
+        gh,
         () => Date.now(),
         projectBoard,
         await repoFilter(),
@@ -283,6 +292,7 @@ export default async function plugin(bb: BbPluginApi) {
       // Every row's count on first sight, so a row is never "N new" just
       // because this is the first sweep to list it.
       store.recordFirstSeen(result.rows, result.sweptAt);
+      await absorbOwnComments(gh, result.rows);
       // Before the publish, so the panel's reload finds the options already
       // there and renders pickers on its first paint rather than its second.
       await warmBoards(result.rows);
@@ -342,6 +352,35 @@ export default async function plugin(bb: BbPluginApi) {
         bb.log.warn(`sweep failed: ${message}`);
       }
       return { ok: false, error: message };
+    }
+  }
+
+  let viewerLogin: string | null = null;
+
+  /**
+   * Marks your own comments seen, and everything before them, so an issue is
+   * "N new" only for what others wrote since you last commented. Only issues
+   * whose count has grown since they were seen are fetched, which on most
+   * sweeps is none. A failure leaves the counts as they were, which at worst
+   * shows your own comment as new until the next sweep.
+   */
+  async function absorbOwnComments(gh: GhRunner, rows: readonly IssueRow[]): Promise<void> {
+    const seen = store.seenCounts();
+    const grown = rows.filter((row) => {
+      const count = seen.get(`${row.repo}#${row.number}`);
+      return count !== undefined && row.commentsCount > count;
+    });
+    if (grown.length === 0) return;
+    try {
+      viewerLogin ??= await fetchViewerLogin(gh);
+      for (const row of grown) {
+        const before = seen.get(`${row.repo}#${row.number}`)!;
+        const authors = await fetchCommentAuthors(gh, row.repo, row.number);
+        const after = Math.min(row.commentsCount, seenThroughOwn(authors, before, viewerLogin));
+        if (after > before) store.markSeen(row.repo, row.number, after, Date.now());
+      }
+    } catch (error) {
+      bb.log.warn(`could not read comment authors: ${String(error)}`);
     }
   }
 

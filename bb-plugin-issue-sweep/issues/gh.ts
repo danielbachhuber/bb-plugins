@@ -133,3 +133,21 @@ export async function runSweep(
     sweptAt: now(),
   };
 }
+
+/** The login `gh` is authenticated as. */
+export async function fetchViewerLogin(gh: GhRunner): Promise<string> {
+  return (await gh.run(["api", "user", "--jq", ".login"])).trim();
+}
+
+/** Who wrote each of an issue's comments, oldest first. */
+export async function fetchCommentAuthors(gh: GhRunner, repo: string, number: number): Promise<string[]> {
+  if (!REPO_SLUG_PATTERN.test(repo)) throw new Error(`not a repository: ${repo}`);
+  const out = await gh.run([
+    "api",
+    "--paginate",
+    `repos/${repo}/issues/${number}/comments?per_page=100`,
+    "--jq",
+    ".[].user.login",
+  ]);
+  return out.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+}

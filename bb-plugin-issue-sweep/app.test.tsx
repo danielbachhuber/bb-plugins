@@ -313,6 +313,9 @@ describe("tiers", () => {
     );
     expect(await slot.findByText("3 new")).toBeInTheDocument();
     expect(slot.getByText("No activity for 12 days")).toBeInTheDocument();
+    // The dot and the red edge say it; no label repeats it over the buttons.
+    expect(slot.queryByText("New comments")).toBeNull();
+    expect(slot.queryByText("Stale")).toBeNull();
     await expandAll(slot);
     expect(slot.getByText("Blocked by 1 issue")).toBeInTheDocument();
   });
