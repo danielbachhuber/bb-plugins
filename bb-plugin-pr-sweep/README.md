@@ -46,7 +46,8 @@ it again shows them all.
 
 - **Needs you**: a flag or open comments that are yours to act on.
 - **Ready to merge**: approved, green, and nobody else asked to review.
-- **Working**: has a thread, whatever its flags say.
+- **Working**: has a thread, whatever its flags say. Its squares are green,
+  and so is its rows' left edge.
 - **Drafts**: not offered for review yet, flagged or not.
 - **Waiting**: only a CI run in flight, approved with another reviewer still
   asked, or awaiting review. In that order within the run.

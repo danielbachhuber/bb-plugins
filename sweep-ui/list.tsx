@@ -90,6 +90,7 @@ export function SweepList({
   if (items.length === 0) return null;
 
   const tierOf = new Map(runs.map((run) => [run.id, run.tier]));
+  const toneOf = new Map(runs.map((run) => [run.id, run.tone]));
   const shown = active === null ? items : items.filter((item) => item.runId === active);
   // Stable by tier, so a caller that sorts within tiers gets Now, Next, Later.
   const byTier = TIERS.map((tier) => shown.filter((item) => (tierOf.get(item.runId) ?? "later") === tier));
@@ -108,6 +109,7 @@ export function SweepList({
         open={open}
         onToggle={!collapsible || item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
         chevron={collapsible}
+        tone={toneOf.get(item.runId)}
         stages={stages}
         onMove={onMove ? (stage) => onMove(item, stage) : undefined}
         onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}

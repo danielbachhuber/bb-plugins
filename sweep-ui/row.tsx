@@ -5,7 +5,7 @@ import { StackChip } from "./stack-chip";
 import { cn } from "./lib/cn";
 import { NoteBox, NoteField } from "./note";
 import { Track } from "./track";
-import type { Flag, Stage, SweepItem, Tier } from "./types";
+import type { Flag, RunTone, Stage, SweepItem, Tier } from "./types";
 
 export interface SweepLinkProps {
   href: string;
@@ -32,11 +32,17 @@ const BLUE_TEXT = "text-[#0b57d0] dark:text-[#a8c7fa]";
 const BLUE_DOT = "bg-[#0b57d0] dark:bg-[#a8c7fa]";
 
 /** Rows with a flag are tinted the way Now tints them: red for stale, slate for blocked. */
-function tint(item: SweepItem): string | false {
+/**
+ * A left edge and a faint wash: red for a stale row, slate for a blocked one,
+ * and green for one whose run is under way, in the same green as its square.
+ */
+function tint(item: SweepItem, tone?: RunTone): string | false {
   if (item.flags.some((flag) => flag.kind === "stale"))
     return "-mx-4 border-l-2 border-l-destructive bg-destructive/[0.04] pl-[14px] pr-4";
   if (item.flags.some((flag) => flag.kind === "blocked"))
     return "-mx-4 border-l-2 border-l-slate-400 bg-slate-500/[0.05] pl-[14px] pr-4";
+  if (tone === "underway")
+    return "-mx-4 border-l-2 border-l-[#2da44e] bg-[#2da44e]/[0.05] pl-[14px] pr-4 dark:border-l-[#3fb950] dark:bg-[#3fb950]/[0.06]";
   return false;
 }
 
@@ -133,6 +139,8 @@ export interface SweepRowProps {
   onToggle?: () => void;
   /** False leaves out the chevron column, for a list whose rows never close. */
   chevron?: boolean;
+  /** The row's run's tone. An under-way row gets a green edge. */
+  tone?: RunTone;
   stages: Stage[];
   onMove?: (stage: number) => void;
   onOpenLink?: () => void;
@@ -163,6 +171,7 @@ export function SweepRow({
   open,
   onToggle,
   chevron = true,
+  tone,
   stages,
   onMove,
   onOpenLink,
@@ -203,7 +212,7 @@ export function SweepRow({
 
   if (line) {
     return (
-      <li className={cn("flex items-center gap-3 py-2 text-sm", tint(item), busy && "opacity-50")}>
+      <li className={cn("flex items-center gap-3 py-2 text-sm", tint(item, tone), busy && "opacity-50")}>
         {iconColumn}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -228,7 +237,7 @@ export function SweepRow({
     );
   }
   return (
-    <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item), busy && "opacity-50")}>
+    <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item, tone), busy && "opacity-50")}>
       {iconColumn}
       <div className="min-w-0 flex-1">
         {renderBody ? (

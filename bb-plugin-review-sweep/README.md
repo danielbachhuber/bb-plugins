@@ -139,6 +139,9 @@ Under the title, a banner appears for two kinds of request:
   run. The row keeps its red tint and bar.
 - **Asked to review again**, in blue, for a re-review.
 
+A row in the reviewing run has a green left edge and a faint green wash, in
+the same green as its squares.
+
 Then a line of icons:
 
 - the author's picture and login

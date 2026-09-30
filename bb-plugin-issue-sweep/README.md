@@ -58,7 +58,8 @@ all.
   makes itself, from the track, the picker, or its own automatic moves, as
   activity. A move made on the board in GitHub is not seen, and the issue can
   still read as stale after one.
-- **Working**: has a thread.
+- **Working**: has a thread. Its squares are green, and so is its rows' left
+  edge.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.
 - **Waiting on review**: in the "Board status when a closing pull request

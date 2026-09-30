@@ -18,6 +18,7 @@ const RUNS: Run[] = [
   { id: "new", label: "new comments", labelOne: "new comment", tone: "new", tier: "now" },
   { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
   { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
+  { id: "working", label: "working", labelOne: "working", tone: "underway", tier: "now" },
 ];
 
 function item(number: number, runId: string, overrides: Partial<SweepItem> = {}): SweepItem {
@@ -207,6 +208,21 @@ describe("SweepList", () => {
       />,
     );
     expect(within(row("Widget task 2")).getByText(/2 of 3/)).toHaveTextContent("2 of 3 · on #1");
+  });
+
+  it("gives a row in an under-way run a green edge, and a stale flag outranks it", () => {
+    render(
+      <SweepList
+        {...props([
+          item(1, "working"),
+          item(2, "working", { flags: [{ kind: "stale", text: "No activity for 9 days" }] }),
+          item(3, "new"),
+        ])}
+      />,
+    );
+    expect(row("Widget task 1").className).toContain("border-l-[#2da44e]");
+    expect(row("Widget task 2").className).toContain("border-l-destructive");
+    expect(row("Widget task 3").className).not.toContain("border-l-");
   });
 
   it("draws renderTrailing last on the action line, after the note button", () => {
