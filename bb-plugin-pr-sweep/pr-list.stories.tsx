@@ -410,11 +410,10 @@ function Frame({
 }
 
 /**
- * A typical day. The pull requests that need you, the one ready to merge, and
- * the one with a thread at the top, each with a red banner naming what stops
- * it or a green one when it can merge; then the draft and the one awaiting
- * review. The one with a thread is stacked on the one ready to merge, so each
- * has a chip: "1 of 2 · base" and "2 of 2 · on #512".
+ * A typical day. The one with a thread is pinned at the top; the rest follow
+ * newest first, each with a red banner naming what stops it or a green one
+ * when it can merge. The one with a thread is stacked on the one ready to
+ * merge, so each has a chip: "1 of 2 · base" and "2 of 2 · on #512".
  */
 export function Baseline() {
   return (
