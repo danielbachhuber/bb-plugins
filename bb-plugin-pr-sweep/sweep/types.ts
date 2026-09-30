@@ -112,8 +112,14 @@ export interface RawPullRequest {
     author?: { login: string } | null;
     /** An approval can carry paragraphs of caveats here. See `reviewNotes`. */
     body?: string | null;
+    submittedAt?: string | null;
   }>;
-  reviews: Array<{ state: string; author?: { login: string } | null; body?: string | null }>;
+  reviews: Array<{
+    state: string;
+    author?: { login: string } | null;
+    body?: string | null;
+    submittedAt?: string | null;
+  }>;
   reviewDecision: string | null;
   comments?: Array<{ author?: { login: string } | null; createdAt?: string }> | null;
   updatedAt?: string;

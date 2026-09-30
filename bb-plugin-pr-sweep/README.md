@@ -95,7 +95,11 @@ Under the title, a banner says where the pull request stands.
   into those still unanswered and those you replied to last ("6 unanswered
   comments, 1 replied"), since a reply often answers a thread nobody marks
   resolved. Unanswered threads are the banner on their own when no review
-  explains them, and only they put a pull request in needs you.
+  explains them, and only they put a pull request in needs you. A comment
+  review or a review note stops counting once you have replied after it, in
+  a comment or a review thread, so a pull request whose every comment you
+  answered carries no feedback banner. Requested changes count until the
+  reviewer reviews again.
 - **Green** "Ready to merge", followed by who approved, or by who has not
   reviewed yet when someone else was asked.
 - **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
@@ -208,7 +212,7 @@ first prompt names that pull request and nothing else.
 | --- | --- |
 | merge conflict | Conflicts with its base branch. |
 | CI failing | A red check. |
-| reviewer feedback | A live `CHANGES_REQUESTED` or `COMMENTED` review. |
+| reviewer feedback | A `CHANGES_REQUESTED` review, or a `COMMENTED` one you have not replied to since. |
 | merge blocked | Approved and green, but a required review or ruleset is unsatisfied. |
 | mergeability unknown | GitHub had not computed it, twice. |
 | CI cancelled | A run was cancelled; usually needs a re-run. |

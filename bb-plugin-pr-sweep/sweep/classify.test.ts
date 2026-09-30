@@ -111,6 +111,48 @@ describe("classifyOne reviewer state", () => {
     expect(row.flags).toContain("feedback");
   });
 
+  it("stops flagging a COMMENTED review once the author has replied since", () => {
+    const reviewed = { ...review("COMMENTED", "hubber"), submittedAt: "2026-03-02T10:00:00Z" };
+    const reply = { ...review("COMMENTED", "octocat"), submittedAt: "2026-03-03T09:00:00Z" };
+    const answered = classifyOne(
+      makePr({ latestReviews: [reviewed], reviews: [reviewed, reply] }),
+      "acme/widgets",
+    );
+    expect(answered.flags).not.toContain("feedback");
+
+    // A reply from before the review answers nothing.
+    const early = { ...reply, submittedAt: "2026-03-01T09:00:00Z" };
+    const open = classifyOne(makePr({ latestReviews: [reviewed], reviews: [early, reviewed] }), "acme/widgets");
+    expect(open.flags).toContain("feedback");
+
+    // Nor does a review with no date to compare against.
+    const undated = classifyOne(
+      makePr({ latestReviews: [review("COMMENTED", "hubber")], reviews: [review("COMMENTED", "hubber"), reply] }),
+      "acme/widgets",
+    );
+    expect(undated.flags).toContain("feedback");
+  });
+
+  it("counts a comment from the author as a reply too", () => {
+    const reviewed = { ...review("COMMENTED", "hubber"), submittedAt: "2026-03-02T10:00:00Z" };
+    const row = classifyOne(
+      makePr({
+        latestReviews: [reviewed],
+        reviews: [reviewed],
+        comments: [{ author: { login: "octocat" }, createdAt: "2026-03-02T11:00:00Z" }],
+      }),
+      "acme/widgets",
+    );
+    expect(row.flags).not.toContain("feedback");
+  });
+
+  it("keeps flagging requested changes whatever the author has said since", () => {
+    const reviewed = { ...review("CHANGES_REQUESTED", "hubber"), submittedAt: "2026-03-02T10:00:00Z" };
+    const reply = { ...review("COMMENTED", "octocat"), submittedAt: "2026-03-03T09:00:00Z" };
+    const row = classifyOne(makePr({ latestReviews: [reviewed], reviews: [reviewed, reply] }), "acme/widgets");
+    expect(row.flags).toContain("feedback");
+  });
+
   it("does not flag a re-requested reviewer as work", () => {
     // reviewDecision stays CHANGES_REQUESTED after the author answers and
     // re-requests; GitHub drops the reviewer from latestReviews. The ball is
@@ -514,6 +556,13 @@ describe("reviewNotes", () => {
     expect(
       reviewNotes(pr([{ state: "COMMENTED", author: { login: "mona" }, body: "hmm" }])),
     ).toEqual(["mona"]);
+  });
+
+  it("drops a note the author has replied to since", () => {
+    const note = { state: "APPROVED", author: { login: "hubber" }, body: "One nit", submittedAt: "2026-03-02T10:00:00Z" };
+    const reply = { state: "COMMENTED", author: { login: "octocat" }, body: "", submittedAt: "2026-03-02T12:00:00Z" };
+    expect(reviewNotes(pr([note, reply]))).toEqual([]);
+    expect(reviewNotes(pr([{ ...reply, submittedAt: "2026-03-01T12:00:00Z" }, note]))).toEqual(["hubber"]);
   });
 
   it("ignores the pull request author talking about their own work", () => {

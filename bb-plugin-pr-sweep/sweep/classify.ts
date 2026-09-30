@@ -156,7 +156,10 @@ export function reviewNotes(pr: RawPullRequest): string[] {
   // review that follows: an empty approval is a sign-off and supersedes
   // whatever the reviewer said before it. An empty comment says nothing and
   // resolves nothing, so it supersedes nothing.
-  const noted = new Set<string>();
+  //
+  // And a note the author has replied to since, in a comment or a review
+  // thread, has been read and answered, so it no longer counts.
+  const noted = new Map<string, string | null | undefined>();
   for (const entry of pr.reviews) {
     const login = entry.author?.login;
     if (!login || login === authorLogin) continue;
@@ -165,9 +168,9 @@ export function reviewNotes(pr: RawPullRequest): string[] {
       if (entry.state.toUpperCase() === "APPROVED") noted.delete(login);
       continue;
     }
-    noted.add(login);
+    noted.set(login, entry.submittedAt);
   }
-  return [...noted];
+  return [...noted].filter(([, at]) => !answeredSince(pr, at)).map(([login]) => login);
 }
 
 /**
@@ -216,8 +219,48 @@ export function lastCommentBy(pr: RawPullRequest): string | null {
   return newest.login;
 }
 
+/**
+ * When the author last said anything on the pull request: a comment, or a
+ * review of their own, which is what a reply in a review thread is filed as.
+ */
+function authorLastActive(pr: RawPullRequest): number {
+  const authorLogin = pr.author?.login ?? null;
+  let last = -Infinity;
+  if (!authorLogin) return last;
+  for (const comment of pr.comments ?? []) {
+    if (comment.author?.login !== authorLogin) continue;
+    const at = Date.parse(comment.createdAt ?? "");
+    if (!Number.isNaN(at)) last = Math.max(last, at);
+  }
+  for (const entry of pr.reviews) {
+    if (entry.author?.login !== authorLogin) continue;
+    const at = Date.parse(entry.submittedAt ?? "");
+    if (!Number.isNaN(at)) last = Math.max(last, at);
+  }
+  return last;
+}
+
+/**
+ * Whether the author has spoken since a review was left. A review with no
+ * date is never answered, so an old listing without dates flags as before.
+ */
+function answeredSince(pr: RawPullRequest, submittedAt: string | null | undefined): boolean {
+  const at = Date.parse(submittedAt ?? "");
+  return !Number.isNaN(at) && authorLastActive(pr) > at;
+}
+
+/**
+ * A reviewer's latest review asks something of the author. Requested changes
+ * always do, until the reviewer reviews again. A comment review stops asking
+ * once the author has replied after it: its inline threads are then answered
+ * or counted as unanswered on their own, and its body was read to reply.
+ */
 function hasLiveFeedback(pr: RawPullRequest): boolean {
-  return pr.latestReviews.some((entry) => LIVE_FEEDBACK_STATES.has(entry.state));
+  return pr.latestReviews.some(
+    (entry) =>
+      entry.state === "CHANGES_REQUESTED" ||
+      (LIVE_FEEDBACK_STATES.has(entry.state) && !answeredSince(pr, entry.submittedAt)),
+  );
 }
 
 function isAwaitingReReview(pr: RawPullRequest): boolean {
