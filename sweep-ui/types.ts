@@ -55,7 +55,7 @@ export interface SweepItem {
    */
   stack?: StackChipProps["stack"] | null;
   progress?: { done: number; total: number } | null;
-  /** The comment count, drawn in the action line before the progress bar. Left out or 0 for none. */
+  /** The comment count, drawn in the action line after the progress bar. Left out or 0 for none. */
   comments?: number;
   /**
    * Drawn open whatever its tier, with no chevron to close it. For a row

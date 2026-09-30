@@ -226,11 +226,11 @@ describe("SweepList", () => {
     expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
   });
 
-  it("draws the comment count in the action line, before the progress bar", () => {
+  it("draws the comment count in the action line, after the progress bar", () => {
     render(<SweepList {...props([item(1, "new", { comments: 4, progress: { done: 1, total: 2 } })])} />);
     const count = screen.getByTitle("4 comments");
     expect(count.textContent).toBe("4");
-    expect(count.compareDocumentPosition(screen.getByText("1/2")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(count.compareDocumentPosition(screen.getByText("1/2")) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it("draws a stacked row's chip after its number, through the list's Link", () => {

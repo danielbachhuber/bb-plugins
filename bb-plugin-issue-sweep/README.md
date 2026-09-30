@@ -96,7 +96,7 @@ stale or blocked flag shows the flag in place of its age.
 The number line shows the issue number, any stale or blocked flag, how long ago
 it was updated, and "N new" in blue when there are new comments. The comment
 count and the sub-issue or task progress bar are at the end of the action
-line instead, the count first. A sub-issue shows its parent as a chip at the end of its title. The
+line instead, the bar first. A sub-issue shows its parent as a chip at the end of its title. The
 repository joins the line only when more than one is in play.
 
 An open row has a button for each of the "Board stages, in order", with the
@@ -109,7 +109,7 @@ the squares above the column name each run. In the narrower right column the
 buttons have a line of their own under the number line.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
-or Edit note, then the comment count and the progress bar. The Harvest clock, when the Harvest plugin is installed, sits at
+or Edit note, then the progress bar, with its count in green, and the comment count. The Harvest clock, when the Harvest plugin is installed, sits at
 the right end of that line. Start
 thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.

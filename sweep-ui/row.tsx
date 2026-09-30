@@ -81,7 +81,9 @@ function Progress({ done, total }: { done: number; total: number }) {
           style={{ width: `${total === 0 ? 0 : (done / total) * 100}%` }}
         />
       </span>
-      {done}/{total}
+      <span className="font-medium text-emerald-700 dark:text-emerald-400">
+        {done}/{total}
+      </span>
     </span>
   );
 }
@@ -306,13 +308,13 @@ export function SweepRow({
                 <Icon name="Edit" className="size-3" />
                 {item.note === null ? "Add note" : "Edit note"}
               </button>
+              {item.progress ? <Progress {...item.progress} /> : null}
               {item.comments ? (
                 <span className="inline-flex items-center gap-1 tabular-nums" title={`${item.comments} ${item.comments === 1 ? "comment" : "comments"}`}>
                   <Icon name="Comment" className="size-3" />
                   {item.comments}
                 </span>
               ) : null}
-              {item.progress ? <Progress {...item.progress} /> : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
             {editing ? <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} /> : null}
