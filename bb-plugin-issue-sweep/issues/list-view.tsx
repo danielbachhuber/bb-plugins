@@ -14,7 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
-import { commentsLabel, relativeTime, subtasksLabel } from "./format.js";
+import { relativeTime } from "./format.js";
 import {
   ISSUE_RUNS,
   isStale,
@@ -559,12 +559,12 @@ export function IssueListView({
       newComments: row.newComments,
       flags: flagsFor(row, inputs),
       // The age first: a Later row's single line shows only the first fact.
-      facts: [
-        relativeTime(row.updatedAt, now),
-        showRepo ? row.repo : null,
-        commentsLabel(row.commentsCount),
-        subtasksLabel(row.subtasks),
-      ].filter((fact): fact is string => fact !== null),
+      // The comment count and the sub-issue progress are drawn in the action
+      // line instead, the count beside the progress bar.
+      facts: [relativeTime(row.updatedAt, now), showRepo ? row.repo : null].filter(
+        (fact): fact is string => fact !== null,
+      ),
+      comments: row.commentsCount,
       parent: row.parent,
       note: row.note,
       stage,

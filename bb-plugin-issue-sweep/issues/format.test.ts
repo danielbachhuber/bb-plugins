@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commentsLabel, relativeTime, subtasksLabel } from "./format.js";
+import { relativeTime } from "./format.js";
 
 const NOW = Date.parse("2026-06-15T12:00:00Z");
 const MINUTE = 60_000;
@@ -31,38 +31,5 @@ describe("relativeTime", () => {
     // GitHub's timestamp can land slightly ahead of the local clock. "in 3m"
     // on an issue you did not just touch reads as a bug.
     expect(relativeTime(NOW + 3 * MINUTE, NOW)).toBe("just now");
-  });
-});
-
-describe("commentsLabel", () => {
-  it("says nothing about an issue with no discussion", () => {
-    expect(commentsLabel(0)).toBeNull();
-  });
-
-  it("counts one comment in the singular", () => {
-    expect(commentsLabel(1)).toBe("1 comment");
-    expect(commentsLabel(4)).toBe("4 comments");
-  });
-});
-
-describe("subtasksLabel", () => {
-  it("reads as done over total, named for what it counts", () => {
-    expect(subtasksLabel({ completed: 8, total: 14, source: "sub-issues" })).toBe(
-      "8/14 sub-issues",
-    );
-    expect(subtasksLabel({ completed: 12, total: 21, source: "tasks" })).toBe("12/21 tasks");
-  });
-
-  it("still speaks up when none of them are done", () => {
-    expect(subtasksLabel({ completed: 0, total: 3, source: "sub-issues" })).toBe(
-      "0/3 sub-issues",
-    );
-  });
-
-  it("says nothing about an issue with no checklist", () => {
-    expect(subtasksLabel(null)).toBeNull();
-    // Rows stored before this field existed read back without it.
-    expect(subtasksLabel(undefined)).toBeNull();
-    expect(subtasksLabel({ completed: 0, total: 0, source: "tasks" })).toBeNull();
   });
 });

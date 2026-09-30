@@ -135,14 +135,17 @@ describe("panel", () => {
     expect(await slot.findByText("#42")).toBeInTheDocument();
   });
 
-  it("shows the age, comment count, and checklist on the number line", async () => {
+  it("shows the age on the number line, and the comment count beside the checklist's bar", async () => {
     const slot = render(
       listing({ rows: [rowFixture({ subtasks: { completed: 8, total: 14, source: "tasks" } })] }),
     );
     const row = await rowFor(slot, /Widget rotation/);
     expect(within(row).getByText("3h ago")).toBeInTheDocument();
-    expect(within(row).getByText("2 comments")).toBeInTheDocument();
-    expect(within(row).getByText("8/14 tasks")).toBeInTheDocument();
+    expect(within(row).getByTitle("2 comments")).toHaveTextContent("2");
+    expect(within(row).getByText("8/14")).toBeInTheDocument();
+    // The bar says it, so the number line does not.
+    expect(within(row).queryByText("8/14 tasks")).toBeNull();
+    expect(within(row).queryByText("2 comments")).toBeNull();
   });
 
   it("names the repository only when more than one is in play", async () => {

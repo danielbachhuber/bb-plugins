@@ -288,27 +288,33 @@ export function SweepRow({
         {trackPlacement === "below" && track ? <div className="mt-2">{track}</div> : null}
         {open ? (
           <>
-            {editing ? (
-              <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} />
-            ) : (
-              <NoteBox note={item.note} />
-            )}
+            {/* While the drawer is open it holds the note, so the box would say it twice. */}
+            {editing ? null : <NoteBox note={item.note} />}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {actions}
-              {/* The field has its own Save and Cancel, so the button that opened it steps aside. */}
-              {editing ? null : (
-                <button
-                  type="button"
-                  onClick={onEditNote}
-                  className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground"
-                >
-                  <Icon name="Edit" className="size-3" />
-                  {item.note === null ? "Add note" : "Edit note"}
-                </button>
-              )}
+              {/* Stays put while the drawer is open, pressed, and closes it again. */}
+              <button
+                type="button"
+                aria-expanded={editing}
+                onClick={editing ? onNoteCancel : onEditNote}
+                className={cn(
+                  "-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground",
+                  editing && "bg-accent text-foreground",
+                )}
+              >
+                <Icon name="Edit" className="size-3" />
+                {item.note === null ? "Add note" : "Edit note"}
+              </button>
+              {item.comments ? (
+                <span className="inline-flex items-center gap-1 tabular-nums" title={`${item.comments} ${item.comments === 1 ? "comment" : "comments"}`}>
+                  <Icon name="Comment" className="size-3" />
+                  {item.comments}
+                </span>
+              ) : null}
               {item.progress ? <Progress {...item.progress} /> : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
+            {editing ? <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} /> : null}
           </>
         ) : null}
       </div>

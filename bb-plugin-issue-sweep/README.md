@@ -94,8 +94,9 @@ stale or blocked flag shows the flag in place of its age.
 ## Each row
 
 The number line shows the issue number, any stale or blocked flag, how long ago
-it was updated, the comment count, sub-issue or task progress, and "N new" in
-blue when there are new comments. A sub-issue shows its parent as a chip. The
+it was updated, and "N new" in blue when there are new comments. The comment
+count and the sub-issue or task progress bar are at the end of the action
+line instead, the count first. A sub-issue shows its parent as a chip. The
 repository joins the line only when more than one is in play.
 
 An open row has a button for each of the "Board stages, in order", with the
@@ -110,14 +111,16 @@ the narrower right column the buttons have a line of their own under the
 number line.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
-or Edit note. The Harvest clock, when the Harvest plugin is installed, sits at
+or Edit note, then the comment count and the progress bar. The Harvest clock, when the Harvest plugin is installed, sits at
 the right end of that line. Start
 thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
 
 A note is a one-line next step, stored only on this machine and never sent to
-GitHub. Save or Enter saves it, Cancel or Escape cancels, and saving an empty
-note deletes it.
+GitHub. Add note or Edit note opens it in a grey drawer under the action line
+and stays in place, pressed, while the drawer is open; pressing it again
+closes the drawer. Save or Enter saves the note, Cancel or Escape cancels, and
+saving an empty note deletes it.
 
 ## Settings
 

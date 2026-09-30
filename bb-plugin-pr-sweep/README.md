@@ -127,8 +127,10 @@ plugin is installed, sits at the right end of that line. Start thread's tooltip 
 conflict". A row only waiting for a run to finish offers no Start thread.
 
 A note is a one-line next step, stored only on this machine and never sent to
-GitHub. Save or Enter saves it, Cancel or Escape cancels, and saving an empty
-note deletes it.
+GitHub. Add note or Edit note opens it in a grey drawer under the action line
+and stays in place, pressed, while the drawer is open; pressing it again
+closes the drawer. Save or Enter saves the note, Cancel or Escape cancels, and
+saving an empty note deletes it.
 
 ## Threads
 

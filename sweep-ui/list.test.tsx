@@ -198,13 +198,31 @@ describe("SweepList", () => {
     expect(screen.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
   });
 
-  it("swaps Add note for the field's own Save and Cancel while editing", () => {
+  it("opens the note in a drawer under the action line, keeping Add note in place, pressed", () => {
     render(<SweepList {...props([item(1, "new")])} />);
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-    expect(screen.queryByRole("button", { name: "Add note" })).toBeNull();
+    const button = screen.getByRole("button", { name: "Add note" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(button);
+    expect(screen.getByRole("button", { name: "Add note" })).toHaveAttribute("aria-expanded", "true");
+    const drawer = screen.getByRole("form", { name: "Edit note" });
+    // After the action line, not above it.
+    expect(button.compareDocumentPosition(drawer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Add note" })).toBeInTheDocument();
+  });
+
+  it("closes the drawer from Add note too", () => {
+    render(<SweepList {...props([item(1, "new")])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
+  });
+
+  it("draws the comment count in the action line, before the progress bar", () => {
+    render(<SweepList {...props([item(1, "new", { comments: 4, progress: { done: 1, total: 2 } })])} />);
+    const count = screen.getByTitle("4 comments");
+    expect(count.textContent).toBe("4");
+    expect(count.compareDocumentPosition(screen.getByText("1/2")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("draws a stacked row's chip after its number, through the list's Link", () => {
