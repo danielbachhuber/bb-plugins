@@ -62,7 +62,7 @@ function ParentChip({ parent, Link }: { parent: NonNullable<SweepItem["parent"]>
   return (
     <Link
       href={parent.url}
-      className="inline-flex max-w-[14rem] shrink-0 items-center gap-1 rounded border border-border px-1 text-[11px] leading-4 text-muted-foreground hover:text-foreground"
+      className="inline-flex min-w-0 max-w-[14rem] items-center gap-1 rounded border border-border px-1 text-[11px] leading-4 text-muted-foreground hover:text-foreground"
     >
       <Icon name="Layers" className="size-3 shrink-0" />
       <span className="truncate" title={`#${parent.number} ${parent.title}`}>
