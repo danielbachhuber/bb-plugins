@@ -4,12 +4,12 @@ import { cn } from "./lib/cn";
 import type { Run, RunTone, SweepItem } from "./types";
 
 // Colors keyed by what they mean in every sweep: blue for new, red for late,
-// green for work already under way. The grays are quiet on purpose, because
+// orange for work already under way. The grays are quiet on purpose, because
 // Next and Later rows are not asking for you yet.
 const COLORS: Record<RunTone, string> = {
   new: "bg-[#2a78d6] dark:bg-[#3987e5]",
   late: "bg-[#d03b3b]",
-  underway: "bg-[#2da44e] dark:bg-[#3fb950]",
+  underway: "bg-[#ea7a0c] dark:bg-[#f08a24]",
   next: "bg-[#b5b3ab] dark:bg-[#6b6a65]",
   later: "bg-[#dcdad3] dark:bg-[#3f3e3b]",
 };

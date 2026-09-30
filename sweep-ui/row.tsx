@@ -34,7 +34,7 @@ const BLUE_DOT = "bg-[#0b57d0] dark:bg-[#a8c7fa]";
 /** Rows with a flag are tinted the way Now tints them: red for stale, slate for blocked. */
 /**
  * A left edge and a faint wash: red for a stale row, slate for a blocked one,
- * and green for one whose run is under way, in the same green as its square.
+ * and orange for one whose run is under way, in the same orange as its square.
  */
 function tint(item: SweepItem, tone?: RunTone): string | false {
   if (item.flags.some((flag) => flag.kind === "stale"))
@@ -42,7 +42,7 @@ function tint(item: SweepItem, tone?: RunTone): string | false {
   if (item.flags.some((flag) => flag.kind === "blocked"))
     return "-mx-4 border-l-2 border-l-slate-400 bg-slate-500/[0.05] pl-[14px] pr-4";
   if (tone === "underway")
-    return "-mx-4 border-l-2 border-l-[#2da44e] bg-[#2da44e]/[0.05] pl-[14px] pr-4 dark:border-l-[#3fb950] dark:bg-[#3fb950]/[0.06]";
+    return "-mx-4 border-l-2 border-l-[#ea7a0c] bg-[#ea7a0c]/[0.05] pl-[14px] pr-4 dark:border-l-[#f08a24] dark:bg-[#f08a24]/[0.06]";
   return false;
 }
 
@@ -139,7 +139,7 @@ export interface SweepRowProps {
   onToggle?: () => void;
   /** False leaves out the chevron column, for a list whose rows never close. */
   chevron?: boolean;
-  /** The row's run's tone. An under-way row gets a green edge. */
+  /** The row's run's tone. An under-way row gets an orange edge. */
   tone?: RunTone;
   stages: Stage[];
   onMove?: (stage: number) => void;

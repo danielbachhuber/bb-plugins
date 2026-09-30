@@ -210,7 +210,7 @@ describe("SweepList", () => {
     expect(within(row("Widget task 2")).getByText(/2 of 3/)).toHaveTextContent("2 of 3 · on #1");
   });
 
-  it("gives a row in an under-way run a green edge, and a stale flag outranks it", () => {
+  it("gives a row in an under-way run an orange edge, and a stale flag outranks it", () => {
     render(
       <SweepList
         {...props([
@@ -220,7 +220,7 @@ describe("SweepList", () => {
         ])}
       />,
     );
-    expect(row("Widget task 1").className).toContain("border-l-[#2da44e]");
+    expect(row("Widget task 1").className).toContain("border-l-[#ea7a0c]");
     expect(row("Widget task 2").className).toContain("border-l-destructive");
     expect(row("Widget task 3").className).not.toContain("border-l-");
   });
