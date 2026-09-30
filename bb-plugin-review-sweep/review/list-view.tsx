@@ -205,8 +205,8 @@ interface BodyProps {
 
 /**
  * The row's facts as icons with numbers, as PR Sweep draws them: the author,
- * whose pull request it is, then the other reviewers, the checks, and the
- * size. Then the repository when the list spans several, and when an ignored
+ * whose pull request it is, then the reviewers with you first, the checks,
+ * and the size. Then the repository when the list spans several, and when an ignored
  * review comes back. The reviewers are left out when there are none, and the
  * checks when the pull request has none.
  */

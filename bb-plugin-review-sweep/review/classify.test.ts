@@ -384,11 +384,26 @@ describe("reviewersOf", () => {
   const states = (pr: Parameters<typeof reviewersOf>[0]) =>
     reviewersOf(pr, ME).map(({ login, state }) => [login, state]);
 
-  it("shows outstanding requests as pending, leaving me out", () => {
+  it("shows outstanding requests as pending, with me first", () => {
     const pr = makePr({
-      reviewRequests: { nodes: [pendingRequest({ login: ME }), pendingRequest({ login: "hubber" })] },
+      reviewRequests: { nodes: [pendingRequest({ login: "hubber" }), pendingRequest({ login: ME })] },
     });
-    expect(states(pr)).toEqual([["hubber", "pending"]]);
+    expect(states(pr)).toEqual([
+      [ME, "pending"],
+      ["hubber", "pending"],
+    ]);
+  });
+
+  it("puts me first even when another reviewer's state sorts ahead", () => {
+    const pr = makePr({
+      author: { login: "mona" },
+      reviewRequests: { nodes: [pendingRequest({ login: "hubber" })] },
+      reviews: { nodes: [submittedReview("APPROVED", ME, daysAgo(2))] },
+    });
+    expect(states(pr)).toEqual([
+      [ME, "approved"],
+      ["hubber", "pending"],
+    ]);
   });
 
   it("names a requested team org/team, with the repository owner's picture to show", () => {
@@ -453,12 +468,11 @@ describe("reviewersOf", () => {
     expect(states(pr)).toEqual([["hubber", "pending"]]);
   });
 
-  it("leaves out my own reviews, the author's replies, and drafts", () => {
+  it("leaves out the author's replies and drafts", () => {
     const pr = makePr({
       reviewRequests: { nodes: [] },
       reviews: {
         nodes: [
-          submittedReview("APPROVED", ME, daysAgo(3)),
           submittedReview("COMMENTED", "octocat", daysAgo(2)),
           submittedReview("PENDING", "hubber", daysAgo(1)),
         ],

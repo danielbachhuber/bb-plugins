@@ -214,7 +214,8 @@ const VERDICTS: Record<string, ReviewerState> = {
 const REVIEWER_ORDER: ReviewerState[] = ["pending", "changes_requested", "approved", "commented", "dismissed"];
 
 /**
- * Everyone else on the pull request, once each, and where their review stands.
+ * Everyone on the pull request but its author, once each, and where their
+ * review stands.
  *
  * A request still outstanding is pending, whatever that reviewer said before,
  * since the author is waiting on it. A team is named `org/team`, with the
@@ -223,8 +224,9 @@ const REVIEWER_ORDER: ReviewerState[] = ["pending", "changes_requested", "approv
  * dismissal decides, and a reviewer who only commented is a commenter: a
  * comment after an approval does not take the approval back.
  *
- * The viewer is left out, since every row already waits on them, and so is
- * the author, whose replies to review comments GitHub files as reviews.
+ * The viewer comes first, since they are the reviewer the row is asking for.
+ * The author is left out, since GitHub files their replies to review comments
+ * as reviews.
  */
 export function reviewersOf(pr: RawPullRequest, viewer: string): RowReviewer[] {
   const owner = (pr.repository?.nameWithOwner ?? "").split("/")[0] ?? "";
@@ -235,7 +237,7 @@ export function reviewersOf(pr: RawPullRequest, viewer: string): RowReviewer[] {
     const reviewer = request?.requestedReviewer;
     if (!reviewer) continue;
     if (reviewer.login) {
-      if (reviewer.login !== viewer) states.set(reviewer.login, { state: "pending", team: false });
+      states.set(reviewer.login, { state: "pending", team: false });
     } else if (reviewer.slug) {
       states.set(`${owner}/${reviewer.slug}`, { state: "pending", team: true });
     }
@@ -245,7 +247,7 @@ export function reviewersOf(pr: RawPullRequest, viewer: string): RowReviewer[] {
   const commented = new Set<string>();
   for (const review of pr.reviews?.nodes ?? []) {
     const login = review?.author?.login;
-    if (!login || login === viewer || login === author) continue;
+    if (!login || login === author) continue;
     const state = (review?.state ?? "").toUpperCase();
     const verdict = VERDICTS[state];
     // Nodes arrive oldest first, so the last verdict seen is the latest.
@@ -257,7 +259,11 @@ export function reviewersOf(pr: RawPullRequest, viewer: string): RowReviewer[] {
 
   return [...states]
     .map(([login, { state, team }]) => ({ login, state, team }))
-    .sort((a, b) => REVIEWER_ORDER.indexOf(a.state) - REVIEWER_ORDER.indexOf(b.state));
+    .sort(
+      (a, b) =>
+        Number(b.login === viewer) - Number(a.login === viewer) ||
+        REVIEWER_ORDER.indexOf(a.state) - REVIEWER_ORDER.indexOf(b.state),
+    );
 }
 
 /** Returns null for a node too incomplete to act on, rather than a broken row. */

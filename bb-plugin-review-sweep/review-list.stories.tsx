@@ -29,6 +29,7 @@ const AVATARS: Record<string, string> = {
   hubber: avatar("H", "#d0703c"),
   octocat: avatar("O", "#7c5cc4"),
   acme: avatar("A", "#4a6b8a"),
+  mona: avatar("M", "#2f8f5b"),
 };
 const avatarFor = (owner: string) => AVATARS[owner] ?? avatar(owner[0]!.toUpperCase(), "#6e7781");
 
@@ -42,6 +43,8 @@ function checks(overrides: Partial<Row["checks"]>): Row["checks"] {
 
 const GREEN = checks({ pass: 11, skip: 2 });
 const TEAM_PENDING: Row["reviewers"] = [{ login: "acme/widgets-reviewers", state: "pending", team: true }];
+// You, asked by name: first in the reviewer stack.
+const YOU: Row["reviewers"][number] = { login: "mona", state: "pending", team: false };
 
 function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
   return {
@@ -59,7 +62,7 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     snoozedUntil: null,
     comments: 0,
     checks: GREEN,
-    reviewers: TEAM_PENDING,
+    reviewers: [YOU],
     note: null,
     newComments: 0,
     ...overrides,
@@ -86,6 +89,7 @@ const needsReview: Row[] = [
     author: "hubber",
     requestedReviewers: ["widgets-committers"],
     size: { additions: 18, deletions: 4, changedFiles: 2 },
+    reviewers: TEAM_PENDING,
     comments: 3,
     newComments: 2,
   }),
@@ -130,6 +134,7 @@ const everything: Listing = {
       size: { additions: 320, deletions: 118, changedFiles: 14 },
       checks: checks({ pass: 10, fail: 2, skip: 1 }),
       reviewers: [
+        YOU,
         { login: "acme/widgets-committers", state: "pending", team: true },
         { login: "octocat", state: "changes_requested", team: false },
       ],
@@ -152,7 +157,7 @@ const everything: Listing = {
       state: "re-review",
       requestedAt: now - 3 * 24 * HOUR,
       threadId: "thr_fixture2",
-      reviewers: [{ login: "hubber", state: "approved", team: false }],
+      reviewers: [YOU, { login: "hubber", state: "approved", team: false }],
     }),
     row({
       number: 443,

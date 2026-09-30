@@ -131,11 +131,12 @@ Under the title, a banner appears for two kinds of request:
 Then a line of icons:
 
 - the author's picture and login
-- the other reviewers' pictures, each with a badge for where their review
-  stands: pending while a request is outstanding, otherwise their latest
-  approval, change request, or dismissal, or a comment if that is all they
-  left. A team shows its organization's picture. You are never in it, and it
-  is left out when nobody else is on the pull request.
+- the reviewers' pictures, yours first, each with a badge for where their
+  review stands: pending while a request is outstanding, otherwise their
+  latest approval, change request, or dismissal, or a comment if that is all
+  they left. A team shows its organization's picture. You are in it when you
+  were asked by name or have reviewed; a request only to your team shows the
+  team.
 - the head commit's checks as a count, such as a green tick with "13/13", an
   amber clock while any run, or a red cross with "2/15 failing". Hovering it
   names every count. Left out when the pull request has no checks.
