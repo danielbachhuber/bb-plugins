@@ -72,7 +72,8 @@ latest message is more than 24 hours old) is tinted red with a red bar down its
 left edge, and says how late it is in place of its date: "3 days late" for a
 task, "2 hours late" or "20 minutes late" for one due earlier today, "4 days
 old" for mail. Mail that old stays in its run rather than joining
-Urgent, which holds only tasks. A deadline that is today is red too;
+Urgent, which holds only tasks. A task in the Today run is tinted yellow
+with a yellow bar the same way. A deadline that is today is red too;
 nothing else is colored for its date. A recurring item
 has a repeat icon.
 

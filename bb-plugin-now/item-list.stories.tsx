@@ -423,7 +423,7 @@ export function Default() {
     <StoryCard>
       <StoryRow
         label="Items"
-        hint="The page opens on Now, run by run: urgent tasks (overdue ones, tinted red and saying how late they are, and Todoist's Inbox), today's tasks, your own items and email to you, requests of you, what can be archived, and what is minor. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by its run."
+        hint="The page opens on Now, run by run: urgent tasks (overdue ones, tinted red and saying how late they are, and Todoist's Inbox), today's tasks, tinted yellow, your own items and email to you, requests of you, what can be archived, and what is minor. The header picks one section on the left or one source on the right, each with its count of every row. Under it, one square per row, colored by its run."
       >
         <Frame listing={stored(ok)} />
       </StoryRow>

@@ -13,9 +13,9 @@ import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
-import { readable } from "./items.js";
+import { readable, sortDate } from "./items.js";
 import { isAtProposedTime, spanText } from "../calendar/proposal.js";
-import { archiveReason, isOverdue, overdueText, shortDate } from "./sections.js";
+import { archiveReason, isOverdue, nowGroupOf, overdueText, shortDate } from "./sections.js";
 import { PostponeMenu } from "./postpone-menu.js";
 import { TaskEdit } from "./task-edit.js";
 import type { TaskDraft } from "../todoist/edit.js";
@@ -579,6 +579,8 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   const reading = useContext(ReadingContext) === item.id;
   // An overdue row says how late it is in place of its date, and is tinted red.
   const overdue = isOverdue(item, now);
+  // A task in the Today run is tinted in that run's yellow, the same way.
+  const dueToday = !overdue && item.gmail === null && sortDate(item) !== null && nowGroupOf(item, now) === "today";
   const date = rowDate(item, now);
   // Shown in the details line only when the title line is showing the due date instead.
   const deadline = item.due !== null && item.deadline !== null ? item.deadline : null;
@@ -632,6 +634,7 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
         reading && "-mx-3 rounded-md bg-accent/60 px-3",
         // Out to the list's edges, with a red bar where its padding was.
         overdue && "-mx-4 border-l-2 border-l-destructive bg-destructive/[0.04] pl-[14px] pr-4",
+        dueToday && "-mx-4 border-l-2 border-l-[#eda100] bg-[#eda100]/[0.06] pl-[14px] pr-4 dark:border-l-[#c98500] dark:bg-[#c98500]/[0.08]",
       )}
       aria-busy={busy}
     >
