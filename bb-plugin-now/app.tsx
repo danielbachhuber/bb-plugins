@@ -19,6 +19,7 @@ import type { rpcContract } from "./server";
 import { SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
 import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
+import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
 import { hideSidePanel } from "./now/side-panel.js";
@@ -233,6 +234,20 @@ function useRowActions(
           if (result.error !== null) toast.error(result.error);
           else toast.success(`Deleted "${item.title}"`);
         }).catch(fail);
+      },
+      onLoadEmailText: async (item) => {
+        try {
+          const result = await rpc.call("email_thread", { id: item.id });
+          if (result.thread === null) toast.error(result.error ?? "Could not read this email.");
+          else {
+            const text = latestMessageText(result.thread);
+            if (text !== "") return text;
+            toast.error("This email has no text to show.");
+          }
+        } catch (cause) {
+          fail(cause);
+        }
+        return null;
       },
       onLoadComment: async (item, messageId) => {
         try {

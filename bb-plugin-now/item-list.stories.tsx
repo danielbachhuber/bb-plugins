@@ -92,6 +92,17 @@ const FULL_COMMENT = [
   "- a note in the changelog for anyone importing `widgets/adapters`",
 ].join("\n");
 
+// An email whose snippet Gmail stopped at about 200 characters, and the message Show more reads.
+const CUT_EMAIL =
+  "Here is the list we talked about. Can you look over the gadget section before noon? I moved the supplier dates to the end and added a row for the moon launch, which still needs an owner. The widget";
+const FULL_EMAIL = [
+  `${CUT_EMAIL} pricing is unchanged from last week.`,
+  "",
+  "If the gadget section looks right to you, I'll send it to Hubber this afternoon.",
+  "",
+  "Octocat",
+].join("\n");
+
 const notifications: Item[] = [
   pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
     reviewers: [{ ...hubber, state: "commented" }, { ...reviewersTeam, state: "pending" }],
@@ -301,7 +312,7 @@ const proposal: Item = {
 
 const emails: Item[] = [
   // Addressed to you, so it counts as Me rather than Requests.
-  { ...email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), "Here is the list we talked about. Can you look over the gadget section before noon?", true), gmail: { threadIds: ["t1"], unread: true, toYou: true } },
+  { ...email("t1", "Widget launch checklist", "Octocat", new Date(2026, 8, 24, 8, 4), CUT_EMAIL, true), gmail: { threadIds: ["t1"], unread: true, toYou: true } },
   email("t2", "Re: Gadget invoice for September", "Hubber", new Date(2026, 8, 23, 20, 9), "Thanks! I have attached the corrected invoice."),
   email("t3", "Acme Board: agenda for next week", "Acme Board", new Date(2026, 8, 19, 12, 0), "Please add any items to the shared agenda by Friday."),
   docComments,
@@ -389,6 +400,10 @@ const actions = {
   onEdit: async () => true,
   onDelete: noop,
   onPostpone: noop,
+  onLoadEmailText: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return FULL_EMAIL;
+  },
   onLoadComment: async () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
     return { comment: FULL_COMMENT, line: FULL_COMMENT };

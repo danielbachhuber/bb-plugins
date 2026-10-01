@@ -294,7 +294,12 @@ also looks in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, and
 `~/bin` before reporting it missing.
 
 Each thread is one row: the first message's subject, and the latest
-message's sender, snippet, and time. A row with any unread message has a bold
+message's sender, snippet, and time. The snippet shows two lines at most, as a
+GitHub quote does, and since Gmail stops it at about 200 characters, **Show
+more** at its end reads the latest message and shows its whole text in place,
+from the plain-text part or else the HTML, without the earlier messages a
+reply quotes beneath it. A snippet of under 150 characters that fits in two
+lines is taken to be the whole message and has no Show more. A row with any unread message has a bold
 title and a blue dot beside its mark, as in Gmail; that holds for the GitHub
 rows below too. A row of several messages also says how many are new ("1
 new") beside its date. Reading it in Gmail clears it on the next sync. The
@@ -426,6 +431,7 @@ list `server.ts` passes to `loadSources`.
 | `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
+| `now/email-text.ts` | A plain email's latest message as the text Show more puts in place of its snippet |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
 | `now/sidebar-counts.tsx` | The red urgent badge and the Now count beside the page's name in the sidebar |

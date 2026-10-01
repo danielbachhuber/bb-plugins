@@ -65,6 +65,11 @@ export interface RowActions {
    * Resolves null when it could not, having said why.
    */
   onLoadComment?: (item: Item, messageId: string) => Promise<{ comment: string; line: string } | null>;
+  /**
+   * Reads the whole text of a plain email row's latest message, for Show more.
+   * Resolves null when it could not, having said why.
+   */
+  onLoadEmailText?: (item: Item) => Promise<string | null>;
 }
 
 /** The row whose email is open in the Email tab, so the list can mark it. */
@@ -136,7 +141,13 @@ interface Quote {
   cut?: boolean;
 }
 
-/** How many lines a quote shows before Show more. */
+/**
+ * Gmail does not say whether it cut a snippet, but it stops them at about 200
+ * characters, so one this long may have more behind it.
+ */
+const MAYBE_CUT_SNIPPET = 150;
+
+/** How many lines a row's text shows before Show more. */
 const QUOTE_LINES = 2;
 
 /**
@@ -181,18 +192,37 @@ function fittingLength(paragraph: HTMLParagraphElement, text: string, toggled: b
 }
 
 /**
- * A quote, two lines at most until Show more opens it, with Show more at the
- * end of the text. A GitHub quote whose snippet stopped early is read in full
- * from its email then, and drawn as the Markdown it was written in.
+ * Text drawn two lines at most, shortened with "…" and Show more at its end
+ * when it runs longer. When `onLoad` is given and `cut` says the text stopped
+ * short of what was written, Show more reads the whole of it first, and
+ * `renderFull` draws that; otherwise it only unclamps the text.
  */
-function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<string | null> }) {
+function ShowMoreText({
+  text,
+  lead,
+  trailing,
+  cut = false,
+  onLoad,
+  renderFull,
+  className,
+}: {
+  text: string;
+  /** Drawn before the text, such as the author of a quote. */
+  lead?: ReactNode;
+  /** Drawn after the text, before Show more. */
+  trailing?: ReactNode;
+  cut?: boolean;
+  onLoad?: () => Promise<string | null>;
+  renderFull?: (full: string, toggle: ReactNode) => ReactNode;
+  className?: string;
+}) {
   const ref = useRef<HTMLParagraphElement>(null);
-  // How much of the text the closed quote shows; null for all of it.
+  // How much of the text the closed paragraph shows; null for all of it.
   const [shown, setShown] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const loadable = quote.cut === true && onLoad !== undefined;
+  const loadable = cut && onLoad !== undefined;
   const shortened = !open && shown !== null;
 
   useLayoutEffect(() => {
@@ -203,7 +233,7 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
     const measure = () => {
       if (!live || element.clientWidth === width) return;
       width = element.clientWidth;
-      setShown(fittingLength(element, quote.text, loadable));
+      setShown(fittingLength(element, text, loadable));
     };
     // A web font that arrives after the first measure changes how much fits without changing the width.
     const remeasure = () => {
@@ -220,11 +250,11 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
       observer?.disconnect();
       document.fonts?.removeEventListener("loadingdone", remeasure);
     };
-  }, [open, quote.text, loadable]);
+  }, [open, text, loadable]);
 
   const show = async () => {
     setOpen(true);
-    if (!loadable || full !== null) return;
+    if (onLoad === undefined || full !== null) return;
     setLoading(true);
     try {
       setFull(await onLoad());
@@ -233,17 +263,6 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
     }
   };
 
-  const author = quote.author === null ? null : <span className="font-medium">{quote.author}: </span>;
-  const link =
-    quote.url != null ? (
-      <UrlLink
-        href={quote.url}
-        className="ml-1 inline-flex align-[-2px] text-muted-foreground hover:text-foreground"
-        aria-label="Open this comment"
-      >
-        <Icon name="ExternalLink" className="size-3" />
-      </UrlLink>
-    ) : null;
   const toggle =
     loadable || shown !== null || open ? (
       <button
@@ -256,30 +275,55 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
       </button>
     ) : null;
 
-  if (open && full !== null) {
-    // The author leads the first paragraph, unless the comment opens with a heading, list, or quote of its own.
-    const lead = quote.author === null ? "" : `**${quote.author}:**${BLOCK_START.test(full) ? "\n\n" : " "}`;
-    return (
-      <div>
-        <Markdown
-          content={lead + full}
-          className="text-xs leading-normal text-foreground/80 [&_strong]:font-medium [&_:is(p,ul,ol,pre,blockquote,h1,h2,h3,h4)]:mb-1 [&_:is(p,ul,ol,li,h1,h2,h3,h4)]:text-xs [&_:is(p,ul,ol,li)]:text-foreground/80 [&_li]:mb-0"
-        />
-        {toggle}
-      </div>
-    );
-  }
+  if (open && full !== null && renderFull !== undefined) return <div className={className}>{renderFull(full, toggle)}</div>;
   return (
-    <div className="relative">
+    <div className={cn("relative", className)}>
       <p ref={ref}>
-        {author}
-        <span data-quote-text="">
-          {shortened ? `${quote.text.slice(0, shown).trimEnd()}…` : quote.text}
-        </span>
-        {link}
+        {lead}
+        <span data-quote-text="">{shortened ? `${text.slice(0, shown).trimEnd()}…` : text}</span>
+        {trailing}
         {toggle}
       </p>
     </div>
+  );
+}
+
+/**
+ * A quote. A GitHub quote whose snippet stopped early is read in full from its
+ * email by Show more, and drawn as the Markdown it was written in.
+ */
+function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<string | null> }) {
+  const link =
+    quote.url != null ? (
+      <UrlLink
+        href={quote.url}
+        className="ml-1 inline-flex align-[-2px] text-muted-foreground hover:text-foreground"
+        aria-label="Open this comment"
+      >
+        <Icon name="ExternalLink" className="size-3" />
+      </UrlLink>
+    ) : null;
+  return (
+    <ShowMoreText
+      text={quote.text}
+      lead={quote.author === null ? null : <span className="font-medium">{quote.author}: </span>}
+      trailing={link}
+      cut={quote.cut === true}
+      onLoad={quote.cut === true ? onLoad : undefined}
+      renderFull={(full, toggle) => {
+        // The author leads the first paragraph, unless the comment opens with a heading, list, or quote of its own.
+        const lead = quote.author === null ? "" : `**${quote.author}:**${BLOCK_START.test(full) ? "\n\n" : " "}`;
+        return (
+          <>
+            <Markdown
+              content={lead + full}
+              className="text-xs leading-normal text-foreground/80 [&_strong]:font-medium [&_:is(p,ul,ol,pre,blockquote,h1,h2,h3,h4)]:mb-1 [&_:is(p,ul,ol,li,h1,h2,h3,h4)]:text-xs [&_:is(p,ul,ol,li)]:text-foreground/80 [&_li]:mb-0"
+            />
+            {toggle}
+          </>
+        );
+      }}
+    />
   );
 }
 
@@ -557,6 +601,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   const unreadQuotes = item.github?.unreadQuotes ?? [];
   const latest = item.github?.comment ?? null;
   const quotes: ReadonlyArray<Quote> = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
+  // A plain email's row shows the latest message's snippet, which Show more replaces with its whole text.
+  const loadEmail = actions?.onLoadEmailText;
+  const emailText = loadEmail !== undefined && readable(item) ? () => loadEmail(item) : undefined;
   // An unread message's line keeps what happened in front of the comment ("approved: …").
   const asLine = item.doc == null && unreadQuotes.length > 0;
   const loadComment = actions?.onLoadComment;
@@ -648,7 +695,18 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
               className="mt-0.5 text-xs leading-normal text-muted-foreground [&_:is(p,ul,ol)]:mb-1 [&_:is(p,ul,ol,li)]:text-muted-foreground [&_li]:mb-0"
             />
           ) : (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
+            <ShowMoreText
+              text={item.description}
+              className="mt-0.5 text-xs text-muted-foreground"
+              cut={emailText !== undefined && item.description.length >= MAYBE_CUT_SNIPPET}
+              onLoad={emailText}
+              renderFull={(full, toggle) => (
+                <p className="whitespace-pre-line break-words">
+                  {full}
+                  {toggle}
+                </p>
+              )}
+            />
           )}
           {subtasks.length === 0 ? null : (
             <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground" aria-label="Subtasks">
