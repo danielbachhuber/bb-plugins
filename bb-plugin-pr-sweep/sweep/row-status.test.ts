@@ -149,8 +149,23 @@ describe("bannerFor", () => {
     expect(bannerFor(pr({ notedBy: ["hubber"], unresolvedThreads: 2 }))?.detail).toBe("2 unanswered comments");
   });
 
+  it("keeps a merge-ready banner green but names the feedback left with the approval", () => {
+    expect(
+      bannerFor(
+        pr({ flags: ["merge-ready"], approvedBy: ["hubber"], notedBy: ["hubber"], unresolvedThreads: 3, unansweredBy: ["hubber"] }),
+      ),
+    ).toEqual({ tone: "ready", text: "Ready to merge", detail: "hubber approved with notes, 3 unanswered comments" });
+    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2 }))?.detail).toBe(
+      "2 unanswered comments",
+    );
+    // Threads you replied to last leave nothing to name.
+    expect(
+      bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2, repliedThreads: 2 }))?.detail,
+    ).toBe("approved by hubber");
+  });
+
   it("says ready to merge in green, with who approved or who is still to review", () => {
-    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"], unresolvedThreads: 2 }))).toEqual({
+    expect(bannerFor(pr({ flags: ["merge-ready"], approvedBy: ["hubber"] }))).toEqual({
       tone: "ready",
       text: "Ready to merge",
       detail: "approved by hubber",

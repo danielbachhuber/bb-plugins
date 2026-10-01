@@ -137,6 +137,12 @@ export function bannerFor(row: ListedPr): Banner | null {
     return feedback ? { tone: "blocked", text: main, detail: feedback.text } : { tone: "blocked", text: main };
   }
   if (flags.includes("merge-ready")) {
+    // Feedback left alongside the approval is still green, since GitHub would
+    // merge it, but it replaces who approved so the comments are not hidden.
+    if (feedback) {
+      const threads = feedback.byReviewer ? threadsText(row) : null;
+      return { tone: "ready", text: "Ready to merge", detail: threads ? `${feedback.text}, ${threads}` : feedback.text };
+    }
     const waiting = row.waitingOn;
     const detail =
       waiting.length > 0

@@ -101,7 +101,9 @@ Under the title, a banner says where the pull request stands.
   answered carries no feedback banner. Requested changes count until the
   reviewer reviews again.
 - **Green** "Ready to merge", followed by who approved, or by who has not
-  reviewed yet when someone else was asked.
+  reviewed yet when someone else was asked. Feedback left alongside the
+  approval takes that place instead: "Ready to merge · hubber approved with
+  notes, 3 unanswered comments".
 - **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
   or "GitHub is still checking for conflicts".
 - **None** for a draft, a first review not yet given, or checks still
