@@ -3,14 +3,13 @@ import { useState } from "react";
 import { Icon } from "./icons";
 
 /**
- * The local next-step note, starting with "Next", in the grey drawer under the
- * action line where its editor opens.
+ * The local next-step note, in the grey drawer under the action line where its
+ * editor opens.
  */
 export function NoteBox({ note }: { note: string | null }) {
   if (note === null) return null;
   return (
     <p className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
-      <span className="font-medium text-muted-foreground">Next </span>
       {note}
     </p>
   );

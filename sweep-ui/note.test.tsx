@@ -55,8 +55,8 @@ describe("NoteBox", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("starts the note with Next", () => {
+  it("shows the note as written, with no label before it", () => {
     render(<NoteBox note="Ask about the hinge" />);
-    expect(screen.getByText("Ask about the hinge").textContent).toBe("Next Ask about the hinge");
+    expect(screen.getByText("Ask about the hinge").textContent).toBe("Ask about the hinge");
   });
 });
