@@ -198,9 +198,10 @@ you. ⌘↩ sends it. Above the details line, the row quotes the most recent thi
 someone wrote, taken from its email's snippet. When some of its messages are
 unread, it quotes each of those instead, oldest first, with what happened for
 one that has no words ("approved", "requested review of acme/reviewers"), up
-to five and then a count of the rest. Each quote shows two lines at most.
-Gmail stops a snippet at about 200 characters, so a quote whose snippet ends
-before GitHub's footer has **Show more** under it, which reads that one
+to five and then a count of the rest. Each quote shows two lines at most,
+shortened with "…" when it runs longer, with **Show more** at the end of the
+text. Gmail stops a snippet at about 200 characters, so a quote whose snippet
+ends before GitHub's footer has Show more too, which reads that one
 email's plain-text body and shows the whole comment in place, as Markdown,
 without GitHub's opening line, the diff above a review comment on a line, or
 the footer. A quote that is whole but runs past two lines has Show more too,

@@ -136,29 +136,91 @@ interface Quote {
   cut?: boolean;
 }
 
+/** How many lines a quote shows before Show more. */
+const QUOTE_LINES = 2;
+
 /**
- * A quote, two lines at most until Show more opens it. A GitHub quote whose
- * snippet stopped early is read in full from its email then, and drawn as the
- * Markdown it was written in.
+ * How many characters of `text` fit in the quote's lines with "… Show more"
+ * after them, or null when all of it does. Measured on a hidden copy of the
+ * paragraph, so the one on screen is drawn once, already shortened.
+ */
+function fittingLength(paragraph: HTMLParagraphElement, text: string, toggled: boolean): number | null {
+  const lineHeight = parseFloat(getComputedStyle(paragraph).lineHeight);
+  if (!Number.isFinite(lineHeight) || paragraph.clientWidth === 0) return null;
+  const probe = paragraph.cloneNode(true) as HTMLParagraphElement;
+  Object.assign(probe.style, { position: "absolute", visibility: "hidden", width: `${paragraph.clientWidth}px` });
+  paragraph.parentElement!.append(probe);
+  const span = probe.querySelector<HTMLElement>("[data-quote-text]")!;
+  // Show more is there whenever the text is shortened, and for a cut quote even when it is not.
+  let button = probe.querySelector("button");
+  if (button === null) {
+    button = document.createElement("button");
+    button.className = "ml-1";
+    button.textContent = "Show more";
+    probe.append(button);
+  }
+  const fits = (length: number) => {
+    const whole = length >= text.length;
+    span.textContent = whole ? text : `${text.slice(0, length).trimEnd()}…`;
+    button.hidden = whole && !toggled;
+    return probe.offsetHeight <= lineHeight * QUOTE_LINES + 1;
+  };
+  try {
+    if (fits(text.length)) return null;
+    let low = 0;
+    let high = text.length - 1;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (fits(middle)) low = middle;
+      else high = middle - 1;
+    }
+    return low;
+  } finally {
+    probe.remove();
+  }
+}
+
+/**
+ * A quote, two lines at most until Show more opens it, with Show more at the
+ * end of the text. A GitHub quote whose snippet stopped early is read in full
+ * from its email then, and drawn as the Markdown it was written in.
  */
 function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<string | null> }) {
   const ref = useRef<HTMLParagraphElement>(null);
-  const [clamped, setClamped] = useState(false);
+  // How much of the text the closed quote shows; null for all of it.
+  const [shown, setShown] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const loadable = quote.cut === true && onLoad !== undefined;
+  const shortened = !open && shown !== null;
 
   useLayoutEffect(() => {
     const element = ref.current;
     if (element === null || open) return;
-    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1);
+    let width = -1;
+    let live = true;
+    const measure = () => {
+      if (!live || element.clientWidth === width) return;
+      width = element.clientWidth;
+      setShown(fittingLength(element, quote.text, loadable));
+    };
+    // A web font that arrives after the first measure changes how much fits without changing the width.
+    const remeasure = () => {
+      width = -1;
+      measure();
+    };
     measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [open, quote.text]);
+    document.fonts?.addEventListener("loadingdone", remeasure);
+    void document.fonts?.ready.then(remeasure);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => {
+      live = false;
+      observer?.disconnect();
+      document.fonts?.removeEventListener("loadingdone", remeasure);
+    };
+  }, [open, quote.text, loadable]);
 
   const show = async () => {
     setOpen(true);
@@ -183,12 +245,12 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
       </UrlLink>
     ) : null;
   const toggle =
-    loadable || clamped || open ? (
+    loadable || shown !== null || open ? (
       <button
         type="button"
         disabled={loading}
         onClick={() => (open ? setOpen(false) : void show())}
-        className="text-muted-foreground hover:text-foreground hover:underline disabled:no-underline"
+        className="ml-1 text-muted-foreground hover:text-foreground hover:underline disabled:no-underline"
       >
         {loading ? "Loading…" : open ? "Show less" : "Show more"}
       </button>
@@ -208,13 +270,15 @@ function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<str
     );
   }
   return (
-    <div>
-      <p ref={ref} className={cn(!open && "line-clamp-2")}>
+    <div className="relative">
+      <p ref={ref}>
         {author}
-        {quote.text}
+        <span data-quote-text="">
+          {shortened ? `${quote.text.slice(0, shown).trimEnd()}…` : quote.text}
+        </span>
         {link}
+        {toggle}
       </p>
-      {toggle}
     </div>
   );
 }
