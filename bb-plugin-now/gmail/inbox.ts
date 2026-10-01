@@ -14,7 +14,7 @@ import {
   type GitHubRef,
 } from "../github/notifications.js";
 import { stateFromHeader, type GitHubState } from "../github/state.js";
-import { CALENDAR_HEADER, eventIdFromBody, notificationKind } from "../calendar/invite.js";
+import { CALENDAR_HEADER, eventIdFromBody, isAcceptanceIcs, isGuestAcceptance, notificationKind } from "../calendar/invite.js";
 import { proposedTime } from "../calendar/proposal.js";
 import { APP_NAMES, DOCS_SENDER, documentUrl, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
 import type { GitHubQuote, Item } from "../now/types.js";
@@ -66,9 +66,41 @@ function calendarNotification(thread: unknown): { message: Raw; kind: "invitatio
   return null;
 }
 
-/** Whether a thread's body is worth fetching: Google's comment emails, and calendar invitations and proposals. */
+/**
+ * A thread's latest message when it may be Outlook's reply to an invitation,
+ * which has no header to say so: only its subject, and its invite.ics once
+ * that has been read.
+ */
+function outlookReply(thread: unknown): Raw | null {
+  const message = messagesOf(thread).at(-1);
+  if (message === undefined || header(message, CALENDAR_HEADER) !== null) return null;
+  return /^Accepted:/i.test(header(message, "Subject") ?? "") ? message : null;
+}
+
+/** Whether a thread's body is worth fetching: Google's comment emails, calendar invitations and proposals, and Outlook's replies. */
 export function needsBody(thread: unknown): boolean {
-  return isDocsThread(thread) || calendarNotification(thread) !== null;
+  return isDocsThread(thread) || calendarNotification(thread) !== null || outlookReply(thread) !== null;
+}
+
+/** Whether a thread's latest calendar notification is a guest accepting your event. */
+function isAcceptanceThread(thread: unknown): boolean {
+  const outlook = outlookReply(thread);
+  if (outlook !== null) {
+    const ics = icsOf(outlook);
+    return ics !== null && isAcceptanceIcs(ics);
+  }
+  const messages = messagesOf(thread);
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const value = header(messages[index]!, CALENDAR_HEADER);
+    if (value !== null) return isGuestAcceptance(value);
+  }
+  return false;
+}
+
+/** A message's invite.ics as text, once it has been fetched. */
+function icsOf(message: Raw): string | null {
+  const ics = calendarPart(message);
+  return isRecord(ics?.body) && typeof ics.body.data === "string" ? Buffer.from(ics.body.data, "base64url").toString("utf8") : null;
 }
 
 /** The event an invitation thread is about, read from its body when it was fetched in full. */
@@ -87,26 +119,26 @@ function inviteOf(thread: unknown): Item["invite"] {
 function proposalOf(thread: unknown): Item["proposal"] {
   const found = calendarNotification(thread);
   if (found === null || found.kind !== "proposal") return null;
-  const ics = calendarPart(found.message);
-  const data = isRecord(ics?.body) && typeof ics.body.data === "string" ? ics.body.data : null;
-  const proposed = data === null ? null : proposedTime(Buffer.from(data, "base64url").toString("utf8"));
+  const ics = icsOf(found.message);
+  const proposed = ics === null ? null : proposedTime(ics);
   if (proposed === null) return null;
   const body = htmlBody(found.message);
   return { eventId: body === null ? null : eventIdFromBody(body), proposed, current: null, cancelled: false };
 }
 
 /**
- * The invite.ics of a proposal thread's latest proposal, when Gmail left it
- * as an attachment to fetch rather than including it, which it does for any
- * part with a file name.
+ * The invite.ics of a proposal thread's latest proposal, or of Outlook's
+ * reply to an invitation, when Gmail left it as an attachment to fetch rather
+ * than including it, which it does for any part with a file name.
  */
-export function proposalAttachment(thread: unknown): { messageId: string; part: Raw; attachmentId: string } | null {
+export function calendarAttachment(thread: unknown): { messageId: string; part: Raw; attachmentId: string } | null {
   const found = calendarNotification(thread);
-  if (found === null || found.kind !== "proposal" || typeof found.message.id !== "string") return null;
-  const part = calendarPart(found.message);
+  const message = found?.kind === "proposal" ? found.message : outlookReply(thread);
+  if (message === null || typeof message.id !== "string") return null;
+  const part = calendarPart(message);
   const body = part?.body;
   if (part === null || !isRecord(body) || typeof body.data === "string" || typeof body.attachmentId !== "string") return null;
-  return { messageId: found.message.id, part, attachmentId: body.attachmentId };
+  return { messageId: message.id, part, attachmentId: body.attachmentId };
 }
 
 /** A message's first part that passes `test`, when the thread was fetched in full. */
@@ -333,7 +365,8 @@ export function inboxItems(
       if (item !== null) {
         const invite = inviteOf(thread);
         const proposal = invite === null ? proposalOf(thread) : null;
-        rows.push(invite !== null ? { ...item, invite } : proposal !== null ? { ...item, proposal } : item);
+        const row = invite !== null ? { ...item, invite } : proposal !== null ? { ...item, proposal } : item;
+        rows.push(invite === null && proposal === null && isAcceptanceThread(thread) ? { ...row, guestAccepted: true } : row);
       }
       continue;
     }

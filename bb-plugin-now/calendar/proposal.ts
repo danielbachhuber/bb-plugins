@@ -19,7 +19,7 @@ export interface ProposedTime {
 }
 
 /** An iCalendar file's lines, with the folded ones joined back together. */
-function unfold(ics: string): string[] {
+export function unfold(ics: string): string[] {
   return ics.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
 }
 

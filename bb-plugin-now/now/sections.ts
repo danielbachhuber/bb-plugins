@@ -103,13 +103,14 @@ export function sectionOf(item: Item): SectionId {
  * do, and neither does one whose review you have given and nobody has asked
  * for again, or one you hear about only because someone else, or a team you
  * are not on, was asked to review it. An invitation you have answered, or
- * one that was canceled, is done too, and so is a proposed time the event is
- * already at.
+ * one that was canceled, is done too, and so is a guest accepting your event,
+ * or a proposed time the event is already at.
  */
 export function archiveReason(item: Item): string | null {
   const github = item.github;
   if (item.gmail === null) return null;
   if (item.invite?.cancelled === true || item.proposal?.cancelled === true) return "it's canceled";
+  if (item.guestAccepted === true) return "they accepted";
   if (item.proposal != null && isAtProposedTime(item.proposal.proposed, item.proposal.current)) return "it's moved";
   if (item.invite?.response === "accepted" || item.invite?.response === "declined" || item.invite?.response === "tentative") {
     return "you replied";

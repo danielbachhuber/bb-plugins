@@ -176,6 +176,28 @@ describe("inboxItems", () => {
     expect(inboxItems([thread], null)[0]?.github).toBeNull();
     expect(githubRefs([thread])).toEqual([]);
   });
+
+  test("marks a guest's acceptance of your event, and no other reply", () => {
+    const reply = (id: string, kinds: string) => ({
+      id,
+      messages: [message(T, "Octocat has accepted this invitation.", { Subject: "Accepted: Widget review", "X-Google-Calendar-Notification": kinds })],
+    });
+    const [accepted, declined] = inboxItems([reply("a", "rsvpAccepted"), reply("d", "rsvpDeclined")], null);
+    expect(accepted?.guestAccepted).toBe(true);
+    expect(declined?.guestAccepted).toBeUndefined();
+  });
+
+  test("marks Outlook's acceptance once its invite.ics says it accepts", () => {
+    const ics = (partstat: string) => Buffer.from(`METHOD:REPLY\r\nATTENDEE;PARTSTAT=${partstat}:mailto:octocat@example.com\r\n`).toString("base64url");
+    const outlook = (id: string, data?: string) => {
+      const reply = message(T, "", { Subject: "Accepted: Widget review" });
+      return { id, messages: [{ ...reply, payload: { ...reply.payload, parts: [{ mimeType: "text/calendar", filename: "invite.ics", body: data === undefined ? { attachmentId: "a1" } : { data } }] } }] };
+    };
+    const [accepted, declined, unread] = inboxItems([outlook("a", ics("ACCEPTED")), outlook("d", ics("DECLINED")), outlook("u")], null);
+    expect(accepted?.guestAccepted).toBe(true);
+    expect(declined?.guestAccepted).toBeUndefined();
+    expect(unread?.guestAccepted).toBeUndefined();
+  });
 });
 
 describe("quotes", () => {

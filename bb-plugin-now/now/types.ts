@@ -191,6 +191,8 @@ export const itemSchema = z.object({
   doc: docPartSchema.nullable().optional(),
   invite: invitePartSchema.nullable().optional(),
   proposal: proposalPartSchema.nullable().optional(),
+  /** A guest's acceptance of your Calendar event, which asks nothing of you. */
+  guestAccepted: z.boolean().optional(),
   todoist: todoistPartSchema.nullable().optional(),
 });
 export type Item = z.infer<typeof itemSchema>;

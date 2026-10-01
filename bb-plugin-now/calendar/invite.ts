@@ -5,7 +5,7 @@
 // header, and its body links to the event with an `eid`: the event's id and
 // the invited address, base64url-encoded together ("abc123 you@example.com").
 
-import { fromEventField, type ProposedTime } from "./proposal.js";
+import { fromEventField, type ProposedTime, unfold } from "./proposal.js";
 
 export type InviteResponse = "accepted" | "declined" | "tentative" | "needsAction";
 export type Reply = Exclude<InviteResponse, "needsAction">;
@@ -34,6 +34,26 @@ export function notificationKind(header: string | null): "invitation" | "cancell
   if (kinds.includes("rsvpProposeNewTime")) return "proposal";
   if (kinds.some((kind) => kind === "eventCreated" || /Updated$/.test(kind))) return "invitation";
   return null;
+}
+
+/**
+ * Whether a notification is a guest accepting your event, which asks nothing
+ * of you. A guest who declines or proposes another time may still want an
+ * answer, so only a plain acceptance counts.
+ */
+export function isGuestAcceptance(header: string | null): boolean {
+  const kinds = (header ?? "").split(",").map((kind) => kind.trim());
+  return kinds.includes("rsvpAccepted") && notificationKind(header) === null;
+}
+
+/**
+ * Whether an invite.ics is a guest accepting an event: what Outlook sends,
+ * which has no header to say so. Its METHOD is REPLY and its one attendee's
+ * PARTSTAT is ACCEPTED.
+ */
+export function isAcceptanceIcs(ics: string): boolean {
+  const lines = unfold(ics);
+  return lines.some((line) => /^METHOD:REPLY$/i.test(line.trim())) && lines.some((line) => /^ATTENDEE[;:].*PARTSTAT=ACCEPTED[;:]/i.test(line));
 }
 
 /** The event an invitation's body links to, from the first `eid` in it. */

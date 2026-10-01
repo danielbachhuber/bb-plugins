@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { groupIntoSections, isOverdue, NOW_GROUPS, nowGroupOf, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
+import { archiveReason, groupIntoSections, isOverdue, NOW_GROUPS, nowGroupOf, overdueText, sectionOf, shortDate, sidebarCounts } from "./sections.js";
 import type { Item } from "./types.js";
 
 /** Thursday, September 24, 2026, 9:30 local. */
@@ -91,6 +91,9 @@ describe("nowGroupOf", () => {
     const invite = (response: "needsAction" | "accepted") => item("i", { gmail: { threadIds: ["i"], unread: true }, activityAt: hoursAgo(1), invite: { eventId: "e", response, cancelled: false } });
     expect(nowGroupOf(invite("needsAction"), now)).toBe("requests");
     expect(nowGroupOf(invite("accepted"), now)).toBe("archive");
+    const acceptance = item("g", { gmail: { threadIds: ["g"], unread: true, toYou: true }, activityAt: hoursAgo(1), guestAccepted: true });
+    expect(nowGroupOf(acceptance, now)).toBe("archive");
+    expect(archiveReason(acceptance)).toBe("they accepted");
     const proposal = (current: string) =>
       item("p", {
         gmail: { threadIds: ["p"], unread: true, toYou: true },

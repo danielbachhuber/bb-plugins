@@ -37,8 +37,8 @@ Now is split into six runs, in this order:
   event, and any other email.
 - **Archive**: what has nothing left to do: a pull request or issue that has
   merged or closed, a review you have given, a review someone else was asked
-  for, an invitation you have answered or that was canceled, and a proposed
-  time your event has been moved to.
+  for, an invitation you have answered or that was canceled, a guest
+  accepting your event, and a proposed time your event has been moved to.
 - **Minor**: what you only follow, such as a subscription or a comment on
   someone else's item or document, and tasks dated after today.
 
@@ -372,7 +372,11 @@ something.
 
 Calendar's invitations carry an `X-Google-Calendar-Notification` header
 (`eventCreated`, `timeOrRecurrenceUpdated`, `eventCancelled`, and so on;
-someone else's reply, `rsvpAccepted`, asks nothing of you). The event is
+someone else's reply, such as `rsvpAccepted`, asks nothing of you, and a
+guest's plain acceptance goes to Archive saying "they accepted"). Outlook's
+acceptance has no such header, so a thread whose subject starts "Accepted:"
+has its `invite.ics` read, and goes to Archive when that says `METHOD:REPLY`
+with `PARTSTAT=ACCEPTED`. The event is
 named only in the body's links, whose `eid` decodes to the event's id and your
 address, so those threads are read in full too. Each sync then asks Calendar
 for every invitation's event (`gws calendar events get`) and reads your reply

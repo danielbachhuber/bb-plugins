@@ -5,7 +5,7 @@ import type { Source, SourceResult } from "../now/sources.js";
 import { GwsMissingError, runJson, type GwsRunner } from "./gws.js";
 import { fallbackDirs } from "../now/find-command.js";
 import type { InviteState } from "../calendar/invite.js";
-import { githubRefs, inboxItems, METADATA_HEADERS, needsBody, proposalAttachment } from "./inbox.js";
+import { githubRefs, inboxItems, METADATA_HEADERS, needsBody, calendarAttachment } from "./inbox.js";
 import { SOURCE_ID } from "./normalize.js";
 
 export const DEFAULT_QUERY = "in:inbox";
@@ -95,7 +95,8 @@ export function gmailSource(options: GmailSourceOptions): Source {
     ]);
 
     // Google's comment notifications say who wrote what only in their bodies,
-    // and an invitation or a proposal names its event only there, so those threads, and
+    // an invitation or a proposal names its event only there, and Outlook's
+    // reply says what it is only in its invite.ics, so those threads, and
     // only those, are fetched again in full.
     await mapLimit(
       threads.map((thread, index) => ({ thread, index })).filter(({ thread }) => needsBody(thread)),
@@ -112,11 +113,12 @@ export function gmailSource(options: GmailSourceOptions): Source {
       },
     );
 
-    // A proposal's time is only in its invite.ics, which Gmail leaves out of
-    // the full thread as an attachment, so that one part is fetched as well.
+    // A proposal's time, and whether Outlook's reply accepts, are only in its
+    // invite.ics, which Gmail leaves out of the full thread as an attachment,
+    // so that one part is fetched as well.
     await mapLimit(
       threads.flatMap((thread) => {
-        const found = proposalAttachment(thread);
+        const found = calendarAttachment(thread);
         return found === null ? [] : [found];
       }),
       CONCURRENCY,
@@ -128,7 +130,7 @@ export function gmailSource(options: GmailSourceOptions): Source {
           ]);
           if (typeof attachment.data === "string") part.body = { ...(part.body as object), data: attachment.data };
         } catch (error) {
-          options.onWarn?.(`Could not read a proposed time: ${error instanceof Error ? error.message : String(error)}`);
+          options.onWarn?.(`Could not read an invite.ics: ${error instanceof Error ? error.message : String(error)}`);
         }
       },
     );

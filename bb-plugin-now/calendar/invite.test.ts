@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { attendeesWithReply, eventIdFromBody, inviteState, notificationKind } from "./invite.js";
+import { attendeesWithReply, eventIdFromBody, inviteState, isAcceptanceIcs, isGuestAcceptance, notificationKind } from "./invite.js";
 
 describe("notificationKind", () => {
   test("tells an invitation from a cancellation and from someone else's reply", () => {
@@ -12,6 +12,28 @@ describe("notificationKind", () => {
     expect(notificationKind("rsvpDeclined,rsvpWithNote")).toBeNull();
     expect(notificationKind("rsvpTentative,rsvpWithNote,rsvpProposeNewTime")).toBe("proposal");
     expect(notificationKind(null)).toBeNull();
+  });
+});
+
+describe("isGuestAcceptance", () => {
+  test("counts a guest's plain acceptance and nothing else", () => {
+    expect(isGuestAcceptance("rsvpAccepted")).toBe(true);
+    expect(isGuestAcceptance("rsvpAccepted,rsvpWithNote")).toBe(true);
+    expect(isGuestAcceptance("rsvpAccepted,rsvpProposeNewTime")).toBe(false);
+    expect(isGuestAcceptance("rsvpDeclined")).toBe(false);
+    expect(isGuestAcceptance("eventCreated")).toBe(false);
+    expect(isGuestAcceptance(null)).toBe(false);
+  });
+});
+
+describe("isAcceptanceIcs", () => {
+  const ics = (method: string, partstat: string) =>
+    ["BEGIN:VCALENDAR", `METHOD:${method}`, "BEGIN:VEVENT", `ATTENDEE;PARTSTAT=${partstat};CN=Octocat:mailto:octo`, " cat@example.com", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+
+  test("counts a reply that accepts, and not one that declines or invites", () => {
+    expect(isAcceptanceIcs(ics("REPLY", "ACCEPTED"))).toBe(true);
+    expect(isAcceptanceIcs(ics("REPLY", "DECLINED"))).toBe(false);
+    expect(isAcceptanceIcs(ics("REQUEST", "ACCEPTED"))).toBe(false);
   });
 });
 
