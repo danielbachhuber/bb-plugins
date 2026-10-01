@@ -23,11 +23,13 @@ sections, each under its heading. Each row goes in one section:
   sooner.
 - **Anytime**: every other task, which has no date.
 
-Now is split into six runs, in this order:
+Now is split into seven runs, in this order:
 
 - **Urgent**: tasks dated before today, or due earlier today at a time that
   has passed, and every task in Todoist's Inbox, whatever its date, since it
   has not been filed yet.
+- **Unread**: email with an unread message, unless it belongs in Archive.
+  Once it is read, it moves to Me, Requests, or Minor.
 - **Today**: the other tasks due today.
 - **Me**: GitHub notifications about your own pull requests and issues, and
   email with your address in its To field.
@@ -47,7 +49,7 @@ tasks, oldest first, then undated Inbox tasks, newest added first.
 
 Under the header, while the Now section is showing, a line of small squares
 gives one square to each of its rows, in the list's order, colored by run: red
-for Urgent, yellow for Today, green for Me, blue for Requests, and gray for
+for Urgent, violet for Unread, yellow for Today, green for Me, blue for Requests, and gray for
 Archive and Minor. Each run is labelled with its count, such as "4 urgent",
 and hovering a square shows its row's title. The squares shrink, down to 4px,
 to keep the runs on one line; on a page too narrow even for that, each label
@@ -142,7 +144,7 @@ good sync, with a note saying how many.
   someone else, or a team you are not on, was asked to review it.
 - **Mark read** (on an unread email row, after Archive) marks the row's
   threads read in Gmail and leaves them in the inbox, so the row stays on the
-  page and moves down its run, below the unread mail.
+  page and moves from Unread to the run it belongs in.
 - **Open** (on an email row that is not a GitHub notification, a document
   comment, an invitation, or a proposed new time, after Archive) opens the email in full in the
   page's **Email** tab, in the side panel beside the list, and marks it read

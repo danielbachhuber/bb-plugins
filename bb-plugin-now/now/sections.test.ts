@@ -46,7 +46,7 @@ describe("isOverdue", () => {
 });
 
 describe("nowGroupOf", () => {
-  const github = (overrides: Partial<NonNullable<Item["github"]>>, unread = true) =>
+  const github = (overrides: Partial<NonNullable<Item["github"]>>, unread = false) =>
     item("gh", {
       gmail: { threadIds: ["gh"], unread },
       activityAt: hoursAgo(2),
@@ -80,15 +80,23 @@ describe("nowGroupOf", () => {
     expect(nowGroupOf(github({ reason: "review_requested", myReview: "approved" }), now)).toBe("archive");
   });
 
+  test("puts unread email in Unread, unless it can be archived", () => {
+    expect(nowGroupOf(mail("a", 1, true), now)).toBe("unread");
+    expect(nowGroupOf(mail("a", 60, true), now)).toBe("unread");
+    expect(nowGroupOf(item("a", { gmail: { threadIds: ["a"], unread: true, toYou: true }, activityAt: hoursAgo(1) }), now)).toBe("unread");
+    expect(nowGroupOf(github({ reason: "subscribed" }, true), now)).toBe("unread");
+    expect(nowGroupOf(github({ reason: "author", state: "merged" }, true), now)).toBe("archive");
+  });
+
   test("puts email to you in Me, document comments by whether they mention you, and invitations by whether you answered", () => {
-    expect(nowGroupOf(item("a", { gmail: { threadIds: ["a"], unread: true, toYou: true }, activityAt: hoursAgo(1) }), now)).toBe("me");
-    expect(nowGroupOf(mail("a", 1, true), now)).toBe("requests");
+    expect(nowGroupOf(item("a", { gmail: { threadIds: ["a"], unread: false, toYou: true }, activityAt: hoursAgo(1) }), now)).toBe("me");
+    expect(nowGroupOf(mail("a", 1), now)).toBe("requests");
     // Mail no longer counts as overdue for its age.
     expect(nowGroupOf(mail("a", 60), now)).toBe("requests");
-    const doc = (mentioned: boolean) => item("d", { gmail: { threadIds: ["d"], unread: true }, activityAt: hoursAgo(1), doc: { app: "docs", documentId: "d", mentioned, quotes: [] } });
+    const doc = (mentioned: boolean) => item("d", { gmail: { threadIds: ["d"], unread: false }, activityAt: hoursAgo(1), doc: { app: "docs", documentId: "d", mentioned, quotes: [] } });
     expect(nowGroupOf(doc(true), now)).toBe("requests");
     expect(nowGroupOf(doc(false), now)).toBe("minor");
-    const invite = (response: "needsAction" | "accepted") => item("i", { gmail: { threadIds: ["i"], unread: true }, activityAt: hoursAgo(1), invite: { eventId: "e", response, cancelled: false } });
+    const invite = (response: "needsAction" | "accepted") => item("i", { gmail: { threadIds: ["i"], unread: false }, activityAt: hoursAgo(1), invite: { eventId: "e", response, cancelled: false } });
     expect(nowGroupOf(invite("needsAction"), now)).toBe("requests");
     expect(nowGroupOf(invite("accepted"), now)).toBe("archive");
     const acceptance = item("g", { gmail: { threadIds: ["g"], unread: true, toYou: true }, activityAt: hoursAgo(1), guestAccepted: true });
@@ -96,7 +104,7 @@ describe("nowGroupOf", () => {
     expect(archiveReason(acceptance)).toBe("they accepted");
     const proposal = (current: string) =>
       item("p", {
-        gmail: { threadIds: ["p"], unread: true, toYou: true },
+        gmail: { threadIds: ["p"], unread: false, toYou: true },
         activityAt: hoursAgo(1),
         proposal: {
           eventId: "e",
@@ -146,7 +154,7 @@ describe("sectionOf", () => {
 });
 
 describe("groupIntoSections", () => {
-  test("keeps every section, and orders Now run by run: urgent, today, me, requests, archive, minor", () => {
+  test("keeps every section, and orders Now run by run: urgent, unread, today, me, requests, archive, minor", () => {
     const toYou = item("to-you", { gmail: { threadIds: ["to-you"], unread: false, toYou: true }, activityAt: hoursAgo(3) });
     const merged = item("merged", {
       gmail: { threadIds: ["merged"], unread: true },
@@ -178,8 +186,8 @@ describe("groupIntoSections", () => {
     expect(sections.map((section) => [section.title, section.items.map((kept) => kept.id)])).toEqual([
       [
         "Now",
-        // Within a run, unread mail leads, then newest first; tasks keep the list's order, undated ones last.
-        ["late", "this-morning", "filed", "today", "to-you", "new-mail", "recent-mail", "stale-mail", "merged", "followed", "later"],
+        // Unread mail follows the Inbox tasks; within a run, mail goes newest first; tasks keep the list's order, undated ones last.
+        ["late", "this-morning", "filed", "new-mail", "today", "to-you", "recent-mail", "stale-mail", "merged", "followed", "later"],
       ],
       ["Anytime", ["someday"]],
     ]);

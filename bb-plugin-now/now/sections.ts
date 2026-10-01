@@ -126,10 +126,11 @@ export function archiveReason(item: Item): string | null {
  * The runs the Now section is ordered in, which its summary counts and filters
  * by. Each row is in exactly one.
  */
-export type NowGroupId = "urgent" | "today" | "me" | "requests" | "archive" | "minor";
+export type NowGroupId = "urgent" | "unread" | "today" | "me" | "requests" | "archive" | "minor";
 
 export const NOW_GROUPS: readonly { id: NowGroupId; label: string }[] = [
   { id: "urgent", label: "Urgent" },
+  { id: "unread", label: "Unread" },
   { id: "today", label: "Today" },
   { id: "me", label: "Me" },
   { id: "requests", label: "Requests" },
@@ -148,15 +149,16 @@ const ME_REASONS = new Set(["author", "ci_activity", "your_activity"]);
  *
  * - Urgent: a task whose day or time has passed, and every task in
  *   Todoist's Inbox, whatever its date, since it has not been filed yet.
+ * - Unread: email with an unread message, unless it can be archived.
  * - Today: any other task due today.
  * - Me: activity on your own pull requests and issues, and email with you in
- *   its To field.
- * - Requests: what asks something of you: a review, a mention, an
+ *   its To field, once read.
+ * - Requests: what asks something of you, once read: a review, a mention, an
  *   assignment, a document comment that mentions you, an invitation to
  *   answer, a proposed new time for your event, and any other email.
  * - Archive: a row with nothing left to do (see `archiveReason`).
- * - Minor: what you only follow, such as a subscription or a comment on
- *   someone else's item or document, and tasks dated after today.
+ * - Minor: what you only follow, once read, such as a subscription or a
+ *   comment on someone else's item or document, and tasks dated after today.
  */
 export function nowGroupOf(item: Item, now: Date): NowGroupId {
   if (item.gmail === null) {
@@ -164,6 +166,7 @@ export function nowGroupOf(item: Item, now: Date): NowGroupId {
     return dayOf(sortDate(item)!) === localDay(now) ? "today" : "minor";
   }
   if (archiveReason(item) !== null) return "archive";
+  if (item.gmail.unread) return "unread";
   if (item.github !== null) {
     const reason = item.github.reason ?? "";
     if (ME_REASONS.has(reason)) return "me";
