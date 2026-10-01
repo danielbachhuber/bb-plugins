@@ -3,7 +3,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { acceptProposal, fetchInviteStates, reply as replyToInvite } from "./calendar/api.js";
 import { createGhRunner, fetchStates, mergePullRequest, postComment, type GhRunner } from "./github/gh.js";
-import { emailThread } from "./gmail/body.js";
+import { emailThread, githubComment } from "./gmail/body.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { nowCli } from "./now/cli.js";
@@ -341,6 +341,25 @@ export function createPlugin(deps: PluginDeps = {}) {
         removeRow(id);
         announce();
         return { archived: true, error: null };
+      },
+      github_comment: async ({ id, messageId }) => {
+        const github = findItem(id)?.github ?? null;
+        const quoted = [github?.comment, ...(github?.unreadQuotes ?? [])].some((quote) => quote?.messageId === messageId);
+        if (github === null || !quoted) return { comment: "", line: "", error: "That comment is not on this row." };
+        try {
+          const { gwsPath } = await settings.get();
+          const raw = await runJson<unknown>(gwsFor(gwsPath.trim() || "gws").run, [
+            "gmail", "users", "messages", "get",
+            "--params", JSON.stringify({ userId: "me", id: messageId, format: "full" }),
+          ]);
+          const comment = githubComment(raw);
+          return comment === null
+            ? { comment: "", line: "", error: "GitHub's email has no comment in it to show." }
+            : { ...comment, error: null };
+        } catch (error) {
+          bb.log.warn(`Could not read the comment on ${id}: ${messageOf(error)}`);
+          return { comment: "", line: "", error: messageOf(error) };
+        }
       },
       email_thread: async ({ id }) => {
         const item = findItem(id);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { emailThread, messageBody } from "./body.js";
+import { emailThread, githubComment, messageBody } from "./body.js";
 
 function data(text: string): string {
   return Buffer.from(text, "utf8").toString("base64url");
@@ -132,5 +132,27 @@ describe("emailThread", () => {
   test("is null for a thread with no messages", () => {
     expect(emailThread({ id: "t1", messages: [] }, null)).toBeNull();
     expect(emailThread("nonsense", null)).toBeNull();
+  });
+});
+
+describe("githubComment", () => {
+  test("reads the whole comment, and the line an approval with words shows", () => {
+    const raw = message(
+      "m1",
+      {
+        mimeType: "multipart/alternative",
+        headers: headers({ "X-GitHub-Sender": "hubber" }),
+        parts: [{ mimeType: "text/plain", body: { data: data("@hubber approved this pull request.\n\nShip the widgets.\nThen the gadgets.\n\n-- \nReply to this email directly, view it on GitHub:\n") } }],
+      },
+      { snippet: "@hubber approved this pull request. Ship the widgets. Then" },
+    );
+    expect(githubComment(raw)).toEqual({
+      comment: "Ship the widgets.\nThen the gadgets.",
+      line: "approved: Ship the widgets.\nThen the gadgets.",
+    });
+  });
+
+  test("is null without a plain-text part", () => {
+    expect(githubComment(message("m1", { mimeType: "text/html", body: { data: data("<p>Hi</p>") } }))).toBeNull();
   });
 });

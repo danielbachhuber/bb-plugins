@@ -1,4 +1,5 @@
 // Read a whole email out of a `threads get` payload in full format. No I/O here.
+import { bodyCommentText, classifyEvent, eventLine } from "../github/notifications.js";
 import type { EmailThread } from "../now/contract.js";
 import { decodeEntities, header, isRecord, senderName, threadUrl, type Raw } from "./normalize.js";
 
@@ -69,4 +70,19 @@ export function emailThread(raw: unknown, account: string | null): EmailThread |
       };
     }),
   };
+}
+
+/**
+ * The whole comment in a GitHub notification, from a `messages get` payload in
+ * full format: what was written, and the line an unread message shows for it.
+ * Null when the email has no plain-text part or nothing was written.
+ */
+export function githubComment(raw: unknown): { comment: string; line: string } | null {
+  if (!isRecord(raw)) return null;
+  const text = messageBody(raw.payload).text;
+  const comment = text === null ? "" : bodyCommentText(text);
+  if (comment === "") return null;
+  const snippet = decodeEntities(typeof raw.snippet === "string" ? raw.snippet : "");
+  const event = classifyEvent(snippet, header(raw, "X-GitHub-Sender"));
+  return { comment, line: eventLine(event, snippet, comment) };
 }

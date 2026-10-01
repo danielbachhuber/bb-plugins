@@ -160,6 +160,16 @@ export const rpcContract = defineRpcContract({
    * A Gmail row's email in full, every message with its body, for the Email
    * tab. Asks Gmail each time; nothing is stored.
    */
+  /**
+   * The whole of a GitHub comment a row quotes, read from its email's body
+   * because the snippet the row was built from stops at about 200 characters.
+   * `comment` is what was written, as Markdown; `line` is the same with what
+   * happened in front of it ("approved: …"), as an unread message's line has.
+   */
+  github_comment: {
+    input: z.object({ id: z.string(), messageId: z.string() }),
+    output: z.object({ comment: z.string(), line: z.string(), error: z.string().nullable() }),
+  },
   email_thread: {
     input: z.object({ id: z.string() }),
     output: z.object({ thread: emailThreadSchema.nullable(), error: z.string().nullable() }),

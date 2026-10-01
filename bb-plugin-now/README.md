@@ -195,11 +195,16 @@ offers **Open thread** instead, until that thread is archived or deleted.
 A GitHub row also has **Reply** in its details line, which opens a box under
 the row that comments on the pull request or issue through the GitHub API, as
 you. ⌘↩ sends it. Above the details line, the row quotes the most recent thing
-someone wrote, taken from its email's snippet, so a long comment arrives
-already cut short. When some of its messages are unread, it quotes each of
-those instead, oldest first, with what happened for one that has no words
-("approved", "requested review of acme/reviewers"), up to five and then a
-count of the rest.
+someone wrote, taken from its email's snippet. When some of its messages are
+unread, it quotes each of those instead, oldest first, with what happened for
+one that has no words ("approved", "requested review of acme/reviewers"), up
+to five and then a count of the rest. Each quote shows two lines at most.
+Gmail stops a snippet at about 200 characters, so a quote whose snippet ends
+before GitHub's footer has **Show more** under it, which reads that one
+email's plain-text body and shows the whole comment in place, as Markdown,
+without GitHub's opening line, the diff above a review comment on a line, or
+the footer. A quote that is whole but runs past two lines has Show more too,
+which only unclamps it. **Show less** folds it back.
 
 A pull request you opened that GitHub would let you merge now has **Merge**
 at the right of the card that ends the row: GitHub Context's split button, which merges
@@ -432,9 +437,9 @@ list `server.ts` passes to `loadSources`.
 | `gmail/gws.ts` | The only module that runs `gws`: spawning it, reading its JSON, and its errors |
 | `gmail/normalize.ts` | Turning Gmail thread payloads into items: sender names, snippets, links |
 | `gmail/source.ts` | Gmail as a `Source`: the thread search and each thread's headers |
-| `gmail/body.ts` | Reading a whole email out of Gmail's full format: each message's sender, time, and HTML or text body |
+| `gmail/body.ts` | Reading a whole email out of Gmail's full format: each message's sender, time, and HTML or text body, and the whole comment in a GitHub notification |
 | `gmail/inbox.ts` | Turning a page of threads into rows, with GitHub notifications gathered per pull request or issue and Google comment notifications per document |
-| `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, and the summary |
+| `github/notifications.ts` | Reading a GitHub notification: which pull request or issue, what happened, what was written (from the snippet or the whole body), and the summary |
 | `github/state.ts` | The GraphQL query for every reference's state, checks, and whether you can merge it, and reading its answer |
 | `github/gh.ts` | The only module that runs `gh`: the state query, merging, and posting a comment |
 | `calendar/invite.ts` | Which event an invitation is about, your reply to it, and the guest list that changes it |

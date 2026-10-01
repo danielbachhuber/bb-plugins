@@ -80,6 +80,18 @@ const octocat = { login: "octocat", team: false, avatarUrl: avatar("O", "#7c5cc4
 const hubber = { login: "hubber", team: false, avatarUrl: avatar("H", "#d0703c") };
 const reviewersTeam = { login: "acme/reviewers", team: true, avatarUrl: avatar("A", "#3c8dd0") };
 
+// Where Gmail's snippet stopped, and the whole comment Show more reads from the email.
+const CUT_COMMENT =
+  "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and";
+const FULL_COMMENT = [
+  "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
+  "",
+  "Two things I'd want before then:",
+  "",
+  "- a test that loads core without `gadget-runtime` installed",
+  "- a note in the changelog for anyone importing `widgets/adapters`",
+].join("\n");
+
 const notifications: Item[] = [
   pull(128, "Promote widgets into core", "3 comments from octocat, hubber · review requested by octocat", new Date(2026, 8, 24, 7, 40), {
     reviewers: [{ ...hubber, state: "commented" }, { ...reviewersTeam, state: "pending" }],
@@ -90,15 +102,9 @@ const notifications: Item[] = [
     myReview: "requested",
     unreadQuotes: [
       { author: "octocat", text: "requested your review" },
-      {
-        author: "hubber",
-        text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
-      },
+      { author: "hubber", text: CUT_COMMENT, messageId: "m128-2", cut: true },
     ],
-    comment: {
-      author: "hubber",
-      text: "I'd keep the gadget adapters out of core for now. They pull in the whole gadget runtime, and most widgets never touch it. Could we ship core first and follow up with an adapter package?",
-    },
+    comment: { author: "hubber", text: CUT_COMMENT, messageId: "m128-2", cut: true },
   }),
   pull(137, "Tidy the widget cache", "1 comment from hubber · review requested of acme/reviewers by octocat · approved by hubber", new Date(2026, 8, 24, 6, 15), {
     reviewers: [{ ...hubber, state: "approved" }],
@@ -383,6 +389,10 @@ const actions = {
   onEdit: async () => true,
   onDelete: noop,
   onPostpone: noop,
+  onLoadComment: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return { comment: FULL_COMMENT, line: FULL_COMMENT };
+  },
 };
 
 const projects: TodoistProject[] = [

@@ -1,6 +1,6 @@
 // One row of the Now page: what the item is, and what can be done with it
 // from here. Draws only; every action is a callback.
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,11 @@ export interface RowActions {
   onPostpone: (item: Item, day: string) => void;
   /** Opens a plain email row's full message in the page's Email tab. */
   onRead?: (item: Item) => void;
+  /**
+   * Reads the whole of a GitHub comment the row quotes, from its email.
+   * Resolves null when it could not, having said why.
+   */
+  onLoadComment?: (item: Item, messageId: string) => Promise<{ comment: string; line: string } | null>;
 }
 
 /** The row whose email is open in the Email tab, so the list can mark it. */
@@ -118,6 +123,101 @@ const MENTIONED = "border-[#9a6700]/40 text-[#9a6700] dark:border-[#d29922]/40 d
 
 /** Unread messages quoted on a row before the rest are counted instead. */
 const MAX_QUOTES = 5;
+
+/** Markdown that has to start a line: a heading, list, quote, code fence, or table. */
+const BLOCK_START = /^(#|>|[-*+] |\d+\. |`{3}|\|)/;
+
+/** One quote in a row: an unread message's line, the latest comment, or a document comment. */
+interface Quote {
+  author: string | null;
+  text: string;
+  url?: string | null;
+  messageId?: string;
+  cut?: boolean;
+}
+
+/**
+ * A quote, two lines at most until Show more opens it. A GitHub quote whose
+ * snippet stopped early is read in full from its email then, and drawn as the
+ * Markdown it was written in.
+ */
+function QuoteLine({ quote, onLoad }: { quote: Quote; onLoad?: () => Promise<string | null> }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [clamped, setClamped] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [full, setFull] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const loadable = quote.cut === true && onLoad !== undefined;
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null || open) return;
+    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [open, quote.text]);
+
+  const show = async () => {
+    setOpen(true);
+    if (!loadable || full !== null) return;
+    setLoading(true);
+    try {
+      setFull(await onLoad());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const author = quote.author === null ? null : <span className="font-medium">{quote.author}: </span>;
+  const link =
+    quote.url != null ? (
+      <UrlLink
+        href={quote.url}
+        className="ml-1 inline-flex align-[-2px] text-muted-foreground hover:text-foreground"
+        aria-label="Open this comment"
+      >
+        <Icon name="ExternalLink" className="size-3" />
+      </UrlLink>
+    ) : null;
+  const toggle =
+    loadable || clamped || open ? (
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => (open ? setOpen(false) : void show())}
+        className="text-muted-foreground hover:text-foreground hover:underline disabled:no-underline"
+      >
+        {loading ? "Loading…" : open ? "Show less" : "Show more"}
+      </button>
+    ) : null;
+
+  if (open && full !== null) {
+    // The author leads the first paragraph, unless the comment opens with a heading, list, or quote of its own.
+    const lead = quote.author === null ? "" : `**${quote.author}:**${BLOCK_START.test(full) ? "\n\n" : " "}`;
+    return (
+      <div>
+        <Markdown
+          content={lead + full}
+          className="text-xs leading-normal text-foreground/80 [&_strong]:font-medium [&_:is(p,ul,ol,pre,blockquote,h1,h2,h3,h4)]:mb-1 [&_:is(p,ul,ol,li,h1,h2,h3,h4)]:text-xs [&_:is(p,ul,ol,li)]:text-foreground/80 [&_li]:mb-0"
+        />
+        {toggle}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p ref={ref} className={cn(!open && "line-clamp-2")}>
+        {author}
+        {quote.text}
+        {link}
+      </p>
+      {toggle}
+    </div>
+  );
+}
 
 /** The merged-purple an Archive suggestion is tinted with. */
 const SUGGESTED = "text-[#8250df] hover:text-[#8250df] dark:text-[#a371f7] dark:hover:text-[#a371f7]";
@@ -392,7 +492,17 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
   // Every unread message when there are any, else the latest thing written.
   const unreadQuotes = item.github?.unreadQuotes ?? [];
   const latest = item.github?.comment ?? null;
-  const quotes: ReadonlyArray<{ author: string | null; text: string; url?: string | null }> = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
+  const quotes: ReadonlyArray<Quote> = item.doc?.quotes ?? (unreadQuotes.length > 0 ? unreadQuotes : latest === null ? [] : [latest]);
+  // An unread message's line keeps what happened in front of the comment ("approved: …").
+  const asLine = item.doc == null && unreadQuotes.length > 0;
+  const loadComment = actions?.onLoadComment;
+  const loaderFor = (quote: Quote) =>
+    loadComment === undefined || quote.messageId === undefined
+      ? undefined
+      : async () => {
+          const found = await loadComment(item, quote.messageId!);
+          return found === null ? null : asLine ? found.line : found.comment;
+        };
   const unread = item.gmail?.unread === true;
   // A row of several messages says how many are new; the dot alone would not.
   const unreadMessages = item.gmail?.unreadMessages ?? 0;
@@ -503,19 +613,7 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
           {quotes.length === 0 ? null : (
             <div className="mt-1 space-y-1 border-l-2 border-border pl-2 text-xs text-foreground/80">
               {quotes.slice(0, MAX_QUOTES).map((quote, index) => (
-                <p key={index} className="line-clamp-2">
-                  {quote.author === null ? null : <span className="font-medium">{quote.author}: </span>}
-                  {quote.text}
-                  {quote.url != null ? (
-                    <UrlLink
-                      href={quote.url}
-                      className="ml-1 inline-flex align-[-2px] text-muted-foreground hover:text-foreground"
-                      aria-label="Open this comment"
-                    >
-                      <Icon name="ExternalLink" className="size-3" />
-                    </UrlLink>
-                  ) : null}
-                </p>
+                <QuoteLine key={quote.messageId ?? index} quote={quote} onLoad={loaderFor(quote)} />
               ))}
               {quotes.length > MAX_QUOTES ? (
                 <p className="text-muted-foreground">and {quotes.length - MAX_QUOTES} more</p>

@@ -139,12 +139,8 @@ export function summarize(events: readonly GitHubEvent[]): string {
 export function commentText(snippet: string): string {
   let text = snippet.trim();
   // The snippet can end partway through the footer, so its first words are enough.
-  text = text.replace(/\s*—\s*Reply( to this email)?\b[\s\S]*$/i, "");
-  text = text.replace(/^@?[A-Za-z0-9-]+(\[bot\])? left a comment \([^)]*\)\s*/i, "");
-  text = text.replace(
-    /^@?[A-Za-z0-9-]+(\[bot\])? (commented on|approved|requested changes on) this pull request\.?\s*/i,
-    "",
-  );
+  text = text.replace(SNIPPET_FOOTER, "");
+  text = withoutOpening(text);
   // A review comment on a line carries the file and its diff hunk, which read
   // as noise in a quote: keep what came before them, if anything did.
   text = text.replace(/(^|\s)In [^\s:]+:\s*>[\s\S]*$/, "");
@@ -152,12 +148,51 @@ export function commentText(snippet: string): string {
   return text.trim();
 }
 
+const SNIPPET_FOOTER = /\s*—\s*Reply( to this email)?\b[\s\S]*$/i;
+
+/** GitHub's opening line, such as "octocat left a comment (acme/widgets#128)", taken off. */
+function withoutOpening(text: string): string {
+  return text
+    .replace(/^@?[A-Za-z0-9-]+(\[bot\])? left a comment \([^)]*\)\s*/i, "")
+    .replace(/^@?[A-Za-z0-9-]+(\[bot\])? (commented on|approved|requested changes on) this pull request\.?\s*/i, "");
+}
+
+/**
+ * Whether a snippet holds all that was written: Gmail cuts snippets at about
+ * 200 characters, and one that reaches GitHub's footer was not cut inside the
+ * comment.
+ */
+export function snippetComplete(snippet: string): boolean {
+  return SNIPPET_FOOTER.test(snippet);
+}
+
+/**
+ * What someone wrote, out of a notification's whole plain-text body rather
+ * than its snippet, as the Markdown it was written in. GitHub's opening, the
+ * diff hunk above each review comment on a line, HTML comments, and the
+ * footer from "-- " on come off. Empty when nothing was written.
+ */
+export function bodyCommentText(body: string): string {
+  let text = body.replace(/\r\n?/g, "\n");
+  const footer = text.search(/\n-- \n(Reply to this email directly|You are receiving this)/);
+  if (footer >= 0) text = text.slice(0, footer);
+  text = withoutOpening(text.trim()) + "\n\n";
+  // A hunk is quoted with "> " on its first line only, and each line after it
+  // starts as a diff line does, down to a blank line. A quote someone wrote
+  // marks every line with ">", so it stays.
+  text = text.replace(/(^|\n\n)>[ +-][^\n]*\n(?:[ +-][^\n]*\n)+\n*/g, "$1");
+  // Bots leave markers for their own later edits, which GitHub's page hides.
+  text = text.replace(/<!--[\s\S]*?-->\n?/g, "");
+  if (/^(Merged|Closed|Reopened) #\d+/i.test(text)) return "";
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /**
  * One line for a notification in a list of what is new: what was written, or
- * what happened when nothing was.
+ * what happened when nothing was. `written` replaces what the snippet says
+ * was written, for the line with the whole comment in it.
  */
-export function eventLine(event: GitHubEvent, snippet: string): string {
-  const written = commentText(snippet);
+export function eventLine(event: GitHubEvent, snippet: string, written = commentText(snippet)): string {
   switch (event.type) {
     case "approved":
       return written === "" ? "approved" : `approved: ${written}`;

@@ -234,6 +234,16 @@ function useRowActions(
           else toast.success(`Deleted "${item.title}"`);
         }).catch(fail);
       },
+      onLoadComment: async (item, messageId) => {
+        try {
+          const result = await rpc.call("github_comment", { id: item.id, messageId });
+          if (result.error === null) return { comment: result.comment, line: result.line };
+          toast.error(result.error);
+        } catch (cause) {
+          fail(cause);
+        }
+        return null;
+      },
       onReply: async (item, body) => {
         try {
           const result = await rpc.call("items_reply", { id: item.id, body });

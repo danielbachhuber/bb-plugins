@@ -22,6 +22,17 @@ export const gmailPartSchema = z.object({
 });
 
 /** The pull request or issue a row of GitHub notifications is about. */
+/** A GitHub email's words, as a row quotes them. */
+export const githubQuoteSchema = z.object({
+  author: z.string().nullable(),
+  text: z.string(),
+  /** The Gmail message it came from, to read the whole comment out of. */
+  messageId: z.string().optional(),
+  /** Whether Gmail's snippet ended before the comment did. */
+  cut: z.boolean().optional(),
+});
+export type GitHubQuote = z.infer<typeof githubQuoteSchema>;
+
 export const githubPartSchema = z.object({
   repo: z.string(),
   number: z.number().int(),
@@ -68,12 +79,12 @@ export const githubPartSchema = z.object({
    */
   reviewRequested: z.enum(["you", "team", "others"]).nullable().optional(),
   /** The most recent thing someone wrote, from its email's snippet, so it may be cut short. */
-  comment: z.object({ author: z.string().nullable(), text: z.string() }).nullable().default(null),
+  comment: githubQuoteSchema.nullable().default(null),
   /**
    * One line for each unread message, oldest first: what was written, or what
    * happened when nothing was ("approved"). Empty when all are read.
    */
-  unreadQuotes: z.array(z.object({ author: z.string().nullable(), text: z.string() })).optional(),
+  unreadQuotes: z.array(githubQuoteSchema).optional(),
 });
 export type GitHubPart = z.infer<typeof githubPartSchema>;
 

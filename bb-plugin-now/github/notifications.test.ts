@@ -1,6 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import { classifyEvent, commentText, eventLine, parseRef, parseTitle, summarize, type GitHubEvent } from "./notifications.js";
+import {
+  bodyCommentText,
+  classifyEvent,
+  commentText,
+  eventLine,
+  parseRef,
+  parseTitle,
+  snippetComplete,
+  summarize,
+  type GitHubEvent,
+} from "./notifications.js";
 
 describe("parseRef", () => {
   test("reads the pull request or issue from a notification's message ids", () => {
@@ -127,5 +137,36 @@ describe("commentText", () => {
     expect(commentText("Merged #128 into main. — Reply to this email directly")).toBe("");
     expect(commentText("@hubber approved this pull request. — Reply to this email directly")).toBe("");
     expect(commentText("@octocat commented on this pull request. In src/widget.ts: > @@ -1,6 +1,7 @@")).toBe("");
+  });
+});
+
+describe("snippetComplete", () => {
+  test("is true once the snippet reaches GitHub's footer", () => {
+    expect(snippetComplete("octocat left a comment (acme/widgets#128) Looks good — Reply to this email directly")).toBe(true);
+    expect(snippetComplete("octocat left a comment (acme/widgets#128) Looks good, though the widget API could")).toBe(false);
+  });
+});
+
+describe("bodyCommentText", () => {
+  const footer = "\n\n-- \nReply to this email directly, view it on GitHub:\nhttps://github.com/acme/widgets/pull/128#issuecomment-1\nYou are receiving this because you were mentioned.\n";
+
+  test("keeps the whole comment with its line breaks, without GitHub's opening and footer", () => {
+    expect(bodyCommentText("octocat left a comment (acme/widgets#128)\n\n@hubber Thanks!\nOne more thing: the gadgets.\n\nSecond paragraph." + footer)).toBe(
+      "@hubber Thanks!\nOne more thing: the gadgets.\n\nSecond paragraph.",
+    );
+  });
+
+  test("drops each review comment's diff hunk and keeps a quote someone wrote", () => {
+    const body =
+      "@hubber commented on this pull request.\n\nOne nit.\n\n> +export function widget() {\n+  return gadget();\n+}\n\nRename this?\n\n" +
+      "> I'd keep it\n> as it is\n\nFair." + footer;
+    expect(bodyCommentText(body)).toBe("One nit.\n\nRename this?\n\n> I'd keep it\n> as it is\n\nFair.");
+  });
+
+  test("drops a bot's HTML comments and is empty when nothing was written", () => {
+    expect(bodyCommentText("github-actions[bot] left a comment (acme/widgets#128)\n\n<!-- widget-report -->\n## Report\n\nNo changes." + footer)).toBe(
+      "## Report\n\nNo changes.",
+    );
+    expect(bodyCommentText("Merged #128 into main." + footer)).toBe("");
   });
 });

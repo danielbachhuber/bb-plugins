@@ -74,7 +74,7 @@ describe("inboxItems", () => {
     // Still pending on the team, so yours to pick up; and without GitHub's answer, assumed so.
     expect(inboxItems(teamThreads, null, withPending(["Acme/Reviewers"]))[0]?.github?.reviewRequested).toBe("team");
     expect(inboxItems(teamThreads, null)[0]?.github?.reviewRequested).toBe("team");
-    expect(team?.github?.unreadQuotes).toEqual([{ author: "hubber", text: "Merging soon" }]);
+    expect(team?.github?.unreadQuotes).toMatchObject([{ author: "hubber", text: "Merging soon" }]);
 
     // GitHub's own answer about you wins over the team list: a team's request
     // you answered was yours, one still waiting on a team you are on is yours
@@ -94,7 +94,7 @@ describe("inboxItems", () => {
       ] }],
       null,
     )[0];
-    expect(allNew?.github?.unreadQuotes).toEqual([
+    expect(allNew?.github?.unreadQuotes).toMatchObject([
       { author: "octocat", text: "requested review of acme/reviewers" },
       { author: "hubber", text: "approved" },
       { author: "hubber", text: "Merging soon" },
@@ -175,5 +175,25 @@ describe("inboxItems", () => {
     };
     expect(inboxItems([thread], null)[0]?.github).toBeNull();
     expect(githubRefs([thread])).toEqual([]);
+  });
+});
+
+describe("quotes", () => {
+  test("name their message, and say when the snippet stopped before the comment did", () => {
+    const withId = (id: string, item: ReturnType<typeof notification>) => ({ ...item, id, labelIds: ["UNREAD"] });
+    const github = inboxItems(
+      [{ id: "t1", messages: [
+        withId("m1", notification(T, "octocat left a comment (acme/widgets#128) Short and done — Reply to this email directly", "octocat")),
+        withId("m2", notification(T + 1000, "hubber left a comment (acme/widgets#128) A long comment that Gmail cut", "hubber")),
+        withId("m3", notification(T + 2000, "Merged #128 into main.", "hubber")),
+      ] }],
+      null,
+    )[0]?.github;
+    expect(github?.unreadQuotes).toEqual([
+      { author: "octocat", text: "Short and done", messageId: "m1" },
+      { author: "hubber", text: "A long comment that Gmail cut", messageId: "m2", cut: true },
+      { author: "hubber", text: "merged", messageId: "m3" },
+    ]);
+    expect(github?.comment).toEqual({ author: "hubber", text: "A long comment that Gmail cut", messageId: "m2", cut: true });
   });
 });

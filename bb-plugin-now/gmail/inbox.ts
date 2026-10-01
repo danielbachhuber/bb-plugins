@@ -4,6 +4,7 @@ import {
   classifyEvent,
   commentText,
   eventLine,
+  snippetComplete,
   githubUrl,
   parseRef,
   parseTitle,
@@ -16,7 +17,7 @@ import { stateFromHeader, type GitHubState } from "../github/state.js";
 import { CALENDAR_HEADER, eventIdFromBody, notificationKind } from "../calendar/invite.js";
 import { proposedTime } from "../calendar/proposal.js";
 import { APP_NAMES, DOCS_SENDER, documentUrl, newPosts, parseDocsEmail, postLine, summarizeDocs, type DocsEmail } from "../gdocs/notifications.js";
-import type { Item } from "../now/types.js";
+import type { GitHubQuote, Item } from "../now/types.js";
 import { decodeEntities, header, isRecord, normalizeThread, SOURCE_ID, unreadOf, type Raw } from "./normalize.js";
 
 /** The headers `threads get` is asked for, which everything here reads. */
@@ -227,18 +228,29 @@ function githubItem(ref: GitHubRef, threads: readonly Raw[], state: GitHubState 
     classifyEvent(snippets[index]!, header(message, "X-GitHub-Sender")),
   );
 
+  // A quote can be read in full later, from its message, when the snippet cut it short.
+  const quote = (index: number, text: string): GitHubQuote => {
+    const message = messages[index]!;
+    const cut = commentText(snippets[index]!) !== "" && !snippetComplete(snippets[index]!);
+    return {
+      author: header(message, "X-GitHub-Sender"),
+      text,
+      ...(typeof message.id === "string" ? { messageId: message.id } : {}),
+      ...(cut ? { cut } : {}),
+    };
+  };
   // The newest message that says something in words.
-  let comment: { author: string | null; text: string } | null = null;
+  let comment: GitHubQuote | null = null;
   for (let index = messages.length - 1; index >= 0 && comment === null; index--) {
     const text = commentText(snippets[index]!);
-    if (text !== "") comment = { author: header(messages[index]!, "X-GitHub-Sender"), text };
+    if (text !== "") comment = quote(index, text);
   }
   // A line for each unread message, so a row with three new says what all three were.
-  const unreadQuotes: { author: string | null; text: string }[] = [];
+  const unreadQuotes: GitHubQuote[] = [];
   messages.forEach((message, index) => {
     if (!(Array.isArray(message.labelIds) && message.labelIds.includes("UNREAD"))) return;
     const text = eventLine(events[index]!, snippets[index]!);
-    if (text !== "") unreadQuotes.push({ author: header(message, "X-GitHub-Sender"), text });
+    if (text !== "") unreadQuotes.push(quote(index, text));
   });
 
   const requests = events.filter((event) => event.type === "review_requested");
