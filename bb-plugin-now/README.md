@@ -77,7 +77,10 @@ nothing else is colored for its date. A recurring item
 has a repeat icon.
 
 The list is stored in the plugin's database, so the page opens with the last
-sync's items at once instead of waiting on Todoist and Gmail. It syncs in the
+sync's items at once instead of waiting on Todoist and Gmail. The page also
+keeps the last list it read, in memory and in the app's `localStorage`, and
+draws that while it reads the database again, so it opens without a Loading
+step except on its first open. It syncs in the
 background every 15 minutes, and opening the page syncs a list older than a
 minute. The page's title bar says when it last synced and has a Refresh
 button that syncs now. Syncs that overlap share one run. A row completed,

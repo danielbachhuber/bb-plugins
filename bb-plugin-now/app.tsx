@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { SyncStatus } from "@/components/ui/sync-status";
 
 import type { rpcContract } from "./server";
-import { SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
+import { listingSchema, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
 import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
 import { latestMessageText } from "./now/email-text.js";
@@ -41,6 +41,45 @@ const EMAIL_TAB: ExperimentalPluginFixedTabReference<{ id: string }> = {
   },
 };
 
+const LISTING_KEY = "bb-plugin-now:listing";
+
+/** The last list any copy of the page read, kept while the app is loaded. */
+let lastListing: Listing | null = null;
+
+/** `localStorage`, or nothing where it is unavailable (a storage-blocked tab). */
+function listingStore(): Storage | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The list the page last read, kept across app loads. Null when there is
+ * none, or when it no longer fits the contract after an update.
+ */
+function storedListing(): Listing | null {
+  try {
+    const raw = listingStore()?.getItem(LISTING_KEY);
+    if (raw == null) return null;
+    const parsed = listingSchema.safeParse(JSON.parse(raw));
+    // A sync that was running when it was kept is not running now as far as the page knows.
+    return parsed.success ? { ...parsed.data, syncing: false } : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberListing(listing: Listing): void {
+  lastListing = listing;
+  try {
+    listingStore()?.setItem(LISTING_KEY, JSON.stringify(listing));
+  } catch {
+    // Full or blocked storage: the next app load shows Loading for a moment instead.
+  }
+}
+
 /**
  * The stored list, re-read whenever a sync starts or finishes. The header and
  * the page mount separately, so each runs its own copy; both re-read on the
@@ -48,11 +87,16 @@ const EMAIL_TAB: ExperimentalPluginFixedTabReference<{ id: string }> = {
  */
 function useListing() {
   const rpc = useRpc<typeof rpcContract>();
-  const [listing, setListing] = useState<Listing | null>(null);
+  // The last list read, so the page opens on it rather than on Loading while the read runs.
+  const [listing, setListing] = useState<Listing | null>(() => (lastListing ??= storedListing()));
 
   /** Resolves once the listing has been re-read, so a row can wait on it. */
   const load = useCallback(
-    () => rpc.call("items_list", null).then(setListing, () => undefined),
+    () =>
+      rpc.call("items_list", null).then((next) => {
+        rememberListing(next);
+        setListing(next);
+      }, () => undefined),
     [rpc],
   );
 
