@@ -56,6 +56,10 @@
       "source": "./bb-plugin-pr-sweep"
     },
     {
+      "name": "presentations",
+      "source": "./bb-plugin-presentations"
+    },
+    {
       "name": "review-sweep",
       "source": "./bb-plugin-review-sweep"
     },
