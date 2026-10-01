@@ -1,6 +1,6 @@
 // One row of the Now page: what the item is, and what can be done with it
 // from here. Draws only; every action is a callback.
-import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 
 import { Button } from "@/components/ui/button";
@@ -147,55 +147,21 @@ interface Quote {
  */
 const MAYBE_CUT_SNIPPET = 150;
 
-/** How many lines a row's text shows before Show more. */
-const QUOTE_LINES = 2;
-
 /**
- * How many characters of `text` fit in the quote's lines with "… Show more"
- * after them, or null when all of it does. Measured on a hidden copy of the
- * paragraph, so the one on screen is drawn once, already shortened.
+ * Whether a row's text runs past its two lines: unknown until measured once
+ * at its width, then measured again only when the width changes.
  */
-function fittingLength(paragraph: HTMLParagraphElement, text: string, toggled: boolean): number | null {
-  const lineHeight = parseFloat(getComputedStyle(paragraph).lineHeight);
-  if (!Number.isFinite(lineHeight) || paragraph.clientWidth === 0) return null;
-  const probe = paragraph.cloneNode(true) as HTMLParagraphElement;
-  Object.assign(probe.style, { position: "absolute", visibility: "hidden", width: `${paragraph.clientWidth}px` });
-  paragraph.parentElement!.append(probe);
-  const span = probe.querySelector<HTMLElement>("[data-quote-text]")!;
-  // Show more is there whenever the text is shortened, and for a cut quote even when it is not.
-  let button = probe.querySelector("button");
-  if (button === null) {
-    button = document.createElement("button");
-    button.className = "ml-1";
-    button.textContent = "Show more";
-    probe.append(button);
-  }
-  const fits = (length: number) => {
-    const whole = length >= text.length;
-    span.textContent = whole ? text : `${text.slice(0, length).trimEnd()}…`;
-    button.hidden = whole && !toggled;
-    return probe.offsetHeight <= lineHeight * QUOTE_LINES + 1;
-  };
-  try {
-    if (fits(text.length)) return null;
-    let low = 0;
-    let high = text.length - 1;
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2);
-      if (fits(middle)) low = middle;
-      else high = middle - 1;
-    }
-    return low;
-  } finally {
-    probe.remove();
-  }
-}
+type Fit = "measuring" | "overflow" | "fits";
 
 /**
- * Text drawn two lines at most, shortened with "…" and Show more at its end
- * when it runs longer. When `onLoad` is given and `cut` says the text stopped
- * short of what was written, Show more reads the whole of it first, and
- * `renderFull` draws that; otherwise it only unclamps the text.
+ * Text drawn two lines at most. When it runs longer, the browser clamps it
+ * with "…" and Show more floats into the end of its second line; when it
+ * fits, Show more follows it only if `cut` says there is more to read. With
+ * `onLoad`, Show more reads the whole of it first and `renderFull` draws that;
+ * otherwise it only unclamps the text.
+ *
+ * Each row checks its fit once, in a ResizeObserver callback, which runs after
+ * layout and so reads sizes without making the page lay out again.
  */
 function ShowMoreText({
   text,
@@ -217,40 +183,38 @@ function ShowMoreText({
   className?: string;
 }) {
   const ref = useRef<HTMLParagraphElement>(null);
-  // How much of the text the closed paragraph shows; null for all of it.
-  const [shown, setShown] = useState<number | null>(null);
+  const [fit, setFit] = useState<Fit>("measuring");
+  const measuredWidth = useRef(-1);
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const loadable = cut && onLoad !== undefined;
-  const shortened = !open && shown !== null;
 
-  useLayoutEffect(() => {
+  useEffect(() => {
+    measuredWidth.current = -1;
+    setFit("measuring");
+  }, [text]);
+
+  useEffect(() => {
     const element = ref.current;
-    if (element === null || open) return;
-    let width = -1;
-    let live = true;
-    const measure = () => {
-      if (!live || element.clientWidth === width) return;
-      width = element.clientWidth;
-      setShown(fittingLength(element, text, loadable));
-    };
-    // A web font that arrives after the first measure changes how much fits without changing the width.
-    const remeasure = () => {
-      width = -1;
-      measure();
-    };
-    measure();
-    document.fonts?.addEventListener("loadingdone", remeasure);
-    void document.fonts?.ready.then(remeasure);
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    observer?.observe(element);
-    return () => {
-      live = false;
-      observer?.disconnect();
-      document.fonts?.removeEventListener("loadingdone", remeasure);
-    };
-  }, [open, text, loadable]);
+    if (element === null || open || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.round(entry!.contentRect.width);
+      if (fit === "measuring") {
+        measuredWidth.current = width;
+        setFit(element.scrollHeight > element.clientHeight + 1 ? "overflow" : "fits");
+      } else if (width !== measuredWidth.current) {
+        // A new width can change what fits, so measure again from the clamped text alone.
+        setFit("measuring");
+      } else if (fit === "fits" && loadable) {
+        // Text that fits can still leave no room for Show more after it: clamp it instead.
+        const lines = element.clientHeight / parseFloat(getComputedStyle(element).lineHeight);
+        if (lines > 2.5) setFit("overflow");
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fit, open, loadable]);
 
   const show = async () => {
     setOpen(true);
@@ -263,26 +227,49 @@ function ShowMoreText({
     }
   };
 
-  const toggle =
-    loadable || shown !== null || open ? (
-      <button
-        type="button"
-        disabled={loading}
-        onClick={() => (open ? setOpen(false) : void show())}
-        className="ml-1 text-muted-foreground hover:text-foreground hover:underline disabled:no-underline"
-      >
-        {loading ? "Loading…" : open ? "Show less" : "Show more"}
-      </button>
-    ) : null;
+  const button = (floated: boolean) => (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={() => (open ? setOpen(false) : void show())}
+      className={cn(
+        "ml-1 text-muted-foreground hover:text-foreground hover:underline disabled:no-underline",
+        floated && "float-right clear-both",
+      )}
+    >
+      {loading ? "Loading…" : open ? "Show less" : "Show more"}
+    </button>
+  );
 
-  if (open && full !== null && renderFull !== undefined) return <div className={className}>{renderFull(full, toggle)}</div>;
+  if (open && full !== null && renderFull !== undefined) return <div className={className}>{renderFull(full, button(false))}</div>;
+  if (open || fit === "fits") {
+    return (
+      <div className={className}>
+        <p ref={ref}>
+          {lead}
+          {text}
+          {trailing}
+          {open || loadable ? button(false) : null}
+        </p>
+      </div>
+    );
+  }
+  // Clamped. The empty float above the button is a line short of the text's
+  // height, which pushes the button down to sit at the end of the last line.
+  const overflow = fit === "overflow";
   return (
-    <div className={cn("relative", className)}>
-      <p ref={ref}>
+    <div className={cn("flex", className)}>
+      <p
+        ref={ref}
+        className={cn(
+          "line-clamp-2 min-w-0",
+          overflow && "before:float-right before:h-[calc(100%-1lh)] before:content-['']",
+        )}
+      >
+        {overflow ? button(true) : null}
         {lead}
-        <span data-quote-text="">{shortened ? `${text.slice(0, shown).trimEnd()}…` : text}</span>
+        {text}
         {trailing}
-        {toggle}
       </p>
     </div>
   );
