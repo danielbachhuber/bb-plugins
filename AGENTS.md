@@ -294,6 +294,9 @@ components. The root README covers the setup. What costs time:
   data loading from what it draws before writing the story.
 - Editing a story file reloads the page; editing a component it imports
   updates in place.
+- Stories that lay out design options to pick from go in the plugin's
+  `explore/` directory, which git ignores. Move the chosen direction into a
+  real story once it ships.
 - Fixtures follow the public-repository rule above: `acme/widgets`, never a
   real repository or PR. When a fixture copies the layout of a real screen,
   invent every field: titles, PR numbers, line counts, and ages as well as

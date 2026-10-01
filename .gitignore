@@ -6,3 +6,5 @@ node_modules/
 # Written by scripts/ladle.mjs: a link to the bb checkout, and the static build.
 .ladle/bb-source
 build/
+# Option studies for picking a design direction, never committed.
+**/explore/
