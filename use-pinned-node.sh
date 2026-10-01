@@ -3,7 +3,7 @@
 # Switch to the Node that .nvmrc pins. npm versions disagree about what belongs
 # in package-lock.json (one writes `libc` fields the other drops), so installing
 # with whatever Node is first on PATH leaves every lockfile modified, and the
-# next `update.sh` refuses to pull into a dirty checkout. A scheduled run gets a
+# next scheduled update refuses to pull into a dirty checkout. A scheduled run gets a
 # non-interactive shell that has not loaded nvm, so load it here.
 #
 # Expects DIR to be the repository root.

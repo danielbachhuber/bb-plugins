@@ -151,7 +151,7 @@ stylesheet and components, and an edit to a component shows up without a
 reload. The Stories section below covers what a story needs.
 
 Run npm with the Node version in `.nvmrc` (`nvm use`). Another npm version
-rewrites every `package-lock.json`. A scheduled `update.sh` keeps each machine's
+rewrites every `package-lock.json`. A scheduled automation keeps each machine's
 checkout current by pulling `main` and running `sync.sh`, and it skips a
 checkout that has uncommitted changes. So a lockfile left modified on `main`
 stops that machine from updating until someone notices.

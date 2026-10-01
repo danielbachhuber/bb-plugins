@@ -80,19 +80,11 @@ removes a plugin that has been deleted from `origin/main`, along with that
 plugin's settings and secrets. A plugin that is only missing from the current
 branch stays installed.
 
-`update.sh` keeps a machine current on its own. It fast-forwards `main` from
-`origin`, then runs `sync.sh`. If the checkout is on another branch, has
-uncommitted changes, or has diverged from `origin`, it changes nothing and says
-why. Schedule it on each machine as a bb script automation:
-
-```sh
-bb automation create --project <id> --name "Update bb-plugins" \
-  --cron "*/15 5-15 * * *" --timezone America/Los_Angeles --interpreter bash \
-  --script 'exec ~/projects/bb-plugins/update.sh'
-```
-
-Pass the path inline. `--script-file` stores a copy of the script, so later
-changes to `update.sh` would not run.
+Each machine keeps this checkout current with the "Update projects" automation
+in `danielbachhuber/dotfiles` (`bb/automations/update-projects.sh`). It
+fast-forwards `main` from `origin` and runs `sync.sh` when `sync.sh --check`
+reports drift. A checkout on another branch or with uncommitted changes is left
+alone.
 
 ## Working on one plugin
 
