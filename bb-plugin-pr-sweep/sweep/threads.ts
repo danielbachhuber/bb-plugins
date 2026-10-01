@@ -15,6 +15,11 @@ export interface ThreadCounts {
    * first, then alphabetical: the people waiting on a reply.
    */
   unansweredBy: string[];
+  /**
+   * Every inline comment, resolved threads included: there are inline
+   * comments to read even when none is still waiting on you.
+   */
+  inlineComments: number;
 }
 
 export const THREADS_QUERY = `
@@ -29,7 +34,7 @@ query($q: String!) {
           nodes {
             isResolved
             isOutdated
-            comments(last: 1) { nodes { author { login } } }
+            comments(last: 1) { totalCount nodes { author { login } } }
           }
         }
       }
@@ -51,7 +56,7 @@ interface RawNode {
     nodes?: Array<{
       isResolved?: boolean;
       isOutdated?: boolean;
-      comments?: { nodes?: Array<{ author?: { login?: string } | null } | null> | null };
+      comments?: { totalCount?: number; nodes?: Array<{ author?: { login?: string } | null } | null> | null };
     } | null> | null;
   };
 }
@@ -69,9 +74,12 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
     let unresolved = 0;
     let outdated = 0;
     let replied = 0;
+    let inlineComments = 0;
     const waiting = new Map<string, number>();
     for (const thread of node.reviewThreads?.nodes ?? []) {
-      if (!thread || thread.isResolved) continue;
+      if (!thread) continue;
+      inlineComments += thread.comments?.totalCount ?? 0;
+      if (thread.isResolved) continue;
       unresolved += 1;
       if (thread.isOutdated) outdated += 1;
       const last = thread.comments?.nodes?.[0]?.author?.login;
@@ -81,7 +89,7 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
     const unansweredBy = [...waiting]
       .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
       .map(([login]) => login);
-    counts.set(threadKey(repo, node.number), { unresolved, outdated, replied, unansweredBy });
+    counts.set(threadKey(repo, node.number), { unresolved, outdated, replied, unansweredBy, inlineComments });
   }
 
   return counts;

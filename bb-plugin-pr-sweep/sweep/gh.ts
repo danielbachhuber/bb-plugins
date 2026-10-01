@@ -148,6 +148,7 @@ export async function runSweep(
       row.outdatedThreads = found.outdated;
       row.repliedThreads = found.replied;
       row.unansweredBy = found.unansweredBy;
+      row.inlineComments = found.inlineComments;
     }
   } catch {
     // Leave the counts at zero.

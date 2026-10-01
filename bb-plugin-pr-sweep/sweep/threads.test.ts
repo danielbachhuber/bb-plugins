@@ -28,7 +28,7 @@ describe("parseThreadCounts", () => {
         ]),
       ]),
     );
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1, replied: 0, unansweredBy: [] });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 2, outdated: 1, replied: 0, unansweredBy: [], inlineComments: 0 });
   });
 
   it("counts the unresolved threads you answered last as replied", () => {
@@ -49,6 +49,7 @@ describe("parseThreadCounts", () => {
       outdated: 0,
       replied: 1,
       unansweredBy: ["hubber", "hubot"],
+      inlineComments: 0,
     });
   });
 
@@ -56,7 +57,19 @@ describe("parseThreadCounts", () => {
     // The difference matters: absence means the query did not cover it, zero
     // means it genuinely has none.
     const counts = parseThreadCounts(response([node(42, [])]));
-    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0, replied: 0, unansweredBy: [] });
+    expect(counts.get(threadKey("acme/widgets", 42))).toEqual({ unresolved: 0, outdated: 0, replied: 0, unansweredBy: [], inlineComments: 0 });
+  });
+
+  it("counts every inline comment, resolved threads included", () => {
+    const counts = parseThreadCounts(
+      response([
+        node(42, [
+          { isResolved: true, comments: { totalCount: 3, nodes: [{ author: { login: "octocat" } }] } },
+          { isResolved: false, comments: { totalCount: 2, nodes: [{ author: { login: "octocat" } }] } },
+        ]),
+      ]),
+    );
+    expect(counts.get(threadKey("acme/widgets", 42))!.inlineComments).toBe(5);
   });
 
   it("keys by repository as well as number", () => {

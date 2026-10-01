@@ -38,6 +38,8 @@ export interface ListedPr {
   outdatedThreads: number;
   repliedThreads?: number;
   unansweredBy?: string[];
+  /** Inline review comments, resolved threads included. */
+  inlineComments?: number;
   stack?: StackPosition | null;
   notedBy: string[];
   canSpawn: boolean;
@@ -45,6 +47,7 @@ export interface ListedPr {
   threadIds: string[];
   /** When GitHub last saw activity on the pull request, in milliseconds. */
   updatedAt: number;
+  /** General comments, not inline ones. */
   commentsCount: number;
   /** The local next-step note, never sent to GitHub. */
   note: string | null;

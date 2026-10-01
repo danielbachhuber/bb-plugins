@@ -124,7 +124,9 @@ the icons say where a pull request stands.
 
 An open row's actions are Start thread or Open thread, Archive thread on a row
 whose thread has no flags left, a menu of earlier threads when there are any,
-Copy link, and Add note or Edit note. The Harvest clock, when the Harvest
+Copy link, and Add note or Edit note, then the comment count: general and
+inline comments together, resolved threads included, so a pull request whose
+threads were all answered still shows it was discussed. The Harvest clock, when the Harvest
 plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 

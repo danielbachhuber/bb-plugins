@@ -525,6 +525,9 @@ export function PrListView({
     stage: stageOf(row),
     blockedStage: blockedStageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
+    // General and inline comments together, so a pull request whose review
+    // threads were all answered still shows it has comments to read.
+    comments: row.commentsCount + (row.inlineComments ?? 0),
     stack: row.stack
       ? {
           index: row.stack.index,

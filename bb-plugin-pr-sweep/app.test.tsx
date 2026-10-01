@@ -339,6 +339,12 @@ describe("tiers", () => {
     expect(await slot.findByText("3 new")).toBeInTheDocument();
   });
 
+  it("counts general and inline comments together in the action line", async () => {
+    const slot = render(listing({ rows: [rowFixture({ commentsCount: 1, inlineComments: 4 })] }));
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(within(row).getByTitle("5 comments")).toHaveTextContent("5");
+  });
+
   it("folds nothing, however many rows are waiting", async () => {
     const rows = Array.from({ length: 7 }, (_, index) =>
       waitingRow({ number: index + 1, title: `Waiting item ${index + 1}` }),

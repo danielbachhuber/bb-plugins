@@ -68,6 +68,11 @@ export interface ClassifiedRow {
    */
   unansweredBy?: string[];
   /**
+   * Inline review comments, resolved threads included. Absent on a row
+   * stored before the sweep read it.
+   */
+  inlineComments?: number;
+  /**
    * Where it sits in a stack of pull requests built on each other's branches,
    * or null when it is in none. Absent on a row stored before the sweep read it.
    */
