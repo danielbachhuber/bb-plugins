@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { Deck } from "../server";
 import { DeckPanelView, DeckWindowView } from "./view";
+import diagramPath from "./fixtures/diagram.svg?no-inline";
 
 export default {
   title: "presentations/Deck",
@@ -40,7 +41,9 @@ const deck: Deck = {
   ],
 };
 
-const diagram = new URL("./fixtures/diagram.svg", import.meta.url).href;
+// Not inlined: Vite would turn a small SVG into a data URL, which bb's
+// `Markdown` drops. An absolute http URL is what it keeps.
+const diagram = new URL(diagramPath, window.location.href).href;
 
 // Stories load the image from a fixture file; the real panel uses the asset route.
 const imageUrl = (file: string) => (file === "images/diagram.svg" ? diagram : file);
