@@ -291,8 +291,6 @@ export function SweepRow({
         {trackPlacement === "below" && track ? <div className="mt-2">{track}</div> : null}
         {open ? (
           <>
-            {/* While the drawer is open it holds the note, so the box would say it twice. */}
-            {editing ? null : <NoteBox note={item.note} />}
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               {actions}
               {/* Stays put while the drawer is open, pressed, and closes it again. */}
@@ -317,7 +315,12 @@ export function SweepRow({
               ) : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
-            {editing ? <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} /> : null}
+            {/* The note and its editor share one place under the action line, the editor replacing the note while open. */}
+            {editing ? (
+              <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} />
+            ) : (
+              <NoteBox note={item.note} />
+            )}
           </>
         ) : null}
       </div>

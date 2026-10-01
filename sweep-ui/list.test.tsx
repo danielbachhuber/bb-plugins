@@ -219,6 +219,17 @@ describe("SweepList", () => {
     expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
   });
 
+  it("draws the note under the action line, where its drawer opens", () => {
+    render(<SweepList {...props([item(1, "new", { note: "Ask hubber first" })])} />);
+    const note = screen.getByText("Ask hubber first");
+    const button = screen.getByRole("button", { name: "Edit note" });
+    expect(button.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(button);
+    // The editor takes its place rather than sitting beside it.
+    expect(screen.queryByText("Ask hubber first")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue("Ask hubber first");
+  });
+
   it("closes the drawer from Add note too", () => {
     render(<SweepList {...props([item(1, "new")])} />);
     fireEvent.click(screen.getByRole("button", { name: "Add note" }));
