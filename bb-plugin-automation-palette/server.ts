@@ -55,10 +55,11 @@ export const rpcContract = defineRpcContract({
  * whole app and listed everywhere, so the frontend needs the full set up front
  * and never has to learn which project it is in. The project name comes from
  * `bb project list`, since `bb automation list` reports only the id, and the
- * row's title is where it is needed.
+ * row's title is where it is needed. `--include-personal` because that command
+ * leaves out the Personal project otherwise, and automations live there too.
  */
 export async function fetchAutomations(bb: BbRunner): Promise<AutomationSummary[]> {
-  const projects = parseProjects(await bb.run(["project", "list", "--json"]));
+  const projects = parseProjects(await bb.run(["project", "list", "--include-personal", "--json"]));
   const automations: AutomationSummary[] = [];
   for (const project of projects) {
     const stdout = await bb.run(["automation", "list", "--project", project.id, "--json"]);

@@ -57,13 +57,13 @@ API for them, so the CLI is the seam:
 
 | RPC | CLI it runs |
 | --- | --- |
-| `automations_list` | `bb project list --json`, then `bb automation list --project <id> --json` per project |
+| `automations_list` | `bb project list --include-personal --json`, then `bb automation list --project <id> --json` per project |
 | `automations_run` | `bb automation run <id> --project <id>` |
 
-`automations_list` covers every project, because a row is registered once for
-the whole app. That also means the content script never has to work out which
-project it is in. The project's name comes from `bb project list`, since
-`bb automation list` reports only the id.
+`automations_list` covers every project, Personal included, because a row is
+registered once for the whole app. That also means the content script never
+has to work out which project it is in. The project's name comes from
+`bb project list`, since `bb automation list` reports only the id.
 
 A CLI failure is reported through the RPC's `error` field and logged, never
 latched into `bb.status.needsConfiguration`: that flag is one-way, and this

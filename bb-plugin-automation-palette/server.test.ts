@@ -67,10 +67,41 @@ describe("automations_list", () => {
       error: null,
     });
     expect(calls).toEqual([
-      ["project", "list", "--json"],
+      ["project", "list", "--include-personal", "--json"],
       ["automation", "list", "--project", "proj_acme", "--json"],
       ["automation", "list", "--project", "proj_gadgets", "--json"],
     ]);
+  });
+
+  it("lists the Personal project's automations under its name", async () => {
+    const { runner, calls } = fakeRunner((args) => {
+      if (args[0] === "project") {
+        return JSON.stringify([{ id: "proj_personal", kind: "personal", name: "Personal" }]);
+      }
+      if (args.includes("proj_personal")) {
+        return JSON.stringify([
+          { id: "auto_dailynotes", projectId: "proj_personal", name: "Daily notes", enabled: true },
+        ]);
+      }
+      return "[]";
+    });
+    const { harness } = await start(runner);
+
+    const listed = await harness.behavior.callRpc("automations_list", null);
+
+    expect(listed).toEqual({
+      automations: [
+        {
+          id: "auto_dailynotes",
+          projectId: "proj_personal",
+          name: "Daily notes",
+          projectName: "Personal",
+          enabled: true,
+        },
+      ],
+      error: null,
+    });
+    expect(calls[0]).toEqual(["project", "list", "--include-personal", "--json"]);
   });
 
   it("reports a CLI failure instead of latching the plugin into needs-configuration", async () => {
