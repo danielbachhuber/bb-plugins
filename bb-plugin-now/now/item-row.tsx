@@ -262,7 +262,8 @@ function ShowMoreText({
       <p
         ref={ref}
         className={cn(
-          "line-clamp-2 min-w-0",
+          // The full width, whatever its content: a width that changed with Show more would read as a resize.
+          "line-clamp-2 w-full min-w-0",
           overflow && "before:float-right before:h-[calc(100%-1lh)] before:content-['']",
         )}
       >
