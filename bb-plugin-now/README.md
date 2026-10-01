@@ -203,8 +203,8 @@ unread, it quotes each of those instead, oldest first, with what happened for
 one that has no words ("approved", "requested review of acme/reviewers"), up
 to five and then a count of the rest. Each quote shows two lines at most:
 one that runs longer ends its second line with "…" and **Show more**. The
-browser does the clamping, so drawing a long list costs no more than it did
-before Show more. Gmail stops a snippet at about 200 characters, so a quote whose snippet
+browser does the clamping, and each row checks once whether its text fits,
+so a long list opens without measuring its text line by line. Gmail stops a snippet at about 200 characters, so a quote whose snippet
 ends before GitHub's footer has Show more too, which reads that one
 email's plain-text body and shows the whole comment in place, as Markdown,
 without GitHub's opening line, the diff above a review comment on a line, or
