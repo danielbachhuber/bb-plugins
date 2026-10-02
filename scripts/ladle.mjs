@@ -81,6 +81,12 @@ if (current !== bbSourceDir) {
   symlinkSync(bbSourceDir, link);
 }
 
+// Ladle reports success even when Vite's build fails: it still writes
+// meta.json and exits 0, leaving the last good bundle in place. So a build
+// starts from an empty directory, and one that leaves no index.html failed.
+const buildDir = join(repoRoot, "build");
+if (command === "build") rmSync(buildDir, { recursive: true, force: true });
+
 // Ladle runs from bb's app directory, so Vite's root is bb's and every bare
 // import (React above all) resolves to bb's one installed copy.
 const child = spawn(
@@ -101,5 +107,9 @@ const child = spawn(
 );
 child.on("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
+  if (code === 0 && command === "build" && !existsSync(join(buildDir, "index.html"))) {
+    console.error("Ladle's build failed: no index.html was written. The Vite error is above.");
+    process.exit(1);
+  }
   process.exit(code ?? 1);
 });
