@@ -1,5 +1,3 @@
 # bb
 
-The agentic IDE you can reshape around how you work
-
-_Flash talk · draft_
+The agentic IDE you can shape around how you work
