@@ -234,9 +234,9 @@ export function SweepRow({
           <span className="flex min-w-0 items-center gap-1.5">
             {icon}
             {title}
-            {conflict}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
             {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
+            {conflict}
           </span>
           {/* One slot on the right: a flag outranks the first fact, or it would never show on a line. */}
           {renderBody ? (
@@ -259,10 +259,10 @@ export function SweepRow({
         {icon}
         <span className="flex min-w-0 items-center gap-1.5">
           {title}
-          {conflict}
           <span className="shrink-0 text-muted-foreground">#{item.number}</span>
         </span>
         {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
+        {conflict}
         {unread ? (
           <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>
         ) : null}
@@ -277,9 +277,9 @@ export function SweepRow({
       <span className="flex min-w-0 items-center gap-1.5">
         {icon}
         {title}
-        {conflict}
         {/* At the end of the title, so a sub-issue's number line keeps to one line. */}
         {item.parent ? <ParentChip parent={item.parent} Link={Link} /> : null}
+        {conflict}
       </span>
       <NumberLine item={item} Link={Link} />
     </>

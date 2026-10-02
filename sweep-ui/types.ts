@@ -50,7 +50,8 @@ export interface SweepItem {
   icon?: ReactNode;
   /**
    * True when the pull request conflicts with its base branch, drawn as a
-   * warning triangle after the title, where GitHub's own list puts it.
+   * warning triangle at the end of the title line, after the number and any
+   * stack chip.
    */
   conflicted?: boolean;
   /**

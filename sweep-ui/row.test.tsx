@@ -67,11 +67,16 @@ describe("SweepRow track placement", () => {
 });
 
 describe("SweepRow conflict warning", () => {
-  it("draws a warning right after the title of a conflicted pull request", () => {
-    draw({ item: { ...item, conflicted: true } });
+  it("draws a warning after the number and stack chip of a conflicted pull request", () => {
+    draw({
+      item: { ...item, conflicted: true, stack: { index: 2, size: 3, on: null } },
+      renderBody: () => null,
+    });
     const warning = screen.getByLabelText("Merge conflict");
-    const title = screen.getByRole("link", { name: item.title });
-    expect(title.nextElementSibling).toBe(warning.parentElement);
+    const number = screen.getByText("#1");
+    const chip = screen.getByText(/2 of 3/);
+    expect(number.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(chip.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("draws it on a one-line row too", () => {

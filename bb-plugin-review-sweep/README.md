@@ -115,12 +115,12 @@ counts its urgent rows.
 ## Each row
 
 Each row is drawn the way PR Sweep draws a pull request. The title line has
-the pull request icon (green when open, muted for a draft), the title, a
-warning triangle when it conflicts with its base branch, the number, "N new"
-in blue when comments were posted since you last opened the pull request or
-its thread from the panel, and how long ago the review was requested of you
-on the right. The first sweep to see a request records its
-comment count, so nothing is new on the first sync.
+the pull request icon (green when open, muted for a draft), the title, the
+number, a stack chip when it is in a stack, a warning triangle when it
+conflicts with its base branch, "N new" in blue when comments were posted
+since you last opened the pull request or its thread from the panel, and how
+long ago the review was requested of you on the right. The first sweep to see
+a request records its comment count, so nothing is new on the first sync.
 
 A pull request in a stack, built on another open pull request's branch or
 with one built on its own, has a chip after its number: "3 of 5 · on #612",
