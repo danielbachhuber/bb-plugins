@@ -203,6 +203,46 @@ curl -s -X POST -H "content-type: application/json" -H "origin: $BASE" \
   -d 'null' "$BASE/api/v1/plugins/<id>/rpc/<method>"
 ```
 
+## Time the real page when it works with real data
+
+A story renders a few fixture rows on an otherwise empty page, and the tests
+run in jsdom, which lays out nothing. Neither shows what a change costs on the
+real page, with real data, inside bb's full window. Inline Show more passed
+both, then took 8.5 seconds to open the Now page, because it measured each
+row's text in a loop that made the browser lay out the whole window at every
+step.
+
+When a change touches a page that draws real data or makes API requests,
+time it on the real page as well:
+
+- Open the plugin's page in bb, at `<serverUrl>/plugins/<id>/<path>`, and time
+  switching to it before and after the change. Report both numbers.
+  Playwright with a `longtask` PerformanceObserver does this in a minute.
+- Do not read layout (`offsetHeight`, `scrollHeight`,
+  `getBoundingClientRect`) between DOM writes in a loop, or once per row on
+  mount. Prefer CSS (`line-clamp`, floats, container queries). Where a size
+  has to be read, read it in a ResizeObserver callback, which runs after
+  layout has finished.
+- A ResizeObserver whose callback changes the element's size keeps firing.
+  Give the measured element a size that does not depend on what the callback
+  changes.
+
+## Count the API calls a screen makes
+
+Each call to Gmail, GitHub, Todoist, or Calendar costs time and rate limit,
+and runs again on every open, sync, and remount. Before adding one:
+
+- Say when it runs (on open, on each sync, on click) and how many it makes per
+  run, such as one per row or one per thread. Put that in the README where
+  the feature is described.
+- Read from what the plugin already has, such as the stored list or a payload
+  already fetched, before asking the API again. Fetch on click rather than on
+  render when the user may never need it, as Show more does.
+- Batch or cap anything that scales with the number of rows, and share one
+  in-flight request between callers.
+- When verifying, count the calls rather than assuming them, for example from
+  the plugin's log or a counter in the runner.
+
 ## Use bb's components before building your own
 
 `@get-bb/plugin-sdk/app` exports bb's own version of most surfaces a plugin
