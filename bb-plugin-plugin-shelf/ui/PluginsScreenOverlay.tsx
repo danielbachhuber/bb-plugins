@@ -8,6 +8,8 @@ import { createPortal } from "react-dom";
 import { startScreenEngine } from "../screen/engine";
 import { ShelfPage } from "./ShelfPage";
 
+declare const __BB_PLUGIN_ID__: string | undefined;
+
 export function PluginsScreenOverlay() {
   const [container, setContainer] = useState<HTMLElement | null>(null);
 
@@ -32,5 +34,14 @@ export function PluginsScreenOverlay() {
     return () => controller.abort();
   }, []);
 
-  return container === null ? null : createPortal(<ShelfPage />, container);
+  // bb scopes a plugin's stylesheet to elements under [data-bb-plugin], and a
+  // portal leaves that subtree, so the page has to name the plugin itself.
+  return container === null
+    ? null
+    : createPortal(
+        <div data-bb-plugin={typeof __BB_PLUGIN_ID__ === "string" ? __BB_PLUGIN_ID__ : undefined}>
+          <ShelfPage />
+        </div>,
+        container,
+      );
 }
