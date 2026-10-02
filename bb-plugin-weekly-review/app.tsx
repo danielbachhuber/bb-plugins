@@ -45,7 +45,6 @@ type Listing = {
   currentWeek: string;
   previousWeek: string;
   missingSources: string[];
-  weeksDir: string;
 };
 
 /** The panel's route segment, and the prefix its deep links are built on. */

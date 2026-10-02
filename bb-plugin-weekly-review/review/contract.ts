@@ -15,7 +15,7 @@ const sourceStatusSchema = z.object({
   millis: z.number(),
 });
 
-/** A Monday, which is both a week's id and its directory name. */
+/** A Monday, which is a week's id. */
 const mondaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 /**
@@ -77,7 +77,6 @@ export const rpcContract = defineRpcContract({
       previousWeek: mondaySchema,
       /** Source definitions this plugin needs and does not have. Empty when ready. */
       missingSources: z.array(z.string()),
-      weeksDir: z.string(),
     }),
   },
   week_get: {
@@ -99,7 +98,6 @@ export const rpcContract = defineRpcContract({
         slack: z.string().optional(),
         feedback: z.string().optional(),
       }),
-      dir: z.string(),
     }),
   },
   week_gather_notes: {
@@ -135,7 +133,7 @@ export const rpcContract = defineRpcContract({
     output: z.object({ prompt: z.string(), isDefault: z.boolean() }),
   },
   /**
-   * Re-gathers a week from its sources and writes it to disk. Slow — every
+   * Re-gathers a week from its sources into the database. Slow — every
    * source is a CLI — so the panel drives it from an explicit button rather
    * than on load.
    */

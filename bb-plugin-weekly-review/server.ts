@@ -4,17 +4,25 @@
 // itself: it puts everything with a date on a spine, and everything without
 // one in a standing panel, so the highlights are easy to pick out.
 //
-// Two kinds of state, kept apart on purpose. The source definitions — which
-// repository, whose username, which 1:1 documents — identify a person, so they
-// live in the plugin's database. A gathered week is a JSON blob on disk, where
-// an agent can read it directly. Only the paths to the CLIs are settings.
+// The source definitions — which repository, whose username, which 1:1
+// documents — identify a person, so they live in the plugin's database, and so
+// does every gathered week. An agent reads a week through `bb weekly-review
+// digest`. Only the paths to the CLIs are settings.
 import { dirname, basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./review/contract.js";
 import { fromDay, resolveRange, toDay, type Range } from "./review/dates.js";
-import { generateWeek, type GatherConfig, type Tools } from "./review/generate.js";
+import {
+  cliFetchers,
+  createGatherQueue,
+  gatherWeek,
+  type GatherConfig,
+  type Tools,
+} from "./review/gather.js";
+import { createWeekStore, type GatherTrigger } from "./review/db.js";
+import { importWeekFiles } from "./review/import.js";
 import {
   MIGRATIONS,
   createSourceStore,
@@ -23,13 +31,6 @@ import {
   SCALAR_KEYS,
   type SourceStore,
 } from "./review/sources.js";
-import {
-  listWeeks,
-  readFeedback,
-  readWeek,
-  weekDir,
-  writeFeedback,
-} from "./review/store.js";
 import { run } from "./review/fetch/shell.js";
 import { buildDigest } from "./review/digest.js";
 import {
@@ -42,8 +43,7 @@ import {
 import type { PromptKind } from "./review/contract.js";
 import { reflectNoteSchema, slackThreadSchema } from "./review/schema.js";
 import { datedSections, matchDoc, matchNote, sectionNear, entriesWithoutNotes } from "./review/meeting-notes.js";
-import { readFile, writeFile } from "node:fs/promises";
-import { join as joinPath } from "node:path";
+import { readFile } from "node:fs/promises";
 import type { WeekData } from "./review/types.js";
 
 export { rpcContract };
@@ -88,35 +88,44 @@ export default async function plugin(bb: BbPluginApi) {
       // single-project install and a coin toss otherwise.
       default: "",
     },
-    weeksDir: {
-      type: "string",
-      label: "Where gathered weeks are written",
-      // Blank means data/weeks/ inside the plugin, which is gitignored.
-      default: "",
-    },
   });
 
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const sources: SourceStore = createSourceStore(db as never);
+  const weeks = createWeekStore(db as never);
+  const once = createGatherQueue();
 
-  async function tools(): Promise<{ tools: Tools; weeksDir: string }> {
+  // Weeks gathered before the database were files under data/weeks/. Each is
+  // imported the first time the plugin loads without a gather for it.
+  importWeekFiles(weeks, join(PLUGIN_ROOT, "data", "weeks")).then(
+    (imported) => {
+      if (imported.length === 0) return;
+      bb.log.info(`imported ${imported.length} weeks from files: ${imported.join(", ")}`);
+      bb.realtime.publish(WEEK_GENERATED, { monday: imported[imported.length - 1] });
+    },
+    (error) => bb.log.warn(`could not import week files: ${String(error)}`),
+  );
+
+  async function tools(): Promise<Tools> {
     const values = await settings.get();
     return {
-      tools: {
-        gh: values.gh.trim() || "gh",
-        hrvst: values.hrvst.trim() || "hrvst",
-        td: values.td.trim() || "td",
-        gws: values.gws.trim() || "gws",
-        fetchDocScript: values.fetchDocScript.trim(),
-      },
-      weeksDir: values.weeksDir.trim() || join(PLUGIN_ROOT, "data", "weeks"),
+      gh: values.gh.trim() || "gh",
+      hrvst: values.hrvst.trim() || "hrvst",
+      td: values.td.trim() || "td",
+      gws: values.gws.trim() || "gws",
+      fetchDocScript: values.fetchDocScript.trim(),
     };
   }
 
-  async function gatherConfig(): Promise<{ config: GatherConfig; weeksDir: string }> {
-    const { tools: paths, weeksDir } = await tools();
-    return { config: { ...sources.read(), ...paths }, weeksDir };
+  async function gatherConfig(): Promise<GatherConfig> {
+    return { ...sources.read(), ...(await tools()) };
+  }
+
+  function requireWeek(monday: string): WeekData {
+    const week = weeks.readWeek(monday);
+    if (week === null) throw new Error(`No week gathered for ${monday}. Generate it first.`);
+    return week;
   }
 
   /**
@@ -149,24 +158,33 @@ export default async function plugin(bb: BbPluginApi) {
     return toDay(new Date(fromDay(monday).getTime() - 7 * MS_PER_DAY));
   }
 
-  /** The one path that gathers a week, shared by the panel and the CLI. */
-  async function runGenerate(from?: string, to?: string) {
-    const { config, weeksDir } = await gatherConfig();
+  /**
+   * The one path that gathers a week, shared by the panel, the CLI, and the
+   * schedule. A second call for a week already being gathered shares the
+   * first one's run.
+   */
+  async function gather(range: Range, trigger: GatherTrigger, includeDocs: boolean) {
+    const config = await gatherConfig();
     const missing = missingSources(config);
     if (missing.length > 0) throw new Error(`No source configured for: ${missing.join(", ")}.`);
 
-    const range = from === undefined
-      ? resolveRange()
-      : { from, to: to ?? rangeForMonday(from).to };
-    const result = await generateWeek(range, config, weeksDir);
+    const result = await once(range.from, () =>
+      gatherWeek(weeks, range, cliFetchers(config), { trigger, includeDocs }));
 
     const failed = result.sources.filter((source) => !source.ok);
     bb.log.info(
-      `gathered ${range.from}..${range.to}` +
-        (failed.length === 0 ? "" : ` (${failed.map((f) => f.name).join(", ")} failed)`),
+      `gathered ${range.from}..${range.to} (${trigger})` +
+        (failed.length === 0 ? "" : `, ${failed.map((f) => f.name).join(", ")} failed`),
     );
-    bb.realtime.publish(WEEK_GENERATED, { monday: result.week.from });
-    return { monday: result.week.from, sources: result.sources };
+    bb.realtime.publish(WEEK_GENERATED, { monday: result.monday });
+    return result;
+  }
+
+  function runGenerate(from?: string, to?: string) {
+    const range = from === undefined
+      ? resolveRange()
+      : { from, to: to ?? rangeForMonday(from).to };
+    return gather(range, "manual", true);
   }
 
   /** A meeting's notes are long; a whole 1:1 doc is longer. */
@@ -175,19 +193,16 @@ export default async function plugin(bb: BbPluginApi) {
   /**
    * Lifts each meeting's own notes out of the reference doc that holds them.
    *
-   * Runs on the server because the doc text is cached on disk, and returns
+   * Runs on the server because the doc text is in the database, and returns
    * only the matched sections rather than the documents: sending twelve 1:1
    * docs to the panel to display four paragraphs would be most of a megabyte
    * for the sake of a page that reads better.
    */
-  async function meetingNotesFor(weeksDir: string, monday: string, week: WeekData) {
-    const cached = week.docs.data.filter(
-      (doc): doc is typeof doc & { cachedPath: string } => doc.cachedPath !== undefined,
-    );
+  function meetingNotesFor(monday: string, week: WeekData) {
+    const cached = week.docs.data;
     const daily = week.reflect?.data ?? [];
     if (cached.length === 0 && daily.length === 0) return [];
 
-    const dir = weekDir(weeksDir, monday);
     const sections = new Map<string, ReturnType<typeof datedSections>>();
     const notes: Array<{
       day: string;
@@ -227,12 +242,8 @@ export default async function plugin(bb: BbPluginApi) {
 
       let parsed = sections.get(match.doc.id);
       if (parsed === undefined) {
-        try {
-          const text = await readFile(joinPath(dir, match.doc.cachedPath), "utf8");
-          parsed = datedSections(text, week.from);
-        } catch {
-          parsed = [];
-        }
+        const text = weeks.docText(monday, match.doc.id);
+        parsed = text === null ? [] : datedSections(text, week.from);
         sections.set(match.doc.id, parsed);
       }
 
@@ -269,7 +280,7 @@ export default async function plugin(bb: BbPluginApi) {
     const { journalDocId } = sources.read();
     if (journalDocId === "") return null;
 
-    const { tools: paths } = await tools();
+    const paths = await tools();
     let text: string;
     try {
       text = await run(paths.fetchDocScript, [journalDocId]);
@@ -306,9 +317,7 @@ export default async function plugin(bb: BbPluginApi) {
    * contain them.
    */
   async function gatherNotes(monday: string): Promise<{ threadId: string }> {
-    const { weeksDir } = await tools();
-    const week = await readWeek(weeksDir, monday);
-    if (week === null) throw new Error(`No week gathered for ${monday}. Generate it first.`);
+    const week = requireWeek(monday);
 
     const providerId = (await settings.get()).agentProviderId.trim();
 
@@ -335,9 +344,7 @@ export default async function plugin(bb: BbPluginApi) {
    * separately.
    */
   async function gatherSlack(monday: string): Promise<{ threadId: string }> {
-    const { weeksDir } = await tools();
-    const week = await readWeek(weeksDir, monday);
-    if (week === null) throw new Error(`No week gathered for ${monday}. Generate it first.`);
+    const week = requireWeek(monday);
 
     const providerId = (await settings.get()).agentProviderId.trim();
 
@@ -367,9 +374,7 @@ export default async function plugin(bb: BbPluginApi) {
    * entry missed; it proposes no prose and writes nothing to the document.
    */
   async function reviewEntry(monday: string): Promise<{ threadId: string }> {
-    const { weeksDir } = await tools();
-    const week = await readWeek(weeksDir, monday);
-    if (week === null) throw new Error(`No week gathered for ${monday}. Generate it first.`);
+    const week = requireWeek(monday);
 
     const entry = await readEntry(week);
     if (entry === null) {
@@ -402,8 +407,7 @@ export default async function plugin(bb: BbPluginApi) {
     monday: string,
     path: string,
     threadId?: string,
-  ): Promise<string> {
-    const { weeksDir } = await tools();
+  ): Promise<void> {
     const parsed = feedbackSchema.safeParse(JSON.parse(await readFile(path, "utf8")));
     if (!parsed.success) {
       throw new Error(
@@ -413,16 +417,16 @@ export default async function plugin(bb: BbPluginApi) {
           .join("; ")}`,
       );
     }
-    const week = await readWeek(weeksDir, monday);
-    const entry = week === null ? null : await readEntry(week);
-    const written = await writeFeedback(weeksDir, monday, {
+    const week = requireWeek(monday);
+    const entry = await readEntry(week);
+    const reviewedAt = new Date().toISOString();
+    weeks.writeAgentResult(monday, "feedback", {
       ...parsed.data,
-      reviewedAt: new Date().toISOString(),
+      reviewedAt,
       ...(entry === null ? {} : { entryHeading: entry.heading }),
-    });
+    }, reviewedAt);
     if (threadId !== undefined) sources.writeThread(monday, "feedback", threadId);
     bb.realtime.publish(WEEK_REVIEWED, { monday });
-    return written;
   }
 
   async function spawnAgent(
@@ -503,12 +507,12 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
-   * Validates and records the week's daily notes. Written beside the week
-   * rather than into week.json, so re-gathering the scriptable sources never
-   * discards what an agent had to go and fetch by hand.
+   * Validates and records the week's daily notes. Kept apart from the
+   * gathered items, so re-gathering the scriptable sources never discards what
+   * an agent had to go and fetch by hand.
    */
   async function recordNotes(monday: string, path: string): Promise<number> {
-    const { weeksDir } = await tools();
+    requireWeek(monday);
     const parsed = reflectNoteSchema
       .array()
       .safeParse(JSON.parse(await readFile(path, "utf8")));
@@ -520,21 +524,18 @@ export default async function plugin(bb: BbPluginApi) {
           .join("; ")}`,
       );
     }
-    await writeFile(
-      joinPath(weekDir(weeksDir, monday), "reflect.json"),
-      JSON.stringify(parsed.data, null, 2),
-      "utf8",
-    );
+    const at = new Date().toISOString();
+    weeks.writeAgentResult(monday, "reflect", { ok: true, fetchedAt: at, data: parsed.data }, at);
     bb.realtime.publish(WEEK_GENERATED, { monday });
     return parsed.data.length;
   }
 
   /**
-   * Validates and records the week's Slack conversations. Beside the week for
-   * the same reason the notes are: a re-gather must not discard them.
+   * Validates and records the week's Slack conversations. Apart from the
+   * items for the same reason the notes are: a re-gather must not discard them.
    */
   async function recordSlack(monday: string, path: string): Promise<number> {
-    const { weeksDir } = await tools();
+    requireWeek(monday);
     const parsed = slackThreadSchema
       .array()
       .safeParse(JSON.parse(await readFile(path, "utf8")));
@@ -546,44 +547,30 @@ export default async function plugin(bb: BbPluginApi) {
           .join("; ")}`,
       );
     }
-    await writeFile(
-      joinPath(weekDir(weeksDir, monday), "slack.json"),
-      JSON.stringify(parsed.data, null, 2),
-      "utf8",
-    );
+    const at = new Date().toISOString();
+    weeks.writeAgentResult(monday, "slack", { ok: true, fetchedAt: at, data: parsed.data }, at);
     bb.realtime.publish(WEEK_GENERATED, { monday });
     return parsed.data.length;
   }
 
   bb.rpc.register(rpcContract, {
-    weeks_list: async () => {
-      const { weeksDir } = await tools();
+    weeks_list: () => {
       const currentWeek = resolveRange().from;
       return {
-        weeks: await listWeeks(weeksDir),
+        weeks: weeks.listWeeks(),
         currentWeek,
         previousWeek: previousMonday(currentWeek),
         missingSources: reportStatus(),
-        weeksDir,
       };
     },
     week_get: async ({ monday }) => {
-      const { weeksDir } = await tools();
-      const [week, feedback] = await Promise.all([
-        readWeek(weeksDir, monday),
-        readFeedback(weeksDir, monday),
-      ]);
-      const [meetingNotes, entry] = await Promise.all([
-        week === null ? [] : meetingNotesFor(weeksDir, monday, week),
-        week === null ? null : readEntry(week),
-      ]);
+      const week = weeks.readWeek(monday);
       return {
         week,
-        feedback,
-        entry,
-        meetingNotes,
+        feedback: weeks.readFeedback(monday),
+        entry: week === null ? null : await readEntry(week),
+        meetingNotes: week === null ? [] : meetingNotesFor(monday, week),
         threads: sources.readThreads(monday),
-        dir: weekDir(weeksDir, monday),
       };
     },
     week_gather_notes: ({ monday }) => gatherNotes(monday),
@@ -619,7 +606,6 @@ export default async function plugin(bb: BbPluginApi) {
     "Usage:",
     "  bb weekly-review list",
     "  bb weekly-review generate [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]",
-    "  bb weekly-review path [<monday>]",
     "  bb weekly-review digest <monday>",
     "  bb weekly-review meetings <monday>",
     "  bb weekly-review notes <monday> --file <path-to-json>",
@@ -633,8 +619,8 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review source remove-doc <google-doc-id|label>",
     "",
     "Weeks are identified by their Monday. `generate` with no argument does",
-    "the current week. Source definitions live in the plugin's database, not",
-    "in a file.",
+    "the current week. Gathered weeks and source definitions live in the",
+    "plugin's database, not in files.",
   ].join("\n");
 
   function formatSources(): string {
@@ -698,11 +684,6 @@ export default async function plugin(bb: BbPluginApi) {
         usage: "bb weekly-review generate [<monday>]",
       },
       {
-        name: "path",
-        summary: "Print a week's directory, for reading or writing its files",
-        usage: "bb weekly-review path [<monday>]",
-      },
-      {
         name: "digest",
         summary: "Print the gathered week as the text an interpreter reads",
         usage: "bb weekly-review digest <monday>",
@@ -757,14 +738,13 @@ export default async function plugin(bb: BbPluginApi) {
         case "--help":
           return { exitCode: 0, stdout: usage };
         case "list": {
-          const { weeksDir } = await tools();
-          const weeks = await listWeeks(weeksDir);
+          const listed = weeks.listWeeks();
           return {
             exitCode: 0,
             stdout:
-              weeks.length === 0
+              listed.length === 0
                 ? "No weeks gathered yet."
-                : weeks
+                : listed
                     .map((week) => `${week.monday}  gathered ${week.generatedAt}`)
                     .join("\n"),
           };
@@ -778,26 +758,17 @@ export default async function plugin(bb: BbPluginApi) {
           );
           return { exitCode: 0, stdout: [`Gathered ${result.monday}`, ...lines].join("\n") };
         }
-        case "path": {
-          const { weeksDir } = await tools();
-          return {
-            exitCode: 0,
-            stdout: weekDir(weeksDir, positional[0] ?? resolveRange().from),
-          };
-        }
         case "digest": {
-          const { weeksDir } = await tools();
           const monday = positional[0] ?? resolveRange().from;
-          const week = await readWeek(weeksDir, monday);
+          const week = weeks.readWeek(monday);
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
           return { exitCode: 0, stdout: buildDigest(week) };
         }
         case "entry": {
-          const { weeksDir } = await tools();
           const monday = positional[0] ?? resolveRange().from;
-          const week = await readWeek(weeksDir, monday);
+          const week = weeks.readWeek(monday);
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
@@ -820,8 +791,8 @@ export default async function plugin(bb: BbPluginApi) {
             };
           }
           try {
-            const written = await recordFeedback(monday, file, ctx.threadId);
-            return { exitCode: 0, stdout: `Recorded feedback on ${monday} at ${written}` };
+            await recordFeedback(monday, file, ctx.threadId);
+            return { exitCode: 0, stdout: `Recorded feedback on ${monday}` };
           } catch (error) {
             // The agent reads this and fixes its file, so the reason has to
             // survive as the whole message.
@@ -844,14 +815,13 @@ export default async function plugin(bb: BbPluginApi) {
           return { exitCode: 0, stdout: describePrompt(kind).prompt };
         }
         case "meetings": {
-          const { weeksDir } = await tools();
           const monday = positional[0] ?? resolveRange().from;
-          const week = await readWeek(weeksDir, monday);
+          const week = weeks.readWeek(monday);
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
           const matched = new Set(
-            (await meetingNotesFor(weeksDir, monday, week)).map(
+            meetingNotesFor(monday, week).map(
               (note) => `${note.day}\u0000${note.entryNote}`,
             ),
           );

@@ -87,7 +87,7 @@ the text rather than hidden behind it, so a near match reads as what it is.
 | Slack | agent step, over MCP | yes |
 | Daily notes | agent step, over MCP | yes |
 
-## Two kinds of state, kept apart
+## Where things are kept
 
 **Sources — the database.** What a week is gathered from identifies a person:
 a repository, a username, a Harvest project, a list of 1:1 documents. It lives
@@ -104,12 +104,12 @@ bb weekly-review source add-doc 1AbCdEf... Annual goals
 bb weekly-review source remove-doc "Annual goals"
 ```
 
-**Weeks — files.** A gathered week is a JSON blob on disk (see Storage below),
-where an agent can read it without going through this plugin.
+**Weeks — the database too.** Each gathered week is stored as rows in the same
+database (see Storage below). An agent reads a week with
+`bb weekly-review digest <monday>`.
 
 **Settings — paths only.** `bb plugin config weekly-review` holds where `gh`,
-`hrvst`, `td`, `gws`, and the Google Doc script are, plus where weeks are
-written. A path is not a fact about anyone, so those are safe as declarative
+`hrvst`, `td`, `gws`, and the Google Doc script are. A path is not a fact about anyone, so those are safe as declarative
 settings. The calendar needs no configuration beyond the path: it reads
 `primary`, which identifies nobody.
 
@@ -141,9 +141,8 @@ changed to warrant one.
 The page itself shows only that the entry was checked and how much came back.
 The findings are worth arguing with, and a page cannot be argued with.
 
-It proposes no replacement prose, and never edits the document. Feedback lands
-beside the week as `feedback.json`, stamped with the heading of the entry it
-was given on, so feedback on a draft you have since rewritten shows as stale
+It proposes no replacement prose, and never edits the document. Feedback is
+stored with the week, stamped with the heading of the entry it was given on, so feedback on a draft you have since rewritten shows as stale
 rather than quietly wrong.
 
 ```sh
@@ -199,7 +198,6 @@ worse than a gap.
 ```
 bb weekly-review list
 bb weekly-review generate [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]
-bb weekly-review path [<monday>]
 bb weekly-review digest <monday>
 bb weekly-review meetings <monday>
 bb weekly-review notes <monday> --file <path-to-json>
@@ -210,27 +208,32 @@ bb weekly-review prompt [notes|slack|feedback] [reset]
 bb weekly-review source list | set <key> <value> | add-doc <id> <label> | remove-doc <id|label>
 ```
 
-Weeks are identified by their Monday, which is also the directory name.
-`generate` with no argument does the current week, Monday through today.
+Weeks are identified by their Monday. `generate` with no argument does the
+current week, Monday through today.
 
 ## Storage
 
-`data/weeks/<monday>/`, gitignored, alongside the plugin:
+Gathered weeks live in the plugin's SQLite database, next to the sources:
 
-```
-data/weeks/2026-08-31/
-  week.json        everything the gather produced
-  feedback.json    the agent's read of your written entry (optional)
-  docs/*.txt       cached text of the reference docs
-  reflect.json     written by the agent step (optional)
-  slack.json       written by the agent step (optional)
-```
+| Table | Holds |
+|---|---|
+| `gathers` | one row per gather: when it ran, what started it, and how each source did |
+| `items` | one row per time entry, pull request, review, issue, task, or calendar event, per week |
+| `doc_snapshots` | each reference doc's text, as of its last fetch |
+| `agent_results` | what the Slack, notes, and feedback agents recorded |
 
-Files rather than rows, so an agent can read a week without going through this
-plugin, and so a bad parse costs one week rather than the store. Gitignored, and
-set the `weeksDir` setting to put them somewhere else entirely. The source
-definitions that decide what a week contains are the opposite case — small, and
-personally identifying — so they go in the database instead.
+A gather updates items by their id in the source, so an entry edited in Harvest
+is updated rather than added twice. An item the source no longer returns, such
+as a deleted time entry or a reopened task, is marked removed and drops off the
+page. The row stays in the table.
+
+A source that fails changes nothing. The page keeps showing what that source
+returned last time, with the error beside it, so an expired token never makes
+a busy week look quiet. A reference doc that fails keeps its previous text.
+
+Before the database, weeks were files under `data/weeks/<monday>/`. The plugin
+imports each of those weeks once, the first time it loads with no gather for
+that week, and leaves the files where they are.
 
 ## Development
 
@@ -241,11 +244,12 @@ npm test
 bb plugin build . && bb plugin reload weekly-review
 ```
 
-The suites cover the parts that are pure: the calendar parser against the
-shapes a live payload actually contains, the coming-up grouping, and each
-agent prompt against the placeholders its caller substitutes.
+The suites cover the parts that need no network: the calendar parser against
+the shapes a live payload actually contains, the coming-up grouping, each agent
+prompt against the placeholders its caller substitutes, and the week store,
+gather, and file import against an in-memory database.
 
 `review/` holds the logic and is deliberately free of BB: pure date and
 bucketing functions, one fetcher per source that shells out to a CLI, the
-file-backed week store, and the database-backed source store. `server.ts` wires
+gather that runs them, and the database-backed week and source stores. `server.ts` wires
 them together; `app.tsx` draws the panel and the sources editor.

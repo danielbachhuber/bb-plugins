@@ -1,9 +1,9 @@
 /**
  * The wire and on-disk shape of a week, in one place.
  *
- * These schemas run at three boundaries: the RPC responses, the week.json a
- * previous run left on disk, and the reflect.json / slack.json an agent writes
- * by hand. `types.ts` infers its types from here so the two cannot drift, and
+ * These schemas run at three boundaries: the RPC responses, the JSON stored in
+ * the database (and the week.json files it was imported from), and the notes
+ * and Slack files an agent writes by hand. `types.ts` infers its types from here so the two cannot drift, and
  * imports zod only as a type — the frontend gets the types without the runtime.
  */
 import { z } from "zod";
@@ -28,6 +28,8 @@ export function sourceResult<T extends z.ZodTypeAny>(data: T) {
 }
 
 export const harvestEntrySchema = z.object({
+  /** Harvest's own id. Absent on weeks gathered before it was fetched. */
+  id: z.string().optional(),
   day: daySchema,
   task: z.string(),
   hours: z.number(),
@@ -135,7 +137,10 @@ export const docRefSchema = z.object({
   id: z.string(),
   label: z.string(),
   url: z.string(),
-  /** Path to the cached plain-text copy, relative to the week directory. */
+  /**
+   * Where a week gathered to files kept the doc's text, relative to its
+   * directory. Read only by the import; the text is in the database now.
+   */
   cachedPath: z.string().optional(),
   error: z.string().optional(),
 });

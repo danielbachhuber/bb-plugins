@@ -11,6 +11,7 @@
  * about anyone.
  */
 import type { Database } from "better-sqlite3";
+import { WEEK_MIGRATIONS } from "./db.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE settings (
@@ -31,6 +32,8 @@ export const MIGRATIONS = [
      started_at TEXT NOT NULL,
      PRIMARY KEY (monday, kind)
    )`,
+  // Gathered weeks, which were files until these.
+  ...WEEK_MIGRATIONS,
 ];
 
 export interface DocSource {

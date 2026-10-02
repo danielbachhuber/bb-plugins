@@ -3,6 +3,7 @@ import type { Range } from "../dates.js";
 import { runJson } from "./shell.js";
 
 interface RawEntry {
+  id?: number | string;
   spent_date?: string;
   hours?: number;
   notes?: string | null;
@@ -24,13 +25,15 @@ export async function fetchHarvest(
     ...projectArgs,
     "--per_page", "2000",
     "--page", "all",
-    "--fields", "task.name,hours,notes,spent_date",
+    "--fields", "id,task.name,hours,notes,spent_date",
     // Without this the CLI prints a human-readable table.
     "--output", "json",
   ]);
   const list = Array.isArray(raw) ? raw : (raw.time_entries ?? []);
   return list
     .map((e) => ({
+      // A string, because it is only ever used as a key.
+      ...(e.id === undefined ? {} : { id: String(e.id) }),
       day: e.spent_date ?? "",
       task: e.task?.name ?? "Uncategorized",
       hours: Number(e.hours ?? 0),
