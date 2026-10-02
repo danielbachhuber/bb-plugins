@@ -29,6 +29,7 @@ const rowSchema = z.object({
   entryId: z.string().nullable(),
   latestTag: z.string().nullable(),
   latestVersion: z.string().nullable(),
+  installs: z.number().int().nonnegative().nullable(),
   commits: z.array(commitSchema),
   docsChangesOnly: z.boolean(),
   flags: z.array(flagSchema),

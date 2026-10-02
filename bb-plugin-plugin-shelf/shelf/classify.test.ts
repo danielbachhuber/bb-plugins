@@ -31,6 +31,7 @@ function entry(overrides: Partial<MarketplaceEntry> = {}): MarketplaceEntry {
     subdir: "bb-plugin-widgets",
     range: "^0.1.0",
     tagPrefix: "widgets/",
+    installs: 12,
     ...overrides,
   };
 }
@@ -123,6 +124,7 @@ describe("buildRow", () => {
     const row = buildRow({ plugin: plugin(), entries: [entry()], repo: REPO, tags, commits: [] });
     expect(row.group).toBe("current");
     expect(row.latestTag).toBe("widgets/v0.1.1");
+    expect(row.installs).toBe(12);
     expect(row.flags).toEqual([]);
   });
 

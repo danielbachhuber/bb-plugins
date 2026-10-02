@@ -27,10 +27,15 @@ function deps(overrides: Partial<ShelfDeps> = {}): ShelfDeps {
     ],
     searchCatalog: async (query) =>
       [
-        { entryId: "widgets", pluginId: "widgets", marketplace: "bb-community" },
+        { entryId: "widgets", pluginId: "widgets", marketplace: "bb-community", installs: 12 },
         // A search for a short id matches unrelated entries too.
-        { entryId: "widgets-extra", pluginId: "widgets-extra", marketplace: "bb-community" },
-        { entryId: "widgets", pluginId: "widgets", marketplace: "someone-else" },
+        {
+          entryId: "widgets-extra",
+          pluginId: "widgets-extra",
+          marketplace: "bb-community",
+          installs: 3,
+        },
+        { entryId: "widgets", pluginId: "widgets", marketplace: "someone-else", installs: 40 },
       ].filter((e) => e.pluginId.includes(query)),
     installPlan: async () => ({
       kind: "git",
@@ -56,8 +61,10 @@ describe("shelf_list", () => {
     const widgets = result.rows.find((r) => r.id === "widgets")!;
     expect(widgets.group).toBe("needs-release");
     expect(widgets.latestTag).toBe("widgets/v0.1.0");
+    expect(widgets.installs).toBe(12);
     expect(widgets.commits.map((c) => c.subject)).toEqual(["Describe widgets", "Draw widgets"]);
     expect(result.rows.find((r) => r.id === "gadgets")!.group).toBe("personal");
+    expect(result.rows.find((r) => r.id === "gadgets")!.installs).toBeNull();
     expect(result.checkout?.repo).toBe(normalizeRepoUrl(origin));
   });
 

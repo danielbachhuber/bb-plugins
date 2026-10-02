@@ -109,6 +109,12 @@ describe("ShelfTable", () => {
     expect(screen.getByText("v0.1.2")).toBeTruthy();
   });
 
+  it("shows a compact install count, with the full count as its label", () => {
+    renderTable();
+    expect(screen.getByLabelText("1,204 installs").textContent).toBe("1.2K");
+    expect(screen.getByLabelText("38 installs")).toBeTruthy();
+  });
+
   it("says when it last checked", () => {
     renderTable();
     expect(screen.getByText(/Checked 4 minutes ago/)).toBeTruthy();

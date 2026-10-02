@@ -29,6 +29,7 @@ function row(overrides: Partial<ShelfRow> & Pick<ShelfRow, "id" | "name">): Shel
     entryId: null,
     latestTag: null,
     latestVersion: null,
+    installs: null,
     commits: [],
     docsChangesOnly: false,
     flags: [],
@@ -48,6 +49,7 @@ export function fixtureRows(): ShelfRow[] {
       entryId: "widgets",
       latestTag: "widgets/v0.1.2",
       latestVersion: "0.1.2",
+      installs: 38,
       commits: [
         commit("4f1c", "Add a snap-to-grid toggle to Widgets", 1),
         commit("9a2e", "Describe the snap-to-grid toggle in the Widgets README", 2, true),
@@ -63,6 +65,7 @@ export function fixtureRows(): ShelfRow[] {
       entryId: "gadgets",
       latestTag: "gadgets/v0.1.0",
       latestVersion: "0.1.0",
+      installs: 1204,
     }),
     row({
       id: "sprockets",
@@ -111,6 +114,7 @@ export function unknownList(): ShelfList {
       entryId: null,
       latestTag: null,
       latestVersion: null,
+      installs: null,
       commits: [],
       docsChangesOnly: false,
       flags: [],

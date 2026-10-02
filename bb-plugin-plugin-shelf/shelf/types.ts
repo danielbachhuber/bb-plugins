@@ -15,6 +15,8 @@ export interface MarketplaceEntry {
   subdir: string | null;
   range: string | null;
   tagPrefix: string | null;
+  /** Installs bb's catalog counts for the entry, null when it has no count. */
+  installs: number | null;
 }
 
 export interface Commit {
@@ -37,6 +39,8 @@ export interface ShelfRow extends IndexedPlugin {
   entryId: string | null;
   latestTag: string | null;
   latestVersion: string | null;
+  /** Installs of the marketplace entry, null for a plugin with no entry or no count. */
+  installs: number | null;
   commits: (Commit & { docsOnly: boolean })[];
   /** True when every unreleased commit is docs only and there is at least one. */
   docsChangesOnly: boolean;

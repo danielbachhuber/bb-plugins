@@ -33,7 +33,9 @@ export interface ShelfDeps {
   listInstalled: () => Promise<{ id: string; rootDir: string; enabled: boolean }[]>;
   searchCatalog: (
     query: string,
-  ) => Promise<{ entryId: string; pluginId: string; marketplace: string }[]>;
+  ) => Promise<
+    { entryId: string; pluginId: string; marketplace: string; installs: number | null }[]
+  >;
   installPlan: (entryId: string) => Promise<{
     kind: string;
     url?: string;
@@ -87,6 +89,7 @@ export function createShelf(deps: ShelfDeps) {
           subdir: source.subdir ?? null,
           range: source.range ?? null,
           tagPrefix: source.tagPrefix ?? null,
+          installs: hit.installs,
         });
       }
     }

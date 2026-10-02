@@ -15,7 +15,11 @@ Plugins screen:
 - **Unknown**: shown only when the marketplace or GitHub could not be reached,
   so a network failure never calls a published plugin personal.
 
-Each row shows the plugin's name, its `bb.description`, and its latest release.
+Each row shows the plugin's name, its `bb.description`, its latest release,
+and its install count. The count is the one bb's Browse page shows for the
+marketplace entry, and arrives with the catalog search Plugin Shelf already
+makes for each plugin, so it costs no extra requests. A personal plugin, or a
+published one bb has no count for yet, shows a dash.
 Small tags under the name point out:
 - a package.json version that was bumped and never tagged
 - a newer tag outside the entry's range

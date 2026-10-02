@@ -76,6 +76,24 @@ function relative(from: number, now: number): string {
   return "just now";
 }
 
+// The same compact count bb's Browse cards show, so 1,204 reads as 1.2K.
+const INSTALLS_FORMAT = new Intl.NumberFormat(undefined, {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+function InstallsCell({ installs }: { installs: number | null }) {
+  if (installs === null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className="tabular-nums"
+      aria-label={`${installs.toLocaleString()} ${installs === 1 ? "install" : "installs"}`}
+    >
+      {INSTALLS_FORMAT.format(installs)}
+    </span>
+  );
+}
+
 function releaseLabel(tag: string | null): string {
   return tag === null ? "—" : tag.slice(tag.lastIndexOf("/") + 1);
 }
@@ -165,7 +183,7 @@ function GroupSection(props: {
   const withActions = group === "needs-release";
   // Every group's table has the action column, empty where there is no
   // action, so the columns line up from one table to the next.
-  const columns = 4;
+  const columns = 5;
   return (
     <section className="space-y-2">
       <div>
@@ -187,6 +205,7 @@ function GroupSection(props: {
               <TableHead className="w-[26%]">Name</TableHead>
               <TableHead>Summary</TableHead>
               <TableHead className="w-[16%]">Release</TableHead>
+              <TableHead className="w-[72px] text-right">Installs</TableHead>
               <TableHead className="w-[290px]" />
             </TableRow>
           </TableHeader>
@@ -223,6 +242,9 @@ function GroupSection(props: {
                           </button>
                         ) : null}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      <InstallsCell installs={row.installs} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
