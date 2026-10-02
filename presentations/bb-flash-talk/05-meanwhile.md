@@ -1,1 +1,3 @@
+## But, with a bit of customization...
+
 ![A car](images/local/car.png)
