@@ -57,11 +57,8 @@ Linked workstreams lead the table as **Planned**, the rest follow as
 **Unplanned**, and a linked workstream with no activity still gets its empty
 row, which is the gap the page is there to show.
 
-The priorities come from the journal doc the page already reads for this
-week's entry, so they cost no extra request. The doc's text is stored on
-every good read and on each gather that fetches the reference docs, which
-adds one Google request to the day's first gather. When a read fails, the page
-uses the stored copy.
+The priorities come from the same copy of the journal doc as this week's
+entry, so they cost no extra request (see below).
 
 ## Workstreams
 
@@ -242,9 +239,14 @@ feedback step is that it does not have to.
 
 Set the doc with `bb weekly-review source set journalDocId <id>`. The entry for
 a week is the last dated section falling inside it — the doc uses the same
-`## September 4, 2026` headings the 1:1 documents do — and it is read fresh
-every time the page loads, because the entry is written after the week is
-gathered and a copy taken at gather time would always be the empty template.
+`## September 4, 2026` headings the 1:1 documents do.
+
+The page never waits on Google for it. It shows the stored copy of the doc at
+once and reads the doc again in the background, at most once a minute; when
+the text has changed, the page updates itself. The copy is also refreshed on
+each gather that fetches the reference docs, which adds one Google request to
+the day's first gather. **Check my entry** and `bb weekly-review entry` read
+the doc fresh, since the agent should see what the entry says now.
 
 **Check my entry** sends an agent the entry as written and the week's digest,
 and asks two questions: what happened that the entry does not mention, and

@@ -56,6 +56,9 @@ export { rpcContract };
 
 /** Published after a week is written, so every open panel refetches. */
 const WEEK_GENERATED = "week-generated";
+/** Published when a read of the journal doc finds different text from the stored copy. */
+const JOURNAL_CHANGED = "journal-changed";
+
 /** Published after a workstream, rule, or assignment changes. */
 const WORKSTREAMS_CHANGED = "workstreams-changed";
 
@@ -326,7 +329,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (journalDocId === "") return null;
     try {
       const text = await run((await tools()).fetchDocScript, [journalDocId]);
-      if (workstreams.rememberJournal(text)) bb.realtime.publish(WORKSTREAMS_CHANGED, {});
+      if (workstreams.rememberJournal(text)) bb.realtime.publish(JOURNAL_CHANGED, {});
       return text;
     } catch (error) {
       bb.log.warn(`could not read the entry doc, using the stored copy: ${String(error)}`);
@@ -334,15 +337,38 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /** A background read for the page, at most once a minute and one at a time. */
+  const JOURNAL_REFRESH_MS = 60_000;
+  let journalRefreshedAt = 0;
+  let journalRefreshing = false;
+  function refreshJournal(): void {
+    if (journalRefreshing || Date.now() - journalRefreshedAt < JOURNAL_REFRESH_MS) return;
+    journalRefreshing = true;
+    journalRefreshedAt = Date.now();
+    readJournal().finally(() => {
+      journalRefreshing = false;
+    });
+  }
+
   /**
    * This week's entry, as written. Not cached with the week: the entry is
    * written after the week is gathered, so a copy taken at gather time would
    * always be the empty template.
+   *
+   * The agent steps read the doc fresh. The page reads the stored copy, so it
+   * opens without waiting on Google, and refreshes it behind the scenes.
    */
   async function readEntry(week: WeekData) {
+    return entryFrom(await readJournal(), week);
+  }
+
+  function storedEntry(week: WeekData) {
+    return entryFrom(workstreams.journal()?.text ?? null, week);
+  }
+
+  function entryFrom(text: string | null, week: WeekData) {
     const { journalDocId } = sources.read();
-    const text = await readJournal();
-    if (text === null) return null;
+    if (journalDocId === "" || text === null) return null;
     const section = entryIn(text, week.from, week.to);
     if (section === null) return null;
     return {
@@ -658,12 +684,14 @@ export default async function plugin(bb: BbPluginApi) {
         missingSources: reportStatus(),
       };
     },
-    week_get: async ({ monday }) => {
+    week_get: ({ monday }) => {
       const week = weeks.readWeek(monday);
+      // The page announces its own refetch when the doc turns out to have changed.
+      refreshJournal();
       return {
         week,
         feedback: weeks.readFeedback(monday),
-        entry: week === null ? null : await readEntry(week),
+        entry: week === null ? null : storedEntry(week),
         meetingNotes: week === null ? [] : meetingNotesFor(monday, week),
         threads: sources.readThreads(monday),
       };

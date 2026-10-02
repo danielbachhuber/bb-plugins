@@ -877,6 +877,12 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
   const [workstreamsVersion, setWorkstreamsVersion] = useState(0);
   // A change from the CLI or another panel arrives as a signal, like a new gather.
   useRealtime("workstreams-changed", () => setWorkstreamsVersion((count) => count + 1));
+  // The page shows the stored copy of the journal doc and the server reads it
+  // fresh behind the scenes; this says the fresh read differed.
+  useRealtime("journal-changed", () => {
+    setReload((count) => count + 1);
+    setWorkstreamsVersion((count) => count + 1);
+  });
 
   useEffect(() => {
     if (selected === null) return;
@@ -1053,9 +1059,10 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
           />
         )}
 
-        {loading && week === null ? (
-          <EmptyState>Loading…</EmptyState>
-        ) : week === null ? (
+        {/* Everything here is read from the plugin's database, so the first
+            response arrives within a frame or two; a placeholder for it would
+            only flash. */}
+        {loading && week === null ? null : week === null ? (
           <div>
             <EmptyState>
               Nothing gathered for this week yet. Generate it, or run{" "}
