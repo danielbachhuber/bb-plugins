@@ -136,6 +136,7 @@ describe("threadContext", () => {
       number: 128,
       attention: "checks_pending",
       canMerge: true,
+      conflicted: false,
       myReview: null,
       reviewers: null,
     });

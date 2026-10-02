@@ -35,6 +35,8 @@ export interface GhPullRequest {
   /** Everyone asked for a review or who gave one, as the banner shows them. */
   reviewers: Reviewer[];
   checks: Checks;
+  /** True when it conflicts with its base branch; false while GitHub is still working that out. */
+  conflicted: boolean;
 }
 
 export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
@@ -84,6 +86,8 @@ interface PullRequestJson {
   /** A user's `login`, or a team's `org/team` `slug`. */
   reviewRequests?: Array<{ login?: unknown; slug?: unknown }>;
   statusCheckRollup?: RollupEntry[] | null;
+  /** MERGEABLE, CONFLICTING, or UNKNOWN. */
+  mergeable?: unknown;
 }
 
 /** A review that was actually submitted. PENDING reviews are drafts. */
@@ -231,6 +235,7 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
     requestedReviewers: logins((json.reviewRequests ?? []).map((request) => request.login)),
     reviewers: reviewerList(json.reviews ?? [], json.reviewRequests ?? [], author, open),
     checks: summarizeChecks(json.statusCheckRollup),
+    conflicted: open && json.mergeable === "CONFLICTING",
   };
 }
 
@@ -285,7 +290,7 @@ export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
               "--repo",
               ref.repo,
               "--json",
-              "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup",
+              "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup,mergeable",
             ]),
           ) as PullRequestJson,
         ),

@@ -36,6 +36,7 @@ const pullRequest = {
   attention: "none" as const,
   checks: null,
   canMerge: true,
+  conflicted: false,
   myReview: null,
   reviewers: [],
 };

@@ -216,6 +216,7 @@ export default async function plugin(bb: BbPluginApi) {
                 // What bb itself offers merge on. A conflicting or blocked pull
                 // request would only fail, so it gets no button.
                 canMerge: pr.mergeability.state === "mergeable",
+                conflicted: pr.mergeability.mergeable === "CONFLICTING",
                 ...(await reviewOf({ repo: ref.repo, number: pr.number })),
               },
             };
@@ -254,6 +255,7 @@ export default async function plugin(bb: BbPluginApi) {
         // thread is on. Merging still goes through bb, so it stays off.
         checks,
         canMerge: false,
+        conflicted: fetched?.conflicted ?? false,
         ...(await reviewOf(linked)),
       },
     };

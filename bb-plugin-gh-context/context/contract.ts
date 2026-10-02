@@ -66,6 +66,8 @@ const pullRequestSchema = z.object({
    * thread's own branch, because merging goes through bb's environment API.
    */
   canMerge: z.boolean(),
+  /** True when it conflicts with its base branch, drawn as a warning after the changes. */
+  conflicted: z.boolean(),
   /**
    * The review of the user `gh` is signed in as; null when they are not a
    * reviewer, or `gh` cannot say.

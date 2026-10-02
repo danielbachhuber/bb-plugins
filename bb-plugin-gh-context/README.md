@@ -75,6 +75,12 @@ replies to review comments as reviews. Once the pull request merges or closes,
 outstanding requests drop out, and a pull request nobody reviewed shows
 nothing. At the prompt box's compact width only the badges are drawn.
 
+A pull request that conflicts with its base branch gets a grey warning
+triangle after the changes, as PR Sweep and Review Sweep draw one after the
+title. It comes from bb's mergeability for the thread's branch, or from the
+same `gh pr view` call that reads a linked pull request's checks, so it costs
+no extra request.
+
 The pull request is bb's own lookup for the thread's branch. For a thread that
 is not on the branch, such as a review, it is the pull request a sweep linked
 the thread to. Its checks come from `gh` instead, counted the same way, and it

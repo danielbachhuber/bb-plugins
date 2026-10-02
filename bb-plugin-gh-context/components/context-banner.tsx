@@ -365,6 +365,11 @@ export function ContextBanner({
         {changes && !(compact && issues.length > 0) ? (
           <ChangesSegment changes={changes} compact={compact} onOpen={onOpenChanges} />
         ) : null}
+        {pullRequest?.conflicted ? (
+          <span className="flex shrink-0 px-1" title="Merge conflict">
+            <Icon name="AlertTriangle" aria-label="Merge conflict" className="size-4 text-muted-foreground" />
+          </span>
+        ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-1 pr-1">
           {canMerge ? (
             <MergeSplitButton

@@ -91,6 +91,7 @@ describe("pullRequest", () => {
       requestedReviewers: [],
       reviewers: [],
       checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
+      conflicted: false,
     });
   });
 
@@ -100,6 +101,15 @@ describe("pullRequest", () => {
     expect((await shaped({ state: "OPEN", isDraft: true }))?.state).toBe("draft");
     expect((await shaped({ state: "MERGED" }))?.state).toBe("merged");
     expect((await shaped({ state: "CLOSED" }))?.state).toBe("closed");
+  });
+
+  it("marks an open pull request conflicted only when GitHub says it conflicts", async () => {
+    const shaped = (fields: object) =>
+      createGh(runner(() => JSON.stringify({ title: "t", url: "u", ...fields }))).pullRequest(ref);
+    expect((await shaped({ state: "OPEN", mergeable: "CONFLICTING" }))?.conflicted).toBe(true);
+    expect((await shaped({ state: "OPEN", mergeable: "MERGEABLE" }))?.conflicted).toBe(false);
+    expect((await shaped({ state: "OPEN", mergeable: "UNKNOWN" }))?.conflicted).toBe(false);
+    expect((await shaped({ state: "MERGED", mergeable: "CONFLICTING" }))?.conflicted).toBe(false);
   });
 
   it("reads who has reviewed and whose request is outstanding", async () => {
@@ -172,7 +182,7 @@ describe("pullRequest", () => {
       "--repo",
       "acme/widgets",
       "--json",
-      "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup",
+      "title,url,body,state,isDraft,author,closingIssuesReferences,reviews,reviewRequests,statusCheckRollup,mergeable",
     ]);
   });
 });
@@ -189,6 +199,7 @@ describe("myReview", () => {
     requestedReviewers: [],
     reviewers: [],
     checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
+    conflicted: false,
     ...fields,
   });
 

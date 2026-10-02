@@ -26,6 +26,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
       attention: "checks_pending",
       checks: { state: "pending", totalCount: 3, passedCount: 1, failedCount: 0, pendingCount: 2 },
       canMerge: true,
+      conflicted: false,
       myReview: null,
       reviewers: [],
     },
@@ -64,6 +65,23 @@ describe("banner", () => {
       method: "threadContext",
       input: { threadId: "thr_one" },
     });
+  });
+
+  it("warns after the changes when the pull request conflicts with its base", async () => {
+    const conflicted = render(
+      context({
+        pullRequest: { ...context().pullRequest!, conflicted: true },
+        changes: { label: "Committed", files: 4, insertions: 50, deletions: 12 },
+      }),
+    );
+    const warning = await conflicted.findByLabelText("Merge conflict");
+    const tally = conflicted.getByText("+50");
+    expect(tally.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    conflicted.lifecycle.unmount();
+
+    const clean = render(context());
+    await clean.findByText("PR #128");
+    expect(clean.queryByLabelText("Merge conflict")).not.toBeInTheDocument();
   });
 
   it("carries the hide marker only while hiding is on", async () => {

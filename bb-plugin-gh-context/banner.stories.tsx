@@ -170,6 +170,7 @@ const contextPullRequest: ContextPullRequest = {
   attention: "checks_pending",
   checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
   canMerge: true,
+  conflicted: false,
   myReview: null,
   reviewers: [{ ...octocat, state: "approved" }],
 };
@@ -320,6 +321,14 @@ export function States() {
       </StoryRow>
       <StoryRow label="merged PR" hint="The work is done, so archiving the thread is the suggested action.">
         <Pair value={context({ pullRequest: { ...contextPullRequest, state: "merged", attention: "merged", checks: null } })} />
+      </StoryRow>
+      <StoryRow label="conflicted PR" hint="A warning after the changes when the PR conflicts with its base branch.">
+        <Pair
+          value={context({
+            pullRequest: { ...contextPullRequest, attention: "conflicts", checks: null, canMerge: false, conflicted: true },
+            changes: committed,
+          })}
+        />
       </StoryRow>
       <StoryRow label="PR a sweep linked" hint="A review thread not on the PR's branch: no checks, no merge.">
         <Pair value={context({ pullRequest: { ...contextPullRequest, attention: "none", checks: null, canMerge: false } })} />
