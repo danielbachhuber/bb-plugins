@@ -61,9 +61,10 @@ There is no chevron to close one.
 ## Each row
 
 The title line starts with the pull request's icon, green when it is open and
-grey for a draft, then the title and number, "N new" in blue when comments
-were posted since you last opened the pull request or its thread from the
-panel, or started one, and how long ago it was updated on the right. The first
+grey for a draft, then the title, a warning triangle when it conflicts with
+its base branch, and the number, "N new" in blue when comments were posted
+since you last opened the pull request or its thread from the panel, or
+started one, and how long ago it was updated on the right. The first
 sweep to see a pull request records its comment count, so nothing is new on
 the first sync.
 

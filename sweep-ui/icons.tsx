@@ -2,6 +2,7 @@
 // need a plugin's icon registry. Same glyphs as the plugins' `Icon` names.
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import {
+  Alert02Icon,
   AlertCircleIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
@@ -22,6 +23,7 @@ import {
 
 const ICONS = {
   AlertCircle: AlertCircleIcon,
+  AlertTriangle: Alert02Icon,
   ChevronDown: ArrowDown01Icon,
   ChevronRight: ArrowRight01Icon,
   Check: Tick02Icon,

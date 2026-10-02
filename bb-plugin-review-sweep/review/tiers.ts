@@ -17,6 +17,8 @@ export interface ListedReview {
   url: string;
   author: string;
   isDraft: boolean;
+  /** True when it conflicts with its base branch. Left out reads as false. */
+  conflicted?: boolean;
   state: ReviewState;
   requestedAt: number;
   lastReviewedAt: number | null;

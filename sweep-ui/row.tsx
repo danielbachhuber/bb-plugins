@@ -220,6 +220,11 @@ export function SweepRow({
       {item.title}
     </Link>
   );
+  const conflict = item.conflicted ? (
+    <span className="flex shrink-0" title="Merge conflict">
+      <Icon name="AlertTriangle" label="Merge conflict" className="size-4 text-muted-foreground" />
+    </span>
+  ) : null;
 
   if (line) {
     return (
@@ -229,6 +234,7 @@ export function SweepRow({
           <span className="flex min-w-0 items-center gap-1.5">
             {icon}
             {title}
+            {conflict}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
             {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
           </span>
@@ -253,6 +259,7 @@ export function SweepRow({
         {icon}
         <span className="flex min-w-0 items-center gap-1.5">
           {title}
+          {conflict}
           <span className="shrink-0 text-muted-foreground">#{item.number}</span>
         </span>
         {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
@@ -270,6 +277,7 @@ export function SweepRow({
       <span className="flex min-w-0 items-center gap-1.5">
         {icon}
         {title}
+        {conflict}
         {/* At the end of the title, so a sub-issue's number line keeps to one line. */}
         {item.parent ? <ParentChip parent={item.parent} Link={Link} /> : null}
       </span>

@@ -439,6 +439,7 @@ export function ReviewListView({
     note: row.note,
     stage: stageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
+    conflicted: row.conflicted === true,
     stack: row.stack
       ? {
           index: row.stack.index,

@@ -394,6 +394,7 @@ export default async function plugin(bb: BbPluginApi) {
             checks: row.checks ?? NO_CHECKS,
             reviewers: row.reviewers ?? [],
             stack: row.stack ?? null,
+            conflicted: row.conflicted ?? false,
             note: notes.get(key) ?? null,
             newComments: seenCount === undefined ? 0 : Math.max(0, comments - seenCount),
             canSpawn: threadMap !== null && spawnable.has(row.repo),

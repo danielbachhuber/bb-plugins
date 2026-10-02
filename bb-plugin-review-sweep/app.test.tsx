@@ -183,6 +183,19 @@ describe("panel", () => {
     );
   });
 
+  it("warns after the title of a pull request that conflicts with its base", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "Conflicted one", conflicted: true }),
+          rowFixture({ number: 2, title: "Clean one" }),
+        ],
+      }),
+    );
+    expect(within(await rowFor(slot, "Conflicted one")).getByLabelText("Merge conflict")).toBeInTheDocument();
+    expect(within(await rowFor(slot, "Clean one")).queryByLabelText("Merge conflict")).not.toBeInTheDocument();
+  });
+
   it("names the repository only when more than one is in play", async () => {
     const one = render(listing());
     const row = await rowFor(one, /Add the widget endpoint/);

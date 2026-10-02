@@ -65,3 +65,36 @@ describe("SweepRow track placement", () => {
     expect(track.compareDocumentPosition(actionLine) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe("SweepRow conflict warning", () => {
+  it("draws a warning right after the title of a conflicted pull request", () => {
+    draw({ item: { ...item, conflicted: true } });
+    const warning = screen.getByLabelText("Merge conflict");
+    const title = screen.getByRole("link", { name: item.title });
+    expect(title.nextElementSibling).toBe(warning.parentElement);
+  });
+
+  it("draws it on a one-line row too", () => {
+    render(
+      <ul>
+        <SweepRow
+          item={{ ...item, conflicted: true }}
+          tier="later"
+          open={false}
+          stages={[]}
+          actions={null}
+          editing={false}
+          onEditNote={() => {}}
+          onNoteSave={async () => true}
+          onNoteCancel={() => {}}
+        />
+      </ul>,
+    );
+    expect(screen.getByLabelText("Merge conflict")).toBeInTheDocument();
+  });
+
+  it("draws nothing when the pull request merges cleanly", () => {
+    draw();
+    expect(screen.queryByLabelText("Merge conflict")).not.toBeInTheDocument();
+  });
+});

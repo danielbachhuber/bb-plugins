@@ -46,9 +46,9 @@ bump are all still review requests, so they are all still listed.
 ## Why GraphQL rather than `gh pr list`
 
 pr-sweep discovers repositories with `gh search prs` and then fans out one
-`gh pr list` per repository, because it needs `mergeable` and every check run
-by name. This plugin needs neither: the only checks it shows are the head
-commit's counts, which the search query can return.
+`gh pr list` per repository, because it needs every check run by name. This
+plugin does not: the only checks it shows are the head commit's counts, and
+those and `mergeable` both come back in the search query.
 
 What it does need is **when the review was requested of you**, and `gh pr list`
 has no field for it at any verbosity. The only honest sources are the
@@ -115,10 +115,11 @@ counts its urgent rows.
 ## Each row
 
 Each row is drawn the way PR Sweep draws a pull request. The title line has
-the pull request icon (green when open, muted for a draft), the title, the
-number, "N new" in blue when comments were posted since you last opened the
-pull request or its thread from the panel, and how long ago the review was
-requested of you on the right. The first sweep to see a request records its
+the pull request icon (green when open, muted for a draft), the title, a
+warning triangle when it conflicts with its base branch, the number, "N new"
+in blue when comments were posted since you last opened the pull request or
+its thread from the panel, and how long ago the review was requested of you
+on the right. The first sweep to see a request records its
 comment count, so nothing is new on the first sync.
 
 A pull request in a stack, built on another open pull request's branch or

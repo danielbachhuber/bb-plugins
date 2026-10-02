@@ -193,6 +193,13 @@ describe("classifyOne", () => {
     });
   });
 
+  it("marks a pull request conflicted only when GitHub says it conflicts", () => {
+    expect(classifyOne(makePr({ mergeable: "CONFLICTING" }), ME)?.conflicted).toBe(true);
+    expect(classifyOne(makePr({ mergeable: "MERGEABLE" }), ME)?.conflicted).toBe(false);
+    expect(classifyOne(makePr({ mergeable: "UNKNOWN" }), ME)?.conflicted).toBe(false);
+    expect(classifyOne(makePr(), ME)?.conflicted).toBe(false);
+  });
+
   it("defaults a missing author to unknown rather than dropping the row", () => {
     expect(classifyOne(makePr({ author: null }), ME)?.author).toBe("unknown");
   });

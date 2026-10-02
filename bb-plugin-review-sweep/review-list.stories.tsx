@@ -130,6 +130,8 @@ const everything: Listing = {
       state: "re-review",
       requestedAt: now - 5 * 24 * HOUR,
       lastReviewedAt: now - 6 * 24 * HOUR,
+      // Conflicts with its base, so a warning follows the title.
+      conflicted: true,
       requestedReviewers: ["you", "widgets-committers"],
       size: { additions: 320, deletions: 118, changedFiles: 14 },
       checks: checks({ pass: 10, fail: 2, skip: 1 }),

@@ -49,6 +49,11 @@ export interface SweepItem {
   /** Drawn before the title, such as a pull request's state icon. */
   icon?: ReactNode;
   /**
+   * True when the pull request conflicts with its base branch, drawn as a
+   * warning triangle after the title, where GitHub's own list puts it.
+   */
+  conflicted?: boolean;
+  /**
    * Where a pull request sits in a stack of pull requests built on each
    * other's branches, drawn as a chip after the number. Left out when it is
    * not in one.

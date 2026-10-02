@@ -66,6 +66,8 @@ const rowSchema = z.object({
   url: z.string(),
   author: z.string(),
   isDraft: z.boolean(),
+  /** True when it conflicts with its base branch. */
+  conflicted: z.boolean(),
   state: z.enum(["first-look", "re-review"]),
   requestedAt: z.number(),
   lastReviewedAt: z.number().nullable(),

@@ -285,6 +285,7 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
     url,
     author: pr.author?.login ?? "unknown",
     isDraft: pr.isDraft === true,
+    conflicted: pr.mergeable === "CONFLICTING",
     state: reviewState(reviewed, requested),
     requestedAt: requested,
     lastReviewedAt: reviewed,

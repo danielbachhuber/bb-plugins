@@ -40,6 +40,12 @@ export interface ClassifiedRow {
   /** The PR author. Unlike pr-sweep, this is never you. */
   author: string;
   isDraft: boolean;
+  /**
+   * True when it conflicts with its base branch. False while GitHub has not
+   * worked that out yet. Optional, as `comments` is, for rows stored before
+   * the sweep read it.
+   */
+  conflicted?: boolean;
   state: ReviewState;
   /**
    * When the review landed in your queue, in epoch ms. Resolved from the
@@ -126,6 +132,8 @@ export interface RawPullRequest {
   title?: string;
   url?: string;
   isDraft?: boolean;
+  /** MERGEABLE, CONFLICTING, or UNKNOWN while GitHub is still working it out. */
+  mergeable?: string;
   createdAt?: string;
   additions?: number;
   deletions?: number;
