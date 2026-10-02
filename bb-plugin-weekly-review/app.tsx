@@ -758,9 +758,9 @@ function WeeklyReviewHeader({ subPath }: PluginNavPanelProps) {
       // Raised here rather than in the body: a source that failed is a fact
       // about this run, and the body still has everything the others produced.
       if (failed.length === 0) {
-        toast.success(`Gathered ${result.monday}`);
+        toast.success(`Synced ${result.monday}`);
       } else {
-        toast.warning(`${failed.map((source) => source.name).join(", ")} not gathered`, {
+        toast.warning(`${failed.map((source) => source.name).join(", ")} didn't sync`, {
           description: failed.map((source) => source.error).join("; "),
         });
       }
@@ -811,13 +811,13 @@ function WeeklyReviewHeader({ subPath }: PluginNavPanelProps) {
         className="h-7"
         onClick={generate}
         disabled={generating || selected === null}
-        aria-label={summary === null ? "Generate this week" : "Regenerate this week"}
+        aria-label="Sync this week"
       >
         <Icon
           name={generating ? "Spinner" : "ArrowReloadHorizontal"}
           className={cn("size-3.5", generating && "animate-spin")}
         />
-        {compact ? null : summary === null ? "Generate" : "Regenerate"}
+        {compact ? null : "Sync"}
       </Button>
     </div>
   );
@@ -840,7 +840,7 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
   const [reload, setReload] = useState(0);
 
   const selected = selectedWeek(subPath, listing);
-  // Part of the effect's key, so a regenerate in the title bar pulls the new
+  // Part of the effect's key, so a sync in the title bar pulls the new
   // week down here without the two components having to know about each other.
   const generatedAt =
     listing?.weeks.find((summary) => summary.monday === selected)?.generatedAt ?? null;
@@ -1065,8 +1065,8 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
         {loading && week === null ? null : week === null ? (
           <div>
             <EmptyState>
-              Nothing gathered for this week yet. Generate it, or run{" "}
-              <code>bb weekly-review generate {selected ?? ""}</code>.
+              Nothing gathered for this week yet. Sync it, or run{" "}
+              <code>bb weekly-review sync {selected ?? ""}</code>.
             </EmptyState>
           </div>
         ) : (

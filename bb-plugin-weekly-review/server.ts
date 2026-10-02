@@ -155,7 +155,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   function requireWeek(monday: string): WeekData {
     const week = weeks.readWeek(monday);
-    if (week === null) throw new Error(`No week gathered for ${monday}. Generate it first.`);
+    if (week === null) throw new Error(`No week gathered for ${monday}. Sync it first.`);
     return week;
   }
 
@@ -762,7 +762,7 @@ export default async function plugin(bb: BbPluginApi) {
   const usage = [
     "Usage:",
     "  bb weekly-review list",
-    "  bb weekly-review generate [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]",
+    "  bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]",
     "  bb weekly-review digest <monday>",
     "  bb weekly-review meetings <monday>",
     "  bb weekly-review notes <monday> --file <path-to-json>",
@@ -784,7 +784,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review source add-doc <google-doc-id> <label...>",
     "  bb weekly-review source remove-doc <google-doc-id|label>",
     "",
-    "Weeks are identified by their Monday. `generate` with no argument does",
+    "Weeks are identified by their Monday. `sync` with no argument does",
     "the current week. Gathered weeks and source definitions live in the",
     "plugin's database, not in files.",
   ].join("\n");
@@ -845,9 +845,9 @@ export default async function plugin(bb: BbPluginApi) {
     commands: [
       { name: "list", summary: "List gathered weeks", usage: "bb weekly-review list" },
       {
-        name: "generate",
-        summary: "Gather a week from its sources",
-        usage: "bb weekly-review generate [<monday>]",
+        name: "sync",
+        summary: "Gather a week from its sources now, rather than at the next scheduled run",
+        usage: "bb weekly-review sync [<monday>]",
       },
       {
         name: "digest",
@@ -955,6 +955,8 @@ export default async function plugin(bb: BbPluginApi) {
                     .join("\n"),
           };
         }
+        // `generate` was this command's name before the schedule existed.
+        case "sync":
         case "generate": {
           const result = await runGenerate(positional[0] ?? flag("from"), flag("to"));
           const lines = result.sources.map(
@@ -962,7 +964,7 @@ export default async function plugin(bb: BbPluginApi) {
               `  ${source.ok ? "ok  " : "FAIL"} ${source.name.padEnd(9)}` +
               ` ${(source.millis / 1000).toFixed(1)}s${source.error ? `  ${source.error}` : ""}`,
           );
-          return { exitCode: 0, stdout: [`Gathered ${result.monday}`, ...lines].join("\n") };
+          return { exitCode: 0, stdout: [`Synced ${result.monday}`, ...lines].join("\n") };
         }
         case "digest": {
           const monday = positional[0] ?? resolveRange().from;

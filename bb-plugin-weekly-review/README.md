@@ -6,7 +6,7 @@ entry can be written from evidence rather than from memory.
 It does not write the entry. It gathers what happened and gets out of the way.
 
 The week is gathered at 7am and 1pm on weekdays, so the page is already current
-when you open it. **Regenerate** gathers it again on demand.
+when you open it. **Sync** gathers it now rather than at the next run.
 
 ## The page
 
@@ -184,8 +184,8 @@ that fetches docs adds one request per reference doc, plus one for the journal
 doc. Monday's first run makes
 these calls twice, once for each week.
 
-Regenerate runs the same gather, with the docs. If a scheduled run and
-Regenerate overlap on the same week, the second waits for the first and shares
+Sync runs the same gather, with the docs. If a scheduled run and a Sync
+overlap on the same week, the second waits for the first and shares
 its result instead of running every CLI again.
 
 The title bar says when the week was gathered, when the next run is, and which
@@ -320,7 +320,7 @@ worse than a gap.
 
 ```
 bb weekly-review list
-bb weekly-review generate [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]
+bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]
 bb weekly-review digest <monday>
 bb weekly-review meetings <monday>
 bb weekly-review notes <monday> --file <path-to-json>
@@ -343,7 +343,7 @@ bb weekly-review source list | set <key> <value> | add-doc <id> <label> | remove
 An activity's key, such as `harvest:entry:123`, is what `unsorted` prints
 first on each line.
 
-Weeks are identified by their Monday. `generate` with no argument does the
+Weeks are identified by their Monday. `sync` with no argument does the
 current week, Monday through today.
 
 ## Storage

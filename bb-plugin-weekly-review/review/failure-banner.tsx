@@ -47,7 +47,7 @@ export function FailureBanner({
           </div>
         ))}
         <div className="text-xs text-muted-foreground">
-          Fix the error, then Regenerate.
+          Fix the error, then Sync.
         </div>
       </div>
     </div>
