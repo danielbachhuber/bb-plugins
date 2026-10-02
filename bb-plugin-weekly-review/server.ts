@@ -25,6 +25,8 @@ import { createWeekStore, type GatherTrigger } from "./review/db.js";
 import { importWeekFiles } from "./review/import.js";
 import { DEFAULT_GATHER_CRON, failingSources, isValidCron, nextRun } from "./review/freshness.js";
 import { plannedGathers } from "./review/schedule.js";
+import { createWorkstreamStore } from "./review/workstream-store.js";
+import { createWorkstreamService } from "./review/workstream-service.js";
 import {
   MIGRATIONS,
   createSourceStore,
@@ -52,6 +54,9 @@ export { rpcContract };
 
 /** Published after a week is written, so every open panel refetches. */
 const WEEK_GENERATED = "week-generated";
+/** Published after a workstream, rule, or assignment changes. */
+const WORKSTREAMS_CHANGED = "workstreams-changed";
+
 /** Published after an agent records its read of the written entry. */
 const WEEK_REVIEWED = "week-reviewed";
 
@@ -102,6 +107,20 @@ export default async function plugin(bb: BbPluginApi) {
   const sources: SourceStore = createSourceStore(db as never);
   const weeks = createWeekStore(db as never);
   const once = createGatherQueue();
+  const workstreams = createWorkstreamService(weeks, createWorkstreamStore(db as never));
+
+  /** Runs a change, tells every open panel, and returns the week's refreshed view. */
+  function changed(monday: string, change: () => void) {
+    change();
+    bb.realtime.publish(WORKSTREAMS_CHANGED, { monday });
+    return workstreams.view(monday);
+  }
+
+  /** The digest, with the workstream table once there are workstreams. */
+  function digestFor(monday: string, week: WeekData): string {
+    const section = workstreams.digestSection(monday);
+    return section === null ? buildDigest(week) : `${buildDigest(week)}\n\n${section}`;
+  }
 
   // Weeks gathered before the database were files under data/weeks/. Each is
   // imported the first time the plugin loads without a gather for it.
@@ -414,7 +433,7 @@ export default async function plugin(bb: BbPluginApi) {
       providerId,
       renderPrompt(describePrompt("feedback").prompt, {
         ENTRY: `### ${entry.heading}\n\n${entry.text}`,
-        DIGEST: buildDigest(week),
+        DIGEST: digestFor(monday, week),
         MONDAY: monday,
         COMMAND: `bb weekly-review feedback ${monday} --file <path-to-your-json>`,
       }),
@@ -609,6 +628,33 @@ export default async function plugin(bb: BbPluginApi) {
     },
     week_generate: ({ from, to }) => runGenerate(from, to),
 
+    workstreams_get: ({ monday }) => workstreams.view(monday),
+    workstream_create: ({ monday, name }) => {
+      let id = 0;
+      const view = changed(monday, () => {
+        id = workstreams.create(name).id;
+      });
+      return { ...view, id };
+    },
+    workstream_rename: ({ monday, id, name }) => changed(monday, () => workstreams.rename(id, name)),
+    workstream_retire: ({ monday, id }) => changed(monday, () => workstreams.retire(id)),
+    suggestion_accept: ({ monday, name }) =>
+      changed(monday, () => workstreams.acceptSuggestion(monday, name)),
+    rule_add: ({ monday, workstreamId, type, value }) =>
+      changed(monday, () => {
+        workstreams.addRule(workstreamId, type, value);
+      }),
+    rule_remove: ({ monday, id }) =>
+      changed(monday, () => {
+        workstreams.removeRule(id);
+      }),
+    rule_preview: ({ type, value }) => workstreams.preview(type, value),
+    assign: ({ monday, key, workstreamId }) =>
+      changed(monday, () => workstreams.assign(key, workstreamId)),
+    unassign: ({ monday, key }) => changed(monday, () => workstreams.unassign(key)),
+    week_workstream_set: ({ monday, workstreamId, state }) =>
+      changed(monday, () => workstreams.setChoice(monday, workstreamId, state)),
+
     sources_get: () => sources.read(),
     sources_set: (input) => {
       for (const key of SCALAR_KEYS) {
@@ -638,6 +684,12 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review entry <monday>",
     "  bb weekly-review feedback <monday> --file <path-to-json>",
     "  bb weekly-review prompt [notes|slack|feedback] [reset]",
+    "  bb weekly-review table [<monday>]",
+    "  bb weekly-review unsorted [<monday>]",
+    "  bb weekly-review workstream list | add <name> | rename <name> <new name> | retire <name>",
+    "  bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>",
+    "  bb weekly-review assign <key> <workstream|none|rules>",
+    "  bb weekly-review week <monday> add|hide|reset <workstream>",
     "  bb weekly-review source list",
     `  bb weekly-review source set <${SCALAR_KEYS.join("|")}> <value>`,
     "  bb weekly-review source add-doc <google-doc-id> <label...>",
@@ -744,6 +796,36 @@ export default async function plugin(bb: BbPluginApi) {
         usage: "bb weekly-review prompt [notes|slack|feedback] [reset]",
       },
       {
+        name: "table",
+        summary: "Print the week's workstreams by day",
+        usage: "bb weekly-review table [<monday>]",
+      },
+      {
+        name: "unsorted",
+        summary: "List the week's activity that no workstream rule matched",
+        usage: "bb weekly-review unsorted [<monday>]",
+      },
+      {
+        name: "workstream",
+        summary: "List, add, rename, or retire workstreams",
+        usage: "bb weekly-review workstream list | add <name> | rename <name> <new name> | retire <name>",
+      },
+      {
+        name: "rule",
+        summary: "List, add, or remove the rules that sort activity into workstreams",
+        usage: "bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>",
+      },
+      {
+        name: "assign",
+        summary: "Put one activity in a workstream by hand, or back to the rules",
+        usage: "bb weekly-review assign <key> <workstream|none|rules>",
+      },
+      {
+        name: "week",
+        summary: "Add a workstream to a week, or hide one from it",
+        usage: "bb weekly-review week <monday> add|hide|reset <workstream>",
+      },
+      {
         name: "source",
         summary: "Show or edit what a week is gathered from",
         usage: "bb weekly-review source list | set <key> <value> | add-doc <id> <label> | remove-doc <id|label>",
@@ -789,7 +871,7 @@ export default async function plugin(bb: BbPluginApi) {
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
-          return { exitCode: 0, stdout: buildDigest(week) };
+          return { exitCode: 0, stdout: digestFor(monday, week) };
         }
         case "entry": {
           const monday = positional[0] ?? resolveRange().from;
@@ -909,6 +991,20 @@ export default async function plugin(bb: BbPluginApi) {
         }
         case "source":
           return runSourceCommand(args);
+        case "table":
+        case "unsorted":
+        case "workstream":
+        case "rule":
+        case "assign":
+        case "week": {
+          const result = workstreams.run(command, args, resolveRange().from);
+          const readOnly =
+            command === "table" ||
+            command === "unsorted" ||
+            ((command === "workstream" || command === "rule") && (args[0] ?? "list") === "list");
+          if (result.exitCode === 0 && !readOnly) bb.realtime.publish(WORKSTREAMS_CHANGED, {});
+          return result;
+        }
       }
       return { exitCode: 1, stderr: usage };
     },

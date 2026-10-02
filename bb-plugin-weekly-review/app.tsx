@@ -39,6 +39,11 @@ import { PromptSection } from "./review/prompt-section.js";
 import { useIsCompactViewport } from "@/components/ui/hooks/use-compact-viewport";
 import { clockTime } from "./review/clock.js";
 import { FailureBanner, whenAt, type FailingSource } from "./review/failure-banner.js";
+import {
+  WorkstreamSection,
+  type WorkstreamActions,
+  type WorkstreamViewProps,
+} from "./review/workstream-section.js";
 
 type WeekSummary = {
   monday: string;
@@ -865,6 +870,48 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
     };
   }, [rpc, selected, generatedAt, reload]);
 
+  const [workstreamView, setWorkstreamView] = useState<WorkstreamViewProps | null>(null);
+  const [workstreamsVersion, setWorkstreamsVersion] = useState(0);
+  // A change from the CLI or another panel arrives as a signal, like a new gather.
+  useRealtime("workstreams-changed", () => setWorkstreamsVersion((count) => count + 1));
+
+  useEffect(() => {
+    if (selected === null) return;
+    let live = true;
+    rpc.call("workstreams_get", { monday: selected }).then(
+      (result) => {
+        if (!live) return;
+        setWorkstreamView(result.table === null ? null : { ...result, table: result.table });
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [rpc, selected, generatedAt, workstreamsVersion]);
+
+  const workstreamActions: WorkstreamActions = useMemo(() => {
+    const monday = selected ?? "";
+    const show = (result: Omit<WorkstreamViewProps, "table"> & { table: WorkstreamViewProps["table"] | null }) =>
+      setWorkstreamView(result.table === null ? null : { ...result, table: result.table });
+    const report = (cause: unknown) => toast.error(cause instanceof Error ? cause.message : String(cause));
+    return {
+      assign: (key, workstreamId) => rpc.call("assign", { monday, key, workstreamId }).then(show, report),
+      unassign: (key) => rpc.call("unassign", { monday, key }).then(show, report),
+      createWorkstream: async (name) => {
+        const result = await rpc.call("workstream_create", { monday, name });
+        show(result);
+        return result.id;
+      },
+      addRule: (workstreamId, type, value) =>
+        rpc.call("rule_add", { monday, workstreamId, type, value }).then(show, report),
+      preview: (type, value) => rpc.call("rule_preview", { type, value }),
+      setWeekChoice: (workstreamId, state) =>
+        rpc.call("week_workstream_set", { monday, workstreamId, state }).then(show, report),
+      acceptSuggestion: (name) => rpc.call("suggestion_accept", { monday, name }).then(show, report),
+    };
+  }, [rpc, selected]);
+
   // The agent records its reading through the CLI, so the page hears about it
   // the same way it hears about anything else: over the signal.
   useRealtime("week-reviewed", () => setReload((count) => count + 1));
@@ -1056,6 +1103,10 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
             <p className="mt-2 text-xs text-muted-foreground">
               {week.from} – {week.to}
             </p>
+
+            {workstreamView === null ? null : (
+              <WorkstreamSection view={workstreamView} actions={workstreamActions} />
+            )}
 
             {grouping === null ? null : (
               <>

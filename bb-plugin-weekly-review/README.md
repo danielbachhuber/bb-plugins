@@ -41,6 +41,51 @@ grouped by day, with anything already overdue at the top. A day with nothing on
 it gets no heading. Today is not in it: today is already on the rest of the
 page, and a meeting that happened this morning is not something to plan around.
 
+## Workstreams
+
+A workstream is a piece of work you are spending time on, such as a feature,
+a launch, or code review. The Workstreams table, below the week's totals, has
+one row per workstream and one column per weekday, plus Saturday and Sunday
+when something happened on them. Each cell shows the hours logged and how many
+PRs, reviews, issues, and completed tasks landed there. Total and Share close
+the row. Anything no rule matched is in Unsorted, so the rows always add up to
+the week's hours.
+
+Only activity counts: time entries, PRs opened or merged, reviews, issues
+filed, and completed tasks. Completed tasks have no day, because `td` reports
+none, so they count in Total only.
+
+Rules decide where activity goes, and they carry over from week to week:
+
+| Rule | Matches |
+|---|---|
+| Issue or PR number | that PR or issue, and a time entry whose note starts `#N` |
+| Harvest task | a time entry booked to that task |
+| Label | a Todoist task or issue with that label |
+| Title contains | any activity whose title contains the phrase |
+
+When several rules match, a hand assignment wins, then a number, a Harvest
+task, a label, and the longest phrase.
+
+Select a cell, or a row's name, to see what is in it and which rule put it
+there. Each activity has a picker to move it to another workstream by hand
+(or keep it Unsorted), and a **Make a rule** form seeded from the activity.
+The form says how many activities the rule would catch across every gathered
+week before you save it.
+
+A week's workstreams are the ones with activity. Add one with no activity yet
+so its empty row shows, or hide one, which moves its activity to Unsorted.
+
+Until the rules cover a week, the page suggests the week's themes as
+workstreams. Accepting one creates it with a rule for its issue numbers, its
+Harvest task, or its title, and sorts this week's entries for it.
+
+Everything on the page has a CLI equivalent, listed under CLI below. The
+digest an agent reads includes the table once a workstream exists.
+
+Opening the page makes no API calls for any of this: the table is built from
+the gathered week in the database.
+
 ## Meeting notes
 
 Two sources sit under a meeting: the day's own notes, and the reference doc
@@ -250,8 +295,17 @@ bb weekly-review slack <monday> --file <path-to-json>
 bb weekly-review entry <monday>
 bb weekly-review feedback <monday> --file <path-to-json>
 bb weekly-review prompt [notes|slack|feedback] [reset]
+bb weekly-review table [<monday>]
+bb weekly-review unsorted [<monday>]
+bb weekly-review workstream list | add <name> | rename <name> <new name> | retire <name>
+bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>
+bb weekly-review assign <key> <workstream|none|rules>
+bb weekly-review week <monday> add|hide|reset <workstream>
 bb weekly-review source list | set <key> <value> | add-doc <id> <label> | remove-doc <id|label>
 ```
+
+An activity's key, such as `harvest:entry:123`, is what `unsorted` prints
+first on each line.
 
 Weeks are identified by their Monday. `generate` with no argument does the
 current week, Monday through today.
@@ -266,6 +320,9 @@ Gathered weeks live in the plugin's SQLite database, next to the sources:
 | `items` | one row per time entry, pull request, review, issue, task, or calendar event, per week |
 | `doc_snapshots` | each reference doc's text, as of its last fetch |
 | `agent_results` | what the Slack, notes, and feedback agents recorded |
+| `workstreams`, `rules` | the workstreams and the rules that sort activity into them |
+| `assignments` | activity moved to a workstream by hand, by its key |
+| `week_workstreams` | workstreams added to or hidden from a week |
 
 A gather updates items by their id in the source, so an entry edited in Harvest
 is updated rather than added twice. An item the source no longer returns, such
@@ -292,7 +349,8 @@ bb plugin build . && bb plugin reload weekly-review
 The suites cover the parts that need no network: the calendar parser against
 the shapes a live payload actually contains, the coming-up grouping, each agent
 prompt against the placeholders its caller substitutes, and the week store,
-gather, and file import against an in-memory database.
+gather, and file import against an in-memory database, and the workstream
+rules and table.
 
 `review/` holds the logic and is deliberately free of BB: pure date and
 bucketing functions, one fetcher per source that shells out to a CLI, the

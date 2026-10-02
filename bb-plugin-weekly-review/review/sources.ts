@@ -12,6 +12,7 @@
  */
 import type { Database } from "better-sqlite3";
 import { WEEK_MIGRATIONS } from "./db.js";
+import { WORKSTREAM_MIGRATIONS } from "./workstream-store.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE settings (
@@ -34,6 +35,8 @@ export const MIGRATIONS = [
    )`,
   // Gathered weeks, which were files until these.
   ...WEEK_MIGRATIONS,
+  // Workstreams and the rules that sort activity into them.
+  ...WORKSTREAM_MIGRATIONS,
 ];
 
 export interface DocSource {

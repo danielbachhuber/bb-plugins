@@ -67,6 +67,76 @@ const sourcesSchema = z.object({
   docs: z.array(docSourceSchema),
 });
 
+const ruleTypeSchema = z.enum(["ref", "task", "label", "phrase"]);
+
+const ruleSchema = z.object({
+  id: z.number(),
+  workstreamId: z.number(),
+  type: ruleTypeSchema,
+  value: z.string(),
+});
+
+const cellSchema = z.object({
+  hours: z.number(),
+  counts: z.object({ pr: z.number(), review: z.number(), issue: z.number(), task: z.number() }),
+  keys: z.array(z.string()),
+});
+
+const tableRowSchema = z.object({
+  workstreamId: z.number().nullable(),
+  name: z.string(),
+  added: z.boolean(),
+  cells: z.record(z.string(), cellSchema),
+  total: cellSchema,
+  share: z.number().nullable(),
+});
+
+const classifiedActivitySchema = z.object({
+  key: z.string(),
+  type: z.enum(["time", "pr", "review", "issue", "task"]),
+  day: daySchema.nullable(),
+  title: z.string(),
+  url: z.string().nullable(),
+  hours: z.number(),
+  ref: z.number().nullable(),
+  task: z.string().nullable(),
+  labels: z.array(z.string()),
+  workstreamId: z.number().nullable(),
+  by: z.union([ruleTypeSchema, z.literal("assignment"), z.null()]),
+  ruleId: z.number().nullable(),
+});
+
+const workstreamTableSchema = z.object({
+  days: z.array(daySchema),
+  rows: z.array(tableRowSchema),
+  unsorted: tableRowSchema,
+  total: cellSchema,
+  activities: z.record(z.string(), classifiedActivitySchema),
+});
+
+/**
+ * A week's table, the whole catalog with each workstream's rules, and the
+ * themes worth turning into workstreams. Null table for a week not gathered.
+ */
+const workstreamViewSchema = z.object({
+  table: workstreamTableSchema.nullable(),
+  workstreams: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    retiredAt: z.string().nullable(),
+    rules: z.array(ruleSchema),
+  })),
+  suggestions: z.array(z.object({
+    name: z.string(),
+    hours: z.number(),
+    rules: z.array(z.object({ type: ruleTypeSchema, value: z.string() })),
+    keys: z.array(z.string()),
+  })),
+});
+
+const workstreamNameSchema = z.string().trim().min(1).max(120);
+const ruleValueSchema = z.string().trim().min(1).max(200);
+
 export const rpcContract = defineRpcContract({
   /**
    * Everything the panel needs to draw its chrome before a week is chosen:
@@ -154,6 +224,70 @@ export const rpcContract = defineRpcContract({
       monday: mondaySchema,
       sources: z.array(sourceStatusSchema),
     }),
+  },
+
+  workstreams_get: {
+    input: z.object({ monday: mondaySchema }),
+    output: workstreamViewSchema,
+  },
+  workstream_create: {
+    input: z.object({ monday: mondaySchema, name: workstreamNameSchema }),
+    output: workstreamViewSchema.extend({ id: z.number() }),
+  },
+  workstream_rename: {
+    input: z.object({ monday: mondaySchema, id: z.number(), name: workstreamNameSchema }),
+    output: workstreamViewSchema,
+  },
+  workstream_retire: {
+    input: z.object({ monday: mondaySchema, id: z.number() }),
+    output: workstreamViewSchema,
+  },
+  /** Creates the suggested workstream, its rules, and this week's assignments. */
+  suggestion_accept: {
+    input: z.object({ monday: mondaySchema, name: workstreamNameSchema }),
+    output: workstreamViewSchema,
+  },
+  rule_add: {
+    input: z.object({
+      monday: mondaySchema,
+      workstreamId: z.number(),
+      type: ruleTypeSchema,
+      value: ruleValueSchema,
+    }),
+    output: workstreamViewSchema,
+  },
+  rule_remove: {
+    input: z.object({ monday: mondaySchema, id: z.number() }),
+    output: workstreamViewSchema,
+  },
+  /** What a rule would catch across every stored week, before it is saved. */
+  rule_preview: {
+    input: z.object({ type: ruleTypeSchema, value: ruleValueSchema }),
+    output: z.object({
+      matches: z.number(),
+      unsorted: z.number(),
+      weeks: z.number(),
+      examples: z.array(z.string()),
+    }),
+  },
+  /** `workstreamId: null` keeps the activity Unsorted whatever the rules say. */
+  assign: {
+    input: z.object({ monday: mondaySchema, key: z.string().max(300), workstreamId: z.number().nullable() }),
+    output: workstreamViewSchema,
+  },
+  /** Hands the activity back to the rules. */
+  unassign: {
+    input: z.object({ monday: mondaySchema, key: z.string().max(300) }),
+    output: workstreamViewSchema,
+  },
+  /** Adds a workstream to the week, hides it, or (null) undoes either. */
+  week_workstream_set: {
+    input: z.object({
+      monday: mondaySchema,
+      workstreamId: z.number(),
+      state: z.enum(["added", "hidden"]).nullable(),
+    }),
+    output: workstreamViewSchema,
   },
 
   /** What a week is gathered from. Held in the database, never in a file. */
