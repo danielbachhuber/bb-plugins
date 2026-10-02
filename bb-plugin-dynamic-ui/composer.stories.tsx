@@ -13,7 +13,7 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -113,9 +113,30 @@ const execution = makeExecutionControlsProps({
   model: { ...baseExecution.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
 });
 
-function stored(view: View, items: Record<string, ItemRecord> = {}): StoredView {
+function stored(view: View, items: Record<string, ItemRecord> = {}, id = 1, key = "default"): StoredView {
   // As the store reads it back: an agent-set status decides the item's state.
-  return { id: 1, threadId: "thr_story01", key: "default", view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items: applyStatus(view, items) };
+  return { id, threadId: "thr_story01", key, view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items: applyStatus(view, items) };
+}
+
+/** Another view the thread published under its own key, under the first in the same card. */
+function OtherViewBanner({ view, onOpenItem }: { view: StoredView; onOpenItem: (item: Item) => void }) {
+  const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(null);
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  const collapsed = collapsedByUser ?? allHandled(view);
+  return (
+    <ViewBanner
+      stored={view}
+      collapsed={collapsed}
+      onToggle={() => setCollapsedByUser(!collapsed)}
+      onHide={() => setHidden(true)}
+      busyItem={null}
+      focusedItem={null}
+      onOpenItem={onOpenItem}
+      onGoToThread={noop}
+      onOpenView={noop}
+    />
+  );
 }
 
 /**
@@ -133,9 +154,12 @@ function ThreadStage({
   reviewInitial,
   currentThreadId,
   threads,
+  others = [],
 }: {
   turns: Turn[];
   view: StoredView;
+  /** Views published under other keys, shown under the first. */
+  others?: StoredView[];
   initialFocus?: string | null;
   initialCollapsed?: boolean;
   confirming?: string;
@@ -165,8 +189,10 @@ function ThreadStage({
           attachments={{ items: [], projectId: "proj_demo", isAttaching: false, error: null, onAttachFiles: noop, onRemove: noop }}
           stack={
             <>
-              {hidden ? null : (
+              {hidden && others.length === 0 ? null : (
               <PromptStackCard ariaLabel="dynamic-ui">
+                <div className="divide-y divide-border">
+                {hidden ? null : (
                 <ViewBanner
                   stored={view}
                   collapsed={collapsed}
@@ -179,6 +205,11 @@ function ThreadStage({
                   onOpenView={noop}
                   currentThreadId={currentThreadId}
                 />
+                )}
+                {others.map((other) => (
+                  <OtherViewBanner key={other.id} view={other} onOpenItem={noop} />
+                ))}
+                </div>
               </PromptStackCard>
               )}
               <UncommittedRow />
@@ -502,6 +533,18 @@ const grantTurns: Turn[] = [
 /** A piece of work in rounds: the header counts what the agent marked complete, and each row shows the status it set. */
 export function Grant() {
   return <ThreadStage turns={grantTurns} view={stored(grantView)} initialFocus="need" />;
+}
+
+/** Two views at once: the grant, and a suggested answer the thread published under a key of its own. Each has its own header, count, collapse, and archive button. */
+export function GrantWithQuestion() {
+  return (
+    <ThreadStage
+      turns={grantTurns}
+      view={stored(grantView)}
+      others={[stored(grantQuestionView, {}, 2, "why-acme")]}
+      initialFocus="need"
+    />
+  );
 }
 
 const sectionTurns: Turn[] = [

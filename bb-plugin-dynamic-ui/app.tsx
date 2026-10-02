@@ -1,8 +1,9 @@
 // bb-plugin-dynamic-ui — a thread's view, above its composer and in its side
 // panel.
 //
-// The newest view a thread published shows as a compact list right above the
-// composer: one row per item with a Review button. Clicking a row opens that
+// Every view a thread published and has not hidden shows as a compact list
+// right above the composer, newest first: one row per item with a Review
+// button. Clicking a row opens that
 // item in the side panel, with its details and every button. The panel keeps
 // one tab per view and switches the item it shows as rows are clicked. A view
 // with the "list" layout shows whole in the panel instead, as one list.
@@ -291,10 +292,12 @@ function Banner() {
   const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : null;
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
-  const [stored, setStored] = useState<StoredView | null>(null);
-  // Unset, the list collapses by itself once every item is handled; a click on
-  // the header overrides that until the next publish.
-  const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(null);
+  // Every view the thread has not hidden, newest first. Views published under
+  // different keys show together, one header each.
+  const [views, setViews] = useState<StoredView[]>([]);
+  // Per view: unset, a list collapses by itself once every item is handled; a
+  // click on its header overrides that until it is next published.
+  const [collapsedByUser, setCollapsedByUser] = useState<Record<number, boolean>>({});
   const focus = useFocus(threadId ?? "");
   // Read through a ref so the fetch below does not re-run whenever the host
   // hands back a new navigate object.
@@ -303,55 +306,70 @@ function Banner() {
 
   const refetch = useCallback(() => {
     if (threadId === null) return;
-    rpc.call("thread_views", { threadId }).then((views) => {
-      const view = views.views.find((candidate) => candidate.hiddenAt === null) ?? null;
-      setStored(view);
-      // The first load after each publish opens the side panel on the first
-      // open item, whether the publish happened while the thread was on
-      // screen or before it was visited.
-      if (view === null) return;
-      const stamp = publishStamp(view.id, view.publishedAt);
+    rpc.call("thread_views", { threadId }).then(({ views: all }) => {
+      const shown = all.filter((candidate) => candidate.hiddenAt === null);
+      setViews(shown);
+      // The first load after each publish opens the side panel on the newest
+      // view's first open item, whether the publish happened while the thread
+      // was on screen or before it was visited.
+      const newest = shown[0];
+      if (newest === undefined) return;
+      const stamp = publishStamp(newest.id, newest.publishedAt);
       if (alreadyAutoOpened(threadId, stamp)) return;
-      if (showFirstOpen(threadId, view, navigateRef.current)) markAutoOpened(threadId, stamp);
+      if (showFirstOpen(threadId, newest, navigateRef.current)) markAutoOpened(threadId, stamp);
     }, () => undefined);
   }, [rpc, threadId]);
   useEffect(refetch, [refetch]);
   useThreadSignal(threadId, refetch);
-  // A newly published view opens expanded, even if the last one was collapsed.
+  // A newly published view opens expanded, even if it was collapsed before.
   useRealtime(
     "dynamic-ui-published",
     useCallback((payload: unknown) => {
-      if ((payload as { threadId?: string } | null)?.threadId === threadId) setCollapsedByUser(null);
+      const { threadId: published, viewId } = (payload ?? {}) as { threadId?: string; viewId?: number };
+      if (published !== threadId || viewId === undefined) return;
+      setCollapsedByUser(({ [viewId]: _, ...rest }) => rest);
     }, [threadId]),
   );
 
   // Rendering nothing lets the host's card hide itself.
-  if (threadId === null || stored === null) return null;
-  const collapsed = collapsedByUser ?? allHandled(stored);
-
-  const openItem = (item: Item) => {
-    setFocus(threadId, { viewId: stored.id, itemId: item.id });
-    // Same params as an open tab focuses that tab, which then shows the item.
-    navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
-  };
+  if (threadId === null || views.length === 0) return null;
+  const focusedView = views.some((stored) => stored.id === focus?.viewId) ? focus!.viewId : views[0]!.id;
 
   return (
-    <ViewBanner
-      stored={stored}
-      collapsed={collapsed}
-      onToggle={() => setCollapsedByUser(!collapsed)}
-      onHide={() => {
-        rpc.call("view_hide", { viewId: stored.id, hidden: true, threadId }).then(refetch, (error: unknown) => {
-          toast.error(error instanceof Error ? error.message : String(error));
-        });
-      }}
-      busyItem={null}
-      focusedItem={(focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored, threadId)?.id ?? null}
-      currentThreadId={threadId}
-      onOpenItem={(item) => openItem(item)}
-      onGoToThread={(id) => navigate.toThread(id)}
-      onOpenView={() => navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title })}
-    />
+    <div className="divide-y divide-border">
+      {views.map((stored) => {
+        const collapsed = collapsedByUser[stored.id] ?? allHandled(stored);
+        const openView = () =>
+          navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
+        return (
+          <ViewBanner
+            key={stored.id}
+            stored={stored}
+            collapsed={collapsed}
+            onToggle={() => setCollapsedByUser((current) => ({ ...current, [stored.id]: !collapsed }))}
+            onHide={() => {
+              rpc.call("view_hide", { viewId: stored.id, hidden: true, threadId }).then(refetch, (error: unknown) => {
+                toast.error(error instanceof Error ? error.message : String(error));
+              });
+            }}
+            busyItem={null}
+            focusedItem={
+              stored.id !== focusedView
+                ? null
+                : ((focus?.viewId === stored.id ? focus.itemId : null) ?? firstOpenItem(stored, threadId)?.id ?? null)
+            }
+            currentThreadId={threadId}
+            onOpenItem={(item) => {
+              setFocus(threadId, { viewId: stored.id, itemId: item.id });
+              // Same params as an open tab focuses that tab, which then shows the item.
+              openView();
+            }}
+            onGoToThread={(id) => navigate.toThread(id)}
+            onOpenView={openView}
+          />
+        );
+      })}
+    </div>
   );
 }
 

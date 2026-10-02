@@ -779,3 +779,27 @@ export const grantSectionThreads = {
   thr_approach01: { title: "Grant: Approach", archived: false },
   thr_team01: { title: "Grant: Team", archived: false },
 };
+
+/**
+ * A one-question view the grant thread publishes under a key of its own, so
+ * it shows above the composer beside the grant view rather than replacing it.
+ */
+export const grantQuestionView: View = viewSchema.parse({
+  title: "Application question: Why Acme Foundation?",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "why-acme",
+          title: "Why Acme Foundation?",
+          summary: "A suggested answer that ties acme/widgets to the fund's focus on maintainer time.",
+          details: "The Open Tools Fund pays for maintainer hours rather than features. Two volunteers keep acme/widgets running, and the fund would let them spend Fridays on the backlog.",
+          draft: "The Open Tools Fund pays for maintainer hours rather than features, which is what acme/widgets needs most.",
+          actions: [{ type: "message", label: "Use this answer", text: "Use this answer for Why Acme Foundation:\n\n{draft}", primary: true }],
+        },
+      ],
+    },
+  ],
+});

@@ -14,7 +14,8 @@ thread:
 bb dynamic-ui publish --file view.json [--key <name>]
 ```
 
-The thread's newest view appears above its composer, one row per item: the
+Each view the thread has published appears above its composer, newest first,
+one row per item: the
 title, up to two badges, a line of summary, and a **Review** button. Nothing
 runs from the list: the button and the row both open the item. An item
 moves to the bottom of the list once it is done or dismissed. The
@@ -24,7 +25,10 @@ publishes again. Clicking a row opens that item in
 the side panel, with its full summary, its details, and every button; the panel
 keeps one tab per view and switches items as rows are clicked. Publishing again
 with the same key replaces the view and keeps what the user already did to
-each item.
+each item. A view published under a different key shows alongside the others
+in the same card, with its own header, count, collapse, and archive button, so
+a thread can show a long piece of work and a one-off question at once. The
+side panel opens by itself on the newest one.
 
 A view can use the **list** layout instead, for items that are a quick yes or
 no, such as staples to add to a grocery list. The whole view then shows in the
