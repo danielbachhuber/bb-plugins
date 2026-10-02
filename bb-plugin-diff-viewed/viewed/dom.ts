@@ -201,7 +201,8 @@ export const STYLE_TEXT = `
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas: "progress actions" "summary actions";
   align-items: center;
-  column-gap: 0.75rem;
+  align-content: center;
+  gap: 0.125rem 0.25rem;
 }
 [${PROGRESS_HOST_ATTR}] > [${PROGRESS_ATTR}] {
   grid-area: progress;
@@ -224,6 +225,7 @@ export const STYLE_TEXT = `
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-summary"] > span {
   font-size: 0.6875rem;
+  line-height: 0.875rem;
 }
 [${PROGRESS_HOST_ATTR}] > [data-testid="git-diff-toolbar-actions"] {
   grid-area: actions;
