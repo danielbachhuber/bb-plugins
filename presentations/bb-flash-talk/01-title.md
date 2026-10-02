@@ -1,5 +1,5 @@
 # bb
 
-An IDE for working alongside coding agents
+The agentic IDE you can reshape around how you work
 
 _Flash talk · draft_
