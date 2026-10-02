@@ -18,20 +18,24 @@ export interface DatedSection {
 
 const HEADING = /^(#{1,6})\s+(.*\S)\s*$/;
 
+/** A leading `Wednesday, ` or `Wed `, which says nothing the date does not. */
+const WEEKDAY = /^(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)[a-z]*\.?,?\s+/i;
+
 const MONTHS = [
   "january", "february", "march", "april", "may", "june",
   "july", "august", "september", "october", "november", "december",
 ];
 
 /**
- * `August 31st`, `Sep 4`, `September 4, 2026`. The year is usually missing, so
+ * `August 31st`, `Sep 4`, `September 4, 2026`, and any of those after a
+ * weekday, as in `Wednesday, September 30th, 2026`. The year is usually missing, so
  * a heading is read against the week being looked at, and a date that lands
  * more than a few weeks in the future is taken as last year's — which is what
  * makes a January week find its December headings.
  */
 export function parseHeadingDate(heading: string, near: Day): Day | null {
   const match = /^([A-Za-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?$/.exec(
-    heading.trim(),
+    heading.trim().replace(WEEKDAY, ""),
   );
   if (match === null) return null;
   const [, monthName, dayOfMonth, year] = match;

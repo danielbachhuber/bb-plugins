@@ -136,6 +136,12 @@ entry first, each under a `## August 31st` heading. A time entry reading
 `1:1 w/ Rob` on that day is that meeting, so its section is what was discussed,
 and the page shows it inline.
 
+A recurring meeting's running notes doc works the same way. Add it with a
+label the time entries use, such as `Design review` for entries reading
+`Design review` or `Design review prep`, and each entry gets that day's
+section. Headings may lead with the weekday, as in
+`## Wednesday, September 30th, 2026`.
+
 Two rules decide the match, both strict. A doc whose label appears in the entry
 is that meeting. Otherwise a doc about one person matches an entry naming that
 person — but only when the entry reads like a meeting. `1:1 w/ Brendan` and
