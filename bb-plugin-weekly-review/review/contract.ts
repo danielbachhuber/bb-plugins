@@ -27,6 +27,12 @@ const weekSummarySchema = z.object({
   monday: mondaySchema,
   to: daySchema,
   generatedAt: z.string(),
+  /** Sources whose latest gather failed, and when their data was last gathered. */
+  failing: z.array(z.object({
+    name: z.string(),
+    error: z.string(),
+    lastOkAt: z.string().nullable(),
+  })),
 });
 
 /**
@@ -71,6 +77,8 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({
       weeks: z.array(weekSummarySchema),
+      /** When the schedule next gathers. Null when there is no valid schedule. */
+      nextGatherAt: z.string().nullable(),
       /** The Monday the current week resolves to, gathered or not. */
       currentWeek: mondaySchema,
       /** The Monday before it, so "last week" is one click and not arithmetic. */

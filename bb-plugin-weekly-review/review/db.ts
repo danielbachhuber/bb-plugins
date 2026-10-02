@@ -132,6 +132,8 @@ export interface WeekStore {
   listWeeks(): WeekSummary[];
   /** Every gather, newest first, up to `limit`. */
   gathers(limit: number): GatherRow[];
+  /** A week's finished gathers, newest first. */
+  weekGathers(monday: string): GatherRow[];
   hasGathers(monday: string): boolean;
 }
 
@@ -334,6 +336,9 @@ export function createWeekStore(db: Database): WeekStore {
     },
     gathers(limit) {
       return (statements.allGathers.all(limit) as RawGather[]).map(toGatherRow);
+    },
+    weekGathers(monday) {
+      return (statements.weekGathers.all(monday) as RawGather[]).map(toGatherRow);
     },
     hasGathers(monday) {
       return statements.hasGathers.get(monday) !== undefined;

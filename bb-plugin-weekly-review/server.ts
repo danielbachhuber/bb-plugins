@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { rpcContract } from "./review/contract.js";
-import { fromDay, resolveRange, toDay, type Range } from "./review/dates.js";
+import { addDays, resolveRange, toDay, type Range } from "./review/dates.js";
 import {
   cliFetchers,
   createGatherQueue,
@@ -23,6 +23,8 @@ import {
 } from "./review/gather.js";
 import { createWeekStore, type GatherTrigger } from "./review/db.js";
 import { importWeekFiles } from "./review/import.js";
+import { DEFAULT_GATHER_CRON, failingSources, isValidCron, nextRun } from "./review/freshness.js";
+import { plannedGathers } from "./review/schedule.js";
 import {
   MIGRATIONS,
   createSourceStore,
@@ -52,8 +54,6 @@ export { rpcContract };
 const WEEK_GENERATED = "week-generated";
 /** Published after an agent records its read of the written entry. */
 const WEEK_REVIEWED = "week-reviewed";
-
-const MS_PER_DAY = 86_400_000;
 
 /**
  * The plugin's own directory. `bb plugin build` emits the backend to dist/, so
@@ -87,6 +87,13 @@ export default async function plugin(bb: BbPluginApi) {
       // Blank uses the first project bb lists, which is the right answer on a
       // single-project install and a coin toss otherwise.
       default: "",
+    },
+    gatherCron: {
+      type: "string",
+      label: "When to gather the week, as a cron expression (takes effect on reload)",
+      // Server-local time. The scripted sources only: Slack and notes start an
+      // agent thread each, so they stay behind their buttons.
+      default: DEFAULT_GATHER_CRON,
     },
   });
 
@@ -150,12 +157,12 @@ export default async function plugin(bb: BbPluginApi) {
    */
   function rangeForMonday(monday: string): Range {
     const today = toDay(new Date());
-    const sunday = toDay(new Date(fromDay(monday).getTime() + 6 * MS_PER_DAY));
+    const sunday = addDays(monday, 6);
     return { from: monday, to: sunday < today ? sunday : today };
   }
 
   function previousMonday(monday: string): string {
-    return toDay(new Date(fromDay(monday).getTime() - 7 * MS_PER_DAY));
+    return addDays(monday, -7);
   }
 
   /**
@@ -179,6 +186,20 @@ export default async function plugin(bb: BbPluginApi) {
     bb.realtime.publish(WEEK_GENERATED, { monday: result.monday });
     return result;
   }
+
+  // Read once: bb registers the schedule at load, so a changed expression
+  // applies from the next reload, and the page reports the one in force.
+  const configuredCron = (await settings.get()).gatherCron.trim();
+  const gatherCron = isValidCron(configuredCron) ? configuredCron : DEFAULT_GATHER_CRON;
+  if (gatherCron !== configuredCron && configuredCron !== "") {
+    bb.log.warn(`gatherCron "${configuredCron}" does not parse; using ${DEFAULT_GATHER_CRON}`);
+  }
+
+  bb.background.schedule("gather", gatherCron, async () => {
+    for (const planned of plannedGathers(new Date(), weeks.gathers(50))) {
+      await gather(planned.range, "schedule", planned.includeDocs);
+    }
+  });
 
   function runGenerate(from?: string, to?: string) {
     const range = from === undefined
@@ -358,8 +379,8 @@ export default async function plugin(bb: BbPluginApi) {
         // Slack's `after:` and `before:` are exclusive, so the bounds sit one
         // day outside the week. Passing the week's own dates would silently
         // drop Monday and Friday.
-        SEARCH_AFTER: toDay(new Date(fromDay(week.from).getTime() - MS_PER_DAY)),
-        SEARCH_BEFORE: toDay(new Date(fromDay(week.to).getTime() + MS_PER_DAY)),
+        SEARCH_AFTER: addDays(week.from, -1),
+        SEARCH_BEFORE: addDays(week.to, 1),
         COMMAND: `bb weekly-review slack ${monday} --file <path-to-your-json>`,
       }),
       `Weekly review Slack — ${monday}`,
@@ -557,7 +578,11 @@ export default async function plugin(bb: BbPluginApi) {
     weeks_list: () => {
       const currentWeek = resolveRange().from;
       return {
-        weeks: weeks.listWeeks(),
+        weeks: weeks.listWeeks().map((summary) => ({
+          ...summary,
+          failing: failingSources(weeks.weekGathers(summary.monday)),
+        })),
+        nextGatherAt: nextRun(gatherCron, new Date()),
         currentWeek,
         previousWeek: previousMonday(currentWeek),
         missingSources: reportStatus(),

@@ -38,10 +38,18 @@ import { SourcesSection } from "./review/sources-section.js";
 import { PromptSection } from "./review/prompt-section.js";
 import { useIsCompactViewport } from "@/components/ui/hooks/use-compact-viewport";
 
-type WeekSummary = { monday: string; to: string; generatedAt: string };
+type FailingSource = { name: string; error: string; lastOkAt: string | null };
+
+type WeekSummary = {
+  monday: string;
+  to: string;
+  generatedAt: string;
+  failing: FailingSource[];
+};
 
 type Listing = {
   weeks: WeekSummary[];
+  nextGatherAt: string | null;
   currentWeek: string;
   previousWeek: string;
   missingSources: string[];
@@ -124,6 +132,21 @@ function relative(instant: string): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+/** `1p` today, `Mon 7a` on another day. */
+function whenAt(instant: string): string {
+  const date = new Date(instant);
+  return toDay(date) === toDay(new Date())
+    ? clockTime(instant)
+    : `${date.toLocaleDateString("en-US", { weekday: "short" })} ${clockTime(instant)}`;
+}
+
+/** A failed source, and how old the data the page is showing for it is. */
+function failingDetail(source: FailingSource): string {
+  const showing =
+    source.lastOkAt === null ? "never gathered" : `showing data from ${whenAt(source.lastOkAt)}`;
+  return `${source.name} failed, ${showing}: ${source.error}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -772,6 +795,18 @@ function WeeklyReviewHeader({ subPath }: PluginNavPanelProps) {
       {compact || summary === null ? null : (
         <span className="whitespace-nowrap text-xs text-muted-foreground">
           gathered {relative(summary.generatedAt)}
+          {/* The schedule gathers the current week, so only it has a next run. */}
+          {listing?.nextGatherAt == null || selected !== listing.currentWeek
+            ? null
+            : ` · next ${whenAt(listing.nextGatherAt)}`}
+          {summary.failing.length === 0 ? null : (
+            <span
+              className="text-destructive"
+              title={summary.failing.map(failingDetail).join("\n")}
+            >
+              {` · ${summary.failing.map((source) => source.name).join(", ")} failed`}
+            </span>
+          )}
         </span>
       )}
 

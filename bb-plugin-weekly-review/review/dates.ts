@@ -17,6 +17,15 @@ export function fromDay(day: Day): Date {
 }
 
 /**
+ * Moves a day by whole calendar days. Counting 24-hour steps from local
+ * midnight lands on the day before across the night the clocks go forward.
+ */
+export function addDays(day: Day, days: number): Day {
+  const date = fromDay(day);
+  return toDay(new Date(date.getFullYear(), date.getMonth(), date.getDate() + days));
+}
+
+/**
  * Maps an upstream instant onto the local calendar day it happened on. GitHub
  * returns UTC, so a 7pm-Pacific event would land on the wrong day without this.
  */

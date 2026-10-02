@@ -5,6 +5,9 @@ entry can be written from evidence rather than from memory.
 
 It does not write the entry. It gathers what happened and gets out of the way.
 
+The week is gathered at 7am and 1pm on weekdays, so the page is already current
+when you open it. **Regenerate** gathers it again on demand.
+
 ## The page
 
 Sources split into two kinds, and the page follows.
@@ -87,6 +90,46 @@ the text rather than hidden behind it, so a near match reads as what it is.
 | Slack | agent step, over MCP | yes |
 | Daily notes | agent step, over MCP | yes |
 
+## Gathering
+
+A schedule gathers the current week at 7am and 1pm, Monday to Friday, in the
+server's local time. Only the scripted sources run on it: Harvest, GitHub,
+Todoist, the calendar, and the reference docs. Slack and daily notes each start
+an agent thread, so they still run only from their buttons.
+
+What each scheduled run does:
+
+- Gathers the current week, Monday through today.
+- On Monday's first run, first gathers the previous week once more, Monday
+  through Sunday, so time logged after Friday's 1pm run is included.
+- Fetches the reference docs only on the day's first run. Each doc is a
+  separate Google request, and they rarely change within a day.
+
+Each gather of a week makes one Harvest request, five GitHub searches (PRs
+created, PRs merged, reviews, issues created, issues assigned), two Todoist
+requests, and one calendar request per page of results, usually one. A run
+that fetches docs adds one request per reference doc. Monday's first run makes
+these calls twice, once for each week.
+
+Regenerate runs the same gather, with the docs. If a scheduled run and
+Regenerate overlap on the same week, the second waits for the first and shares
+its result instead of running every CLI again.
+
+The title bar says when the week was gathered, when the next run is, and which
+sources failed on their latest run. Hover over a failed source for the error
+and the time of the data the page is showing for it.
+
+Change the times with the `gatherCron` setting, a five-field cron expression:
+
+```sh
+bb plugin config weekly-review set gatherCron "0 7,13 * * 1-5"
+bb plugin reload weekly-review
+```
+
+bb registers the schedule when the plugin loads, so a new expression applies
+after the reload. One that does not parse falls back to the default, with a
+warning in the log. `bb plugin list` shows the schedule and its next run.
+
 ## Where things are kept
 
 **Sources — the database.** What a week is gathered from identifies a person:
@@ -108,8 +151,9 @@ bb weekly-review source remove-doc "Annual goals"
 database (see Storage below). An agent reads a week with
 `bb weekly-review digest <monday>`.
 
-**Settings — paths only.** `bb plugin config weekly-review` holds where `gh`,
-`hrvst`, `td`, `gws`, and the Google Doc script are. A path is not a fact about anyone, so those are safe as declarative
+**Settings — paths and the schedule.** `bb plugin config weekly-review` holds
+where `gh`, `hrvst`, `td`, `gws`, and the Google Doc script are, plus the gather
+schedule. Neither is a fact about anyone, so both are safe as declarative
 settings. The calendar needs no configuration beyond the path: it reads
 `primary`, which identifies nobody.
 
