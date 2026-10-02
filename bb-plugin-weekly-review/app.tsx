@@ -37,8 +37,8 @@ import { cn } from "@/lib/utils";
 import { SourcesSection } from "./review/sources-section.js";
 import { PromptSection } from "./review/prompt-section.js";
 import { useIsCompactViewport } from "@/components/ui/hooks/use-compact-viewport";
-
-type FailingSource = { name: string; error: string; lastOkAt: string | null };
+import { clockTime } from "./review/clock.js";
+import { FailureBanner, whenAt, type FailingSource } from "./review/failure-banner.js";
 
 type WeekSummary = {
   monday: string;
@@ -132,21 +132,6 @@ function relative(instant: string): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
-}
-
-/** `1p` today, `Mon 7a` on another day. */
-function whenAt(instant: string): string {
-  const date = new Date(instant);
-  return toDay(date) === toDay(new Date())
-    ? clockTime(instant)
-    : `${date.toLocaleDateString("en-US", { weekday: "short" })} ${clockTime(instant)}`;
-}
-
-/** A failed source, and how old the data the page is showing for it is. */
-function failingDetail(source: FailingSource): string {
-  const showing =
-    source.lastOkAt === null ? "never gathered" : `showing data from ${whenAt(source.lastOkAt)}`;
-  return `${source.name} failed, ${showing}: ${source.error}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -410,15 +395,6 @@ function ThemeEntryRow({
 /* -------------------------------------------------------------------------- */
 /* Coming up                                                                  */
 /* -------------------------------------------------------------------------- */
-
-/** `7:30a`. Lower case and no padding, so a column of times stays quiet. */
-function clockTime(startsAt: string): string {
-  return new Date(startsAt)
-    .toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    .replace(":00", "")
-    .replace(" AM", "a")
-    .replace(" PM", "p");
-}
 
 /** `45m`, `1h`, `1h30`. A duration, not a timestamp. */
 function duration(minutes: number): string {
@@ -800,10 +776,7 @@ function WeeklyReviewHeader({ subPath }: PluginNavPanelProps) {
             ? null
             : ` · next ${whenAt(listing.nextGatherAt)}`}
           {summary.failing.length === 0 ? null : (
-            <span
-              className="text-destructive"
-              title={summary.failing.map(failingDetail).join("\n")}
-            >
+            <span className="text-destructive">
               {` · ${summary.failing.map((source) => source.name).join(", ")} failed`}
             </span>
           )}
@@ -986,6 +959,12 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
+        )}
+
+        {week === null ? null : (
+          <FailureBanner
+            failing={listing?.weeks.find((summary) => summary.monday === selected)?.failing ?? []}
+          />
         )}
 
         {loading && week === null ? (

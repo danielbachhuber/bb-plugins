@@ -116,8 +116,9 @@ Regenerate overlap on the same week, the second waits for the first and shares
 its result instead of running every CLI again.
 
 The title bar says when the week was gathered, when the next run is, and which
-sources failed on their latest run. Hover over a failed source for the error
-and the time of the data the page is showing for it.
+sources failed on their latest run. When one has failed, a banner across the
+top of the page names it, prints its error, and says how old the data shown
+for it is, or that there is none yet this week.
 
 Change the times with the `gatherCron` setting, a five-field cron expression:
 
