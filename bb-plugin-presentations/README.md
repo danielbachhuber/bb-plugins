@@ -70,8 +70,11 @@ deck is 13 local file calls every two seconds, which took 10 to 20 ms on a
 change does not re-render, and you stay on the slide you are on. An agent's
 edit shows up within about two seconds.
 
-Images are fetched by the browser from
-`/api/v1/plugins/presentations/http/asset`, once per image per slide render.
+Images come from `/api/v1/plugins/presentations/http/asset`. Every image in
+the deck is requested once when the deck opens, so a slide shows its image as
+soon as you reach it. After that the browser asks again each time a slide shows
+an image, and the route answers 304 unless the file changed, using the file's
+hash as its ETag.
 
 ## What it stores
 

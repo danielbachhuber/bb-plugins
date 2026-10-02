@@ -25,19 +25,20 @@ const SLIDE_CSS = `
 .bbp-slide { font-size: 32px; line-height: 1.45; }
 .bbp-slide :where(*) { font-size: inherit !important; line-height: inherit !important; }
 .bbp-slide h1 { font-size: 76px !important; line-height: 1.1 !important; font-weight: 700; margin: 0 0 0.35em !important; letter-spacing: -0.02em; }
-.bbp-slide h2 { font-size: 56px !important; line-height: 1.15 !important; font-weight: 650; margin: 0 0 0.4em !important; letter-spacing: -0.01em; }
+.bbp-slide h2 { font-size: 56px !important; line-height: 1.15 !important; font-weight: 650; margin: 0 0 0.25em !important; letter-spacing: -0.01em; }
 .bbp-slide h3 { font-size: 40px !important; line-height: 1.2 !important; font-weight: 600; margin: 0 0 0.4em !important; }
 .bbp-slide :is(ul, ol) { margin: 0.3em 0 !important; padding-left: 1.2em !important; }
 .bbp-slide li + li { margin-top: 0.3em; }
 .bbp-slide :is(code, pre) { font-size: 0.8em !important; }
-.bbp-slide img { max-width: 100%; max-height: 460px; object-fit: contain; border-radius: 12px; }
+.bbp-slide p:has(> img) { margin: 0.4em 0 0 !important; }
+.bbp-slide img { max-width: 100%; max-height: 470px; object-fit: contain; border-radius: 12px; }
 `;
 
 /** The slide, drawn on the fixed canvas at full size. */
 export function SlideContent({ content }: { content: string }) {
   return (
     <div
-      className="bbp-slide flex h-full w-full flex-col justify-center overflow-hidden bg-background p-[72px] text-foreground"
+      className="bbp-slide flex h-full w-full flex-col justify-center overflow-hidden bg-background p-[56px] text-foreground"
       style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT }}
     >
       <style>{SLIDE_CSS}</style>
@@ -56,12 +57,15 @@ export function SlideContent({ content }: { content: string }) {
  */
 export function SlideStage({
   content,
+  slideKey,
   onMove,
   stageRef,
   autoFocus = false,
   children,
 }: {
   content: string | null;
+  /** Changes with the slide, so its images never reuse the last slide's elements. */
+  slideKey?: string | number;
   onMove: (move: "next" | "previous" | "first" | "last") => void;
   stageRef?: RefObject<HTMLDivElement | null>;
   autoFocus?: boolean;
@@ -108,6 +112,7 @@ export function SlideStage({
     >
       {content !== null && scale > 0 ? (
         <div
+          key={slideKey}
           className="overflow-hidden shadow-2xl"
           style={{ width: SLIDE_WIDTH * scale, height: SLIDE_HEIGHT * scale }}
         >
@@ -131,10 +136,26 @@ export function slideFileTarget(root: FileRoot, file: string): ExperimentalLiveF
 
 /** A deck's slides with their images pointed at the asset route. */
 export function useRenderedSlides(deck: Deck | null, imageUrl: (file: string) => string) {
-  return useMemo(
-    () => deck?.slides.map((slide) => rewriteSlideImages(slide.content, imageUrl)) ?? [],
-    [deck, imageUrl],
-  );
+  const { slides, urls } = useMemo(() => {
+    const urls = new Set<string>();
+    const collect = (file: string) => {
+      const url = imageUrl(file);
+      urls.add(url);
+      return url;
+    };
+    const slides = deck?.slides.map((slide) => rewriteSlideImages(slide.content, collect)) ?? [];
+    return { slides, urls: [...urls] };
+  }, [deck, imageUrl]);
+
+  // Every image is fetched when the deck opens, so moving to a slide shows its
+  // image at once instead of a blank space while it loads.
+  useEffect(() => {
+    for (const url of urls) {
+      if (url.startsWith("http")) new Image().src = url;
+    }
+  }, [urls]);
+
+  return slides;
 }
 
 function Counter({ index, count }: { index: number; count: number }) {
@@ -257,6 +278,7 @@ export function DeckPanelView({
         <SlideList deck={deck} index={index} onIndexChange={onIndexChange} />
         <SlideStage
           content={message === null ? (slides[index] ?? null) : null}
+          slideKey={index}
           onMove={move}
           stageRef={stageRef}
           autoFocus
@@ -343,6 +365,7 @@ export function DeckWindowView({ deck, error, index, onIndexChange, imageUrl }: 
     <div className="flex h-full min-h-0 flex-col bg-neutral-950">
       <SlideStage
         content={message === null ? (slides[index] ?? null) : null}
+        slideKey={index}
         onMove={move}
         stageRef={stageRef}
         autoFocus

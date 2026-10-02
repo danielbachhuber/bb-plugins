@@ -220,6 +220,14 @@ export default async function plugin(bb: BbPluginApi) {
       if (read.sizeBytes > MAX_IMAGE_BYTES) {
         return new Response("Image too large", { status: 413 });
       }
+      // The browser keeps the image and asks again on each use, so moving
+      // between slides costs a 304 rather than the bytes, and an image an
+      // agent replaced still shows up.
+      const etag = `"${read.sha256}"`;
+      const caching = { etag, "cache-control": "no-cache" };
+      if (context.req.header("if-none-match") === etag) {
+        return new Response(null, { status: 304, headers: caching });
+      }
       const bytes =
         read.contentEncoding === "base64"
           ? Buffer.from(read.content, "base64")
@@ -228,8 +236,7 @@ export default async function plugin(bb: BbPluginApi) {
         headers: {
           "content-type": mimeType,
           "content-length": String(bytes.byteLength),
-          // An agent may replace the image while the deck is open.
-          "cache-control": "no-store",
+          ...caching,
         },
       });
     } catch (cause) {
