@@ -44,6 +44,7 @@ import {
   type WorkstreamActions,
   type WorkstreamViewProps,
 } from "./review/workstream-section.js";
+import { PrioritiesSection, type PriorityItem } from "./review/priorities-section.js";
 
 type WeekSummary = {
   monday: string;
@@ -871,6 +872,8 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
   }, [rpc, selected, generatedAt, reload]);
 
   const [workstreamView, setWorkstreamView] = useState<WorkstreamViewProps | null>(null);
+  const [priorities, setPriorities] = useState<{ heading: string; items: PriorityItem[] } | null>(null);
+  const [suggestingRules, setSuggestingRules] = useState(false);
   const [workstreamsVersion, setWorkstreamsVersion] = useState(0);
   // A change from the CLI or another panel arrives as a signal, like a new gather.
   useRealtime("workstreams-changed", () => setWorkstreamsVersion((count) => count + 1));
@@ -882,6 +885,7 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
       (result) => {
         if (!live) return;
         setWorkstreamView(result.table === null ? null : { ...result, table: result.table });
+        setPriorities(result.priorities);
       },
       () => undefined,
     );
@@ -892,8 +896,15 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
 
   const workstreamActions: WorkstreamActions = useMemo(() => {
     const monday = selected ?? "";
-    const show = (result: Omit<WorkstreamViewProps, "table"> & { table: WorkstreamViewProps["table"] | null }) =>
+    const show = (
+      result: Omit<WorkstreamViewProps, "table"> & {
+        table: WorkstreamViewProps["table"] | null;
+        priorities: { heading: string; items: PriorityItem[] } | null;
+      },
+    ) => {
       setWorkstreamView(result.table === null ? null : { ...result, table: result.table });
+      setPriorities(result.priorities);
+    };
     const report = (cause: unknown) => toast.error(cause instanceof Error ? cause.message : String(cause));
     return {
       assign: (key, workstreamId) => rpc.call("assign", { monday, key, workstreamId }).then(show, report),
@@ -909,8 +920,36 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
       setWeekChoice: (workstreamId, state) =>
         rpc.call("week_workstream_set", { monday, workstreamId, state }).then(show, report),
       acceptSuggestion: (name) => rpc.call("suggestion_accept", { monday, name }).then(show, report),
+      acceptProposal: (id) => rpc.call("proposal_accept", { monday, id }).then(show, report),
+      rejectProposal: (id) => rpc.call("proposal_reject", { monday, id }).then(show, report),
+      suggestRules: () => {
+        setSuggestingRules(true);
+        rpc.call("week_suggest_rules", { monday }).then(
+          ({ threadId }) => {
+            setThreads((current) => ({ ...current, rules: threadId }));
+            navigate.toThread(threadId);
+          },
+          report,
+        ).finally(() => setSuggestingRules(false));
+      },
+      openThread: (threadId) => navigate.toThread(threadId),
     };
-  }, [rpc, selected]);
+  }, [rpc, selected, navigate]);
+
+  const linkPriority = useCallback(
+    (priority: string, workstreamId: number, linked: boolean) => {
+      if (selected === null) return;
+      const method = linked ? "priority_link" : "priority_unlink";
+      rpc.call(method, { monday: selected, priority, workstreamId }).then(
+        (result) => {
+          setWorkstreamView(result.table === null ? null : { ...result, table: result.table });
+          setPriorities(result.priorities);
+        },
+        (cause) => toast.error(cause instanceof Error ? cause.message : String(cause)),
+      );
+    },
+    [rpc, selected],
+  );
 
   // The agent records its reading through the CLI, so the page hears about it
   // the same way it hears about anything else: over the signal.
@@ -1104,8 +1143,23 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
               {week.from} – {week.to}
             </p>
 
+            {workstreamView === null || priorities === null ? null : (
+              <PrioritiesSection
+                priorities={priorities}
+                table={workstreamView.table}
+                workstreams={workstreamView.workstreams}
+                onLink={(priority, id) => linkPriority(priority, id, true)}
+                onUnlink={(priority, id) => linkPriority(priority, id, false)}
+              />
+            )}
+
             {workstreamView === null ? null : (
-              <WorkstreamSection view={workstreamView} actions={workstreamActions} />
+              <WorkstreamSection
+                view={workstreamView}
+                actions={workstreamActions}
+                rulesThread={threads.rules}
+                suggesting={suggestingRules}
+              />
             )}
 
             {grouping === null ? null : (
@@ -1219,6 +1273,18 @@ export default definePluginApp((app) => {
       <PromptSection
         kind="slack"
         placeholders="Sent to the Slack thread. {{FROM}} and {{TO}} become the week's dates, {{SEARCH_AFTER}} and {{SEARCH_BEFORE}} the exclusive bounds Slack search wants, and {{COMMAND}} the command that records the result."
+      />
+    ),
+  });
+
+  app.slots.settingsSection({
+    id: "rules-prompt",
+    title: "Rules prompt",
+    description: "What an agent is asked when it proposes rules for a week's unsorted activity.",
+    component: () => (
+      <PromptSection
+        kind="rules"
+        placeholders="Sent to the rules thread. {{MONDAY}} becomes the week, {{UNSORTED_COMMAND}} the command that lists what is unsorted, {{WORKSTREAMS_COMMAND}} the one that lists the workstreams and their rules, and {{COMMAND}} the one that records the proposals."
       />
     ),
   });

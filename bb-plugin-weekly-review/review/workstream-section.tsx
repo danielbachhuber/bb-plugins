@@ -33,10 +33,21 @@ import {
   type WorkstreamTable,
 } from "./workstreams.js";
 
+export interface ProposalItem {
+  id: number;
+  workstream: string;
+  type: RuleType;
+  value: string;
+  reason: string;
+  isNew: boolean;
+  preview: RulePreview;
+}
+
 export interface WorkstreamViewProps {
   table: WorkstreamTable;
   workstreams: Array<Workstream & { rules: Rule[] }>;
   suggestions: Suggestion[];
+  proposals: ProposalItem[];
 }
 
 export interface WorkstreamActions {
@@ -48,6 +59,11 @@ export interface WorkstreamActions {
   preview(type: RuleType, value: string): Promise<RulePreview>;
   setWeekChoice(workstreamId: number, state: "added" | "hidden" | null): void;
   acceptSuggestion(name: string): void;
+  acceptProposal(id: number): void;
+  rejectProposal(id: number): void;
+  /** Starts the rules agent. */
+  suggestRules(): void;
+  openThread(threadId: string): void;
 }
 
 /** A row, or one day of it. */
@@ -64,11 +80,16 @@ export function WorkstreamSection({
   view,
   actions,
   initialSelection = null,
+  rulesThread,
+  suggesting = false,
 }: {
   view: WorkstreamViewProps;
   actions: WorkstreamActions;
   /** What starts open, for a story. */
   initialSelection?: Selection | null;
+  /** The rules agent's thread, once one has been started for the week. */
+  rulesThread?: string;
+  suggesting?: boolean;
 }) {
   const { table } = view;
   const [selected, setSelected] = useState<Selection | null>(initialSelection);
@@ -86,10 +107,43 @@ export function WorkstreamSection({
   };
 
   const rows = [...table.rows, table.unsorted];
+  // Group labels only once something is planned; before that every row is unplanned.
+  const grouped = table.rows.some((row) => row.planned);
+  const groupStart = (row: TableRow, index: number): string | null => {
+    if (!grouped || row.workstreamId === null) return null;
+    const previous = index === 0 ? null : rows[index - 1];
+    if (row.planned) return index === 0 ? "Planned" : null;
+    return previous === null || previous.planned ? "Unplanned" : null;
+  };
 
   return (
     <section className="mt-6">
-      <h2 className="text-sm font-semibold text-foreground">Workstreams</h2>
+      <h2 className="flex items-center justify-between gap-2 text-sm font-semibold text-foreground">
+        Workstreams
+        <span className="flex items-center gap-1">
+          {rulesThread === undefined ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs font-normal text-muted-foreground"
+              onClick={() => actions.openThread(rulesThread)}
+            >
+              Open the rules thread
+            </Button>
+          )}
+          {table.unsorted.total.keys.length === 0 ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs font-normal text-muted-foreground"
+              disabled={suggesting}
+              onClick={actions.suggestRules}
+            >
+              {suggesting ? "Starting…" : "Suggest rules"}
+            </Button>
+          )}
+        </span>
+      </h2>
       <p className="mt-1 text-xs text-muted-foreground">
         {table.total.hours}h and {table.total.keys.length} pieces of activity this week,{" "}
         {sorted} of them sorted. Select a cell to see what is in it.
@@ -110,12 +164,23 @@ export function WorkstreamSection({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const isUnsorted = row.workstreamId === null;
               const open = selected !== null && selected.row === rowKey(row);
               if (isUnsorted && row.total.keys.length === 0) return null;
+              const group = groupStart(row, index);
               return (
                 <Fragment key={rowKey(row)}>
+                  {group === null ? null : (
+                    <tr className="border-b border-border">
+                      <td
+                        colSpan={table.days.length + 3}
+                        className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                      >
+                        {group}
+                      </td>
+                    </tr>
+                  )}
                   <tr className={cn("border-b border-border last:border-b-0", isUnsorted && "bg-muted/40")}>
                     <th scope="row" className="px-3 py-1.5 text-left font-normal">
                       <button
@@ -149,7 +214,7 @@ export function WorkstreamSection({
                       />
                     </td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
-                      {row.share === null ? "" : `${Math.round(row.share * 100)}%`}
+                      {row.share === null || row.total.keys.length === 0 ? "" : `${Math.round(row.share * 100)}%`}
                     </td>
                   </tr>
                   {open ? (
@@ -187,6 +252,45 @@ export function WorkstreamSection({
               ))}
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {view.proposals.length === 0 ? null : (
+        <div className="mt-3 rounded-lg border border-border px-3 py-2">
+          <div className="text-xs font-medium text-foreground">Proposed rules</div>
+          <ul className="mt-1 divide-y divide-border">
+            {view.proposals.map((proposal) => (
+              <li key={proposal.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-1.5 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-foreground">
+                    {RULE_LABELS[proposal.type]} <span className="font-medium">"{proposal.value}"</span>
+                    {" → "}
+                    {proposal.workstream}
+                    {proposal.isNew ? <span className="ml-1 text-muted-foreground">(new)</span> : null}
+                  </div>
+                  <div className="text-muted-foreground">{proposal.reason}</div>
+                  <div className="text-muted-foreground">
+                    {proposal.preview.matches === 0
+                      ? "Matches nothing in any gathered week."
+                      : `Matches ${proposal.preview.matches}, ${proposal.preview.unsorted} unsorted now: ${proposal.preview.examples.slice(0, 3).join("; ")}`}
+                  </div>
+                </div>
+                <span className="flex gap-1">
+                  <Button size="sm" className="h-7 text-xs" onClick={() => actions.acceptProposal(proposal.id)}>
+                    Accept
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs font-normal"
+                    onClick={() => actions.rejectProposal(proposal.id)}
+                  >
+                    Reject
+                  </Button>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

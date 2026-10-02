@@ -3,6 +3,7 @@
  * hidden rows, in the plugin's database. No network or bb API here.
  */
 import type { Database } from "better-sqlite3";
+import type { RuleProposal } from "./priorities.js";
 import type { Rule, RuleType, WeekChoice, Workstream } from "./workstreams.js";
 
 export const WORKSTREAM_MIGRATIONS = [
@@ -31,7 +32,35 @@ export const WORKSTREAM_MIGRATIONS = [
      state         TEXT NOT NULL,
      PRIMARY KEY (monday, workstream_id)
    )`,
+  // Which workstreams each of a week's priorities is about.
+  `CREATE TABLE priority_links (
+     monday        TEXT NOT NULL,
+     priority      TEXT NOT NULL,
+     workstream_id INTEGER NOT NULL,
+     PRIMARY KEY (monday, priority, workstream_id)
+   )`,
+  `CREATE TABLE rule_proposals (
+     id         INTEGER PRIMARY KEY,
+     monday     TEXT NOT NULL,
+     workstream TEXT NOT NULL,
+     type       TEXT NOT NULL,
+     value      TEXT NOT NULL,
+     reason     TEXT NOT NULL,
+     status     TEXT NOT NULL,
+     created_at TEXT NOT NULL
+   )`,
+  // The journal doc as of its last good read, for when Google is slow.
+  `CREATE TABLE journal_snapshot (
+     id         INTEGER PRIMARY KEY CHECK (id = 1),
+     text       TEXT NOT NULL,
+     fetched_at TEXT NOT NULL
+   )`,
 ];
+
+export interface StoredProposal extends RuleProposal {
+  id: number;
+  status: "open" | "accepted" | "rejected";
+}
 
 export interface WorkstreamStore {
   workstreams(): Workstream[];
@@ -49,6 +78,17 @@ export interface WorkstreamStore {
   unassign(key: string): void;
   choices(monday: string): Map<number, WeekChoice>;
   setChoice(monday: string, workstreamId: number, choice: WeekChoice | null): void;
+  links(monday: string): Array<{ priority: string; workstreamId: number }>;
+  link(monday: string, priority: string, workstreamId: number): void;
+  unlink(monday: string, priority: string, workstreamId: number): void;
+  /** The week's open proposals. */
+  proposals(monday: string): StoredProposal[];
+  proposal(id: number): StoredProposal | null;
+  /** A new batch replaces the week's open proposals; decided ones stay as a record. */
+  replaceProposals(monday: string, proposals: RuleProposal[], at: string): void;
+  decide(id: number, status: "accepted" | "rejected"): void;
+  journal(): { text: string; fetchedAt: string } | null;
+  writeJournal(text: string, at: string): void;
 }
 
 interface RawWorkstream {
@@ -91,7 +131,45 @@ export function createWorkstreamStore(db: Database): WorkstreamStore {
        ON CONFLICT (monday, workstream_id) DO UPDATE SET state = excluded.state`,
     ),
     clearChoice: db.prepare("DELETE FROM week_workstreams WHERE monday = ? AND workstream_id = ?"),
+    links: db.prepare("SELECT priority, workstream_id FROM priority_links WHERE monday = ?"),
+    link: db.prepare(
+      "INSERT OR IGNORE INTO priority_links (monday, priority, workstream_id) VALUES (?, ?, ?)",
+    ),
+    unlink: db.prepare(
+      "DELETE FROM priority_links WHERE monday = ? AND priority = ? AND workstream_id = ?",
+    ),
+    proposals: db.prepare(
+      "SELECT * FROM rule_proposals WHERE monday = ? AND status = 'open' ORDER BY id",
+    ),
+    proposal: db.prepare("SELECT * FROM rule_proposals WHERE id = ?"),
+    clearOpen: db.prepare("DELETE FROM rule_proposals WHERE monday = ? AND status = 'open'"),
+    propose: db.prepare(
+      `INSERT INTO rule_proposals (monday, workstream, type, value, reason, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'open', ?)`,
+    ),
+    decide: db.prepare("UPDATE rule_proposals SET status = ? WHERE id = ?"),
+    journal: db.prepare("SELECT text, fetched_at FROM journal_snapshot WHERE id = 1"),
+    writeJournal: db.prepare(
+      `INSERT INTO journal_snapshot (id, text, fetched_at) VALUES (1, ?, ?)
+       ON CONFLICT (id) DO UPDATE SET text = excluded.text, fetched_at = excluded.fetched_at`,
+    ),
   };
+
+  const toProposal = (raw: Record<string, unknown>): StoredProposal => ({
+    id: raw.id as number,
+    workstream: raw.workstream as string,
+    type: raw.type as RuleType,
+    value: raw.value as string,
+    reason: raw.reason as string,
+    status: raw.status as StoredProposal["status"],
+  });
+
+  const replaceProposals = db.transaction((monday: string, proposals: RuleProposal[], at: string) => {
+    statements.clearOpen.run(monday);
+    for (const proposal of proposals) {
+      statements.propose.run(monday, proposal.workstream, proposal.type, proposal.value, proposal.reason, at);
+    }
+  });
 
   const toWorkstream = (raw: RawWorkstream): Workstream => ({
     id: raw.id,
@@ -171,6 +249,37 @@ export function createWorkstreamStore(db: Database): WorkstreamStore {
     setChoice(monday, workstreamId, choice) {
       if (choice === null) statements.clearChoice.run(monday, workstreamId);
       else statements.setChoice.run(monday, workstreamId, choice);
+    },
+    links(monday) {
+      return (statements.links.all(monday) as Array<{ priority: string; workstream_id: number }>).map(
+        (row) => ({ priority: row.priority, workstreamId: row.workstream_id }),
+      );
+    },
+    link(monday, priority, workstreamId) {
+      statements.link.run(monday, priority, workstreamId);
+    },
+    unlink(monday, priority, workstreamId) {
+      statements.unlink.run(monday, priority, workstreamId);
+    },
+    proposals(monday) {
+      return (statements.proposals.all(monday) as Array<Record<string, unknown>>).map(toProposal);
+    },
+    proposal(id) {
+      const raw = statements.proposal.get(id) as Record<string, unknown> | undefined;
+      return raw === undefined ? null : toProposal(raw);
+    },
+    replaceProposals(monday, proposals, at) {
+      replaceProposals(monday, proposals, at);
+    },
+    decide(id, status) {
+      statements.decide.run(status, id);
+    },
+    journal() {
+      const row = statements.journal.get() as { text: string; fetched_at: string } | undefined;
+      return row === undefined ? null : { text: row.text, fetchedAt: row.fetched_at };
+    },
+    writeJournal(text, at) {
+      statements.writeJournal.run(text, at);
     },
   };
 }

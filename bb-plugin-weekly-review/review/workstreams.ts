@@ -97,6 +97,8 @@ export interface TableRow {
   name: string;
   /** In the week only because it was added by hand. */
   added: boolean;
+  /** Linked to one of the week's priorities. */
+  planned: boolean;
   cells: Record<Day, Cell>;
   /** Everything in the row, including activity with no day. */
   total: Cell;
@@ -118,10 +120,12 @@ export interface WorkstreamTable {
 export type WeekChoice = "added" | "hidden";
 
 /**
- * One row per workstream in the week, most hours first, then most activity,
- * then by name, with Unsorted kept apart.
+ * One row per workstream in the week: Planned (linked to a priority) before
+ * Unplanned, and within each most hours first, then most activity, then by
+ * name, with Unsorted kept apart.
  *
- * A workstream is in the week when it has activity or was added. Hiding one
+ * A workstream is in the week when it has activity, was added, or is linked
+ * to a priority, so a priority with no time shows as an empty row. Hiding one
  * drops its row and counts its activity as Unsorted, so the rows always add up
  * to the week's total.
  */
@@ -132,6 +136,7 @@ export function buildTable(
   rules: Rule[],
   assignments: ReadonlyMap<string, number | null>,
   choices: ReadonlyMap<number, WeekChoice>,
+  planned: ReadonlySet<number> = new Set(),
 ): WorkstreamTable {
   const byId = new Map(workstreams.map((workstream) => [workstream.id, workstream]));
   const weekdays = Array.from({ length: 5 }, (_, index) => addDays(monday, index));
@@ -141,13 +146,13 @@ export function buildTable(
 
   const classified: Record<string, ClassifiedActivity> = {};
   const rowsById = new Map<number, TableRow>();
-  const unsorted = emptyRow(null, "Unsorted", days, false);
+  const unsorted = emptyRow(null, "Unsorted", days, false, false);
   const total = emptyCell();
 
   const rowFor = (id: number): TableRow => {
     let row = rowsById.get(id);
     if (row === undefined) {
-      row = emptyRow(id, byId.get(id)?.name ?? `#${id}`, days, false);
+      row = emptyRow(id, byId.get(id)?.name ?? `#${id}`, days, false, planned.has(id));
       rowsById.set(id, row);
     }
     return row;
@@ -170,7 +175,12 @@ export function buildTable(
     const workstream = byId.get(id);
     if (choice !== "added" || workstream === undefined || rowsById.has(id)) continue;
     if (workstream.retiredAt !== null) continue;
-    rowsById.set(id, emptyRow(id, workstream.name, days, true));
+    rowsById.set(id, emptyRow(id, workstream.name, days, true, planned.has(id)));
+  }
+  for (const id of planned) {
+    const workstream = byId.get(id);
+    if (workstream === undefined || rowsById.has(id) || choices.get(id) === "hidden") continue;
+    rowsById.set(id, emptyRow(id, workstream.name, days, false, true));
   }
 
   const hours = total.hours;
@@ -185,6 +195,7 @@ export function buildTable(
     .map(finish)
     .sort(
       (a, b) =>
+        Number(b.planned) - Number(a.planned) ||
         b.total.hours - a.total.hours ||
         activityCount(b.total) - activityCount(a.total) ||
         a.name.localeCompare(b.name),
@@ -242,11 +253,18 @@ function emptyCell(): Cell {
   return { hours: 0, counts: { pr: 0, review: 0, issue: 0, task: 0 }, keys: [] };
 }
 
-function emptyRow(id: number | null, name: string, days: Day[], added: boolean): TableRow {
+function emptyRow(
+  id: number | null,
+  name: string,
+  days: Day[],
+  added: boolean,
+  planned: boolean,
+): TableRow {
   return {
     workstreamId: id,
     name,
     added,
+    planned,
     cells: Object.fromEntries(days.map((day) => [day, emptyCell()])),
     total: emptyCell(),
     share: null,

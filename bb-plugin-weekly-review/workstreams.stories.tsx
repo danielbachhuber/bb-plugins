@@ -2,6 +2,7 @@
 // the real buildTable from invented activity, so the totals are the ones the
 // page would show.
 import type { Activity } from "./review/activity";
+import { PrioritiesSection } from "./review/priorities-section";
 import { WorkstreamSection, type WorkstreamActions, type WorkstreamViewProps } from "./review/workstream-section";
 import { buildTable, type Rule, type Workstream } from "./review/workstreams";
 
@@ -59,10 +60,15 @@ const RULES: Rule[] = [
   { id: 5, workstreamId: 3, type: "task", value: "Code Review" },
 ];
 
-function view(choices = new Map<number, "added" | "hidden">()): WorkstreamViewProps {
+function view(
+  choices = new Map<number, "added" | "hidden">(),
+  planned = new Set<number>(),
+  proposals: WorkstreamViewProps["proposals"] = [],
+): WorkstreamViewProps {
   const reviews = new Map<string, number | null>([["github:review:405", 3], ["github:review:409", 3]]);
   return {
-    table: buildTable(MONDAY, ACTIVITY, WORKSTREAMS, RULES, reviews, choices),
+    table: buildTable(MONDAY, ACTIVITY, WORKSTREAMS, RULES, reviews, choices, planned),
+    proposals,
     workstreams: WORKSTREAMS.map((workstream) => ({
       ...workstream,
       rules: RULES.filter((rule) => rule.workstreamId === workstream.id),
@@ -81,6 +87,10 @@ const actions: WorkstreamActions = {
   preview: async () => ({ matches: 4, unsorted: 2, weeks: 2, examples: ["Hiring loop debrief", "Hiring sync"] }),
   setWeekChoice: () => {},
   acceptSuggestion: () => {},
+  acceptProposal: () => {},
+  rejectProposal: () => {},
+  suggestRules: () => {},
+  openThread: () => {},
 };
 
 function Page({ children }: { children: React.ReactNode }) {
@@ -112,5 +122,63 @@ export const Unsorted = () => (
 export const AddedEmpty = () => (
   <Page>
     <WorkstreamSection view={view(new Map([[4, "added"]]))} actions={actions} />
+  </Page>
+);
+
+const PRIORITIES = {
+  heading: "September 4, 2026",
+  items: [
+    { text: "Ship the widget sync beta.", details: [], links: [1], suggested: [] },
+    { text: "Plan the team rituals for the quarter.", details: [], links: [4], suggested: [] },
+    { text: "Start the gadget launch checklist.", details: [], links: [], suggested: [2] },
+    {
+      text: "People:",
+      details: ["Check in with Octocat about the widget sync handoff."],
+      links: [],
+      suggested: [],
+    },
+  ],
+};
+
+/**
+ * Last week's Next list above the table. Widget sync got time; Team rituals
+ * was linked and got none; the gadget launch bullet is not linked yet, with
+ * a suggested link; the last has nothing to link to.
+ */
+export const Priorities = () => {
+  const planned = view(new Map(), new Set([1, 4]));
+  return (
+    <Page>
+      <PrioritiesSection
+        priorities={PRIORITIES}
+        table={planned.table}
+        workstreams={WORKSTREAMS}
+        onLink={() => {}}
+        onUnlink={() => {}}
+      />
+      <WorkstreamSection view={planned} actions={actions} />
+    </Page>
+  );
+};
+
+/** Rules the agent proposed, each with what it would catch, waiting to be accepted or rejected. */
+export const Proposals = () => (
+  <Page>
+    <WorkstreamSection
+      view={view(new Map(), new Set(), [
+        {
+          id: 1, workstream: "Hiring", type: "phrase", value: "hiring loop", isNew: true,
+          reason: "Interview debriefs and loop planning, about 1.5h a week.",
+          preview: { matches: 3, unsorted: 3, weeks: 2, examples: ["Hiring loop debrief", "Hiring loop schedule"] },
+        },
+        {
+          id: 2, workstream: "Widget sync", type: "ref", value: "412", isNew: false,
+          reason: "The sync PR, which the title phrase misses.",
+          preview: { matches: 3, unsorted: 1, weeks: 1, examples: ["feat(widgets): sync widgets between accounts"] },
+        },
+      ])}
+      actions={actions}
+      rulesThread="thr_example"
+    />
   </Page>
 );

@@ -5,7 +5,7 @@ import { feedbackSchema } from "./agents.js";
 import { SCALAR_KEYS } from "./sources.js";
 
 /** Which agent step a prompt belongs to. */
-export const promptKindSchema = z.enum(["notes", "slack", "feedback"]);
+export const promptKindSchema = z.enum(["notes", "slack", "feedback", "rules"]);
 export type PromptKind = z.infer<typeof promptKindSchema>;
 
 const sourceStatusSchema = z.object({
@@ -86,6 +86,7 @@ const tableRowSchema = z.object({
   workstreamId: z.number().nullable(),
   name: z.string(),
   added: z.boolean(),
+  planned: z.boolean(),
   cells: z.record(z.string(), cellSchema),
   total: cellSchema,
   share: z.number().nullable(),
@@ -132,6 +133,32 @@ const workstreamViewSchema = z.object({
     rules: z.array(z.object({ type: ruleTypeSchema, value: z.string() })),
     keys: z.array(z.string()),
   })),
+  /** The previous entry's Next bullets, and which workstreams each is linked to. */
+  priorities: z.object({
+    heading: z.string(),
+    items: z.array(z.object({
+      text: z.string(),
+      details: z.array(z.string()),
+      links: z.array(z.number()),
+      suggested: z.array(z.number()),
+    })),
+  }).nullable(),
+  /** The rules agent's open proposals, each with what it would catch. */
+  proposals: z.array(z.object({
+    id: z.number(),
+    workstream: z.string(),
+    type: ruleTypeSchema,
+    value: z.string(),
+    reason: z.string(),
+    status: z.enum(["open", "accepted", "rejected"]),
+    isNew: z.boolean(),
+    preview: z.object({
+      matches: z.number(),
+      unsorted: z.number(),
+      weeks: z.number(),
+      examples: z.array(z.string()),
+    }),
+  })),
 });
 
 const workstreamNameSchema = z.string().trim().min(1).max(120);
@@ -175,6 +202,7 @@ export const rpcContract = defineRpcContract({
         notes: z.string().optional(),
         slack: z.string().optional(),
         feedback: z.string().optional(),
+        rules: z.string().optional(),
       }),
     }),
   },
@@ -245,6 +273,27 @@ export const rpcContract = defineRpcContract({
   /** Creates the suggested workstream, its rules, and this week's assignments. */
   suggestion_accept: {
     input: z.object({ monday: mondaySchema, name: workstreamNameSchema }),
+    output: workstreamViewSchema,
+  },
+  proposal_accept: {
+    input: z.object({ monday: mondaySchema, id: z.number() }),
+    output: workstreamViewSchema,
+  },
+  proposal_reject: {
+    input: z.object({ monday: mondaySchema, id: z.number() }),
+    output: workstreamViewSchema,
+  },
+  /** Sends an agent to propose rules for what the week left unsorted. */
+  week_suggest_rules: {
+    input: z.object({ monday: mondaySchema }),
+    output: z.object({ threadId: z.string() }),
+  },
+  priority_link: {
+    input: z.object({ monday: mondaySchema, priority: z.string().max(2000), workstreamId: z.number() }),
+    output: workstreamViewSchema,
+  },
+  priority_unlink: {
+    input: z.object({ monday: mondaySchema, priority: z.string().max(2000), workstreamId: z.number() }),
     output: workstreamViewSchema,
   },
   rule_add: {

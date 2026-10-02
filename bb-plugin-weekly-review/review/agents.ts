@@ -105,6 +105,58 @@ That command validates the file and puts the conversations on the page. If it
 reports a validation error, fix the file and run it again. Say how many threads
 you recorded and what you could not reach, then stop.`;
 
+/**
+ * The default prompt for proposing workstream rules.
+ *
+ * The rules are what sort a week, and they are refined a little at a time.
+ * An agent is good at reading forty unsorted titles and seeing which belong
+ * together; it proposes, and nothing is a rule until it is accepted on the
+ * page.
+ */
+export const DEFAULT_RULES_PROMPT = `Propose rules that sort this week's unsorted activity into workstreams.
+
+The week starts {{MONDAY}}.
+
+1. Read what is unsorted, one activity per line, with the fields a rule can
+   match on (its \`#N\`, its Harvest task, its labels, and its title):
+
+   {{UNSORTED_COMMAND}}
+
+2. Read the workstreams that already exist, and their rules:
+
+   {{WORKSTREAMS_COMMAND}}
+
+3. Propose rules. Each one names a workstream, which can be an existing one
+   or a new one, plus a rule type and value:
+
+   - \`ref\`: an issue or PR number. Catches the PR or issue and any time
+     entry whose note starts \`#N\`. The best rule when there is a number.
+   - \`task\`: a Harvest task name, exactly. Only when every entry booked to
+     that task is the same work.
+   - \`label\`: a Todoist or issue label.
+   - \`phrase\`: words the titles contain. Pick a phrase specific enough not
+     to catch unrelated work: "widget sync", not "sync".
+
+   Prefer extending an existing workstream to inventing a new one. Propose a
+   new workstream only for a body of work with several activities or a
+   meaningful share of the hours. Leave one-off items unsorted rather than
+   inventing a rule for each. Give each proposal a short \`reason\` saying
+   what it would catch.
+
+4. Write the proposals to a file under /tmp as JSON:
+
+   [ { "workstream": "…", "type": "ref|task|label|phrase", "value": "…",
+       "reason": "…" } ]
+
+   then record them with:
+
+   {{COMMAND}}
+
+That command validates the file and shows the proposals on the page, where
+each is accepted or rejected by hand. A new file replaces the week's open
+proposals. If it reports a validation error, fix the file and run it again.
+Say how many you proposed and what you left unsorted, then stop.`;
+
 /** Substitutes `{{NAME}}` placeholders. A template missing one still works. */
 export function renderPrompt(
   template: string,

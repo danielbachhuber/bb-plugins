@@ -40,12 +40,14 @@ import { buildDigest } from "./review/digest.js";
 import {
   DEFAULT_FEEDBACK_PROMPT,
   DEFAULT_NOTES_PROMPT,
+  DEFAULT_RULES_PROMPT,
   DEFAULT_SLACK_PROMPT,
   feedbackSchema,
   renderPrompt,
 } from "./review/agents.js";
 import type { PromptKind } from "./review/contract.js";
 import { reflectNoteSchema, slackThreadSchema } from "./review/schema.js";
+import { entryIn, ruleProposalSchema } from "./review/priorities.js";
 import { datedSections, matchDoc, matchNote, sectionNear, entriesWithoutNotes } from "./review/meeting-notes.js";
 import { readFile } from "node:fs/promises";
 import type { WeekData } from "./review/types.js";
@@ -196,6 +198,9 @@ export default async function plugin(bb: BbPluginApi) {
 
     const result = await once(range.from, () =>
       gatherWeek(weeks, range, cliFetchers(config), { trigger, includeDocs }));
+    // The journal rides along with the reference docs, so the priorities are
+    // stored even on a day the page is never opened.
+    if (includeDocs) await readJournal();
 
     const failed = result.sources.filter((source) => !source.ok);
     bb.log.info(
@@ -307,35 +312,39 @@ export default async function plugin(bb: BbPluginApi) {
     notes: DEFAULT_NOTES_PROMPT,
     slack: DEFAULT_SLACK_PROMPT,
     feedback: DEFAULT_FEEDBACK_PROMPT,
+    rules: DEFAULT_RULES_PROMPT,
   };
 
   /**
-   * This week's entry, as written, read fresh from the document every time.
-   *
-   * Not cached with the week: the whole point is that the entry is written
-   * after the week is gathered, so a copy taken at gather time would always be
-   * the empty template. Read only — nothing in this plugin writes to the doc.
+   * The journal doc's text, read fresh. A good read is stored, which is where
+   * the week's priorities come from; a failed one falls back to that copy, so
+   * a slow Google does not empty the page. Read only — nothing in this plugin
+   * writes to the doc.
+   */
+  async function readJournal(): Promise<string | null> {
+    const { journalDocId } = sources.read();
+    if (journalDocId === "") return null;
+    try {
+      const text = await run((await tools()).fetchDocScript, [journalDocId]);
+      if (workstreams.rememberJournal(text)) bb.realtime.publish(WORKSTREAMS_CHANGED, {});
+      return text;
+    } catch (error) {
+      bb.log.warn(`could not read the entry doc, using the stored copy: ${String(error)}`);
+      return workstreams.journal()?.text ?? null;
+    }
+  }
+
+  /**
+   * This week's entry, as written. Not cached with the week: the entry is
+   * written after the week is gathered, so a copy taken at gather time would
+   * always be the empty template.
    */
   async function readEntry(week: WeekData) {
     const { journalDocId } = sources.read();
-    if (journalDocId === "") return null;
-
-    const paths = await tools();
-    let text: string;
-    try {
-      text = await run(paths.fetchDocScript, [journalDocId]);
-    } catch (error) {
-      bb.log.warn(`could not read the entry doc: ${String(error)}`);
-      return null;
-    }
-
-    // The entry for a week is dated within it, usually on the day it was
-    // written up rather than the Monday. The last one inside the range wins.
-    const inWeek = datedSections(text, week.from).filter(
-      (section) => section.day >= week.from && section.day <= week.to,
-    );
-    const section = inWeek[inWeek.length - 1];
-    if (section === undefined || section.body.trim() === "") return null;
+    const text = await readJournal();
+    if (text === null) return null;
+    const section = entryIn(text, week.from, week.to);
+    if (section === null) return null;
     return {
       heading: section.heading,
       text: section.body,
@@ -440,6 +449,48 @@ export default async function plugin(bb: BbPluginApi) {
       `Weekly review feedback — ${monday}`,
       `reviewing the entry for ${monday}`,
     );
+  }
+
+  /**
+   * Sends an agent to propose rules for what the week left unsorted. Nothing
+   * it proposes is a rule until it is accepted on the page.
+   */
+  async function suggestRules(monday: string): Promise<{ threadId: string }> {
+    requireWeek(monday);
+    const providerId = (await settings.get()).agentProviderId.trim();
+    return spawnAgent(
+      monday,
+      "rules",
+      providerId,
+      renderPrompt(describePrompt("rules").prompt, {
+        MONDAY: monday,
+        UNSORTED_COMMAND: `bb weekly-review unsorted ${monday}`,
+        WORKSTREAMS_COMMAND: "bb weekly-review workstream list",
+        COMMAND: `bb weekly-review rule propose ${monday} --file <path-to-your-json>`,
+      }),
+      `Weekly review rules — ${monday}`,
+      `proposing rules for ${monday}`,
+    );
+  }
+
+  /** Validates and records the rules agent's proposals. */
+  async function recordProposals(monday: string, path: string): Promise<number> {
+    requireWeek(monday);
+    const parsed = ruleProposalSchema
+      .array()
+      .max(50)
+      .safeParse(JSON.parse(await readFile(path, "utf8")));
+    if (!parsed.success) {
+      throw new Error(
+        `That is not a valid proposals file: ${parsed.error.issues
+          .slice(0, 5)
+          .map((issue) => `${issue.path.join(".") || "(root)"} ${issue.message}`)
+          .join("; ")}`,
+      );
+    }
+    workstreams.propose(monday, parsed.data);
+    bb.realtime.publish(WORKSTREAMS_CHANGED, { monday });
+    return parsed.data.length;
   }
 
   /** Validates and records the agent's read of the entry. */
@@ -649,6 +700,13 @@ export default async function plugin(bb: BbPluginApi) {
         workstreams.removeRule(id);
       }),
     rule_preview: ({ type, value }) => workstreams.preview(type, value),
+    proposal_accept: ({ monday, id }) => changed(monday, () => workstreams.acceptProposal(id)),
+    proposal_reject: ({ monday, id }) => changed(monday, () => workstreams.rejectProposal(id)),
+    week_suggest_rules: ({ monday }) => suggestRules(monday),
+    priority_link: ({ monday, priority, workstreamId }) =>
+      changed(monday, () => workstreams.link(monday, priority, workstreamId)),
+    priority_unlink: ({ monday, priority, workstreamId }) =>
+      changed(monday, () => workstreams.unlink(monday, priority, workstreamId)),
     assign: ({ monday, key, workstreamId }) =>
       changed(monday, () => workstreams.assign(key, workstreamId)),
     unassign: ({ monday, key }) => changed(monday, () => workstreams.unassign(key)),
@@ -683,11 +741,14 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review slack <monday> --file <path-to-json>",
     "  bb weekly-review entry <monday>",
     "  bb weekly-review feedback <monday> --file <path-to-json>",
-    "  bb weekly-review prompt [notes|slack|feedback] [reset]",
+    "  bb weekly-review prompt [notes|slack|feedback|rules] [reset]",
     "  bb weekly-review table [<monday>]",
     "  bb weekly-review unsorted [<monday>]",
     "  bb weekly-review workstream list | add <name> | rename <name> <new name> | retire <name>",
     "  bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>",
+    "  bb weekly-review rule propose <monday> --file <path-to-json>",
+    "  bb weekly-review priorities [<monday>]",
+    "  bb weekly-review priority link|unlink <monday> <bullet number> <workstream>",
     "  bb weekly-review assign <key> <workstream|none|rules>",
     "  bb weekly-review week <monday> add|hide|reset <workstream>",
     "  bb weekly-review source list",
@@ -793,7 +854,7 @@ export default async function plugin(bb: BbPluginApi) {
       {
         name: "prompt",
         summary: "Show or reset the prompt an agent step is given",
-        usage: "bb weekly-review prompt [notes|slack|feedback] [reset]",
+        usage: "bb weekly-review prompt [notes|slack|feedback|rules] [reset]",
       },
       {
         name: "table",
@@ -812,8 +873,18 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "rule",
-        summary: "List, add, or remove the rules that sort activity into workstreams",
-        usage: "bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>",
+        summary: "List, add, remove, or propose the rules that sort activity into workstreams",
+        usage: "bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id> | propose <monday> --file <path-to-json>",
+      },
+      {
+        name: "priorities",
+        summary: "List the week's priorities from the previous entry, and where their time went",
+        usage: "bb weekly-review priorities [<monday>]",
+      },
+      {
+        name: "priority",
+        summary: "Link a priority to a workstream, or unlink it",
+        usage: "bb weekly-review priority link|unlink <monday> <bullet number> <workstream>",
       },
       {
         name: "assign",
@@ -914,7 +985,9 @@ export default async function plugin(bb: BbPluginApi) {
             ? "notes"
             : positional.includes("slack")
               ? "slack"
-              : "feedback";
+              : positional.includes("rules")
+                ? "rules"
+                : "feedback";
           if (positional.includes("reset")) {
             sources.writePrompt(kind, "");
             return { exitCode: 0, stdout: `Restored the default ${kind} prompt.` };
@@ -991,16 +1064,33 @@ export default async function plugin(bb: BbPluginApi) {
         }
         case "source":
           return runSourceCommand(args);
+        case "rule":
+          if (args[0] === "propose") {
+            const monday = positional[1];
+            const file = flag("file");
+            if (monday === undefined || file === undefined) {
+              return { exitCode: 1, stderr: "Usage: bb weekly-review rule propose <monday> --file <path-to-json>" };
+            }
+            try {
+              const count = await recordProposals(monday, file);
+              return { exitCode: 0, stdout: `Recorded ${count} proposed rules for ${monday}` };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
+        // falls through
         case "table":
         case "unsorted":
+        case "priorities":
+        case "priority":
         case "workstream":
-        case "rule":
         case "assign":
         case "week": {
           const result = workstreams.run(command, args, resolveRange().from);
           const readOnly =
             command === "table" ||
             command === "unsorted" ||
+            command === "priorities" ||
             ((command === "workstream" || command === "rule") && (args[0] ?? "list") === "list");
           if (result.exitCode === 0 && !readOnly) bb.realtime.publish(WORKSTREAMS_CHANGED, {});
           return result;

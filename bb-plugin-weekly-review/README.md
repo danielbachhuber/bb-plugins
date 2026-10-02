@@ -41,6 +41,28 @@ grouped by day, with anything already overdue at the top. A day with nothing on
 it gets no heading. Today is not in it: today is already on the rest of the
 page, and a meeting that happened this morning is not something to plan around.
 
+## Priorities
+
+The Priorities section lists the bullets under `Next:` in the previous week's
+entry, which is what you said this week would be about. A bullet nested under
+another stays with it, so "People:" with "Check in with …" beneath it is one
+priority.
+
+Link each priority to the workstreams it is about. Each link shows that
+workstream's hours and activity this week. A priority with no link says so,
+and so does a linked one that got no time. The page suggests a link when a
+workstream's name or one of its title phrases appears in the bullet.
+
+Linked workstreams lead the table as **Planned**, the rest follow as
+**Unplanned**, and a linked workstream with no activity still gets its empty
+row, which is the gap the page is there to show.
+
+The priorities come from the journal doc the page already reads for this
+week's entry, so they cost no extra request. The doc's text is stored on
+every good read and on each gather that fetches the reference docs, which
+adds one Google request to the day's first gather. When a read fails, the page
+uses the stored copy.
+
 ## Workstreams
 
 A workstream is a piece of work you are spending time on, such as a feature,
@@ -75,6 +97,14 @@ week before you save it.
 
 A week's workstreams are the ones with activity. Add one with no activity yet
 so its empty row shows, or hide one, which moves its activity to Unsorted.
+
+**Suggest rules** starts an agent thread that reads what is unsorted and the
+existing workstreams, and proposes rules for them with
+`bb weekly-review rule propose`. Each proposal appears on the page with its
+reason and what it would catch, and becomes a rule only when you accept it.
+Accepting one that names a new workstream creates the workstream. The agent
+uses the same provider as the other agent steps, and its prompt is editable in
+the plugin's settings. It never runs on a schedule.
 
 Until the rules cover a week, the page suggests the week's themes as
 workstreams. Accepting one creates it with a rule for its issue numbers, its
@@ -153,7 +183,8 @@ What each scheduled run does:
 Each gather of a week makes one Harvest request, five GitHub searches (PRs
 created, PRs merged, reviews, issues created, issues assigned), two Todoist
 requests, and one calendar request per page of results, usually one. A run
-that fetches docs adds one request per reference doc. Monday's first run makes
+that fetches docs adds one request per reference doc, plus one for the journal
+doc. Monday's first run makes
 these calls twice, once for each week.
 
 Regenerate runs the same gather, with the docs. If a scheduled run and
@@ -294,11 +325,14 @@ bb weekly-review notes <monday> --file <path-to-json>
 bb weekly-review slack <monday> --file <path-to-json>
 bb weekly-review entry <monday>
 bb weekly-review feedback <monday> --file <path-to-json>
-bb weekly-review prompt [notes|slack|feedback] [reset]
+bb weekly-review prompt [notes|slack|feedback|rules] [reset]
 bb weekly-review table [<monday>]
 bb weekly-review unsorted [<monday>]
 bb weekly-review workstream list | add <name> | rename <name> <new name> | retire <name>
 bb weekly-review rule list | add <workstream> <ref|task|label|phrase> <value> | remove <id>
+bb weekly-review rule propose <monday> --file <path-to-json>
+bb weekly-review priorities [<monday>]
+bb weekly-review priority link|unlink <monday> <bullet number> <workstream>
 bb weekly-review assign <key> <workstream|none|rules>
 bb weekly-review week <monday> add|hide|reset <workstream>
 bb weekly-review source list | set <key> <value> | add-doc <id> <label> | remove-doc <id|label>
@@ -323,6 +357,9 @@ Gathered weeks live in the plugin's SQLite database, next to the sources:
 | `workstreams`, `rules` | the workstreams and the rules that sort activity into them |
 | `assignments` | activity moved to a workstream by hand, by its key |
 | `week_workstreams` | workstreams added to or hidden from a week |
+| `priority_links` | which workstreams each of a week's priorities is linked to |
+| `rule_proposals` | rules the agent proposed, and whether each was accepted |
+| `journal_snapshot` | the journal doc as of its last good read |
 
 A gather updates items by their id in the source, so an entry edited in Harvest
 is updated rather than added twice. An item the source no longer returns, such

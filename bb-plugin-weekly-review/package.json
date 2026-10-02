@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Weekly Review",
-    "description": "One page of what you actually did this week, gathered at 7am and 1pm on weekdays and sorted into workstreams by rules you refine, to write the journal entry from.",
+    "description": "One page of what you actually did this week, gathered at 7am and 1pm on weekdays, sorted into workstreams by rules you refine, and set against the priorities in last week's entry, to write the journal entry from.",
     "branding": {
       "icon": "Calendar"
     },
