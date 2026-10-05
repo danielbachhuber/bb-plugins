@@ -9,6 +9,14 @@ collapsed group, and a count at the bottom says how many hunks are shown.
 it only when every hunk on the branch is in exactly one concern, so nothing on
 the branch is left out of the review.
 
+Check **Viewed** on each file as you read it; a bar counts your progress, and
+a file whose diff changes comes back unread.
+
+A concern that holds tests opens on **Scenarios**: what the tests check, as
+Gherkin with each recorded snapshot value under the step that wrote it, and a
+second block of the scenarios no test tries, each tagged with why. **Diff**
+shows the raw files.
+
 ## When the branch moves on
 
 The grouping stays until you regenerate it. After a commit or an edit, a

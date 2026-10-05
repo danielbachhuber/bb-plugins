@@ -12,15 +12,59 @@ exactly once.
 
 From top to bottom, the panel shows:
 
-1. A one-sentence headline saying what the branch changes.
+1. A one-sentence headline saying what the branch changes, and a bar counting
+   how many files you have marked viewed.
 2. When the branch has moved on since the grouping, a banner and a
    **Changed since grouping** section.
-3. Each concern as a card, most important first, with the first one open. A
-   file that serves two purposes is split between concerns by hunk, labelled
-   "hunks 1 and 3 of 4".
-4. **Not yet grouped**, for any hunk no concern holds.
-5. **Mechanical**, collapsed: lockfiles, snapshots, and generated files.
-6. A count of files and hunks, and whether all of them are shown.
+3. An outline of the concerns, numbered, most important first, each with its
+   lines added and removed and how many of its files are viewed. Clicking one
+   jumps to it.
+4. Each concern as a section with its note, then each file as a header bar with
+   its path, its lines added and removed, and a **Viewed** checkbox, over its
+   hunks. A file that serves two purposes is split between concerns by hunk,
+   labelled "hunks 1 and 3 of 4".
+5. **Not yet grouped**, for any hunk no concern holds.
+6. **Mechanical**, collapsed: lockfiles, snapshots, and generated files.
+7. A count of files and hunks, and whether all of them are shown.
+
+![A test concern on Scenarios: its tests as a highlighted Gherkin feature, with each recorded snapshot value under the step that wrote it, and a second dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--test-concern.png)
+
+## Marking files viewed
+
+Check **Viewed** on a file once you have read it. The file folds and dims, the
+bar at the top fills, and its concern's row in the outline counts it; a concern
+whose files are all viewed gets a check. A mark is kept per thread and per
+file, against that file's diff at the time. When the file's diff changes, by a
+commit or an edit, its mark clears itself, so a changed file always comes back
+unread. Marks belong to files, not concerns, so they survive regenerating the
+grouping.
+
+## Test concerns
+
+A concern that holds test files opens on **Scenarios**, with **Diff** one click
+away for the raw files. Scenarios shows two highlighted Gherkin blocks, drawn by
+bb's own source viewer:
+
+- **What the tests cover.** Each behaviour as a scenario with Given, When, and
+  Then lines in the agent's words. Under each Then line are the assertions that
+  check it, numbered as `1.3`, each marked asserted, snapshot only, or checked
+  to exist, and each recorded snapshot value as a `"""` block under the step
+  that wrote it. A reviewer reads what a long snapshot file proves, step
+  by step, instead of the file.
+- **What they leave out.** A second, dashed block of the scenarios a test would
+  need, each tagged with why it is a gap (`@untested`, `@unchecked`,
+  `@never-run`, or `@outside-layer`), with a note and the code location as
+  comments.
+
+The plugin does the mechanical part itself. It parses each test file with the
+TypeScript compiler into tests and assertions, reads the `.snap` file beside it
+in `__snapshots__/`, and pairs each snapshot entry with the call that wrote it,
+using the `<test name> <counter>` naming that Jest and Vitest share. The agent
+writes only the scenario wording and cites the step ids. `submit` rejects a
+grouping where a test the branch changes is not described, a snapshot step is
+not cited from the Then line it backs, a cited step does not exist, a gap's
+code location is not in the checkout, or a test concern has no Not covered list
+and no reason for leaving it empty.
 
 ## Using it
 
@@ -30,8 +74,9 @@ anything is grouped, it shows every hunk under Not yet grouped.
 **Generate** sends this thread a message asking its agent to group the branch.
 If the agent is busy, the message waits in bb's queue. The agent follows the
 `reviewmaxx` skill: it reads the numbered hunks with `bb reviewmaxx hunks
---full`, writes a headline and the concerns, and submits them with `bb
-reviewmaxx submit`. A submission that leaves a hunk out, puts one in two
+--full` and the numbered test steps with `bb reviewmaxx tests`, writes a
+headline, the concerns, and scenarios for each test concern, and submits them
+with `bb reviewmaxx submit`. A submission that leaves a hunk out, puts one in two
 concerns, or names a file or hunk that is not in the diff is rejected with a
 list of what to fix, and the agent submits again. The panel updates when a
 grouping is accepted.
@@ -120,8 +165,10 @@ Each time the panel opens, it runs these `git` commands in the checkout:
 `diff --no-index` for each untracked file. Once a grouping exists, it also
 reads each changed file from disk, runs one `cat-file` for each path the stored
 contents do not cover, and one `diff --no-index` for each file that changed
-since the grouping. Generate
-sends one message to the thread. Nothing calls GitHub or any other service.
+since the grouping. For each test file on the branch, it reads the file and its
+`.snap` file from disk and parses them. Marking a file viewed runs the same
+`git` commands once to find the file's current diff. Generate sends one message
+to the thread. Nothing calls GitHub or any other service.
 
 ## Related plugins
 
@@ -142,6 +189,7 @@ sends one message to the thread. Nothing calls GitHub or any other service.
 | Path | Holds |
 | --- | --- |
 | `review/` | The core: parsing the diff, the coverage check, the view, staleness, with `git.ts` for every `git` call and `store.ts` for the database |
+| `review/tests/` | Test concerns: parsing tests and snapshot files, checking scenarios against them, and writing the Gherkin |
 | `components/` | The panel, split from data loading so stories render it |
 | `skills/reviewmaxx/` | The skill the agent groups the branch with |
 | `scripts/verify.mjs` | The rendering half of verify |
