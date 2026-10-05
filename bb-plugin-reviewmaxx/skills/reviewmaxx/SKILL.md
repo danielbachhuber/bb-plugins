@@ -16,7 +16,7 @@ branch is in exactly one concern before it accepts it.
 | --- | --- |
 | `bb reviewmaxx hunks` | Every file with its hunks numbered from 0. Mechanical files (lockfiles, snapshots, generated output) are marked. |
 | `bb reviewmaxx hunks --full` | The same, with each hunk's lines under a `### path#n` marker. |
-| `bb reviewmaxx tests` | Each test file on the branch, its tests numbered from 1, and each test's assertions as steps (`1.3`), labelled asserted, snapshot only, or checked to exist. |
+| `bb reviewmaxx tests [--helpers a,b]` | Each test file on the branch, its tests numbered from 1, and each test's assertions as steps (`1.3`), labelled asserted, snapshot only, or checked to exist. Calls to `expect…` and `assert…` helpers, such as `expectPosted(post)`, count as asserted steps; `--helpers` adds others. |
 | `bb reviewmaxx submit <file>` | Check the grouping and store it. Exits 1 with a list of problems if any hunk is missing, in two concerns, or unknown. |
 
 ## Procedure
@@ -60,6 +60,15 @@ branch is in exactly one concern before it accepts it.
    reads what each test proves instead of hundreds of recorded lines. Run
    `bb reviewmaxx tests` for the step ids, then read the tests and the code
    they call.
+
+   **Assertion helpers.** A call to a function named `expect…` or `assert…`
+   (a capital letter after the prefix) already counts as a step. If the tests
+   check things through a helper named otherwise, such as `checkPosted(post)`,
+   read the test-support code to confirm it asserts, then run
+   `bb reviewmaxx tests --helpers checkPosted` so it is numbered as a step, and
+   put the same names in the grouping's top-level `"assertionHelpers":
+   ["checkPosted"]`. The step ids you cite must come from a run with the same
+   list. `submit` rejects a name no test on the branch calls.
 
    ```json
    "tests": {

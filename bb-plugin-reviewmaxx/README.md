@@ -61,7 +61,12 @@ source viewer:
   comments.
 
 The plugin does the mechanical part itself. It parses each test file with the
-TypeScript compiler into tests and assertions, reads the `.snap` file beside it
+TypeScript compiler into tests and assertions, counting calls to assertion
+helpers named `expect…` or `assert…`, such as `expectPosted(post)`, as asserted
+steps. A helper named otherwise is counted when the agent lists it in the
+grouping's `assertionHelpers`, after reading the test-support code; `submit`
+rejects a listed name that no test calls, and the list is kept with the
+grouping so its step numbers stay the same. It reads the `.snap` file beside it
 in `__snapshots__/`, and pairs each snapshot entry with the call that wrote it,
 using the `<test name> <counter>` naming that Jest and Vitest share. The agent
 writes only the scenario wording and cites the step ids. `submit` rejects a

@@ -48,6 +48,11 @@ export const concernSchema = z.object({
 
 export const groupingSchema = z.object({
   headline: z.string().trim().min(1).max(300),
+  /**
+   * Assertion helpers to count as test steps beyond the naming convention
+   * (`expect…`, `assert…`), named by the agent after reading the test code.
+   */
+  assertionHelpers: z.array(z.string().regex(/^[A-Za-z_$][\w$]*$/, "a helper is a function name")).max(50).optional(),
   concerns: z.array(concernSchema).min(1),
 });
 

@@ -63,13 +63,13 @@ async function computeStale(
 }
 
 /** The test files on the branch, read and parsed from the checkout, with their snapshot entries. */
-async function loadTests(root: string, files: DiffFile[]): Promise<TestInputs> {
+async function loadTests(root: string, files: DiffFile[], helpers: string[] = []): Promise<TestInputs> {
   const inputs: TestInputs = { files: new Map(), snapshots: new Map() };
   for (const file of files) {
     if (!isTestFile(file.path) || file.status === "deleted") continue;
     const source = await fileOnDisk(root, file.path);
     if (source.text === null) continue;
-    inputs.files.set(file.path, parseTestFile(file.path, source.text));
+    inputs.files.set(file.path, parseTestFile(file.path, source.text, { helpers }));
     const snap = await fileOnDisk(root, snapshotPathFor(file.path));
     inputs.snapshots.set(file.path, snap.text === null ? new Map() : parseSnapshotFile(snap.text));
   }
@@ -102,7 +102,7 @@ export async function getView(store: Store, threadId: string, checkout: Checkout
   const stale = stored
     ? await computeStale(checkout.root, stored, store.snapshot(threadId), branch.files, branch.headSha)
     : null;
-  const inputs = stored ? await loadTests(checkout.root, branch.files) : null;
+  const inputs = stored ? await loadTests(checkout.root, branch.files, stored.grouping.assertionHelpers) : null;
   return buildView(branch.files, stored, stale, {
     viewed: store.viewed(threadId),
     tests: stored && inputs ? overlays(stored.grouping, inputs) : undefined,
@@ -116,9 +116,9 @@ export async function setViewed(store: Store, threadId: string, checkout: Checko
 }
 
 /** What `bb reviewmaxx tests` prints: each test on the branch, with its numbered steps. */
-export async function testsText(checkout: Checkout): Promise<string> {
+export async function testsText(checkout: Checkout, helpers: string[] = []): Promise<string> {
   const branch = await loadBranch(checkout);
-  const inputs = await loadTests(checkout.root, branch.files);
+  const inputs = await loadTests(checkout.root, branch.files, helpers);
   if (inputs.files.size === 0) return "No test files on this branch.";
   const lines = ["Cite a whole test as <file>:<test>, or one step as <file>:<test>.<step>.", ""];
   for (const [path, file] of inputs.files) {
@@ -165,7 +165,19 @@ export async function submit(
     };
   }
 
-  const inputs = await loadTests(checkout.root, branch.files);
+  const helpers = parsed.grouping.assertionHelpers ?? [];
+  const inputs = await loadTests(checkout.root, branch.files, helpers);
+  const called = new Set([...inputs.files.values()].flatMap((f) => f.tests.flatMap((t) => t.steps.map((s) => s.helper))));
+  const unused = helpers.filter((name) => !called.has(name));
+  if (unused.length > 0) {
+    return {
+      ok: false,
+      text: [
+        "Rejected: assertionHelpers names a function no test on the branch calls. Remove it, or check its spelling.",
+        ...unused.map((name) => `helper not called: ${name}`),
+      ].join("\n"),
+    };
+  }
   const changed = new Map(
     [...inputs.files.keys()].map((path) => [path, addedLines(branch.files.find((f) => f.path === path)!.hunks.map((h) => h.text))]),
   );

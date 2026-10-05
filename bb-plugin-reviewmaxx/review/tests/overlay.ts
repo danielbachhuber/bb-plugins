@@ -37,7 +37,7 @@ export function buildOverlay(block: TestsBlock, inputs: TestInputs): ViewTests {
   return {
     scenarios: scenarios.map(({ snapshots: _, ...scenario }) => scenario),
     notCovered: notCoveredFeature(block.notCovered, block.notCoveredNote),
-    asserted: steps.filter((s) => s.kind === "exact" || s.kind === "error" || s.kind === "mock").length,
+    asserted: steps.filter((s) => s.kind === "exact" || s.kind === "error" || s.kind === "mock" || s.kind === "helper").length,
     snapshotOnly: steps.filter((s) => s.kind === "snapshot").length,
     gaps: block.notCovered.length,
     snapshots: scenarios.reduce((n, s) => n + s.snapshots, 0),

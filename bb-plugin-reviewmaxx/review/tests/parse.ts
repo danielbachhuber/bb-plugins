@@ -18,8 +18,12 @@ export function snapshotPathFor(testPath: string): string {
   return `${testPath.slice(0, at + 1)}__snapshots__/${testPath.slice(at + 1)}.snap`;
 }
 
-/** What an assertion checks: an exact value, an error, a mock call, a recorded snapshot, or only that something is there. */
-export type StepKind = "exact" | "error" | "mock" | "snapshot" | "truthy";
+/**
+ * What an assertion checks: an exact value, an error, a mock call, a recorded
+ * snapshot, only that something is there, or whatever an assertion helper
+ * checks, such as `expectPosted(post)`.
+ */
+export type StepKind = "exact" | "error" | "mock" | "snapshot" | "truthy" | "helper";
 
 export interface TestStep {
   /** `<test>.<step>`, both from 1: "1.3". */
@@ -31,7 +35,16 @@ export interface TestStep {
   code: string;
   /** The snapshot entry this step wrote, for a snapshot step. */
   snapshotKey: string | null;
+  /** The helper's name, for a helper step. */
+  helper: string | null;
 }
+
+/**
+ * Assertion helpers by naming convention: `expectPosted(...)`,
+ * `assertForbidden(...)`. A capital after the prefix keeps out `expect`
+ * itself and words like `expected`.
+ */
+const HELPER_NAME = /^(expect|assert)[A-Z]/;
 
 export interface TestCase {
   /** From 1, in file order. */
@@ -100,7 +113,13 @@ function readAssertion(node: ts.CallExpression, source: ts.SourceFile) {
   return { matcher, modifiers, code: oneLine(code.replace(/^await /, "")) };
 }
 
-export function parseTestFile(path: string, text: string): TestFile {
+/**
+ * @param options.helpers more assertion helpers to count as steps, for ones
+ *   the naming convention does not catch; the agent names them
+ */
+export function parseTestFile(path: string, text: string, options: { helpers?: string[] } = {}): TestFile {
+  const named = new Set(options.helpers ?? []);
+  const isHelper = (name: string) => HELPER_NAME.test(name) || named.has(name);
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const tests: TestCase[] = [];
   const lineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
@@ -109,6 +128,17 @@ export function parseTestFile(path: string, text: string): TestFile {
   function collectSteps(body: ts.Node, test: TestCase) {
     let snapshots = 0;
     const visit = (node: ts.Node) => {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && isHelper(node.expression.text)) {
+        test.steps.push({
+          id: `${test.index}.${test.steps.length + 1}`,
+          kind: "helper",
+          line: lineOf(node),
+          code: oneLine(node.getText(source)),
+          snapshotKey: null,
+          helper: node.expression.text,
+        });
+        return;
+      }
       if (ts.isCallExpression(node)) {
         const assertion = readAssertion(node, source);
         if (assertion) {
@@ -119,6 +149,7 @@ export function parseTestFile(path: string, text: string): TestFile {
             line: lineOf(node),
             code: assertion.code,
             snapshotKey: kind === "snapshot" && !/Inline/.test(assertion.matcher) ? `${test.fullName} ${++snapshots}` : null,
+            helper: null,
           });
           return;
         }

@@ -163,5 +163,29 @@ test("the gadget is one", () => {
       expect(tests.snapshots).toBe(1);
       expect(tests.notCovered).toContain("# The gadget is a constant.");
     });
+
+    it("counts helpers the agent names, and rejects one no test calls", async () => {
+      const { r, store, checkout } = await setup();
+      r.write("src/gadget.test.ts", 'import { test } from "vitest";\nimport { checkOne } from "./support";\n\ntest("the gadget is one", () => {\n  checkOne(gadget);\n});\n');
+      expect(await testsText(checkout, ["checkOne"])).toContain("1.1  asserted  checkOne(gadget)");
+      expect(await testsText(checkout)).not.toContain("checkOne(gadget)");
+
+      const scenario = { title: "The gadget", given: [], when: ["the gadget is read"], then: [{ text: "it is one", steps: ["src/gadget.test.ts:1.1"] }] };
+      const grouping = (helpers: string[]) => ({
+        headline: "A gadget, and a test for it.",
+        assertionHelpers: helpers,
+        concerns: [
+          { title: "Widget", note: "Bumps the widget.", files: ["src/widget.ts", "src/gadget.ts"] },
+          { title: "Tests", note: "Pins the gadget.", files: ["src/gadget.test.ts"], tests: { covered: [scenario], notCovered: [], notCoveredNote: "A constant." } },
+        ],
+      });
+      const unused = await submit(store, "thr_1", checkout, grouping(["checkOne", "checkTwo"]), NOW);
+      expect(unused.ok).toBe(false);
+      expect(unused.text).toContain("helper not called: checkTwo");
+      expect((await submit(store, "thr_1", checkout, grouping(["checkOne"]), NOW)).ok).toBe(true);
+      const tests = (await getView(store, "thr_1", checkout)).concerns[1]!.tests!;
+      expect(tests.scenarios[0]!.steps).toContain("# 1.1 checkOne(gadget)");
+      expect(tests.asserted).toBe(1);
+    });
   });
 });

@@ -68,6 +68,38 @@ describe("parseTestFile", () => {
   });
 });
 
+describe("assertion helpers", () => {
+  const HELPERS = `test("posting", async () => {
+  const post = await create();
+  expectPosted(post);
+  await assertForbidden(() => remove(post));
+  checkHeld(post);
+  expected(post);
+  expect(post).toMatchSnapshot();
+});
+`;
+
+  it("counts expect… and assert… calls as asserted steps", () => {
+    const steps = parseTestFile("a.test.ts", HELPERS).tests[0]!.steps;
+    expect(steps.map((s) => [s.id, s.kind, s.code, s.helper])).toEqual([
+      ["1.1", "helper", "expectPosted(post)", "expectPosted"],
+      ["1.2", "helper", "assertForbidden(() => remove(post))", "assertForbidden"],
+      ["1.3", "snapshot", "post toMatchSnapshot", null],
+    ]);
+  });
+
+  it("counts helpers the caller names, and still numbers snapshots by their own counter", () => {
+    const steps = parseTestFile("a.test.ts", HELPERS, { helpers: ["checkHeld"] }).tests[0]!.steps;
+    expect(steps.map((s) => [s.id, s.helper])).toEqual([
+      ["1.1", "expectPosted"],
+      ["1.2", "assertForbidden"],
+      ["1.3", "checkHeld"],
+      ["1.4", null],
+    ]);
+    expect(steps[3]!.snapshotKey).toBe("posting 1");
+  });
+});
+
 describe("snapshot files", () => {
   it("reads entries, unescaping backticks and template markers", () => {
     const snap = [

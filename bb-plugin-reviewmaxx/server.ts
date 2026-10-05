@@ -24,7 +24,7 @@ const MAX_HUNKS_OUTPUT = 900_000;
 const USAGE = [
   "Usage:",
   "  bb reviewmaxx hunks [--full]          Every file and hunk on this branch, numbered from 0",
-  "  bb reviewmaxx tests                   Each test on this branch, with its numbered steps to cite",
+  "  bb reviewmaxx tests [--helpers a,b]   Each test on this branch, with its numbered steps to cite",
   "  bb reviewmaxx submit <file | json>    Check a grouping and store it if every hunk is placed once",
   "  bb reviewmaxx verify [--json]         Check the stored grouping against the branch",
   "",
@@ -76,7 +76,7 @@ export default async function plugin(bb: BbPluginApi) {
     summary: "Group this branch's hunks into concerns for the Reviewmaxx panel",
     commands: [
       { name: "hunks", summary: "List every file and hunk on the branch, numbered from 0", usage: "bb reviewmaxx hunks [--full]" },
-      { name: "tests", summary: "List each test on the branch with its numbered steps, for scenario citations", usage: "bb reviewmaxx tests" },
+      { name: "tests", summary: "List each test on the branch with its numbered steps, for scenario citations", usage: "bb reviewmaxx tests [--helpers name,name]" },
       { name: "submit", summary: "Check a grouping and store it if every hunk is placed once", usage: "bb reviewmaxx submit <file | json>" },
       { name: "verify", summary: "Check the stored grouping covers every hunk exactly once", usage: "bb reviewmaxx verify [--json]" },
     ],
@@ -85,7 +85,9 @@ export default async function plugin(bb: BbPluginApi) {
       const flag = (name: string) => argv.includes(name);
       const threadFlag = argv.indexOf("--thread");
       const threadId = threadFlag === -1 ? ctx.threadId : argv[threadFlag + 1];
-      const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread");
+      const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread" && argv[i - 1] !== "--helpers");
+      const helpersFlag = argv.indexOf("--helpers");
+      const helpers = helpersFlag === -1 ? [] : (argv[helpersFlag + 1] ?? "").split(",").map((name) => name.trim()).filter(Boolean);
       const [command, ...args] = positional;
 
       if (command === undefined || command === "help") return { exitCode: 0, stdout: USAGE };
@@ -105,7 +107,7 @@ export default async function plugin(bb: BbPluginApi) {
       }
 
       if (command === "tests") {
-        const text = await testsText(checkout);
+        const text = await testsText(checkout, helpers);
         return { exitCode: 0, stdout: text.length <= MAX_HUNKS_OUTPUT ? text : `${text.slice(0, MAX_HUNKS_OUTPUT)}\n\n(cut short at ${MAX_HUNKS_OUTPUT} characters)` };
       }
 

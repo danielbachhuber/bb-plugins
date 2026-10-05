@@ -18,6 +18,7 @@ export const LABEL: Record<StepKind, string> = {
   mock: "asserted",
   snapshot: "snapshot only",
   truthy: "checked to exist",
+  helper: "asserted",
 };
 
 /** Given, Given, When becomes Given, And, When, as a .feature file writes it. */
@@ -32,7 +33,7 @@ const docstring = (value: string, indent: string) => [
   `${indent}"""`,
 ];
 
-const ASSERTED_KINDS = new Set(["exact", "error", "mock"]);
+const ASSERTED_KINDS = new Set(["exact", "error", "mock", "helper"]);
 const lineCount = (value: string) => value.split("\n").length;
 
 /**
