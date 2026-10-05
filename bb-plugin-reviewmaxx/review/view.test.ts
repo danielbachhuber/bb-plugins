@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveGrouping } from "./check";
 import { isMechanical } from "./classify";
 import type { ReviewView } from "./contract";
+import { shownKeys } from "./coverage";
 import type { Grouping } from "./grouping";
 import { itemsOf, parseDiff } from "./items";
 import { buildView, placeItems, type StoredGrouping } from "./view";
@@ -30,15 +31,9 @@ function stored(diff: string): StoredGrouping {
   return { grouping: GROUPING, assignments, baseSha: "base", headSha: "head", groupedAt: "2026-10-05T12:00:00.000Z" };
 }
 
-/** Every non-removed hunk in the view, as `path#index`, once per appearance. */
-function shown(view: ReviewView): string[] {
-  const sections = [...view.concerns, view.notYetGrouped, view.mechanical].filter((s) => s !== null);
-  return sections.flatMap((s) => s.files.flatMap((f) => f.hunks.filter((h) => h.status !== "removed").map((h) => `${h.path}#${h.index}`)));
-}
-
 function expectEveryItemOnce(view: ReviewView, diff: string) {
   const expected = itemsOf(parseDiff(diff)).map((i) => `${i.path}#${i.index}`).sort();
-  expect(shown(view).sort()).toEqual(expected);
+  expect(shownKeys(view).sort()).toEqual(expected);
   expect(view.coverage).toEqual({ files: parseDiff(diff).length, hunks: expected.length, shown: expected.length });
 }
 
