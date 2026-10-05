@@ -1,225 +1,123 @@
-// bb-plugin-reviewmaxx — a BB plugin backend entry.
+// bb-plugin-reviewmaxx — backend.
 //
-// The default export is a factory that receives the plugin API. BB supplies
-// the tiny defineRpcContract runtime helper; the API type remains type-only.
-//
-// The example is a todo list. One store in bb.storage.kv serves three
-// surfaces: the Example todos page (app.tsx, over RPC), the `bb reviewmaxx` CLI
-// command (below), and the skill in skills/example-todos/SKILL.md that tells
-// agents how to use that command. A write from any surface publishes a realtime signal so
-// every open page refetches.
-import { randomUUID } from "node:crypto";
+// Three surfaces over review/service.ts: the panel (over RPC), the
+// `bb reviewmaxx` CLI the agent groups with, and the skill in
+// skills/reviewmaxx/SKILL.md that tells it how. A submit publishes a realtime
+// signal so the open panel refetches.
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
-import { z } from "zod";
+import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
+import { toplevel } from "./review/git";
+import { getView, hunks, submit, verifyData, type Checkout } from "./review/service";
+import { createStore, MIGRATIONS } from "./review/store";
 
-const todoSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  done: z.boolean(),
-  createdAt: z.string(),
-});
-export type Todo = z.infer<typeof todoSchema>;
+export const rpcContract = defineRpcContract(rpcShape);
 
-// Both schemas run at the wire boundary. Handler input/output are inferred
-// from the shared contract; app.tsx imports only its type.
-export const rpcContract = defineRpcContract({
-  todos_list: {
-    input: z.null(),
-    output: z.object({ todos: z.array(todoSchema) }),
-  },
-  todos_add: {
-    input: z.object({ title: z.string().trim().min(1).max(200) }),
-    output: todoSchema,
-  },
-  todos_set_done: {
-    input: z.object({ id: z.string(), done: z.boolean() }),
-    output: todoSchema,
-  },
-  todos_remove: {
-    input: z.object({ id: z.string() }),
-    output: z.object({ removed: z.boolean() }),
-  },
-});
+/** What the Generate button sends to the thread. The skill does the rest. */
+export const GENERATE_PROMPT =
+  "Use the reviewmaxx skill to group this branch's changes into concerns for review, then submit the grouping with `bb reviewmaxx submit`.";
 
-/** Realtime channel app.tsx listens on; the payload is the todo count. */
-const TODOS_CHANGED = "todos-changed";
+/** Leave room under the CLI's 1 MiB output limit for the header lines. */
+const MAX_HUNKS_OUTPUT = 900_000;
+
+const USAGE = [
+  "Usage:",
+  "  bb reviewmaxx hunks [--full]          Every file and hunk on this branch, numbered from 0",
+  "  bb reviewmaxx submit <file | json>    Check a grouping and store it if every hunk is placed once",
+  "  bb reviewmaxx verify [--json]         Check the stored grouping against the branch",
+  "",
+  "Each command acts on the thread it runs in. Pass --thread <id> from outside a thread.",
+].join("\n");
 
 export default async function plugin(bb: BbPluginApi) {
-  bb.log.info("loaded");
+  const db = bb.storage.database();
+  bb.storage.migrate(db, MIGRATIONS);
+  const store = createStore(db);
 
-  // Declarative settings — rendered in BB's settings UI and editable with
-  // `bb plugin config reviewmaxx`. Add `secret: true` for values like API keys.
-  // Settings are read once per load: reload the plugin after changing one.
-  const settings = bb.settings.define({
-    showDone: {
-      type: "boolean",
-      label: "Show completed todos",
-      default: true,
-    },
-  });
-  const { showDone } = await settings.get();
-
-  // Namespaced key-value storage in bb.db (JSON values, up to 256KB each).
-  // For bigger or relational data use bb.storage.database().
-  async function readTodos(): Promise<Todo[]> {
-    return (await bb.storage.kv.get<Todo[]>("todos")) ?? [];
-  }
-  async function writeTodos(todos: Todo[]): Promise<void> {
-    await bb.storage.kv.set("todos", todos);
-    // Ephemeral broadcast to every connected client; nothing is persisted.
-    bb.realtime.publish(TODOS_CHANGED, { count: todos.length });
-  }
-
-  async function listTodos(): Promise<Todo[]> {
-    const todos = await readTodos();
-    return showDone ? todos : todos.filter((todo) => !todo.done);
-  }
-  async function addTodo(title: string): Promise<Todo> {
-    const todo: Todo = {
-      id: randomUUID().slice(0, 8),
-      title,
-      done: false,
-      createdAt: new Date().toISOString(),
-    };
-    await writeTodos([...(await readTodos()), todo]);
-    return todo;
-  }
-  async function setTodoDone(id: string, done: boolean): Promise<Todo | null> {
-    const todos = await readTodos();
-    const todo = todos.find((candidate) => candidate.id === id);
-    if (todo === undefined) return null;
-    todo.done = done;
-    await writeTodos(todos);
-    return todo;
-  }
-  async function removeTodo(id: string): Promise<boolean> {
-    const todos = await readTodos();
-    const remaining = todos.filter((todo) => todo.id !== id);
-    if (remaining.length === todos.length) return false;
-    await writeTodos(remaining);
-    return true;
+  /** The thread's checkout on this machine, or why there is none. */
+  async function checkoutFor(threadId: string): Promise<Checkout | string> {
+    const thread = await bb.sdk.threads.get({ threadId });
+    if (!thread.environmentId) return "This thread has no environment to review.";
+    const env = await bb.sdk.environments.get({ environmentId: thread.environmentId });
+    if (!env.isGitRepo || !env.path) return "Reviewmaxx needs a git checkout, and this environment is not one.";
+    const root = await toplevel(env.path);
+    if (root === null) return "Reviewmaxx needs a local checkout, and this environment's path is not a git work tree on this machine.";
+    const base = env.mergeBaseBranch ?? env.baseBranch ?? env.defaultBranch;
+    if (!base) return "This environment has no base branch to compare against.";
+    return { root, mergeBaseBranch: base };
   }
 
   bb.rpc.register(rpcContract, {
-    todos_list: async () => ({ todos: await listTodos() }),
-    todos_add: ({ title }) => addTodo(title),
-    todos_set_done: async ({ id, done }) => {
-      const todo = await setTodoDone(id, done);
-      if (todo === null) throw new Error(`No todo with id ${id}`);
-      return todo;
+    review_get: async ({ threadId }): Promise<ReviewResult> => {
+      const checkout = await checkoutFor(threadId);
+      if (typeof checkout === "string") return { state: "unavailable", message: checkout };
+      return { state: "ok", view: await getView(store, threadId, checkout) };
     },
-    todos_remove: async ({ id }) => ({ removed: await removeTodo(id) }),
+    review_generate: async ({ threadId }) => {
+      await bb.sdk.threads.send({
+        threadId,
+        input: [{ type: "text", text: GENERATE_PROMPT, mentions: [] }],
+        mode: "queue-if-active",
+      });
+      return { sent: true as const };
+    },
   });
 
-  // The `bb reviewmaxx` command: what agents (and you) use from a shell. Parsing
-  // argv is plugin-owned; `commands` is metadata BB renders into help and
-  // the generated plugin-commands skill without running plugin code.
-  const usage = [
-    "Usage:",
-    "  bb reviewmaxx list [--json]",
-    "  bb reviewmaxx add <title> [--json]",
-    "  bb reviewmaxx done <todo-id> [--json]",
-    "  bb reviewmaxx undo <todo-id> [--json]",
-    "  bb reviewmaxx remove <todo-id> [--json]",
-  ].join("\n");
-  function formatTodo(todo: Todo): string {
-    return `[${todo.done ? "x" : " "}] ${todo.id}  ${todo.title}`;
-  }
   bb.cli.register({
     name: "reviewmaxx",
-    summary: "Manage the Reviewmaxx plugin's example todo list",
+    summary: "Group this branch's hunks into concerns for the Reviewmaxx panel",
     commands: [
-      { name: "list", summary: "List todos", usage: "bb reviewmaxx list [--json]" },
-      {
-        name: "add",
-        summary: "Add a todo",
-        usage: "bb reviewmaxx add <title> [--json]",
-      },
-      {
-        name: "done",
-        summary: "Mark a todo done",
-        usage: "bb reviewmaxx done <todo-id> [--json]",
-      },
-      {
-        name: "undo",
-        summary: "Mark a todo not done",
-        usage: "bb reviewmaxx undo <todo-id> [--json]",
-      },
-      {
-        name: "remove",
-        summary: "Remove a todo",
-        usage: "bb reviewmaxx remove <todo-id> [--json]",
-      },
+      { name: "hunks", summary: "List every file and hunk on the branch, numbered from 0", usage: "bb reviewmaxx hunks [--full]" },
+      { name: "submit", summary: "Check a grouping and store it if every hunk is placed once", usage: "bb reviewmaxx submit <file | json>" },
+      { name: "verify", summary: "Check the stored grouping covers every hunk exactly once", usage: "bb reviewmaxx verify [--json]" },
     ],
-    async run(argv) {
-      const json = argv.includes("--json");
-      const [command, ...args] = argv.filter((arg) => arg !== "--json");
-      const reply = (value: unknown, text: string) => ({
-        exitCode: 0,
-        stdout: json ? JSON.stringify(value) : text,
-      });
-      const notFound = (missingId: string) => ({
-        exitCode: 1,
-        stderr: `No todo with id ${missingId}. Run "bb reviewmaxx list" to see ids.`,
-      });
-      const todoId = args[0];
-      switch (command) {
-        case undefined:
-        case "help":
-        case "--help":
-          return { exitCode: 0, stdout: usage };
-        case "list": {
-          const todos = await listTodos();
-          return reply(
-            todos,
-            todos.length === 0 ? "No todos." : todos.map(formatTodo).join("\n"),
-          );
-        }
-        case "add": {
-          const title = args.join(" ").trim();
-          if (title === "") break;
-          const todo = await addTodo(title);
-          return reply(todo, `Added ${formatTodo(todo)}`);
-        }
-        case "done":
-        case "undo": {
-          if (todoId === undefined || args.length !== 1) break;
-          const todo = await setTodoDone(todoId, command === "done");
-          if (todo === null) return notFound(todoId);
-          return reply(todo, formatTodo(todo));
-        }
-        case "remove": {
-          if (todoId === undefined || args.length !== 1) break;
-          if (!(await removeTodo(todoId))) return notFound(todoId);
-          return reply({ removed: true, id: todoId }, `Removed ${todoId}`);
-        }
+
+    async run(argv, ctx) {
+      const flag = (name: string) => argv.includes(name);
+      const threadFlag = argv.indexOf("--thread");
+      const threadId = threadFlag === -1 ? ctx.threadId : argv[threadFlag + 1];
+      const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread");
+      const [command, ...args] = positional;
+
+      if (command === undefined || command === "help") return { exitCode: 0, stdout: USAGE };
+      if (!threadId) return { exitCode: 1, stderr: "Run this from a bb thread, or pass --thread <id>." };
+
+      const checkout = await checkoutFor(threadId);
+      if (typeof checkout === "string") return { exitCode: 1, stderr: checkout };
+
+      if (command === "hunks") {
+        const full = await hunks(checkout, flag("--full"));
+        if (full.length <= MAX_HUNKS_OUTPUT) return { exitCode: 0, stdout: full };
+        const index = await hunks(checkout, false);
+        return {
+          exitCode: 0,
+          stdout: `${index}\n\nThe full diff is too large to print here. Read hunks with \`git diff\` in the checkout; the numbering above is what to submit.`,
+        };
       }
-      return { exitCode: 1, stderr: usage };
+
+      if (command === "submit") {
+        const source = args.join(" ").trim();
+        if (!source) return { exitCode: 1, stderr: "Pass the grouping as a file path or as JSON." };
+        let raw: unknown;
+        try {
+          // The checkout is on this machine (checkoutFor checked), so a path is read here.
+          raw = JSON.parse(source.startsWith("{") ? source : await readFile(path.resolve(ctx.cwd ?? checkout.root, source), "utf8"));
+        } catch (cause) {
+          return { exitCode: 1, stderr: `Could not read the grouping: ${(cause as Error).message}` };
+        }
+        const result = await submit(store, threadId, checkout, raw, new Date());
+        if (result.ok) bb.realtime.publish(REVIEW_CHANGED, { threadId });
+        return result.ok ? { exitCode: 0, stdout: result.text } : { exitCode: 1, stderr: result.text };
+      }
+
+      if (command === "verify") {
+        const result = await verifyData(store, threadId, checkout);
+        const stdout = flag("--json") ? JSON.stringify(result) : result.text;
+        return { exitCode: result.ok ? 0 : 1, stdout };
+      }
+
+      return { exitCode: 1, stderr: `Unknown command "${command}".\n\n${USAGE}` };
     },
   });
-
-  // Cleanup on reload/disable/shutdown; hooks run LIFO. The sanctioned place
-  // to clear timers and close connections.
-  bb.onDispose(() => {
-    bb.log.info("disposed");
-  });
-
-  // Long-lived background work: starts after load, gets an AbortSignal on
-  // reload/disable/shutdown, and restarts with backoff if it crashes. Sleeps
-  // must wake on abort — a plain setTimeout sleeps through the stop window
-  // and the plugin reports "degraded (service did not stop)" on reload.
-  // bb.background.service("worker", {
-  //   async start(signal) {
-  //     while (!signal.aborted) {
-  //       await new Promise((resolve) => {
-  //         const timer = setTimeout(resolve, 60_000);
-  //         signal.addEventListener(
-  //           "abort",
-  //           () => { clearTimeout(timer); resolve(undefined); },
-  //           { once: true },
-  //         );
-  //       });
-  //     }
-  //   },
-  // });
 }
