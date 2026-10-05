@@ -40,6 +40,8 @@ export interface TestCase {
   /** The describe names and the test name, joined by spaces, as snapshot keys use them. */
   fullName: string;
   line: number;
+  /** The line the test's call ends on. */
+  endLine: number;
   steps: TestStep[];
 }
 
@@ -102,6 +104,7 @@ export function parseTestFile(path: string, text: string): TestFile {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, path.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const tests: TestCase[] = [];
   const lineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+  const endLineOf = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
 
   function collectSteps(body: ts.Node, test: TestCase) {
     let snapshots = 0;
@@ -135,7 +138,7 @@ export function parseTestFile(path: string, text: string): TestFile {
         return;
       }
       if (name !== null && TEST_CALLS.has(name) && title !== null && body) {
-        const test: TestCase = { index: tests.length + 1, name: title, fullName: [...describes, title].join(" "), line: lineOf(node), steps: [] };
+        const test: TestCase = { index: tests.length + 1, name: title, fullName: [...describes, title].join(" "), line: lineOf(node), endLine: endLineOf(node), steps: [] };
         tests.push(test);
         collectSteps(body, test);
         return;

@@ -33,6 +33,10 @@ describe("parseTestFile", () => {
     ]);
   });
 
+  it("records where each test ends", () => {
+    expect(file.tests.map((t) => t.endLine)).toEqual([15, 20]);
+  });
+
   it("numbers each expect as a step and labels its kind", () => {
     expect(file.tests[0]!.steps.map((s) => [s.id, s.kind, s.line])).toEqual([
       ["1.1", "snapshot", 7],
