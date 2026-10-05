@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageLabel, fileStats, hunkNote, staleLabel, viewedLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, viewedLabel } from "./labels";
 
 const file = (indexes: number[], total: number) => ({
   path: "a.ts",
@@ -40,5 +40,12 @@ describe("labels", () => {
   it("says how many files are viewed", () => {
     expect(viewedLabel({ files: 12, hunks: 30, shown: 30, viewed: 5 })).toBe("5 of 12 files viewed");
     expect(viewedLabel({ files: 1, hunks: 1, shown: 1, viewed: 1 })).toBe("1 of 1 file viewed");
+  });
+
+  it("gives different text a different source path, so bb's viewer never reuses stale lines", () => {
+    const a = sourcePath("concern-0/scenario-1", "Scenario: one\n  Given a");
+    expect(a).toMatch(/^concern-0\/scenario-1-[0-9a-f]+\.feature$/);
+    expect(sourcePath("concern-0/scenario-1", "Scenario: one\n  Given a")).toBe(a);
+    expect(sourcePath("concern-0/scenario-1", "Scenario: one\n  Given b\n  When c")).not.toBe(a);
   });
 });

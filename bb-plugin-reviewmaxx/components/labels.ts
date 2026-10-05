@@ -1,5 +1,6 @@
 // The panel's small pieces of text. Pure.
 import type { ReviewView, ViewFile } from "@/review/contract";
+import { hashText } from "@/review/items";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -49,4 +50,14 @@ export function viewedLabel(coverage: ReviewView["coverage"]): string {
 /** "3 scenarios · 3 asserted, 3 snapshot only · 3 not covered" */
 export function testsLabel(tests: { scenarios: number; asserted: number; snapshotOnly: number; gaps: number }): string {
   return `${plural(tests.scenarios, "scenario", "scenarios")} · ${tests.asserted} asserted, ${tests.snapshotOnly} snapshot only · ${tests.gaps} not covered`;
+}
+
+/**
+ * A path for bb's source viewer that changes whenever the text does. The
+ * viewer caches a file's lines by path for the whole session, so showing new
+ * text under an old path, after a regrouping or on another scenario, crashed
+ * it with "Line doesnt exist".
+ */
+export function sourcePath(name: string, content: string): string {
+  return `${name}-${hashText(content)}.feature`;
 }

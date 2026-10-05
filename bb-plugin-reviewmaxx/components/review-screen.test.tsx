@@ -157,14 +157,20 @@ describe("ReviewScreen", () => {
       expect.stringContaining("It refuses"),
     ]);
     const sources = () => screen.getAllByTestId("source").map((el) => [el.dataset.path, el.textContent]);
-    expect(sources()[0]).toEqual(["concern-1/scenario-1.feature", expect.stringContaining("(recorded: 3 lines)")]);
-    expect(sources()[1]![0]).toBe("concern-1/not-covered.feature");
+    expect(sources()[0]).toEqual([expect.stringMatching(/^concern-1\/scenario-1-\w+\.feature$/), expect.stringContaining("(recorded: 3 lines)")]);
+    expect(sources()[1]![0]).toMatch(/^concern-1\/not-covered-\w+\.feature$/);
 
+    // Folded and full text get different paths; the same text keeps its path.
+    const folded = sources()[0]![0];
     fireEvent.click(screen.getByRole("checkbox", { name: "Show values" }));
-    expect(sources()[0]).toEqual(["concern-1/scenario-1-values.feature", expect.stringContaining('"""')]);
+    expect(sources()[0]).toEqual([expect.stringMatching(/^concern-1\/scenario-1-\w+\.feature$/), expect.stringContaining('"""')]);
+    expect(sources()[0]![0]).not.toBe(folded);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show values" }));
+    expect(sources()[0]![0]).toBe(folded);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show values" }));
 
     fireEvent.click(within(list).getByRole("button", { name: /It refuses/ }));
-    expect(sources()[0]![0]).toBe("concern-1/scenario-2-values.feature");
+    expect(sources()[0]![0]).toMatch(/^concern-1\/scenario-2-\w+\.feature$/);
 
     expect(container.querySelector("[data-file]")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Diff" }));

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
-import { coverageLabel, fileStats, hunkNote, staleLabel, testsLabel, viewedLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, testsLabel, viewedLabel } from "./labels";
 
 export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
 export type SourceViewComponent = ComponentType<{ content: string; path: string }>;
@@ -329,16 +329,15 @@ function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: V
       </ol>
       {scenario && (
         <div className="overflow-hidden rounded-md border">
-          {/* A path per scenario and per folding: bb's viewer caches lines by path. */}
           <viewers.SourceView
             content={values ? scenario.values : scenario.steps}
-            path={`${section.id}/scenario-${at + 1}${values ? "-values" : ""}.feature`}
+            path={sourcePath(`${section.id}/scenario-${at + 1}`, values ? scenario.values : scenario.steps)}
           />
         </div>
       )}
       <h4 className="pt-1 font-semibold">Not covered</h4>
       <div className="overflow-hidden rounded-md border border-dashed">
-        <viewers.SourceView content={tests.notCovered} path={`${section.id}/not-covered.feature`} />
+        <viewers.SourceView content={tests.notCovered} path={sourcePath(`${section.id}/not-covered`, tests.notCovered)} />
       </div>
     </>
   );

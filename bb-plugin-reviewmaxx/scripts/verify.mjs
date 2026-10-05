@@ -69,6 +69,15 @@ for (const run of runs) {
   const entries = await page.locator("[data-reviewmaxx] [data-rail-item]").count();
   for (let i = 0; i < entries; i++) {
     await page.locator("[data-reviewmaxx] [data-rail-item]").nth(i).click();
+    // A test concern: show every scenario, folded and with values, in this one
+    // session, since bb's source viewer keeps what it drew before and a mismatch
+    // logs a console error that fails the run.
+    const scenarios = page.locator("[data-reviewmaxx] [data-scenario]");
+    const box = page.getByRole("checkbox", { name: "Show values" });
+    for (let pass = 0; pass < 2 && (await scenarios.count()) > 0; pass++) {
+      for (let n = 0; n < (await scenarios.count()); n++) await scenarios.nth(n).click();
+      await box.click();
+    }
     await page.evaluate(() => {
       document.querySelector('[data-reviewmaxx] [data-mode="diff"]')?.click();
       document.querySelectorAll("[data-reviewmaxx] details").forEach((d) => { d.open = true; });
