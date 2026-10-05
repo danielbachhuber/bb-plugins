@@ -44,6 +44,26 @@ writing and the hack can be deleted. Because `localStorage` is per origin, the
 packaged app and a checkout's dev app on another port keep separate
 preferences.
 
+### Each thread keeps its changes range
+
+The range dropdown at the top of the changes panel ("All changes",
+"Committed changes", "Uncommitted changes", or a single commit) is
+remembered per thread. bb keeps the range in React state and clears it to
+All changes whenever the panel moves to another environment, so switching
+to another thread and back loses it.
+
+A range is recorded only when you pick it from the dropdown. Picking All
+changes forgets the thread, since that is bb's default. The last 200 threads
+are kept, in `localStorage` under `bb-plugin-hacks.gitDiffRange.byThread`.
+
+The range is put back once each time you arrive at the thread or the
+dropdown mounts, and then left alone, so bb can still move it. A file link in
+the transcript, for example, sends the panel to All changes to scroll to that
+file. The hack waits until the stored range is listed, because bb lists only
+All changes until the thread's status has loaded and drops a range that is
+not listed. If the status loads without it, such as Uncommitted after
+everything was committed, the thread stays on All changes for that visit.
+
 ### Large diffs open their unread files
 
 bb folds every file in a diff of more than ten, and folds deleted files
@@ -121,6 +141,20 @@ The view-preferences hack anchors only on things bb emits deliberately:
 | `aria-pressed` | Reading every toolbar control's state |
 | A capture-phase `click` on the document | Knowing the user chose something, rather than bb moving a control itself |
 
+The range-memory hack is the exception to clicking bb's own controls. It
+reads `GitDiffSelector`'s props through the React fiber on the dropdown's
+trigger, because selecting a range by clicking would open the menu on every
+thread switch and take focus from the composer, and the closed menu cannot
+say which ranges exist:
+
+| Anchor | Used for |
+| --- | --- |
+| `[data-testid="git-diff-toolbar-selector-slot"] button` | The dropdown's trigger |
+| `__reactFiber$…` on the trigger, walked up to props with `value`, `options`, and `onChange` | Reading the range and the ranges listed, and selecting one |
+| `aria-expanded` and `aria-controls` on the trigger | Finding the open menu, to record a pick |
+| `role="menuitem"` text, matched to an option's short SHA and label | Which range was picked |
+| `/threads/<id>` in the URL | Which thread the range belongs to |
+
 The expand-unviewed hack anchors on the card headers instead:
 
 | Anchor | Used for |
@@ -162,6 +196,10 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/git-diff-expand-unviewed/cards.ts` | Reading bb's diff card headers |
 | `hacks/git-diff-expand-unviewed/rules.ts` | Pure logic: which cards to open, and which to leave folded |
 | `hacks/git-diff-expand-unviewed/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/git-diff-range-memory/rules.ts` | Pure logic: whether to put a thread's range back yet |
+| `hacks/git-diff-range-memory/selector.ts` | Reading bb's range dropdown and its React props |
+| `hacks/git-diff-range-memory/storage.ts` | The `localStorage` boundary: one range per thread |
+| `hacks/git-diff-range-memory/engine.ts` | The sync loop: arrivals, recording, cleanup |
 | `hacks/project-open-in-editor/rules.ts` | Pure logic: which editor, and which folder |
 | `hacks/project-open-in-editor/sidebar.ts` | Reading bb's project headers and building the button |
 | `hacks/project-open-in-editor/api.ts` | The network boundary: bb's projects and the host daemon |
