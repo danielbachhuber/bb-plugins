@@ -65,7 +65,9 @@ describe("buildPrompt", () => {
     expect(prompt).not.toMatch(/earlier points/);
   });
 
-  it("keeps the review out of my own working copy", () => {
-    expect(buildPrompt(rowFor(), NOW)).toMatch(/rather than checking the branch out/);
+  it("checks the pull request out in the thread's own worktree", () => {
+    const prompt = buildPrompt(rowFor(), NOW);
+    expect(prompt).toContain(`gh pr checkout ${rowFor().number}`);
+    expect(prompt).toMatch(/leave that checkout's branch alone/);
   });
 });

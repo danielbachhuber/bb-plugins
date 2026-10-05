@@ -84,7 +84,11 @@ export function buildPromptParts(row: ClassifiedRow, now: number): PromptParts {
       // same sentence every time, which is what the trailer is for.
       "Report your findings in this thread. Do NOT post anything to GitHub — no review, no comment, no approval, no inline comments — without asking me first and showing me exactly what you intend to post. That holds even if the skill you are following ends with a step that posts a comment: skip that step and show me the comment instead.",
       "",
-      "Read the diff with `gh pr diff` and `gh pr view` rather than checking the branch out into my own working copy.",
+      // A review thread opens in its own worktree by default, so checking the
+      // pull request out there is safe and saves asking for it afterwards.
+      // The composer can still put the thread in the project checkout, which
+      // is mine and must stay on whatever branch I left it on.
+      `If this thread runs in its own bb worktree, start by checking the pull request out there with \`gh pr checkout ${row.number}\` (add \`--detach\` if git says the branch is already checked out elsewhere). If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
     ].join("\n"),
   };
 }
