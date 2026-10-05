@@ -87,6 +87,49 @@ describe("parseDiff", () => {
     expect(parseDiff(SPACES)[0]!.path).toBe("docs/read me.md");
   });
 
+  it("parses quoted paths with a quote, a tab, and an octal escape", () => {
+    const quoted = `diff --git "a/we\\"ird.ts" "b/we\\"ird.ts"
+index 1111111..2222222 100644
+--- "a/we\\"ird.ts"
++++ "b/we\\"ird.ts"
+@@ -1 +1 @@
+-a
++b
+diff --git "a/tab\\tname.ts" "b/tab\\tname.ts"
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ "b/tab\\tname.ts"
+@@ -0,0 +1 @@
++x
+diff --git "a/bell\\007.bin" "b/bell\\007.bin"
+index 4444444..5555555 100644
+Binary files "a/bell\\007.bin" and "b/bell\\007.bin" differ
+`;
+    expect(parseDiff(quoted).map((f) => f.path)).toEqual(['we"ird.ts', "tab\tname.ts", "bell\u0007.bin"]);
+  });
+
+  it("merges two sections for the same path into one file", () => {
+    const twice = `diff --git a/f.txt b/f.txt
+deleted file mode 100644
+index 1111111..0000000
+--- a/f.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-hello
+diff --git a/f.txt b/f.txt
+new file mode 120000
+index 0000000..2222222
+--- /dev/null
++++ b/f.txt
+@@ -0,0 +1 @@
++target
+`;
+    const files = parseDiff(twice);
+    expect(files.map((f) => [f.path, f.status, f.hunks.map((h) => h.index)])).toEqual([["f.txt", "modified", [0, 1]]]);
+    expect(itemsOf(files).map((i) => `${i.path}#${i.index}`)).toEqual(["f.txt#0", "f.txt#1"]);
+  });
+
   it("returns nothing for an empty diff", () => {
     expect(parseDiff("")).toEqual([]);
   });

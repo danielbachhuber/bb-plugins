@@ -3,12 +3,14 @@
 // server.ts refuses an environment whose path is not a work tree here.
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readlink, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { ABSENT, type FileState } from "./stale";
 
 const MAX_BUFFER = 256 * 1024 * 1024;
+/** Every diff prints a/ and b/ paths relative to the repository root. */
+const DIFF_ARGS = ["--no-color", "--no-ext-diff", "--no-relative", "--src-prefix=a/", "--dst-prefix=b/"];
 /** Larger files are compared by hash only and shown as "changed" without a diff. */
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
@@ -16,7 +18,8 @@ function git(cwd: string, args: string[], okCodes: number[] = [0]): Promise<Buff
   return new Promise((resolve, reject) => {
     execFile(
       "git",
-      ["-C", cwd, "-c", "core.quotePath=false", ...args],
+      // Pin the settings that change how paths print, whatever the user's config says.
+      ["-C", cwd, "-c", "core.quotePath=false", "-c", "diff.mnemonicPrefix=false", "-c", "diff.noprefix=false", ...args],
       { encoding: "buffer", maxBuffer: MAX_BUFFER },
       (error, stdout, stderr) => {
         const code = error === null ? 0 : typeof error.code === "number" ? error.code : -1;
@@ -54,21 +57,35 @@ export async function readBranchDiff(
 ): Promise<{ baseSha: string; headSha: string; diffText: string; changedPaths: string[] }> {
   const headSha = (await gitText(root, ["rev-parse", "HEAD"])).trim();
   const baseSha = (await gitText(root, ["merge-base", "HEAD", mergeBaseBranch])).trim();
-  const diffArgs = ["--no-color", "--no-ext-diff", "-M"];
-  const tracked = await gitText(root, ["diff", ...diffArgs, baseSha]);
-  const trackedNames = (await gitText(root, ["diff", "--name-only", "-z", "-M", baseSha])).split("\0").filter(Boolean);
-  const untracked = (await gitText(root, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
+  const tracked = await gitText(root, ["diff", ...DIFF_ARGS, "-M", baseSha]);
+  const trackedNames = (await gitText(root, ["diff", "--name-only", "--no-relative", "-z", "-M", baseSha])).split("\0").filter(Boolean);
+  // A nested repository is listed as "dir/"; it is one item, named without the slash.
+  const untracked = (await gitText(root, ["ls-files", "--others", "--exclude-standard", "-z"]))
+    .split("\0")
+    .filter(Boolean)
+    .map((file) => file.replace(/\/$/, ""));
   const untrackedDiffs: string[] = [];
   for (const file of untracked) {
     // --no-index exits 1 when the sides differ, which they always do here.
-    untrackedDiffs.push(await gitText(root, ["diff", "--no-color", "--no-ext-diff", "--no-index", "--", "/dev/null", file], [0, 1]));
+    const out = await gitText(root, ["diff", ...DIFF_ARGS, "--no-index", "--", "/dev/null", file], [0, 1]);
+    // git has nothing to show for a nested repository or a symlink to a
+    // directory, but it is still on the branch, so it is a whole-file item.
+    untrackedDiffs.push(out || `diff --git a/${file} b/${file}\nnew file mode 160000\n`);
   }
   return { baseSha, headSha, diffText: tracked + untrackedDiffs.join(""), changedPaths: [...trackedNames, ...untracked] };
 }
 
 export async function fileOnDisk(root: string, file: string): Promise<FileState> {
+  const full = path.join(root, file);
   try {
-    return stateOf(await readFile(path.join(root, file)));
+    const stats = await lstat(full);
+    if (stats.isSymbolicLink()) return stateOf(Buffer.from(await readlink(full))); // what git stores for a symlink
+    if (stats.isDirectory()) {
+      // A submodule or nested repository: its state is the commit it has checked out.
+      const head = await gitText(full, ["rev-parse", "HEAD"]).catch(() => "");
+      return { hash: sha1(Buffer.from(`dir:${head.trim()}`)), text: null };
+    }
+    return stateOf(await readFile(full));
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code === "ENOENT") return ABSENT;
     throw cause;
@@ -92,7 +109,7 @@ export async function diffStates(before: FileState, after: FileState): Promise<s
     if (after.text !== null) await writeFile(path.join(dir, "b"), after.text);
     const out = await gitText(
       dir,
-      ["diff", "--no-color", "--no-ext-diff", "--no-index", "--", before.text === null ? "/dev/null" : "a", after.text === null ? "/dev/null" : "b"],
+      ["diff", ...DIFF_ARGS, "--no-index", "--", before.text === null ? "/dev/null" : "a", after.text === null ? "/dev/null" : "b"],
       [0, 1],
     );
     const start = out.indexOf("\n@@");

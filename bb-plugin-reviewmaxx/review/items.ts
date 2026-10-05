@@ -21,10 +21,37 @@ export function hashText(text: string): string {
 }
 
 export function parseDiff(text: string): DiffFile[] {
-  return text
+  const files = text
     .split(/^(?=diff --git )/m)
     .filter((chunk) => chunk.startsWith("diff --git "))
     .map(parseFile);
+  return mergeSamePath(files);
+}
+
+/**
+ * git writes two sections for one path when a file changes type (a file
+ * replaced by a symlink is a delete and an add), and the branch diff lists a
+ * path twice when it is deleted in the index but still on disk. One path is
+ * one file here, so items stay unique: the later section's hunks follow the
+ * earlier one's, renumbered.
+ */
+function mergeSamePath(files: DiffFile[]): DiffFile[] {
+  const byPath = new Map<string, DiffFile>();
+  for (const file of files) {
+    const seen = byPath.get(file.path);
+    if (seen === undefined) {
+      byPath.set(file.path, file);
+      continue;
+    }
+    byPath.set(file.path, {
+      ...seen,
+      status: seen.status === file.status ? seen.status : "modified",
+      binary: seen.binary || file.binary,
+      hunks: [...seen.hunks, ...file.hunks].map((hunk, index) => ({ ...hunk, index })),
+      hash: hashText(seen.hash + file.hash),
+    });
+  }
+  return [...byPath.values()];
 }
 
 export function itemsOf(files: DiffFile[]): Item[] {
@@ -35,9 +62,42 @@ export function itemsOf(files: DiffFile[]): Item[] {
   );
 }
 
-/** git quotes a path holding a quote, backslash, or control character. */
+const ESCAPES: Record<string, string> = { a: "\x07", b: "\b", t: "\t", n: "\n", v: "\v", f: "\f", r: "\r", '"': '"', "\\": "\\" };
+
+/**
+ * git quotes a path holding a quote, backslash, or control character, with C
+ * escapes: `\"`, `\t`, and octal bytes such as `\007`, which are UTF-8.
+ */
 function unquote(path: string): string {
-  return path.startsWith('"') && path.endsWith('"') ? (JSON.parse(path) as string) : path;
+  if (!(path.startsWith('"') && path.endsWith('"') && path.length >= 2)) return path;
+  const bytes: number[] = [];
+  const body = path.slice(1, -1);
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]!;
+    if (ch !== "\\") {
+      bytes.push(...new TextEncoder().encode(ch));
+      continue;
+    }
+    const next = body[i + 1] ?? "";
+    if (/[0-7]/.test(next)) {
+      bytes.push(parseInt(body.slice(i + 1, i + 4), 8));
+      i += 3;
+    } else {
+      bytes.push(...new TextEncoder().encode(ESCAPES[next] ?? next));
+      i += 1;
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+/** The first token of `rest`: a quoted string up to its closing quote, or everything up to " b/". */
+function splitQuoted(rest: string): [string, string] | null {
+  if (!rest.startsWith('"')) return null;
+  for (let i = 1; i < rest.length; i++) {
+    if (rest[i] === "\\") i++;
+    else if (rest[i] === '"') return [rest.slice(0, i + 1), rest.slice(i + 2)];
+  }
+  return null;
 }
 
 /**
@@ -65,6 +125,11 @@ function gitLinePaths(line: string): { old: string; new: string } {
     rest.slice(2, 2 + length) === rest.slice(5 + length)
   ) {
     return { old: rest.slice(2, 2 + length), new: rest.slice(5 + length) };
+  }
+  const quoted = splitQuoted(rest);
+  if (quoted !== null) {
+    const strip = (p: string) => p.replace(/^[ab]\//, "");
+    return { old: strip(unquote(quoted[0])), new: strip(unquote(quoted[1])) };
   }
   const at = rest.indexOf(" b/");
   return {

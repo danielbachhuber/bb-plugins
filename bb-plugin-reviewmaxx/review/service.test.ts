@@ -86,6 +86,19 @@ describe("service", () => {
     expect((await verifyData(store, "thr_1", checkout)).ok).toBe(true);
   });
 
+  it("groups a submodule and reads it back without throwing", async () => {
+    const { r, store, checkout } = await setup();
+    const sub = await makeRepo();
+    cleanups.push(sub.cleanup);
+    r.run("-c", "protocol.file.allow=always", "submodule", "add", "-q", sub.root, "vendor/sub");
+    r.run("commit", "-qm", "Add a submodule");
+    const files = ["src/widget.ts", "src/gadget.ts", ".gitmodules", "vendor/sub"];
+    const grouping = { headline: "Adds a submodule.", concerns: [{ title: "All", note: "Everything.", files }] };
+    expect((await submit(store, "thr_1", checkout, grouping, NOW)).ok).toBe(true);
+    expect((await getView(store, "thr_1", checkout)).stale).toBeNull();
+    expect((await verifyData(store, "thr_1", checkout)).ok).toBe(true);
+  });
+
   it("verify fails when there is no grouping yet, and still lists the items", async () => {
     const { store, checkout } = await setup();
     const result = await verifyData(store, "thr_1", checkout);

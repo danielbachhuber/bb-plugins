@@ -45,6 +45,41 @@ describe("readBranchDiff", () => {
     expect(files.map((f) => f.path)).toEqual(["notes.txt"]);
   });
 
+  it("reads quoted file names, committed and untracked", async () => {
+    const r = await repo();
+    r.write('we"ird.ts', "a\n");
+    r.run("add", 'we"ird.ts');
+    r.run("commit", "-qm", "Quote");
+    r.write("tab\tname.ts", "b\n");
+    const branch = await readBranchDiff(r.root, "main");
+    expect(parseDiff(branch.diffText).map((f) => f.path).sort()).toEqual(["tab\tname.ts", 'we"ird.ts']);
+  });
+
+  it("ignores diff.mnemonicPrefix in the user's config", async () => {
+    const r = await repo();
+    r.run("config", "diff.mnemonicPrefix", "true");
+    r.write("src/widget.ts", "export const widget = 2;\n");
+    r.write("new.ts", "n\n");
+    const files = parseDiff((await readBranchDiff(r.root, "main")).diffText);
+    expect(files.map((f) => f.path).sort()).toEqual(["new.ts", "src/widget.ts"]);
+  });
+
+  it("lists an untracked nested repository as one whole-file item", async () => {
+    const r = await repo();
+    r.write("nested/inner.txt", "x\n");
+    r.run("-C", `${r.root}/nested`, "init", "-q");
+    const branch = await readBranchDiff(r.root, "main");
+    const paths = parseDiff(branch.diffText).map((f) => f.path);
+    expect(branch.changedPaths.every((p) => paths.includes(p.replace(/\/$/, "")))).toBe(true);
+  });
+
+  it("lists a file deleted from the index but still on disk once", async () => {
+    const r = await repo();
+    r.run("rm", "-q", "--cached", "src/widget.ts");
+    const files = parseDiff((await readBranchDiff(r.root, "main")).diffText);
+    expect(files.map((f) => f.path)).toEqual(["src/widget.ts"]);
+  });
+
   it("returns an empty diff for a branch with no changes", async () => {
     const r = await repo();
     expect((await readBranchDiff(r.root, "main")).diffText).toBe("");
@@ -69,6 +104,16 @@ describe("file states", () => {
     const patch = await diffStates({ hash: "a", text: "one\n" }, { hash: "b", text: "two\n" });
     expect(patch).toBe("@@ -1 +1 @@\n-one\n+two\n");
     expect(await diffStates({ hash: "a", text: null }, { hash: "b", text: null })).toBe("");
+  });
+});
+
+describe("directories", () => {
+  it("reads a directory on disk, such as a submodule, without throwing", async () => {
+    const r = await repo();
+    r.write("vendor/sub/readme.txt", "x\n");
+    const state = await fileOnDisk(r.root, "vendor/sub");
+    expect(state.hash).not.toBeNull();
+    expect(state.text).toBeNull();
   });
 });
 
