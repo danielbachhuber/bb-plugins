@@ -15,6 +15,7 @@
 //       {actionSlot}{+12 -3}
 //     </span>
 //   </div>
+import type { SyncMode } from "./github";
 import {
   fingerprintFromStats,
   pathFromToggleLabel,
@@ -31,6 +32,8 @@ export const FILTER_ATTR = "data-diff-viewed-only-unviewed";
 const PROGRESS_HOST_ATTR = "data-diff-viewed-progress-host";
 /** Marks the progress line this plugin adds above bb's line counts. */
 const PROGRESS_ATTR = "data-diff-viewed-progress";
+/** Marks the "local" tag on a control whose mark does not reach GitHub. */
+const LOCAL_TAG_ATTR = "data-diff-viewed-local";
 /** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
 const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
 /** Timeline diffs, which are deliberately out of scope: the same path recurs
@@ -163,16 +166,52 @@ export function createControl(
   const text = document.createElement("span");
   text.textContent = "Viewed";
 
-  label.append(input, text);
+  // Shown only when the thread has a pull request and this file's diff is
+  // not the one on GitHub, so the mark stays in bb.
+  const local = document.createElement("span");
+  local.setAttribute(LOCAL_TAG_ATTR, "");
+  local.hidden = true;
+  local.className =
+    "rounded border border-border px-1 text-[0.625rem] leading-3.5 text-muted-foreground";
+  local.textContent = "local";
+
+  label.append(input, text, local);
   return label;
 }
 
-/** Reflect a card's viewed state onto its control and header row. */
-export function paintCard(card: DiffCard, viewed: boolean): void {
+/** The control's tooltip: where a click on it records the mark. */
+export function syncTitle(mode: SyncMode): string {
+  switch (mode.kind) {
+    case "none":
+      return "";
+    case "synced":
+      return `Synced with the Viewed box on pull request #${mode.number}`;
+    case "local":
+      return (
+        `Local only: this file's diff here differs from pull request #${mode.number} ` +
+        "on GitHub, so the mark is kept in bb and GitHub is left alone"
+      );
+  }
+}
+
+/** Reflect a card's viewed state and where it syncs onto its control and header row. */
+export function paintCard(
+  card: DiffCard,
+  viewed: boolean,
+  mode: SyncMode = { kind: "none" },
+): void {
   const control = existingControl(card);
   const input = control?.querySelector("input");
   if (input instanceof HTMLInputElement && input.checked !== viewed) {
     input.checked = viewed;
+  }
+  if (control !== null) {
+    const title = syncTitle(mode);
+    if (control.title !== title) control.title = title;
+    const local = control.querySelector(`[${LOCAL_TAG_ATTR}]`);
+    if (local instanceof HTMLElement && local.hidden !== (mode.kind !== "local")) {
+      local.hidden = mode.kind !== "local";
+    }
   }
   if (viewed) {
     card.headerRow.setAttribute(VIEWED_ATTR, "true");

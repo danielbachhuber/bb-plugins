@@ -63,11 +63,12 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     },
   });
 
-  // Another window may have marked a file since this one last looked. Realtime
-  // is a React-side API, so this settles for refetching when the window comes
-  // back to the front — enough for the multi-window case without a socket.
+  // Another window, or GitHub, may have marked a file since this one last
+  // looked. Realtime is a React-side API, so this settles for refetching when
+  // the window comes back to the front. The server reuses GitHub's answer for
+  // half a minute, so focusing back and forth does not query it each time.
   const onFocus = () => {
-    engine.schedule();
+    engine.refresh();
   };
   window.addEventListener("focus", onFocus);
 

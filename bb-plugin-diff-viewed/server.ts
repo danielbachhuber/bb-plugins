@@ -1,15 +1,38 @@
 // bb-plugin-diff-viewed — backend entry.
 //
-// One job: persist which files in a thread's diff have been marked viewed, so
-// the mark survives a reload and follows the thread across app windows. All
-// the interesting logic — keying, fingerprinting, pruning — lives in
-// viewed/marks.ts as pure functions; this file is the storage boundary and the
-// wire contract.
+// Two jobs: persist which files in a thread's diff have been marked viewed, so
+// the mark survives a reload and follows the thread across app windows, and
+// keep those marks in step with GitHub's Viewed boxes when the thread has a
+// pull request. The logic — keying, fingerprinting, pruning, which side a mark
+// lives on — is pure functions in viewed/marks.ts and viewed/github.ts; this
+// file is the storage boundary and the wire contract, and viewed/pull-request.ts
+// is every GitHub call.
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
 import { z } from "zod";
+import { syncMode, withGithubViewed, githubPath, type GithubState } from "./viewed/github";
 import { prune, recordKey, withMark, type ViewedRecord } from "./viewed/marks";
+import { fetchPullRequest, setFileViewed, type FetchedPullRequest } from "./viewed/pull-request";
 
 const recordSchema = z.record(z.string(), z.string());
+
+const githubSchema = z
+  .object({
+    number: z.number(),
+    url: z.string(),
+    files: z.array(
+      z.object({
+        path: z.string(),
+        additions: z.number(),
+        deletions: z.number(),
+        viewed: z.boolean(),
+      }),
+    ),
+  })
+  .nullable();
+
+/** A thread's marks, and its pull request's files when sync is on. */
+const marksSchema = z.object({ record: recordSchema, github: githubSchema });
 
 const threadIdSchema = z.string().trim().min(1).max(200);
 // A rename card's label is `previous -> current`, so paths are not bounded by
@@ -20,7 +43,7 @@ const pathSchema = z.string().trim().min(1).max(2000);
 export const rpcContract = defineRpcContract({
   viewed_list: {
     input: z.object({ threadId: threadIdSchema }).strict(),
-    output: z.object({ record: recordSchema }),
+    output: marksSchema,
   },
   viewed_set: {
     input: z
@@ -31,7 +54,7 @@ export const rpcContract = defineRpcContract({
         viewed: z.boolean(),
       })
       .strict(),
-    output: z.object({ record: recordSchema }),
+    output: marksSchema,
   },
   viewed_prune: {
     input: z
@@ -70,8 +93,96 @@ const FILTER_KEY = "filter:only-unviewed";
  */
 export const VIEWED_CHANGED = "viewed-changed";
 
+/**
+ * How long a pull request's files are reused before GitHub is asked again.
+ * The panel asks on every thread open and window focus; this caps that at one
+ * query a thread per half minute.
+ */
+const GITHUB_TTL_MS = 30_000;
+
+interface GithubEntry {
+  value: FetchedPullRequest | null;
+  fetchedAt: number;
+}
+
 export default async function plugin(bb: BbPluginApi) {
   bb.log.info("loaded");
+
+  const settings = bb.settings.define({
+    syncGithub: {
+      type: "select",
+      label: "Sync with GitHub",
+      // On: a thread with a pull request shares its Viewed marks with
+      // GitHub's own Viewed boxes, for files whose diff matches GitHub's.
+      options: ["on", "off"],
+      default: "on",
+    },
+    ghPath: {
+      type: "string",
+      label: "Path to the gh CLI",
+      default: "gh",
+    },
+  });
+
+  let runner: { path: string; gh: GhRunner } | null = null;
+  function ghFor(path: string): GhRunner {
+    if (runner?.path !== path) runner = { path, gh: createGhRunner(path) };
+    return runner.gh;
+  }
+
+  const githubCache = new Map<string, GithubEntry>();
+  const inFlight = new Map<string, Promise<FetchedPullRequest | null>>();
+  // Failures already logged, so a missing gh is one log line, not one a pass.
+  const logged = new Set<string>();
+  function warnOnce(message: string): void {
+    if (logged.has(message)) return;
+    logged.add(message);
+    bb.log.warn(message);
+  }
+
+  /** The URL of the thread's open pull request, or null. */
+  async function pullRequestUrl(threadId: string): Promise<string | null> {
+    const thread = await bb.sdk.threads.get({ threadId });
+    const environmentId = (thread as { environmentId?: string | null }).environmentId;
+    if (!environmentId) return null;
+    const result = await bb.sdk.environments.pullRequest({ environmentId });
+    if (result.outcome !== "available") return null;
+    return result.pullRequest.state === "open" ? result.pullRequest.url : null;
+  }
+
+  async function loadGithub(threadId: string): Promise<FetchedPullRequest | null> {
+    const { syncGithub, ghPath } = await settings.get();
+    if (syncGithub !== "on") return null;
+    try {
+      const url = await pullRequestUrl(threadId);
+      return url === null ? null : await fetchPullRequest(ghFor(ghPath), url);
+    } catch (error) {
+      warnOnce(`GitHub sync unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  /** The thread's pull request files, cached, with one request in flight. */
+  async function github(threadId: string): Promise<FetchedPullRequest | null> {
+    const cached = githubCache.get(threadId);
+    if (cached && Date.now() - cached.fetchedAt < GITHUB_TTL_MS) return cached.value;
+    const running = inFlight.get(threadId);
+    if (running) return running;
+    const request = loadGithub(threadId)
+      .then((value) => {
+        githubCache.set(threadId, { value, fetchedAt: Date.now() });
+        return value;
+      })
+      .finally(() => inFlight.delete(threadId));
+    inFlight.set(threadId, request);
+    return request;
+  }
+
+  /** What the content script sees: everything but the node id. */
+  function wire(value: FetchedPullRequest | null): GithubState | null {
+    if (value === null) return null;
+    return { number: value.number, url: value.url, files: value.files };
+  }
 
   async function read(threadId: string): Promise<ViewedRecord> {
     return (await bb.storage.kv.get<ViewedRecord>(recordKey(threadId))) ?? {};
@@ -95,11 +206,34 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
-    viewed_list: async ({ threadId }) => ({ record: await read(threadId) }),
+    viewed_list: async ({ threadId }) => {
+      const [record, pull] = await Promise.all([read(threadId), github(threadId)]);
+      return { record, github: wire(pull) };
+    },
     viewed_set: async ({ threadId, path, fingerprint, viewed }) => {
       const before = await read(threadId);
       const after = withMark(before, { path, fingerprint }, viewed);
-      return { record: await commit(threadId, before, after) };
+      const record = await commit(threadId, before, after);
+
+      // The local mark is kept either way, so the file stays marked if the
+      // diff later stops matching GitHub's. It reaches GitHub only when the
+      // diff being marked is the one GitHub has.
+      const pull = await github(threadId);
+      if (pull === null || syncMode(pull, { path, fingerprint }).kind !== "synced") {
+        return { record, github: wire(pull) };
+      }
+      const { ghPath } = await settings.get();
+      const remotePath = githubPath(path);
+      try {
+        await setFileViewed(ghFor(ghPath), pull.id, remotePath, viewed);
+      } catch (error) {
+        bb.log.warn(`Could not mark ${remotePath} ${viewed ? "viewed" : "unviewed"} on GitHub: ${String(error)}`);
+        throw error;
+      }
+      const updated = { ...pull, ...withGithubViewed(pull, remotePath, viewed) };
+      const cached = githubCache.get(threadId);
+      githubCache.set(threadId, { value: updated, fetchedAt: cached?.fetchedAt ?? Date.now() });
+      return { record, github: wire(updated) };
     },
     viewed_prune: async ({ threadId, presentPaths }) => {
       const before = await read(threadId);

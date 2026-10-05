@@ -115,31 +115,6 @@ export interface ReviewProgress {
 }
 
 /**
- * Count the files in `entries` whose current diff is marked viewed. A binary
- * image's header shows its size rather than counts, so its mark was stored as
- * `none` and is counted on that.
- */
-export function reviewProgress(
-  record: ViewedRecord,
-  entries: readonly DiffFileEntry[],
-): ReviewProgress {
-  let viewed = 0;
-  for (const entry of entries) {
-    const mark = record[labelForEntry(entry)];
-    if (mark === undefined) continue;
-    if (mark === fingerprintFromCounts(entry) || (entry.binary && mark === "none")) {
-      viewed += 1;
-    }
-  }
-  return { viewed, total: entries.length };
-}
-
-/** Whether this exact diff of this file has been marked viewed. */
-export function isViewed(record: ViewedRecord, target: FileMarkTarget): boolean {
-  return record[target.path] === target.fingerprint;
-}
-
-/**
  * Apply a mark change. Returns a new record, or the original when nothing
  * would change — callers use identity to skip a redundant write.
  */

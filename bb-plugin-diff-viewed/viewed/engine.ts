@@ -24,14 +24,17 @@ import {
 } from "./dom";
 import { readDiffFiles, rowOf, type DiffFilesRead } from "./files";
 import {
-  isViewed,
-  labelForEntry,
-  reviewProgress,
-  threadIdFromPath,
-  type ViewedRecord,
-} from "./marks";
+  githubPath,
+  isMarked,
+  syncMode,
+  syncedProgress,
+  withGithubViewed,
+  type GithubState,
+} from "./github";
+import { labelForEntry, threadIdFromPath, type ViewedRecord } from "./marks";
 
-export type RecordResult = { record: ViewedRecord };
+/** `github` is absent from a prune, which leaves it as it was. */
+export type RecordResult = { record: ViewedRecord; github?: GithubState | null };
 export type FilterResult = { onlyUnviewed: boolean };
 
 export interface EngineDeps {
@@ -54,12 +57,16 @@ export interface Engine {
   syncNow: () => void;
   /** Ask for a pass on the next frame. */
   schedule: () => void;
+  /** Refetch marks and GitHub's Viewed state, as when the window regains focus. */
+  refresh: () => void;
   dispose: () => void;
 }
 
 interface SyncState {
   threadId: string | null;
   record: ViewedRecord;
+  /** The thread's pull request files, or null when nothing syncs. */
+  github: GithubState | null;
   /**
    * Files this engine has already collapsed for you, keyed by path and
    * fingerprint. It is why a viewed file can be reopened and stay open: each
@@ -80,6 +87,7 @@ export function startEngine(deps: EngineDeps): Engine {
   const state: SyncState = {
     threadId: null,
     record: {},
+    github: null,
     autoCollapsed: new Set(),
     pruned: false,
     onlyUnviewed: false,
@@ -112,13 +120,18 @@ export function startEngine(deps: EngineDeps): Engine {
     const { threadId } = state;
     if (threadId === null) return;
     try {
-      const { record } = await rpc<RecordResult>("viewed_list", { threadId });
+      const result = await rpc<RecordResult>("viewed_list", { threadId });
       if (signal.aborted || state.threadId !== threadId) return;
-      state.record = record;
-      schedule();
+      accept(result);
     } catch (cause) {
       warn(cause);
     }
+  }
+
+  function accept(result: RecordResult): void {
+    state.record = result.record;
+    if (result.github !== undefined) state.github = result.github;
+    schedule();
   }
 
   /**
@@ -135,6 +148,9 @@ export function startEngine(deps: EngineDeps): Engine {
 
     // Paint optimistically: the checkbox has already moved under the user's
     // cursor and snapping it back while a round trip runs reads as a bug.
+    if (state.github !== null && syncMode(state.github, card).kind === "synced") {
+      state.github = withGithubViewed(state.github, githubPath(card.path), viewed);
+    }
     state.record = viewed
       ? { ...state.record, [card.path]: card.fingerprint }
       : Object.fromEntries(
@@ -144,7 +160,7 @@ export function startEngine(deps: EngineDeps): Engine {
     const key = collapseKey(card.path, card.fingerprint);
     writing = true;
     try {
-      paintCard(card, viewed);
+      paintCard(card, viewed, syncMode(state.github, card));
       if (viewed) {
         state.autoCollapsed.add(key);
         if (!card.isCollapsed) card.toggle.click();
@@ -162,10 +178,9 @@ export function startEngine(deps: EngineDeps): Engine {
       path: card.path,
       fingerprint: card.fingerprint,
       viewed,
-    }).then(({ record }) => {
+    }).then((result) => {
       if (signal.aborted || state.threadId !== threadId) return;
-      state.record = record;
-      schedule();
+      accept(result);
     }, fail);
   }
 
@@ -257,7 +272,7 @@ export function startEngine(deps: EngineDeps): Engine {
     }
     renderProgress(doc, {
       kind: "progress",
-      ...reviewProgress(state.record, read.files),
+      ...syncedProgress(state.record, state.github, read.files),
     });
 
     // Prune once per thread, against the full range only: a narrower range
@@ -268,10 +283,9 @@ export function startEngine(deps: EngineDeps): Engine {
     void loading.then(() => {
       if (signal.aborted || state.threadId !== threadId) return;
       rpc<RecordResult>("viewed_prune", { threadId, presentPaths }).then(
-        ({ record }) => {
+        (result) => {
           if (signal.aborted || state.threadId !== threadId) return;
-          state.record = record;
-          schedule();
+          accept(result);
         },
         fail,
       );
@@ -290,8 +304,8 @@ export function startEngine(deps: EngineDeps): Engine {
           );
           card.actions.append(control);
         }
-        const viewed = isViewed(state.record, card);
-        paintCard(card, viewed);
+        const viewed = isMarked(state.record, state.github, card);
+        paintCard(card, viewed, syncMode(state.github, card));
         const key = collapseKey(card.path, card.fingerprint);
         if (viewed && !card.isCollapsed && !state.autoCollapsed.has(key)) {
           state.autoCollapsed.add(key);
@@ -309,6 +323,7 @@ export function startEngine(deps: EngineDeps): Engine {
     if (threadId !== state.threadId) {
       state.threadId = threadId;
       state.record = {};
+      state.github = null;
       state.autoCollapsed.clear();
       state.pruned = false;
       if (threadId !== null) loading = reload();
@@ -358,6 +373,9 @@ export function startEngine(deps: EngineDeps): Engine {
   return {
     syncNow,
     schedule,
+    refresh() {
+      void reload();
+    },
     dispose() {
       observer.disconnect();
       if (cancel !== null) cancel();

@@ -30,6 +30,46 @@ is not offered.
 Marks are kept per thread and survive a reload and a restart of bb. Another
 open window picks up a change when it regains focus.
 
+## Sync with GitHub
+
+When the thread has an open pull request, the Viewed checkbox and GitHub's
+own **Viewed** box on the pull request's Files changed tab are the same mark.
+Check a file in bb and it shows as viewed on GitHub. Mark or unmark it on
+GitHub and bb shows the change the next time the window regains focus.
+
+That holds only for a file whose diff in bb is the one on GitHub, judged by
+the same `+N -M` counts that key a mark. When they differ, for example because
+you have edits that are not pushed yet, or you are looking at Uncommitted
+changes, the checkbox shows a small **local** tag. You can still check it,
+which is how you review your own diff before pushing, but the mark stays in
+bb and GitHub is left alone. Hover the checkbox to see which kind of mark it
+is. Once you push and the counts line up, GitHub's state takes over for that
+file.
+
+A file GitHub reports as changed since you viewed it shows unchecked, as it
+does on GitHub.
+
+Sync uses `gh`, signed in as you (`gh auth login`). Without it, or with no
+open pull request, the plugin keeps marks in bb as it otherwise would, and
+logs why once. To turn sync off or point at a different `gh`:
+
+```sh
+bb plugin config diff-viewed set syncGithub off
+bb plugin config diff-viewed set ghPath /opt/homebrew/bin/gh
+```
+
+GitHub calls:
+
+- When a thread's panel loads and when the window regains focus, one GraphQL
+  query reads the pull request's files with your Viewed state, plus one more
+  for each further 100 files. The answer is reused for 30 seconds, and
+  requests that overlap share one call, so switching windows back and forth
+  does not query again each time.
+- Each click on a file that syncs is one mutation. A click on a local file
+  makes no GitHub call.
+- The thread's pull request is found through bb's own lookup for the
+  environment, the one its pull request banner uses.
+
 ## What clears a mark
 
 A mark is keyed on the thread, the file path, and the file's `+N -M` counts.
@@ -51,13 +91,15 @@ bb plugin install git:https://github.com/danielbachhuber/bb-plugins.git@^0.1.0 \
   --plugin diff-viewed --tag-prefix diff-viewed/
 ```
 
-Needs bb 0.41 or later. No account, external service, or separate install.
+Needs bb 0.41 or later. GitHub sync needs `gh` on PATH and signed in; without
+it the plugin works the same, with marks kept in bb.
 
 ## Related plugins
 
 - **Guided Review** (`guided-review`) also tracks viewed files, inside its own
   reading guide for a GitHub pull request or a local Git range. Diff Viewed
-  puts the mark on bb's own changes panel for the thread you are in, needs no
+  puts the mark on bb's own changes panel for the thread you are in, shares it
+  with GitHub's Viewed box when the thread has a pull request, works without a
   GitHub sign-in or agent provider, and clears a mark when that file's diff
   changes.
 
@@ -140,10 +182,12 @@ toolbar still counts every file.
 | Path | Holds |
 | --- | --- |
 | `viewed/marks.ts` | Pure logic: keying, fingerprinting, record changes |
+| `viewed/github.ts` | Pure logic: whether a file's mark is GitHub's or local, and progress across both |
+| `viewed/pull-request.ts` | Every GitHub call: reading the pull request's files, marking one viewed |
 | `viewed/dom.ts` | Reading and decorating bb's card headers, toolbar, and range dropdown |
 | `viewed/files.ts` | Reading the panel's full file list from React props |
 | `viewed/engine.ts` | The sync loop: passes, observers, click handling, cleanup |
-| `server.ts` | RPC contract and kv storage for marks and the filter |
+| `server.ts` | RPC contract, kv storage for marks and the filter, settings, and the GitHub cache |
 | `app.tsx` | Wiring only: real fetch, real scheduler, real document |
 
 ## Development

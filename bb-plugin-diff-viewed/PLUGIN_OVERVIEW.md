@@ -17,6 +17,15 @@ show every file. The choice applies to every thread.
 Marks are kept per thread. They survive a reload and a restart of bb, and
 another open window picks them up when it regains focus.
 
+## Sync with GitHub
+
+When the thread has an open pull request, checking a file also marks it
+viewed on GitHub, and marking or unmarking it on GitHub shows up in bb when
+the window regains focus. This applies to files whose diff in bb matches the
+one on GitHub. A file with unpushed edits, or one you are viewing under
+Uncommitted changes, gets a small **local** tag: you can still check it, but
+the mark stays in bb. Turn sync off with the **Sync with GitHub** setting.
+
 ## What clears a mark
 
 A mark is keyed on the thread, the file path, and the file's `+N -M` counts.
@@ -30,7 +39,9 @@ Marks for files that have left the diff are pruned when the panel next loads.
 ## Requirements
 
 - bb 0.41 or later.
-- No account, external service, or separate install.
-- Nothing is read outside the changes panel, and nothing is sent anywhere.
+- For GitHub sync, `gh` on PATH and signed in (`gh auth login`). Without it,
+  marks stay in bb.
+- Nothing is read outside the changes panel. The only thing sent anywhere is
+  each synced file's Viewed state, to the thread's pull request on GitHub.
 - If a later bb release reshapes the changes panel, the plugin decorates nothing
   and bb behaves exactly as it does without it.

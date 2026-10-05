@@ -3,8 +3,6 @@ import {
   fingerprintFromCounts,
   fingerprintFromStats,
   labelForEntry,
-  reviewProgress,
-  isViewed,
   pathFromToggleLabel,
   prune,
   recordKey,
@@ -12,6 +10,7 @@ import {
   withMark,
   type DiffFileEntry,
 } from "./marks";
+import { isMarked, syncedProgress } from "./github";
 
 describe("threadIdFromPath", () => {
   it("resolves both thread routes to the same id", () => {
@@ -118,23 +117,23 @@ describe("withMark", () => {
   });
 });
 
-describe("isViewed", () => {
+describe("isMarked without a pull request", () => {
   const record = { "src/a.ts": "+8 -4" };
 
   it("is true only for the exact diff that was marked", () => {
-    expect(isViewed(record, { path: "src/a.ts", fingerprint: "+8 -4" })).toBe(
+    expect(isMarked(record, null, { path: "src/a.ts", fingerprint: "+8 -4" })).toBe(
       true,
     );
   });
 
   it("clears itself when the file changes again", () => {
-    expect(isViewed(record, { path: "src/a.ts", fingerprint: "+9 -4" })).toBe(
+    expect(isMarked(record, null, { path: "src/a.ts", fingerprint: "+9 -4" })).toBe(
       false,
     );
   });
 
   it("is false for a file that was never marked", () => {
-    expect(isViewed(record, { path: "src/b.ts", fingerprint: "+8 -4" })).toBe(
+    expect(isMarked(record, null, { path: "src/b.ts", fingerprint: "+8 -4" })).toBe(
       false,
     );
   });
@@ -186,7 +185,7 @@ describe("labelForEntry", () => {
   });
 });
 
-describe("reviewProgress", () => {
+describe("syncedProgress without a pull request", () => {
   it("counts only files whose current diff is marked", () => {
     const record = {
       "src/a.ts": "+8 -4",
@@ -194,13 +193,13 @@ describe("reviewProgress", () => {
       "src/gone.ts": "+8 -4",
     };
     expect(
-      reviewProgress(record, [entry("src/a.ts"), entry("src/b.ts"), entry("src/c.ts")]),
+      syncedProgress(record, null, [entry("src/a.ts"), entry("src/b.ts"), entry("src/c.ts")]),
     ).toEqual({ viewed: 1, total: 3 });
   });
 
   it("counts a binary image marked from its size stat", () => {
     expect(
-      reviewProgress({ "logo.png": "none" }, [
+      syncedProgress({ "logo.png": "none" }, null, [
         entry("logo.png", { binary: true, additions: 0, deletions: 0 }),
       ]),
     ).toEqual({ viewed: 1, total: 1 });

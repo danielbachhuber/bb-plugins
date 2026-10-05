@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startEngine, type Engine } from "./engine";
 import { FILTER_ATTR, OWNED_ATTR, VIEWED_ATTR } from "./dom";
+import type { GithubState } from "./github";
 import type { DiffFileEntry } from "./marks";
 
 const THREAD = "/projects/proj_x/threads/thr_a";
@@ -149,6 +150,8 @@ function start(
     record?: Record<string, string>;
     pathname?: string;
     onlyUnviewed?: boolean;
+    /** The pull request files the server reports, as when sync is on. */
+    github?: GithubState;
     /** Collect warnings instead of failing the test on the first one. */
     warnings?: unknown[];
   } = {},
@@ -156,6 +159,7 @@ function start(
   const calls: { method: string; input: unknown }[] = [];
   const record: Record<string, string> = { ...(options.record ?? {}) };
   let onlyUnviewed = options.onlyUnviewed ?? false;
+  let github: GithubState | null = options.github ?? null;
 
   const rpc = async <Result,>(method: string, input: unknown): Promise<Result> => {
     calls.push({ method, input });
@@ -172,8 +176,19 @@ function start(
       };
       if (viewed) record[path] = fingerprint;
       else delete record[path];
+      if (github !== null) {
+        github = {
+          ...github,
+          files: github.files.map((file) =>
+            file.path === path && `+${file.additions} -${file.deletions}` === fingerprint
+              ? { ...file, viewed }
+              : file,
+          ),
+        };
+      }
     }
-    return { record: { ...record } } as Result;
+    if (method === "viewed_prune") return { record: { ...record } } as Result;
+    return { record: { ...record }, github } as Result;
   };
 
   const engine = startEngine({
@@ -644,5 +659,97 @@ describe("when bb's file list cannot be read", () => {
     await harness.settle();
 
     expect(document.querySelector(`label[${OWNED_ATTR}] input`)).not.toBeNull();
+  });
+});
+
+describe("syncing with GitHub", () => {
+  const pull = (files: GithubState["files"]): GithubState => ({
+    number: 42,
+    url: "https://github.com/acme/widgets/pull/42",
+    files,
+  });
+
+  function localTag(toggle: HTMLButtonElement): HTMLElement | null {
+    return toggle.parentElement!.parentElement!.querySelector("[data-diff-viewed-local]");
+  }
+
+  it("checks a file GitHub has marked viewed", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts", "+8 -4");
+    const harness = start({
+      github: pull([{ path: "a.ts", additions: 8, deletions: 4, viewed: true }]),
+    });
+    await harness.settle();
+
+    expect(checkboxFor(toggle)!.checked).toBe(true);
+    expect(isCollapsed(toggle)).toBe(true);
+    expect(localTag(toggle)!.hidden).toBe(true);
+  });
+
+  it("unchecks a file GitHub has unmarked, even with a local mark", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts", "+8 -4");
+    const harness = start({
+      record: { "a.ts": "+8 -4" },
+      github: pull([{ path: "a.ts", additions: 8, deletions: 4, viewed: false }]),
+    });
+    await harness.settle();
+
+    expect(checkboxFor(toggle)!.checked).toBe(false);
+  });
+
+  it("tags a file whose diff differs from GitHub's as local, and keeps it checkable", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts", "+9 -4");
+    const harness = start({
+      github: pull([{ path: "a.ts", additions: 8, deletions: 4, viewed: true }]),
+    });
+    await harness.settle();
+
+    expect(checkboxFor(toggle)!.checked).toBe(false);
+    expect(localTag(toggle)!.hidden).toBe(false);
+    expect(localTag(toggle)!.closest("label")!.title).toMatch(/^Local only/);
+
+    checkboxFor(toggle)!.click();
+    await harness.settle();
+    expect(checkboxFor(toggle)!.checked).toBe(true);
+    expect(harness.record).toEqual({ "a.ts": "+9 -4" });
+  });
+
+  it("shows no local tag without a pull request", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts");
+    const harness = start();
+    await harness.settle();
+
+    expect(localTag(toggle)!.hidden).toBe(true);
+    expect(localTag(toggle)!.closest("label")!.title).toBe("");
+  });
+
+  it("counts GitHub's marks in the progress", async () => {
+    renderToolbar();
+    renderCard("a.ts", "+8 -4");
+    renderCard("b.ts", "+1 -1");
+    const harness = start({
+      github: pull([
+        { path: "a.ts", additions: 8, deletions: 4, viewed: true },
+        { path: "b.ts", additions: 1, deletions: 1, viewed: false },
+      ]),
+    });
+    await harness.settle();
+
+    expect(document.querySelector("[data-diff-viewed-progress]")!.textContent).toContain("1/2 viewed");
+  });
+
+  it("refetches on refresh", async () => {
+    renderToolbar();
+    renderCard("a.ts");
+    const harness = start();
+    await harness.settle();
+    const before = harness.calls.filter((call) => call.method === "viewed_list").length;
+
+    harness.engine.refresh();
+    await harness.settle();
+    expect(harness.calls.filter((call) => call.method === "viewed_list")).toHaveLength(before + 1);
   });
 });
