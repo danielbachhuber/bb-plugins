@@ -8,6 +8,7 @@ const file = (indexes: number[], total: number) => ({
   binary: false,
   header: "",
   total,
+  viewed: false,
   hunks: indexes.map((index) => ({ path: "a.ts", index, kind: "hunk" as const, header: "", text: "", status: "current" as const })),
 });
 
@@ -26,8 +27,8 @@ describe("labels", () => {
   });
 
   it("counts what is shown", () => {
-    expect(coverageLabel({ files: 41, hunks: 118, shown: 118 })).toBe("41 files, 118 hunks, all shown");
-    expect(coverageLabel({ files: 1, hunks: 1, shown: 1 })).toBe("1 file, 1 hunk, all shown");
-    expect(coverageLabel({ files: 41, hunks: 118, shown: 117 })).toBe("41 files, 117 of 118 hunks shown");
+    expect(coverageLabel({ files: 41, hunks: 118, shown: 118, viewed: 0 })).toBe("41 files, 118 hunks, all shown");
+    expect(coverageLabel({ files: 1, hunks: 1, shown: 1, viewed: 0 })).toBe("1 file, 1 hunk, all shown");
+    expect(coverageLabel({ files: 41, hunks: 118, shown: 117, viewed: 0 })).toBe("41 files, 117 of 118 hunks shown");
   });
 });

@@ -21,12 +21,22 @@ export const MIGRATIONS = [
     content TEXT,
     PRIMARY KEY (thread_id, path)
   )`,
+  `CREATE TABLE viewed (
+    thread_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    PRIMARY KEY (thread_id, path)
+  )`,
 ];
 
 export interface Store {
   get(threadId: string): StoredGrouping | null;
   snapshot(threadId: string): Map<string, FileState>;
   put(threadId: string, stored: StoredGrouping, files: Map<string, FileState>): void;
+  /** Each viewed file's path, with the hash of its diff when it was marked. */
+  viewed(threadId: string): Map<string, string>;
+  /** Mark a file viewed at this diff hash, or clear its mark with null. */
+  setViewed(threadId: string, path: string, hash: string | null): void;
 }
 
 interface GroupingRow {
@@ -53,6 +63,12 @@ export function createStore(db: Database.Database): Store {
   );
   const deleteFiles = db.prepare("DELETE FROM snapshot_files WHERE thread_id = ?");
   const insertFile = db.prepare("INSERT INTO snapshot_files (thread_id, path, hash, content) VALUES (?, ?, ?, ?)");
+
+  const selectViewed = db.prepare<[string], { path: string; hash: string }>("SELECT path, hash FROM viewed WHERE thread_id = ?");
+  const upsertViewed = db.prepare(
+    "INSERT INTO viewed (thread_id, path, hash) VALUES (?, ?, ?) ON CONFLICT(thread_id, path) DO UPDATE SET hash = excluded.hash",
+  );
+  const deleteViewed = db.prepare("DELETE FROM viewed WHERE thread_id = ? AND path = ?");
 
   const put = db.transaction((threadId: string, stored: StoredGrouping, files: Map<string, FileState>) => {
     upsertGrouping.run(
@@ -84,6 +100,13 @@ export function createStore(db: Database.Database): Store {
     },
     put(threadId, stored, files) {
       put(threadId, stored, files);
+    },
+    viewed(threadId) {
+      return new Map(selectViewed.all(threadId).map((row) => [row.path, row.hash]));
+    },
+    setViewed(threadId, path, hash) {
+      if (hash === null) deleteViewed.run(threadId, path);
+      else upsertViewed.run(threadId, path, hash);
     },
   };
 }

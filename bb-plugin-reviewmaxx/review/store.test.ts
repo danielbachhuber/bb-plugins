@@ -33,4 +33,13 @@ describe("store", () => {
     expect([...s.snapshot("thr_1").keys()]).toEqual(["b.ts"]);
     expect(s.get("thr_2")).toBeNull();
   });
+
+  it("keeps viewed marks per thread and file, and clears one", () => {
+    const s = store();
+    s.setViewed("thr_1", "a.ts", "h1");
+    s.setViewed("thr_1", "b.ts", "h2");
+    s.setViewed("thr_2", "a.ts", "h9");
+    s.setViewed("thr_1", "b.ts", null);
+    expect(s.viewed("thr_1")).toEqual(new Map([["a.ts", "h1"]]));
+  });
 });

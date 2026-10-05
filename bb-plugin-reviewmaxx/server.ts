@@ -9,7 +9,7 @@ import path from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
 import { toplevel } from "./review/git";
-import { getView, hunks, submit, verifyData, type Checkout } from "./review/service";
+import { getView, hunks, setViewed, submit, testsText, verifyData, type Checkout } from "./review/service";
 import { createStore, MIGRATIONS } from "./review/store";
 
 export const rpcContract = defineRpcContract(rpcShape);
@@ -24,6 +24,7 @@ const MAX_HUNKS_OUTPUT = 900_000;
 const USAGE = [
   "Usage:",
   "  bb reviewmaxx hunks [--full]          Every file and hunk on this branch, numbered from 0",
+  "  bb reviewmaxx tests                   Each test on this branch, with its numbered steps to cite",
   "  bb reviewmaxx submit <file | json>    Check a grouping and store it if every hunk is placed once",
   "  bb reviewmaxx verify [--json]         Check the stored grouping against the branch",
   "",
@@ -54,6 +55,12 @@ export default async function plugin(bb: BbPluginApi) {
       if (typeof checkout === "string") return { state: "unavailable", message: checkout };
       return { state: "ok", view: await getView(store, threadId, checkout) };
     },
+    review_set_viewed: async ({ threadId, path, viewed }) => {
+      const checkout = await checkoutFor(threadId);
+      if (typeof checkout === "string") throw new Error(checkout);
+      await setViewed(store, threadId, checkout, path, viewed);
+      return { ok: true as const };
+    },
     review_generate: async ({ threadId }) => {
       await bb.sdk.threads.send({
         threadId,
@@ -69,6 +76,7 @@ export default async function plugin(bb: BbPluginApi) {
     summary: "Group this branch's hunks into concerns for the Reviewmaxx panel",
     commands: [
       { name: "hunks", summary: "List every file and hunk on the branch, numbered from 0", usage: "bb reviewmaxx hunks [--full]" },
+      { name: "tests", summary: "List each test on the branch with its numbered steps, for scenario citations", usage: "bb reviewmaxx tests" },
       { name: "submit", summary: "Check a grouping and store it if every hunk is placed once", usage: "bb reviewmaxx submit <file | json>" },
       { name: "verify", summary: "Check the stored grouping covers every hunk exactly once", usage: "bb reviewmaxx verify [--json]" },
     ],
@@ -94,6 +102,11 @@ export default async function plugin(bb: BbPluginApi) {
           exitCode: 0,
           stdout: `${index}\n\nThe full diff is too large to print here. Read hunks with \`git diff\` in the checkout; the numbering above is what to submit.`,
         };
+      }
+
+      if (command === "tests") {
+        const text = await testsText(checkout);
+        return { exitCode: 0, stdout: text.length <= MAX_HUNKS_OUTPUT ? text : `${text.slice(0, MAX_HUNKS_OUTPUT)}\n\n(cut short at ${MAX_HUNKS_OUTPUT} characters)` };
       }
 
       if (command === "submit") {

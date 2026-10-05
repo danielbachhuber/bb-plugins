@@ -34,7 +34,7 @@ function stored(diff: string): StoredGrouping {
 function expectEveryItemOnce(view: ReviewView, diff: string) {
   const expected = itemsOf(parseDiff(diff)).map((i) => `${i.path}#${i.index}`).sort();
   expect(shownKeys(view).sort()).toEqual(expected);
-  expect(view.coverage).toEqual({ files: parseDiff(diff).length, hunks: expected.length, shown: expected.length });
+  expect(view.coverage).toEqual({ files: parseDiff(diff).length, hunks: expected.length, shown: expected.length, viewed: 0 });
 }
 
 describe("buildView", () => {
@@ -93,5 +93,22 @@ describe("placeItems", () => {
     ]);
     expect([...placed.values()].map((p) => p.concern).sort()).toEqual([0, 1]);
     expect(removed).toEqual([]);
+  });
+
+  it("marks a file viewed only while its diff is the one that was viewed", () => {
+    const files = parseDiff(DIFF);
+    const widget = files.find((f) => f.path === "src/widget.ts")!;
+    const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts", widget.hash], ["src/gadget.ts", "old-hash"]]) });
+    const all = view.concerns.flatMap((c) => c.files);
+    expect(all.filter((f) => f.path === "src/widget.ts").every((f) => f.viewed)).toBe(true);
+    expect(all.find((f) => f.path === "src/gadget.ts")!.viewed).toBe(false);
+    expect(view.coverage.viewed).toBe(1);
+  });
+
+  it("attaches a test overlay to its concern", () => {
+    const tests = { covered: "Feature: x", notCovered: "Feature: Not covered by these tests", scenarios: 1, asserted: 0, snapshotOnly: 1, gaps: 0, snapshots: 1 };
+    const view = buildView(parseDiff(DIFF), stored(DIFF), null, { tests: new Map([[1, tests]]) });
+    expect(view.concerns[0]!.tests).toBeNull();
+    expect(view.concerns[1]!.tests).toEqual(tests);
   });
 });

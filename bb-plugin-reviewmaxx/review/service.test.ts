@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { getView, hunks, submit, verifyData, type Checkout } from "./service";
+import { getView, hunks, submit, testsText, verifyData, type Checkout } from "./service";
 import { createStore, MIGRATIONS } from "./store";
 import { makeRepo } from "./testing/repo";
 
@@ -105,5 +105,61 @@ describe("service", () => {
     expect(result.ok).toBe(false);
     expect(result.text).toMatch(/^No grouping yet/);
     expect(result.items.sort()).toEqual(["src/gadget.ts#0", "src/widget.ts#0"]);
+  });
+
+  describe("tests", () => {
+    const TEST = `import { expect, test } from "vitest";
+import { gadget } from "./gadget";
+
+test("the gadget is one", () => {
+  expect(gadget).toMatchSnapshot();
+  expect(gadget).toBe(1);
+});
+`;
+    const SNAP = "// Vitest Snapshot v1\n\nexports[`the gadget is one 1`] = `1`;\n";
+
+    async function withTest() {
+      const ctx = await setup();
+      ctx.r.write("src/gadget.test.ts", TEST);
+      ctx.r.write("src/__snapshots__/gadget.test.ts.snap", SNAP);
+      return ctx;
+    }
+
+    const block = {
+      covered: [{ title: "The gadget", given: [], when: ["the gadget is read"], then: [{ text: "it is one", steps: ["src/gadget.test.ts:1"] }] }],
+      notCovered: [],
+      notCoveredNote: "The gadget is a constant.",
+    };
+    const grouping = (tests?: typeof block) => ({
+      headline: "A gadget, and a test for it.",
+      concerns: [
+        { title: "Widget", note: "Bumps the widget.", files: ["src/widget.ts", "src/gadget.ts"] },
+        { title: "Tests", note: "Pins the gadget.", files: ["src/gadget.test.ts"], ...(tests ? { tests } : {}) },
+      ],
+    });
+
+    it("lists each test's numbered steps for the agent", async () => {
+      const { checkout } = await withTest();
+      const text = await testsText(checkout);
+      expect(text).toContain("src/gadget.test.ts:1  the gadget is one");
+      expect(text).toContain("1.1  snapshot only  gadget toMatchSnapshot");
+    });
+
+    it("rejects a test concern without scenarios, and accepts one with them", async () => {
+      const { store, checkout } = await withTest();
+      const rejected = await submit(store, "thr_1", checkout, grouping(), NOW);
+      expect(rejected.ok).toBe(false);
+      expect(rejected.text).toContain("tests missing");
+      expect((await submit(store, "thr_1", checkout, grouping(block), NOW)).ok).toBe(true);
+    });
+
+    it("shows the overlay with each recorded value under its step", async () => {
+      const { store, checkout } = await withTest();
+      await submit(store, "thr_1", checkout, grouping(block), NOW);
+      const tests = (await getView(store, "thr_1", checkout)).concerns[1]!.tests!;
+      expect(tests.covered).toContain('    Then it is one  # snapshot only, asserted\n      # 1.1 gadget toMatchSnapshot\n      """\n      1\n      """');
+      expect(tests.snapshots).toBe(1);
+      expect(tests.notCovered).toContain("# The gadget is a constant.");
+    });
   });
 });

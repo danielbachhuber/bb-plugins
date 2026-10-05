@@ -24,7 +24,21 @@ export const viewFileSchema = z.object({
   header: z.string(),
   /** How many items the file has in the diff now, for "hunks 1 and 3 of 4". */
   total: z.number().int(),
+  /** Marked viewed at the file's current diff. */
+  viewed: z.boolean(),
   hunks: z.array(viewHunkSchema),
+});
+
+/** A test concern's Scenarios view: Gherkin text built from the agent's scenarios and the parsed tests. */
+export const viewTestsSchema = z.object({
+  covered: z.string(),
+  notCovered: z.string(),
+  scenarios: z.number().int(),
+  asserted: z.number().int(),
+  snapshotOnly: z.number().int(),
+  gaps: z.number().int(),
+  /** Recorded snapshot values the covered text shows. */
+  snapshots: z.number().int(),
 });
 
 export const viewSectionSchema = z.object({
@@ -32,6 +46,7 @@ export const viewSectionSchema = z.object({
   title: z.string(),
   note: z.string().nullable(),
   files: z.array(viewFileSchema),
+  tests: viewTestsSchema.nullable(),
 });
 
 export const staleSchema = z.object({
@@ -49,7 +64,7 @@ export const reviewViewSchema = z.object({
   notYetGrouped: viewSectionSchema.nullable(),
   mechanical: viewSectionSchema.nullable(),
   stale: staleSchema.nullable(),
-  coverage: z.object({ files: z.number().int(), hunks: z.number().int(), shown: z.number().int() }),
+  coverage: z.object({ files: z.number().int(), hunks: z.number().int(), shown: z.number().int(), viewed: z.number().int() }),
 });
 
 export const reviewResultSchema = z.discriminatedUnion("state", [
@@ -60,6 +75,7 @@ export const reviewResultSchema = z.discriminatedUnion("state", [
 export type ViewHunk = z.infer<typeof viewHunkSchema>;
 export type ViewFile = z.infer<typeof viewFileSchema>;
 export type ViewSection = z.infer<typeof viewSectionSchema>;
+export type ViewTests = z.infer<typeof viewTestsSchema>;
 export type StaleInfo = z.infer<typeof staleSchema>;
 export type ReviewView = z.infer<typeof reviewViewSchema>;
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
@@ -68,6 +84,10 @@ export const rpcShape = {
   review_get: {
     input: z.object({ threadId: z.string().min(1) }),
     output: reviewResultSchema,
+  },
+  review_set_viewed: {
+    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), viewed: z.boolean() }),
+    output: z.object({ ok: z.literal(true) }),
   },
   review_generate: {
     input: z.object({ threadId: z.string().min(1) }),
