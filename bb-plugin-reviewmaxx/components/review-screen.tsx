@@ -227,9 +227,10 @@ function Section({ section, number, open, viewers }: { section: ViewSection; num
       <summary className="flex cursor-pointer list-none items-center gap-2 border-b pb-2">
         <Icon name="ChevronRight" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
         {number !== null && <span className="text-xs font-semibold text-muted-foreground">{number}</span>}
-        <h3 className="font-semibold">{section.title}</h3>
-        <span className="text-xs text-muted-foreground">({count})</span>
-        <span className="ml-auto" />
+        {/* The title takes the room left and wraps, so the toggle never leaves a narrow panel. */}
+        <h3 className="min-w-0 flex-1 font-semibold">
+          {section.title} <span className="text-xs font-normal text-muted-foreground">({count})</span>
+        </h3>
         {tests && <ModeToggle mode={mode} onChange={setMode} />}
       </summary>
       <div className="flex flex-col gap-3 pt-3">
