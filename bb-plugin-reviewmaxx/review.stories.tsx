@@ -1,14 +1,14 @@
+import { experimental_Diff as Diff, experimental_SourceCode as SourceCode } from "@get-bb/plugin-sdk/app";
 import { ReviewScreen } from "./components/review-screen";
 import type { ReviewResult } from "./review/contract";
 import { parseDiff } from "./review/items";
 import { buildView } from "./review/view";
+import { coveredFeature, notCoveredFeature, type ResolvedStep } from "./review/tests/feature";
 
 export default { title: "reviewmaxx/Review panel" };
 
-// Stories have no bb runtime, so the diff is drawn as plain text.
-const DiffView = ({ patch }: { patch: string; path: string }) => (
-  <pre className="overflow-x-auto rounded bg-muted p-2 text-xs">{patch}</pre>
-);
+const DiffView = ({ patch, path }: { patch: string; path: string }) => <Diff patch={patch} path={path} />;
+const SourceView = ({ content, path }: { content: string; path: string }) => <SourceCode content={content} path={path} overflow="wrap" />;
 
 const DIFF = `diff --git a/src/widget.ts b/src/widget.ts
 index 1111111..2222222 100644
@@ -68,7 +68,7 @@ const grouped = buildView(
 
 const render = (result: ReviewResult | null, generating = false) => (
   <div className="w-[560px]">
-    <ReviewScreen result={result} error={null} generating={generating} onGenerate={() => {}} DiffView={DiffView} />
+    <ReviewScreen result={result} error={null} generating={generating} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} />
   </div>
 );
 
@@ -107,3 +107,60 @@ export const Unavailable = () =>
 
 /** A branch with nothing on it yet. */
 export const NoChanges = () => render({ state: "ok", view: buildView([], null, null) });
+
+const STEPS: Record<string, ResolvedStep[]> = {
+  "src/sprocket.test.ts:1.1": [{ id: "1.1", kind: "snapshot", code: "sprocket(4) toMatchSnapshot", value: "5" }],
+  "src/sprocket.test.ts:1.2": [{ id: "1.2", kind: "exact", code: "sprocket(-1) toBe 0", value: null }],
+};
+const covered = coveredFeature(
+  "Add the sprocket",
+  [
+    {
+      title: "The sprocket adds one",
+      given: ["a gadget worth 4"],
+      when: ["the widget passes it through the sprocket"],
+      then: [
+        { text: "it comes out as 5", steps: ["src/sprocket.test.ts:1.1"] },
+        { text: "a negative gadget comes out as 0", steps: ["src/sprocket.test.ts:1.2"] },
+      ],
+    },
+  ],
+  (ref) => STEPS[ref] ?? null,
+);
+const notCovered = notCoveredFeature(
+  [
+    {
+      title: "A gadget that is not a number",
+      reason: "untested",
+      note: "The sprocket never checks its input.",
+      evidence: [{ path: "src/sprocket.ts", line: 1 }],
+      given: ["a gadget worth \"four\""],
+      when: ["the widget passes it through the sprocket"],
+      then: ["the call is refused"],
+    },
+  ],
+  undefined,
+);
+
+/** A test concern on Scenarios: what the tests check as Gherkin, each recorded value under its step, then what they leave out. Diff shows the raw files. */
+export const TestConcern = () =>
+  render({
+    state: "ok",
+    view: {
+      ...grouped,
+      concerns: grouped.concerns.map((c, i) =>
+        i === 0 ? { ...c, tests: { covered: covered.text, notCovered, scenarios: 1, asserted: 1, snapshotOnly: 1, gaps: 1, snapshots: covered.snapshots } } : c,
+      ),
+    },
+  });
+
+/** Some files marked viewed: they fold and dim, and the bar and the outline count them. */
+export const SomeViewed = () =>
+  render({
+    state: "ok",
+    view: {
+      ...grouped,
+      concerns: grouped.concerns.map((c, i) => (i === 1 ? { ...c, files: c.files.map((f) => ({ ...f, viewed: true })) } : c)),
+      coverage: { ...grouped.coverage, viewed: 1 },
+    },
+  });

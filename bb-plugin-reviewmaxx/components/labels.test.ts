@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageLabel, hunkNote, staleLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, staleLabel, viewedLabel } from "./labels";
 
 const file = (indexes: number[], total: number) => ({
   path: "a.ts",
@@ -30,5 +30,15 @@ describe("labels", () => {
     expect(coverageLabel({ files: 41, hunks: 118, shown: 118, viewed: 0 })).toBe("41 files, 118 hunks, all shown");
     expect(coverageLabel({ files: 1, hunks: 1, shown: 1, viewed: 0 })).toBe("1 file, 1 hunk, all shown");
     expect(coverageLabel({ files: 41, hunks: 118, shown: 117, viewed: 0 })).toBe("41 files, 117 of 118 hunks shown");
+  });
+
+  it("counts the lines a file adds and removes", () => {
+    const f = { ...file([0], 1), hunks: [{ path: "a.ts", index: 0, kind: "hunk" as const, header: "", text: "@@ -1,2 +1,2 @@\n-a\n+b\n+c\n d", status: "current" as const }] };
+    expect(fileStats(f)).toEqual({ added: 2, removed: 1 });
+  });
+
+  it("says how many files are viewed", () => {
+    expect(viewedLabel({ files: 12, hunks: 30, shown: 30, viewed: 5 })).toBe("5 of 12 files viewed");
+    expect(viewedLabel({ files: 1, hunks: 1, shown: 1, viewed: 1 })).toBe("1 of 1 file viewed");
   });
 });

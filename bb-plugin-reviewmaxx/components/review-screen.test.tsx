@@ -1,13 +1,28 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReviewView } from "@/review/contract";
 import { parseDiff } from "@/review/items";
 import { buildView } from "@/review/view";
-import { ReviewScreen } from "./review-screen";
+import { ReviewScreen, type ReviewScreenProps } from "./review-screen";
+
+// bb's icons need the bb runtime, which jsdom does not have.
+vi.mock("@/components/ui/icon", () => ({ Icon: () => null }));
 
 afterEach(cleanup);
+
+const SourceView = ({ content, path }: { content: string; path: string }) => (
+  <pre data-testid="source" data-path={path}>
+    {content}
+  </pre>
+);
+
+function screenWith(props: Partial<ReviewScreenProps> & Pick<ReviewScreenProps, "result">) {
+  return render(
+    <ReviewScreen error={null} generating={false} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} {...props} />,
+  );
+}
 
 const DiffView = ({ patch, path }: { patch: string; path: string }) => (
   <pre data-testid="diff" data-path={path}>
@@ -65,7 +80,7 @@ function view(): ReviewView {
 describe("ReviewScreen", () => {
   it("renders every item exactly once with its data attributes", () => {
     const { container } = render(
-      <ReviewScreen result={{ state: "ok", view: view() }} error={null} generating={false} onGenerate={() => {}} DiffView={DiffView} />,
+      <ReviewScreen result={{ state: "ok", view: view() }} error={null} generating={false} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} />,
     );
     const keys = Array.from(container.querySelectorAll("[data-file][data-hunk]"))
       .filter((el) => el.getAttribute("data-status") !== "removed")
@@ -80,7 +95,7 @@ describe("ReviewScreen", () => {
 
   it("opens the first concern and collapses Mechanical", () => {
     const { container } = render(
-      <ReviewScreen result={{ state: "ok", view: view() }} error={null} generating={false} onGenerate={() => {}} DiffView={DiffView} />,
+      <ReviewScreen result={{ state: "ok", view: view() }} error={null} generating={false} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} />,
     );
     const sections = Array.from(container.querySelectorAll<HTMLDetailsElement>("details[data-section]"));
     expect(sections.map((s) => [s.dataset.section, s.open])).toEqual([
@@ -101,7 +116,7 @@ describe("ReviewScreen", () => {
         changedFiles: [{ path: "src/widget.ts", patch: "@@ -1 +1 @@\n-b\n+e\n" }],
       },
     };
-    render(<ReviewScreen result={{ state: "ok", view: stale }} error={null} generating={false} onGenerate={onGenerate} DiffView={DiffView} />);
+    screenWith({ result: { state: "ok", view: stale }, onGenerate });
     expect(screen.getByText(/2 commits and 1 file changed since/)).toBeInTheDocument();
     expect(screen.getByText("Changed since grouping")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
@@ -109,15 +124,49 @@ describe("ReviewScreen", () => {
   });
 
   it("shows why the review is unavailable", () => {
-    render(
-      <ReviewScreen
-        result={{ state: "unavailable", message: "Reviewmaxx needs a git checkout, and this environment is not one." }}
-        error={null}
-        generating={false}
-        onGenerate={() => {}}
-        DiffView={DiffView}
-      />,
-    );
+    screenWith({ result: { state: "unavailable", message: "Reviewmaxx needs a git checkout, and this environment is not one." } });
     expect(screen.getByText(/needs a git checkout/)).toBeInTheDocument();
+  });
+
+  it("lists the concerns in an outline, and counts viewed files", () => {
+    const v = view();
+    v.concerns[0]!.files[1]!.viewed = true;
+    v.coverage.viewed = 1;
+    screenWith({ result: { state: "ok", view: v } });
+    const outline = screen.getByRole("list", { name: "Concerns" });
+    expect(within(outline).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      expect.stringContaining("First"),
+      expect.stringContaining("Second"),
+      expect.stringContaining("Mechanical"),
+    ]);
+    expect(screen.getByText("1 of 3 files viewed")).toBeInTheDocument();
+  });
+
+  it("folds a viewed file and reports a new mark", () => {
+    const onSetViewed = vi.fn();
+    const v = view();
+    v.concerns[0]!.files[1]!.viewed = true;
+    const { container } = screenWith({ result: { state: "ok", view: v }, onSetViewed });
+    const cards = Array.from(container.querySelectorAll<HTMLDetailsElement>("details[data-file-card]"));
+    expect(cards.map((c) => [c.dataset.fileCard, c.open])).toEqual([
+      ["src/widget.ts", true],
+      ["assets/logo.png", false],
+      ["src/widget.ts", true],
+      ["yarn.lock", true],
+    ]);
+    fireEvent.click(screen.getAllByRole("checkbox", { name: "Viewed src/widget.ts" })[0]!);
+    expect(onSetViewed).toHaveBeenCalledWith("src/widget.ts", true);
+  });
+
+  it("shows a test concern as scenarios first, and its diff on Diff", () => {
+    const v = view();
+    v.concerns[1]!.tests = { covered: "Feature: Second\n  Scenario: It works", notCovered: "Feature: Not covered by these tests\n\n  @untested", scenarios: 1, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
+    const { container } = screenWith({ result: { state: "ok", view: v } });
+    const second = container.querySelector<HTMLElement>('[data-section="concern-1"]')!;
+    expect(within(second).getAllByTestId("source").map((el) => el.dataset.path)).toEqual(["scenarios.feature", "not-covered.feature"]);
+    expect(within(second).getByText("1 scenario · 1 asserted, 2 snapshot only · 1 not covered")).toBeInTheDocument();
+    expect(second.querySelector("[data-file]")).toBeNull();
+    fireEvent.click(within(second).getByRole("button", { name: "Diff" }));
+    expect(second.querySelector('[data-file="src/widget.ts"][data-hunk="1"]')).not.toBeNull();
   });
 });

@@ -63,6 +63,8 @@ for (const run of runs) {
   await action.click();
   await page.waitForSelector('[data-reviewmaxx="ready"]', { timeout: 60_000 });
 
+  // Test concerns open on Scenarios; their hunks draw on Diff.
+  await page.evaluate(() => document.querySelectorAll('[data-reviewmaxx] [data-mode="diff"]').forEach((b) => b.click()));
   await page.evaluate(() => document.querySelectorAll("[data-reviewmaxx] details").forEach((d) => { d.open = true; }));
   // A drawn diff has height; an empty placeholder does not. One read per
   // check, not per row in a loop that writes.

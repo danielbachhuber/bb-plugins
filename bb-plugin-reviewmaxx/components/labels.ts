@@ -27,3 +27,26 @@ export function coverageLabel(coverage: ReviewView["coverage"]): string {
   if (coverage.shown === coverage.hunks) return `${files}, ${plural(coverage.hunks, "hunk", "hunks")}, all shown`;
   return `${files}, ${coverage.shown} of ${plural(coverage.hunks, "hunk", "hunks")} shown`;
 }
+
+/** Lines a file's shown hunks add and remove. */
+export function fileStats(file: ViewFile): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const hunk of file.hunks) {
+    if (hunk.status === "removed") continue;
+    for (const line of hunk.text.split("\n").slice(1)) {
+      if (line.startsWith("+")) added++;
+      else if (line.startsWith("-")) removed++;
+    }
+  }
+  return { added, removed };
+}
+
+export function viewedLabel(coverage: ReviewView["coverage"]): string {
+  return `${coverage.viewed} of ${plural(coverage.files, "file", "files")} viewed`;
+}
+
+/** "3 scenarios · 3 asserted, 3 snapshot only · 3 not covered" */
+export function testsLabel(tests: { scenarios: number; asserted: number; snapshotOnly: number; gaps: number }): string {
+  return `${plural(tests.scenarios, "scenario", "scenarios")} · ${tests.asserted} asserted, ${tests.snapshotOnly} snapshot only · ${tests.gaps} not covered`;
+}

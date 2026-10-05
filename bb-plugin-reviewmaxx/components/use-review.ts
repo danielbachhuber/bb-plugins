@@ -34,5 +34,14 @@ export function useReview(threadId: string) {
     });
   }, [rpc, threadId]);
 
-  return { result: loaded?.threadId === threadId ? loaded.result : null, error, generating, generate };
+  const setViewed = useCallback(
+    (path: string, viewed: boolean) => {
+      rpc.call("review_set_viewed", { threadId, path, viewed }).then(refetch, (cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    },
+    [rpc, threadId, refetch],
+  );
+
+  return { result: loaded?.threadId === threadId ? loaded.result : null, error, generating, generate, setViewed };
 }
