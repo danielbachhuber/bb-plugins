@@ -106,7 +106,14 @@ describe("placeItems", () => {
   });
 
   it("attaches a test overlay to its concern", () => {
-    const tests = { covered: "Feature: x", notCovered: "Feature: Not covered by these tests", scenarios: 1, asserted: 0, snapshotOnly: 1, gaps: 0, snapshots: 1 };
+    const tests = {
+      scenarios: [{ title: "x", asserted: 0, snapshotOnly: 1, steps: "Scenario: x", values: "Scenario: x" }],
+      notCovered: "Feature: Not covered by these tests",
+      asserted: 0,
+      snapshotOnly: 1,
+      gaps: 0,
+      snapshots: 1,
+    };
     const view = buildView(parseDiff(DIFF), stored(DIFF), null, { tests: new Map([[1, tests]]) });
     expect(view.concerns[0]!.tests).toBeNull();
     expect(view.concerns[1]!.tests).toEqual(tests);

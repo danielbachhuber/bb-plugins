@@ -3,7 +3,7 @@
 import type { ViewTests } from "../contract";
 import type { TestsBlock } from "../grouping";
 import { splitRef } from "./check";
-import { coveredFeature, notCoveredFeature, type ResolvedStep } from "./feature";
+import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./feature";
 import type { TestFile } from "./parse";
 
 export interface TestInputs {
@@ -24,19 +24,22 @@ export function resolver(inputs: TestInputs) {
   };
 }
 
-export function buildOverlay(title: string, block: TestsBlock, inputs: TestInputs): ViewTests {
+export function buildOverlay(block: TestsBlock, inputs: TestInputs): ViewTests {
   const resolve = resolver(inputs);
-  const { text, snapshots } = coveredFeature(title, block.covered, resolve);
-  const cited = block.covered.flatMap((s) => s.then.flatMap((t) => t.steps.flatMap((ref) => resolve(ref) ?? [])));
-  const unique = new Map(cited.map((s) => [s.id + s.code, s]));
-  const steps = [...unique.values()];
+  const scenarios = block.covered.map((scenario) => {
+    const folded = scenarioFeature(scenario, resolve, { values: false });
+    const full = scenarioFeature(scenario, resolve, { values: true });
+    return { title: scenario.title, asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text, snapshots: full.snapshots };
+  });
+  // Counted once per step across the concern, since scenarios can cite the same step.
+  const cited = new Map(block.covered.flatMap((s) => s.then.flatMap((t) => t.steps.flatMap((ref) => resolve(ref) ?? []))).map((s) => [s.id + s.code, s]));
+  const steps = [...cited.values()];
   return {
-    covered: text,
+    scenarios: scenarios.map(({ snapshots: _, ...scenario }) => scenario),
     notCovered: notCoveredFeature(block.notCovered, block.notCoveredNote),
-    scenarios: block.covered.length,
     asserted: steps.filter((s) => s.kind === "exact" || s.kind === "error" || s.kind === "mock").length,
     snapshotOnly: steps.filter((s) => s.kind === "snapshot").length,
     gaps: block.notCovered.length,
-    snapshots,
+    snapshots: scenarios.reduce((n, s) => n + s.snapshots, 0),
   };
 }

@@ -32,41 +32,71 @@ const docstring = (value: string, indent: string) => [
   `${indent}"""`,
 ];
 
+const ASSERTED_KINDS = new Set(["exact", "error", "mock"]);
+const lineCount = (value: string) => value.split("\n").length;
+
 /**
+ * One scenario as Gherkin, starting at `Scenario:`.
+ *
  * @param resolve the steps a reference stands for: one for `path:1.3`, every
  *   step of the test for `path:1`, or null when it is not in the test any more
- * @returns the text and how many recorded values it holds
+ * @param options.values each recorded value in full as a docstring, or folded
+ *   to a note on its step line
+ * @param indent added before every line, for writing it inside a Feature
  */
+export function scenarioFeature(
+  scenario: Scenario,
+  resolve: (ref: string) => ResolvedStep[] | null,
+  options: { values: boolean },
+  indent = "",
+): { text: string; snapshots: number; asserted: number; snapshotOnly: number } {
+  const out = [`${indent}Scenario: ${scenario.title}`];
+  let snapshots = 0;
+  const cited = new Map<string, ResolvedStep>();
+  for (const [keyword, line] of [...keyed("Given", scenario.given), ...keyed("When", scenario.when)]) out.push(`${indent}  ${keyword} ${line}`);
+  scenario.then.forEach((then, i) => {
+    const resolved = then.steps.map((ref) => ({ ref, steps: resolve(ref) }));
+    const labels = [...new Set(resolved.flatMap((r) => (r.steps ?? []).map((s) => LABEL[s.kind])))];
+    out.push(`${indent}  ${i === 0 ? "Then" : "And"} ${then.text}${labels.length ? `  # ${labels.join(", ")}` : ""}`);
+    for (const { ref, steps } of resolved) {
+      if (steps === null) {
+        out.push(`${indent}    # ${ref} is no longer in the test`);
+        continue;
+      }
+      for (const step of steps) {
+        cited.set(step.id + step.code, step);
+        if (step.value === null) {
+          out.push(`${indent}    # ${step.id} ${step.code}`);
+        } else if (options.values) {
+          out.push(`${indent}    # ${step.id} ${step.code}`, ...docstring(step.value, `${indent}    `));
+          snapshots++;
+        } else {
+          const n = lineCount(step.value);
+          out.push(`${indent}    # ${step.id} ${step.code}  (recorded: ${n} ${n === 1 ? "line" : "lines"})`);
+        }
+      }
+    }
+  });
+  const steps = [...cited.values()];
+  return {
+    text: out.join("\n"),
+    snapshots,
+    asserted: steps.filter((s) => ASSERTED_KINDS.has(s.kind)).length,
+    snapshotOnly: steps.filter((s) => s.kind === "snapshot").length,
+  };
+}
+
+/** Every scenario under a Feature, with the values in full. */
 export function coveredFeature(
   title: string,
   scenarios: Scenario[],
   resolve: (ref: string) => ResolvedStep[] | null,
 ): { text: string; snapshots: number } {
-  const out = [`Feature: ${title}`];
-  let snapshots = 0;
-  for (const scenario of scenarios) {
-    out.push("", `  Scenario: ${scenario.title}`);
-    for (const [keyword, line] of [...keyed("Given", scenario.given), ...keyed("When", scenario.when)]) out.push(`    ${keyword} ${line}`);
-    scenario.then.forEach((then, i) => {
-      const resolved = then.steps.map((ref) => ({ ref, steps: resolve(ref) }));
-      const labels = [...new Set(resolved.flatMap((r) => (r.steps ?? []).map((s) => LABEL[s.kind])))];
-      out.push(`    ${i === 0 ? "Then" : "And"} ${then.text}${labels.length ? `  # ${labels.join(", ")}` : ""}`);
-      for (const { ref, steps } of resolved) {
-        if (steps === null) {
-          out.push(`      # ${ref} is no longer in the test`);
-          continue;
-        }
-        for (const step of steps) {
-          out.push(`      # ${step.id} ${step.code}`);
-          if (step.value !== null) {
-            out.push(...docstring(step.value, "      "));
-            snapshots++;
-          }
-        }
-      }
-    });
-  }
-  return { text: out.join("\n"), snapshots };
+  const parts = scenarios.map((scenario) => scenarioFeature(scenario, resolve, { values: true }, "  "));
+  return {
+    text: [`Feature: ${title}`, ...parts.flatMap((part) => ["", part.text])].join("\n"),
+    snapshots: parts.reduce((n, part) => n + part.snapshots, 0),
+  };
 }
 
 export function notCoveredFeature(gaps: Gap[], note: string | undefined): string {

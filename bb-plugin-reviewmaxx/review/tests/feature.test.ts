@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Gap, Scenario } from "../grouping";
-import { coveredFeature, notCoveredFeature, type ResolvedStep } from "./feature";
+import { coveredFeature, notCoveredFeature, scenarioFeature, type ResolvedStep } from "./feature";
 
 const STEPS: Record<string, ResolvedStep[]> = {
   "a.test.ts:1.1": [{ id: "1.1", kind: "snapshot", code: 'archive("sprocket") toMatchSnapshot', value: '{\n  "archived": true,\n}' }],
@@ -54,6 +54,33 @@ describe("coveredFeature", () => {
       ].join("\n"),
     );
     expect(snapshots).toBe(2);
+  });
+});
+
+describe("scenarioFeature", () => {
+  it("writes one scenario with each recorded value folded to a note", () => {
+    expect(scenarioFeature(SCENARIOS[0]!, resolve, { values: false })).toEqual({
+      text: [
+        "Scenario: A manager archives a widget",
+        "  Given the seeded widgets",
+        "  And MANAGER is signed in",
+        "  When MANAGER archives Sprocket",
+        "  Then it comes back archived  # snapshot only",
+        '    # 1.1 archive("sprocket") toMatchSnapshot  (recorded: 3 lines)',
+        "  And the list shrinks  # asserted",
+        "    # 1.2 list().length toBe 1",
+        "    # a.test.ts:9.9 is no longer in the test",
+      ].join("\n"),
+      snapshots: 0,
+      asserted: 1,
+      snapshotOnly: 1,
+    });
+  });
+
+  it("writes the values in full when asked", () => {
+    const { text, snapshots } = scenarioFeature(SCENARIOS[1]!, resolve, { values: true });
+    expect(text).toContain('    """\n    [Error: say \\"\\"\\"no\\"\\"\\"]\n    """');
+    expect(snapshots).toBe(1);
   });
 });
 

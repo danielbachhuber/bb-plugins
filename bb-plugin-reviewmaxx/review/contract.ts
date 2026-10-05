@@ -29,15 +29,25 @@ export const viewFileSchema = z.object({
   hunks: z.array(viewHunkSchema),
 });
 
-/** A test concern's Scenarios view: Gherkin text built from the agent's scenarios and the parsed tests. */
+/** One scenario, as Gherkin with its recorded values folded and in full. */
+export const viewScenarioSchema = z.object({
+  title: z.string(),
+  asserted: z.number().int(),
+  snapshotOnly: z.number().int(),
+  /** Each recorded value folded to a note on its step. */
+  steps: z.string(),
+  /** Each recorded value in full, as a docstring under its step. */
+  values: z.string(),
+});
+
+/** A test concern's Scenarios view, built from the agent's scenarios and the parsed tests. */
 export const viewTestsSchema = z.object({
-  covered: z.string(),
+  scenarios: z.array(viewScenarioSchema),
   notCovered: z.string(),
-  scenarios: z.number().int(),
   asserted: z.number().int(),
   snapshotOnly: z.number().int(),
   gaps: z.number().int(),
-  /** Recorded snapshot values the covered text shows. */
+  /** Recorded snapshot values the scenarios show in full. */
   snapshots: z.number().int(),
 });
 
@@ -76,6 +86,7 @@ export type ViewHunk = z.infer<typeof viewHunkSchema>;
 export type ViewFile = z.infer<typeof viewFileSchema>;
 export type ViewSection = z.infer<typeof viewSectionSchema>;
 export type ViewTests = z.infer<typeof viewTestsSchema>;
+export type ViewScenario = z.infer<typeof viewScenarioSchema>;
 export type StaleInfo = z.infer<typeof staleSchema>;
 export type ReviewView = z.infer<typeof reviewViewSchema>;
 export type ReviewResult = z.infer<typeof reviewResultSchema>;

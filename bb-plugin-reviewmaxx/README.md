@@ -29,7 +29,7 @@ From top to bottom, the panel shows:
    and **Mechanical** for lockfiles, snapshots, and generated files.
 6. A count of files and hunks, and whether all of them are shown.
 
-![A test concern on Scenarios: its tests as a highlighted Gherkin feature, with each recorded snapshot value under the step that wrote it, and a second dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--test-concern.png)
+![A test concern on Scenarios: its two scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--test-concern.png)
 
 ## Marking files viewed
 
@@ -44,16 +44,18 @@ grouping.
 ## Test concerns
 
 A concern that holds test files opens on **Scenarios**, with **Diff** one click
-away for the raw files. Scenarios shows two highlighted Gherkin blocks, drawn by
-bb's own source viewer:
+away for the raw files. Scenarios has three parts, the Gherkin drawn by bb's own
+source viewer:
 
-- **What the tests cover.** Each behaviour as a scenario with Given, When, and
-  Then lines in the agent's words. Under each Then line are the assertions that
-  check it, numbered as `1.3`, each marked asserted, snapshot only, or checked
-  to exist, and each recorded snapshot value as a `"""` block under the step
-  that wrote it. A reviewer reads what a long snapshot file proves, step
-  by step, instead of the file.
-- **What they leave out.** A second, dashed block of the scenarios a test would
+- **The scenarios, listed.** One line each, with how many of its steps are
+  asserted and how many are snapshot only. Choosing one shows it below.
+- **The chosen scenario.** Its Given, When, and Then lines in the agent's
+  words. Under each Then line are the assertions that check it, numbered as
+  `1.3` and marked asserted, snapshot only, or checked to exist. A recorded
+  snapshot value folds to a note on its step, such as `(recorded: 20 lines)`,
+  so the scenario reads straight through; **Show values** puts each value back
+  in full as a `"""` block under the step that wrote it.
+- **What the tests leave out.** A dashed block of the scenarios a test would
   need, each tagged with why it is a gap (`@untested`, `@unchecked`,
   `@never-run`, or `@outside-layer`), with a note and the code location as
   comments.

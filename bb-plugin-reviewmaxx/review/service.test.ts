@@ -157,7 +157,9 @@ test("the gadget is one", () => {
       const { store, checkout } = await withTest();
       await submit(store, "thr_1", checkout, grouping(block), NOW);
       const tests = (await getView(store, "thr_1", checkout)).concerns[1]!.tests!;
-      expect(tests.covered).toContain('    Then it is one  # snapshot only, asserted\n      # 1.1 gadget toMatchSnapshot\n      """\n      1\n      """');
+      expect(tests.scenarios.map((sc) => [sc.title, sc.asserted, sc.snapshotOnly])).toEqual([["The gadget", 1, 1]]);
+      expect(tests.scenarios[0]!.steps).toContain("    # 1.1 gadget toMatchSnapshot  (recorded: 1 line)");
+      expect(tests.scenarios[0]!.values).toContain('  Then it is one  # snapshot only, asserted\n    # 1.1 gadget toMatchSnapshot\n    """\n    1\n    """');
       expect(tests.snapshots).toBe(1);
       expect(tests.notCovered).toContain("# The gadget is a constant.");
     });

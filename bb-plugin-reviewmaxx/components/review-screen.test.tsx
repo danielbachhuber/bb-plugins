@@ -135,13 +135,37 @@ describe("ReviewScreen", () => {
     expect(onSetViewed).toHaveBeenCalledWith("src/widget.ts", true);
   });
 
-  it("shows a test concern as scenarios first, and its diff on Diff", () => {
+  it("lists a test concern's scenarios, shows the chosen one, and its diff on Diff", () => {
     const v = view();
-    v.concerns[1]!.tests = { covered: "Feature: Second\n  Scenario: It works", notCovered: "Feature: Not covered by these tests\n\n  @untested", scenarios: 1, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
+    v.concerns[1]!.tests = {
+      scenarios: [
+        { title: "It works", asserted: 1, snapshotOnly: 1, steps: "Scenario: It works\n  # 1.1 x toMatchSnapshot  (recorded: 3 lines)", values: 'Scenario: It works\n  """\n  {}\n  """' },
+        { title: "It refuses", asserted: 0, snapshotOnly: 1, steps: "Scenario: It refuses", values: "Scenario: It refuses" },
+      ],
+      notCovered: "Feature: Not covered by these tests\n\n  @untested",
+      asserted: 1,
+      snapshotOnly: 2,
+      gaps: 1,
+      snapshots: 2,
+    };
     const { container } = screenWith({ result: { state: "ok", view: v } });
     fireEvent.click(within(screen.getByRole("navigation", { name: "Concerns" })).getByRole("button", { name: /Second/ }));
-    expect(screen.getAllByTestId("source").map((el) => el.dataset.path)).toEqual(["concern-1/scenarios.feature", "concern-1/not-covered.feature"]);
-    expect(screen.getByText("1 scenario · 1 asserted, 2 snapshot only · 1 not covered")).toBeInTheDocument();
+    expect(screen.getByText("2 scenarios · 1 asserted, 2 snapshot only · 1 not covered")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Scenarios" });
+    expect(within(list).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      expect.stringContaining("It works"),
+      expect.stringContaining("It refuses"),
+    ]);
+    const sources = () => screen.getAllByTestId("source").map((el) => [el.dataset.path, el.textContent]);
+    expect(sources()[0]).toEqual(["concern-1/scenario-1.feature", expect.stringContaining("(recorded: 3 lines)")]);
+    expect(sources()[1]![0]).toBe("concern-1/not-covered.feature");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show values" }));
+    expect(sources()[0]).toEqual(["concern-1/scenario-1-values.feature", expect.stringContaining('"""')]);
+
+    fireEvent.click(within(list).getByRole("button", { name: /It refuses/ }));
+    expect(sources()[0]![0]).toBe("concern-1/scenario-2-values.feature");
+
     expect(container.querySelector("[data-file]")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Diff" }));
     expect(container.querySelector('[data-file="src/widget.ts"][data-hunk="1"]')).not.toBeNull();

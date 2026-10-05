@@ -3,7 +3,8 @@ import { ReviewScreen } from "./components/review-screen";
 import type { ReviewResult } from "./review/contract";
 import { parseDiff } from "./review/items";
 import { buildView } from "./review/view";
-import { coveredFeature, notCoveredFeature, type ResolvedStep } from "./review/tests/feature";
+import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./review/tests/feature";
+import type { Scenario } from "./review/grouping";
 
 export default { title: "reviewmaxx/Review panel" };
 
@@ -112,21 +113,36 @@ const STEPS: Record<string, ResolvedStep[]> = {
   "src/sprocket.test.ts:1.1": [{ id: "1.1", kind: "snapshot", code: "sprocket(4) toMatchSnapshot", value: "5" }],
   "src/sprocket.test.ts:1.2": [{ id: "1.2", kind: "exact", code: "sprocket(-1) toBe 0", value: null }],
 };
-const covered = coveredFeature(
-  "Add the sprocket",
-  [
-    {
-      title: "The sprocket adds one",
-      given: ["a gadget worth 4"],
-      when: ["the widget passes it through the sprocket"],
-      then: [
-        { text: "it comes out as 5", steps: ["src/sprocket.test.ts:1.1"] },
-        { text: "a negative gadget comes out as 0", steps: ["src/sprocket.test.ts:1.2"] },
-      ],
-    },
-  ],
-  (ref) => STEPS[ref] ?? null,
-);
+const RECORDED = `{
+  "gadget": 4,
+  "result": 5,
+  "rounding": "none",
+  "sprocketVersion": 2,
+}`;
+STEPS["src/sprocket.test.ts:1.1"] = [{ id: "1.1", kind: "snapshot", code: "sprocket(4) toMatchSnapshot", value: RECORDED }];
+STEPS["src/sprocket.test.ts:1.3"] = [{ id: "1.3", kind: "snapshot", code: "sprocket(Infinity) rejects toMatchSnapshot", value: "[Error: The gadget must be finite]" }];
+const SCENARIOS: Scenario[] = [
+  {
+    title: "The sprocket adds one",
+    given: ["a gadget worth 4"],
+    when: ["the widget passes it through the sprocket"],
+    then: [
+      { text: "it comes out as 5", steps: ["src/sprocket.test.ts:1.1"] },
+      { text: "a negative gadget comes out as 0", steps: ["src/sprocket.test.ts:1.2"] },
+    ],
+  },
+  {
+    title: "An endless gadget is refused",
+    given: ["a gadget worth Infinity"],
+    when: ["the widget passes it through the sprocket"],
+    then: [{ text: "the call is refused", steps: ["src/sprocket.test.ts:1.3"] }],
+  },
+];
+const scenarioViews = SCENARIOS.map((scenario) => {
+  const folded = scenarioFeature(scenario, (ref) => STEPS[ref] ?? null, { values: false });
+  const full = scenarioFeature(scenario, (ref) => STEPS[ref] ?? null, { values: true });
+  return { title: scenario.title, asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text };
+});
 const notCovered = notCoveredFeature(
   [
     {
@@ -142,14 +158,14 @@ const notCovered = notCoveredFeature(
   undefined,
 );
 
-/** A test concern on Scenarios: what the tests check as Gherkin, each recorded value under its step, then what they leave out. Diff shows the raw files. */
+/** A test concern on Scenarios: its scenarios listed, the chosen one as Gherkin with recorded values folded until Show values, then what the tests leave out. Diff shows the raw files. */
 export const TestConcern = () =>
   render({
     state: "ok",
     view: {
       ...grouped,
       concerns: grouped.concerns.map((c, i) =>
-        i === 0 ? { ...c, tests: { covered: covered.text, notCovered, scenarios: 1, asserted: 1, snapshotOnly: 1, gaps: 1, snapshots: covered.snapshots } } : c,
+        i === 0 ? { ...c, tests: { scenarios: scenarioViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 } } : c,
       ),
     },
   });

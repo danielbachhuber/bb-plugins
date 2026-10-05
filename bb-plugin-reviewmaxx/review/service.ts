@@ -91,7 +91,7 @@ function concernTests(assignments: Assignment[], inputs: TestInputs): Map<number
 function overlays(grouping: Grouping, inputs: TestInputs): Map<number, ViewTests> {
   const out = new Map<number, ViewTests>();
   grouping.concerns.forEach((concern, ci) => {
-    if (concern.tests) out.set(ci, buildOverlay(concern.title, concern.tests, inputs));
+    if (concern.tests) out.set(ci, buildOverlay(concern.tests, inputs));
   });
   return out;
 }

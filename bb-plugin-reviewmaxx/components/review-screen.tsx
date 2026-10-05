@@ -10,7 +10,7 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
-import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection } from "@/review/contract";
+import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { coverageLabel, fileStats, hunkNote, staleLabel, testsLabel, viewedLabel } from "./labels";
 
 export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
@@ -275,22 +275,72 @@ function Concern({ section, number, of, viewers }: { section: ViewSection; numbe
       </div>
       {section.note && <p className="text-muted-foreground">{section.note}</p>}
       {showScenarios ? (
-        <>
-          <p className="text-xs text-muted-foreground">{testsLabel(tests)}</p>
-          <div className="overflow-hidden rounded-md border">
-            {/* A path per concern: bb's viewer caches lines by path, and a shared one
-                kept the last concern's line count when switching concerns. */}
-            <viewers.SourceView content={tests.covered} path={`${section.id}/scenarios.feature`} />
-          </div>
-          <h4 className="pt-1 font-semibold">Not covered</h4>
-          <div className="overflow-hidden rounded-md border border-dashed">
-            <viewers.SourceView content={tests.notCovered} path={`${section.id}/not-covered.feature`} />
-          </div>
-        </>
+        <Scenarios section={section} tests={tests} viewers={viewers} />
       ) : (
         section.files.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
       )}
     </section>
+  );
+}
+
+/**
+ * A test concern on Scenarios: a list of its scenarios, the chosen one as
+ * Gherkin below with its recorded values folded until Show values, then what
+ * the tests leave out.
+ */
+function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: ViewTests; viewers: Viewers }) {
+  const [at, setAt] = useState(0);
+  const [values, setValues] = useState(false);
+  const scenario = tests.scenarios[Math.min(at, tests.scenarios.length - 1)];
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+          {testsLabel({ scenarios: tests.scenarios.length, asserted: tests.asserted, snapshotOnly: tests.snapshotOnly, gaps: tests.gaps })}
+        </p>
+        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <Checkbox aria-label="Show values" checked={values} onCheckedChange={(checked) => setValues(checked === true)} />
+          Show values
+        </label>
+      </div>
+      <ol aria-label="Scenarios" className="flex flex-col">
+        {tests.scenarios.map((s, i) => (
+          <li key={`${i}-${s.title}`}>
+            <button
+              type="button"
+              data-scenario={i}
+              aria-current={i === at}
+              onClick={() => setAt(i)}
+              className={`flex w-full items-baseline gap-2 rounded px-2 py-1.5 text-left ${i === at ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
+            >
+              <span className="shrink-0 font-mono text-xs" style={{ color: "var(--destructive-text)" }}>
+                Scenario
+              </span>
+              <span className="min-w-0 flex-1">{s.title}</span>
+              <span className="shrink-0 text-[11px] tabular-nums" style={{ color: "var(--success)" }}>
+                {s.asserted} asserted
+              </span>
+              <span className="shrink-0 text-[11px] tabular-nums" style={{ color: "var(--warning-text)" }}>
+                {s.snapshotOnly} snapshot
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      {scenario && (
+        <div className="overflow-hidden rounded-md border">
+          {/* A path per scenario and per folding: bb's viewer caches lines by path. */}
+          <viewers.SourceView
+            content={values ? scenario.values : scenario.steps}
+            path={`${section.id}/scenario-${at + 1}${values ? "-values" : ""}.feature`}
+          />
+        </div>
+      )}
+      <h4 className="pt-1 font-semibold">Not covered</h4>
+      <div className="overflow-hidden rounded-md border border-dashed">
+        <viewers.SourceView content={tests.notCovered} path={`${section.id}/not-covered.feature`} />
+      </div>
+    </>
   );
 }
 
