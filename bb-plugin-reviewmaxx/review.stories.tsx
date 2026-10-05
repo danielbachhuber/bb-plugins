@@ -75,7 +75,7 @@ const render = (result: ReviewResult | null, generating = false) => (
 /** Grouped and current: the first concern open, the lockfile set aside. */
 export const Grouped = () => render({ state: "ok", view: grouped });
 
-/** After a commit: the banner, what changed since, and a hunk marked changed. */
+/** After a commit: the banner, with exactly what changed since the grouping. */
 export const Stale = () =>
   render({
     state: "ok",

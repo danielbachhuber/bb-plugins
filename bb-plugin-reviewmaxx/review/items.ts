@@ -1,9 +1,23 @@
-// Parsing `git diff` output into files, hunks, and items. Pure.
-import { createHash } from "node:crypto";
+// Parsing `git diff` output into files, hunks, and items. Pure, and free of
+// node imports, because stories render the view in a browser.
 import type { DiffFile, FileStatus, Hunk, Item } from "./types";
 
-export function sha1(text: string | Buffer): string {
-  return createHash("sha1").update(text).digest("hex");
+/**
+ * A 53-bit string hash (cyrb53). It only has to tell hunks apart within one
+ * file, where a collision would need two different hunks in the same file to
+ * match, so it does not need to be cryptographic.
+ */
+export function hashText(text: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 
 export function parseDiff(text: string): DiffFile[] {
@@ -90,7 +104,7 @@ function parseFile(chunk: string): DiffFile {
     index,
     header: body[0]!,
     text: body.join("\n"),
-    hash: sha1(body.slice(1).join("\n")),
+    hash: hashText(body.slice(1).join("\n")),
   }));
 
   return {
@@ -100,6 +114,6 @@ function parseFile(chunk: string): DiffFile {
     binary,
     header: headerLines.join("\n"),
     hunks,
-    hash: sha1(chunk),
+    hash: hashText(chunk),
   };
 }

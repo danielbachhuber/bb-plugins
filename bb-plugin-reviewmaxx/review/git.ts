@@ -2,10 +2,10 @@
 // review/ besides store.ts. The checkout is on this machine by construction:
 // server.ts refuses an environment whose path is not a work tree here.
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { sha1 } from "./items";
 import { ABSENT, type FileState } from "./stale";
 
 const MAX_BUFFER = 256 * 1024 * 1024;
@@ -29,6 +29,10 @@ function git(cwd: string, args: string[], okCodes: number[] = [0]): Promise<Buff
 
 async function gitText(cwd: string, args: string[], okCodes?: number[]): Promise<string> {
   return (await git(cwd, args, okCodes)).toString("utf8");
+}
+
+function sha1(buffer: Buffer): string {
+  return createHash("sha1").update(buffer).digest("hex");
 }
 
 function stateOf(buffer: Buffer): FileState {

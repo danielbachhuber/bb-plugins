@@ -9,7 +9,7 @@ export interface Hunk {
   header: string;
   /** The header and every body line, joined by newlines. */
   text: string;
-  /** sha1 of the body without the header, so a hunk that only moved keeps it. */
+  /** Hash of the body without the header, so a hunk that only moved keeps it. */
   hash: string;
 }
 
@@ -23,7 +23,7 @@ export interface DiffFile {
   /** Every line before the first hunk: `diff --git`, `index`, `---`, `+++`. */
   header: string;
   hunks: Hunk[];
-  /** sha1 of the whole file's diff, the identity of a file with no hunks. */
+  /** Hash of the whole file's diff, the identity of a file with no hunks. */
   hash: string;
 }
 
