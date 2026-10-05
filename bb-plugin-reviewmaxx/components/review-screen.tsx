@@ -3,8 +3,9 @@
 // and stories render it without a server.
 //
 // The data attributes are a contract with scripts/verify.mjs: every item is an
-// element with data-file and data-hunk, the root reports "ready", sections and
-// file cards are <details>, and a test concern's Diff button shows its hunks.
+// element with data-file and data-hunk, the root reports "ready", each rail
+// entry has data-rail-item and shows its concern, file cards are <details>,
+// and a test concern's Diff button shows its hunks.
 import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,6 +26,23 @@ export interface ReviewScreenProps {
   SourceView: SourceViewComponent;
 }
 
+/**
+ * Main on the left and the rail on the right, the rail sticky so it stays
+ * beside a long concern. A panel too narrow for both stacks them, rail on top
+ * and not sticky, since a sticky rail above the content would cover it as it
+ * scrolls. bb's stylesheet holds only the classes bb uses, so a container
+ * query has to come from here.
+ */
+const LAYOUT_CSS = `
+.rmx-body { container-type: inline-size; }
+.rmx-columns { display: flex; flex-direction: column-reverse; gap: 1.25rem; }
+.rmx-main { min-width: 0; }
+@container (min-width: 30rem) {
+  .rmx-columns { flex-direction: row; align-items: flex-start; }
+  .rmx-main { flex: 1 1 0; }
+  .rmx-rail { flex: 0 0 11rem; position: sticky; top: 1rem; }
+}`;
+
 interface Viewers {
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
@@ -32,6 +50,7 @@ interface Viewers {
 }
 
 export function ReviewScreen({ result, error, generating, onGenerate, onSetViewed, DiffView, SourceView }: ReviewScreenProps) {
+  const [chosen, setChosen] = useState<string | null>(null);
   if (error !== null) return <Message text={`Could not load the review: ${error}`} />;
   if (result === null) return <Message text="Reading the branch…" />;
   if (result.state === "unavailable") return <Message text={result.message} ready />;
@@ -40,21 +59,42 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
 
   const viewers: Viewers = { DiffView, SourceView, onSetViewed };
   const sections = [...view.concerns, view.notYetGrouped, view.mechanical].filter((s): s is ViewSection => s !== null);
+  // The chosen section, or the first one when nothing is chosen or the choice is gone.
+  const at = Math.max(0, sections.findIndex((s) => s.id === chosen));
+  const section = sections[at]!;
+  const choose = (id: string) => {
+    setChosen(id);
+    // Back to the top of the concern, since Next is pressed from the bottom of the last one.
+    document.querySelector<HTMLElement>("[data-reviewmaxx-main]")?.scrollIntoView?.({ block: "start" });
+  };
   return (
     <div data-reviewmaxx="ready" className="flex flex-col gap-5 p-4 text-sm">
       <Header view={view} generating={generating} onGenerate={onGenerate} />
       {view.stale && <Stale view={view} DiffView={DiffView} generating={generating} onGenerate={onGenerate} />}
-      <Outline view={view} />
-      {sections.map((section) => (
-        <Section
-          key={section.id}
-          section={section}
-          number={section.id.startsWith("concern-") ? view.concerns.indexOf(section) + 1 : null}
-          // The first concern opens; before any grouping, Not yet grouped does.
-          open={section.id === "concern-0" || (view.concerns.length === 0 && section.id === "not-yet-grouped")}
-          viewers={viewers}
-        />
-      ))}
+      <style>{LAYOUT_CSS}</style>
+      <div className="rmx-body">
+        <div className="rmx-columns">
+        <main data-reviewmaxx-main className="rmx-main flex flex-col gap-3">
+          <Concern
+            key={section.id}
+            section={section}
+            number={view.concerns.includes(section) ? at + 1 : null}
+            of={view.concerns.length}
+            viewers={viewers}
+          />
+          {sections[at + 1] && (
+            <button
+              type="button"
+              onClick={() => choose(sections[at + 1]!.id)}
+              className="flex items-center justify-end gap-1.5 self-end pt-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Next: {sections[at + 1]!.title} <Icon name="ChevronRight" className="size-3.5" />
+            </button>
+          )}
+        </main>
+        <Rail view={view} sections={sections} chosen={section.id} onChoose={choose} />
+        </div>
+      </div>
       <p className="text-xs text-muted-foreground">{coverageLabel(view.coverage)}</p>
     </div>
   );
@@ -112,44 +152,41 @@ function Header({ view, generating, onGenerate }: { view: ReviewView; generating
   );
 }
 
-function Outline({ view }: { view: ReviewView }) {
-  const rows: Array<{ id: string; lead: ReactNode; title: string; section: ViewSection; muted?: boolean }> = [
-    ...view.concerns.map((c, i) => ({
-      id: c.id,
-      section: c,
-      title: c.title,
-      lead: <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-background">{i + 1}</span>,
-    })),
-    ...[view.notYetGrouped, view.mechanical]
-      .filter((s): s is ViewSection => s !== null)
-      .map((s) => ({ id: s.id, section: s, title: s.title, muted: true, lead: <Icon name={s.id === "mechanical" ? "Archive" : "CircleDashed"} className="size-3.5" /> })),
-  ];
-  const jump = (id: string) => {
-    const target = document.querySelector<HTMLDetailsElement>(`[data-section="${id}"]`);
-    if (!target) return;
-    target.open = true;
-    target.scrollIntoView({ block: "start" });
-  };
+/** The concerns down the right, each with its viewed count and lines changed. */
+function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections: ViewSection[]; chosen: string; onChoose: (id: string) => void }) {
   return (
-    <ol aria-label="Concerns" className="flex flex-col divide-y rounded-lg border">
-      {rows.map((row) => {
-        const viewed = row.section.files.filter((f) => f.viewed).length;
-        const done = viewed === row.section.files.length;
+    <nav aria-label="Concerns" className="rmx-rail flex flex-col gap-0.5">
+      {sections.map((section) => {
+        const n = view.concerns.indexOf(section);
+        const viewed = section.files.filter((f) => f.viewed).length;
+        const done = viewed === section.files.length;
+        const current = section.id === chosen;
         return (
-          <li key={row.id}>
-            <button type="button" onClick={() => jump(row.id)} className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 ${row.muted ? "text-muted-foreground" : ""}`}>
-              <span className="flex size-5 shrink-0 items-center justify-center">{row.lead}</span>
-              <span className={`truncate ${row.muted ? "" : "font-medium"}`}>{row.title}</span>
-              {row.section.tests && <span className="shrink-0 text-xs text-muted-foreground">tests</span>}
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {done ? <Icon name="Check" className="inline size-3.5 text-success" /> : `${viewed}/${row.section.files.length}`}
+          <button
+            key={section.id}
+            type="button"
+            data-rail-item={section.id}
+            aria-current={current}
+            onClick={() => onChoose(section.id)}
+            className={`flex flex-col gap-0.5 rounded-md border-r-2 px-2.5 py-1.5 text-left ${
+              n === -1 && section === sections.find((s) => !view.concerns.includes(s)) ? "mt-2" : ""
+            } ${current ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/50"}`}
+          >
+            <span className="flex items-start gap-1.5">
+              <span className="w-3.5 shrink-0 pt-px text-xs font-semibold tabular-nums text-muted-foreground">
+                {n === -1 ? <Icon name={section.id === "mechanical" ? "Archive" : "CircleDashed"} className="size-3.5" /> : n + 1}
               </span>
-              <Counts {...sectionStats(row.section)} />
-            </button>
-          </li>
+              <span className={`leading-snug ${current ? "font-semibold" : n === -1 || done ? "text-muted-foreground" : "font-medium"}`}>{section.title}</span>
+            </span>
+            <span className="flex items-center gap-2 pl-5 text-[11px] text-muted-foreground">
+              {done ? <Icon name="Check" className="size-3 text-success" /> : <span className="tabular-nums">{`${viewed}/${section.files.length}`}</span>}
+              {section.tests && <span>tests</span>}
+              <Counts {...sectionStats(section)} />
+            </span>
+          </button>
         );
       })}
-    </ol>
+    </nav>
   );
 }
 
@@ -217,40 +254,43 @@ function ModeToggle({ mode, onChange }: { mode: "scenarios" | "diff"; onChange: 
   );
 }
 
-function Section({ section, number, open, viewers }: { section: ViewSection; number: number | null; open: boolean; viewers: Viewers }) {
+/** The chosen concern: its title, note, and files, or for a test concern its scenarios. */
+function Concern({ section, number, of, viewers }: { section: ViewSection; number: number | null; of: number; viewers: Viewers }) {
   const [mode, setMode] = useState<"scenarios" | "diff">("scenarios");
-  const count = section.files.reduce((n, f) => n + f.hunks.filter((h) => h.status !== "removed").length, 0);
   const tests = section.tests;
   const showScenarios = tests !== null && mode === "scenarios";
   return (
-    <details data-section={section.id} open={open} className="group flex flex-col">
-      <summary className="flex cursor-pointer list-none items-center gap-2 border-b pb-2">
-        <Icon name="ChevronRight" className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
-        {number !== null && <span className="text-xs font-semibold text-muted-foreground">{number}</span>}
+    <section data-section={section.id} className="flex flex-col gap-3">
+      <div className="flex items-start gap-2">
         {/* The title takes the room left and wraps, so the toggle never leaves a narrow panel. */}
-        <h3 className="min-w-0 flex-1 font-semibold">
-          {section.title} <span className="text-xs font-normal text-muted-foreground">({count})</span>
-        </h3>
+        <div className="min-w-0 flex-1">
+          {number !== null && (
+            <p className="text-xs font-semibold text-muted-foreground">
+              {number} of {of}
+            </p>
+          )}
+          <h3 className="text-base font-semibold leading-snug">{section.title}</h3>
+        </div>
         {tests && <ModeToggle mode={mode} onChange={setMode} />}
-      </summary>
-      <div className="flex flex-col gap-3 pt-3">
-        {section.note && <p className="text-muted-foreground">{section.note}</p>}
-        {showScenarios ? (
-          <>
-            <p className="text-xs text-muted-foreground">{testsLabel(tests)}</p>
-            <div className="overflow-hidden rounded-md border">
-              <viewers.SourceView content={tests.covered} path="scenarios.feature" />
-            </div>
-            <h4 className="pt-1 font-semibold">Not covered</h4>
-            <div className="overflow-hidden rounded-md border border-dashed">
-              <viewers.SourceView content={tests.notCovered} path="not-covered.feature" />
-            </div>
-          </>
-        ) : (
-          section.files.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
-        )}
       </div>
-    </details>
+      {section.note && <p className="text-muted-foreground">{section.note}</p>}
+      {showScenarios ? (
+        <>
+          <p className="text-xs text-muted-foreground">{testsLabel(tests)}</p>
+          <div className="overflow-hidden rounded-md border">
+            {/* A path per concern: bb's viewer caches lines by path, and a shared one
+                kept the last concern's line count when switching concerns. */}
+            <viewers.SourceView content={tests.covered} path={`${section.id}/scenarios.feature`} />
+          </div>
+          <h4 className="pt-1 font-semibold">Not covered</h4>
+          <div className="overflow-hidden rounded-md border border-dashed">
+            <viewers.SourceView content={tests.notCovered} path={`${section.id}/not-covered.feature`} />
+          </div>
+        </>
+      ) : (
+        section.files.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
+      )}
+    </section>
   );
 }
 

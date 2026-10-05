@@ -6,8 +6,8 @@
 // 1. Runs `bb reviewmaxx verify`, which checks git against the stored
 //    grouping, and takes the list of items from it.
 // 2. Opens the thread in bb with Playwright, opens the Reviewmaxx panel,
-//    expands every section, waits for every diff to draw, and compares the
-//    rendered items with that list.
+//    chooses each concern in its rail in turn, waits for every diff to draw,
+//    and compares the rendered items with that list.
 // Exits 1 on any gap. Needs a running bb, and the global Playwright install.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -63,24 +63,33 @@ for (const run of runs) {
   await action.click();
   await page.waitForSelector('[data-reviewmaxx="ready"]', { timeout: 60_000 });
 
-  // Test concerns open on Scenarios; their hunks draw on Diff.
-  await page.evaluate(() => document.querySelectorAll('[data-reviewmaxx] [data-mode="diff"]').forEach((b) => b.click()));
-  await page.evaluate(() => document.querySelectorAll("[data-reviewmaxx] details").forEach((d) => { d.open = true; }));
-  // A drawn diff has height; an empty placeholder does not. One read per
-  // check, not per row in a loop that writes.
-  await page
-    .waitForFunction(
-      () => [...document.querySelectorAll('[data-reviewmaxx] [data-kind="hunk"]:not([data-status="removed"])')].every((el) => el.getBoundingClientRect().height > 16),
-      null,
-      { timeout: 60_000 },
-    )
-    .catch(() => errors.push("not every diff drew within 60 s"));
-
-  const rendered = await page.evaluate(() =>
-    [...document.querySelectorAll("[data-reviewmaxx] [data-file][data-hunk]")]
-      .filter((el) => el.getAttribute("data-status") !== "removed")
-      .map((el) => `${el.getAttribute("data-file")}#${el.getAttribute("data-hunk")}`),
-  );
+  // The panel shows one concern at a time: choose each entry in the rail,
+  // switch a test concern to Diff, open folded files, and collect its hunks.
+  const rendered = [];
+  const entries = await page.locator("[data-reviewmaxx] [data-rail-item]").count();
+  for (let i = 0; i < entries; i++) {
+    await page.locator("[data-reviewmaxx] [data-rail-item]").nth(i).click();
+    await page.evaluate(() => {
+      document.querySelector('[data-reviewmaxx] [data-mode="diff"]')?.click();
+      document.querySelectorAll("[data-reviewmaxx] details").forEach((d) => { d.open = true; });
+    });
+    // A drawn diff has height; an empty placeholder does not. One read per
+    // check, not per row in a loop that writes.
+    await page
+      .waitForFunction(
+        () => [...document.querySelectorAll('[data-reviewmaxx] [data-kind="hunk"]:not([data-status="removed"])')].every((el) => el.getBoundingClientRect().height > 16),
+        null,
+        { timeout: 60_000 },
+      )
+      .catch(() => errors.push(`not every diff drew within 60 s in rail entry ${i + 1}`));
+    rendered.push(
+      ...(await page.evaluate(() =>
+        [...document.querySelectorAll("[data-reviewmaxx] [data-file][data-hunk]")]
+          .filter((el) => el.getAttribute("data-status") !== "removed")
+          .map((el) => `${el.getAttribute("data-file")}#${el.getAttribute("data-hunk")}`),
+      )),
+    );
+  }
   const overflow = await page.evaluate(() => {
     const root = document.querySelector("[data-reviewmaxx]");
     return root && root.scrollWidth > root.clientWidth + 1 ? `panel content is ${root.scrollWidth}px wide in ${root.clientWidth}px` : null;

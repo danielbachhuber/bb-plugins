@@ -8,7 +8,7 @@ thread's own agent writes the grouping, and the plugin checks it against the
 real diff before accepting it, so every hunk on the branch appears in the panel
 exactly once.
 
-![The Reviewmaxx panel: a one-sentence headline, the first concern open with its note and two hunks, a second concern and the Mechanical group collapsed, and a footer reading "3 files, 4 hunks, all shown"](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--grouped.png)
+![The Reviewmaxx panel: a one-sentence headline and a viewed bar, the first concern on the left with its note and two files, and a rail of concerns on the right with each one's viewed count and lines changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--grouped.png)
 
 From top to bottom, the panel shows:
 
@@ -16,23 +16,25 @@ From top to bottom, the panel shows:
    how many files you have marked viewed.
 2. When the branch has moved on since the grouping, a banner and a
    **Changed since grouping** section.
-3. An outline of the concerns, numbered, most important first, each with its
-   lines added and removed and how many of its files are viewed. Clicking one
-   jumps to it.
-4. Each concern as a section with its note, then each file as a header bar with
-   its path, its lines added and removed, and a **Viewed** checkbox, over its
-   hunks. A file that serves two purposes is split between concerns by hunk,
-   labelled "hunks 1 and 3 of 4".
-5. **Not yet grouped**, for any hunk no concern holds.
-6. **Mechanical**, collapsed: lockfiles, snapshots, and generated files.
-7. A count of files and hunks, and whether all of them are shown.
+3. Down the right, a rail of the concerns, numbered, most important first,
+   each with its lines added and removed and how many of its files are
+   viewed. It stays in place as you scroll. Choosing one shows it on the left;
+   **Next** at the bottom of a concern moves to the one after. On a panel too
+   narrow for both, the rail sits above instead.
+4. On the left, the chosen concern: its title and note, then each file as a
+   header bar with its path, its lines added and removed, and a **Viewed**
+   checkbox, over its hunks. A file that serves two purposes is split between
+   concerns by hunk, labelled "hunks 1 and 3 of 4".
+5. At the end of the rail, **Not yet grouped** for any hunk no concern holds,
+   and **Mechanical** for lockfiles, snapshots, and generated files.
+6. A count of files and hunks, and whether all of them are shown.
 
 ![A test concern on Scenarios: its tests as a highlighted Gherkin feature, with each recorded snapshot value under the step that wrote it, and a second dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--test-concern.png)
 
 ## Marking files viewed
 
 Check **Viewed** on a file once you have read it. The file folds and dims, the
-bar at the top fills, and its concern's row in the outline counts it; a concern
+bar at the top fills, and its concern's entry in the rail counts it; a concern
 whose files are all viewed gets a check. A mark is kept per thread and per
 file, against that file's diff at the time. When the file's diff changes, by a
 commit or an edit, its mark clears itself, so a changed file always comes back
@@ -151,8 +153,8 @@ submitted; a hunk added since then shows under Not yet grouped, which still
 counts as shown.
 
 `npm run verify` runs that first, then opens the thread in bb with Playwright,
-opens the Reviewmaxx panel, expands every section, waits for every diff to
-draw, and checks that the hunks on the page are exactly the hunks on the
+opens the Reviewmaxx panel, chooses each concern in the rail in turn, switches
+test concerns to Diff, waits for every diff to draw, and checks that the hunks on the page are exactly the hunks on the
 branch, once each. It also fails on a console error, a diff that never draws,
 or content wider than the panel, and saves light, dark, and narrow screenshots
 to `/tmp/reviewmaxx-verify/`. It uses the Playwright install at
