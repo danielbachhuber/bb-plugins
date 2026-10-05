@@ -81,10 +81,12 @@ bb reviewmaxx verify                      # from the thread
 npm run verify -- <thread id>             # in this directory, with bb running
 ```
 
-`bb reviewmaxx verify` lists the changed paths with `git`, checks the stored
-grouping against the hunks, and builds the panel's view, then reports any path
-the parser missed and any hunk shown zero times or twice: "3 files, 3 hunks: 3
-shown once, 0 missing, 0 twice."
+`bb reviewmaxx verify` lists the changed paths with `git`, builds the panel's
+view from the branch and the stored grouping, and reports any path the parser
+missed and any hunk the view shows zero times or twice: "3 files, 3 hunks: 3
+shown once, 0 missing, 0 twice." The grouping itself was checked when it was
+submitted; a hunk added since then shows under Not yet grouped, which still
+counts as shown.
 
 `npm run verify` runs that first, then opens the thread in bb with Playwright,
 opens the Reviewmaxx panel, expands every section, waits for every diff to
@@ -96,11 +98,12 @@ to `/tmp/reviewmaxx-verify/`. It uses the Playwright install at
 
 ## What it runs
 
-Opening the panel runs `git` in the checkout once: `rev-parse`, `merge-base`,
-`diff`, `diff --name-only`, `ls-files`, and one `diff --no-index` for each
-untracked file. Once a grouping exists, it also reads each changed file from
-disk, runs one `cat-file` for each path the stored contents do not cover, and
-one `diff --no-index` for each file that changed since the grouping. Generate
+Each time the panel opens, it runs these `git` commands in the checkout:
+`rev-parse`, `merge-base`, `diff`, `diff --name-only`, `ls-files`, and one
+`diff --no-index` for each untracked file. Once a grouping exists, it also
+reads each changed file from disk, runs one `cat-file` for each path the stored
+contents do not cover, and one `diff --no-index` for each file that changed
+since the grouping. Generate
 sends one message to the thread. Nothing calls GitHub or any other service.
 
 ## Related plugins

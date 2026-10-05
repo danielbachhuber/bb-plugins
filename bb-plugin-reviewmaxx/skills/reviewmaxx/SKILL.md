@@ -40,9 +40,9 @@ branch is in exactly one concern before it accepts it.
      "headline": "One sentence saying what the branch changes.",
      "concerns": [
        {
-         "title": "Read the mode from the space",
+         "title": "Add the sprocket",
          "note": "What these hunks do, and why they belong together.",
-         "files": ["src/mode-banner.tsx", { "path": "src/comment.tsx", "hunks": [0, 2] }]
+         "files": ["src/sprocket.ts", { "path": "src/widget.ts", "hunks": [0, 2] }]
        }
      ]
    }
