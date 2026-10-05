@@ -1,0 +1,128 @@
+# Reviewmaxx
+
+Review a branch one concern at a time. bb's changes panel lists a branch's
+files in path order; Reviewmaxx adds a panel beside the thread that groups the
+branch's hunks into concerns, the parts of the change that belong together,
+each with a short note on what its hunks do and why they go together. The
+thread's own agent writes the grouping, and the plugin checks it against the
+real diff before accepting it, so every hunk on the branch appears in the panel
+exactly once.
+
+![The Reviewmaxx panel: a one-sentence headline, the first concern open with its note and two hunks, a second concern and the Mechanical group collapsed, and a footer reading "3 files, 4 hunks, all shown"](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--grouped.png)
+
+From top to bottom, the panel shows:
+
+1. A one-sentence headline saying what the branch changes.
+2. When the branch has moved on since the grouping, a banner and a
+   **Changed since grouping** section.
+3. Each concern as a card, most important first, with the first one open. A
+   file that serves two purposes is split between concerns by hunk, labelled
+   "hunks 1 and 3 of 4".
+4. **Not yet grouped**, for any hunk no concern holds.
+5. **Mechanical**, collapsed: lockfiles, snapshots, and generated files.
+6. A count of files and hunks, and whether all of them are shown.
+
+## Using it
+
+Open the thread's right panel, open a new tab, and pick **Reviewmaxx**. Before
+anything is grouped, it shows every hunk under Not yet grouped.
+
+**Generate** sends this thread a message asking its agent to group the branch.
+If the agent is busy, the message waits in bb's queue. The agent follows the
+`reviewmaxx` skill: it reads the numbered hunks with `bb reviewmaxx hunks
+--full`, writes a headline and the concerns, and submits them with `bb
+reviewmaxx submit`. A submission that leaves a hunk out, puts one in two
+concerns, or names a file or hunk that is not in the diff is rejected with a
+list of what to fix, and the agent submits again. The panel updates when a
+grouping is accepted.
+
+You can also ask for a grouping in chat. The skill tells the agent to group
+from the diff rather than from what it remembers meaning to do, since the
+agent in the thread usually wrote the code.
+
+## What it reads
+
+Always the whole branch against its merge base with the environment's base
+branch: committed changes, uncommitted edits, and untracked files together.
+There is no range to pick. To review someone else's pull request, check its
+branch out in a thread's environment.
+
+It reads the diff with `git` in the environment's checkout, so the environment
+has to be a git checkout on the machine bb runs on. Anything else gets a
+message saying so.
+
+## When the branch moves on
+
+The grouping is kept until you regenerate it, even after a commit. When it is
+accepted, the plugin stores the content of every changed file at that moment.
+Each time the panel opens, it compares those contents with the files now. If
+nothing differs, the grouping is current, including after a commit of exactly
+the work it grouped.
+
+![The stale banner: "Grouped at a1b2c3d, 1 commit and 1 file changed since", a Regenerate button, and the diff of the one file that changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--stale.png)
+
+If something differs, a banner says when the grouping was made and how many
+commits and files have changed since, or that the branch was rewritten when
+the grouped commit is no longer on it. **Changed since grouping** shows the
+diff from the stored contents to the files now, which is exactly what changed,
+whether by commit or by edit. Inside the concerns, a hunk whose lines changed
+is marked "changed since grouping", a hunk that is gone is struck through, and
+a new hunk goes to Not yet grouped.
+
+Nothing is written into the repository. The stored contents live in the
+plugin's own database in bb's data directory.
+
+## Verifying that every hunk is shown
+
+Two deterministic checks, each exiting 1 on any gap:
+
+```sh
+bb reviewmaxx verify                      # from the thread
+npm run verify -- <thread id>             # in this directory, with bb running
+```
+
+`bb reviewmaxx verify` lists the changed paths with `git`, checks the stored
+grouping against the hunks, and builds the panel's view, then reports any path
+the parser missed and any hunk shown zero times or twice: "3 files, 3 hunks: 3
+shown once, 0 missing, 0 twice."
+
+`npm run verify` runs that first, then opens the thread in bb with Playwright,
+opens the Reviewmaxx panel, expands every section, waits for every diff to
+draw, and checks that the hunks on the page are exactly the hunks on the
+branch, once each. It also fails on a console error, a diff that never draws,
+or content wider than the panel, and saves light, dark, and narrow screenshots
+to `/tmp/reviewmaxx-verify/`. It uses the Playwright install at
+`~/.claude/tools/playwright`.
+
+## What it runs
+
+Opening the panel runs `git` in the checkout once: `rev-parse`, `merge-base`,
+`diff`, `diff --name-only`, `ls-files`, and one `diff --no-index` for each
+untracked file. Once a grouping exists, it also reads each changed file from
+disk, runs one `cat-file` for each path the stored contents do not cover, and
+one `diff --no-index` for each file that changed since the grouping. Generate
+sends one message to the thread. Nothing calls GitHub or any other service.
+
+## Related plugins
+
+- **Code Review** (`code-review`) lists the pull requests waiting on your
+  review, runs your review skills over one, and turns the findings into
+  comments you post on GitHub. Reviewmaxx does not post anything; it
+  reorganises the local diff for reading.
+- **Diff Dad** (`diffdad`) narrates GitHub pull requests through its own
+  daemon, with a verdict and concerns. Reviewmaxx takes its idea of grouping
+  hunks into chapters, but works on the local branch, inside bb, with the
+  thread's own agent.
+- **Diff Viewed** (`diff-viewed`) and **Diff Comment** (`diff-comment`)
+  decorate bb's own changes panel with Viewed checkboxes and inline comments.
+  Reviewmaxx is a separate panel that regroups the same changes.
+
+## Layout
+
+| Path | Holds |
+| --- | --- |
+| `review/` | The core: parsing the diff, the coverage check, the view, staleness, with `git.ts` for every `git` call and `store.ts` for the database |
+| `components/` | The panel, split from data loading so stories render it |
+| `skills/reviewmaxx/` | The skill the agent groups the branch with |
+| `scripts/verify.mjs` | The rendering half of verify |
+| `review.stories.tsx` | Stories for each state of the panel |
