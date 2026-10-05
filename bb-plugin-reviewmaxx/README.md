@@ -114,10 +114,11 @@ places, and never from a path or a name written into the plugin:
 
 - A general rule that holds across projects, such as Jest and Vitest naming
   each snapshot entry after its test and a counter, or lockfile names.
-- A plugin setting, for anything that differs between repositories, such as
-  where tests live or which helpers sign a test in as a user.
 - The agent's own reading of the diff and the code, passed in through the
-  grouping it submits.
+  grouping it submits, such as the assertion helpers a repository's tests use
+  under names the convention does not catch.
+- A plugin setting, for anything that differs between repositories and that
+  neither of the above can supply.
 
 Tests and stories use invented repositories, such as `acme/widgets`, so a
 fixture never quietly encodes one real project's structure.
