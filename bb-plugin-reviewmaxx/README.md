@@ -51,6 +51,23 @@ It reads the diff with `git` in the environment's checkout, so the environment
 has to be a git checkout on the machine bb runs on. Anything else gets a
 message saying so.
 
+## Built for any repository
+
+Reviewmaxx has to work on any git repository, so nothing in it should assume
+one codebase's layout, test framework, naming, or helpers. When a feature
+needs to know something about a repository, it gets it from one of three
+places, and never from a path or a name written into the plugin:
+
+- A general rule that holds across projects, such as Jest and Vitest naming
+  each snapshot entry after its test and a counter, or lockfile names.
+- A plugin setting, for anything that differs between repositories, such as
+  where tests live or which helpers sign a test in as a user.
+- The agent's own reading of the diff and the code, passed in through the
+  grouping it submits.
+
+Tests and stories use invented repositories, such as `acme/widgets`, so a
+fixture never quietly encodes one real project's structure.
+
 ## When the branch moves on
 
 The grouping is kept until you regenerate it, even after a commit. When it is
