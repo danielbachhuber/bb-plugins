@@ -21,7 +21,12 @@ branch is in exactly one concern before it accepts it.
 
 ## Procedure
 
-1. Run `bb super-diff hunks --full` and read every hunk.
+1. Run `bb super-diff hunks --full` and read every hunk. Its first line names
+   the base the branch is compared against, such as `origin/main`. The plugin
+   already prefers the remote-tracking branch when the local one is behind,
+   so do not pull, fast-forward, or reset any branch to change what is
+   listed. If the list still holds changes that are not on this branch, tell
+   the user instead of grouping them.
 2. **Group from the diff, not from memory.** You may have written this code.
    Group by what each hunk does as it reads in the diff, not by what you
    meant it to do or the order you wrote it in. A reviewer will read the

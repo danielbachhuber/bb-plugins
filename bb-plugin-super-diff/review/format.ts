@@ -5,8 +5,8 @@ import { itemKey, type DiffFile } from "./types";
 
 const STATUS_LETTER = { added: "A", deleted: "D", modified: "M", renamed: "R" } as const;
 
-export function formatHunkList(files: DiffFile[], options: { full: boolean }): string {
-  const lines = [`${files.length} files, ${itemsOf(files).length} items. Hunks are numbered from 0.`, ""];
+export function formatHunkList(files: DiffFile[], options: { full: boolean; base: string }): string {
+  const lines = [`${files.length} files, ${itemsOf(files).length} items against ${options.base}. Hunks are numbered from 0.`, ""];
   for (const file of files) {
     const name = file.previousPath ? `${file.previousPath} -> ${file.path}` : file.path;
     const notes: string[] = [];

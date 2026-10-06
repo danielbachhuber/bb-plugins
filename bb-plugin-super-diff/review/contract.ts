@@ -74,7 +74,14 @@ export const reviewViewSchema = z.object({
   notYetGrouped: viewSectionSchema.nullable(),
   mechanical: viewSectionSchema.nullable(),
   stale: staleSchema.nullable(),
-  coverage: z.object({ files: z.number().int(), hunks: z.number().int(), shown: z.number().int(), viewed: z.number().int() }),
+  coverage: z.object({
+    files: z.number().int(),
+    hunks: z.number().int(),
+    shown: z.number().int(),
+    viewed: z.number().int(),
+    /** The ref the branch is compared against, such as origin/main. */
+    base: z.string().optional(),
+  }),
 });
 
 export const reviewResultSchema = z.discriminatedUnion("state", [

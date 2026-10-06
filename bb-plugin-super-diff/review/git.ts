@@ -51,12 +51,55 @@ export async function toplevel(dir: string): Promise<string | null> {
   }
 }
 
+async function mergeBase(root: string, ref: string): Promise<string | null> {
+  try {
+    return (await gitText(root, ["merge-base", "HEAD", ref])).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The remote-tracking branch for a base: its upstream, or origin/<base>. Never fetched. */
+async function remoteOf(root: string, base: string): Promise<string | null> {
+  const upstream = await gitText(root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", `${base}@{upstream}`]).catch(() => "");
+  if (upstream.trim()) return upstream.trim();
+  const origin = await gitText(root, ["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${base}`], [0, 1]);
+  return origin.trim() ? `origin/${base}` : null;
+}
+
+/**
+ * Where the branch left its base. A local base that has not been pulled
+ * would show everything merged upstream since as part of the branch, so the
+ * remote-tracking branch is used when it is further along this branch's
+ * history; a local base with unpushed commits the branch builds on wins.
+ */
+async function chooseBase(root: string, base: string): Promise<{ ref: string; sha: string }> {
+  const local = await mergeBase(root, base);
+  const remote = await remoteOf(root, base);
+  const remoteSha = remote === null ? null : await mergeBase(root, remote);
+  if (remote !== null && remoteSha !== null) {
+    if (local === null) return { ref: remote, sha: remoteSha };
+    if (remoteSha !== local && (await isAncestor(root, local, remoteSha))) return { ref: remote, sha: remoteSha };
+  }
+  if (local === null) throw new Error(`Can't find the base branch ${base} in this checkout.`);
+  return { ref: base, sha: local };
+}
+
+async function isAncestor(root: string, ancestor: string, of: string): Promise<boolean> {
+  try {
+    await git(root, ["merge-base", "--is-ancestor", ancestor, of]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function readBranchDiff(
   root: string,
   mergeBaseBranch: string,
-): Promise<{ baseSha: string; headSha: string; diffText: string; changedPaths: string[] }> {
+): Promise<{ baseRef: string; baseSha: string; headSha: string; diffText: string; changedPaths: string[] }> {
   const headSha = (await gitText(root, ["rev-parse", "HEAD"])).trim();
-  const baseSha = (await gitText(root, ["merge-base", "HEAD", mergeBaseBranch])).trim();
+  const { ref: baseRef, sha: baseSha } = await chooseBase(root, mergeBaseBranch);
   const tracked = await gitText(root, ["diff", ...DIFF_ARGS, "-M", baseSha]);
   const trackedNames = (await gitText(root, ["diff", "--name-only", "--no-relative", "-z", "-M", baseSha])).split("\0").filter(Boolean);
   // A nested repository is listed as "dir/"; it is one item, named without the slash.
@@ -72,7 +115,7 @@ export async function readBranchDiff(
     // directory, but it is still on the branch, so it is a whole-file item.
     untrackedDiffs.push(out || `diff --git a/${file} b/${file}\nnew file mode 160000\n`);
   }
-  return { baseSha, headSha, diffText: tracked + untrackedDiffs.join(""), changedPaths: [...trackedNames, ...untracked] };
+  return { baseRef, baseSha, headSha, diffText: tracked + untrackedDiffs.join(""), changedPaths: [...trackedNames, ...untracked] };
 }
 
 export async function fileOnDisk(root: string, file: string): Promise<FileState> {

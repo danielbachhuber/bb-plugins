@@ -25,8 +25,9 @@ export function staleLabel(commitsSince: number | null, files: number): string {
 
 export function coverageLabel(coverage: ReviewView["coverage"]): string {
   const files = plural(coverage.files, "file", "files");
-  if (coverage.shown === coverage.hunks) return `${files}, ${plural(coverage.hunks, "hunk", "hunks")}, all shown`;
-  return `${files}, ${coverage.shown} of ${plural(coverage.hunks, "hunk", "hunks")} shown`;
+  const against = coverage.base ? `, against ${coverage.base}` : "";
+  if (coverage.shown === coverage.hunks) return `${files}, ${plural(coverage.hunks, "hunk", "hunks")}, all shown${against}`;
+  return `${files}, ${coverage.shown} of ${plural(coverage.hunks, "hunk", "hunks")} shown${against}`;
 }
 
 /** Lines a file's shown hunks add and remove. */

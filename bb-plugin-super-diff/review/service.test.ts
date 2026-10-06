@@ -37,6 +37,7 @@ describe("service", () => {
   it("lists hunks numbered from 0", async () => {
     const { checkout } = await setup();
     expect(await hunks(checkout, false)).toContain("A  src/gadget.ts  (1 hunk)");
+    expect(await hunks(checkout, false)).toMatch(/^2 files, 2 items against main\./);
   });
 
   it("rejects a grouping that leaves a hunk out, and stores nothing", async () => {
@@ -59,6 +60,7 @@ describe("service", () => {
     const view = await getView(store, "thr_1", checkout);
     expect(view.concerns.map((c) => c.title)).toEqual(["Widget", "Gadget"]);
     expect(view.stale).toBeNull();
+    expect(view.coverage.base).toBe("main");
     expect((await verifyData(store, "thr_1", checkout)).text).toBe("2 files, 2 hunks: 2 shown once, 0 missing, 0 twice.");
   });
 

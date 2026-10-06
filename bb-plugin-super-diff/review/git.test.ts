@@ -38,6 +38,80 @@ describe("readBranchDiff", () => {
     expect(branch.baseSha).toBe(r.run("rev-parse", "main").trim());
   });
 
+  describe("choosing the base", () => {
+    /** main as origin last had it: a remote-tracking ref and main's upstream, with no network. */
+    function track(r: Awaited<ReturnType<typeof repo>>, sha: string) {
+      r.run("update-ref", "refs/remotes/origin/main", sha);
+      r.run("config", "branch.main.remote", "origin");
+      r.run("config", "branch.main.merge", "refs/heads/main");
+    }
+    /** A commit on main made elsewhere, leaving local main where it is. */
+    function commitOnOrigin(r: Awaited<ReturnType<typeof repo>>) {
+      r.run("checkout", "-q", "-b", "elsewhere", "main");
+      r.write("src/upstream.ts", "export const upstream = 1;\n");
+      r.run("add", "src/upstream.ts");
+      r.run("commit", "-qm", "Upstream");
+      const sha = r.run("rev-parse", "HEAD").trim();
+      r.run("checkout", "-q", "main");
+      r.run("branch", "-qD", "elsewhere");
+      return sha;
+    }
+
+    it("uses origin/main when local main is behind it", async () => {
+      const r = await repo();
+      const upstream = commitOnOrigin(r);
+      track(r, upstream);
+      r.run("checkout", "-q", "-B", "feature", upstream);
+      r.write("src/widget.ts", "export const widget = 2;\n");
+
+      const branch = await readBranchDiff(r.root, "main");
+      expect(branch.baseRef).toBe("origin/main");
+      expect(branch.baseSha).toBe(upstream);
+      expect(parseDiff(branch.diffText).map((f) => f.path)).toEqual(["src/widget.ts"]);
+    });
+
+    it("uses local main when it is ahead of origin/main", async () => {
+      const r = await repo();
+      track(r, r.run("rev-parse", "main").trim());
+      r.run("checkout", "-q", "main");
+      r.write("src/local.ts", "export const local = 1;\n");
+      r.run("add", "src/local.ts");
+      r.run("commit", "-qm", "Not pushed yet");
+      r.run("checkout", "-q", "-B", "feature", "main");
+      r.write("src/widget.ts", "export const widget = 2;\n");
+
+      const branch = await readBranchDiff(r.root, "main");
+      expect(branch.baseRef).toBe("main");
+      expect(parseDiff(branch.diffText).map((f) => f.path)).toEqual(["src/widget.ts"]);
+    });
+
+    it("finds origin/main without an upstream configured", async () => {
+      const r = await repo();
+      const upstream = commitOnOrigin(r);
+      r.run("update-ref", "refs/remotes/origin/main", upstream);
+      r.run("checkout", "-q", "-B", "feature", upstream);
+      expect((await readBranchDiff(r.root, "main")).baseRef).toBe("origin/main");
+    });
+
+    it("uses origin/main when there is no local main", async () => {
+      const r = await repo();
+      r.run("update-ref", "refs/remotes/origin/main", r.run("rev-parse", "main").trim());
+      r.run("branch", "-qD", "main");
+      r.write("src/widget.ts", "export const widget = 2;\n");
+      expect((await readBranchDiff(r.root, "main")).baseRef).toBe("origin/main");
+    });
+
+    it("uses main when there is no remote", async () => {
+      const r = await repo();
+      expect((await readBranchDiff(r.root, "main")).baseRef).toBe("main");
+    });
+
+    it("says which base it could not find", async () => {
+      const r = await repo();
+      await expect(readBranchDiff(r.root, "trunk")).rejects.toThrow("Can't find the base branch trunk in this checkout.");
+    });
+  });
+
   it("includes untracked files on a branch with nothing committed", async () => {
     const r = await repo();
     r.write("notes.txt", "hello\n");

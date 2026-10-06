@@ -30,6 +30,7 @@ describe("labels", () => {
     expect(coverageLabel({ files: 41, hunks: 118, shown: 118, viewed: 0 })).toBe("41 files, 118 hunks, all shown");
     expect(coverageLabel({ files: 1, hunks: 1, shown: 1, viewed: 0 })).toBe("1 file, 1 hunk, all shown");
     expect(coverageLabel({ files: 41, hunks: 118, shown: 117, viewed: 0 })).toBe("41 files, 117 of 118 hunks shown");
+    expect(coverageLabel({ files: 3, hunks: 4, shown: 4, viewed: 0, base: "origin/main" })).toBe("3 files, 4 hunks, all shown, against origin/main");
   });
 
   it("counts the lines a file adds and removes", () => {

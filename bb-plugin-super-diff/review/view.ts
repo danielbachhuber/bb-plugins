@@ -58,6 +58,8 @@ export interface ViewExtras {
   viewed?: Map<string, string>;
   /** Test overlays, by concern index. */
   tests?: Map<number, ViewTests>;
+  /** The ref the branch is compared against. */
+  base?: string;
 }
 
 export function buildView(files: DiffFile[], stored: StoredGrouping | null, stale: StaleInfo | null, extras: ViewExtras = {}): ReviewView {
@@ -101,7 +103,7 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
     notYetGrouped: section("not-yet-grouped", "Not yet grouped", null),
     mechanical: section("mechanical", "Mechanical", "Lockfiles, snapshots, and generated files."),
     stale,
-    coverage: { files: files.length, hunks: items.length, shown, viewed: files.filter(isViewed).length },
+    coverage: { files: files.length, hunks: items.length, shown, viewed: files.filter(isViewed).length, base: extras.base },
   };
 }
 

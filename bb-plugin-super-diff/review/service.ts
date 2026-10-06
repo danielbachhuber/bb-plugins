@@ -104,6 +104,7 @@ export async function getView(store: Store, threadId: string, checkout: Checkout
     : null;
   const inputs = stored ? await loadTests(checkout.root, branch.files, stored.grouping.assertionHelpers) : null;
   return buildView(branch.files, stored, stale, {
+    base: branch.baseRef,
     viewed: store.viewed(threadId),
     tests: stored && inputs ? overlays(stored.grouping, inputs) : undefined,
   });
@@ -139,7 +140,8 @@ export async function testsText(checkout: Checkout, helpers: string[] = []): Pro
 }
 
 export async function hunks(checkout: Checkout, full: boolean): Promise<string> {
-  return formatHunkList((await loadBranch(checkout)).files, { full });
+  const branch = await loadBranch(checkout);
+  return formatHunkList(branch.files, { full, base: branch.baseRef });
 }
 
 export async function submit(

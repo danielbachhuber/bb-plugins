@@ -26,9 +26,9 @@ Binary files a/assets/logo.png and b/assets/logo.png differ
 
 describe("formatHunkList", () => {
   it("lists files with numbered hunks and marks mechanical and whole-file items", () => {
-    expect(formatHunkList(parseDiff(DIFF), { full: false })).toBe(
+    expect(formatHunkList(parseDiff(DIFF), { full: false, base: "origin/main" })).toBe(
       [
-        "3 files, 4 items. Hunks are numbered from 0.",
+        "3 files, 4 items against origin/main. Hunks are numbered from 0.",
         "",
         "M  src/widget.ts  (2 hunks)",
         "     0: @@ -1,1 +1,1 @@ one",
@@ -41,7 +41,7 @@ describe("formatHunkList", () => {
   });
 
   it("prints each hunk's lines under a path#index marker when full", () => {
-    const text = formatHunkList(parseDiff(DIFF), { full: true });
+    const text = formatHunkList(parseDiff(DIFF), { full: true, base: "main" });
     expect(text).toContain("### src/widget.ts#1\n@@ -9,1 +9,1 @@ two\n-c\n+d");
   });
 });

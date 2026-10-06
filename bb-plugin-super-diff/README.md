@@ -101,6 +101,14 @@ branch: committed changes, uncommitted edits, and untracked files together.
 There is no range to pick. To review someone else's pull request, check its
 branch out in a thread's environment.
 
+The base is the local branch, such as `main`, or its remote-tracking branch,
+such as `origin/main`, whichever is further along this branch's history. A
+local `main` that has not been pulled would otherwise count everything merged
+since as part of the branch; a local `main` with unpushed commits the branch
+builds on is used as it is. The remote-tracking branch is as fresh as the
+last fetch, and the plugin never fetches. The count at the bottom of the panel
+names the base, as in "25 files, 61 hunks, all shown, against origin/main".
+
 It reads the diff with `git` in the environment's checkout, so the environment
 has to be a git checkout on the machine bb runs on. Anything else gets a
 message saying so.
@@ -171,7 +179,9 @@ to `/tmp/super-diff-verify/`. It uses the Playwright install at
 ## What it runs
 
 Each time the panel opens, it runs these `git` commands in the checkout:
-`rev-parse`, `merge-base`, `diff`, `diff --name-only`, `ls-files`, and one
+`rev-parse` (including one for the base's upstream), `merge-base` (one for
+the base, one for its remote-tracking branch, and one `--is-ancestor` to
+compare them), `diff`, `diff --name-only`, `ls-files`, and one
 `diff --no-index` for each untracked file. Once a grouping exists, it also
 reads each changed file from disk, runs one `cat-file` for each path the stored
 contents do not cover, and one `diff --no-index` for each file that changed

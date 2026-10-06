@@ -65,6 +65,7 @@ const grouped = buildView(
     groupedAt: "2026-10-05T12:00:00.000Z",
   },
   null,
+  { base: "origin/main" },
 );
 
 const render = (result: ReviewResult | null, generating = false) => (
