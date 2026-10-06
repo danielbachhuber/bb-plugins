@@ -445,19 +445,23 @@ function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
   const reviewed = reviewedNote(file);
   return (
     <details data-file-card={file.path} open={!file.viewed} className="overflow-hidden rounded-md border">
-      <summary className={`flex cursor-pointer list-none items-center gap-2 bg-muted/50 px-3 py-1.5 ${file.viewed ? "opacity-60" : ""}`}>
-        <PathLabel file={file} />
-        {file.fileStatus === "added" && <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-success">new</span>}
-        {note && <span className="shrink-0 text-xs text-muted-foreground">{note}</span>}
-        <span className="ml-auto" />
-        {reviewed && (
-          <span data-file-reviewed className={`flex shrink-0 items-center gap-1 text-xs ${file.viewed ? "text-success" : "text-muted-foreground"}`}>
-            {file.viewed && <Icon name="Check" className="size-3" />}
-            {reviewed}
-          </span>
-        )}
-        <Counts {...fileStats(file)} />
-        <GithubViewed file={file} viewers={viewers} />
+      {/* The path keeps 12rem; in a narrower card the counts wrap to a line of their own. */}
+      <summary className={`flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 bg-muted/50 px-3 py-1.5 ${file.viewed ? "opacity-60" : ""}`}>
+        <span className="flex min-w-0 items-center gap-2" style={{ flex: "1 1 12rem" }}>
+          <PathLabel file={file} />
+          {file.fileStatus === "added" && <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-success">new</span>}
+          {note && <span className="shrink-0 text-xs text-muted-foreground">{note}</span>}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {reviewed && (
+            <span data-file-reviewed className={`flex shrink-0 items-center gap-1 text-xs ${file.viewed ? "text-success" : "text-muted-foreground"}`}>
+              {file.viewed && <Icon name="Check" className="size-3" />}
+              {reviewed}
+            </span>
+          )}
+          <Counts {...fileStats(file)} />
+          <GithubViewed file={file} viewers={viewers} />
+        </span>
       </summary>
       <div className="flex flex-col border-t">
         {file.hunks.map((hunk) => (
