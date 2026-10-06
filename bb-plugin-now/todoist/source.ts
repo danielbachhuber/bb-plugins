@@ -20,7 +20,8 @@ export const CONFIGURE_HINT =
 export function todoistSource(options: TodoistSourceOptions): Source {
   if (!options.token) return unconfiguredSource(SOURCE_ID, NAME, CONFIGURE_HINT);
 
-  const filter = options.filter?.trim() || DEFAULT_FILTER;
+  // The setting is a textarea, so a long filter may be written across lines.
+  const filter = options.filter?.replace(/\s+/g, " ").trim() || DEFAULT_FILTER;
   const api = createTodoistApi({ token: options.token, fetch: options.fetch });
 
   return {

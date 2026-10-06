@@ -260,6 +260,10 @@ The filter defaults to `today | overdue`. To change it:
 bb plugin config now set todoistFilter "#Work & (today | overdue | p1)"
 ```
 
+In bb's settings the filter is a multi-line text box, so a long query can be
+written across several lines. Line breaks are joined into single spaces before
+the query is sent to Todoist.
+
 Settings are read on every sync, so a change shows up on the next one; press
 Refresh to see it at once. The token is a bb secret setting, stored
 under `~/.bb` and never sent to the frontend.

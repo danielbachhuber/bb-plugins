@@ -173,6 +173,21 @@ describe("items_list", () => {
     });
   });
 
+  test("joins a filter written across lines into one line", async () => {
+    const { bb, harness, plugin } = host(
+      {
+        [filterPath("(today | overdue) | #Widgets")]: { results: [], next_cursor: null },
+        [PROJECTS_PATH]: PROJECTS,
+      },
+      { ...TODOIST_ONLY, todoistFilter: "(today | overdue)\n  | #Widgets\n" },
+    );
+    await plugin(bb);
+
+    await expect(syncAndRead(harness)).resolves.toMatchObject({
+      sources: [{ state: "ok", query: "(today | overdue) | #Widgets", count: 0 }],
+    });
+  });
+
   test("follows the cursor through every page", async () => {
     const { bb, harness, plugin } = host({
       [filterPath(DEFAULT_FILTER)]: { results: [rawTask("a")], next_cursor: "abc.def" },

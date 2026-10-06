@@ -69,6 +69,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         type: "string",
         label: "Todoist filter",
         description: 'A Todoist filter query, such as "today | overdue" or "#Work & p1".',
+        experimental_multiline: true,
         default: DEFAULT_FILTER,
       },
       gmailEnabled: {
