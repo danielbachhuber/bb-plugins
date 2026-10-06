@@ -48,6 +48,8 @@ bb and GitHub is left alone. Hover the checkbox to see which kind of mark it
 is. Once you push and the counts line up, GitHub's state takes over for that
 file.
 
+![src/pricing.ts checked as viewed with a local tag, because its diff in bb differs from the pull request's](docs/local.png)
+
 A file GitHub reports as changed since you viewed it shows unchecked, as it
 does on GitHub.
 
