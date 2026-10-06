@@ -6,17 +6,7 @@
 // Server-only: it loads the TypeScript compiler, which the panel never needs.
 import ts from "typescript";
 
-export const TEST_FILE = /(\.(test|spec)\.[cm]?[jt]sx?$)|(\/__tests__\/.+\.[cm]?[jt]sx?$)/;
-
-export function isTestFile(path: string): boolean {
-  return TEST_FILE.test(path);
-}
-
-/** Where Jest and Vitest write a test file's snapshots by default. */
-export function snapshotPathFor(testPath: string): string {
-  const at = testPath.lastIndexOf("/");
-  return `${testPath.slice(0, at + 1)}__snapshots__/${testPath.slice(at + 1)}.snap`;
-}
+export { TEST_FILE, isTestFile, snapshotPathFor } from "./paths";
 
 /**
  * What an assertion checks: an exact value, an error, a mock call, a recorded

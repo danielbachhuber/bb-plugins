@@ -12,10 +12,10 @@ the branch is left out of the review.
 Check **Viewed** on each file as you read it; a bar counts your progress, and
 a file whose diff changes comes back unread.
 
-A concern that holds tests opens on **Scenarios**: what the tests check, as
-Gherkin with each recorded snapshot value under the step that wrote it, and a
-second block of the scenarios no test tries, each tagged with why. **Diff**
-shows the raw files.
+A concern shows its code changes first, then its tests as **Scenarios**: what
+the tests check, as Gherkin with each recorded snapshot value under the step
+that wrote it, and a second block of the scenarios no test tries, each tagged
+with why. **Diff** shows the raw test files in their place.
 
 ## When the branch moves on
 

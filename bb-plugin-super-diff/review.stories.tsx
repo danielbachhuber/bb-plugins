@@ -68,9 +68,18 @@ const grouped = buildView(
   { base: "origin/main" },
 );
 
-const render = (result: ReviewResult | null, generating = false) => (
+const render = (result: ReviewResult | null, generating = false, initialSection?: string) => (
   <div className="w-[560px]">
-    <ReviewScreen result={result} error={null} generating={generating} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} />
+    <ReviewScreen
+      result={result}
+      error={null}
+      generating={generating}
+      onGenerate={() => {}}
+      onSetViewed={() => {}}
+      DiffView={DiffView}
+      SourceView={SourceView}
+      initialSection={initialSection}
+    />
   </div>
 );
 
@@ -159,17 +168,73 @@ const notCovered = notCoveredFeature(
   undefined,
 );
 
-/** A test concern on Scenarios: its scenarios listed, the chosen one as Gherkin with recorded values folded until Show values, then what the tests leave out. Diff shows the raw files. */
-export const TestConcern = () =>
-  render({
-    state: "ok",
-    view: {
-      ...grouped,
-      concerns: grouped.concerns.map((c, i) =>
-        i === 0 ? { ...c, tests: { scenarios: scenarioViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 } } : c,
-      ),
+// The branch again with its tests: a test beside the sprocket, its snapshot,
+// and a widget test that is a concern of its own.
+const TESTS_DIFF = `${DIFF}diff --git a/src/sprocket.test.ts b/src/sprocket.test.ts
+new file mode 100644
+index 0000000..6666666
+--- /dev/null
++++ b/src/sprocket.test.ts
+@@ -0,0 +1,4 @@
++test("sprocket", () => {
++  expect(sprocket(4)).toMatchSnapshot();
++  expect(sprocket(-1)).toBe(0);
++});
+diff --git a/src/__snapshots__/sprocket.test.ts.snap b/src/__snapshots__/sprocket.test.ts.snap
+new file mode 100644
+index 0000000..7777777
+--- /dev/null
++++ b/src/__snapshots__/sprocket.test.ts.snap
+@@ -0,0 +1 @@
++exports[\`sprocket 1\`] = \`5\`;
+diff --git a/src/widget.test.ts b/src/widget.test.ts
+index 8888888..9999999 100644
+--- a/src/widget.test.ts
++++ b/src/widget.test.ts
+@@ -1,3 +1,3 @@
+ test("widget", () => {
+-  expect(widget()).toBe(4);
++  expect(widget()).toBe(5);
+ });
+`;
+const testFiles = parseDiff(TESTS_DIFF);
+const hashOf = (path: string, index = 0) => testFiles.find((f) => f.path === path)!.hunks[index]!.hash;
+const testConcerns: Array<{ title: string; note: string; items: Array<[string, number]>; tests: boolean }> = [
+  {
+    title: "Add the sprocket",
+    note: "A one-line function that adds one, with the import that brings it into the widget, and a test for it.",
+    items: [["src/sprocket.ts", 0], ["src/widget.ts", 0], ["src/sprocket.test.ts", 0], ["src/__snapshots__/sprocket.test.ts.snap", 0]],
+    tests: true,
+  },
+  { title: "Call it from the widget", note: "The widget now returns its gadget through the sprocket.", items: [["src/widget.ts", 1]], tests: false },
+  { title: "The widget test expects one more", note: "The widget's result goes up by the sprocket's one.", items: [["src/widget.test.ts", 0]], tests: true },
+];
+const withTestsBase = buildView(
+  testFiles,
+  {
+    grouping: {
+      headline: "Widgets pass their gadget through a new sprocket.",
+      concerns: testConcerns.map((c) => ({ title: c.title, note: c.note, files: c.items.map(([path, i]) => ({ path, hunks: [i] })) })),
     },
-  });
+    assignments: testConcerns.flatMap((c, concern) => c.items.map(([path, index]) => ({ path, index, hash: hashOf(path, index), concern }))),
+    baseSha: "base",
+    headSha: "head",
+    groupedAt: "2026-10-05T12:00:00.000Z",
+  },
+  null,
+  { base: "origin/main" },
+);
+const testsBlock = { scenarios: scenarioViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
+const withTests = {
+  ...withTestsBase,
+  concerns: withTestsBase.concerns.map((c, i) => (testConcerns[i]!.tests ? { ...c, tests: testsBlock } : c)),
+};
+
+/** A concern that changes code and tests: the code first, then its tests as scenarios under Tests, whose Scenarios and Diff toggle swaps only the test files. The rail counts its scenarios. */
+export const CodeAndTests = () => render({ state: "ok", view: withTests });
+
+/** A concern that is only tests: its scenarios listed, the chosen one as Gherkin with recorded values folded until Show values, then what the tests leave out. Diff, beside the title, shows the raw files. The rail tags it "tests". */
+export const TestConcern = () => render({ state: "ok", view: withTests }, false, "concern-2");
 
 /** Some files marked viewed: they fold and dim, and the bar and the outline count them. */
 export const SomeViewed = () =>

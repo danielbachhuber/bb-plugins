@@ -5,13 +5,14 @@
 // The data attributes are a contract with scripts/verify.mjs: every item is an
 // element with data-file and data-hunk, the root reports "ready", each rail
 // entry has data-rail-item and shows its concern, file cards are <details>,
-// and a test concern's Diff button shows its hunks.
+// and a concern's Diff button shows its test files' hunks.
 import { useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
-import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, testsLabel, viewedLabel } from "./labels";
+import { isTestSide } from "@/review/tests/paths";
+import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, testsLabel, testsTag, viewedLabel } from "./labels";
 
 export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
 export type SourceViewComponent = ComponentType<{ content: string; path: string }>;
@@ -24,6 +25,8 @@ export interface ReviewScreenProps {
   onSetViewed: (path: string, viewed: boolean) => void;
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
+  /** The section to open on, for stories and tests; the first concern otherwise. */
+  initialSection?: string;
 }
 
 /**
@@ -49,8 +52,8 @@ interface Viewers {
   onSetViewed: (path: string, viewed: boolean) => void;
 }
 
-export function ReviewScreen({ result, error, generating, onGenerate, onSetViewed, DiffView, SourceView }: ReviewScreenProps) {
-  const [chosen, setChosen] = useState<string | null>(null);
+export function ReviewScreen({ result, error, generating, onGenerate, onSetViewed, DiffView, SourceView, initialSection }: ReviewScreenProps) {
+  const [chosen, setChosen] = useState<string | null>(initialSection ?? null);
   if (error !== null) return <Message text={`Could not load the review: ${error}`} />;
   if (result === null) return <Message text="Reading the branch…" />;
   if (result.state === "unavailable") return <Message text={result.message} ready />;
@@ -161,6 +164,7 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
         const viewed = section.files.filter((f) => f.viewed).length;
         const done = viewed === section.files.length;
         const current = section.id === chosen;
+        const tag = testsTag(section);
         return (
           <button
             key={section.id}
@@ -178,9 +182,9 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
               </span>
               <span className={`leading-snug ${current ? "font-semibold" : n === -1 || done ? "text-muted-foreground" : "font-medium"}`}>{section.title}</span>
             </span>
-            <span className="flex items-center gap-2 pl-5 text-[11px] text-muted-foreground">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap pl-5 text-[11px] text-muted-foreground">
               {done ? <Icon name="Check" className="size-3 text-success" /> : <span className="tabular-nums">{`${viewed}/${section.files.length}`}</span>}
-              {section.tests && <span>tests</span>}
+              {tag && <span>{tag}</span>}
               <Counts {...sectionStats(section)} />
             </span>
           </button>
@@ -254,11 +258,25 @@ function ModeToggle({ mode, onChange }: { mode: "scenarios" | "diff"; onChange: 
   );
 }
 
-/** The chosen concern: its title, note, and files, or for a test concern its scenarios. */
+/** A concern's files split into code and tests; a concern without scenarios is all code. */
+function splitFiles(section: ViewSection): { code: ViewFile[]; tests: ViewFile[] } {
+  if (section.tests === null) return { code: section.files, tests: [] };
+  return { code: section.files.filter((f) => !isTestSide(f.path)), tests: section.files.filter((f) => isTestSide(f.path)) };
+}
+
+/**
+ * The chosen concern: its title, note, and code changes, then its tests. The
+ * Scenarios and Diff toggle switches only the test files, so the code a
+ * concern changes is never hidden behind it. A concern that is all tests
+ * puts the toggle beside its title, since there is nothing above the tests.
+ */
 function Concern({ section, number, of, viewers }: { section: ViewSection; number: number | null; of: number; viewers: Viewers }) {
   const [mode, setMode] = useState<"scenarios" | "diff">("scenarios");
   const tests = section.tests;
-  const showScenarios = tests !== null && mode === "scenarios";
+  const files = splitFiles(section);
+  // With no test files to show as a diff, the scenarios are all there is.
+  const toggle = tests !== null && files.tests.length > 0 ? <ModeToggle mode={mode} onChange={setMode} /> : null;
+  const mixed = tests !== null && files.code.length > 0;
   return (
     <section data-section={section.id} className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
@@ -271,14 +289,24 @@ function Concern({ section, number, of, viewers }: { section: ViewSection; numbe
           )}
           <h3 className="text-base font-semibold leading-snug">{section.title}</h3>
         </div>
-        {tests && <ModeToggle mode={mode} onChange={setMode} />}
+        {!mixed && toggle}
       </div>
       {section.note && <p className="text-muted-foreground">{section.note}</p>}
-      {showScenarios ? (
-        <Scenarios section={section} tests={tests} viewers={viewers} />
-      ) : (
-        section.files.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
+      {files.code.map((file) => (
+        <FileCard key={file.path} file={file} viewers={viewers} />
+      ))}
+      {mixed && (
+        <div data-tests-heading className="flex items-center gap-2 border-t pt-3">
+          <h4 className="min-w-0 flex-1 font-semibold">Tests</h4>
+          {toggle}
+        </div>
       )}
+      {tests !== null &&
+        (mode === "scenarios" || !toggle ? (
+          <Scenarios section={section} tests={tests} viewers={viewers} />
+        ) : (
+          files.tests.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
+        ))}
     </section>
   );
 }

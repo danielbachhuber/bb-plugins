@@ -1,6 +1,7 @@
 // The panel's small pieces of text. Pure.
-import type { ReviewView, ViewFile } from "@/review/contract";
+import type { ReviewView, ViewFile, ViewSection } from "@/review/contract";
 import { hashText } from "@/review/items";
+import { isTestSide } from "@/review/tests/paths";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -61,4 +62,15 @@ export function testsLabel(tests: { scenarios: number; asserted: number; snapsho
  */
 export function sourcePath(name: string, content: string): string {
   return `${name}-${hashText(content)}.feature`;
+}
+
+/**
+ * The rail's note on a concern's tests: "tests" for a concern that is only
+ * tests, and its scenario count for one that also changes code, so the rail
+ * does not make a code change look like a test change.
+ */
+export function testsTag(section: ViewSection): string | null {
+  if (section.tests === null) return null;
+  if (section.files.every((file) => isTestSide(file.path))) return "tests";
+  return plural(section.tests.scenarios.length, "scenario", "scenarios");
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, viewedLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, testsTag, viewedLabel } from "./labels";
 
 const file = (indexes: number[], total: number) => ({
   path: "a.ts",
@@ -48,5 +48,19 @@ describe("labels", () => {
     expect(a).toMatch(/^concern-0\/scenario-1-[0-9a-f]+\.feature$/);
     expect(sourcePath("concern-0/scenario-1", "Scenario: one\n  Given a")).toBe(a);
     expect(sourcePath("concern-0/scenario-1", "Scenario: one\n  Given b\n  When c")).not.toBe(a);
+  });
+
+  it("tags a concern's tests in the rail by what else it holds", () => {
+    const tests = { scenarios: [{ title: "a", asserted: 1, snapshotOnly: 0, steps: "", values: "" }], notCovered: "", asserted: 1, snapshotOnly: 0, gaps: 0, snapshots: 0 };
+    const section = (paths: string[], withTests = true) => ({
+      id: "concern-0",
+      title: "",
+      note: "",
+      files: paths.map((path) => ({ ...file([0], 1), path })),
+      tests: withTests ? tests : null,
+    });
+    expect(testsTag(section(["src/a.ts"], false))).toBeNull();
+    expect(testsTag(section(["src/a.test.ts", "src/__snapshots__/a.test.ts.snap.firebase"]))).toBe("tests");
+    expect(testsTag(section(["src/a.ts", "src/a.test.ts"]))).toBe("1 scenario");
   });
 });

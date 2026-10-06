@@ -29,7 +29,7 @@ From top to bottom, the panel shows:
    and **Mechanical** for lockfiles, snapshots, and generated files.
 6. A count of files and hunks, and whether all of them are shown.
 
-![A test concern on Scenarios: its two scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--test-concern.png)
+![A concern that changes code and tests: its source files as diffs, then a Tests heading with a Scenarios and Diff toggle, its scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--code-and-tests.png)
 
 ## Marking files viewed
 
@@ -43,9 +43,18 @@ grouping.
 
 ## Test concerns
 
-A concern that holds test files opens on **Scenarios**, with **Diff** one click
-away for the raw files. Scenarios has three parts, the Gherkin drawn by bb's own
-source viewer:
+A concern with scenarios shows its code first and its tests after. Its source
+files come first as diffs, like any other concern's. Below them, under
+**Tests**, the test files are shown as **Scenarios**, with **Diff** one click
+away for the raw test files. The toggle switches only the test files, so the
+code a concern changes is never hidden behind it. A concern that is only tests
+starts on Scenarios with the toggle beside its title. In the rail, a concern
+that is only tests is tagged "tests", and one that also changes code shows its
+scenario count. Test files are those named `*.test.*` or `*.spec.*` or under
+`__tests__/`, and their output is anything under `__snapshots__/` or ending in
+`.snap`.
+
+Scenarios has three parts, the Gherkin drawn by bb's own source viewer:
 
 - **The scenarios, listed.** One line each, with how many of its steps are
   asserted and how many are snapshot only. Choosing one shows it below.
@@ -170,11 +179,22 @@ counts as shown.
 
 `npm run verify` runs that first, then opens the thread in bb with Playwright,
 opens the Super Diff panel, chooses each concern in the rail in turn, switches
-test concerns to Diff, waits for every diff to draw, and checks that the hunks on the page are exactly the hunks on the
-branch, once each. It also fails on a console error, a diff that never draws,
-or content wider than the panel, and saves light, dark, and narrow screenshots
-to `/tmp/super-diff-verify/`. It uses the Playwright install at
+concerns with tests to Diff, waits for every diff to draw, and checks that the
+hunks on the page are exactly the hunks on the branch, once each. It also
+fails on a console error, a diff that never draws, or content wider than the
+panel, and saves light, dark, and narrow screenshots to
+`/tmp/super-diff-verify/`. It uses the Playwright install at
 `~/.claude/tools/playwright`.
+
+### Each shape a concern can take
+
+A concern can be code only, code and tests, tests only, or scenarios over
+files that are not tests. Each draws differently, and a change made for one
+has hidden another's code before. So each shape has a test under "concern
+shapes" in `components/review-screen.test.tsx`, checking which hunks show, where
+the toggle sits, and what the rail says, and each has a story in
+`review.stories.tsx`, so the screenshot capture records how it looks. A new
+shape gets both.
 
 ## What it runs
 
