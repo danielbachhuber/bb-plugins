@@ -2,7 +2,12 @@
 //
 // This lives outside app.tsx so it can be driven under jsdom, the same split
 // the other hack uses and for the same reason: the wiring is where the bugs go.
-import { findCards } from "./cards";
+import {
+  COLLAPSE_ALL_LABEL,
+  EXPAND_ALL_LABEL,
+  findCards,
+  readDiffIdentity,
+} from "./cards";
 import { cardsToExpand, expansionKey } from "./rules";
 
 export interface EngineDeps {
@@ -26,10 +31,15 @@ export function startEngine(deps: EngineDeps): Engine {
   const { signal, doc, defer } = deps;
 
   /**
-   * Cards this engine has already opened, by path and stats. It is why a file
-   * you collapse by hand stays collapsed: each card is opened at most once.
+   * Cards seen open in the current diff, by path and stats, whether this
+   * engine opened them or bb did. It is why a file you collapse by hand stays
+   * collapsed: a card is opened at most once. It is cleared when the diff
+   * changes, because bb folds every card again at that moment.
    */
-  const expanded = new Set<string>();
+  const seenOpen = new Set<string>();
+  let identity: string | null = null;
+  /** True after Collapse all files, until the diff changes or you expand all. */
+  let paused = false;
   // True while this engine is clicking, so the observer does not treat its own
   // edits as a reason to run again.
   let writing = false;
@@ -45,14 +55,24 @@ export function startEngine(deps: EngineDeps): Engine {
 
   function syncNow(): void {
     if (signal.aborted) return;
+    const nextIdentity = readDiffIdentity(doc);
+    if (nextIdentity !== identity) {
+      identity = nextIdentity;
+      seenOpen.clear();
+      paused = false;
+    }
     const cards = findCards(doc);
-    const toExpand = cardsToExpand(cards, expanded);
+    for (const card of cards) {
+      if (!card.isCollapsed) seenOpen.add(expansionKey(card));
+    }
+    if (paused) return;
+    const toExpand = cardsToExpand(cards, seenOpen);
     if (toExpand.length === 0) return;
 
     writing = true;
     try {
       for (const card of toExpand) {
-        expanded.add(expansionKey(card));
+        seenOpen.add(expansionKey(card));
         card.toggle.click();
       }
     } finally {
@@ -63,6 +83,17 @@ export function startEngine(deps: EngineDeps): Engine {
     schedule();
   }
 
+  // Capture phase, so the label read is the one the user clicked, before bb
+  // re-renders the button with the opposite label.
+  function onClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof doc.defaultView!.Element)) return;
+    const label = target.closest("button")?.getAttribute("aria-label");
+    if (label === COLLAPSE_ALL_LABEL) paused = true;
+    else if (label === EXPAND_ALL_LABEL) paused = false;
+  }
+  doc.addEventListener("click", onClick, true);
+
   const observer = new doc.defaultView!.MutationObserver(() => {
     if (writing) return;
     schedule();
@@ -70,6 +101,8 @@ export function startEngine(deps: EngineDeps): Engine {
   observer.observe(doc.body, {
     childList: true,
     subtree: true,
+    // The range label can change as a text edit, with no node added.
+    characterData: true,
     attributes: true,
     attributeFilter: ["aria-expanded", "aria-label", "data-diff-viewed"],
   });
@@ -81,6 +114,7 @@ export function startEngine(deps: EngineDeps): Engine {
     schedule,
     dispose() {
       observer.disconnect();
+      doc.removeEventListener("click", onClick, true);
       if (cancel !== null) cancel();
       cancel = null;
     },

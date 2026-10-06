@@ -86,3 +86,26 @@ export function findCards(root: ParentNode): DiffCard[] {
   }
   return cards;
 }
+
+/** bb's range dropdown at the top of the changes panel. */
+const RANGE_TRIGGER_SELECTOR =
+  '[data-testid="git-diff-toolbar-selector-slot"] button';
+
+/**
+ * Which diff the panel is showing: the page path, which names the thread, and
+ * the range dropdown's label, such as "Uncommitted changes".
+ *
+ * bb keeps each card's collapsed state under its own diff identity (the
+ * environment, the range, and the merge base) and throws it away whenever that
+ * identity changes, so every card starts folded again. This reading stands in
+ * for bb's identity, which the DOM does not expose.
+ */
+export function readDiffIdentity(doc: Document): string {
+  const range = doc.querySelector(RANGE_TRIGGER_SELECTOR)?.textContent ?? "";
+  return `${doc.defaultView?.location.pathname ?? ""}\n${range.trim()}`;
+}
+
+/** bb's toolbar button that folds every file. */
+export const COLLAPSE_ALL_LABEL = "Collapse all files";
+/** The same button once every file is folded. */
+export const EXPAND_ALL_LABEL = "Expand all files";

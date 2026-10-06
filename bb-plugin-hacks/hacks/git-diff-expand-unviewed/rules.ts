@@ -2,15 +2,6 @@
 import type { DiffCard } from "./cards";
 
 /**
- * bb's own `GIT_DIFF_AUTO_COLLAPSE_FILE_THRESHOLD`. Above it bb starts a diff
- * with every file collapsed; at or below it every file starts expanded, so a
- * collapsed card is something the user did and this hack must not undo.
- * Mirroring the constant is the whole reason this is a hack: bb does not expose
- * it as a setting.
- */
-export const AUTO_COLLAPSE_FILE_THRESHOLD = 10;
-
-/**
  * Whether a header's `+N -M` text belongs to a deleted file.
  *
  * bb passes `hideZero` to the stat tally only for added and deleted files, so a
@@ -24,7 +15,10 @@ export function isDeletion(stats: string): boolean {
   return /-\s*\d/.test(stats) && !stats.includes("+");
 }
 
-/** How a card is remembered once expanded, so a manual re-collapse sticks. */
+/**
+ * How a card is remembered once it has been seen open, so a manual collapse
+ * sticks.
+ */
 export function expansionKey(card: DiffCard): string {
   return `${card.path} ${card.stats}`;
 }
@@ -32,22 +26,25 @@ export function expansionKey(card: DiffCard): string {
 /**
  * The cards to expand on this pass.
  *
- * Nothing happens below bb's threshold, because there bb collapsed nothing and
- * every collapsed card is the user's doing. Above it, a card is expanded only
- * once per path and stats pair: collapse it by hand afterwards and it stays
- * collapsed, and a file whose diff has since changed is a new card that gets
- * one more chance to open.
+ * A card is expanded only if it has never been seen open for this diff. bb
+ * starts a diff of ten files or fewer fully open, so those cards are seen open
+ * on the first pass and a later collapse is left alone. A larger diff starts
+ * folded, and each of its cards is opened once per path and stats pair: a file
+ * whose diff has since changed is a new card that gets one more chance.
+ *
+ * There is no file-count check here. bb virtualizes the list, so the cards in
+ * the DOM are only the ones near the viewport, and their count says nothing
+ * about the size of the diff.
  */
 export function cardsToExpand(
   cards: readonly DiffCard[],
-  expanded: ReadonlySet<string>,
+  seenOpen: ReadonlySet<string>,
 ): DiffCard[] {
-  if (cards.length <= AUTO_COLLAPSE_FILE_THRESHOLD) return [];
   return cards.filter(
     (card) =>
       card.isCollapsed &&
       !card.isViewed &&
       !isDeletion(card.stats) &&
-      !expanded.has(expansionKey(card)),
+      !seenOpen.has(expansionKey(card)),
   );
 }

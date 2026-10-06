@@ -75,13 +75,24 @@ worth keeping.
 
 This hack opens them again. A file is opened only if it is folded, not marked
 read by [Diff Viewed](../bb-plugin-diff-viewed), and not a deletion — bb's
-reason for folding those is its own and worth keeping. Nothing happens at ten
-files or fewer, because bb folded nothing there and a folded file is something
-you did.
+reason for folding those is its own and worth keeping.
 
-Each file is opened at most once per path and stat count. Collapse one by hand
-and it stays collapsed; collapse them all and they stay that way. A file whose
-diff has changed since is a different card, and gets one more chance to open.
+Each file is opened at most once per path and stat count. A file already seen
+open, whether bb or this hack opened it, is left alone, so a file you collapse
+by hand stays collapsed, and in a diff of ten files or fewer, where bb opens
+everything, nothing is touched. Clicking Collapse all files stops the hack
+until the diff changes or you click Expand all files. A file whose diff has
+changed since is a different card, and gets one more chance to open.
+
+bb throws its fold state away and folds every file again whenever the diff
+changes: another thread, another range such as Uncommitted changes, or a new
+merge base. The hack forgets what it has seen at the same moments, reading the
+diff from the page path and the range dropdown's label, so the files open
+again each time. A new merge base on the same range is the one change it
+cannot see.
+
+There is no file-count check. bb renders only the cards near the viewport, so
+the number of cards on the page says nothing about the size of the diff.
 
 Whether a card is a deletion is inferred rather than declared: bb hides the zero
 side of the tally only for added and deleted files, so a deletion reads as `-12`
@@ -172,6 +183,8 @@ The expand-unviewed hack anchors on the card headers instead:
 | `[data-timeline-file-diff]` | Skipping timeline diffs |
 | `data-diff-viewed="true"` | Leaving a file Diff Viewed has marked read folded |
 | `data-diff-viewed-owned` | Keeping Diff Viewed's own checkbox out of the stat reading |
+| `[data-testid="git-diff-toolbar-selector-slot"] button` text, and the page path | Which diff is showing, to forget what was seen open when bb resets |
+| `aria-label="Collapse all files"` / `"Expand all files"` | Pausing and resuming after you fold everything |
 
 The open-in-editor hack anchors on the sidebar project row:
 

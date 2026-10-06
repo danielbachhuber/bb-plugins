@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DiffCard } from "./cards";
-import {
-  AUTO_COLLAPSE_FILE_THRESHOLD,
-  cardsToExpand,
-  expansionKey,
-  isDeletion,
-} from "./rules";
+import { cardsToExpand, expansionKey, isDeletion } from "./rules";
 
 function card(overrides: Partial<DiffCard> & { path: string }): DiffCard {
   return {
@@ -23,7 +18,7 @@ function manyCards(count: number, overrides: Partial<DiffCard> = {}): DiffCard[]
   );
 }
 
-const OVER_THRESHOLD = AUTO_COLLAPSE_FILE_THRESHOLD + 1;
+const OVER_THRESHOLD = 11;
 
 describe("isDeletion", () => {
   it("reads a deletion, which bb renders without its zero side", () => {
@@ -54,10 +49,11 @@ describe("cardsToExpand", () => {
     expect(cardsToExpand(cards, new Set())).toHaveLength(OVER_THRESHOLD);
   });
 
-  it("does nothing at or below bb's threshold", () => {
-    // Below it bb collapsed nothing, so a collapsed card is the user's doing.
-    const cards = manyCards(AUTO_COLLAPSE_FILE_THRESHOLD);
-    expect(cardsToExpand(cards, new Set())).toEqual([]);
+  it("expands however few cards are rendered", () => {
+    // bb virtualizes the list, so a forty-file diff can have three cards in
+    // the DOM.
+    const cards = manyCards(3);
+    expect(cardsToExpand(cards, new Set())).toHaveLength(3);
   });
 
   it("leaves a file diff-viewed has marked read collapsed", () => {
@@ -81,7 +77,7 @@ describe("cardsToExpand", () => {
     expect(cardsToExpand(cards, new Set())).toEqual([]);
   });
 
-  it("does not reopen a card it has already opened", () => {
+  it("does not reopen a card it has already seen open", () => {
     const cards = manyCards(OVER_THRESHOLD);
     const expanded = new Set([expansionKey(cards[0]!)]);
     expect(cardsToExpand(cards, expanded).map((c) => c.path)).not.toContain(

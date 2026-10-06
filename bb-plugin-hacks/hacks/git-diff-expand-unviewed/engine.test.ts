@@ -8,7 +8,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startEngine, type Engine } from "./engine";
 import { VIEWED_ATTR } from "./cards";
-import { AUTO_COLLAPSE_FILE_THRESHOLD } from "./rules";
 
 /** A card header plus the bit of bb behavior that responds to a click. */
 function renderCard(
@@ -52,7 +51,39 @@ function renderDiff(
 const isExpanded = (toggle: HTMLButtonElement) =>
   toggle.getAttribute("aria-expanded") === "true";
 
-const OVER_THRESHOLD = AUTO_COLLAPSE_FILE_THRESHOLD + 1;
+/** More than bb's threshold of ten, so bb starts every file folded. */
+const OVER_THRESHOLD = 11;
+
+/** bb's range dropdown, whose label is part of the diff's identity. */
+function renderRange(label: string): HTMLElement {
+  const slot = document.createElement("div");
+  slot.setAttribute("data-testid", "git-diff-toolbar-selector-slot");
+  slot.innerHTML = `<button type="button">${label}</button>`;
+  document.body.append(slot);
+  return slot.querySelector("button")!;
+}
+
+/** bb's Collapse all files button, which folds every card when clicked. */
+function renderCollapseAll(): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.setAttribute("aria-label", "Collapse all files");
+  document.body.append(button);
+  button.addEventListener("click", () => {
+    for (const toggle of document.querySelectorAll<HTMLButtonElement>(
+      'button[aria-expanded="true"]',
+    )) {
+      toggle.click();
+    }
+  });
+  return button;
+}
+
+/** bb throwing its card state away: every card folds again. */
+function foldAll(toggles: HTMLButtonElement[]): void {
+  for (const toggle of toggles) {
+    if (isExpanded(toggle)) toggle.click();
+  }
+}
 
 let controller: AbortController;
 let started: Engine[] = [];
@@ -122,14 +153,77 @@ describe("a diff bb auto-collapsed", () => {
 
 describe("a diff bb did not auto-collapse", () => {
   it("leaves a file the user collapsed alone", () => {
-    const toggles = renderDiff(AUTO_COLLAPSE_FILE_THRESHOLD, {
-      collapsed: false,
-    });
-    toggles[0]!.click();
+    const toggles = renderDiff(3, { collapsed: false });
     const engine = start();
+    toggles[0]!.click();
     engine.syncNow();
+    flush();
 
     expect(isExpanded(toggles[0]!)).toBe(false);
+  });
+});
+
+describe("a virtualized list", () => {
+  it("opens a folded card even when few cards are rendered", () => {
+    // bb renders only the cards near the viewport, so a forty-file diff can
+    // have a handful in the DOM once the first few are open.
+    const toggles = renderDiff(3);
+    start();
+
+    expect(toggles.every(isExpanded)).toBe(true);
+  });
+});
+
+describe("bb resetting its card state", () => {
+  it("opens the files again after the range changes", () => {
+    const range = renderRange("All changes");
+    const toggles = renderDiff(OVER_THRESHOLD);
+    const engine = start();
+    expect(toggles.every(isExpanded)).toBe(true);
+
+    range.textContent = "Uncommitted changes";
+    foldAll(toggles);
+    engine.syncNow();
+    flush();
+
+    expect(toggles.every(isExpanded)).toBe(true);
+  });
+
+  it("opens the files again after switching threads and back", () => {
+    window.history.pushState({}, "", "/threads/thr_one");
+    const toggles = renderDiff(OVER_THRESHOLD);
+    const engine = start();
+
+    window.history.pushState({}, "", "/threads/thr_two");
+    engine.syncNow();
+    window.history.pushState({}, "", "/threads/thr_one");
+    foldAll(toggles);
+    engine.syncNow();
+    flush();
+
+    expect(toggles.every(isExpanded)).toBe(true);
+    window.history.pushState({}, "", "/");
+  });
+});
+
+describe("Collapse all files", () => {
+  it("keeps every file folded until the diff changes", () => {
+    const range = renderRange("All changes");
+    const collapseAll = renderCollapseAll();
+    const toggles = renderDiff(OVER_THRESHOLD);
+    const engine = start();
+
+    collapseAll.click();
+    const scrolledIn = renderCard("src/later.ts");
+    engine.syncNow();
+    flush();
+    expect(toggles.some(isExpanded)).toBe(false);
+    expect(isExpanded(scrolledIn)).toBe(false);
+
+    range.textContent = "Uncommitted changes";
+    engine.syncNow();
+    flush();
+    expect(isExpanded(scrolledIn)).toBe(true);
   });
 });
 
