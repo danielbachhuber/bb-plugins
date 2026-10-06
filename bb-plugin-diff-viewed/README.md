@@ -4,7 +4,7 @@ Keep your place in a long diff. Every file in bb's changes panel gets a
 **Viewed** checkbox: check it and the file collapses, its header dims, and it
 stays that way until the file's diff changes.
 
-![Three files marked viewed and collapsed above a file still expanded](docs/viewed.png)
+![Three files marked viewed and collapsed above a file still expanded, with "3/6 viewed" in the toolbar](docs/viewed.png)
 
 ## Use
 
