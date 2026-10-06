@@ -100,9 +100,9 @@ The capture does not commit, because that repository is public too, and an
 image can carry what a text scan of the diff misses. Read every image it
 lists, with the same rule as the top of this file, while it is still only in
 the working tree there. If one shows something private, throw the capture away
-with the command it prints, fix the fixture here, and capture again. Nothing reaches that repository's history until
-`screenshots:commit`, which commits with a message naming this repository's
-commit and pushes. That repository's AGENTS.md says the same.
+with the command it prints, fix the fixture here, and capture again. Nothing
+reaches that repository's history until `screenshots:commit`, which commits
+with a message naming this repository's commit and pushes. That repository's AGENTS.md says the same.
 
 It expects that checkout at `../bb-plugins-screenshots`, or wherever
 `BB_PLUGINS_SCREENSHOTS_DIR` in `.env` points. Clone it there on a new
