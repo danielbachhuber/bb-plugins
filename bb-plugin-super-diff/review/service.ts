@@ -4,6 +4,7 @@ import { formatViolation, parseGrouping, resolveGrouping } from "./check";
 import { isMechanical } from "./classify";
 import type { ReviewView, StaleInfo } from "./contract";
 import { checkCoverage, formatCoverage, shownKeys } from "./coverage";
+import { crossCheck } from "./crosscheck";
 import { formatHunkList } from "./format";
 import { commitsSince, diffStates, fileAtCommit, fileOnDisk, readBranchDiff } from "./git";
 import { itemsOf, parseDiff } from "./items";
@@ -96,8 +97,13 @@ function overlays(grouping: Grouping, inputs: TestInputs): Map<number, ViewTests
   return out;
 }
 
-export async function getView(store: Store, threadId: string, checkout: Checkout): Promise<ReviewView> {
+/** bb's own list of the branch's changed paths against a base, or why it has none. */
+export type BbFiles = (base: string) => Promise<string[] | { reason: string }>;
+
+export async function getView(store: Store, threadId: string, checkout: Checkout, bbFiles?: BbFiles): Promise<ReviewView> {
   const branch = await loadBranch(checkout);
+  // Asked for the same base Super Diff chose, so the two lists can agree; it runs while the rest reads files.
+  const bbList = bbFiles?.(branch.baseRef);
   const stored = store.get(threadId);
   const stale = stored
     ? await computeStale(checkout.root, stored, store.snapshot(threadId), branch.files, branch.headSha)
@@ -105,6 +111,7 @@ export async function getView(store: Store, threadId: string, checkout: Checkout
   const inputs = stored ? await loadTests(checkout.root, branch.files, stored.grouping.assertionHelpers) : null;
   return buildView(branch.files, stored, stale, {
     base: branch.baseRef,
+    crossCheck: bbList ? crossCheck(branch.files.map((file) => file.path), await bbList) : undefined,
     viewed: store.viewed(threadId),
     tests: stored && inputs ? overlays(stored.grouping, inputs) : undefined,
   });

@@ -62,11 +62,13 @@ const STORED: StoredGrouping = {
   headSha: "head",
   groupedAt: "2026-10-05T12:00:00.000Z",
 };
-const grouped = buildView(files, STORED, null, { base: "origin/main" });
+const AGREE = { status: "agree" as const, onlyBb: [], onlyHere: [], reason: null };
+const grouped = buildView(files, STORED, null, { base: "origin/main", crossCheck: AGREE });
 /** The grouped branch with some hunks marked viewed at their current lines. */
 const viewedAt = (...keys: Array<[string, number]>) =>
   buildView(files, STORED, null, {
     base: "origin/main",
+    crossCheck: AGREE,
     viewed: new Map(keys.map(([path, index]) => [`${path}#${index}`, files.find((f) => f.path === path)!.hunks[index]!.hash])),
   });
 
@@ -293,3 +295,25 @@ export const ScenariosSplitOneTest = () =>
     false,
     "concern-2",
   );
+
+// A made-up branch of 42 files across five directories, to show the bar past 30 files.
+const MANY_DIFF = Array.from({ length: 42 }, (_, i) => {
+  const dir = ["src/api/", "src/widgets/", "src/gadgets/", "test/", "docs/"][i % 5]!;
+  const path = `${dir}part-${String(i).padStart(2, "0")}.ts`;
+  const hunks = Array.from({ length: 1 + (i % 3) }, (_, h) => {
+    const lines = Array.from({ length: 1 + ((i * 7 + h * 3) % 9) }, (_, l) => `+line ${l}`).join("\n");
+    return `@@ -${h * 20 + 1},1 +${h * 20 + 1},${2 + ((i * 7 + h * 3) % 9)} @@\n context\n${lines}\n`;
+  }).join("");
+  return `diff --git a/${path} b/${path}\nindex 1111111..2222222 100644\n--- a/${path}\n+++ b/${path}\n${hunks}`;
+}).join("");
+const manyFiles = parseDiff(MANY_DIFF);
+const manyRead = new Map(manyFiles.slice(0, 15).flatMap((f) => f.hunks.map((h) => [`${f.path}#${h.index}`, h.hash] as [string, string])));
+
+/** A branch of 42 files: past 30, the bar groups them by directory, each named with its file count, every file still a sliver that fills as it is read. */
+export const ManyFiles = () =>
+  render({ state: "ok", view: buildView(manyFiles, null, null, { base: "origin/main", crossCheck: AGREE, viewed: manyRead }) });
+
+/** bb's own changes panel lists a file Super Diff does not: the check beside the count turns red and names it. */
+export const FilesDifferFromBb = () =>
+  render({ state: "ok", view: { ...grouped, crossCheck: { status: "differ", onlyBb: ["docs/sprocket.md"], onlyHere: [], reason: null } } });
+

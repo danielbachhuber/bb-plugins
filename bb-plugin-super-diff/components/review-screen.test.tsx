@@ -193,7 +193,7 @@ describe("ReviewScreen", () => {
     expect(items[0]).toHaveAttribute("aria-current", "true");
     expect(within(rail).getByText("1/2")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "First" })).toBeInTheDocument();
-    expect(screen.getByText("1 of 3 files viewed")).toBeInTheDocument();
+    expect(screen.getByText("1 of 4 hunks viewed")).toBeInTheDocument();
   });
 
   it("moves to the next concern from the bottom of the page", () => {
@@ -326,6 +326,43 @@ describe("ReviewScreen", () => {
         "src/widget.ts#0",
         "src/widget.ts#1",
       ]);
+    });
+  });
+
+  describe("the bar under the headline", () => {
+    const segments = (container: HTMLElement) => Array.from(container.querySelectorAll<HTMLButtonElement>("[data-branch-bar] [data-bar-file]"));
+
+    it("draws a block per hunk, named by file, and opens the section a block is in", () => {
+      const { container } = screenWith({ result: { state: "ok", view: view() } });
+      expect(segments(container).map((b) => b.dataset.barFile)).toEqual(["src/widget.ts", "src/widget.ts", "assets/logo.png", "yarn.lock"]);
+      expect(within(container.querySelector<HTMLElement>("[data-branch-bar]")!).getByText("widget.ts")).toBeInTheDocument();
+      fireEvent.click(segments(container)[1]!);
+      expect(screen.getByRole("heading", { level: 3, name: "Second" })).toBeInTheDocument();
+    });
+
+    it("groups files by directory past 30, with a sliver per file", () => {
+      const many = Array.from({ length: 31 }, (_, i) => ({ path: `src/f${i}.ts`, hunks: [{ index: 0, lines: 1, read: false, section: "concern-0" }] }));
+      const { container } = screenWith({ result: { state: "ok", view: { ...view(), files: many } } });
+      expect(segments(container)).toHaveLength(31);
+      expect(within(container.querySelector<HTMLElement>("[data-branch-bar]")!).getByText("src/")).toBeInTheDocument();
+    });
+
+    it("says whether bb lists the same files", () => {
+      const v = view();
+      const { container, rerender } = screenWith({ result: { state: "ok", view: { ...v, crossCheck: { status: "agree", onlyBb: [], onlyHere: [], reason: null } } } });
+      expect(container.querySelector("[data-cross-check]")).toHaveTextContent("same files as bb");
+      rerender(
+        <ReviewScreen
+          result={{ state: "ok", view: { ...v, crossCheck: { status: "differ", onlyBb: ["docs/export.md"], onlyHere: [], reason: null } } }}
+          error={null}
+          generating={false}
+          onGenerate={() => {}}
+          onSetViewed={() => {}}
+          DiffView={DiffView}
+          SourceView={SourceView}
+        />,
+      );
+      expect(container.querySelector("[data-cross-check='differ']")).toHaveTextContent("bb also lists docs/export.md");
     });
   });
 

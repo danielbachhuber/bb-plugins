@@ -1,5 +1,5 @@
 // The panel's small pieces of text. Pure.
-import type { ReviewView, ViewFile, ViewScenario, ViewSection, ViewTests } from "@/review/contract";
+import type { CrossCheckView, ReviewView, ViewFile, ViewScenario, ViewSection, ViewTests } from "@/review/contract";
 import { hashText } from "@/review/items";
 import { isTestSide } from "@/review/tests/paths";
 
@@ -46,7 +46,19 @@ export function fileStats(file: ViewFile): { added: number; removed: number } {
 }
 
 export function viewedLabel(coverage: ReviewView["coverage"]): string {
-  return `${coverage.viewed} of ${plural(coverage.files, "file", "files")} viewed`;
+  return `${coverage.viewed} of ${plural(coverage.hunks, "hunk", "hunks")} viewed`;
+}
+
+/** What the check against bb's own file list found, in a few words. */
+export function crossCheckLabel(check: CrossCheckView): string {
+  if (check.status === "unavailable") return "not checked against bb";
+  if (check.status === "agree") return "same files as bb";
+  const parts: string[] = [];
+  if (check.onlyBb.length === 1) parts.push(`bb also lists ${check.onlyBb[0]}`);
+  else if (check.onlyBb.length > 1) parts.push(`bb also lists ${plural(check.onlyBb.length, "file", "files")}`);
+  if (check.onlyHere.length === 1 && parts.length === 0) parts.push(`bb does not list ${check.onlyHere[0]}`);
+  else if (check.onlyHere.length > 0) parts.push(`${plural(check.onlyHere.length, "file", "files")} here bb does not list`);
+  return parts.join("; ");
 }
 
 /** "3 scenarios · 3 asserted, 3 snapshot only · 3 not covered" */

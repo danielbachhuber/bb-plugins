@@ -83,16 +83,40 @@ export const staleSchema = z.object({
   changedFiles: z.array(z.object({ path: z.string(), patch: z.string() })),
 });
 
+/** One hunk in the bar under the headline: its size, whether it is read, and the section that shows it. */
+export const barHunkSchema = z.object({
+  index: z.number().int(),
+  /** Lines it adds and removes, at least 1 so a whole-file item still shows. */
+  lines: z.number().int(),
+  read: z.boolean(),
+  section: z.string(),
+});
+
+/** A changed file in the bar, with every one of its hunks, in diff order. */
+export const barFileSchema = z.object({ path: z.string(), hunks: z.array(barHunkSchema) });
+
+/** Super Diff's file list checked against bb's own. */
+export const crossCheckSchema = z.object({
+  status: z.enum(["agree", "differ", "unavailable"]),
+  onlyBb: z.array(z.string()),
+  onlyHere: z.array(z.string()),
+  reason: z.string().nullable(),
+});
+
 export const reviewViewSchema = z.object({
   headline: z.string().nullable(),
   concerns: z.array(viewSectionSchema),
   notYetGrouped: viewSectionSchema.nullable(),
   mechanical: viewSectionSchema.nullable(),
   stale: staleSchema.nullable(),
+  /** Every changed file and its hunks, for the bar under the headline. */
+  files: z.array(barFileSchema),
+  crossCheck: crossCheckSchema.nullable(),
   coverage: z.object({
     files: z.number().int(),
     hunks: z.number().int(),
     shown: z.number().int(),
+    /** Hunks viewed, out of `hunks`. */
     viewed: z.number().int(),
     /** The ref the branch is compared against, such as origin/main. */
     base: z.string().optional(),
@@ -109,6 +133,8 @@ export type ViewFile = z.infer<typeof viewFileSchema>;
 export type ViewSection = z.infer<typeof viewSectionSchema>;
 export type ViewTests = z.infer<typeof viewTestsSchema>;
 export type ViewScenario = z.infer<typeof viewScenarioSchema>;
+export type BarFile = z.infer<typeof barFileSchema>;
+export type CrossCheckView = z.infer<typeof crossCheckSchema>;
 export type ViewScenarioTest = z.infer<typeof viewScenarioTestSchema>;
 export type StaleInfo = z.infer<typeof staleSchema>;
 export type ReviewView = z.infer<typeof reviewViewSchema>;

@@ -12,8 +12,8 @@ exactly once.
 
 From top to bottom, the panel shows:
 
-1. A one-sentence headline saying what the branch changes, and a bar counting
-   how many files you have marked viewed.
+1. A one-sentence headline saying what the branch changes, and under it a bar
+   of every changed file, described in [The bar of files](#the-bar-of-files).
 2. When the branch has moved on since the grouping, a banner and a
    **Changed since grouping** section.
 3. Down the right, a rail of the concerns, numbered, most important first,
@@ -31,6 +31,28 @@ From top to bottom, the panel shows:
 
 ![A concern that changes code and tests: its source files as diffs, then a Tests heading with a Scenarios and Diff toggle, its scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--code-and-tests.png)
 
+## The bar of files
+
+The bar under the headline is the branch itself: one segment per changed
+file, in the order `git diff` lists them, sized by the lines it changes, with a
+block for each hunk that fills once you have viewed it. Each file's name sits
+under its segment, and clicking a block opens the concern that holds it. Beside
+the bar, "3 of 8 hunks viewed" counts hunks, not files, since a file split
+between concerns is read a concern at a time.
+
+When the files would be too narrow to name, the bar groups them by directory
+instead, such as "src/api/ 23", each file still a sliver inside that fills by
+the share of its lines read. It uses the deepest directories that fit, and
+shorter ones when they do not, so a long branch in a narrow panel shows its
+top-level directories. A segment too narrow for a label is named on hover.
+
+After the count, "same files as bb" says that bb's own changes panel lists the
+same files against the same base. bb counts them with its own code, so the two
+agreeing is evidence that nothing on the branch is left out, rather than Super
+Diff vouching for itself. When they disagree, the note turns red and names the
+file only one of them lists. When bb cannot give its list, the note says the
+files were not checked.
+
 ## Marking files viewed
 
 Check **Viewed** on a file once you have read it. The file folds and dims,
@@ -40,8 +62,8 @@ viewed gets a check.
 A mark covers the hunks the card shows, not the whole file. A file that serves
 two concerns is split between them by hunk, and checking it in one concern
 marks only that concern's hunks, so the same file in the other concern stays
-open until you read it there. The bar at the top counts a file once all of
-its hunks are viewed, in every concern that holds them.
+open until you read it there. The bar at the top fills hunk by hunk, so a
+split file shows how much of it you have read across every concern.
 
 Each hunk's mark is kept per thread, against that hunk's lines at the time.
 When a commit or an edit changes those lines, its mark clears itself, so a
@@ -226,8 +248,11 @@ reads each changed file from disk, runs one `cat-file` for each path the stored
 contents do not cover, and one `diff --no-index` for each file that changed
 since the grouping. For each test file on the branch, it reads the file and its
 `.snap` file from disk and parses them. Marking a file viewed runs the same
-`git` commands once to find the file's current diff. Generate sends one message
-to the thread. Nothing calls GitHub or any other service.
+`git` commands once to find the file's current diff. Opening the panel also
+asks bb once for its own list of the branch's changed files against the same
+base, for the check beside the bar; on a 25-file branch that adds about 80 ms.
+Generate sends one message to the thread. Nothing calls GitHub or any other
+service.
 
 ## Related plugins
 

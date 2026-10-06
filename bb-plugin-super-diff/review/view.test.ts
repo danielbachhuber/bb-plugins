@@ -104,14 +104,30 @@ describe("placeItems", () => {
       // src/widget.ts is split: hunks 0 and 2 in Sprocket, hunk 1 in Call site.
       const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts#0", hash("src/widget.ts", 0)], ["src/widget.ts#2", hash("src/widget.ts", 2)]]) });
       expect(cards(view)).toEqual([[["src/widget.ts", true]], [["src/widget.ts", false], ["src/gadget.ts", false]]]);
-      expect(view.coverage.viewed).toBe(0);
+      expect(view.coverage.viewed).toBe(2);
     });
 
-    it("counts a file in the bar once every concern holding it is viewed", () => {
+    it("shows a split file viewed in every concern once all its hunks are", () => {
       const all = new Map([0, 1, 2].map((i) => [`src/widget.ts#${i}`, hash("src/widget.ts", i)]));
       const view = buildView(files, stored(DIFF), null, { viewed: all });
       expect(cards(view)).toEqual([[["src/widget.ts", true]], [["src/widget.ts", true], ["src/gadget.ts", false]]]);
-      expect(view.coverage.viewed).toBe(1);
+      expect(view.coverage.viewed).toBe(3);
+    });
+
+    it("lists every file's hunks for the bar, with their size, read state, and section", () => {
+      const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts#1", hash("src/widget.ts", 1)]]) });
+      expect(view.files).toEqual([
+        {
+          path: "src/widget.ts",
+          hunks: [
+            { index: 0, lines: 2, read: false, section: "concern-0" },
+            { index: 1, lines: 2, read: true, section: "concern-1" },
+            { index: 2, lines: 2, read: false, section: "concern-0" },
+          ],
+        },
+        { path: "src/gadget.ts", hunks: [{ index: 0, lines: 2, read: false, section: "concern-1" }] },
+        { path: "package-lock.json", hunks: [{ index: 0, lines: 2, read: false, section: "mechanical" }] },
+      ]);
     });
 
     it("drops a hunk's mark when its lines change", () => {

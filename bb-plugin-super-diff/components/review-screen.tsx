@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { isTestSide } from "@/review/tests/paths";
-import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag, viewedLabel } from "./labels";
+import { BranchBar } from "./branch-bar";
+import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
 
 export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
 export type SourceViewComponent = ComponentType<{ content: string; path: string }>;
@@ -72,7 +73,7 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
   };
   return (
     <div data-super-diff="ready" className="flex flex-col gap-5 p-4 text-sm">
-      <Header view={view} generating={generating} onGenerate={onGenerate} />
+      <Header view={view} generating={generating} onGenerate={onGenerate} onChoose={choose} />
       {view.stale && <Stale view={view} DiffView={DiffView} generating={generating} onGenerate={onGenerate} />}
       <style>{LAYOUT_CSS}</style>
       <div className="sd-body">
@@ -129,9 +130,8 @@ function sectionStats(section: ViewSection) {
   );
 }
 
-function Header({ view, generating, onGenerate }: { view: ReviewView; generating: boolean; onGenerate: () => void }) {
+function Header({ view, generating, onGenerate, onChoose }: { view: ReviewView; generating: boolean; onGenerate: () => void; onChoose: (id: string) => void }) {
   const label = view.headline === null ? "Generate" : "Regenerate";
-  const percent = view.coverage.files === 0 ? 0 : (view.coverage.viewed / view.coverage.files) * 100;
   return (
     <header className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-4">
@@ -145,12 +145,7 @@ function Header({ view, generating, onGenerate }: { view: ReviewView; generating
           </Button>
         )}
       </div>
-      <div className="flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-success" style={{ width: `${percent}%` }} />
-        </div>
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{viewedLabel(view.coverage)}</span>
-      </div>
+      <BranchBar view={view} onChoose={onChoose} />
     </header>
   );
 }
@@ -178,7 +173,7 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
           >
             <span className="flex items-start gap-1.5">
               <span className="w-3.5 shrink-0 pt-px text-xs font-semibold tabular-nums text-muted-foreground">
-                {n === -1 ? <Icon name={section.id === "mechanical" ? "Archive" : "CircleDashed"} className="size-3.5" /> : n + 1}
+                {n === -1 ? <Icon name={section.id === "mechanical" ? "Archive" : "Circle"} className="size-3.5" /> : n + 1}
               </span>
               <span className={`leading-snug ${current ? "font-semibold" : n === -1 || done ? "text-muted-foreground" : "font-medium"}`}>{section.title}</span>
             </span>

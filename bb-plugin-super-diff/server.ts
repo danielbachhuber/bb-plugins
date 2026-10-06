@@ -9,7 +9,7 @@ import path from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
 import { toplevel } from "./review/git";
-import { getView, hunks, setViewed, submit, testsText, verifyData, type Checkout } from "./review/service";
+import { getView, hunks, setViewed, submit, testsText, verifyData, type BbFiles, type Checkout } from "./review/service";
 import { createStore, MIGRATIONS } from "./review/store";
 
 export const rpcContract = defineRpcContract(rpcShape);
@@ -36,8 +36,23 @@ export default async function plugin(bb: BbPluginApi) {
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db);
 
+  /** bb's own changed-file list for an environment, which its changes panel draws. */
+  function bbFilesFor(environmentId: string): BbFiles {
+    return async (base) => {
+      try {
+        const result = await bb.sdk.environments.diffFiles({ environmentId, target: "all", mergeBaseBranch: base });
+        if (result.outcome === "not_applicable") return { reason: result.message };
+        if (result.outcome === "unavailable") return { reason: result.failure.message };
+        if (result.truncated) return { reason: "bb's file list was cut short" };
+        return result.files.map((file) => file.path);
+      } catch (cause) {
+        return { reason: `bb's file list failed: ${cause instanceof Error ? cause.message : String(cause)}` };
+      }
+    };
+  }
+
   /** The thread's checkout on this machine, or why there is none. */
-  async function checkoutFor(threadId: string): Promise<Checkout | string> {
+  async function checkoutFor(threadId: string): Promise<(Checkout & { environmentId: string }) | string> {
     const thread = await bb.sdk.threads.get({ threadId });
     if (!thread.environmentId) return "This thread has no environment to review.";
     const env = await bb.sdk.environments.get({ environmentId: thread.environmentId });
@@ -46,14 +61,14 @@ export default async function plugin(bb: BbPluginApi) {
     if (root === null) return "Super Diff needs a local checkout, and this environment's path is not a git work tree on this machine.";
     const base = env.mergeBaseBranch ?? env.baseBranch ?? env.defaultBranch;
     if (!base) return "This environment has no base branch to compare against.";
-    return { root, mergeBaseBranch: base };
+    return { root, mergeBaseBranch: base, environmentId: thread.environmentId };
   }
 
   bb.rpc.register(rpcContract, {
     review_get: async ({ threadId }): Promise<ReviewResult> => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") return { state: "unavailable", message: checkout };
-      return { state: "ok", view: await getView(store, threadId, checkout) };
+      return { state: "ok", view: await getView(store, threadId, checkout, bbFilesFor(checkout.environmentId)) };
     },
     review_set_viewed: async ({ threadId, path, hunks, viewed }) => {
       const checkout = await checkoutFor(threadId);

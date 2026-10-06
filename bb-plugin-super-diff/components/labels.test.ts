@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsMismatch, testsTag, viewedLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsMismatch, testsTag, viewedLabel, crossCheckLabel } from "./labels";
 
 const file = (indexes: number[], total: number) => ({
   path: "a.ts",
@@ -39,8 +39,8 @@ describe("labels", () => {
   });
 
   it("says how many files are viewed", () => {
-    expect(viewedLabel({ files: 12, hunks: 30, shown: 30, viewed: 5 })).toBe("5 of 12 files viewed");
-    expect(viewedLabel({ files: 1, hunks: 1, shown: 1, viewed: 1 })).toBe("1 of 1 file viewed");
+    expect(viewedLabel({ files: 12, hunks: 30, shown: 30, viewed: 5 })).toBe("5 of 30 hunks viewed");
+    expect(viewedLabel({ files: 1, hunks: 1, shown: 1, viewed: 1 })).toBe("1 of 1 hunk viewed");
   });
 
   it("gives different text a different source path, so bb's viewer never reuses stale lines", () => {
@@ -88,5 +88,13 @@ describe("labels", () => {
         "1 scenario describes 2 test() calls, so the descriptions do not match the tests one to one.",
       );
     });
+  });
+
+  it("says whether bb lists the same files", () => {
+    const check = (onlyBb: string[], onlyHere: string[]) => ({ status: (onlyBb.length || onlyHere.length ? "differ" : "agree") as "agree" | "differ", onlyBb, onlyHere, reason: null });
+    expect(crossCheckLabel(check([], []))).toBe("same files as bb");
+    expect(crossCheckLabel(check(["docs/export.md"], []))).toBe("bb also lists docs/export.md");
+    expect(crossCheckLabel(check(["a.md", "b.md"], ["c.ts"]))).toBe("bb also lists 2 files; 1 file here bb does not list");
+    expect(crossCheckLabel({ status: "unavailable", onlyBb: [], onlyHere: [], reason: "bb's file list was cut short" })).toBe("not checked against bb");
   });
 });

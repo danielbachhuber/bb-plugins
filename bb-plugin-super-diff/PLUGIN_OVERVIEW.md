@@ -9,7 +9,11 @@ collapsed group, and a count at the bottom says how many hunks are shown.
 it only when every hunk on the branch is in exactly one concern, so nothing on
 the branch is left out of the review.
 
-Check **Viewed** on each file as you read it; a bar counts your progress, and
+A bar under the headline shows every changed file, grouped by directory on a
+long branch, filling as its hunks are read, and says whether bb's own changes
+panel lists the same files.
+
+Check **Viewed** on each file as you read it; the bar counts your progress, and
 a file whose diff changes comes back unread. A file split across concerns is
 marked one concern at a time.
 

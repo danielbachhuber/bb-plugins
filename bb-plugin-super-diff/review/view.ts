@@ -4,7 +4,7 @@
 // Not yet grouped. Items the grouping placed but the diff no longer has are
 // shown in their concern as removed, and not counted.
 import { isMechanical } from "./classify";
-import type { ReviewView, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
+import type { BarFile, CrossCheckView, ReviewView, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
 import { itemsOf } from "./items";
 import { itemKey, type Assignment, type DiffFile, type Item } from "./types";
@@ -60,6 +60,13 @@ export interface ViewExtras {
   tests?: Map<number, ViewTests>;
   /** The ref the branch is compared against. */
   base?: string;
+  /** The file list checked against bb's, when bb was asked. */
+  crossCheck?: CrossCheckView;
+}
+
+/** Lines a hunk adds and removes: what sizes it in the bar. */
+function changedLines(text: string): number {
+  return text.split("\n").filter((line) => (line.startsWith("+") && !line.startsWith("+++")) || (line.startsWith("-") && !line.startsWith("---"))).length;
 }
 
 export function buildView(files: DiffFile[], stored: StoredGrouping | null, stale: StaleInfo | null, extras: ViewExtras = {}): ReviewView {
@@ -76,11 +83,13 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
 
   const buckets = new Map<string, ViewHunk[]>();
   const put = (section: string, hunk: ViewHunk) => buckets.set(section, [...(buckets.get(section) ?? []), hunk]);
+  const bar = new Map<string, BarFile>(files.map((file) => [file.path, { path: file.path, hunks: [] }]));
 
   for (const item of items) {
     const placement = placed.get(itemKey(item.path, item.index));
     const section = placement ? `concern-${placement.concern}` : isMechanical(item.path) ? "mechanical" : "not-yet-grouped";
     const hunk = fileByPath.get(item.path)!.hunks[item.index];
+    bar.get(item.path)!.hunks.push({ index: item.index, lines: Math.max(changedLines(hunk?.text ?? ""), 1), read: isViewed(item.path, item.index), section });
     put(section, {
       path: item.path,
       index: item.index,
@@ -108,12 +117,13 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
     notYetGrouped: section("not-yet-grouped", "Not yet grouped", null),
     mechanical: section("mechanical", "Mechanical", "Lockfiles, snapshots, and generated files."),
     stale,
+    files: [...bar.values()],
+    crossCheck: extras.crossCheck ?? null,
     coverage: {
       files: files.length,
       hunks: items.length,
       shown,
-      // A file counts once every one of its items is viewed, in whichever concerns hold them.
-      viewed: files.filter((file) => items.filter((item) => item.path === file.path).every((item) => isViewed(item.path, item.index))).length,
+      viewed: items.filter((item) => isViewed(item.path, item.index)).length,
       base: extras.base,
     },
   };

@@ -77,6 +77,17 @@ describe("service", () => {
     expect((await widget()).viewed).toBe(false);
   });
 
+  it("checks its file list against bb's, asked for the same base", async () => {
+    const { store, checkout } = await setup();
+    const asked: string[] = [];
+    const agree = await getView(store, "thr_1", checkout, async (base) => (asked.push(base), ["src/gadget.ts", "src/widget.ts"]));
+    expect(asked).toEqual(["main"]);
+    expect(agree.crossCheck).toEqual({ status: "agree", onlyBb: [], onlyHere: [], reason: null });
+    const differ = await getView(store, "thr_1", checkout, async () => ["src/widget.ts", "docs/export.md"]);
+    expect(differ.crossCheck).toMatchObject({ status: "differ", onlyBb: ["docs/export.md"], onlyHere: ["src/gadget.ts"] });
+    expect((await getView(store, "thr_1", checkout)).crossCheck).toBeNull();
+  });
+
   it("a commit that changes no content stays current", async () => {
     const { r, store, checkout } = await setup();
     r.write("src/widget.ts", "export const widget = 3;\n");
