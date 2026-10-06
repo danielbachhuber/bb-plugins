@@ -20,7 +20,7 @@ import { coverageLabel, fileStats, hunkNote, reviewedNote, scenarioMismatch, sou
  * to, so the panel can load the file's whole sides and let the diff expand its
  * context; the stale banner's diffs have none.
  */
-export type DiffViewComponent = ComponentType<{ patch: string; path: string; file?: DiffViewFile }>;
+export type DiffViewComponent = ComponentType<{ patch: string; path: string; file?: DiffViewFile; wrap: boolean }>;
 
 /** The changed file a hunk's diff belongs to: what expanding its context needs. */
 export interface DiffViewFile {
@@ -68,20 +68,30 @@ const LAYOUT_CSS = `
 
 interface Viewers {
   DiffView: DiffViewComponent;
+  /** Long diff lines wrap, or scroll sideways. */
+  wrap: boolean;
   SourceView: SourceViewComponent;
   onSetRead: (path: string, hunks: number[], read: boolean) => void;
   onSetFileViewed: (path: string, viewed: boolean) => void;
 }
 
+/** The last Wrap or Unwrap, kept for the session since bb remounts the panel on every switch back. */
+let lastWrap = true;
+
 export function ReviewScreen({ result, error, generating, onGenerate, onSetRead, onSetFileViewed, notice = null, DiffView, SourceView, initialSection }: ReviewScreenProps) {
   const [chosen, setChosen] = useState<string | null>(initialSection ?? null);
+  const [wrap, setWrapState] = useState(lastWrap);
+  const setWrap = (next: boolean) => {
+    lastWrap = next;
+    setWrapState(next);
+  };
   if (error !== null) return <Message text={`Could not load the review: ${error}`} />;
   if (result === null) return <Message text="Reading the branch…" />;
   if (result.state === "unavailable") return <Message text={result.message} ready />;
   const { view } = result;
   if (view.coverage.hunks === 0) return <Message text="No changes on this branch." ready />;
 
-  const viewers: Viewers = { DiffView, SourceView, onSetRead, onSetFileViewed };
+  const viewers: Viewers = { DiffView, wrap, SourceView, onSetRead, onSetFileViewed };
   const sections = [...view.concerns, view.notYetGrouped, view.mechanical].filter((s): s is ViewSection => s !== null);
   // The chosen section, or the first one when nothing is chosen or the choice is gone.
   const at = Math.max(0, sections.findIndex((s) => s.id === chosen));
@@ -93,13 +103,13 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetRead,
   };
   return (
     <div data-super-diff="ready" className="flex flex-col gap-5 p-4 text-sm">
-      <Header view={view} generating={generating} onGenerate={onGenerate} onChoose={choose} />
+      <Header view={view} generating={generating} onGenerate={onGenerate} onChoose={choose} wrap={wrap} onSetWrap={setWrap} />
       {notice && (
         <p data-github-notice className="flex items-start gap-1.5 text-xs" style={{ color: "var(--destructive-text)" }}>
           <Icon name="AlertTriangle" className="mt-px size-3.5 shrink-0" /> {notice}
         </p>
       )}
-      {view.stale && <Stale view={view} DiffView={DiffView} generating={generating} onGenerate={onGenerate} />}
+      {view.stale && <Stale view={view} DiffView={DiffView} wrap={wrap} generating={generating} onGenerate={onGenerate} />}
       <style>{LAYOUT_CSS}</style>
       <div className="sd-body">
         <div className="sd-columns">
@@ -155,7 +165,21 @@ function sectionStats(section: ViewSection) {
   );
 }
 
-function Header({ view, generating, onGenerate, onChoose }: { view: ReviewView; generating: boolean; onGenerate: () => void; onChoose: (id: string) => void }) {
+function Header({
+  view,
+  generating,
+  onGenerate,
+  onChoose,
+  wrap,
+  onSetWrap,
+}: {
+  view: ReviewView;
+  generating: boolean;
+  onGenerate: () => void;
+  onChoose: (id: string) => void;
+  wrap: boolean;
+  onSetWrap: (wrap: boolean) => void;
+}) {
   const label = view.headline === null ? "Generate" : "Regenerate";
   return (
     <header className="flex flex-col gap-2">
@@ -163,12 +187,17 @@ function Header({ view, generating, onGenerate, onChoose }: { view: ReviewView; 
         <h2 className={view.headline ? "text-base font-semibold leading-snug" : "text-muted-foreground"}>
           {view.headline ?? "Not grouped yet. Generate asks this thread's agent to group the branch into concerns."}
         </h2>
-        {/* Regenerate lives in the stale banner when there is one. */}
-        {!view.stale && (
-          <Button size="sm" variant={view.headline ? "ghost" : "outline"} className="shrink-0" disabled={generating} onClick={onGenerate}>
-            <Icon name="RotateCcw" className="size-3.5" /> {generating ? "Sent to the agent" : label}
+        <div className="flex shrink-0 items-center gap-1">
+          <Button size="sm" variant="ghost" aria-pressed={wrap} onClick={() => onSetWrap(!wrap)}>
+            <Icon name="TextWrap" className="size-3.5" /> {wrap ? "Unwrap" : "Wrap"}
           </Button>
-        )}
+          {/* Regenerate lives in the stale banner when there is one. */}
+          {!view.stale && (
+            <Button size="sm" variant={view.headline ? "ghost" : "outline"} disabled={generating} onClick={onGenerate}>
+              <Icon name="RotateCcw" className="size-3.5" /> {generating ? "Sent to the agent" : label}
+            </Button>
+          )}
+        </div>
       </div>
       <BranchBar view={view} onChoose={onChoose} />
     </header>
@@ -217,11 +246,13 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
 function Stale({
   view,
   DiffView,
+  wrap,
   generating,
   onGenerate,
 }: {
   view: ReviewView;
   DiffView: DiffViewComponent;
+  wrap: boolean;
   generating: boolean;
   onGenerate: () => void;
 }) {
@@ -243,7 +274,7 @@ function Stale({
             <div key={file.path}>
               <p className="font-mono text-xs">{file.path}</p>
               {file.patch ? (
-                <DiffView patch={file.patch} path={file.path} />
+                <DiffView patch={file.patch} path={file.path} wrap={wrap} />
               ) : (
                 <p className="text-xs text-muted-foreground">Binary or too large to show; its content changed.</p>
               )}
@@ -527,7 +558,7 @@ function HunkBlock({ file, hunk, viewers }: { file: ViewFile; hunk: ViewHunk; vi
         (hunk.kind === "file" ? (
           <p className="px-3 pb-2 text-xs text-muted-foreground">{wholeFileText(file)}</p>
         ) : (
-          <viewers.DiffView patch={hunkPatch(file, hunk)} path={file.path} file={{ previousPath: file.previousPath, hash: file.hash, header: file.header, hunk: hunk.text }} />
+          <viewers.DiffView patch={hunkPatch(file, hunk)} path={file.path} wrap={viewers.wrap} file={{ previousPath: file.previousPath, hash: file.hash, header: file.header, hunk: hunk.text }} />
         ))}
     </div>
   );

@@ -22,7 +22,7 @@ const SourceView = ({ content, path }: { content: string; path: string }) => <So
  * the patch alone.
  */
 function diffViewFor(threadId: string): DiffViewComponent {
-  return function DiffView({ patch, path, file }) {
+  return function DiffView({ patch, path, file, wrap }) {
     const rpc = useRpc<typeof rpcContract>();
     const [now, setNow] = useState<string | null>(null);
     useEffect(() => {
@@ -45,11 +45,13 @@ function diffViewFor(threadId: string): DiffViewComponent {
       };
     }, [rpc, path, file?.hash]);
     const sides = file && now !== null ? sidesForHunk(now, file.hunk) : null;
-    if (!file || !sides) return <Diff patch={patch} path={path} />;
+    const overflow = wrap ? "wrap" : "scroll";
+    if (!file || !sides) return <Diff patch={patch} path={path} overflow={overflow} />;
     return (
       <Diff
         patch={`${file.header}\n${sides.hunk}`}
         path={path}
+        overflow={overflow}
         experimental_fullFileContents={{ old: { path: file.previousPath ?? path, content: sides.oldText }, new: { path, content: now! } }}
       />
     );

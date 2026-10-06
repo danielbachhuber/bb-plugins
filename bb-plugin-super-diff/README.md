@@ -68,6 +68,10 @@ The file is read from disk once the hunk is drawn, once per version of the
 file's diff, however many of its hunks are on screen. A binary or very large
 file has no context to show, and its hunks draw as before.
 
+Long lines wrap. **Unwrap**, beside Regenerate at the top, scrolls them
+sideways instead in every diff in the panel, and **Wrap** turns wrapping back
+on. The choice holds until bb is reloaded.
+
 ## Checking off hunks, and Viewed on GitHub
 
 Each hunk opens with a strip: a round checkmark, then "Hunk 1 of 2". Check it

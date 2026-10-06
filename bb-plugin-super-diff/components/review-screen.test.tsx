@@ -33,8 +33,8 @@ function screenWith(props: Partial<ReviewScreenProps> & Pick<ReviewScreenProps, 
   );
 }
 
-const DiffView = ({ patch, path, file }: { patch: string; path: string; file?: { hash: string; hunk: string } }) => (
-  <pre data-testid="diff" data-path={path} data-file-hash={file?.hash} data-hunk-text={file?.hunk}>
+const DiffView = ({ patch, path, file, wrap }: { patch: string; path: string; file?: { hash: string; hunk: string }; wrap: boolean }) => (
+  <pre data-testid="diff" data-path={path} data-file-hash={file?.hash} data-hunk-text={file?.hunk} data-wrap={String(wrap)}>
     {patch}
   </pre>
 );
@@ -231,6 +231,16 @@ describe("ReviewScreen", () => {
       fireEvent.click(screen.getByRole("button", { name: "Mark read: src/widget.ts, hunk 1 of 2" }));
       // Only this hunk: hunk 2 of the same file belongs to Second.
       expect(onSetRead).toHaveBeenCalledWith("src/widget.ts", [0], true);
+    });
+
+    it("wraps long lines by default, and Unwrap scrolls them sideways in every diff", () => {
+      screenWith({ result: { state: "ok", view: withRead(false) } });
+      const wraps = () => screen.getAllByTestId("diff").map((d) => d.dataset.wrap);
+      expect(wraps().every((w) => w === "true")).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: /Unwrap/ }));
+      expect(wraps().every((w) => w === "false")).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: /^Wrap/ }));
+      expect(wraps().every((w) => w === "true")).toBe(true);
     });
 
     it("hands each hunk's diff its file and hunk, so the panel can load the context around it", () => {

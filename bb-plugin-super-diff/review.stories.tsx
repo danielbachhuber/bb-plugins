@@ -8,7 +8,7 @@ import type { Scenario } from "./review/grouping";
 
 export default { title: "super-diff/Review panel" };
 
-const DiffView = ({ patch, path }: { patch: string; path: string }) => <Diff patch={patch} path={path} />;
+const DiffView = ({ patch, path, wrap }: { patch: string; path: string; wrap: boolean }) => <Diff patch={patch} path={path} overflow={wrap ? "wrap" : "scroll"} />;
 const SourceView = ({ content, path }: { content: string; path: string }) => <SourceCode content={content} path={path} overflow="wrap" />;
 
 const DIFF = `diff --git a/src/widget.ts b/src/widget.ts
