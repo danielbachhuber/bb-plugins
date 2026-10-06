@@ -54,6 +54,12 @@ export interface SweepListProps {
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
   /**
+   * The drawer the comment count opens, under the action line. Without it the
+   * count is only a number. Drawn only while open, so a drawer that loads its
+   * comments loads them on the click.
+   */
+  renderComments?: (item: SweepItem) => ReactNode;
+  /**
    * "tier", the default, draws Now, then Next, then Later, folding Later after
    * `laterShown`. "given" draws the rows in the order `items` has them, with
    * nothing folded, for a caller that orders them itself.
@@ -78,6 +84,7 @@ export function SweepList({
   renderTrack,
   collapsible = true,
   renderTrailing,
+  renderComments,
   order = "tier",
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
@@ -85,6 +92,7 @@ export function SweepList({
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [showAllLater, setShowAllLater] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState<ReadonlySet<string>>(new Set());
 
   // A sync can empty the chosen run. Then the filter would hide every row, so
   // it clears. The check below also covers the render before this runs.
@@ -123,6 +131,18 @@ export function SweepList({
         Link={Link}
         actions={renderActions(item)}
         trailing={renderTrailing?.(item)}
+        onToggleComments={
+          renderComments
+            ? () =>
+                setCommentsOpen((current) => {
+                  const next = new Set(current);
+                  if (!next.delete(item.key)) next.add(item.key);
+                  return next;
+                })
+            : undefined
+        }
+        commentsOpen={commentsOpen.has(item.key)}
+        commentsDrawer={renderComments && commentsOpen.has(item.key) ? renderComments(item) : undefined}
         editing={editing === item.key}
         onEditNote={() => setEditing(item.key)}
         onNoteSave={async (body) => {

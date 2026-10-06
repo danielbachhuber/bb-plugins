@@ -244,6 +244,21 @@ describe("SweepList", () => {
     expect(count.compareDocumentPosition(screen.getByText("1/2")) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
+  it("opens the comments drawer from the count, and draws it only while open", () => {
+    const renderComments = vi.fn((it: SweepItem) => <p>Feedback on {it.title}</p>);
+    render(<SweepList {...props([item(1, "new", { comments: 4 })])} renderComments={renderComments} />);
+    expect(renderComments).not.toHaveBeenCalled();
+
+    const toggle = screen.getByRole("button", { name: "Show 4 comments" });
+    expect(toggle.textContent).toBe("4");
+    fireEvent.click(toggle);
+    expect(screen.getByText("Feedback on Widget task 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide 4 comments" })).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide 4 comments" }));
+    expect(screen.queryByText("Feedback on Widget task 1")).toBeNull();
+  });
+
   it("draws a stacked row's chip after its number, through the list's Link", () => {
     render(
       <SweepList

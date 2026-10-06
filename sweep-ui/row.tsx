@@ -110,6 +110,10 @@ function NumberLine({ item, Link }: { item: SweepItem; Link: ComponentType<Sweep
   );
 }
 
+function commentsLabel(count: number): string {
+  return `${count} ${count === 1 ? "comment" : "comments"}`;
+}
+
 function Chevron({ open, small, onToggle }: { open: boolean; small: boolean; onToggle?: () => void }) {
   // A row held open has nothing to toggle, so the chevron is drawn but is not a button.
   if (!onToggle) {
@@ -151,6 +155,14 @@ export interface SweepRowProps {
   actions: ReactNode;
   /** Drawn at the right end of the action line. */
   trailing?: ReactNode;
+  /**
+   * Turns the comment count into a toggle for a drawer under the action line.
+   * Left out, the count is only a number.
+   */
+  onToggleComments?: () => void;
+  commentsOpen?: boolean;
+  /** What the drawer holds while open. */
+  commentsDrawer?: ReactNode;
   editing: boolean;
   onEditNote: () => void;
   onNoteSave: (body: string) => Promise<boolean>;
@@ -188,6 +200,9 @@ export function SweepRow({
   Link = PlainLink,
   actions,
   trailing,
+  onToggleComments,
+  commentsOpen = false,
+  commentsDrawer,
   editing,
   onEditNote,
   onNoteSave,
@@ -315,8 +330,23 @@ export function SweepRow({
                 {item.note === null ? "Add note" : "Edit note"}
               </button>
               {item.progress ? <Progress {...item.progress} /> : null}
-              {item.comments ? (
-                <span className="inline-flex items-center gap-1 tabular-nums" title={`${item.comments} ${item.comments === 1 ? "comment" : "comments"}`}>
+              {item.comments && onToggleComments ? (
+                <button
+                  type="button"
+                  aria-expanded={commentsOpen}
+                  aria-label={`${commentsOpen ? "Hide" : "Show"} ${commentsLabel(item.comments)}`}
+                  title={`${commentsOpen ? "Hide" : "Show"} ${commentsLabel(item.comments)}`}
+                  onClick={onToggleComments}
+                  className={cn(
+                    "-mx-1 inline-flex items-center gap-1 rounded px-1 tabular-nums hover:bg-accent hover:text-foreground",
+                    commentsOpen && "bg-accent text-foreground",
+                  )}
+                >
+                  <Icon name="Comment" className="size-3" />
+                  {item.comments}
+                </button>
+              ) : item.comments ? (
+                <span className="inline-flex items-center gap-1 tabular-nums" title={commentsLabel(item.comments)}>
                   <Icon name="Comment" className="size-3" />
                   {item.comments}
                 </span>
@@ -329,6 +359,7 @@ export function SweepRow({
             ) : (
               <NoteBox note={item.note} />
             )}
+            {commentsOpen && commentsDrawer ? <div className="mt-2">{commentsDrawer}</div> : null}
           </>
         ) : null}
       </div>
