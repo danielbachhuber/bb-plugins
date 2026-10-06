@@ -175,6 +175,33 @@ interface BodyProps {
   avatarFor?: (owner: string) => string;
 }
 
+/** The banner's Dismiss or Undo, styled as a link in the banner's own color. */
+function BannerAction({
+  row,
+  action,
+  onDismissChecks,
+}: {
+  row: Row;
+  action: "dismiss-checks" | "restore-checks";
+  onDismissChecks: (row: Row, dismissed: boolean) => void;
+}) {
+  const dismiss = action === "dismiss-checks";
+  return (
+    <button
+      type="button"
+      className="font-medium underline-offset-2 hover:underline"
+      title={
+        dismiss
+          ? "Stop flagging these checks until a new push or a different check fails"
+          : "Flag these failing checks again"
+      }
+      onClick={() => onDismissChecks(row, dismiss)}
+    >
+      {dismiss ? "Dismiss" : "Undo"}
+    </button>
+  );
+}
+
 /**
  * The row's facts as icons with numbers: reviewers, then checks, then size,
  * then the repository when the list spans several and a stale flag when there
@@ -213,14 +240,26 @@ function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
  * one when it is ready to merge, then the fact icons. On a one-line Later row,
  * only the icons, inline.
  */
-function RowBody({ line, ...props }: BodyProps & { line: boolean }) {
+function RowBody({
+  line,
+  onDismissChecks,
+  ...props
+}: BodyProps & { line: boolean; onDismissChecks: (row: Row, dismissed: boolean) => void }) {
   const icons = <FactIcons {...props} />;
   if (line) return icons;
   const banner = bannerFor(props.row);
   return (
     <>
       {banner ? (
-        <StatusBanner tone={banner.tone} detail={banner.detail}>
+        <StatusBanner
+          tone={banner.tone}
+          detail={banner.detail}
+          action={
+            banner.action ? (
+              <BannerAction row={props.row} action={banner.action} onDismissChecks={onDismissChecks} />
+            ) : undefined
+          }
+        >
           {banner.text}
         </StatusBanner>
       ) : null}
@@ -474,6 +513,8 @@ export interface PrListViewProps {
   onArchive: (row: Row) => void;
   /** Saves the row's note; "" deletes it. Resolves true once saved. */
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
+  /** Dismisses the row's failing checks, or with `false` flags them again. */
+  onDismissChecks: (row: Row, dismissed: boolean) => void;
   /** The title was clicked, and the pull request is about to open. */
   onOpenLink: (row: Row) => void;
   /**
@@ -497,6 +538,7 @@ export function PrListView({
   onOpen,
   onArchive,
   onNoteSave,
+  onDismissChecks,
   onOpenLink,
   avatarFor,
   renderTrack,
@@ -604,7 +646,16 @@ export function PrListView({
             }
             renderBody={(item, _open, line) => {
               const row = rowsByKey.get(item.key);
-              return row ? <RowBody row={row} item={item} line={line} showRepo={showRepo} avatarFor={avatarFor} /> : null;
+              return row ? (
+                <RowBody
+                  row={row}
+                  item={item}
+                  line={line}
+                  showRepo={showRepo}
+                  avatarFor={avatarFor}
+                  onDismissChecks={onDismissChecks}
+                />
+              ) : null;
             }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {

@@ -798,6 +798,42 @@ describe("notes, seen counts, and the stale setting", () => {
     expect(createStore(bb.storage.database() as never).notes().size).toBe(0);
   });
 
+  it("dismisses failing checks until a new push, and restores them on undo", async () => {
+    const failing = {
+      flags: ["ci-failing"],
+      group: "needs-action",
+      checks: { pass: 0, fail: 1, skip: 0, pending: 0, cancelled: 0, total: 1 },
+      headSha: "abc123",
+      failingChecks: ["validate"],
+    };
+    const { bb, harness } = await seededHost(failing);
+    const listed = async () => (await harness.behavior.callRpc("listRows", null)).rows[0]!;
+
+    expect(
+      await harness.behavior.callRpc("dismissChecks", { repo: "acme/widgets", number: 42, dismissed: true }),
+    ).toEqual({ ok: true });
+    expect(await listed()).toMatchObject({ flags: [], group: "clean", dismissedChecks: ["validate"] });
+
+    const store = createStore(bb.storage.database() as never);
+    store.replaceRepoRows(
+      "acme/widgets",
+      store.readRows().map((row) => ({ ...row, headSha: "def456" })),
+    );
+    expect(await listed()).toMatchObject({ flags: ["ci-failing"] });
+    expect((await listed()).dismissedChecks).toBeUndefined();
+
+    await harness.behavior.callRpc("dismissChecks", { repo: "acme/widgets", number: 42, dismissed: true });
+    await harness.behavior.callRpc("dismissChecks", { repo: "acme/widgets", number: 42, dismissed: false });
+    expect(await listed()).toMatchObject({ flags: ["ci-failing"] });
+  });
+
+  it("refuses to dismiss checks on a row with none failing", async () => {
+    const { harness } = await seededHost();
+    expect(
+      await harness.behavior.callRpc("dismissChecks", { repo: "acme/widgets", number: 42, dismissed: true }),
+    ).toEqual({ ok: false });
+  });
+
   it("shows nothing new for a pull request no sweep has recorded a count for", async () => {
     // The first listing after an upgrade, before the sweep has run.
     const { harness } = await seededHost({ commentsCount: 9 });

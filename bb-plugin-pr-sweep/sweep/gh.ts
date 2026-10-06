@@ -25,6 +25,8 @@ export const PR_LIST_FIELDS = [
   "updatedAt",
   // The row's size and the branch a conflict is with.
   "additions", "deletions", "baseRefName",
+  // The commit a dismissal of failing checks is recorded against.
+  "headRefOid",
 ].join(",");
 
 const SEARCH_LIMIT = 100;

@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "PR Sweep",
-    "description": "Open pull requests you authored in one list, newest first with the overdue and in-progress ones pinned on top, with local notes, new comment counts, and where a stacked pull request sits in its stack. Needs gh-context.",
+    "description": "Open pull requests you authored in one list, newest first with the overdue and in-progress ones pinned on top, with local notes, new comment counts, a Dismiss for failing checks you cannot fix, and where a stacked pull request sits in its stack. Needs gh-context.",
     "branding": {
       "icon": "GitPullRequest"
     },

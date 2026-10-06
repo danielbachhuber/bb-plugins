@@ -45,4 +45,20 @@ describe("StatusBanner", () => {
     expect(detail).toHaveClass("font-normal", "text-destructive-text/80");
     expect(detail.closest("[data-tone]")).toHaveTextContent("Merge conflict with main · hubber requested changes");
   });
+
+  it("draws a muted banner in grey for a problem set aside", () => {
+    render(<StatusBanner tone="muted">Failing checks dismissed</StatusBanner>);
+    const banner = screen.getByText("Failing checks dismissed").closest("[data-tone]")!;
+    expect(banner).toHaveAttribute("data-tone", "muted");
+    expect(banner).toHaveClass("bg-muted");
+  });
+
+  it("draws an action at the right end", () => {
+    render(
+      <StatusBanner tone="blocked" action={<button type="button">Dismiss</button>}>
+        1 of 1 checks failing
+      </StatusBanner>,
+    );
+    expect(screen.getByRole("button", { name: "Dismiss" }).parentElement).toHaveClass("ml-auto");
+  });
 });

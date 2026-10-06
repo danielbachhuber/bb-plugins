@@ -153,6 +153,18 @@ function Panel() {
     [reload, rpc],
   );
 
+  const onDismissChecks = useCallback(
+    async (row: Row, dismissed: boolean) => {
+      const result = await rpc.call("dismissChecks", { repo: row.repo, number: row.number, dismissed });
+      if (!result.ok) {
+        toast.error(dismissed ? "Could not dismiss the failing checks." : "Could not restore the failing checks.");
+        return;
+      }
+      await reload();
+    },
+    [reload, rpc],
+  );
+
   // The pull request whose composer is open, with the seeds the backend
   // resolved for it. Null when the dialog is closed.
   const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
@@ -254,6 +266,7 @@ function Panel() {
         onOpen={onOpen}
         onArchive={onArchive}
         onNoteSave={onNoteSave}
+        onDismissChecks={onDismissChecks}
         onOpenLink={markSeen}
       />
 

@@ -35,6 +35,32 @@ function pr(overrides: Partial<ListedPr> = {}): ListedPr {
 }
 
 describe("bannerFor", () => {
+  it("offers to dismiss failing checks on a row that knows its commit and checks", () => {
+    const banner = bannerFor(
+      pr({ flags: ["ci-failing"], checks: { ...GREEN, fail: 1 }, headSha: "abc123", failingChecks: ["validate"] }),
+    );
+    expect(banner).toMatchObject({ tone: "blocked", text: "1 of 4 checks failing", action: "dismiss-checks" });
+  });
+
+  it("offers no dismiss on a row stored before the sweep read its commit", () => {
+    expect(bannerFor(pr({ flags: ["ci-failing"], checks: { ...GREEN, fail: 1 } }))?.action).toBeUndefined();
+  });
+
+  it("names dismissed checks in grey, with an undo", () => {
+    expect(bannerFor(pr({ flags: [], dismissedChecks: ["validate"] }))).toEqual({
+      tone: "muted",
+      text: "validate failing",
+      detail: "dismissed",
+      action: "restore-checks",
+    });
+  });
+
+  it("lets another problem lead over dismissed checks", () => {
+    expect(bannerFor(pr({ flags: ["no-reviewer"], dismissedChecks: ["validate"] }))?.text).toBe(
+      "No reviewer requested",
+    );
+  });
+
   const text = (overrides: Partial<ListedPr>) => bannerFor(pr(overrides))?.text;
 
   it("leads with a merge conflict, naming the base branch", () => {

@@ -84,6 +84,16 @@ export const MIGRATIONS = [
      seen_at INTEGER NOT NULL,
      PRIMARY KEY (repo, number)
    )`,
+  // Failing checks the author dismissed, recorded as the head commit and the
+  // failing check names, so a new push or a different failure no longer
+  // matches. See sweep/dismiss.ts.
+  `CREATE TABLE IF NOT EXISTS dismissals (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     fingerprint TEXT NOT NULL,
+     dismissed_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
 ];
 
 export interface SweepMeta {
@@ -134,6 +144,10 @@ export interface Store {
   recordFirstSeen(rows: readonly ClassifiedRow[], now: number): void;
   /** Records the count a pull request has now, when it is opened from the panel. */
   markSeen(repo: string, number: number, comments: number, now: number): void;
+  /** Every dismissal of failing checks, keyed `repo#number`. */
+  dismissals(): Map<string, string>;
+  /** Records a dismissal, or clears it when `fingerprint` is null. */
+  setDismissal(repo: string, number: number, fingerprint: string | null, now: number): void;
 }
 
 export function createStore(db: DatabaseLike): Store {
@@ -173,6 +187,14 @@ export function createStore(db: DatabaseLike): Store {
     `INSERT INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(repo, number) DO UPDATE SET comments = excluded.comments, seen_at = excluded.seen_at`,
   );
+  const selectDismissals = db.prepare(`SELECT repo, number, fingerprint FROM dismissals`);
+  const upsertDismissal = db.prepare(
+    `INSERT INTO dismissals (repo, number, fingerprint, dismissed_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET
+       fingerprint = excluded.fingerprint,
+       dismissed_at = excluded.dismissed_at`,
+  );
+  const deleteDismissal = db.prepare(`DELETE FROM dismissals WHERE repo = ? AND number = ?`);
   const writeFirstSeen = db.transaction(((rows: readonly ClassifiedRow[], now: number) => {
     for (const row of rows) insertSeen.run(row.repo, row.number, row.commentsCount ?? 0, now);
   }) as (rows: readonly ClassifiedRow[], now: number) => void);
@@ -306,6 +328,16 @@ export function createStore(db: DatabaseLike): Store {
 
     markSeen(repo, number, comments, now) {
       upsertSeen.run(repo, number, comments, now);
+    },
+
+    dismissals() {
+      const rows = selectDismissals.all() as Array<{ repo: string; number: number; fingerprint: string }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.fingerprint]));
+    },
+
+    setDismissal(repo, number, fingerprint, now) {
+      if (fingerprint === null) deleteDismissal.run(repo, number);
+      else upsertDismissal.run(repo, number, fingerprint, now);
     },
   };
 }

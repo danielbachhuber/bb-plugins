@@ -105,6 +105,8 @@ Under the title, a banner says where the pull request stands.
   reviewed yet when someone else was asked. Feedback left alongside the
   approval takes that place instead: "Ready to merge · hubber approved with
   notes, 3 unanswered comments".
+- **Grey** for failing checks you dismissed: "validate failing · dismissed",
+  with Undo. See below.
 - **Blue** for a wait worth knowing about: "Waiting on hubber to re-review",
   or "GitHub is still checking for conflicts".
 - **None** for a draft, a first review not yet given, or checks still
@@ -130,6 +132,18 @@ inline comments together, resolved threads included, so a pull request whose
 threads were all answered still shows it was discussed. The Harvest clock, when the Harvest
 plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
+
+A red "checks failing" banner has Dismiss at its right end, for a failure you
+cannot fix yourself, such as a check that waits on a label only the
+repository's maintainers can add. Dismissing takes the failing-checks flag off
+the row, so it leaves needs you unless something else keeps it there, and a
+thread started from the row is not asked to fix the checks. The banner turns
+grey and names the dismissed checks ("validate failing · dismissed") with Undo,
+unless another problem leads the banner. The checks icon still counts the
+failure. The dismissal is stored only on this machine, against the branch's
+latest commit and the names of the failing checks, so a new push or a different
+check failing brings the flag back. Dismissing makes no GitHub request; the
+sweep reads the commit with the rest of the listing.
 
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. It shows in a grey drawer under the action line, and Add note or Edit

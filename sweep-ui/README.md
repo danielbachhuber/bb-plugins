@@ -28,7 +28,7 @@ item's `stack` as a `StackChip`, a warning triangle when `conflicted` is set,
 the age), and, when open, the note and the
 action line; `renderBody` fills the space between the title line and the
 note. On a one-line Later row it is drawn inline where the first fact would
-be. `StatusBanner` is the red, green, or blue line such a body can put under
+be. `StatusBanner` is the red, green, blue, or grey line such a body can put under
 the title.
 
 PR Sweep and Review Sweep both draw pull requests, and take what they draw for
@@ -66,7 +66,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/track` | `Track`, with its stage names and blocked stage, and `TRACK_WIDTH` |
 | `sweep-ui/summary` | `SummarySquares`, one square per row grouped by run, coloured by the run's `tone` or its own `color`, with a `label` for a page that draws more than one |
 | `sweep-ui/note` | `NoteBox` and `NoteField` |
-| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, `tone="info"` in blue with an info icon, and an optional lighter `detail` after a dot |
+| `sweep-ui/banner` | `StatusBanner`, a one-line status under a row's title: `tone="blocked"` in red with an alert icon, `tone="ready"` in green with a check, `tone="info"` in blue with an info icon, `tone="muted"` in grey for a problem set aside, an optional lighter `detail` after a dot, and an optional `action` at the right end |
 | `sweep-ui/pull-request` | What a pull request row draws: `PullRequestIcon` (green when open, muted for a draft), `ReviewerStack` (avatars with a badge per review state, and an optional `Tooltip`), `Avatar`, `ChecksBadge` (a tick, clock, or cross with a count, and every count on hover), and `DiffCount` ("+128 −12"). Also the `Reviewer`, `ReviewState`, and `ChecksSummary` types, and the pure `githubAvatar`, `checksGlyph`, and `checksLabel` |
 | `sweep-ui/sidebar-count` | `SidebarCount`, the counts beside a sweep in bb's sidebar: the rows that need you most in a red circle, then the total, lined up with the counts on other rows |
 | `sweep-ui/stack-chip` | `StackChip`, a pull request's place in a stack of pull requests built on each other's branches: "3 of 4 · on #612", with the number linking to the one below, or "1 of 4 · base" |

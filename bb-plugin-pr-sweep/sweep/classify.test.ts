@@ -1,6 +1,13 @@
 import { latestChecks, reviewNotes } from "./classify.js";
 import { describe, expect, it } from "vitest";
-import { classify, classifyOne, isBotLogin, repoRunsChecks, summarizeChecks } from "./classify.js";
+import {
+  classify,
+  classifyOne,
+  failingCheckNames,
+  isBotLogin,
+  repoRunsChecks,
+  summarizeChecks,
+} from "./classify.js";
 import { checkRun, makePr, review, statusContext, teamRequest, userRequest } from "./fixtures.js";
 
 describe("summarizeChecks", () => {
@@ -448,6 +455,28 @@ describe("a repository where CI does not run on pull requests", () => {
         makePr({ statusCheckRollup: [checkRun("a", "COMPLETED", "SUCCESS")] }),
       ]),
     ).toBe(true);
+  });
+});
+
+describe("failingCheckNames", () => {
+  it("names the failing checks and status contexts, sorted", () => {
+    expect(
+      failingCheckNames([
+        checkRun("validate", "COMPLETED", "FAILURE"),
+        checkRun("build", "COMPLETED", "SUCCESS"),
+        statusContext("deploy", "ERROR"),
+        checkRun("lint", "IN_PROGRESS", null),
+      ]),
+    ).toEqual(["deploy", "validate"]);
+  });
+
+  it("leaves out a failure that passed on re-run", () => {
+    expect(
+      failingCheckNames([
+        { __typename: "CheckRun", name: "build", status: "COMPLETED", conclusion: "FAILURE", startedAt: "2026-08-28T12:38:14Z" },
+        { __typename: "CheckRun", name: "build", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-08-28T12:38:34Z" },
+      ]),
+    ).toEqual([]);
   });
 });
 

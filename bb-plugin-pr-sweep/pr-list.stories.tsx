@@ -78,6 +78,9 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     additions: 40 + ((overrides.number * 37) % 200),
     deletions: (overrides.number * 13) % 60,
     baseRefName: "main",
+    // What the sweep reads now, so every failing row offers Dismiss as it would live.
+    headSha: "0a1b2c3d",
+    failingChecks: flags.includes("ci-failing") ? ["build"] : [],
     ...overrides,
   };
 }
@@ -292,6 +295,14 @@ const everyStatus: Listing = {
       flags: ["no-reviewer"],
     }),
     row({
+      number: 418,
+      title: "Publish the widget catalog entry",
+      checks: checks({ fail: 1 }),
+      waitingOn: ["hubber"],
+      failingChecks: ["validate"],
+      dismissedChecks: ["validate"],
+    }),
+    row({
       number: 409,
       title: "Rewrite the gadget sync queue",
       flags: ["conflict", "ci-failing", "ci-pending"],
@@ -400,6 +411,7 @@ function Frame({
             onOpen={noop}
             onArchive={noop}
             onNoteSave={async () => true}
+            onDismissChecks={noop}
             onOpenLink={noop}
             avatarFor={avatarFor}
           />
@@ -446,7 +458,7 @@ export function Rows() {
       </StoryRow>
       <StoryRow
         label="Every flag"
-        hint="One banner per flag, several flags on one row, No project here where nothing is checked out, a team reviewer, and an unflagged row stored before sizes were read."
+        hint="One banner per flag, Dismiss on each failing-checks banner and a dismissed one in grey with Undo, several flags on one row, No project here where nothing is checked out, a team reviewer, and an unflagged row stored before sizes were read."
       >
         <Frame listing={everyStatus} />
       </StoryRow>

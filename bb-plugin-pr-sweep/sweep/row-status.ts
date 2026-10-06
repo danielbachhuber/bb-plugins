@@ -11,10 +11,15 @@ import type { ListedPr } from "./tiers.js";
  */
 
 export type Banner = {
-  tone: "blocked" | "ready" | "info";
+  tone: "blocked" | "ready" | "info" | "muted";
   text: string;
   /** A second, lighter part after the text, such as who requested changes. */
   detail?: string;
+  /**
+   * The button at the banner's right end: dismiss the failing checks it
+   * names, or undo that dismissal.
+   */
+  action?: "dismiss-checks" | "restore-checks";
 };
 
 /** The flags that stop the author, other than feedback, in the order the classifier ranks them. */
@@ -134,7 +139,14 @@ export function bannerFor(row: ListedPr): Banner | null {
       if (feedback?.byReviewer) return withThreads(feedback.text, row);
       return { tone: "blocked", text: main, detail: "a branch rule isn't met" };
     }
-    return feedback ? { tone: "blocked", text: main, detail: feedback.text } : { tone: "blocked", text: main };
+    const banner: Banner = feedback
+      ? { tone: "blocked", text: main, detail: feedback.text }
+      : { tone: "blocked", text: main };
+    // Only a row that knows its commit and failing checks can be dismissed.
+    if (leading === "ci-failing" && row.headSha && (row.failingChecks?.length ?? 0) > 0) {
+      banner.action = "dismiss-checks";
+    }
+    return banner;
   }
   if (flags.includes("merge-ready")) {
     // Feedback left alongside the approval is still green, since GitHub would
@@ -160,6 +172,10 @@ export function bannerFor(row: ListedPr): Banner | null {
     return feedback.byReviewer ? withThreads(feedback.text, row) : { tone: "blocked", text: feedback.text };
   }
   if (flags.includes("mergeable-unknown")) return { tone: "info", text: "GitHub is still checking for conflicts" };
+  const dismissed = row.dismissedChecks ?? [];
+  if (dismissed.length > 0) {
+    return { tone: "muted", text: `${names(dismissed)} failing`, detail: "dismissed", action: "restore-checks" };
+  }
   return null;
 }
 

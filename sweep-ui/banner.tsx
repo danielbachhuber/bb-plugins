@@ -1,11 +1,12 @@
 // A one-line status under a row's title: red when something stops the work,
-// green when it is ready to finish, blue for news that asks nothing urgent.
+// green when it is ready to finish, blue for news that asks nothing urgent,
+// grey for a problem you have set aside.
 import type { ReactNode } from "react";
 
 import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 
-export type BannerTone = "blocked" | "ready" | "info";
+export type BannerTone = "blocked" | "ready" | "info" | "muted";
 
 const TONES = {
   blocked: { box: "bg-destructive/[0.07]", icon: "AlertCircle", text: "text-destructive-text", detail: "text-destructive-text/80" },
@@ -17,6 +18,7 @@ const TONES = {
     text: "text-[#0b57d0] dark:text-[#a8c7fa]",
     detail: "text-[#0b57d0]/80 dark:text-[#a8c7fa]/80",
   },
+  muted: { box: "bg-muted", icon: "Info", text: "text-muted-foreground", detail: "text-muted-foreground/80" },
 } as const;
 
 export interface StatusBannerProps {
@@ -25,9 +27,11 @@ export interface StatusBannerProps {
   children: ReactNode;
   /** A lighter second part after a dot: "hubber requested changes". */
   detail?: ReactNode;
+  /** A small control at the right end, such as Dismiss. */
+  action?: ReactNode;
 }
 
-export function StatusBanner({ tone, children, detail }: StatusBannerProps) {
+export function StatusBanner({ tone, children, detail, action }: StatusBannerProps) {
   const { box, icon, text, detail: detailText } = TONES[tone];
   return (
     <div data-tone={tone} className={cn("mt-1.5 flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs", box)}>
@@ -36,6 +40,7 @@ export function StatusBanner({ tone, children, detail }: StatusBannerProps) {
         {children}
         {detail ? <span className={cn("font-normal", detailText)}> · {detail}</span> : null}
       </span>
+      {action ? <span className={cn("ml-auto shrink-0", text)}>{action}</span> : null}
     </div>
   );
 }

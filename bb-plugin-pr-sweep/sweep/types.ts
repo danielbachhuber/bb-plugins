@@ -100,6 +100,19 @@ export interface ClassifiedRow {
   additions?: number;
   deletions?: number;
   baseRefName?: string;
+  /**
+   * The commit at the head of the branch, and the names of the checks failing
+   * on it. Together they are what a dismissal of the failing checks is
+   * recorded against, so a new push or a different failure brings the flag
+   * back. Optional for the same reason.
+   */
+  headSha?: string;
+  failingChecks?: string[];
+  /**
+   * The failing checks you dismissed, set when the row is read rather than by
+   * the sweep. Their "ci-failing" flag is gone from `flags` while this is set.
+   */
+  dismissedChecks?: string[];
 }
 
 /** The subset of `gh pr list --json` output this plugin reads. */
@@ -131,6 +144,7 @@ export interface RawPullRequest {
   additions?: number;
   deletions?: number;
   baseRefName?: string;
+  headRefOid?: string;
   statusCheckRollup: Array<{
     __typename?: string;
     name?: string;

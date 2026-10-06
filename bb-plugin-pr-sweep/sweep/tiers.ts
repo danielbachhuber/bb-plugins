@@ -51,6 +51,11 @@ export interface ListedPr {
   commentsCount: number;
   /** The local next-step note, never sent to GitHub. */
   note: string | null;
+  /** The commit at the head of the branch, and the checks failing on it. */
+  headSha?: string;
+  failingChecks?: string[];
+  /** The failing checks you dismissed on this commit, which no longer flag the row. */
+  dismissedChecks?: string[];
   /** Comments since the pull request was last opened from here. */
   newComments: number;
   /**

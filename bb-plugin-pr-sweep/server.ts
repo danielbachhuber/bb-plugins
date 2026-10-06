@@ -40,6 +40,7 @@ import {
   type ProjectCandidate,
   type RepoFilter,
 } from "./sweep/spawn-target.js";
+import { applyDismissal, checksFingerprint } from "./sweep/dismiss.js";
 import { MIGRATIONS, createStore } from "./sweep/store.js";
 import { parseStaleAfterDays } from "./sweep/tiers.js";
 
@@ -527,6 +528,15 @@ export default async function plugin(bb: BbPluginApi) {
     return toProjectCandidates(await bb.sdk.projects.list());
   }
 
+  /**
+   * The stored rows with dismissed failing checks taken off, which is how the
+   * panel shows them and what a spawned thread is told to work on.
+   */
+  function currentRows() {
+    const dismissals = store.dismissals();
+    return store.readRows().map((row) => applyDismissal(row, dismissals.get(`${row.repo}#${row.number}`)));
+  }
+
   /** The repository a bare "#123" should be read against: the only one swept. */
   async function defaultRepo(): Promise<string> {
     const repos = new Set(store.readRows().map((row) => row.repo));
@@ -787,7 +797,7 @@ export default async function plugin(bb: BbPluginApi) {
 
     async listRows() {
       const meta = store.readMeta();
-      const rows = store.readRows();
+      const rows = currentRows();
       const notes = store.notes();
       const seen = store.seenCounts();
       const { staleAfterDays } = await settings.get();
@@ -968,7 +978,20 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true };
     },
 
-    markSeen({ repo, number }) {
+    dismissChecks({ repo, number, dismissed }) {
+      if (!dismissed) {
+        store.setDismissal(repo, number, null, Date.now());
+        return { ok: true };
+      }
+      const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
+      const fingerprint = row ? checksFingerprint(row) : null;
+      if (fingerprint === null) return { ok: false };
+      store.setDismissal(repo, number, fingerprint, Date.now());
+      bb.log.info(`dismissed failing checks on ${repo}#${number}: ${row!.failingChecks!.join(", ")}`);
+      return { ok: true };
+    },
+
+        markSeen({ repo, number }) {
       const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
       if (!row) return { ok: false };
       // A row stored before counts were kept has none to record. Recording 0
@@ -995,9 +1018,7 @@ export default async function plugin(bb: BbPluginApi) {
       const existingThreadId = await links.threadFor(repo, number);
       if (existingThreadId) return { existingThreadId, reason: null, seed: null };
 
-      const row = store
-        .readRows()
-        .find((entry) => entry.repo === repo && entry.number === number);
+      const row = currentRows().find((entry) => entry.repo === repo && entry.number === number);
       if (!row) {
         return {
           existingThreadId: null,
@@ -1059,9 +1080,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (inFlight) return inFlight;
 
       const attempt = (async () => {
-        const row = store
-          .readRows()
-          .find((entry) => entry.repo === repo && entry.number === number);
+        const row = currentRows().find((entry) => entry.repo === repo && entry.number === number);
         // Starting or reopening the thread is reading the pull request, so its
         // new comments are no longer new.
         const markSeen = () => {

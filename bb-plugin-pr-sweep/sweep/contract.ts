@@ -91,6 +91,14 @@ const rowSchema = z.object({
   additions: z.number().optional(),
   deletions: z.number().optional(),
   baseRefName: z.string().optional(),
+  /** The commit at the head of the branch, and the checks failing on it. */
+  headSha: z.string().optional(),
+  failingChecks: z.array(z.string()).optional(),
+  /**
+   * The failing checks you dismissed on this commit. Their "ci-failing" flag
+   * is gone from `flags` while this is set.
+   */
+  dismissedChecks: z.array(z.string()).optional(),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */
@@ -257,6 +265,14 @@ export const rpcContract = defineRpcContract({
    * Records the pull request's current comment count as seen, so its "N new"
    * clears. Called when its link or thread is opened.
    */
+  /**
+   * Dismisses the row's failing checks on its current commit, or restores
+   * them. Fails when the row has no failing checks to dismiss.
+   */
+  dismissChecks: {
+    input: z.object({ repo: z.string(), number: z.number(), dismissed: z.boolean() }).strict(),
+    output: z.object({ ok: z.boolean() }),
+  },
   markSeen: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),
     output: z.object({ ok: z.boolean() }),

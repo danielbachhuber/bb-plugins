@@ -200,4 +200,14 @@ describe("seen comment counts", () => {
     store.markSeen("acme/widgets", 12, 3, 1);
     expect(store.seenCounts().get("acme/widgets#12")).toBe(3);
   });
+
+  it("records a dismissal of failing checks and clears it again", () => {
+    const store = freshStore();
+    store.setDismissal("acme/widgets", 7, "abc123:validate", 1);
+    expect(store.dismissals().get("acme/widgets#7")).toBe("abc123:validate");
+    store.setDismissal("acme/widgets", 7, "def456:validate", 2);
+    expect(store.dismissals().get("acme/widgets#7")).toBe("def456:validate");
+    store.setDismissal("acme/widgets", 7, null, 3);
+    expect(store.dismissals().has("acme/widgets#7")).toBe(false);
+  });
 });

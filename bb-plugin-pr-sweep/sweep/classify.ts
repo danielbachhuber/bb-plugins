@@ -56,6 +56,28 @@ export function latestChecks(rollup: RawPullRequest["statusCheckRollup"]): Rollu
   return [...latest.values()];
 }
 
+type CheckOutcome = "pass" | "fail" | "skip" | "pending" | "cancelled";
+
+function outcomeOf(entry: RollupEntry): CheckOutcome {
+  // StatusContext: no status/conclusion, only state.
+  if (entry.state !== undefined && entry.status === undefined) {
+    const state = entry.state.toUpperCase();
+    if (state === "SUCCESS") return "pass";
+    if (state === "PENDING" || state === "EXPECTED") return "pending";
+    return "fail";
+  }
+
+  // CheckRun: a run that has not completed has no meaningful conclusion.
+  if ((entry.status ?? "").toUpperCase() !== "COMPLETED") return "pending";
+
+  const conclusion = (entry.conclusion ?? "").toUpperCase();
+  if (conclusion === "SUCCESS") return "pass";
+  if (SKIPPED_CONCLUSIONS.has(conclusion)) return "skip";
+  if (conclusion === "CANCELLED") return "cancelled";
+  if (FAILED_CONCLUSIONS.has(conclusion)) return "fail";
+  return "pending";
+}
+
 export function summarizeChecks(
   rollup: RawPullRequest["statusCheckRollup"],
 ): ChecksSummary {
@@ -70,31 +92,19 @@ export function summarizeChecks(
 
   for (const entry of latestChecks(rollup)) {
     summary.total += 1;
-
-    // StatusContext: no status/conclusion, only state.
-    if (entry.state !== undefined && entry.status === undefined) {
-      const state = entry.state.toUpperCase();
-      if (state === "SUCCESS") summary.pass += 1;
-      else if (state === "PENDING" || state === "EXPECTED") summary.pending += 1;
-      else summary.fail += 1;
-      continue;
-    }
-
-    // CheckRun: a run that has not completed has no meaningful conclusion.
-    if ((entry.status ?? "").toUpperCase() !== "COMPLETED") {
-      summary.pending += 1;
-      continue;
-    }
-
-    const conclusion = (entry.conclusion ?? "").toUpperCase();
-    if (conclusion === "SUCCESS") summary.pass += 1;
-    else if (SKIPPED_CONCLUSIONS.has(conclusion)) summary.skip += 1;
-    else if (conclusion === "CANCELLED") summary.cancelled += 1;
-    else if (FAILED_CONCLUSIONS.has(conclusion)) summary.fail += 1;
-    else summary.pending += 1;
+    summary[outcomeOf(entry)] += 1;
   }
 
   return summary;
+}
+
+/** The names of the checks failing on the latest run, sorted, nameless ones left out. */
+export function failingCheckNames(rollup: RawPullRequest["statusCheckRollup"]): string[] {
+  return latestChecks(rollup)
+    .filter((entry) => outcomeOf(entry) === "fail")
+    .map((entry) => (entry.name ?? entry.context ?? "").trim())
+    .filter((name) => name !== "")
+    .sort();
 }
 
 const LIVE_FEEDBACK_STATES = new Set(["CHANGES_REQUESTED", "COMMENTED"]);
@@ -377,6 +387,8 @@ export function classifyOne(
     additions: pr.additions,
     deletions: pr.deletions,
     baseRefName: pr.baseRefName,
+    headSha: pr.headRefOid,
+    failingChecks: failingCheckNames(pr.statusCheckRollup),
   };
 }
 
