@@ -54,9 +54,11 @@ export interface ReviewScreenProps {
  * beside a long concern. A panel too narrow for both stacks them, rail on top
  * and not sticky, since a sticky rail above the content would cover it as it
  * scrolls. bb's stylesheet holds only the classes bb uses, so a container
- * query has to come from here.
+ * query has to come from here. Every button here, from the hunk strips to the
+ * rail, shows a pointer, which bb's buttons do not by default.
  */
 const LAYOUT_CSS = `
+[data-super-diff] button:not(:disabled) { cursor: pointer; }
 .sd-body { container-type: inline-size; }
 .sd-columns { display: flex; flex-direction: column-reverse; gap: 1.25rem; }
 .sd-main { min-width: 0; }
