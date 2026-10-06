@@ -13,7 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ScenarioHunk, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { isTestSide } from "@/review/tests/paths";
 import { BranchBar } from "./branch-bar";
-import { coverageLabel, fileStats, hunkNote, outsideNote, reviewedNote, scenarioReviewNote, testHunks, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
+import { coverageLabel, fileStats, hunkNote, outsideNote, reviewedNote, scenarioReviewNote, testHunks, testsReviewedLabel, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
 
 /**
  * Draws one file's patch. `file`, when given, is the changed file it belongs
@@ -390,7 +390,7 @@ function Scenarios({ section, tests, viewers, onShowDiff }: { section: ViewSecti
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           {testsLabel({ scenarios: tests.scenarios.length, asserted: tests.asserted, snapshotOnly: tests.snapshotOnly, gaps: tests.gaps })}
-          {all.length > 0 && <span data-tests-reviewed>{` · ${all.filter((h) => h.read).length} of ${all.length} test hunks reviewed`}</span>}
+          {all.length > 0 && <span data-tests-reviewed>{` · ${testsReviewedLabel(all)}`}</span>}
         </p>
         <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Checkbox aria-label="Show values" checked={values} onCheckedChange={(checked) => setValues(checked === true)} />

@@ -140,3 +140,8 @@ export function outsideNote(tests: ViewTests): string | null {
   if (unread === 0) return null;
   return `${plural(unread, "test hunk is", "test hunks are")} outside every scenario, such as imports or helpers.`;
 }
+
+/** "1 of 3 test hunks reviewed", for the line above the scenarios. */
+export function testsReviewedLabel(hunks: ScenarioHunk[]): string {
+  return `${hunks.filter((h) => h.read).length} of ${plural(hunks.length, "test hunk", "test hunks")} reviewed`;
+}
