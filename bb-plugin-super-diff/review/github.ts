@@ -1,14 +1,17 @@
-// Reading per hunk, kept in step with GitHub's per-file Viewed on the thread's
-// pull request. Pure; pull-request.ts talks to GitHub.
+// Reading per hunk, kept in step with a per-file Viewed kept somewhere else:
+// GitHub's on the thread's pull request, or, with no pull request, the Viewed
+// boxes the Diff Viewed plugin puts in bb's changes panel. Pure; pull-request.ts
+// talks to GitHub and server.ts to Diff Viewed.
 //
-// A file syncs only while its diff here is the pull request's, judged by its
-// `+a −d` counts. Then GitHub's Viewed is the file's state: VIEWED reads every
-// hunk, and a change that reads or unreads the whole file is sent there.
-// Otherwise, with unpushed edits or no pull request, the local hunk marks are
-// all there is and GitHub is left alone.
+// A file syncs with GitHub only while its diff here is the pull request's,
+// judged by its `+a −d` counts. Then GitHub's Viewed is the file's state:
+// VIEWED reads every hunk, and a change that reads or unreads the whole file is
+// sent there. Otherwise, with unpushed edits, the local hunk marks are all
+// there is and GitHub is left alone. The changes panel shows every file, so
+// every file syncs with it; a mark there counts while its counts are the file's.
 import { itemKey } from "./types";
 
-/** One file of the pull request, as GitHub reports it for the viewer. */
+/** One file of the pull request as GitHub reports it for the viewer, or one file the changes panel has marked. */
 export interface GithubFile {
   path: string;
   additions: number;
@@ -19,15 +22,33 @@ export interface GithubFile {
 
 export type Sync = "synced" | "local" | "none";
 
+/** Where a file's Viewed is kept, other than here. */
+export type ViewedWhere = "github" | "changes-panel";
+
+/** The other place's files by path: all of a pull request's, or the ones the changes panel has marked. */
+export interface ViewedSource {
+  where: ViewedWhere;
+  files: Map<string, GithubFile>;
+}
+
+const sameCounts = (counts: { added: number; removed: number }, file: GithubFile) => file.additions === counts.added && file.deletions === counts.removed;
+
 /**
  * @param counts the lines this file's diff here adds and removes
- * @param github the pull request's entry for the same path
- * @param hasPullRequest whether the thread has an open pull request that answered
+ * @param entry the other place's entry for the same path
+ * @param where the place, or null when there is none to sync with
  */
-export function syncOf(counts: { added: number; removed: number }, github: GithubFile | undefined, hasPullRequest: boolean): Sync {
-  if (!hasPullRequest) return "none";
-  if (!github || github.additions !== counts.added || github.deletions !== counts.removed) return "local";
+export function syncOf(counts: { added: number; removed: number }, entry: GithubFile | undefined, where: ViewedWhere | null): Sync {
+  if (where === null) return "none";
+  if (where === "changes-panel") return "synced";
+  if (!entry || !sameCounts(counts, entry)) return "local";
   return "synced";
+}
+
+/** Whether the other place shows this file Viewed, for the diff it has now. */
+export function viewedThere(counts: { added: number; removed: number }, entry: GithubFile | undefined, where: ViewedWhere | null): boolean {
+  if (where === null || !entry?.viewed) return false;
+  return sameCounts(counts, entry);
 }
 
 export interface Item {
@@ -42,7 +63,7 @@ export interface FileContext {
   /** Local marks, `path#index` to the hash they were set at. */
   marks: Map<string, string>;
   sync: Sync;
-  /** GitHub shows the file VIEWED. */
+  /** The other place, GitHub or the changes panel, shows the file Viewed. */
   githubViewed: boolean;
 }
 

@@ -117,7 +117,7 @@ describe("placeItems", () => {
     it("reads every hunk of a file GitHub shows Viewed, while its counts match the pull request's", () => {
       const gh = (path: string, viewed: boolean, additions = 3) => [path, { path, additions, deletions: 3, viewed }] as const;
       const view = buildView(files, stored(DIFF), null, {
-        github: new Map([gh("src/widget.ts", true), gh("src/gadget.ts", true, 9)]),
+        github: { where: "github", files: new Map([gh("src/widget.ts", true), gh("src/gadget.ts", true, 9)]) },
       });
       const all = view.concerns.flatMap((c) => c.files);
       const widget = all.filter((f) => f.path === "src/widget.ts");

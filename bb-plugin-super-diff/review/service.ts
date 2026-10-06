@@ -12,8 +12,8 @@ import { itemsOf, parseDiff } from "./items";
 import { ABSENT, changedPaths, type FileState } from "./stale";
 import type { Store } from "./store";
 import { itemKey, type DiffFile } from "./types";
-import { planFileViewed, planRead, type FileContext, type GithubFile, type Plan } from "./github";
-import { buildView, fileContexts, type StoredGrouping } from "./view";
+import { planFileViewed, planRead, type FileContext, type GithubFile, type Plan, type ViewedWhere } from "./github";
+import { buildView, fileContexts, fileCounts, type StoredGrouping } from "./view";
 import type { ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
 import type { Assignment } from "./types";
@@ -108,7 +108,7 @@ export async function getView(
   checkout: Checkout,
   bbFiles?: BbFiles,
   /** May still be loading, so GitHub is asked while git runs. */
-  githubSync: GithubSync | null | Promise<GithubSync | null> = null,
+  githubSync: ViewedSync | null | Promise<ViewedSync | null> = null,
 ): Promise<ReviewView> {
   const branch = await loadBranch(checkout);
   // Asked for the same base Super Diff chose, so the two lists can agree; it runs while the rest reads files.
@@ -123,33 +123,55 @@ export async function getView(
     base: branch.baseRef,
     crossCheck: bbList ? crossCheck(branch.files.map((file) => file.path), await bbList) : undefined,
     viewed: store.viewed(threadId),
-    github: github?.files ?? null,
+    github: github ? { where: github.where, files: github.files } : null,
     tests: stored && inputs ? overlays(stored.grouping, inputs) : undefined,
   });
 }
 
-/** The thread's pull request, for syncing Viewed: its files, and how to mark one. */
-export interface GithubSync {
-  files: Map<string, GithubFile>;
-  setViewed(path: string, viewed: boolean): Promise<void>;
+/** A file as the place its Viewed is kept needs it: GitHub by path, the changes panel by path and counts. */
+export interface SyncTarget {
+  path: string;
+  previousPath: string | null;
+  binary: boolean;
+  added: number;
+  removed: number;
 }
 
-/** Apply a plan: the local marks, then GitHub. Returns GitHub's error, if it had one. */
-async function apply(store: Store, threadId: string, path: string, plan: Plan, github: GithubSync | null): Promise<string | null> {
+/** Where to sync Viewed with, the pull request or the changes panel: its files, and how to mark one. */
+export interface ViewedSync {
+  where: ViewedWhere;
+  files: Map<string, GithubFile>;
+  setViewed(file: SyncTarget, viewed: boolean): Promise<void>;
+}
+
+const PLACE: Record<ViewedWhere, string> = { github: "GitHub", "changes-panel": "Diff Viewed" };
+
+/** Apply a plan: the local marks, then the other place. Returns its error, if it had one. */
+async function apply(store: Store, threadId: string, target: SyncTarget, plan: Plan, sync: ViewedSync | null): Promise<string | null> {
   if (plan.set.length) store.setViewed(threadId, plan.set, true);
   if (plan.clear.length) store.setViewed(threadId, plan.clear, false);
-  if (!plan.github || !github) return null;
+  if (!plan.github || !sync) return null;
   try {
-    await github.setViewed(path, plan.github === "mark");
+    await sync.setViewed(target, plan.github === "mark");
     return null;
   } catch (cause) {
-    return `GitHub did not take the change to ${path}: ${cause instanceof Error ? cause.message : String(cause)}`;
+    return `${PLACE[sync.where]} did not take the change to ${target.path}: ${cause instanceof Error ? cause.message : String(cause)}`;
   }
 }
 
-async function contextFor(store: Store, threadId: string, checkout: Checkout, path: string, github: GithubSync | null): Promise<FileContext | undefined> {
+async function contextFor(
+  store: Store,
+  threadId: string,
+  checkout: Checkout,
+  path: string,
+  sync: ViewedSync | null,
+): Promise<{ context: FileContext; target: SyncTarget } | undefined> {
   const branch = await loadBranch(checkout);
-  return fileContexts(branch.files, store.viewed(threadId), github?.files ?? null).get(path);
+  const file = branch.files.find((f) => f.path === path);
+  const context = fileContexts(branch.files, store.viewed(threadId), sync ? { where: sync.where, files: sync.files } : null).get(path);
+  if (!file || !context) return undefined;
+  const counts = fileCounts(file);
+  return { context, target: { path, previousPath: file.previousPath, binary: file.binary, added: counts.added, removed: counts.removed } };
 }
 
 /** Check or uncheck some of a file's hunks, and its Viewed on GitHub when that changes with them. */
@@ -160,10 +182,10 @@ export async function setRead(
   path: string,
   hunks: number[],
   read: boolean,
-  github: GithubSync | null = null,
+  github: ViewedSync | null = null,
 ): Promise<string | null> {
   const file = await contextFor(store, threadId, checkout, path, github);
-  return file ? apply(store, threadId, path, planRead(file, hunks, read), github) : null;
+  return file ? apply(store, threadId, file.target, planRead(file.context, hunks, read), github) : null;
 }
 
 /** Check or uncheck a file's Viewed: every hunk of it, here and on GitHub. */
@@ -173,10 +195,10 @@ export async function setFileViewed(
   checkout: Checkout,
   path: string,
   viewed: boolean,
-  github: GithubSync | null = null,
+  github: ViewedSync | null = null,
 ): Promise<string | null> {
   const file = await contextFor(store, threadId, checkout, path, github);
-  return file ? apply(store, threadId, path, planFileViewed(file, viewed), github) : null;
+  return file ? apply(store, threadId, file.target, planFileViewed(file.context, viewed), github) : null;
 }
 
 /**

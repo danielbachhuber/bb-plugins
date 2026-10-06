@@ -72,6 +72,8 @@ interface Viewers {
   DiffView: DiffViewComponent;
   /** Long diff lines wrap, or scroll sideways. */
   wrap: boolean;
+  /** Where a synced file's Viewed box is kept. */
+  syncWith: ReviewView["syncWith"];
   SourceView: SourceViewComponent;
   onSetRead: (path: string, hunks: number[], read: boolean) => void;
   onSetFileViewed: (path: string, viewed: boolean) => void;
@@ -93,7 +95,7 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetRead,
   const { view } = result;
   if (view.coverage.hunks === 0) return <Message text="No changes on this branch." ready />;
 
-  const viewers: Viewers = { DiffView, wrap, SourceView, onSetRead, onSetFileViewed };
+  const viewers: Viewers = { DiffView, wrap, syncWith: view.syncWith, SourceView, onSetRead, onSetFileViewed };
   const sections = [...view.concerns, view.notYetGrouped, view.mechanical].filter((s): s is ViewSection => s !== null);
   // The chosen section, or the first one when nothing is chosen or the choice is gone.
   const at = Math.max(0, sections.findIndex((s) => s.id === chosen));
@@ -451,11 +453,12 @@ function PathLabel({ file }: { file: ViewFile }) {
 }
 
 /**
- * The file's Viewed box, which is GitHub's own: shown only when the thread's
- * pull request has this file with the same counts. A file that differs, as
- * with unpushed edits, says so quietly; with no pull request there is nothing.
+ * The file's Viewed box, which is GitHub's own when the thread's pull request
+ * has this file with the same counts, and with no pull request, the one Diff
+ * Viewed puts in the changes panel. A file that differs from the pull request,
+ * as with unpushed edits, says so quietly; with neither there is nothing.
  */
-function GithubViewed({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
+function FileViewed({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
   if (file.sync === "local") {
     return (
       <span title="This file's diff here differs from the pull request's, so its checkmarks stay in bb and GitHub is left alone" className="shrink-0 text-[11px] text-muted-foreground">
@@ -464,9 +467,10 @@ function GithubViewed({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
     );
   }
   if (file.sync !== "synced") return null;
+  const where = viewers.syncWith === "changes-panel" ? "in the changes panel" : "on GitHub";
   return (
-    <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title="GitHub's Viewed for this file" onClick={(event) => event.stopPropagation()}>
-      <Checkbox aria-label={`Viewed ${file.path} on GitHub`} checked={file.githubViewed} onCheckedChange={(checked) => viewers.onSetFileViewed(file.path, checked === true)} />
+    <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={`This file's Viewed ${where}`} onClick={(event) => event.stopPropagation()}>
+      <Checkbox aria-label={`Viewed ${file.path} ${where}`} checked={file.githubViewed} onCheckedChange={(checked) => viewers.onSetFileViewed(file.path, checked === true)} />
       Viewed
     </label>
   );
@@ -493,7 +497,7 @@ function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
             </span>
           )}
           <Counts {...fileStats(file)} />
-          <GithubViewed file={file} viewers={viewers} />
+          <FileViewed file={file} viewers={viewers} />
         </span>
       </summary>
       <div className="flex flex-col border-t">

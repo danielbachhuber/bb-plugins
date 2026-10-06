@@ -271,6 +271,14 @@ describe("ReviewScreen", () => {
       expect(onSetFileViewed).toHaveBeenCalledWith("src/widget.ts", true);
     });
 
+    it("with no pull request, labels the Viewed box as the changes panel's", () => {
+      const onSetFileViewed = vi.fn();
+      screenWith({ result: { state: "ok", view: { ...withRead(false, "synced"), syncWith: "changes-panel" } }, onSetFileViewed });
+      expect(screen.queryByRole("checkbox", { name: /on GitHub/ })).toBeNull();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Viewed src/widget.ts in the changes panel" }));
+      expect(onSetFileViewed).toHaveBeenCalledWith("src/widget.ts", true);
+    });
+
     it("says a file is not on GitHub yet when it differs, and shows nothing without a pull request", () => {
       const { unmount } = screenWith({ result: { state: "ok", view: withRead(false, "local") } });
       expect(screen.queryByRole("checkbox", { name: /on GitHub/ })).toBeNull();

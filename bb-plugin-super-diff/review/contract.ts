@@ -31,12 +31,12 @@ export const viewFileSchema = z.object({
   /** Every hunk this section shows is read. */
   viewed: z.boolean(),
   /**
-   * synced: the thread's pull request has this file with the same counts, so
-   * its Viewed box is GitHub's. local: a pull request, but this file differs.
-   * none: no pull request to sync with.
+   * synced: its Viewed box is the one in `syncWith`: the thread's pull request
+   * has this file with the same counts, or the changes panel has it. local: a
+   * pull request, but this file differs. none: nowhere to sync with.
    */
   sync: z.enum(["synced", "local", "none"]),
-  /** GitHub shows the file Viewed, for a synced file. */
+  /** GitHub or the changes panel shows the file Viewed, for a synced file. */
   githubViewed: z.boolean(),
   hunks: z.array(viewHunkSchema),
 });
@@ -124,6 +124,8 @@ export const reviewViewSchema = z.object({
   /** Every changed file and its hunks, for the bar under the headline. */
   files: z.array(barFileSchema),
   crossCheck: crossCheckSchema.nullable(),
+  /** Where a synced file's Viewed is kept: the pull request, or, with none, the changes panel's Viewed boxes. */
+  syncWith: z.enum(["github", "changes-panel"]).nullable(),
   coverage: z.object({
     files: z.number().int(),
     hunks: z.number().int(),

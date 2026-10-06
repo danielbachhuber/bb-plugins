@@ -99,8 +99,9 @@ describe("service", () => {
       return {
         calls,
         sync: {
+          where: "github" as const,
           files: new Map([["src/widget.ts", { path: "src/widget.ts", additions: 1, deletions: 1, viewed }]]),
-          async setViewed(path: string, value: boolean) {
+          async setViewed({ path }: { path: string }, value: boolean) {
             calls.push([path, value]);
             if (fail) throw new Error("rate limited");
           },
@@ -127,6 +128,27 @@ describe("service", () => {
       await setFileViewed(store, "thr_1", checkout, "src/widget.ts", false, gh.sync);
       expect(gh.calls).toEqual([["src/widget.ts", false]]);
       expect((await getView(store, "thr_1", checkout)).concerns[0]!.files[0]!.viewed).toBe(false);
+    });
+
+    it("with no pull request, reads a file the changes panel marked, and marks it there once every hunk is read", async () => {
+      const { store, checkout } = await setup();
+      await submit(store, "thr_1", checkout, GOOD, NOW);
+      const calls: Array<[{ path: string; added: number; removed: number }, boolean]> = [];
+      const panel = (files: Array<[string, number, number]>) => ({
+        where: "changes-panel" as const,
+        files: new Map(files.map(([path, additions, deletions]) => [path, { path, additions, deletions, viewed: true }])),
+        async setViewed(file: { path: string; previousPath: string | null; binary: boolean; added: number; removed: number }, value: boolean) {
+          calls.push([{ path: file.path, added: file.added, removed: file.removed }, value]);
+        },
+      });
+      // widget.ts was marked at its current +1 −1, gadget.ts at counts it no longer has.
+      const view = await getView(store, "thr_1", checkout, undefined, panel([["src/widget.ts", 1, 1], ["src/gadget.ts", 9, 9]]));
+      expect(view.syncWith).toBe("changes-panel");
+      expect(view.concerns[0]!.files[0]).toMatchObject({ sync: "synced", githubViewed: true, viewed: true });
+      expect(view.concerns[1]!.files[0]).toMatchObject({ sync: "synced", githubViewed: false, viewed: false });
+
+      await setRead(store, "thr_1", checkout, "src/gadget.ts", [0], true, panel([]));
+      expect(calls).toEqual([[{ path: "src/gadget.ts", added: 1, removed: 0 }, true]]);
     });
 
     it("keeps the local mark and reports GitHub's error when the mutation fails", async () => {

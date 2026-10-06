@@ -8,10 +8,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { z } from "zod";
+import { changesPanelFiles, changesPanelMark } from "./review/changes-panel";
 import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
 import { toplevel } from "./review/git";
 import { fetchPullRequestFiles, setFileViewed as setGithubViewed, type PullRequestFiles } from "./review/pull-request";
-import { fileContents, getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type BbFiles, type Checkout, type GithubSync } from "./review/service";
+import { fileContents, getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type BbFiles, type Checkout, type ViewedSync } from "./review/service";
 import { createStore, MIGRATIONS } from "./review/store";
 
 export const rpcContract = defineRpcContract(rpcShape);
@@ -51,6 +53,14 @@ export default async function plugin(bb: BbPluginApi) {
       default: "on",
     },
     ghPath: { type: "string", label: "Path to the gh CLI", default: "gh" },
+    syncChangesPanel: {
+      type: "select",
+      label: "Sync Viewed with Diff Viewed",
+      // On: on a thread with no open pull request, a file's Viewed box is the
+      // one the Diff Viewed plugin puts in bb's changes panel, when it is installed.
+      options: ["on", "off"],
+      default: "on",
+    },
   });
 
   let runner: { path: string; gh: GhRunner } | null = null;
@@ -99,19 +109,46 @@ export default async function plugin(bb: BbPluginApi) {
     return request;
   }
 
-  /** What the service needs to read and write a thread's GitHub Viewed, or null with nothing to sync. */
-  async function githubSync(environmentId: string): Promise<GithubSync | null> {
+  /**
+   * What the service needs to read and write a thread's file Viewed: GitHub's
+   * on its open pull request, or with none, the changes panel's through Diff
+   * Viewed; null with neither.
+   */
+  async function viewedSync(threadId: string, environmentId: string): Promise<ViewedSync | null> {
     const pull = await pullRequestFor(environmentId);
-    if (pull === null) return null;
+    if (pull === null) return changesPanelSync(threadId);
     const files = new Map(pull.files.map((file) => [file.path, file]));
     return {
+      where: "github",
       files,
-      async setViewed(path, viewed) {
+      async setViewed({ path }, viewed) {
         const { ghPath } = await settings.get();
         await setGithubViewed(ghFor(ghPath), pull.id, path, viewed);
         // Keep the cache in step, so the next open does not show the old state for 30 seconds.
         const file = files.get(path);
         if (file) file.viewed = viewed;
+      },
+    };
+  }
+
+  const diffViewedMarks = z.object({ record: z.record(z.string(), z.string()) }).passthrough();
+
+  /** Diff Viewed's marks for the thread, one local RPC; null when it is off, not installed, or does not answer. */
+  async function changesPanelSync(threadId: string): Promise<ViewedSync | null> {
+    if ((await settings.get()).syncChangesPanel !== "on") return null;
+    let record: Record<string, string>;
+    try {
+      ({ record } = await bb.sdk.plugins.callRpc({ pluginId: "diff-viewed", method: "viewed_list", input: { threadId }, outputSchema: diffViewedMarks }));
+    } catch (cause) {
+      warnOnce(`Diff Viewed sync unavailable: ${cause instanceof Error ? cause.message : String(cause)}`);
+      return null;
+    }
+    return {
+      where: "changes-panel",
+      files: changesPanelFiles(record),
+      async setViewed(file, viewed) {
+        const mark = changesPanelMark(file);
+        await bb.sdk.plugins.callRpc({ pluginId: "diff-viewed", method: "viewed_set", input: { threadId, ...mark, viewed }, outputSchema: diffViewedMarks });
       },
     };
   }
@@ -148,12 +185,12 @@ export default async function plugin(bb: BbPluginApi) {
     review_get: async ({ threadId }): Promise<ReviewResult> => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") return { state: "unavailable", message: checkout };
-      return { state: "ok", view: await getView(store, threadId, checkout, bbFilesFor(checkout.environmentId), githubSync(checkout.environmentId)) };
+      return { state: "ok", view: await getView(store, threadId, checkout, bbFilesFor(checkout.environmentId), viewedSync(threadId, checkout.environmentId)) };
     },
     review_set_read: async ({ threadId, path, hunks, read }) => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") throw new Error(checkout);
-      const error = await setRead(store, threadId, checkout, path, hunks, read, await githubSync(checkout.environmentId));
+      const error = await setRead(store, threadId, checkout, path, hunks, read, await viewedSync(threadId, checkout.environmentId));
       if (error) bb.log.warn(error);
       return { ok: true as const, error };
     },
@@ -165,7 +202,7 @@ export default async function plugin(bb: BbPluginApi) {
     review_set_file_viewed: async ({ threadId, path, viewed }) => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") throw new Error(checkout);
-      const error = await setFileViewed(store, threadId, checkout, path, viewed, await githubSync(checkout.environmentId));
+      const error = await setFileViewed(store, threadId, checkout, path, viewed, await viewedSync(threadId, checkout.environmentId));
       if (error) bb.log.warn(error);
       return { ok: true as const, error };
     },

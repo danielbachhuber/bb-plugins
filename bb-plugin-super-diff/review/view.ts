@@ -6,7 +6,7 @@
 import { isMechanical } from "./classify";
 import type { BarFile, CrossCheckView, ReviewView, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
-import { isRead, syncOf, type FileContext, type GithubFile } from "./github";
+import { isRead, syncOf, viewedThere, type FileContext, type ViewedSource } from "./github";
 import { itemsOf } from "./items";
 import { itemKey, type Assignment, type DiffFile, type Item } from "./types";
 
@@ -63,8 +63,8 @@ export interface ViewExtras {
   base?: string;
   /** The file list checked against bb's, when bb was asked. */
   crossCheck?: CrossCheckView;
-  /** The thread's pull request's files by path, or null with no pull request to sync with. */
-  github?: Map<string, GithubFile> | null;
+  /** Where file Viewed is kept besides here, with its files by path, or null with nowhere to sync with. */
+  github?: ViewedSource | null;
 }
 
 /** The lines a file's diff adds and removes, as GitHub counts them for its pull request. */
@@ -81,13 +81,15 @@ export function fileCounts(file: DiffFile): { added: number; removed: number } {
 }
 
 /** What deciding each file's reads needs, by path. */
-export function fileContexts(files: DiffFile[], marks: Map<string, string>, github: Map<string, GithubFile> | null | undefined): Map<string, FileContext> {
+export function fileContexts(files: DiffFile[], marks: Map<string, string>, source: ViewedSource | null | undefined): Map<string, FileContext> {
   const items = itemsOf(files);
+  const where = source?.where ?? null;
   return new Map(
     files.map((file) => {
-      const gh = github?.get(file.path);
-      const sync = syncOf(fileCounts(file), gh, github != null);
-      return [file.path, { items: items.filter((item) => item.path === file.path), marks, sync, githubViewed: sync === "synced" && gh?.viewed === true }];
+      const entry = source?.files.get(file.path);
+      const counts = fileCounts(file);
+      const sync = syncOf(counts, entry, where);
+      return [file.path, { items: items.filter((item) => item.path === file.path), marks, sync, githubViewed: sync === "synced" && viewedThere(counts, entry, where) }];
     }),
   );
 }
@@ -148,6 +150,7 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
     stale,
     files: [...bar.values()],
     crossCheck: extras.crossCheck ?? null,
+    syncWith: extras.github?.where ?? null,
     coverage: {
       files: files.length,
       hunks: items.length,

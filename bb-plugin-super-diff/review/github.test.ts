@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRead, planRead, planFileViewed, syncOf, type FileContext } from "./github";
+import { isRead, planRead, planFileViewed, syncOf, viewedThere, type FileContext } from "./github";
 
 const items = [
   { path: "src/a.ts", index: 0, hash: "h0" },
@@ -15,16 +15,31 @@ const keys = (list: Array<{ index: number }>) => list.map((item) => item.index);
 
 describe("syncOf", () => {
   it("is synced when the pull request has the file with the same counts", () => {
-    expect(syncOf({ added: 3, removed: 1 }, { path: "a", additions: 3, deletions: 1, viewed: false }, true)).toBe("synced");
+    expect(syncOf({ added: 3, removed: 1 }, { path: "a", additions: 3, deletions: 1, viewed: false }, "github")).toBe("synced");
   });
 
   it("is local when the counts differ or the pull request lacks the file", () => {
-    expect(syncOf({ added: 4, removed: 1 }, { path: "a", additions: 3, deletions: 1, viewed: false }, true)).toBe("local");
-    expect(syncOf({ added: 3, removed: 1 }, undefined, true)).toBe("local");
+    expect(syncOf({ added: 4, removed: 1 }, { path: "a", additions: 3, deletions: 1, viewed: false }, "github")).toBe("local");
+    expect(syncOf({ added: 3, removed: 1 }, undefined, "github")).toBe("local");
   });
 
-  it("is none without a pull request", () => {
-    expect(syncOf({ added: 3, removed: 1 }, undefined, false)).toBe("none");
+  it("is none with nowhere to sync with", () => {
+    expect(syncOf({ added: 3, removed: 1 }, undefined, null)).toBe("none");
+  });
+
+  it("is always synced with the changes panel, which shows every file", () => {
+    expect(syncOf({ added: 3, removed: 1 }, undefined, "changes-panel")).toBe("synced");
+    expect(syncOf({ added: 4, removed: 1 }, { path: "a", additions: 3, deletions: 1, viewed: true }, "changes-panel")).toBe("synced");
+  });
+});
+
+describe("viewedThere", () => {
+  const marked = { path: "a", additions: 3, deletions: 1, viewed: true };
+  it("counts a mark only while its counts are the file's", () => {
+    expect(viewedThere({ added: 3, removed: 1 }, marked, "changes-panel")).toBe(true);
+    expect(viewedThere({ added: 4, removed: 1 }, marked, "changes-panel")).toBe(false);
+    expect(viewedThere({ added: 3, removed: 1 }, undefined, "changes-panel")).toBe(false);
+    expect(viewedThere({ added: 3, removed: 1 }, marked, null)).toBe(false);
   });
 });
 

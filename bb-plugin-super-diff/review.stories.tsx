@@ -320,11 +320,13 @@ export const FilesDifferFromBb = () =>
 
 // The pull request's files, for the sync stories: widget.ts and sprocket.ts as
 // this branch has them, so they sync; the lockfile is not on it.
-const pullRequest = (widgetViewed: boolean, widgetAdditions = 2) =>
-  new Map([
+const pullRequest = (widgetViewed: boolean, widgetAdditions = 2) => ({
+  where: "github" as const,
+  files: new Map([
     ["src/widget.ts", { path: "src/widget.ts", additions: widgetAdditions, deletions: 1, viewed: widgetViewed }],
     ["src/sprocket.ts", { path: "src/sprocket.ts", additions: 1, deletions: 0, viewed: false }],
-  ]);
+  ]),
+});
 // One concern holding both of widget.ts's hunks, so a card shows a read strip beside an unread one.
 const ONE_CONCERN: StoredGrouping = {
   ...STORED,

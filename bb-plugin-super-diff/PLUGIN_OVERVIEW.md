@@ -17,6 +17,8 @@ Check off each hunk as you read it; it folds away, the bar counts your
 progress, and a hunk whose lines change comes back unchecked. When the thread
 has a pull request, a file's **Viewed** is GitHub's own: reading every hunk of
 a file marks it Viewed on GitHub, and a file Viewed there shows checked here.
+With no pull request, the same holds for the Viewed boxes the Diff Viewed
+plugin adds to bb's changes panel, when it is installed.
 
 A concern shows its code changes first, then its tests as **Scenarios**: what
 the tests check, as Gherkin with each recorded snapshot value under the step
