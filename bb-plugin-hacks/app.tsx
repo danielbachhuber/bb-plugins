@@ -6,12 +6,14 @@
 // hacks/ exports its own `id` and `mount`, and the behavior lives there so it
 // can be tested under jsdom.
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import * as codeBlockWrapDiffs from "./hacks/code-block-wrap-diffs";
 import * as gitDiffExpandUnviewed from "./hacks/git-diff-expand-unviewed";
 import * as gitDiffRangeMemory from "./hacks/git-diff-range-memory";
 import * as gitDiffViewPreferences from "./hacks/git-diff-view-preferences";
 import * as projectOpenInEditor from "./hacks/project-open-in-editor";
 
 const HACKS = [
+  codeBlockWrapDiffs,
   gitDiffExpandUnviewed,
   gitDiffRangeMemory,
   gitDiffViewPreferences,

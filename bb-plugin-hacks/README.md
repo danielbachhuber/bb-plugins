@@ -112,6 +112,14 @@ one bb's own "Open in" menu calls, with project paths read from bb's
 origin, which is where a content script runs. A window that cannot reach a
 daemon, such as bb opened in a browser on another machine, shows no buttons.
 
+### Diff code blocks start wrapped
+
+A fenced `diff` block in a chat message starts with long lines wrapped,
+instead of scrolling sideways. bb keeps each block's wrap toggle in React
+state and starts it off, so the hack clicks the toggle once when the block
+appears. Click it again to unwrap that block; it stays unwrapped until it
+remounts. Blocks in other languages are left alone.
+
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -181,6 +189,13 @@ plugins ship separately, so sharing it would mean publishing and versioning a
 package for the benefit of two callers; the copy is the cheaper trade until a
 third one needs it.
 
+The diff-wrap hack anchors on the code block's own controls:
+
+| Anchor | Used for |
+| --- | --- |
+| `aria-label="Wrap long lines"` with `aria-pressed="false"` | Finding an unwrapped block's toggle |
+| The first `span` in the toggle's header | The block's language label |
+
 No minified class names. If bb changes the toolbar and the anchors stop
 matching, the hack does nothing and bb behaves exactly as it does without it.
 
@@ -204,6 +219,7 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/project-open-in-editor/sidebar.ts` | Reading bb's project headers and building the button |
 | `hacks/project-open-in-editor/api.ts` | The network boundary: bb's projects and the host daemon |
 | `hacks/project-open-in-editor/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff blocks and wrapping each once |
 | `app.tsx` | Wiring only: registers each hack's content script |
 | `server.ts` | Required backend entry, deliberately empty |
 

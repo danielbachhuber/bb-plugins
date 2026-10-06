@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Hacks",
-    "description": "Local patches to bb's own UI, each one standing in for a fix that has not landed upstream yet. Currently: remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads, remembers each thread's range (such as Uncommitted changes) when you switch away and back, opens the unread files bb folds away in a large diff, and adds a button to each sidebar project that opens its checkout in your editor.",
+    "description": "Local patches to bb's own UI, each one standing in for a fix that has not landed upstream yet. Currently: remembers the changes panel's stacked/split view mode and line-wrap toggle across reloads, remembers each thread's range (such as Uncommitted changes) when you switch away and back, opens the unread files bb folds away in a large diff, adds a button to each sidebar project that opens its checkout in your editor, and starts diff code blocks in chat wrapped.",
     "branding": {
       "icon": "Beaker"
     },
