@@ -9,7 +9,9 @@ const file = (indexes: number[], total: number) => ({
   header: "",
   total,
   viewed: false,
-  hunks: indexes.map((index) => ({ path: "a.ts", index, kind: "hunk" as const, header: "", text: "", status: "current" as const })),
+  sync: "none" as const,
+  githubViewed: false,
+  hunks: indexes.map((index) => ({ path: "a.ts", index, kind: "hunk" as const, header: "", text: "", status: "current" as const, read: false })),
 });
 
 describe("labels", () => {
@@ -34,7 +36,7 @@ describe("labels", () => {
   });
 
   it("counts the lines a file adds and removes", () => {
-    const f = { ...file([0], 1), hunks: [{ path: "a.ts", index: 0, kind: "hunk" as const, header: "", text: "@@ -1,2 +1,2 @@\n-a\n+b\n+c\n d", status: "current" as const }] };
+    const f = { ...file([0], 1), hunks: [{ path: "a.ts", index: 0, kind: "hunk" as const, header: "", text: "@@ -1,2 +1,2 @@\n-a\n+b\n+c\n d", status: "current" as const, read: false }] };
     expect(fileStats(f)).toEqual({ added: 2, removed: 1 });
   });
 

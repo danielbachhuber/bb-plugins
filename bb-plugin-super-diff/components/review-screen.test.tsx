@@ -20,7 +20,16 @@ const SourceView = ({ content, path }: { content: string; path: string }) => (
 
 function screenWith(props: Partial<ReviewScreenProps> & Pick<ReviewScreenProps, "result">) {
   return render(
-    <ReviewScreen error={null} generating={false} onGenerate={() => {}} onSetViewed={() => {}} DiffView={DiffView} SourceView={SourceView} {...props} />,
+    <ReviewScreen
+      error={null}
+      generating={false}
+      onGenerate={() => {}}
+      onSetRead={() => {}}
+      onSetFileViewed={() => {}}
+      DiffView={DiffView}
+      SourceView={SourceView}
+      {...props}
+    />,
   );
 }
 
@@ -203,19 +212,60 @@ describe("ReviewScreen", () => {
     expect(screen.getByText("hunk 2 of 2")).toBeInTheDocument();
   });
 
-  it("folds a viewed file and reports a new mark", () => {
-    const onSetViewed = vi.fn();
-    const v = view();
-    v.concerns[0]!.files[1]!.viewed = true;
-    const { container } = screenWith({ result: { state: "ok", view: v }, onSetViewed });
-    const cards = Array.from(container.querySelectorAll<HTMLDetailsElement>("details[data-file-card]"));
-    expect(cards.map((c) => [c.dataset.fileCard, c.open])).toEqual([
-      ["src/widget.ts", true],
-      ["assets/logo.png", false],
-    ]);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Viewed src/widget.ts" }));
-    // Only the hunks this concern shows: hunk 0 here, hunk 1 belongs to Second.
-    expect(onSetViewed).toHaveBeenCalledWith("src/widget.ts", [0], true);
+  describe("reading hunks", () => {
+    /** The first concern, with its widget.ts hunk read or not, and its files' sync state. */
+    function withRead(read: boolean, sync: "synced" | "local" | "none" = "none", githubViewed = false) {
+      const v = view();
+      const files = v.concerns[0]!.files.map((f) => ({ ...f, sync, githubViewed }));
+      files[0] = { ...files[0]!, viewed: read, hunks: files[0]!.hunks.map((h) => ({ ...h, read })) };
+      v.concerns[0] = { ...v.concerns[0]!, files };
+      return v;
+    }
+    const strip = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-file="src/widget.ts"][data-hunk="0"]')!;
+
+    it("gives each hunk a strip with its checkmark, and reports a check for that hunk alone", () => {
+      const onSetRead = vi.fn();
+      const { container } = screenWith({ result: { state: "ok", view: withRead(false) }, onSetRead });
+      expect(within(strip(container)).getByText("Hunk 1 of 2")).toBeInTheDocument();
+      expect(screen.getAllByTestId("diff").length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: "Mark read: src/widget.ts, hunk 1 of 2" }));
+      // Only this hunk: hunk 2 of the same file belongs to Second.
+      expect(onSetRead).toHaveBeenCalledWith("src/widget.ts", [0], true);
+    });
+
+    it("folds a read hunk to its strip, and opens it again without unreading it", () => {
+      const onSetRead = vi.fn();
+      const { container } = screenWith({ result: { state: "ok", view: withRead(true) }, onSetRead });
+      expect(within(strip(container)).queryByTestId("diff")).toBeNull();
+      expect(within(strip(container)).getByText(/Hunk 1 of 2 · read/)).toBeInTheDocument();
+      fireEvent.click(within(strip(container)).getByRole("button", { name: /Hunk 1 of 2/ }));
+      expect(within(strip(container)).getByTestId("diff")).toBeInTheDocument();
+      expect(onSetRead).not.toHaveBeenCalled();
+      // A card whose hunks are all read starts folded.
+      expect(container.querySelector<HTMLDetailsElement>('details[data-file-card="src/widget.ts"]')!.open).toBe(false);
+    });
+
+    it("shows Viewed only for a file synced with the pull request, and sends it as GitHub's", () => {
+      const onSetFileViewed = vi.fn();
+      screenWith({ result: { state: "ok", view: withRead(false, "synced") }, onSetFileViewed });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Viewed src/widget.ts on GitHub" }));
+      expect(onSetFileViewed).toHaveBeenCalledWith("src/widget.ts", true);
+    });
+
+    it("says a file is not on GitHub yet when it differs, and shows nothing without a pull request", () => {
+      const { unmount } = screenWith({ result: { state: "ok", view: withRead(false, "local") } });
+      expect(screen.queryByRole("checkbox", { name: /on GitHub/ })).toBeNull();
+      expect(screen.getAllByText("not on GitHub yet").length).toBeGreaterThan(0);
+      unmount();
+      screenWith({ result: { state: "ok", view: withRead(false, "none") } });
+      expect(screen.queryByText("not on GitHub yet")).toBeNull();
+      expect(screen.queryByRole("checkbox", { name: /on GitHub/ })).toBeNull();
+    });
+
+    it("shows what GitHub said when it did not take a change", () => {
+      const { container } = screenWith({ result: { state: "ok", view: view() }, notice: "GitHub did not take the change to src/widget.ts: rate limited" });
+      expect(container.querySelector("[data-github-notice]")).toHaveTextContent("rate limited");
+    });
   });
 
   it("lists a test concern's scenarios, shows the chosen one, and folds its values", () => {
@@ -357,7 +407,8 @@ describe("ReviewScreen", () => {
           error={null}
           generating={false}
           onGenerate={() => {}}
-          onSetViewed={() => {}}
+          onSetRead={() => {}}
+          onSetFileViewed={() => {}}
           DiffView={DiffView}
           SourceView={SourceView}
         />,

@@ -81,12 +81,18 @@ for (const run of runs) {
     await page.evaluate(() => {
       document.querySelector('[data-super-diff] [data-mode="diff"]')?.click();
       document.querySelectorAll("[data-super-diff] details").forEach((d) => { d.open = true; });
+      // A read hunk folds to its strip; open it so its diff has to draw too.
+      document.querySelectorAll('[data-super-diff] [data-hunk-toggle][aria-expanded="false"]').forEach((b) => b.click());
     });
-    // A drawn diff has height; an empty placeholder does not. One read per
-    // check, not per row in a loop that writes.
+    // A drawn diff has height; an empty placeholder does not. Each hunk is its
+    // strip then its diff, so the diff is the last child. One read per check,
+    // not per row in a loop that writes.
     await page
       .waitForFunction(
-        () => [...document.querySelectorAll('[data-super-diff] [data-kind="hunk"]:not([data-status="removed"])')].every((el) => el.getBoundingClientRect().height > 16),
+        () =>
+          [...document.querySelectorAll('[data-super-diff] [data-kind="hunk"]:not([data-status="removed"])')].every(
+            (el) => el.children.length > 1 && el.lastElementChild.getBoundingClientRect().height > 16,
+          ),
         null,
         { timeout: 60_000 },
       )

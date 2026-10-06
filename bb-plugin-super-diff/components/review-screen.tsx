@@ -6,7 +6,7 @@
 // element with data-file and data-hunk, the root reports "ready", each rail
 // entry has data-rail-item and shows its concern, file cards are <details>,
 // and a concern's Diff button shows its test files' hunks.
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
@@ -23,7 +23,10 @@ export interface ReviewScreenProps {
   error: string | null;
   generating: boolean;
   onGenerate: () => void;
-  onSetViewed: (path: string, hunks: number[], viewed: boolean) => void;
+  onSetRead: (path: string, hunks: number[], read: boolean) => void;
+  onSetFileViewed: (path: string, viewed: boolean) => void;
+  /** What GitHub said when it did not take a Viewed change. */
+  notice?: string | null;
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
   /** The section to open on, for stories and tests; the first concern otherwise. */
@@ -50,10 +53,11 @@ const LAYOUT_CSS = `
 interface Viewers {
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
-  onSetViewed: (path: string, hunks: number[], viewed: boolean) => void;
+  onSetRead: (path: string, hunks: number[], read: boolean) => void;
+  onSetFileViewed: (path: string, viewed: boolean) => void;
 }
 
-export function ReviewScreen({ result, error, generating, onGenerate, onSetViewed, DiffView, SourceView, initialSection }: ReviewScreenProps) {
+export function ReviewScreen({ result, error, generating, onGenerate, onSetRead, onSetFileViewed, notice = null, DiffView, SourceView, initialSection }: ReviewScreenProps) {
   const [chosen, setChosen] = useState<string | null>(initialSection ?? null);
   if (error !== null) return <Message text={`Could not load the review: ${error}`} />;
   if (result === null) return <Message text="Reading the branch…" />;
@@ -61,7 +65,7 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
   const { view } = result;
   if (view.coverage.hunks === 0) return <Message text="No changes on this branch." ready />;
 
-  const viewers: Viewers = { DiffView, SourceView, onSetViewed };
+  const viewers: Viewers = { DiffView, SourceView, onSetRead, onSetFileViewed };
   const sections = [...view.concerns, view.notYetGrouped, view.mechanical].filter((s): s is ViewSection => s !== null);
   // The chosen section, or the first one when nothing is chosen or the choice is gone.
   const at = Math.max(0, sections.findIndex((s) => s.id === chosen));
@@ -74,6 +78,11 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
   return (
     <div data-super-diff="ready" className="flex flex-col gap-5 p-4 text-sm">
       <Header view={view} generating={generating} onGenerate={onGenerate} onChoose={choose} />
+      {notice && (
+        <p data-github-notice className="flex items-start gap-1.5 text-xs" style={{ color: "var(--destructive-text)" }}>
+          <Icon name="AlertTriangle" className="mt-px size-3.5 shrink-0" /> {notice}
+        </p>
+      )}
       {view.stale && <Stale view={view} DiffView={DiffView} generating={generating} onGenerate={onGenerate} />}
       <style>{LAYOUT_CSS}</style>
       <div className="sd-body">
@@ -392,12 +401,29 @@ function PathLabel({ file }: { file: ViewFile }) {
   );
 }
 
-/** The hunks a card shows that are still in the diff: what its Viewed box marks. */
-function shownHunks(file: ViewFile): number[] {
-  return file.hunks.filter((hunk) => hunk.status !== "removed").map((hunk) => hunk.index);
+/**
+ * The file's Viewed box, which is GitHub's own: shown only when the thread's
+ * pull request has this file with the same counts. A file that differs, as
+ * with unpushed edits, says so quietly; with no pull request there is nothing.
+ */
+function GithubViewed({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
+  if (file.sync === "local") {
+    return (
+      <span title="This file's diff here differs from the pull request's, so its checkmarks stay in bb and GitHub is left alone" className="shrink-0 text-[11px] text-muted-foreground">
+        not on GitHub yet
+      </span>
+    );
+  }
+  if (file.sync !== "synced") return null;
+  return (
+    <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title="GitHub's Viewed for this file" onClick={(event) => event.stopPropagation()}>
+      <Checkbox aria-label={`Viewed ${file.path} on GitHub`} checked={file.githubViewed} onCheckedChange={(checked) => viewers.onSetFileViewed(file.path, checked === true)} />
+      Viewed
+    </label>
+  );
 }
 
-/** A file as a header bar with its hunks under it; viewed files start folded. */
+/** A file as a header bar with its hunks under it; a file whose hunks are all read starts folded. */
 function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
   const note = hunkNote(file);
   return (
@@ -408,37 +434,74 @@ function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
         {note && <span className="shrink-0 text-xs text-muted-foreground">{note}</span>}
         <span className="ml-auto" />
         <Counts {...fileStats(file)} />
-        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" onClick={(event) => event.stopPropagation()}>
-          <Checkbox aria-label={`Viewed ${file.path}`} checked={file.viewed} onCheckedChange={(checked) => viewers.onSetViewed(file.path, shownHunks(file), checked === true)} />
-          Viewed
-        </label>
+        <GithubViewed file={file} viewers={viewers} />
       </summary>
-      <div className="flex flex-col gap-1 border-t">
+      <div className="flex flex-col border-t">
         {file.hunks.map((hunk) => (
-          <HunkBlock key={`${hunk.index}-${hunk.status}`} file={file} hunk={hunk} DiffView={viewers.DiffView} />
+          <HunkBlock key={`${hunk.index}-${hunk.status}`} file={file} hunk={hunk} viewers={viewers} />
         ))}
       </div>
     </details>
   );
 }
 
-function HunkBlock({ file, hunk, DiffView }: { file: ViewFile; hunk: ViewHunk; DiffView: DiffViewComponent }) {
+/** The round checkmark that marks one hunk read. */
+function HunkCheck({ read }: { read: boolean }) {
+  return (
+    <span
+      className="flex size-4 shrink-0 items-center justify-center rounded-full border"
+      style={read ? { background: "var(--success)", borderColor: "var(--success)", color: "white" } : { background: "var(--background)" }}
+    >
+      {read && <Icon name="Check" className="size-3" />}
+    </span>
+  );
+}
+
+/**
+ * One hunk: a strip with its checkmark and its place in the file, over its
+ * diff. A read hunk folds to its strip; the strip's text opens or folds it
+ * without changing whether it is read.
+ */
+function HunkBlock({ file, hunk, viewers }: { file: ViewFile; hunk: ViewHunk; viewers: Viewers }) {
+  const [open, setOpen] = useState(!hunk.read);
+  // Fold when it becomes read, from here or from GitHub; open when it stops being read.
+  useEffect(() => setOpen(!hunk.read), [hunk.read]);
   const attrs = { "data-file": hunk.path, "data-hunk": hunk.index, "data-kind": hunk.kind, "data-status": hunk.status };
   if (hunk.status === "removed") {
     return (
-      <p {...attrs} className="px-3 py-1 text-xs text-muted-foreground line-through">
+      <p {...attrs} className="border-b px-3 py-1 text-xs text-muted-foreground line-through last:border-b-0">
         Hunk {hunk.index + 1} is no longer in the diff.
       </p>
     );
   }
+  const place = `Hunk ${hunk.index + 1} of ${file.total}`;
   return (
-    <div {...attrs} className="flex flex-col gap-1">
-      {hunk.status === "changed" && <span className="mx-3 mt-1 w-fit rounded bg-amber-500/20 px-1.5 text-xs">changed since grouping</span>}
-      {hunk.kind === "file" ? (
-        <p className="px-3 py-2 text-xs text-muted-foreground">{wholeFileText(file)}</p>
-      ) : (
-        <DiffView patch={hunkPatch(file, hunk)} path={file.path} />
-      )}
+    <div {...attrs} className="flex flex-col border-b last:border-b-0">
+      <div className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground">
+        <button
+          type="button"
+          data-hunk-check
+          aria-pressed={hunk.read}
+          aria-label={`${hunk.read ? "Mark unread" : "Mark read"}: ${file.path}, ${place.toLowerCase()}`}
+          onClick={() => viewers.onSetRead(file.path, [hunk.index], !hunk.read)}
+          className="rounded-full"
+        >
+          <HunkCheck read={hunk.read} />
+        </button>
+        <button type="button" data-hunk-toggle aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+          <span>
+            {place}
+            {hunk.read && " · read"}
+          </span>
+          {hunk.status === "changed" && <span className="rounded bg-amber-500/20 px-1.5 text-foreground">changed since grouping</span>}
+        </button>
+      </div>
+      {open &&
+        (hunk.kind === "file" ? (
+          <p className="px-3 pb-2 text-xs text-muted-foreground">{wholeFileText(file)}</p>
+        ) : (
+          <viewers.DiffView patch={hunkPatch(file, hunk)} path={file.path} />
+        ))}
     </div>
   );
 }

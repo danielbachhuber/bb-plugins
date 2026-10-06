@@ -13,9 +13,10 @@ A bar under the headline shows every changed file, grouped by directory on a
 long branch, filling as its hunks are read, and says whether bb's own changes
 panel lists the same files.
 
-Check **Viewed** on each file as you read it; the bar counts your progress, and
-a file whose diff changes comes back unread. A file split across concerns is
-marked one concern at a time.
+Check off each hunk as you read it; it folds away, the bar counts your
+progress, and a hunk whose lines change comes back unchecked. When the thread
+has a pull request, a file's **Viewed** is GitHub's own: reading every hunk of
+a file marks it Viewed on GitHub, and a file Viewed there shows checked here.
 
 A concern shows its code changes first, then its tests as **Scenarios**: what
 the tests check, as Gherkin with each recorded snapshot value under the step
@@ -34,4 +35,6 @@ yet grouped.
 ## Requirements
 
 - The thread's environment must be a git checkout on the machine bb runs on.
-- No account or external service. Nothing is written into the repository.
+- Nothing is written into the repository.
+- Syncing Viewed with GitHub needs `gh`, signed in. Without it, checkmarks stay
+  in bb.

@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { getView, hunks, setViewed, submit, testsText, verifyData, type Checkout } from "./service";
+import { getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type Checkout } from "./service";
 import { createStore, MIGRATIONS } from "./store";
 import { makeRepo } from "./testing/repo";
 
@@ -67,14 +67,59 @@ describe("service", () => {
   it("marks the hunks a card shows viewed, until their lines change, and clears them", async () => {
     const { r, store, checkout } = await setup();
     await submit(store, "thr_1", checkout, GOOD, NOW);
-    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], true);
+    await setRead(store, "thr_1", checkout, "src/widget.ts", [0], true);
     const widget = async () => (await getView(store, "thr_1", checkout)).concerns[0]!.files[0]!;
     expect((await widget()).viewed).toBe(true);
     r.write("src/widget.ts", "export const widget = 4;\n");
     expect((await widget()).viewed).toBe(false);
-    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], true);
-    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], false);
+    await setRead(store, "thr_1", checkout, "src/widget.ts", [0], true);
+    await setRead(store, "thr_1", checkout, "src/widget.ts", [0], false);
     expect((await widget()).viewed).toBe(false);
+  });
+
+  describe("GitHub's Viewed", () => {
+    function github(viewed: boolean, fail = false) {
+      const calls: Array<[string, boolean]> = [];
+      return {
+        calls,
+        sync: {
+          files: new Map([["src/widget.ts", { path: "src/widget.ts", additions: 1, deletions: 1, viewed }]]),
+          async setViewed(path: string, value: boolean) {
+            calls.push([path, value]);
+            if (fail) throw new Error("rate limited");
+          },
+        },
+      };
+    }
+
+    it("marks the file on GitHub once its last hunk is read, and shows it synced", async () => {
+      const { store, checkout } = await setup();
+      await submit(store, "thr_1", checkout, GOOD, NOW);
+      const gh = github(false);
+      expect(await setRead(store, "thr_1", checkout, "src/widget.ts", [0], true, gh.sync)).toBeNull();
+      expect(gh.calls).toEqual([["src/widget.ts", true]]);
+      const view = await getView(store, "thr_1", checkout, undefined, github(true).sync);
+      expect(view.concerns[0]!.files[0]).toMatchObject({ sync: "synced", githubViewed: true, viewed: true });
+      // gadget.ts is not on the pull request, so it stays local.
+      expect(view.concerns[1]!.files[0]!.sync).toBe("local");
+    });
+
+    it("unchecking Viewed clears the hunks and unmarks it on GitHub", async () => {
+      const { store, checkout } = await setup();
+      await submit(store, "thr_1", checkout, GOOD, NOW);
+      const gh = github(true);
+      await setFileViewed(store, "thr_1", checkout, "src/widget.ts", false, gh.sync);
+      expect(gh.calls).toEqual([["src/widget.ts", false]]);
+      expect((await getView(store, "thr_1", checkout)).concerns[0]!.files[0]!.viewed).toBe(false);
+    });
+
+    it("keeps the local mark and reports GitHub's error when the mutation fails", async () => {
+      const { store, checkout } = await setup();
+      await submit(store, "thr_1", checkout, GOOD, NOW);
+      const error = await setRead(store, "thr_1", checkout, "src/widget.ts", [0], true, github(false, true).sync);
+      expect(error).toBe("GitHub did not take the change to src/widget.ts: rate limited");
+      expect((await getView(store, "thr_1", checkout)).concerns[0]!.files[0]!.viewed).toBe(true);
+    });
   });
 
   it("checks its file list against bb's, asked for the same base", async () => {

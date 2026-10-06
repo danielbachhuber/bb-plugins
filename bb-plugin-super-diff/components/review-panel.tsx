@@ -7,14 +7,16 @@ const DiffView = ({ patch, path }: { patch: string; path: string }) => <Diff pat
 const SourceView = ({ content, path }: { content: string; path: string }) => <SourceCode content={content} path={path} overflow="wrap" />;
 
 export function ReviewPanel({ threadId }: { threadId: string }) {
-  const { result, error, generating, generate, setViewed } = useReview(threadId);
+  const { result, error, notice, generating, generate, setRead, setFileViewed } = useReview(threadId);
   return (
     <ReviewScreen
       result={result}
       error={error}
       generating={generating}
       onGenerate={generate}
-      onSetViewed={setViewed}
+      onSetRead={setRead}
+      onSetFileViewed={setFileViewed}
+      notice={notice}
       DiffView={DiffView}
       SourceView={SourceView}
     />

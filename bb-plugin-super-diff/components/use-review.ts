@@ -1,4 +1,5 @@
-// This thread's review, refetched when a submit lands.
+// This thread's review, refetched when a submit lands and when the window
+// regains focus, so a file marked Viewed on GitHub shows here.
 import { useCallback, useEffect, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { REVIEW_CHANGED, type ReviewResult } from "@/review/contract";
@@ -21,6 +22,8 @@ export function useReview(threadId: string) {
   });
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  /** What GitHub said when it did not take a Viewed change; the marks here were kept. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const refetch = useCallback(() => {
     rpc.call("review_get", { threadId }).then(
@@ -36,6 +39,10 @@ export function useReview(threadId: string) {
 
   useEffect(refetch, [refetch]);
   useRealtime(REVIEW_CHANGED, refetch);
+  useEffect(() => {
+    window.addEventListener("focus", refetch);
+    return () => window.removeEventListener("focus", refetch);
+  }, [refetch]);
 
   const generate = useCallback(() => {
     setGenerating(true);
@@ -45,15 +52,29 @@ export function useReview(threadId: string) {
     });
   }, [rpc, threadId]);
 
-  const setViewed = useCallback(
-    (path: string, hunks: number[], viewed: boolean) => {
-      rpc.call("review_set_viewed", { threadId, path, hunks, viewed }).then(refetch, (cause: unknown) => {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      });
+  const afterChange = useCallback(
+    (reply: { error: string | null }) => {
+      setNotice(reply.error);
+      refetch();
     },
-    [rpc, threadId, refetch],
+    [refetch],
+  );
+  const failed = useCallback((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)), []);
+
+  const setRead = useCallback(
+    (path: string, hunks: number[], read: boolean) => {
+      rpc.call("review_set_read", { threadId, path, hunks, read }).then(afterChange, failed);
+    },
+    [rpc, threadId, afterChange, failed],
+  );
+
+  const setFileViewed = useCallback(
+    (path: string, viewed: boolean) => {
+      rpc.call("review_set_file_viewed", { threadId, path, viewed }).then(afterChange, failed);
+    },
+    [rpc, threadId, afterChange, failed],
   );
 
   const result = loaded?.threadId === threadId ? loaded.result : (lastResult.get(threadId) ?? null);
-  return { result, error, generating, generate, setViewed };
+  return { result, error, notice, generating, generate, setRead, setFileViewed };
 }

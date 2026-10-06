@@ -6,6 +6,7 @@
 import { isMechanical } from "./classify";
 import type { BarFile, CrossCheckView, ReviewView, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
+import { isRead, syncOf, type FileContext, type GithubFile } from "./github";
 import { itemsOf } from "./items";
 import { itemKey, type Assignment, type DiffFile, type Item } from "./types";
 
@@ -62,6 +63,33 @@ export interface ViewExtras {
   base?: string;
   /** The file list checked against bb's, when bb was asked. */
   crossCheck?: CrossCheckView;
+  /** The thread's pull request's files by path, or null with no pull request to sync with. */
+  github?: Map<string, GithubFile> | null;
+}
+
+/** The lines a file's diff adds and removes, as GitHub counts them for its pull request. */
+export function fileCounts(file: DiffFile): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const hunk of file.hunks) {
+    for (const line of hunk.text.split("\n").slice(1)) {
+      if (line.startsWith("+")) added++;
+      else if (line.startsWith("-")) removed++;
+    }
+  }
+  return { added, removed };
+}
+
+/** What deciding each file's reads needs, by path. */
+export function fileContexts(files: DiffFile[], marks: Map<string, string>, github: Map<string, GithubFile> | null | undefined): Map<string, FileContext> {
+  const items = itemsOf(files);
+  return new Map(
+    files.map((file) => {
+      const gh = github?.get(file.path);
+      const sync = syncOf(fileCounts(file), gh, github != null);
+      return [file.path, { items: items.filter((item) => item.path === file.path), marks, sync, githubViewed: sync === "synced" && gh?.viewed === true }];
+    }),
+  );
 }
 
 /** Lines a hunk adds and removes: what sizes it in the bar. */
@@ -70,13 +98,13 @@ function changedLines(text: string): number {
 }
 
 export function buildView(files: DiffFile[], stored: StoredGrouping | null, stale: StaleInfo | null, extras: ViewExtras = {}): ReviewView {
-  const viewed = extras.viewed ?? new Map<string, string>();
   const items = itemsOf(files);
-  // An item is viewed while its lines are the ones that were marked.
-  const hashOf = new Map(items.map((item) => [itemKey(item.path, item.index), item.hash]));
+  const contexts = fileContexts(files, extras.viewed ?? new Map<string, string>(), extras.github);
+  const itemByKey = new Map(items.map((item) => [itemKey(item.path, item.index), item]));
+  // Read while its lines are the ones that were marked, or while GitHub shows its synced file Viewed.
   const isViewed = (path: string, index: number) => {
-    const key = itemKey(path, index);
-    return hashOf.has(key) && viewed.get(key) === hashOf.get(key);
+    const item = itemByKey.get(itemKey(path, index));
+    return item !== undefined && isRead(contexts.get(path)!, item);
   };
   const fileByPath = new Map(files.map((file) => [file.path, file]));
   const { placed, removed } = stored ? placeItems(items, stored.assignments) : { placed: new Map<string, Placement>(), removed: [] };
@@ -97,15 +125,16 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
       header: hunk?.header ?? "",
       text: hunk?.text ?? "",
       status: placement?.status ?? "current",
+      read: isViewed(item.path, item.index),
     });
   }
   for (const a of removed) {
-    put(`concern-${a.concern}`, { path: a.path, index: a.index, kind: "hunk", header: "", text: "", status: "removed" });
+    put(`concern-${a.concern}`, { path: a.path, index: a.index, kind: "hunk", header: "", text: "", status: "removed", read: false });
   }
 
   const section = (id: string, title: string, note: string | null, tests: ViewTests | null = null): ViewSection | null => {
     const hunks = buckets.get(id);
-    return hunks?.length ? { id, title, note, files: byFile(hunks, fileByPath, isViewed), tests } : null;
+    return hunks?.length ? { id, title, note, files: byFile(hunks, fileByPath, contexts), tests } : null;
   };
 
   const shown = [...buckets.values()].flat().filter((hunk) => hunk.status !== "removed").length;
@@ -130,7 +159,7 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
 }
 
 /** Group a section's hunks by file, files in first-seen order, hunks by index. */
-function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: (path: string, index: number) => boolean): ViewFile[] {
+function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, contexts: Map<string, FileContext>): ViewFile[] {
   const order: string[] = [];
   const grouped = new Map<string, ViewHunk[]>();
   for (const hunk of hunks) {
@@ -148,7 +177,9 @@ function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: 
       header: file?.header ?? "",
       total: file ? Math.max(file.hunks.length, 1) : 0,
       // Viewed here when the hunks this section shows are; a file split across concerns is viewed one concern at a time.
-      viewed: live.length > 0 && live.every((hunk) => isViewed(path, hunk.index)),
+      viewed: live.length > 0 && live.every((hunk) => hunk.read),
+      sync: contexts.get(path)?.sync ?? "none",
+      githubViewed: contexts.get(path)?.githubViewed ?? false,
       hunks: grouped.get(path)!.sort((a, b) => a.index - b.index),
     };
   });

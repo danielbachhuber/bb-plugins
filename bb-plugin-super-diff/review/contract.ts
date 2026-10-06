@@ -14,6 +14,8 @@ export const viewHunkSchema = z.object({
   header: z.string(),
   text: z.string(),
   status: z.enum(["current", "changed", "removed"]),
+  /** Read: its checkmark is set here, or GitHub shows its file Viewed. */
+  read: z.boolean(),
 });
 
 export const viewFileSchema = z.object({
@@ -24,8 +26,16 @@ export const viewFileSchema = z.object({
   header: z.string(),
   /** How many items the file has in the diff now, for "hunks 1 and 3 of 4". */
   total: z.number().int(),
-  /** Marked viewed at the file's current diff. */
+  /** Every hunk this section shows is read. */
   viewed: z.boolean(),
+  /**
+   * synced: the thread's pull request has this file with the same counts, so
+   * its Viewed box is GitHub's. local: a pull request, but this file differs.
+   * none: no pull request to sync with.
+   */
+  sync: z.enum(["synced", "local", "none"]),
+  /** GitHub shows the file Viewed, for a synced file. */
+  githubViewed: z.boolean(),
   hunks: z.array(viewHunkSchema),
 });
 
@@ -145,10 +155,16 @@ export const rpcShape = {
     input: z.object({ threadId: z.string().min(1) }),
     output: reviewResultSchema,
   },
-  review_set_viewed: {
-    /** The hunks of the file one concern shows, so a file split across concerns is viewed one concern at a time. */
-    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), hunks: z.array(z.number().int().min(0)).min(1), viewed: z.boolean() }),
-    output: z.object({ ok: z.literal(true) }),
+  review_set_read: {
+    /** Check or uncheck hunks of one file; GitHub's Viewed follows when the whole file's state changes. */
+    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), hunks: z.array(z.number().int().min(0)).min(1), read: z.boolean() }),
+    /** `error` is what GitHub said when it did not take a change; the marks here are kept. */
+    output: z.object({ ok: z.literal(true), error: z.string().nullable() }),
+  },
+  review_set_file_viewed: {
+    /** A synced file's Viewed box: every hunk of it, here and on GitHub. */
+    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), viewed: z.boolean() }),
+    output: z.object({ ok: z.literal(true), error: z.string().nullable() }),
   },
   review_generate: {
     input: z.object({ threadId: z.string().min(1) }),

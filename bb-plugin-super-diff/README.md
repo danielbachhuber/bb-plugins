@@ -22,9 +22,10 @@ From top to bottom, the panel shows:
    **Next** at the bottom of a concern moves to the one after. On a panel too
    narrow for both, the rail sits above instead.
 4. On the left, the chosen concern: its title and note, then each file as a
-   header bar with its path, its lines added and removed, and a **Viewed**
-   checkbox, over its hunks. A file that serves two purposes is split between
-   concerns by hunk, labelled "hunks 1 and 3 of 4".
+   header bar with its path, its lines added and removed, and GitHub's
+   **Viewed** when the file is on the thread's pull request, over its hunks,
+   each opening with a checkmark. A file that serves two purposes is split
+   between concerns by hunk, labelled "hunks 1 and 3 of 4".
 5. At the end of the rail, **Not yet grouped** for any hunk no concern holds,
    and **Mechanical** for lockfiles, snapshots, and generated files.
 6. A count of files and hunks, and whether all of them are shown.
@@ -53,23 +54,46 @@ Diff vouching for itself. When they disagree, the note turns red and names the
 file only one of them lists. When bb cannot give its list, the note says the
 files were not checked.
 
-## Marking files viewed
+## Checking off hunks, and Viewed on GitHub
 
-Check **Viewed** on a file once you have read it. The file folds and dims,
-and its concern's entry in the rail counts it; a concern whose files are all
-viewed gets a check.
+Each hunk opens with a strip: a round checkmark, then "Hunk 1 of 2". Check it
+once you have read the hunk, and the hunk folds to its strip; click the
+strip's text to open it again without unchecking it. A card whose hunks are all
+read folds to its header, and a concern whose files are all read gets a check
+in the rail. The bar at the top fills hunk by hunk.
 
-A mark covers the hunks the card shows, not the whole file. A file that serves
-two concerns is split between them by hunk, and checking it in one concern
-marks only that concern's hunks, so the same file in the other concern stays
-open until you read it there. The bar at the top fills hunk by hunk, so a
-split file shows how much of it you have read across every concern.
+A check belongs to one hunk, kept per thread against that hunk's lines. A file
+split between concerns is read a concern at a time, and when a commit or an
+edit changes a hunk's lines, that hunk comes back unchecked while the file's
+others stay checked. Checks survive regenerating the grouping.
 
-Each hunk's mark is kept per thread, against that hunk's lines at the time.
-When a commit or an edit changes those lines, its mark clears itself, so a
-changed hunk always comes back unread, and a file's other hunks stay viewed.
-Marks belong to hunks, not concerns, so they survive regenerating the
-grouping.
+**Viewed** on a file means GitHub's Viewed on the thread's pull request, so
+it shows only when there is one to keep in step with:
+
+- When the thread has an open pull request and the file's `+a −d` counts here
+  are the pull request's, the file's header has **Viewed**. Checking the last
+  unchecked hunk of the file marks it Viewed on GitHub; unchecking any of its
+  hunks unmarks it there and keeps the others checked. Checking **Viewed**
+  checks every hunk of the file, in every concern, and unchecking it clears
+  them. A file marked Viewed on GitHub shows all its hunks checked, the next
+  time the panel opens or the window regains focus; a file GitHub reports as
+  changed since you viewed it shows unchecked, as it does there.
+- When the file differs from the pull request's, as with unpushed edits or a
+  new untracked file, the header says "not on GitHub yet" instead. Its
+  checkmarks still work and stay in bb, and GitHub is left alone.
+- With no open pull request, sync turned off, or no working `gh`, there is no
+  Viewed box, and the checkmarks are kept in bb. A failing `gh` is logged once.
+
+When GitHub refuses a change, the panel says what it said, and the checkmarks
+you set stay as you left them.
+
+Sync uses `gh`, signed in as you (`gh auth login`). To turn it off or point at
+a different `gh`:
+
+```sh
+bb plugin config super-diff set syncGithub off
+bb plugin config super-diff set ghPath /opt/homebrew/bin/gh
+```
 
 ## Test concerns
 
@@ -247,12 +271,19 @@ compare them), `diff`, `diff --name-only`, `ls-files`, and one
 reads each changed file from disk, runs one `cat-file` for each path the stored
 contents do not cover, and one `diff --no-index` for each file that changed
 since the grouping. For each test file on the branch, it reads the file and its
-`.snap` file from disk and parses them. Marking a file viewed runs the same
-`git` commands once to find the file's current diff. Opening the panel also
-asks bb once for its own list of the branch's changed files against the same
-base, for the check beside the bar; on a 25-file branch that adds about 80 ms.
-Generate sends one message to the thread. Nothing calls GitHub or any other
-service.
+`.snap` file from disk and parses them. Checking a hunk or a file's Viewed
+runs the same `git` commands once to find the file's current diff. Opening the
+panel also asks bb once for its own list of the branch's changed files against
+the same base, for the check beside the bar; on a 25-file branch that adds
+about 80 ms. Generate sends one message to the thread.
+
+With sync on and an open pull request, opening the panel or refocusing the
+window asks GitHub, through `gh`, for the pull request's files and your Viewed
+state: one GraphQL query per 100 files, kept for 30 seconds per thread, with
+one request shared between callers. It runs while `git` does, and the first
+open of a thread takes about 1.5 seconds with it. Each time a file crosses
+between read and unread, one mutation marks or unmarks it. Nothing is sent per
+hunk, and nothing else calls GitHub.
 
 ## Related plugins
 
@@ -266,7 +297,10 @@ service.
   thread's own agent.
 - **Diff Viewed** (`diff-viewed`) and **Diff Comment** (`diff-comment`)
   decorate bb's own changes panel with Viewed checkboxes and inline comments.
-  Super Diff is a separate panel that regroups the same changes.
+  Diff Viewed keeps its checkboxes in step with GitHub's per file; Super Diff
+  follows the same rules but checks off hunks, so a file split between
+  concerns can be read a concern at a time, and it is a separate panel that
+  regroups the same changes.
 
 ## Layout
 

@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Super Diff",
-    "description": "Review a branch one concern at a time. A panel beside the thread groups every hunk on the branch into concerns, each with a summary written by the thread's agent, checks that every hunk appears exactly once and that bb lists the same files, lets you mark files viewed, shows test changes as Gherkin scenarios with what they leave out, and shows exactly what changed when the branch moves on.",
+    "description": "Review a branch one concern at a time. A panel beside the thread groups every hunk on the branch into concerns, each with a summary written by the thread's agent, checks that every hunk appears exactly once and that bb lists the same files, lets you check off each hunk, kept in step with GitHub's per-file Viewed, shows test changes as Gherkin scenarios with what they leave out, and shows exactly what changed when the branch moves on.",
     "branding": {
       "icon": "Layers"
     },
@@ -16,10 +16,11 @@
     "app": "./app.tsx"
   },
   "dependencies": {
+    "@danielb/gh-shared": "file:../gh-shared",
     "@radix-ui/react-checkbox": "^1.3.7",
     "@radix-ui/react-slot": "^1.3.0",
-    "zod": "^4.3.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.5.29",

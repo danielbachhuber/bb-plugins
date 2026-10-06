@@ -114,6 +114,28 @@ describe("placeItems", () => {
       expect(view.coverage.viewed).toBe(3);
     });
 
+    it("reads every hunk of a file GitHub shows Viewed, while its counts match the pull request's", () => {
+      const gh = (path: string, viewed: boolean, additions = 3) => [path, { path, additions, deletions: 3, viewed }] as const;
+      const view = buildView(files, stored(DIFF), null, {
+        github: new Map([gh("src/widget.ts", true), gh("src/gadget.ts", true, 9)]),
+      });
+      const all = view.concerns.flatMap((c) => c.files);
+      const widget = all.filter((f) => f.path === "src/widget.ts");
+      expect(widget.map((f) => [f.sync, f.githubViewed, f.viewed])).toEqual([
+        ["synced", true, true],
+        ["synced", true, true],
+      ]);
+      expect(widget.flatMap((f) => f.hunks.map((h) => h.read))).toEqual([true, true, true]);
+      // gadget.ts differs from the pull request, so GitHub's Viewed does not count.
+      expect(all.find((f) => f.path === "src/gadget.ts")).toMatchObject({ sync: "local", githubViewed: false, viewed: false });
+      expect(view.coverage.viewed).toBe(3);
+    });
+
+    it("marks every file unsynced without a pull request", () => {
+      const view = buildView(files, stored(DIFF), null);
+      expect(new Set(view.concerns.flatMap((c) => c.files.map((f) => f.sync)))).toEqual(new Set(["none"]));
+    });
+
     it("lists every file's hunks for the bar, with their size, read state, and section", () => {
       const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts#1", hash("src/widget.ts", 1)]]) });
       expect(view.files).toEqual([

@@ -6,10 +6,12 @@
 // signal so the open panel refetches.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
 import { toplevel } from "./review/git";
-import { getView, hunks, setViewed, submit, testsText, verifyData, type BbFiles, type Checkout } from "./review/service";
+import { fetchPullRequestFiles, setFileViewed as setGithubViewed, type PullRequestFiles } from "./review/pull-request";
+import { getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type BbFiles, type Checkout, type GithubSync } from "./review/service";
 import { createStore, MIGRATIONS } from "./review/store";
 
 export const rpcContract = defineRpcContract(rpcShape);
@@ -20,6 +22,9 @@ export const GENERATE_PROMPT =
 
 /** Leave room under the CLI's 1 MiB output limit for the header lines. */
 const MAX_HUNKS_OUTPUT = 900_000;
+
+/** How long a thread's pull request files are kept before GitHub is asked again. */
+const GITHUB_TTL_MS = 30_000;
 
 const USAGE = [
   "Usage:",
@@ -35,6 +40,81 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db);
+
+  const settings = bb.settings.define({
+    syncGithub: {
+      type: "select",
+      label: "Sync Viewed with GitHub",
+      // On: on a thread with an open pull request, a file's Viewed box is
+      // GitHub's own, for files whose diff here matches the pull request's.
+      options: ["on", "off"],
+      default: "on",
+    },
+    ghPath: { type: "string", label: "Path to the gh CLI", default: "gh" },
+  });
+
+  let runner: { path: string; gh: GhRunner } | null = null;
+  function ghFor(ghPath: string): GhRunner {
+    if (runner?.path !== ghPath) runner = { path: ghPath, gh: createGhRunner(ghPath) };
+    return runner.gh;
+  }
+
+  // Failures already logged, so a missing gh is one log line, not one per open.
+  const logged = new Set<string>();
+  function warnOnce(message: string): void {
+    if (logged.has(message)) return;
+    logged.add(message);
+    bb.log.warn(message);
+  }
+
+  const githubCache = new Map<string, { value: PullRequestFiles | null; fetchedAt: number }>();
+  const inFlight = new Map<string, Promise<PullRequestFiles | null>>();
+
+  async function loadPullRequest(environmentId: string): Promise<PullRequestFiles | null> {
+    const { syncGithub, ghPath } = await settings.get();
+    if (syncGithub !== "on") return null;
+    try {
+      const result = await bb.sdk.environments.pullRequest({ environmentId });
+      if (result.outcome !== "available" || result.pullRequest.state !== "open") return null;
+      return await fetchPullRequestFiles(ghFor(ghPath), result.pullRequest.url);
+    } catch (cause) {
+      warnOnce(`GitHub sync unavailable: ${cause instanceof Error ? cause.message : String(cause)}`);
+      return null;
+    }
+  }
+
+  /** The environment's open pull request and its files, cached, with one request in flight. */
+  async function pullRequestFor(environmentId: string): Promise<PullRequestFiles | null> {
+    const cached = githubCache.get(environmentId);
+    if (cached && Date.now() - cached.fetchedAt < GITHUB_TTL_MS) return cached.value;
+    const running = inFlight.get(environmentId);
+    if (running) return running;
+    const request = loadPullRequest(environmentId)
+      .then((value) => {
+        githubCache.set(environmentId, { value, fetchedAt: Date.now() });
+        return value;
+      })
+      .finally(() => inFlight.delete(environmentId));
+    inFlight.set(environmentId, request);
+    return request;
+  }
+
+  /** What the service needs to read and write a thread's GitHub Viewed, or null with nothing to sync. */
+  async function githubSync(environmentId: string): Promise<GithubSync | null> {
+    const pull = await pullRequestFor(environmentId);
+    if (pull === null) return null;
+    const files = new Map(pull.files.map((file) => [file.path, file]));
+    return {
+      files,
+      async setViewed(path, viewed) {
+        const { ghPath } = await settings.get();
+        await setGithubViewed(ghFor(ghPath), pull.id, path, viewed);
+        // Keep the cache in step, so the next open does not show the old state for 30 seconds.
+        const file = files.get(path);
+        if (file) file.viewed = viewed;
+      },
+    };
+  }
 
   /** bb's own changed-file list for an environment, which its changes panel draws. */
   function bbFilesFor(environmentId: string): BbFiles {
@@ -68,13 +148,21 @@ export default async function plugin(bb: BbPluginApi) {
     review_get: async ({ threadId }): Promise<ReviewResult> => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") return { state: "unavailable", message: checkout };
-      return { state: "ok", view: await getView(store, threadId, checkout, bbFilesFor(checkout.environmentId)) };
+      return { state: "ok", view: await getView(store, threadId, checkout, bbFilesFor(checkout.environmentId), githubSync(checkout.environmentId)) };
     },
-    review_set_viewed: async ({ threadId, path, hunks, viewed }) => {
+    review_set_read: async ({ threadId, path, hunks, read }) => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") throw new Error(checkout);
-      await setViewed(store, threadId, checkout, path, hunks, viewed);
-      return { ok: true as const };
+      const error = await setRead(store, threadId, checkout, path, hunks, read, await githubSync(checkout.environmentId));
+      if (error) bb.log.warn(error);
+      return { ok: true as const, error };
+    },
+    review_set_file_viewed: async ({ threadId, path, viewed }) => {
+      const checkout = await checkoutFor(threadId);
+      if (typeof checkout === "string") throw new Error(checkout);
+      const error = await setFileViewed(store, threadId, checkout, path, viewed, await githubSync(checkout.environmentId));
+      if (error) bb.log.warn(error);
+      return { ok: true as const, error };
     },
     review_generate: async ({ threadId }) => {
       await bb.sdk.threads.send({

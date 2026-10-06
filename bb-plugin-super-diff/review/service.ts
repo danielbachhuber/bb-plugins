@@ -11,7 +11,8 @@ import { itemsOf, parseDiff } from "./items";
 import { changedPaths, type FileState } from "./stale";
 import type { Store } from "./store";
 import { itemKey, type DiffFile } from "./types";
-import { buildView, type StoredGrouping } from "./view";
+import { planFileViewed, planRead, type FileContext, type GithubFile, type Plan } from "./github";
+import { buildView, fileContexts, type StoredGrouping } from "./view";
 import type { ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
 import type { Assignment } from "./types";
@@ -100,7 +101,14 @@ function overlays(grouping: Grouping, inputs: TestInputs): Map<number, ViewTests
 /** bb's own list of the branch's changed paths against a base, or why it has none. */
 export type BbFiles = (base: string) => Promise<string[] | { reason: string }>;
 
-export async function getView(store: Store, threadId: string, checkout: Checkout, bbFiles?: BbFiles): Promise<ReviewView> {
+export async function getView(
+  store: Store,
+  threadId: string,
+  checkout: Checkout,
+  bbFiles?: BbFiles,
+  /** May still be loading, so GitHub is asked while git runs. */
+  githubSync: GithubSync | null | Promise<GithubSync | null> = null,
+): Promise<ReviewView> {
   const branch = await loadBranch(checkout);
   // Asked for the same base Super Diff chose, so the two lists can agree; it runs while the rest reads files.
   const bbList = bbFiles?.(branch.baseRef);
@@ -109,25 +117,65 @@ export async function getView(store: Store, threadId: string, checkout: Checkout
     ? await computeStale(checkout.root, stored, store.snapshot(threadId), branch.files, branch.headSha)
     : null;
   const inputs = stored ? await loadTests(checkout.root, branch.files, stored.grouping.assertionHelpers) : null;
+  const github = await githubSync;
   return buildView(branch.files, stored, stale, {
     base: branch.baseRef,
     crossCheck: bbList ? crossCheck(branch.files.map((file) => file.path), await bbList) : undefined,
     viewed: store.viewed(threadId),
+    github: github?.files ?? null,
     tests: stored && inputs ? overlays(stored.grouping, inputs) : undefined,
   });
 }
 
-/** Mark some of a file's hunks viewed at their current lines, or clear their marks. */
-export async function setViewed(
+/** The thread's pull request, for syncing Viewed: its files, and how to mark one. */
+export interface GithubSync {
+  files: Map<string, GithubFile>;
+  setViewed(path: string, viewed: boolean): Promise<void>;
+}
+
+/** Apply a plan: the local marks, then GitHub. Returns GitHub's error, if it had one. */
+async function apply(store: Store, threadId: string, path: string, plan: Plan, github: GithubSync | null): Promise<string | null> {
+  if (plan.set.length) store.setViewed(threadId, plan.set, true);
+  if (plan.clear.length) store.setViewed(threadId, plan.clear, false);
+  if (!plan.github || !github) return null;
+  try {
+    await github.setViewed(path, plan.github === "mark");
+    return null;
+  } catch (cause) {
+    return `GitHub did not take the change to ${path}: ${cause instanceof Error ? cause.message : String(cause)}`;
+  }
+}
+
+async function contextFor(store: Store, threadId: string, checkout: Checkout, path: string, github: GithubSync | null): Promise<FileContext | undefined> {
+  const branch = await loadBranch(checkout);
+  return fileContexts(branch.files, store.viewed(threadId), github?.files ?? null).get(path);
+}
+
+/** Check or uncheck some of a file's hunks, and its Viewed on GitHub when that changes with them. */
+export async function setRead(
   store: Store,
   threadId: string,
   checkout: Checkout,
   path: string,
   hunks: number[],
+  read: boolean,
+  github: GithubSync | null = null,
+): Promise<string | null> {
+  const file = await contextFor(store, threadId, checkout, path, github);
+  return file ? apply(store, threadId, path, planRead(file, hunks, read), github) : null;
+}
+
+/** Check or uncheck a file's Viewed: every hunk of it, here and on GitHub. */
+export async function setFileViewed(
+  store: Store,
+  threadId: string,
+  checkout: Checkout,
+  path: string,
   viewed: boolean,
-): Promise<void> {
-  const items = itemsOf((await loadBranch(checkout)).files).filter((item) => item.path === path && hunks.includes(item.index));
-  store.setViewed(threadId, items, viewed);
+  github: GithubSync | null = null,
+): Promise<string | null> {
+  const file = await contextFor(store, threadId, checkout, path, github);
+  return file ? apply(store, threadId, path, planFileViewed(file, viewed), github) : null;
 }
 
 /** What `bb super-diff tests` prints: each test on the branch, with its numbered steps. */

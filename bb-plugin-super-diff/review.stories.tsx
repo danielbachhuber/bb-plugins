@@ -79,7 +79,8 @@ const render = (result: ReviewResult | null, generating = false, initialSection?
       error={null}
       generating={generating}
       onGenerate={() => {}}
-      onSetViewed={() => {}}
+      onSetRead={() => {}}
+      onSetFileViewed={() => {}}
       DiffView={DiffView}
       SourceView={SourceView}
       initialSection={initialSection}
@@ -316,4 +317,40 @@ export const ManyFiles = () =>
 /** bb's own changes panel lists a file Super Diff does not: the check beside the count turns red and names it. */
 export const FilesDifferFromBb = () =>
   render({ state: "ok", view: { ...grouped, crossCheck: { status: "differ", onlyBb: ["docs/sprocket.md"], onlyHere: [], reason: null } } });
+
+// The pull request's files, for the sync stories: widget.ts and sprocket.ts as
+// this branch has them, so they sync; the lockfile is not on it.
+const pullRequest = (widgetViewed: boolean, widgetAdditions = 2) =>
+  new Map([
+    ["src/widget.ts", { path: "src/widget.ts", additions: widgetAdditions, deletions: 1, viewed: widgetViewed }],
+    ["src/sprocket.ts", { path: "src/sprocket.ts", additions: 1, deletions: 0, viewed: false }],
+  ]);
+// One concern holding both of widget.ts's hunks, so a card shows a read strip beside an unread one.
+const ONE_CONCERN: StoredGrouping = {
+  ...STORED,
+  grouping: {
+    headline: STORED.grouping.headline,
+    concerns: [{ title: "Add the sprocket and call it", note: "A one-line function that adds one, and the widget passing its gadget through it.", files: ["src/widget.ts", "src/sprocket.ts"] }],
+  },
+  assignments: STORED.assignments.map((a) => ({ ...a, concern: 0 })),
+};
+const synced = (opts: { viewed?: Array<[string, number]>; widgetViewed?: boolean; widgetAdditions?: number; pullRequest?: boolean }) =>
+  buildView(files, ONE_CONCERN, null, {
+    base: "origin/main",
+    crossCheck: AGREE,
+    github: opts.pullRequest === false ? null : pullRequest(opts.widgetViewed ?? false, opts.widgetAdditions),
+    viewed: new Map((opts.viewed ?? []).map(([path, index]) => [`${path}#${index}`, files.find((f) => f.path === path)!.hunks[index]!.hash])),
+  });
+
+/** No pull request: each hunk has a checkmark on its strip, and a read hunk folds to it. Files have no Viewed box. */
+export const ChecksWithoutPullRequest = () => render({ state: "ok", view: synced({ pullRequest: false, viewed: [["src/widget.ts", 0]] }) });
+
+/** A pull request with the same files: each file's Viewed box is GitHub's. widget.ts has its first hunk read and its second still to read, so it is not yet Viewed. */
+export const SyncedOneHunkRead = () => render({ state: "ok", view: synced({ viewed: [["src/widget.ts", 0]] }) });
+
+/** widget.ts is Viewed on GitHub, so every hunk of it reads as checked and its card folds. */
+export const SyncedViewedOnGithub = () => render({ state: "ok", view: synced({ widgetViewed: true }) });
+
+/** widget.ts has edits not on the pull request, so it shows "not on GitHub yet" instead of Viewed; its checkmarks stay in bb. */
+export const NotOnGithubYet = () => render({ state: "ok", view: synced({ widgetAdditions: 5, viewed: [["src/widget.ts", 0]] }) });
 
