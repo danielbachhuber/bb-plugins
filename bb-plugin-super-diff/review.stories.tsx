@@ -307,9 +307,9 @@ const MANY_DIFF = Array.from({ length: 42 }, (_, i) => {
   return `diff --git a/${path} b/${path}\nindex 1111111..2222222 100644\n--- a/${path}\n+++ b/${path}\n${hunks}`;
 }).join("");
 const manyFiles = parseDiff(MANY_DIFF);
-const manyRead = new Map(manyFiles.slice(0, 15).flatMap((f) => f.hunks.map((h) => [`${f.path}#${h.index}`, h.hash] as [string, string])));
+const manyRead = new Map(manyFiles.slice(0, 36).flatMap((f) => f.hunks.map((h) => [`${f.path}#${h.index}`, h.hash] as [string, string])));
 
-/** A branch of 42 files: past 30, the bar groups them by directory, each named with its file count, every file still a sliver that fills as it is read. */
+/** A branch of 42 files, most of them read: too many to name one by one, so the bar groups them by directory, each named with its file count, every file still a sliver that fills as it is read. */
 export const ManyFiles = () =>
   render({ state: "ok", view: buildView(manyFiles, null, null, { base: "origin/main", crossCheck: AGREE, viewed: manyRead }) });
 
