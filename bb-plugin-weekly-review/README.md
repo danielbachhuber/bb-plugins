@@ -45,8 +45,8 @@ page, and a meeting that happened this morning is not something to plan around.
 
 The Priorities section lists the bullets under `Next:` in the previous week's
 entry, which is what you said this week would be about. A bullet nested under
-another stays with it, so "People:" with "Check in with …" beneath it is one
-priority.
+another stays with it, at its own level, so "People:" with a name beneath it
+and "Check in with …" beneath that is one priority.
 
 Link each priority to the workstreams it is about. Each link shows that
 workstream's hours and activity this week. A priority with no link says so,

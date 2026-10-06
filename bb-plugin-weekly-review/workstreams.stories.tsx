@@ -133,7 +133,10 @@ const PRIORITIES = {
     { text: "Start the gadget launch checklist.", details: [], links: [], suggested: [2] },
     {
       text: "People:",
-      details: ["Check in with Octocat about the widget sync handoff."],
+      details: [
+        { text: "Octocat:", depth: 1 },
+        { text: "Check in about the widget sync handoff.", depth: 2 },
+      ],
       links: [],
       suggested: [],
     },

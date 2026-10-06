@@ -2,12 +2,13 @@
  * The week's priorities as the Now plugin stores them, and Now's checks read
  * back onto this page's list. Pure; `now-client.ts` does the calling.
  */
+import type { PriorityDetail } from "./priorities.js";
 import type { PriorityView } from "./workstream-service.js";
 import type { TableRow } from "./workstreams.js";
 
 export interface NowPriority {
   text: string;
-  details: string[];
+  details: PriorityDetail[];
   /** Null when nothing measures it: no linked workstream, or activity with no hours. */
   hours: number | null;
 }
@@ -24,7 +25,7 @@ export function prioritiesForNow(
 ): NowPriority[] {
   const byId = new Map(rows.flatMap((row) => (row.workstreamId === null ? [] : [[row.workstreamId, row.total] as const])));
   return priorities.map((priority) => {
-    const base = { text: priority.text, details: [...priority.details] };
+    const base = { text: priority.text, details: priority.details.map((detail) => ({ ...detail })) };
     if (priority.links.length === 0) return { ...base, hours: null };
     const totals = priority.links.flatMap((id) => {
       const total = byId.get(id);

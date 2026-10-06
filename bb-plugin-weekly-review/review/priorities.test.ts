@@ -40,7 +40,7 @@ describe("nextBullets", () => {
     expect(nextBullets(entry?.body ?? "")).toEqual([
       { text: "Start the gadget launch checklist.", details: [] },
       { text: "Finish the widget sync rollout.", details: [] },
-      { text: "People:", details: ["Check in with Octocat and Hubber."] },
+      { text: "People:", details: [{ text: "Check in with Octocat and Hubber.", depth: 1 }] },
     ]);
   });
 
@@ -50,6 +50,34 @@ describe("nextBullets", () => {
       { text: "Two", details: [] },
     ]);
     expect(nextBullets("Done:\n- Something")).toEqual([]);
+  });
+
+  it("keeps how deep each nested bullet sits", () => {
+    const text = [
+      "Next:",
+      "- People:",
+      "  - Octocat:",
+      "    - Ask about the widget sync handoff.",
+      "  - Hubber:",
+      "    - Review the gadget launch plan.",
+      "      - Before Friday.",
+      "  - Plan the offsite.",
+      "- Ship it",
+    ].join("\n");
+    expect(nextBullets(text)).toEqual([
+      {
+        text: "People:",
+        details: [
+          { text: "Octocat:", depth: 1 },
+          { text: "Ask about the widget sync handoff.", depth: 2 },
+          { text: "Hubber:", depth: 1 },
+          { text: "Review the gadget launch plan.", depth: 2 },
+          { text: "Before Friday.", depth: 3 },
+          { text: "Plan the offsite.", depth: 1 },
+        ],
+      },
+      { text: "Ship it", details: [] },
+    ]);
   });
 
   it("accepts a bold Next heading", () => {

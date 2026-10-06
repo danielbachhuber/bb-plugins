@@ -4,7 +4,7 @@
  */
 import { activities, type Activity } from "./activity.js";
 import { addDays } from "./dates.js";
-import { entryIn, nextBullets, suggestLinks, type RuleProposal } from "./priorities.js";
+import { entryIn, nextBullets, suggestLinks, type PriorityDetail, type RuleProposal } from "./priorities.js";
 import type { WeekStore } from "./db.js";
 import { suggestWorkstreams, type Suggestion } from "./suggestions.js";
 import type { StoredProposal, WorkstreamStore } from "./workstream-store.js";
@@ -22,7 +22,7 @@ import {
 
 export interface PriorityView {
   text: string;
-  details: string[];
+  details: PriorityDetail[];
   /** Linked workstreams. Their hours and activity are in the table's rows. */
   links: number[];
   /** Workstreams the bullet seems to name, not yet linked. */

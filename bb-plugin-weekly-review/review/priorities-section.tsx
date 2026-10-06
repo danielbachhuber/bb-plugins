@@ -13,12 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { PriorityDetail } from "./priorities.js";
 import { describeCell } from "./workstreams-text.js";
 import type { TableRow, Workstream, WorkstreamTable } from "./workstreams.js";
 
 export interface PriorityItem {
   text: string;
-  details: string[];
+  details: PriorityDetail[];
   links: number[];
   suggested: number[];
   /** Checked off on the Now page. */
@@ -68,7 +69,11 @@ export function PrioritiesSection({
                     </div>
                     {priority.details.length === 0 ? null : (
                       <ul className="mt-0.5 text-xs text-muted-foreground">
-                        {priority.details.map((detail) => <li key={detail}>{detail}</li>)}
+                        {priority.details.map((detail, at) => (
+                          <li key={at} style={{ paddingLeft: `${(detail.depth - 1) * 0.75}rem` }}>
+                            {detail.text}
+                          </li>
+                        ))}
                       </ul>
                     )}
 

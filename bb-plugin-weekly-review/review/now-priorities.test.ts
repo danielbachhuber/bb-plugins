@@ -14,7 +14,7 @@ const rows = [
   { workstreamId: 4, total: cell(0, ["github:pr:12"]) },
 ];
 
-const priority = (text: string, links: number[], details: string[] = []) => ({ text, details, links, suggested: [] });
+const priority = (text: string, links: number[], details: Array<{ text: string; depth: number }> = []) => ({ text, details, links, suggested: [] });
 
 describe("prioritiesForNow", () => {
   it("sums the hours of each priority's linked workstreams", () => {
@@ -24,8 +24,8 @@ describe("prioritiesForNow", () => {
   });
 
   it("gives null to a priority with no link, since nothing measures it", () => {
-    expect(prioritiesForNow([priority("People", [], ["1:1 prep for octocat"])], rows)).toEqual([
-      { text: "People", details: ["1:1 prep for octocat"], hours: null },
+    expect(prioritiesForNow([priority("People", [], [{ text: "1:1 prep for octocat", depth: 1 }])], rows)).toEqual([
+      { text: "People", details: [{ text: "1:1 prep for octocat", depth: 1 }], hours: null },
     ]);
   });
 

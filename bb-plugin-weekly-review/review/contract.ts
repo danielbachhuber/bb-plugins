@@ -138,7 +138,7 @@ const workstreamViewSchema = z.object({
     heading: z.string(),
     items: z.array(z.object({
       text: z.string(),
-      details: z.array(z.string()),
+      details: z.array(z.object({ text: z.string(), depth: z.number().int().min(1) })),
       links: z.array(z.number()),
       suggested: z.array(z.number()),
       /** Checked off on the Now page. False when Now is not installed. */
