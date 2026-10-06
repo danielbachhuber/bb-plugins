@@ -88,7 +88,13 @@ export function buildPromptParts(row: ClassifiedRow, now: number): PromptParts {
       // pull request out there is safe and saves asking for it afterwards.
       // The composer can still put the thread in the project checkout, which
       // is mine and must stay on whatever branch I left it on.
-      `If this thread runs in its own bb worktree, start by checking the pull request out there with \`gh pr checkout ${row.number}\` (add \`--detach\` if git says the branch is already checked out elsewhere). If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
+      //
+      // "Before you load the skill" is load-bearing: `code-review` runs as a
+      // forked subagent, which checks the branch out to read it and then
+      // switches back to leave the tree as it found it. Without the ordering
+      // the agent hands the whole job to the skill and the worktree ends up
+      // back on its own bb/ branch.
+      `If this thread runs in its own bb worktree, check the pull request out there yourself with \`gh pr checkout ${row.number}\` before you load the skill (add \`--detach\` if git says the branch is already checked out elsewhere). Leave it checked out when you finish, and if the skill switched the worktree back to another branch, check the pull request out again. If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
     ].join("\n"),
   };
 }

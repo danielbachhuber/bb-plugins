@@ -69,5 +69,7 @@ describe("buildPrompt", () => {
     const prompt = buildPrompt(rowFor(), NOW);
     expect(prompt).toContain(`gh pr checkout ${rowFor().number}`);
     expect(prompt).toMatch(/leave that checkout's branch alone/);
+    expect(prompt).toMatch(/before you load the skill/);
+    expect(prompt).toMatch(/Leave it checked out when you finish/);
   });
 });
