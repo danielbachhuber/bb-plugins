@@ -62,7 +62,7 @@ describe("labels", () => {
   });
 
   it("tags a concern's tests in the rail by what else it holds", () => {
-    const tests = { scenarios: [{ title: "a", tests: [], asserted: 1, snapshotOnly: 0, steps: "", values: "" }], notCovered: "", asserted: 1, snapshotOnly: 0, gaps: 0, snapshots: 0 };
+    const tests = { scenarios: [{ title: "a", tests: [], asserted: 1, snapshotOnly: 0, steps: "", values: "", hunks: [] }], notCovered: "", asserted: 1, snapshotOnly: 0, gaps: 0, snapshots: 0, outside: [] };
     const section = (paths: string[], withTests = true) => ({
       id: "concern-0",
       title: "",
@@ -76,9 +76,9 @@ describe("labels", () => {
   });
 
   describe("scenarios against test() calls", () => {
-    const test = (n: number, cited: number, total: number, sharedWith = 0) => ({ path: "src/a.test.ts", test: n, name: `test ${n}`, cited, total, sharedWith });
-    const scenario = (...tests: ReturnType<typeof test>[]) => ({ title: "s", tests, asserted: 0, snapshotOnly: 0, steps: "", values: "" });
-    const block = (...scenarios: ReturnType<typeof scenario>[]) => ({ scenarios, notCovered: "", asserted: 0, snapshotOnly: 0, gaps: 0, snapshots: 0 });
+    const test = (n: number, cited: number, total: number, sharedWith = 0) => ({ path: "src/a.test.ts", test: n, name: `test ${n}`, cited, total, sharedWith, line: 1, endLine: 1 });
+    const scenario = (...tests: ReturnType<typeof test>[]) => ({ title: "s", tests, asserted: 0, snapshotOnly: 0, steps: "", values: "", hunks: [] });
+    const block = (...scenarios: ReturnType<typeof scenario>[]) => ({ scenarios, notCovered: "", asserted: 0, snapshotOnly: 0, gaps: 0, snapshots: 0, outside: [] });
 
     it("says nothing when each scenario is one whole test of its own", () => {
       expect(scenarioMismatch(scenario(test(1, 4, 4)))).toBeNull();

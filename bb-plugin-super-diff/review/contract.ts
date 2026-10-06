@@ -53,7 +53,13 @@ export const viewScenarioTestSchema = z.object({
   total: z.number().int(),
   /** How many other scenarios in the concern cite this test too. */
   sharedWith: z.number().int(),
+  /** The lines the test() call spans in its file, from 1. */
+  line: z.number().int(),
+  endLine: z.number().int(),
 });
+
+/** A hunk a scenario's tests sit in, and whether it is read. */
+export const scenarioHunkSchema = z.object({ path: z.string(), index: z.number().int(), read: z.boolean() });
 
 export const viewScenarioSchema = z.object({
   title: z.string(),
@@ -65,6 +71,8 @@ export const viewScenarioSchema = z.object({
   steps: z.string(),
   /** Each recorded value in full, as a docstring under its step. */
   values: z.string(),
+  /** The concern's test hunks that overlap the test() calls it cites, and their snapshot hunks. */
+  hunks: z.array(scenarioHunkSchema),
 });
 
 /** A test concern's Scenarios view, built from the agent's scenarios and the parsed tests. */
@@ -76,6 +84,8 @@ export const viewTestsSchema = z.object({
   gaps: z.number().int(),
   /** Recorded snapshot values the scenarios show in full. */
   snapshots: z.number().int(),
+  /** The concern's test hunks no scenario covers, such as imports and helpers, to read in Diff. */
+  outside: z.array(scenarioHunkSchema),
 });
 
 export const viewSectionSchema = z.object({
@@ -150,6 +160,7 @@ export type ViewScenario = z.infer<typeof viewScenarioSchema>;
 export type BarFile = z.infer<typeof barFileSchema>;
 export type CrossCheckView = z.infer<typeof crossCheckSchema>;
 export type ViewScenarioTest = z.infer<typeof viewScenarioTestSchema>;
+export type ScenarioHunk = z.infer<typeof scenarioHunkSchema>;
 export type StaleInfo = z.infer<typeof staleSchema>;
 export type ReviewView = z.infer<typeof reviewViewSchema>;
 export type ReviewResult = z.infer<typeof reviewResultSchema>;

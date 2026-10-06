@@ -128,14 +128,15 @@ index 1111111..2222222 100644
 
 const TESTS: ViewTests = {
   scenarios: [
-    { title: "It works", tests: [{ path: "src/widget.test.ts", test: 1, name: "works", cited: 2, total: 2, sharedWith: 0 }], asserted: 1, snapshotOnly: 1, steps: "Scenario: It works\n  # 1.1 x toMatchSnapshot  (recorded: 3 lines)", values: 'Scenario: It works\n  """\n  {}\n  """' },
-    { title: "It refuses", tests: [{ path: "src/widget.test.ts", test: 2, name: "refuses", cited: 1, total: 1, sharedWith: 0 }], asserted: 0, snapshotOnly: 1, steps: "Scenario: It refuses", values: "Scenario: It refuses" },
+    { title: "It works", tests: [{ path: "src/widget.test.ts", test: 1, name: "works", cited: 2, total: 2, sharedWith: 0, line: 1, endLine: 1 }], asserted: 1, snapshotOnly: 1, steps: "Scenario: It works\n  # 1.1 x toMatchSnapshot  (recorded: 3 lines)", values: 'Scenario: It works\n  """\n  {}\n  """', hunks: [] },
+    { title: "It refuses", tests: [{ path: "src/widget.test.ts", test: 2, name: "refuses", cited: 1, total: 1, sharedWith: 0, line: 1, endLine: 1 }], asserted: 0, snapshotOnly: 1, steps: "Scenario: It refuses", values: "Scenario: It refuses", hunks: [] },
   ],
   notCovered: "Feature: Not covered by these tests\n\n  @untested",
   asserted: 1,
   snapshotOnly: 2,
   gaps: 1,
   snapshots: 2,
+  outside: [],
 };
 
 /**
@@ -320,6 +321,33 @@ describe("ReviewScreen", () => {
     expect(container.querySelector("[data-file]")).toBeNull();
   });
 
+  it("shows how far through each scenario's hunks you are, checks them all at once, and points to test hunks outside every scenario", () => {
+    const onSetRead = vi.fn();
+    const v = shapes();
+    const snap = "src/__snapshots__/widget.test.ts.snap";
+    const tests: ViewTests = {
+      ...TESTS,
+      scenarios: [
+        { ...TESTS.scenarios[0]!, hunks: [{ path: "src/widget.test.ts", index: 0, read: false }, { path: snap, index: 0, read: true }] },
+        { ...TESTS.scenarios[1]!, hunks: [{ path: snap, index: 0, read: true }] },
+      ],
+      outside: [{ path: "src/widget.test.ts", index: 3, read: false }],
+    };
+    v.concerns[1] = { ...v.concerns[1]!, tests };
+    const { container } = screenWith({ result: { state: "ok", view: v }, initialSection: "concern-1", onSetRead });
+    const notes = Array.from(container.querySelectorAll("[data-scenario-reviewed]")).map((el) => el.textContent);
+    expect(notes).toEqual(["1 of 2 hunks reviewed", "reviewed"]);
+    expect(container.querySelector("[data-tests-reviewed]")).toHaveTextContent("1 of 3 test hunks reviewed");
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark read: scenario It works" }));
+    expect(onSetRead.mock.calls).toEqual([["src/widget.test.ts", [0], true], [snap, [0], true]]);
+    expect(screen.getByRole("button", { name: "Mark unread: scenario It refuses" })).toHaveAttribute("aria-pressed", "true");
+
+    expect(container.querySelector("[data-tests-outside]")).toHaveTextContent("1 test hunk is outside every scenario");
+    fireEvent.click(screen.getByRole("button", { name: "Review them in Diff" }));
+    expect(container.querySelector('[data-file="src/widget.test.ts"]')).not.toBeNull();
+  });
+
   // Each shape a concern can take, so a change to one does not hide another's changes.
   describe("concern shapes", () => {
     const rendered = (container: HTMLElement) => Array.from(container.querySelectorAll("[data-file][data-hunk]")).map((el) => `${el.getAttribute("data-file")}#${el.getAttribute("data-hunk")}`);
@@ -375,7 +403,7 @@ describe("ReviewScreen", () => {
 
     it("says when the scenarios do not match the test() calls one to one", () => {
       const v = shapes();
-      const split = (title: string) => ({ ...TESTS.scenarios[0]!, title, tests: [{ path: "src/gadget.test.ts", test: 1, name: "gadget", cited: 1, total: 2, sharedWith: 1 }] });
+      const split = (title: string) => ({ ...TESTS.scenarios[0]!, title, tests: [{ path: "src/gadget.test.ts", test: 1, name: "gadget", cited: 1, total: 2, sharedWith: 1, line: 1, endLine: 1 }] });
       v.concerns[2] = { ...v.concerns[2]!, tests: { ...TESTS, scenarios: [split("First"), split("Second")] } };
       const { container } = screenWith({ result: { state: "ok", view: v }, initialSection: "concern-2" });
       expect(container.querySelector("[data-scenario-mismatch]")).toHaveTextContent(

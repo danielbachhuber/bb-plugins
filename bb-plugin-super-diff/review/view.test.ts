@@ -158,14 +158,39 @@ describe("placeItems", () => {
     });
   });
 
+  it("gives each scenario the test hunks inside the test() calls it cites, and lists the rest as outside", () => {
+    const testDiff =
+      fileDiff("src/widget.test.ts", ["import", "first test", "second test"]) + fileDiff("src/__snapshots__/widget.test.ts.snap", ["recorded"]);
+    const grouping: Grouping = { headline: "h", concerns: [{ title: "Tests", note: "n", files: ["src/widget.test.ts", "src/__snapshots__/widget.test.ts.snap"] }] };
+    const files = parseDiff(testDiff);
+    const { assignments } = resolveGrouping(itemsOf(files), grouping, isMechanical);
+    const cite = (test: number, line: number) => ({ path: "src/widget.test.ts", test, name: `t${test}`, cited: 1, total: 1, sharedWith: 0, line, endLine: line + 4 });
+    const scenario = (title: string, test: number, line: number) => ({ title, tests: [cite(test, line)], asserted: 1, snapshotOnly: 0, steps: "", values: "", hunks: [] });
+    const tests = { scenarios: [scenario("first", 1, 9), scenario("second", 2, 19)], notCovered: "", asserted: 2, snapshotOnly: 0, gaps: 0, snapshots: 0, outside: [] };
+    const hash = files[0]!.hunks[1]!.hash;
+    const view = buildView(files, { grouping, assignments, baseSha: "b", headSha: "h", groupedAt: "t" }, null, {
+      tests: new Map([[0, tests]]),
+      viewed: new Map([["src/widget.test.ts#1", hash]]),
+    });
+    const block = view.concerns[0]!.tests!;
+    const snap = { path: "src/__snapshots__/widget.test.ts.snap", index: 0, read: false };
+    expect(block.scenarios.map((s) => s.hunks)).toEqual([
+      [{ path: "src/widget.test.ts", index: 1, read: true }, snap],
+      [{ path: "src/widget.test.ts", index: 2, read: false }, snap],
+    ]);
+    // Hunk 0, at line 1, is above both test() calls: an import.
+    expect(block.outside).toEqual([{ path: "src/widget.test.ts", index: 0, read: false }]);
+  });
+
   it("attaches a test overlay to its concern", () => {
     const tests = {
-      scenarios: [{ title: "x", tests: [], asserted: 0, snapshotOnly: 1, steps: "Scenario: x", values: "Scenario: x" }],
+      scenarios: [{ title: "x", tests: [], asserted: 0, snapshotOnly: 1, steps: "Scenario: x", values: "Scenario: x", hunks: [] }],
       notCovered: "Feature: Not covered by these tests",
       asserted: 0,
       snapshotOnly: 1,
       gaps: 0,
       snapshots: 1,
+      outside: [],
     };
     const view = buildView(parseDiff(DIFF), stored(DIFF), null, { tests: new Map([[1, tests]]) });
     expect(view.concerns[0]!.tests).toBeNull();

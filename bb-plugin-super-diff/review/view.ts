@@ -4,10 +4,11 @@
 // Not yet grouped. Items the grouping placed but the diff no longer has are
 // shown in their concern as removed, and not counted.
 import { isMechanical } from "./classify";
-import type { BarFile, CrossCheckView, ReviewView, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
+import type { BarFile, CrossCheckView, ReviewView, ScenarioHunk, StaleInfo, ViewFile, ViewHunk, ViewSection, ViewTests } from "./contract";
 import type { Grouping } from "./grouping";
 import { isRead, syncOf, viewedThere, type FileContext, type ViewedSource } from "./github";
 import { itemsOf } from "./items";
+import { isTestSide, snapshotPathFor } from "./tests/paths";
 import { itemKey, type Assignment, type DiffFile, type Item } from "./types";
 
 export interface StoredGrouping {
@@ -136,7 +137,7 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
 
   const section = (id: string, title: string, note: string | null, tests: ViewTests | null = null): ViewSection | null => {
     const hunks = buckets.get(id);
-    return hunks?.length ? { id, title, note, files: byFile(hunks, fileByPath, contexts), tests } : null;
+    return hunks?.length ? { id, title, note, files: byFile(hunks, fileByPath, contexts), tests: tests && withHunks(tests, hunks) } : null;
   };
 
   const shown = [...buckets.values()].flat().filter((hunk) => hunk.status !== "removed").length;
@@ -187,4 +188,38 @@ function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, contexts: 
       hunks: grouped.get(path)!.sort((a, b) => a.index - b.index),
     };
   });
+}
+
+/** The lines a hunk spans on the new side, from its `@@` header; a pure removal is the line it sits at. */
+function newSide(text: string): [number, number] | null {
+  const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(text);
+  if (!match) return null;
+  const start = Number(match[1]);
+  const count = match[2] === undefined ? 1 : Number(match[2]);
+  return [start, start + Math.max(count, 1) - 1];
+}
+
+/**
+ * Each scenario's hunks, and the concern's test hunks none of them covers. A
+ * scenario covers a test file's hunks that overlap a test() call it cites,
+ * and the hunks of that file's snapshots; a whole-file item, with no lines to
+ * place, belongs to every scenario citing its file.
+ */
+function withHunks(tests: ViewTests, hunks: ViewHunk[]): ViewTests {
+  const live = hunks.filter((h) => h.status !== "removed" && isTestSide(h.path));
+  const pick = (h: ViewHunk): ScenarioHunk => ({ path: h.path, index: h.index, read: h.read });
+  const covered = new Set<string>();
+  const scenarios = tests.scenarios.map((scenario) => {
+    const mine = live.filter((h) =>
+      scenario.tests.some((t) => {
+        if (h.path === snapshotPathFor(t.path)) return true;
+        if (h.path !== t.path) return false;
+        const lines = h.kind === "file" ? null : newSide(h.text);
+        return lines === null || (lines[0] <= t.endLine && lines[1] >= t.line);
+      }),
+    );
+    for (const h of mine) covered.add(itemKey(h.path, h.index));
+    return { ...scenario, hunks: mine.map(pick) };
+  });
+  return { ...tests, scenarios, outside: live.filter((h) => !covered.has(itemKey(h.path, h.index))).map(pick) };
 }

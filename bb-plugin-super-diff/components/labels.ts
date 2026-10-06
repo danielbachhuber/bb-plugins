@@ -1,5 +1,5 @@
 // The panel's small pieces of text. Pure.
-import type { CrossCheckView, ReviewView, ViewFile, ViewScenario, ViewSection, ViewTests } from "@/review/contract";
+import type { CrossCheckView, ReviewView, ScenarioHunk, ViewFile, ViewScenario, ViewSection, ViewTests } from "@/review/contract";
 import { hashText } from "@/review/items";
 import { isTestSide } from "@/review/tests/paths";
 
@@ -116,4 +116,27 @@ export function testsMismatch(tests: ViewTests): string | null {
   const cited = new Map(tests.scenarios.flatMap((s) => s.tests.map((t) => [`${t.path}:${t.test}`, t.name] as const)));
   const which = cited.size === 1 ? ` call, "${[...cited.values()][0]}"` : " calls";
   return `${plural(tests.scenarios.length, "scenario describes", "scenarios describe")} ${cited.size} test()${which}, so the descriptions do not match the tests one to one.`;
+}
+
+/** How far through a scenario's hunks you are: "reviewed", "1 of 2 hunks reviewed", or "2 hunks". */
+export function scenarioReviewNote(hunks: ScenarioHunk[]): string {
+  if (hunks.length === 0) return "no changed lines";
+  const read = hunks.filter((h) => h.read).length;
+  if (read === hunks.length) return "reviewed";
+  if (read === 0) return plural(hunks.length, "hunk", "hunks");
+  return `${read} of ${plural(hunks.length, "hunk", "hunks")} reviewed`;
+}
+
+/** Every test hunk the Scenarios view accounts for, each once: the scenarios' and those outside them. */
+export function testHunks(tests: ViewTests): ScenarioHunk[] {
+  const all = new Map<string, ScenarioHunk>();
+  for (const h of [...tests.scenarios.flatMap((s) => s.hunks), ...tests.outside]) all.set(`${h.path}#${h.index}`, h);
+  return [...all.values()];
+}
+
+/** "2 test hunks are outside every scenario", for the ones still unread; null when none are. */
+export function outsideNote(tests: ViewTests): string | null {
+  const unread = tests.outside.filter((h) => !h.read).length;
+  if (unread === 0) return null;
+  return `${plural(unread, "test hunk is", "test hunks are")} outside every scenario, such as imports or helpers.`;
 }

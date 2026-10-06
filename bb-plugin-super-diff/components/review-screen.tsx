@@ -10,10 +10,10 @@ import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
-import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
+import { hunkPatch, type ReviewResult, type ReviewView, type ScenarioHunk, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { isTestSide } from "@/review/tests/paths";
 import { BranchBar } from "./branch-bar";
-import { coverageLabel, fileStats, hunkNote, reviewedNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
+import { coverageLabel, fileStats, hunkNote, outsideNote, reviewedNote, scenarioReviewNote, testHunks, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
 
 /**
  * Draws one file's patch. `file`, when given, is the changed file it belongs
@@ -358,7 +358,7 @@ function Concern({ section, number, of, viewers }: { section: ViewSection; numbe
       )}
       {tests !== null &&
         (mode === "scenarios" || !toggle ? (
-          <Scenarios section={section} tests={tests} viewers={viewers} />
+          <Scenarios section={section} tests={tests} viewers={viewers} onShowDiff={toggle ? () => setMode("diff") : null} />
         ) : (
           files.tests.map((file) => <FileCard key={file.path} file={file} viewers={viewers} />)
         ))}
@@ -372,16 +372,25 @@ function Concern({ section, number, of, viewers }: { section: ViewSection; numbe
  * the tests leave out. When the scenarios do not pair up one to one with the
  * test() calls, a note says so and each scenario that does not says why.
  */
-function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: ViewTests; viewers: Viewers }) {
+function Scenarios({ section, tests, viewers, onShowDiff }: { section: ViewSection; tests: ViewTests; viewers: Viewers; onShowDiff: (() => void) | null }) {
   const [at, setAt] = useState(0);
   const [values, setValues] = useState(false);
   const scenario = tests.scenarios[Math.min(at, tests.scenarios.length - 1)];
   const mismatch = testsMismatch(tests);
+  const all = testHunks(tests);
+  const outside = outsideNote(tests);
+  /** Check or uncheck every hunk of a scenario, one call per file. */
+  const setScenarioRead = (hunks: ScenarioHunk[], read: boolean) => {
+    const byPath = new Map<string, number[]>();
+    for (const h of hunks) byPath.set(h.path, [...(byPath.get(h.path) ?? []), h.index]);
+    for (const [path, indexes] of byPath) viewers.onSetRead(path, indexes, read);
+  };
   return (
     <>
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">
           {testsLabel({ scenarios: tests.scenarios.length, asserted: tests.asserted, snapshotOnly: tests.snapshotOnly, gaps: tests.gaps })}
+          {all.length > 0 && <span data-tests-reviewed>{` · ${all.filter((h) => h.read).length} of ${all.length} test hunks reviewed`}</span>}
         </p>
         <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Checkbox aria-label="Show values" checked={values} onCheckedChange={(checked) => setValues(checked === true)} />
@@ -394,23 +403,53 @@ function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: V
           {mismatch}
         </p>
       )}
+      {outside && (
+        <p data-tests-outside className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
+          {outside}
+          {onShowDiff && (
+            <button type="button" onClick={onShowDiff} className="underline underline-offset-2 hover:text-foreground">
+              Review them in Diff
+            </button>
+          )}
+        </p>
+      )}
       <ol aria-label="Scenarios" className="flex flex-col">
-        {tests.scenarios.map((s, i) => (
-          <li key={`${i}-${s.title}`}>
+        {tests.scenarios.map((s, i) => {
+          const read = s.hunks.length > 0 && s.hunks.every((h) => h.read);
+          return (
+          <li key={`${i}-${s.title}`} className={`flex items-start gap-1 rounded ${i === at ? "bg-muted" : "hover:bg-muted/50"}`}>
+            {/* Its own button beside the row's, since a button cannot hold another. */}
+            {s.hunks.length > 0 ? (
+              <button
+                type="button"
+                data-scenario-check
+                aria-pressed={read}
+                aria-label={`${read ? "Mark unread" : "Mark read"}: scenario ${s.title}`}
+                onClick={() => setScenarioRead(s.hunks, !read)}
+                className="mt-2 ml-2 shrink-0 rounded-full"
+              >
+                <HunkCheck read={read} />
+              </button>
+            ) : (
+              <span className="mt-2 ml-2 size-4 shrink-0" />
+            )}
             <button
               type="button"
               data-scenario={i}
               aria-current={i === at}
               onClick={() => setAt(i)}
-              className={`flex w-full items-baseline gap-2 rounded px-2 py-1.5 text-left ${i === at ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
+              className={`flex min-w-0 flex-1 items-baseline gap-2 px-2 py-1.5 text-left ${i === at ? "font-medium" : ""}`}
             >
               <span className="shrink-0 font-mono text-xs" style={{ color: "var(--destructive-text)" }}>
                 Scenario
               </span>
-              <span className="min-w-0 flex-1">
+              <span className={`min-w-0 flex-1 ${read && i !== at ? "text-muted-foreground" : ""}`}>
                 {s.title}
                 {/* Counts and any mismatch sit under the title, which keeps the panel's full width. */}
                 <span className="flex flex-wrap gap-x-2 text-[11px] font-normal tabular-nums">
+                  <span data-scenario-reviewed className={read ? "" : "text-muted-foreground"} style={read ? { color: "var(--success)" } : undefined}>
+                    {scenarioReviewNote(s.hunks)}
+                  </span>
                   <span style={{ color: "var(--success)" }}>{s.asserted} asserted</span>
                   <span style={{ color: "var(--warning-text)" }}>{s.snapshotOnly} snapshot</span>
                   {scenarioMismatch(s) && (
@@ -423,7 +462,8 @@ function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: V
               </span>
             </button>
           </li>
-        ))}
+          );
+        })}
       </ol>
       {scenario && (
         <div className="overflow-hidden rounded-md border">

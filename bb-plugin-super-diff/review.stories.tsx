@@ -1,6 +1,6 @@
 import { experimental_Diff as Diff, experimental_SourceCode as SourceCode } from "@get-bb/plugin-sdk/app";
 import { ReviewScreen } from "./components/review-screen";
-import type { ReviewResult } from "./review/contract";
+import type { ReviewResult, ViewTests } from "./review/contract";
 import { parseDiff } from "./review/items";
 import { buildView, type StoredGrouping } from "./review/view";
 import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./review/tests/feature";
@@ -159,13 +159,15 @@ const scenarioViews = SCENARIOS.map((scenario) => {
   return { title: scenario.title, asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text };
 });
 // Each scenario is one whole test() call: test 1 has two steps, test 2 one.
+// Test 1 is the four lines the branch adds; test 2 sits below them, unchanged.
 const SPROCKET_TESTS = [
-  { name: "sprocket adds one", total: 2 },
-  { name: "sprocket refuses Infinity", total: 1 },
+  { name: "sprocket adds one", total: 2, line: 1, endLine: 4 },
+  { name: "sprocket refuses Infinity", total: 1, line: 6, endLine: 8 },
 ];
 const matchedViews = scenarioViews.map((view, i) => ({
   ...view,
-  tests: [{ path: "src/sprocket.test.ts", test: i + 1, name: SPROCKET_TESTS[i]!.name, cited: SPROCKET_TESTS[i]!.total, total: SPROCKET_TESTS[i]!.total, sharedWith: 0 }],
+  tests: [{ path: "src/sprocket.test.ts", test: i + 1, name: SPROCKET_TESTS[i]!.name, cited: SPROCKET_TESTS[i]!.total, total: SPROCKET_TESTS[i]!.total, sharedWith: 0, line: SPROCKET_TESTS[i]!.line, endLine: SPROCKET_TESTS[i]!.endLine }],
+  hunks: [],
 }));
 const notCovered = notCoveredFeature(
   [
@@ -225,32 +227,35 @@ const testConcerns: Array<{ title: string; note: string; items: Array<[string, n
   { title: "Call it from the widget", note: "The widget now returns its gadget through the sprocket.", items: [["src/widget.ts", 1]], tests: false },
   { title: "The widget test expects one more", note: "The widget's result goes up by the sprocket's one.", items: [["src/widget.test.ts", 0]], tests: true },
 ];
-const withTestsBase = buildView(
-  testFiles,
-  {
-    grouping: {
-      headline: "Widgets pass their gadget through a new sprocket.",
-      concerns: testConcerns.map((c) => ({ title: c.title, note: c.note, files: c.items.map(([path, i]) => ({ path, hunks: [i] })) })),
+const testsBlock = { scenarios: matchedViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2, outside: [] };
+/** The test branch as the panel draws it, with each test concern's scenarios and the hunks given as read. */
+const testsView = (blocks: Map<number, ViewTests>, read: Array<[string, number]> = []) =>
+  buildView(
+    testFiles,
+    {
+      grouping: {
+        headline: "Widgets pass their gadget through a new sprocket.",
+        concerns: testConcerns.map((c) => ({ title: c.title, note: c.note, files: c.items.map(([path, i]) => ({ path, hunks: [i] })) })),
+      },
+      assignments: testConcerns.flatMap((c, concern) => c.items.map(([path, index]) => ({ path, index, hash: hashOf(path, index), concern }))),
+      baseSha: "base",
+      headSha: "head",
+      groupedAt: "2026-10-05T12:00:00.000Z",
     },
-    assignments: testConcerns.flatMap((c, concern) => c.items.map(([path, index]) => ({ path, index, hash: hashOf(path, index), concern }))),
-    baseSha: "base",
-    headSha: "head",
-    groupedAt: "2026-10-05T12:00:00.000Z",
-  },
-  null,
-  { base: "origin/main" },
-);
-const testsBlock = { scenarios: matchedViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
-const withTests = {
-  ...withTestsBase,
-  concerns: withTestsBase.concerns.map((c, i) => (testConcerns[i]!.tests ? { ...c, tests: testsBlock } : c)),
-};
+    null,
+    { base: "origin/main", tests: blocks, viewed: new Map(read.map(([path, index]) => [`${path}#${index}`, hashOf(path, index)])) },
+  );
+const withTests = testsView(new Map([[0, testsBlock], [2, testsBlock]]));
 
 /** A concern that changes code and tests: the code first, then its tests as scenarios under Tests, whose Scenarios and Diff toggle swaps only the test files. The rail counts its scenarios. */
 export const CodeAndTests = () => render({ state: "ok", view: withTests });
 
 /** A concern that is only tests: its scenarios listed, the chosen one as Gherkin with recorded values folded until Show values, then what the tests leave out. Diff, beside the title, shows the raw files. The rail tags it "tests". */
 export const TestConcern = () => render({ state: "ok", view: withTests }, false, "concern-2");
+
+/** Each scenario has a checkmark for the test hunks behind it, and says how far through them you are. Only the snapshot is read here: the first scenario, which also covers the new test, is 1 of 2 hunks reviewed, and the second, whose test is unchanged, is reviewed. */
+export const ScenarioReviewed = () =>
+  render({ state: "ok", view: testsView(new Map([[0, testsBlock], [2, testsBlock]]), [["src/__snapshots__/sprocket.test.ts.snap", 0]]) });
 
 /** Some files marked viewed: they fold and dim, and the bar and the rail count them. */
 export const SomeViewed = () => render({ state: "ok", view: viewedAt(["src/sprocket.ts", 0]) });
@@ -273,11 +278,12 @@ const splitViews = SPLIT.map((scenario) => {
   const folded = scenarioFeature(scenario, (ref) => WIDGET_STEPS[ref] ?? null, { values: false });
   return {
     title: scenario.title,
-    tests: [{ path: "src/widget.test.ts", test: 1, name: "widget", cited: 1, total: 3, sharedWith: 2 }],
+    tests: [{ path: "src/widget.test.ts", test: 1, name: "widget", cited: 1, total: 3, sharedWith: 2, line: 1, endLine: 3 }],
     asserted: folded.asserted,
     snapshotOnly: folded.snapshotOnly,
     steps: folded.text,
     values: folded.text,
+    hunks: [],
   };
 });
 
@@ -286,12 +292,7 @@ export const ScenariosSplitOneTest = () =>
   render(
     {
       state: "ok",
-      view: {
-        ...withTests,
-        concerns: withTests.concerns.map((c, i) =>
-          i === 2 ? { ...c, tests: { scenarios: splitViews, notCovered, asserted: 3, snapshotOnly: 0, gaps: 1, snapshots: 0 } } : c,
-        ),
-      },
+      view: testsView(new Map([[0, testsBlock], [2, { scenarios: splitViews, notCovered, asserted: 3, snapshotOnly: 0, gaps: 1, snapshots: 0, outside: [] }]])),
     },
     false,
     "concern-2",

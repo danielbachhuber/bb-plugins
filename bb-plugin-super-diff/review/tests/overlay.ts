@@ -58,6 +58,8 @@ function scenarioTests(covered: Scenario[], inputs: TestInputs): ViewScenarioTes
       cited: steps.size,
       total: test.steps.length,
       sharedWith: citers.get(key)! - 1,
+      line: test.line,
+      endLine: test.endLine,
     })),
   );
 }
@@ -68,7 +70,8 @@ export function buildOverlay(block: TestsBlock, inputs: TestInputs): ViewTests {
   const scenarios = block.covered.map((scenario, i) => {
     const folded = scenarioFeature(scenario, resolve, { values: false });
     const full = scenarioFeature(scenario, resolve, { values: true });
-    return { title: scenario.title, tests: tests[i]!, asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text, snapshots: full.snapshots };
+    // Which hunks: buildView fills these in, since it holds the hunks and their reads.
+    return { title: scenario.title, tests: tests[i]!, hunks: [], asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text, snapshots: full.snapshots };
   });
   // Counted once per step across the concern, since scenarios can cite the same step.
   const cited = new Map(block.covered.flatMap((s) => s.then.flatMap((t) => t.steps.flatMap((ref) => resolve(ref) ?? []))).map((s) => [s.id + s.code, s]));
@@ -80,5 +83,6 @@ export function buildOverlay(block: TestsBlock, inputs: TestInputs): ViewTests {
     snapshotOnly: steps.filter((s) => s.kind === "snapshot").length,
     gaps: block.notCovered.length,
     snapshots: scenarios.reduce((n, s) => n + s.snapshots, 0),
+    outside: [],
   };
 }

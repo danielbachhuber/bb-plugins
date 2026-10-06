@@ -141,7 +141,8 @@ scenario count. Test files are those named `*.test.*` or `*.spec.*` or under
 Scenarios has three parts, the Gherkin drawn by bb's own source viewer:
 
 - **The scenarios, listed.** Each with how many of its steps are asserted
-  and how many are snapshot only. Choosing one shows it below.
+  and how many are snapshot only, and a checkmark for the test hunks behind
+  it. Choosing one shows it below.
 - **The chosen scenario.** Its Given, When, and Then lines in the agent's
   words. Under each Then line are the assertions that check it, numbered as
   `1.3` and marked asserted, snapshot only, or checked to exist. A recorded
@@ -152,6 +153,17 @@ Scenarios has three parts, the Gherkin drawn by bb's own source viewer:
   need, each tagged with why it is a gap (`@untested`, `@unchecked`,
   `@never-run`, or `@outside-layer`), with a note and the code location as
   comments.
+
+A scenario's hunks are the concern's test hunks that overlap the test() calls
+it cites, and the hunks of those test files' snapshots. Under its title it says
+how far through them you are: "2 hunks", "1 of 2 hunks reviewed", or a green
+"reviewed", or "no changed lines" when the tests it cites are not changed on
+the branch. Its checkmark checks or unchecks all of them at once, the same
+checks the hunks have in **Diff**, so reading a test either way counts. The
+line above the list counts the test hunks reviewed. A test hunk outside every
+scenario, such as an import, a helper, or a `test.each` the step listing does
+not number, is named under that line with a link to review it in **Diff**,
+since no scenario's checkmark reaches it.
 
 The agent writes one scenario per behaviour, so the scenarios need not match
 the test() calls one to one: a single test that checks three things can

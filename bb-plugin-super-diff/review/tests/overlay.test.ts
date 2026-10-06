@@ -40,16 +40,16 @@ describe("buildOverlay: which test() calls each scenario describes", () => {
   it("matches a scenario that cites one whole test no other scenario cites", () => {
     const overlay = buildOverlay(block(scenario("Reserve", "1"), scenario("Refuse", "2.1")), inputs);
     expect(overlay.scenarios.map((s) => s.tests)).toEqual([
-      [{ path: FILE, test: 1, name: "reserves widgets", cited: 4, total: 4, sharedWith: 0 }],
-      [{ path: FILE, test: 2, name: "refuses a member", cited: 1, total: 1, sharedWith: 0 }],
+      [{ path: FILE, test: 1, name: "reserves widgets", cited: 4, total: 4, sharedWith: 0, line: 10, endLine: 15 }],
+      [{ path: FILE, test: 2, name: "refuses a member", cited: 1, total: 1, sharedWith: 0, line: 20, endLine: 25 }],
     ]);
   });
 
   it("records a test split across scenarios, with how many of its steps each cites", () => {
     const overlay = buildOverlay(block(scenario("First half", "1.1", "1.2"), scenario("Second half", "1.3", "1.4")), inputs);
     expect(overlay.scenarios.map((s) => s.tests)).toEqual([
-      [{ path: FILE, test: 1, name: "reserves widgets", cited: 2, total: 4, sharedWith: 1 }],
-      [{ path: FILE, test: 1, name: "reserves widgets", cited: 2, total: 4, sharedWith: 1 }],
+      [{ path: FILE, test: 1, name: "reserves widgets", cited: 2, total: 4, sharedWith: 1, line: 10, endLine: 15 }],
+      [{ path: FILE, test: 1, name: "reserves widgets", cited: 2, total: 4, sharedWith: 1, line: 10, endLine: 15 }],
     ]);
   });
 
