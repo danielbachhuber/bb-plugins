@@ -15,7 +15,23 @@ import { isTestSide } from "@/review/tests/paths";
 import { BranchBar } from "./branch-bar";
 import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
 
-export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
+/**
+ * Draws one file's patch. `file`, when given, is the changed file it belongs
+ * to, so the panel can load the file's whole sides and let the diff expand its
+ * context; the stale banner's diffs have none.
+ */
+export type DiffViewComponent = ComponentType<{ patch: string; path: string; file?: DiffViewFile }>;
+
+/** The changed file a hunk's diff belongs to: what expanding its context needs. */
+export interface DiffViewFile {
+  previousPath: string | null;
+  /** The file's whole diff hashed, so its contents are read once per version. */
+  hash: string;
+  /** The file's `diff --git` header lines. */
+  header: string;
+  /** The one `@@` hunk drawn. */
+  hunk: string;
+}
 export type SourceViewComponent = ComponentType<{ content: string; path: string }>;
 
 export interface ReviewScreenProps {
@@ -500,7 +516,7 @@ function HunkBlock({ file, hunk, viewers }: { file: ViewFile; hunk: ViewHunk; vi
         (hunk.kind === "file" ? (
           <p className="px-3 pb-2 text-xs text-muted-foreground">{wholeFileText(file)}</p>
         ) : (
-          <viewers.DiffView patch={hunkPatch(file, hunk)} path={file.path} />
+          <viewers.DiffView patch={hunkPatch(file, hunk)} path={file.path} file={{ previousPath: file.previousPath, hash: file.hash, header: file.header, hunk: hunk.text }} />
         ))}
     </div>
   );

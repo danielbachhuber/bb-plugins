@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type Checkout } from "./service";
+import { fileContents, getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type Checkout } from "./service";
 import { createStore, MIGRATIONS } from "./store";
 import { makeRepo } from "./testing/repo";
 
@@ -75,6 +75,22 @@ describe("service", () => {
     await setRead(store, "thr_1", checkout, "src/widget.ts", [0], true);
     await setRead(store, "thr_1", checkout, "src/widget.ts", [0], false);
     expect((await widget()).viewed).toBe(false);
+  });
+
+  describe("fileContents", () => {
+    it("gives the file as it is on disk, and an empty text for a deleted one", async () => {
+      const { r, checkout } = await setup();
+      r.write("src/widget.ts", "export const widget = 3;\n");
+      expect(await fileContents(checkout, "src/widget.ts")).toBe("export const widget = 3;\n");
+      r.remove("src/gadget.ts");
+      expect(await fileContents(checkout, "src/gadget.ts")).toBe("");
+    });
+
+    it("refuses a path outside the checkout", async () => {
+      const { checkout } = await setup();
+      await expect(fileContents(checkout, "../secret.txt")).rejects.toThrow("not in the checkout");
+      await expect(fileContents(checkout, "/etc/hosts")).rejects.toThrow("not in the checkout");
+    });
   });
 
   describe("GitHub's Viewed", () => {

@@ -54,6 +54,20 @@ Diff vouching for itself. When they disagree, the note turns red and names the
 file only one of them lists. When bb cannot give its list, the note says the
 files were not checked.
 
+## More context around a hunk
+
+Each hunk shows a few lines around its change, with the rest of the file
+folded into "unmodified lines" bars above and below. Click a bar's arrow to
+show more of the file, or **Expand all** for the whole of it. The context is
+the file as it is now, with the branch's other changes in it, since that is the
+code the hunk sits in. In a file whose earlier hunks add or remove lines, the
+line numbers beside removed lines follow the file as it is now rather than the
+base.
+
+The file is read from disk once the hunk is drawn, once per version of the
+file's diff, however many of its hunks are on screen. A binary or very large
+file has no context to show, and its hunks draw as before.
+
 ## Checking off hunks, and Viewed on GitHub
 
 Each hunk opens with a strip: a round checkmark, then "Hunk 1 of 2". Check it
@@ -272,7 +286,8 @@ reads each changed file from disk, runs one `cat-file` for each path the stored
 contents do not cover, and one `diff --no-index` for each file that changed
 since the grouping. For each test file on the branch, it reads the file and its
 `.snap` file from disk and parses them. Checking a hunk or a file's Viewed
-runs the same `git` commands once to find the file's current diff. Opening the
+runs the same `git` commands once to find the file's current diff. Drawing a
+hunk reads its file from disk once, for its context. Opening the
 panel also asks bb once for its own list of the branch's changed files against
 the same base, for the check beside the bar; on a 25-file branch that adds
 about 80 ms. Generate sends one message to the thread.

@@ -8,6 +8,7 @@ const file = (indexes: number[], total: number) => ({
   binary: false,
   header: "",
   total,
+  hash: "",
   viewed: false,
   sync: "none" as const,
   githubViewed: false,

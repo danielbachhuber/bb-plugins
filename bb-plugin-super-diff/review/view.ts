@@ -177,6 +177,7 @@ function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, contexts: 
       header: file?.header ?? "",
       total: file ? Math.max(file.hunks.length, 1) : 0,
       // Viewed here when the hunks this section shows are; a file split across concerns is viewed one concern at a time.
+      hash: file?.hash ?? "",
       viewed: live.length > 0 && live.every((hunk) => hunk.read),
       sync: contexts.get(path)?.sync ?? "none",
       githubViewed: contexts.get(path)?.githubViewed ?? false,

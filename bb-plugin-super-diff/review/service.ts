@@ -1,5 +1,6 @@
 // What the RPC methods and CLI commands do, composed from the pure core,
 // git.ts, and the store. server.ts only resolves the checkout and wires these.
+import path from "node:path";
 import { formatViolation, parseGrouping, resolveGrouping } from "./check";
 import { isMechanical } from "./classify";
 import type { ReviewView, StaleInfo } from "./contract";
@@ -8,7 +9,7 @@ import { crossCheck } from "./crosscheck";
 import { formatHunkList } from "./format";
 import { commitsSince, diffStates, fileAtCommit, fileOnDisk, readBranchDiff } from "./git";
 import { itemsOf, parseDiff } from "./items";
-import { changedPaths, type FileState } from "./stale";
+import { ABSENT, changedPaths, type FileState } from "./stale";
 import type { Store } from "./store";
 import { itemKey, type DiffFile } from "./types";
 import { planFileViewed, planRead, type FileContext, type GithubFile, type Plan } from "./github";
@@ -176,6 +177,17 @@ export async function setFileViewed(
 ): Promise<string | null> {
   const file = await contextFor(store, threadId, checkout, path, github);
   return file ? apply(store, threadId, path, planFileViewed(file, viewed), github) : null;
+}
+
+/**
+ * A changed file as it is on disk, for expanding the context around one of its
+ * hunks: "" for a deleted file, and null for a binary or very large one.
+ */
+export async function fileContents(checkout: Checkout, file: string): Promise<string | null> {
+  const normal = path.posix.normalize(file);
+  if (path.posix.isAbsolute(normal) || normal === ".." || normal.startsWith("../")) throw new Error(`${file} is not in the checkout.`);
+  const state = await fileOnDisk(checkout.root, file);
+  return state === ABSENT ? "" : state.text;
 }
 
 /** What `bb super-diff tests` prints: each test on the branch, with its numbered steps. */

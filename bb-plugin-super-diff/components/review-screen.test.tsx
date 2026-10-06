@@ -33,8 +33,8 @@ function screenWith(props: Partial<ReviewScreenProps> & Pick<ReviewScreenProps, 
   );
 }
 
-const DiffView = ({ patch, path }: { patch: string; path: string }) => (
-  <pre data-testid="diff" data-path={path}>
+const DiffView = ({ patch, path, file }: { patch: string; path: string; file?: { hash: string; hunk: string } }) => (
+  <pre data-testid="diff" data-path={path} data-file-hash={file?.hash} data-hunk-text={file?.hunk}>
     {patch}
   </pre>
 );
@@ -231,6 +231,13 @@ describe("ReviewScreen", () => {
       fireEvent.click(screen.getByRole("button", { name: "Mark read: src/widget.ts, hunk 1 of 2" }));
       // Only this hunk: hunk 2 of the same file belongs to Second.
       expect(onSetRead).toHaveBeenCalledWith("src/widget.ts", [0], true);
+    });
+
+    it("hands each hunk's diff its file and hunk, so the panel can load the context around it", () => {
+      const { container } = screenWith({ result: { state: "ok", view: withRead(false) } });
+      const diff = within(strip(container)).getByTestId("diff");
+      expect(diff.dataset.fileHash).toMatch(/\w+/);
+      expect(diff.dataset.hunkText).toMatch(/^@@ -1 \+1 @@/);
     });
 
     it("folds a read hunk to its strip, and opens it again without unreading it", () => {

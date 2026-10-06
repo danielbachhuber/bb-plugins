@@ -11,7 +11,7 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { REVIEW_CHANGED, rpcShape, type ReviewResult } from "./review/contract";
 import { toplevel } from "./review/git";
 import { fetchPullRequestFiles, setFileViewed as setGithubViewed, type PullRequestFiles } from "./review/pull-request";
-import { getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type BbFiles, type Checkout, type GithubSync } from "./review/service";
+import { fileContents, getView, hunks, setFileViewed, setRead, submit, testsText, verifyData, type BbFiles, type Checkout, type GithubSync } from "./review/service";
 import { createStore, MIGRATIONS } from "./review/store";
 
 export const rpcContract = defineRpcContract(rpcShape);
@@ -156,6 +156,11 @@ export default async function plugin(bb: BbPluginApi) {
       const error = await setRead(store, threadId, checkout, path, hunks, read, await githubSync(checkout.environmentId));
       if (error) bb.log.warn(error);
       return { ok: true as const, error };
+    },
+    review_file_contents: async ({ threadId, path: file }) => {
+      const checkout = await checkoutFor(threadId);
+      if (typeof checkout === "string") throw new Error(checkout);
+      return { content: await fileContents(checkout, file) };
     },
     review_set_file_viewed: async ({ threadId, path, viewed }) => {
       const checkout = await checkoutFor(threadId);

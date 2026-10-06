@@ -26,6 +26,8 @@ export const viewFileSchema = z.object({
   header: z.string(),
   /** How many items the file has in the diff now, for "hunks 1 and 3 of 4". */
   total: z.number().int(),
+  /** The file's whole diff, hashed: changes whenever the file does, for caching its contents. */
+  hash: z.string(),
   /** Every hunk this section shows is read. */
   viewed: z.boolean(),
   /**
@@ -160,6 +162,12 @@ export const rpcShape = {
     input: z.object({ threadId: z.string().min(1), path: z.string().min(1), hunks: z.array(z.number().int().min(0)).min(1), read: z.boolean() }),
     /** `error` is what GitHub said when it did not take a change; the marks here are kept. */
     output: z.object({ ok: z.literal(true), error: z.string().nullable() }),
+  },
+  review_file_contents: {
+    /** A changed file as it is on disk, so the diff can expand the context around one of its hunks. */
+    input: z.object({ threadId: z.string().min(1), path: z.string().min(1) }),
+    /** null for a binary or very large file, which has no context to show. */
+    output: z.object({ content: z.string().nullable() }),
   },
   review_set_file_viewed: {
     /** A synced file's Viewed box: every hunk of it, here and on GitHub. */
