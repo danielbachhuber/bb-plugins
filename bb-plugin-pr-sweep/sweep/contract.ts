@@ -60,6 +60,39 @@ const checksSchema = z.object({
   total: z.number(),
 });
 
+const feedbackEntrySchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("review"),
+    author: z.string(),
+    avatarUrl: z.string(),
+    state: z.enum(["changes_requested", "approved", "commented"]),
+    body: z.string(),
+    url: z.string(),
+    at: z.number(),
+  }),
+  z.object({
+    kind: z.literal("thread"),
+    author: z.string(),
+    avatarUrl: z.string(),
+    path: z.string(),
+    line: z.number().nullable(),
+    status: z.enum(["unanswered", "replied", "resolved"]),
+    outdated: z.boolean(),
+    replies: z.number(),
+    body: z.string(),
+    url: z.string(),
+    at: z.number(),
+  }),
+  z.object({
+    kind: z.literal("comment"),
+    author: z.string(),
+    avatarUrl: z.string(),
+    body: z.string(),
+    url: z.string(),
+    at: z.number(),
+  }),
+]);
+
 const rowSchema = z.object({
   repo: z.string(),
   number: z.number(),
@@ -276,6 +309,17 @@ export const rpcContract = defineRpcContract({
   markSeen: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),
     output: z.object({ ok: z.boolean() }),
+  },
+  /**
+   * What reviewers left on one pull request, read from GitHub when its
+   * comments drawer opens. One GraphQL call per open; the sweep never makes it.
+   */
+  listFeedback: {
+    input: z.object({ repo: z.string(), number: z.number() }).strict(),
+    output: z.object({
+      entries: z.array(feedbackEntrySchema),
+      error: z.string().nullable(),
+    }),
   },
   archiveThread: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),

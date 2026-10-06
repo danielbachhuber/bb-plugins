@@ -30,6 +30,7 @@ import {
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
 import { actionSummary, commentsToRead, hasNothingToDo } from "./actions.js";
 import { relativeTime } from "./format.js";
+import { FeedbackDrawer, type FeedbackResult } from "./feedback-drawer.js";
 import { bannerFor, blockedStageOf, diffOf, reviewersFor } from "./row-status.js";
 import {
   PR_RUNS,
@@ -518,6 +519,11 @@ export interface PrListViewProps {
   /** The title was clicked, and the pull request is about to open. */
   onOpenLink: (row: Row) => void;
   /**
+   * Reads what reviewers left on the pull request, when its comment count is
+   * clicked. Once it has read them, the row's "N new" is marked seen.
+   */
+  loadFeedback: (row: Row) => Promise<FeedbackResult>;
+  /**
    * A user's or organization's picture. Defaults to GitHub's; the stories
    * pass drawn ones so they need no network.
    */
@@ -540,6 +546,7 @@ export function PrListView({
   onNoteSave,
   onDismissChecks,
   onOpenLink,
+  loadFeedback,
   avatarFor,
   renderTrack,
 }: PrListViewProps): ReactNode {
@@ -656,6 +663,22 @@ export function PrListView({
                   onDismissChecks={onDismissChecks}
                 />
               ) : null;
+            }}
+            renderComments={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row) return null;
+              return (
+                <FeedbackDrawer
+                  url={row.url}
+                  now={now}
+                  Link={UrlLink}
+                  load={async () => {
+                    const result = await loadFeedback(row);
+                    if (!result.error && row.newComments > 0) onOpenLink(row);
+                    return result;
+                  }}
+                />
+              );
             }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {

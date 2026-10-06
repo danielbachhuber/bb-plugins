@@ -10,6 +10,9 @@ import {
   type Listing,
   type Row,
 } from "./sweep/list-view";
+import { FeedbackDrawer, FeedbackList } from "./sweep/feedback-drawer";
+import type { FeedbackEntry } from "./sweep/feedback";
+import { PlainLink } from "sweep-ui/row";
 
 export default {
   title: "pr-sweep/PR list",
@@ -380,6 +383,79 @@ function harvestFor(listing: Listing | null): HarvestPanelState {
   };
 }
 
+/** What reviewers left on #487, as the comments drawer reads it. */
+const FEEDBACK: FeedbackEntry[] = [
+  {
+    kind: "review",
+    author: "hubber",
+    avatarUrl: avatarFor("hubber"),
+    state: "changes_requested",
+    body: "Close, but the export drops rows when a widget has no owner. Notes inline.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 26 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "hubber",
+    avatarUrl: avatarFor("hubber"),
+    path: "export/csv.ts",
+    line: 42,
+    status: "unanswered",
+    outdated: false,
+    replies: 0,
+    body: "This skips widgets whose owner is null, so the CSV comes out short.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 26 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "hubber",
+    avatarUrl: avatarFor("hubber"),
+    path: "export/csv.ts",
+    line: 88,
+    status: "unanswered",
+    outdated: false,
+    replies: 0,
+    body: "Could this stream rows instead of building one string? Large accounts have tens of thousands of widgets.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 26 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    path: "api/widgets.ts",
+    line: 118,
+    status: "replied",
+    outdated: false,
+    replies: 1,
+    body: "Nit: rename to toCsvRow.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 25 * HOUR,
+  },
+  {
+    kind: "comment",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    body: "Approved once hubber's notes land.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 20 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    path: "export/csv.ts",
+    line: 12,
+    status: "resolved",
+    outdated: true,
+    replies: 2,
+    body: "Import order.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 30 * HOUR,
+  },
+];
+
 /** The panel's title bar, so a frame reads like the real panel. */
 function Frame({
   listing,
@@ -413,6 +489,7 @@ function Frame({
             onNoteSave={async () => true}
             onDismissChecks={noop}
             onOpenLink={noop}
+            loadFeedback={async () => ({ entries: FEEDBACK, error: null })}
             avatarFor={avatarFor}
           />
         </div>
@@ -489,6 +566,41 @@ export function Rows() {
       </StoryRow>
       <StoryRow label="Without Harvest" hint="No clock in the action line.">
         <Frame listing={{ ...baseline, harvest: { available: false, running: null } }} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/**
+ * The drawer a row's comment count opens. The review that requested changes
+ * comes first, then the threads still open, unanswered ones marked in red,
+ * then general comments. Resolved threads wait behind "1 resolved". Each entry
+ * opens on GitHub. Then the drawer while it reads, when GitHub fails, and with
+ * nothing open.
+ */
+export function CommentsDrawer() {
+  const box = (children: ReactNode) => (
+    <div className="w-full max-w-3xl rounded-md border border-border bg-muted/40 px-3 py-2">{children}</div>
+  );
+  const url = "https://github.com/acme/widgets/pull/487";
+  return (
+    <StoryCard>
+      <StoryRow label="Open" hint="What reviewers left on #487.">
+        {box(<FeedbackList entries={FEEDBACK} now={now} url={url} Link={PlainLink} />)}
+      </StoryRow>
+      <StoryRow label="Reading" hint="While the one request to GitHub runs.">
+        <FeedbackDrawer load={() => new Promise(() => {})} now={now} url={url} Link={PlainLink} />
+      </StoryRow>
+      <StoryRow label="Failed" hint="GitHub could not be reached.">
+        <FeedbackDrawer
+          load={async () => ({ entries: [], error: "Could not read the comments from GitHub." })}
+          now={now}
+          url={url}
+          Link={PlainLink}
+        />
+      </StoryRow>
+      <StoryRow label="Nothing open" hint="Every thread resolved.">
+        {box(<FeedbackList entries={FEEDBACK.slice(-1)} now={now} url={url} Link={PlainLink} />)}
       </StoryRow>
     </StoryCard>
   );

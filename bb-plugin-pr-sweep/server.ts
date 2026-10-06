@@ -20,7 +20,8 @@ import {
   unclaimedPromptThreadIds,
 } from "bb-plugin-gh-context/links";
 import { rpcContract } from "./sweep/contract.js";
-import { GhUnavailableError, createGhRunner, runSweep } from "./sweep/gh.js";
+import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, runSweep } from "./sweep/gh.js";
+import { fetchFeedback } from "./sweep/feedback.js";
 import { buildPromptParts, headerItem, trailerItem } from "./sweep/prompt.js";
 import {
   actionSummary,
@@ -989,6 +990,17 @@ export default async function plugin(bb: BbPluginApi) {
       store.setDismissal(repo, number, fingerprint, Date.now());
       bb.log.info(`dismissed failing checks on ${repo}#${number}: ${row!.failingChecks!.join(", ")}`);
       return { ok: true };
+    },
+
+    async listFeedback({ repo, number }) {
+      if (!REPO_SLUG_PATTERN.test(repo)) return { entries: [], error: "Not a repository." };
+      const { ghPath } = await settings.get();
+      try {
+        return { entries: await fetchFeedback(createGhRunner(ghPath), repo, number), error: null };
+      } catch (error) {
+        bb.log.warn(`could not read feedback on ${repo}#${number}: ${String(error)}`);
+        return { entries: [], error: "Could not read the comments from GitHub." };
+      }
     },
 
         markSeen({ repo, number }) {

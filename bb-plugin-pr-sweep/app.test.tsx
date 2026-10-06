@@ -355,7 +355,47 @@ describe("tiers", () => {
   it("counts general and inline comments together in the action line", async () => {
     const slot = render(listing({ rows: [rowFixture({ commentsCount: 1, inlineComments: 4 })] }));
     const row = await rowFor(slot, /Add the widget endpoint/);
-    expect(within(row).getByTitle("5 comments")).toHaveTextContent("5");
+    expect(within(row).getByRole("button", { name: "Show 5 comments" })).toHaveTextContent("5");
+  });
+
+  it("reads the feedback when the comment count is clicked, and marks it seen", async () => {
+    const feedbackCalls: unknown[] = [];
+    const seenCalls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ commentsCount: 2, newComments: 1 })] }), {
+      listFeedback: (input: unknown) => {
+        feedbackCalls.push(input);
+        return {
+          entries: [
+            {
+              kind: "thread",
+              author: "hubber",
+              avatarUrl: "",
+              path: "export/csv.ts",
+              line: 42,
+              status: "unanswered",
+              outdated: false,
+              replies: 0,
+              body: "This skips widgets whose owner is null.",
+              url: "https://github.com/acme/widgets/pull/42#discussion_r1",
+              at: 0,
+            },
+          ],
+          error: null,
+        };
+      },
+      markSeen: (input: unknown) => {
+        seenCalls.push(input);
+        return { ok: true };
+      },
+    });
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(feedbackCalls).toEqual([]);
+
+    fireEvent.click(within(row).getByRole("button", { name: "Show 2 comments" }));
+    expect(await within(row).findByText("This skips widgets whose owner is null.")).toBeInTheDocument();
+    expect(within(row).getByText("export/csv.ts:42")).toBeInTheDocument();
+    expect(feedbackCalls).toEqual([{ repo: "acme/widgets", number: 42 }]);
+    await waitFor(() => expect(seenCalls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 
   it("folds nothing, however many rows are waiting", async () => {

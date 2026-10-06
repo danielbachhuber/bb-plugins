@@ -133,6 +133,16 @@ threads were all answered still shows it was discussed. The Harvest clock, when 
 plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
+Clicking the comment count opens what reviewers left in a drawer under the
+action line: reviews that requested changes first, then other reviews with
+something to say, then the inline threads still open, each with its file and
+line and whether it is unanswered or you replied, then general comments.
+Resolved threads wait behind "N resolved" at the bottom. Your own comments and
+bots' are left out. Each entry opens on GitHub, and its text is cut to three
+lines. Opening the drawer makes one GitHub GraphQL request for that pull
+request, and none is made until you click; once it has read the comments, the
+row's "N new" clears. Clicking the count again closes it.
+
 A red "checks failing" banner has Dismiss at its right end, for a failure you
 cannot fix yourself, such as a check that waits on a label only the
 repository's maintainers can add. Dismissing takes the failing-checks flag off
