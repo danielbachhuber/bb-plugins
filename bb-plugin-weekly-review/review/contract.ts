@@ -141,6 +141,8 @@ const workstreamViewSchema = z.object({
       details: z.array(z.string()),
       links: z.array(z.number()),
       suggested: z.array(z.number()),
+      /** Checked off on the Now page. False when Now is not installed. */
+      done: z.boolean(),
     })),
   }).nullable(),
   /** The rules agent's open proposals, each with what it would catch. */

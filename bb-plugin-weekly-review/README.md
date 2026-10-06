@@ -60,6 +60,22 @@ row, which is the gap the page is there to show.
 The priorities come from the same copy of the journal doc as this week's
 entry, so they cost no extra request (see below).
 
+### On the Now page
+
+When the [Now](../bb-plugin-now) plugin is installed, Weekly Review writes the
+week's priorities into it, where they show in a column beside Now's list. Each
+goes with the hours its linked workstreams have had this week: none for a
+priority with no link, and none either when its workstreams had activity but
+no hours, so Now does not report it as getting no time. It writes after each
+gather, when a fresh read of the journal finds a changed entry, and after any
+change on this page, such as linking a priority. Each write is one RPC call to
+Now on this machine.
+
+A priority checked off on the Now page shows here struck through, marked
+"Done in Now". Opening the page asks Now once which are checked. When Now is
+not installed or the call fails, the page shows the priorities without done
+marks and logs one warning.
+
 ## Workstreams
 
 A workstream is a piece of work you are spending time on, such as a feature,

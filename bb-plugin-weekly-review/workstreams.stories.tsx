@@ -128,7 +128,7 @@ export const AddedEmpty = () => (
 const PRIORITIES = {
   heading: "September 4, 2026",
   items: [
-    { text: "Ship the widget sync beta.", details: [], links: [1], suggested: [] },
+    { text: "Ship the widget sync beta.", details: [], links: [1], suggested: [], done: true },
     { text: "Plan the team rituals for the quarter.", details: [], links: [4], suggested: [] },
     { text: "Start the gadget launch checklist.", details: [], links: [], suggested: [2] },
     {
@@ -141,8 +141,8 @@ const PRIORITIES = {
 };
 
 /**
- * Last week's Next list above the table. Widget sync got time; Team rituals
- * was linked and got none; the gadget launch bullet is not linked yet, with
+ * Last week's Next list above the table. Widget sync got time and is checked
+ * off on the Now page; Team rituals was linked and got none; the gadget launch bullet is not linked yet, with
  * a suggested link; the last has nothing to link to.
  */
 export const Priorities = () => {

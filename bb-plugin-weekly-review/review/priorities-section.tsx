@@ -21,6 +21,8 @@ export interface PriorityItem {
   details: string[];
   links: number[];
   suggested: number[];
+  /** Checked off on the Now page. */
+  done?: boolean;
 }
 
 export function PrioritiesSection({
@@ -60,7 +62,10 @@ export function PrioritiesSection({
                 <div className="flex gap-2">
                   <span className="text-xs tabular-nums text-muted-foreground">{index + 1}.</span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm text-foreground">{priority.text}</div>
+                    <div className="flex items-baseline gap-2 text-sm text-foreground">
+                      <span className={priority.done === true ? "text-muted-foreground line-through" : undefined}>{priority.text}</span>
+                      {priority.done === true ? <span className="shrink-0 text-xs text-muted-foreground">Done in Now</span> : null}
+                    </div>
                     {priority.details.length === 0 ? null : (
                       <ul className="mt-0.5 text-xs text-muted-foreground">
                         {priority.details.map((detail) => <li key={detail}>{detail}</li>)}

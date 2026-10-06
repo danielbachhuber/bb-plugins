@@ -26,7 +26,9 @@ import { importWeekFiles } from "./review/import.js";
 import { DEFAULT_GATHER_CRON, failingSources, isValidCron, nextRun } from "./review/freshness.js";
 import { plannedGathers } from "./review/schedule.js";
 import { createWorkstreamStore } from "./review/workstream-store.js";
-import { createWorkstreamService } from "./review/workstream-service.js";
+import { createWorkstreamService, type WorkstreamView } from "./review/workstream-service.js";
+import { createNowClient } from "./review/now-client.js";
+import { markDone, prioritiesForNow } from "./review/now-priorities.js";
 import {
   MIGRATIONS,
   createSourceStore,
@@ -114,11 +116,38 @@ export default async function plugin(bb: BbPluginApi) {
   const once = createGatherQueue();
   const workstreams = createWorkstreamService(weeks, createWorkstreamStore(db as never));
 
-  /** Runs a change, tells every open panel, and returns the week's refreshed view. */
-  function changed(monday: string, change: () => void) {
+  const now = createNowClient(bb.sdk.plugins, (message) => bb.log.warn(message));
+
+  /**
+   * Writes the week's priorities into the Now plugin, with each one's hours,
+   * and answers which are checked off there. Null when the week has none, or
+   * Now could not be reached.
+   */
+  async function sendToNow(monday: string, view: WorkstreamView = workstreams.view(monday)) {
+    if (view.priorities === null) return null;
+    return now.write({
+      monday,
+      heading: view.priorities.heading,
+      hoursAt: view.table === null ? null : (weeks.listWeeks().find((week) => week.monday === monday)?.generatedAt ?? null),
+      items: prioritiesForNow(view.priorities.items, view.table?.rows ?? []),
+    });
+  }
+
+  /** The week's view, with Now's checks on its priorities. */
+  async function viewWithDone(monday: string) {
+    const view = workstreams.view(monday);
+    return { ...view, priorities: markDone(view.priorities, view.priorities === null ? null : await now.done(monday)) };
+  }
+
+  /**
+   * Runs a change, tells every open panel, and returns the week's refreshed
+   * view. A change can move hours between priorities, so Now gets the new list.
+   */
+  async function changed(monday: string, change: () => void) {
     change();
     bb.realtime.publish(WORKSTREAMS_CHANGED, { monday });
-    return workstreams.view(monday);
+    const view = workstreams.view(monday);
+    return { ...view, priorities: markDone(view.priorities, await sendToNow(monday, view)) };
   }
 
   /** The digest, with the workstream table once there are workstreams. */
@@ -204,6 +233,7 @@ export default async function plugin(bb: BbPluginApi) {
     // The journal rides along with the reference docs, so the priorities are
     // stored even on a day the page is never opened.
     if (includeDocs) await readJournal();
+    await sendToNow(result.monday);
 
     const failed = result.sources.filter((source) => !source.ok);
     bb.log.info(
@@ -329,7 +359,11 @@ export default async function plugin(bb: BbPluginApi) {
     if (journalDocId === "") return null;
     try {
       const text = await run((await tools()).fetchDocScript, [journalDocId]);
-      if (workstreams.rememberJournal(text)) bb.realtime.publish(JOURNAL_CHANGED, {});
+      if (workstreams.rememberJournal(text)) {
+        bb.realtime.publish(JOURNAL_CHANGED, {});
+        // A rewritten Next list reaches Now without waiting for a gather.
+        await sendToNow(resolveRange().from);
+      }
       return text;
     } catch (error) {
       bb.log.warn(`could not read the entry doc, using the stored copy: ${String(error)}`);
@@ -707,10 +741,10 @@ export default async function plugin(bb: BbPluginApi) {
     },
     week_generate: ({ from, to }) => runGenerate(from, to),
 
-    workstreams_get: ({ monday }) => workstreams.view(monday),
-    workstream_create: ({ monday, name }) => {
+    workstreams_get: ({ monday }) => viewWithDone(monday),
+    workstream_create: async ({ monday, name }) => {
       let id = 0;
-      const view = changed(monday, () => {
+      const view = await changed(monday, () => {
         id = workstreams.create(name).id;
       });
       return { ...view, id };
