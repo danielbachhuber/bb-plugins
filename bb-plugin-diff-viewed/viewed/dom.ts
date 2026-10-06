@@ -285,6 +285,12 @@ export function findToolbar(root: ParentNode): HTMLElement | null {
 }
 
 /**
+ * bb's toolbar button that opens every file at once. Its label reads "Expand
+ * all files" only while every file is collapsed; otherwise it collapses them.
+ */
+export const EXPAND_ALL_SELECTOR = `${TOOLBAR_SELECTOR} button[aria-label="Expand all files"]`;
+
+/**
  * The toolbar group holding bb's "N files, +a -b" summary and the action
  * buttons. The progress line is stacked above the summary inside it.
  */

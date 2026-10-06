@@ -13,6 +13,8 @@ stays that way until the file's diff changes.
 - Check a file to fold it away. What is still expanded is what you have not
   read yet.
 - Uncheck it to bring it back. Nothing else about the panel changes.
+- bb's **Expand all files** button in the toolbar opens only the files you
+  have not viewed. A viewed file stays collapsed until you open it yourself.
 - The toolbar shows how far you have got, as "3/8 viewed" with a progress
   ring, right-aligned above bb's line counts in place of bb's file count. It
   counts every file in the selected range, including the ones you have not

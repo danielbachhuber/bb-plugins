@@ -403,6 +403,50 @@ describe("restoring marks", () => {
   });
 });
 
+describe("Expand all files", () => {
+  /** bb's toolbar button, set to expand, and what its click does to the cards. */
+  function renderExpandAll(toggles: HTMLButtonElement[]): HTMLButtonElement {
+    const toolbar = renderToolbar();
+    const button = toolbar.querySelector("button") as HTMLButtonElement;
+    button.setAttribute("aria-label", "Expand all files");
+    button.addEventListener("click", () => {
+      button.setAttribute("aria-label", "Collapse all files");
+      for (const toggle of toggles) if (isCollapsed(toggle)) toggle.click();
+    });
+    return button;
+  }
+
+  it("keeps viewed files collapsed", async () => {
+    const viewed = renderCard("a.ts", "+8 -4");
+    const unviewed = renderCard("b.ts", "+1 -1");
+    unviewed.click();
+    const button = renderExpandAll([viewed, unviewed]);
+    const harness = start({ record: { "a.ts": "+8 -4" } });
+    await harness.settle();
+    expect(isCollapsed(viewed)).toBe(true);
+
+    button.click();
+    await harness.settle();
+
+    expect(isCollapsed(viewed)).toBe(true);
+    expect(isCollapsed(unviewed)).toBe(false);
+  });
+
+  it("still lets a viewed file be reopened afterwards", async () => {
+    const viewed = renderCard("a.ts", "+8 -4");
+    const button = renderExpandAll([viewed]);
+    const harness = start({ record: { "a.ts": "+8 -4" } });
+    await harness.settle();
+    button.click();
+    await harness.settle();
+    expect(isCollapsed(viewed)).toBe(true);
+
+    viewed.click();
+    harness.engine.syncNow();
+    expect(isCollapsed(viewed)).toBe(false);
+  });
+});
+
 describe("scope", () => {
   it("decorates nothing when the changes panel is not open", async () => {
     renderCard("a.ts");

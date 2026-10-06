@@ -12,6 +12,7 @@ import {
   createFilterItem,
   existingControl,
   existingFilterItem,
+  EXPAND_ALL_SELECTOR,
   FILTER_ATTR,
   findCards,
   findOpenSelectorMenu,
@@ -367,6 +368,19 @@ export function startEngine(deps: EngineDeps): Engine {
     attributeFilter: ["aria-expanded", "aria-label"],
   });
 
+  // bb's Expand all files opens viewed files along with the rest. Forget that
+  // they were already collapsed once, so the passes its expansion triggers
+  // fold them again, including cards bb has not rendered yet. Capture phase,
+  // so the label is read before bb's handler flips it.
+  const onClick = (event: Event) => {
+    const target = event.target;
+    if (!(target instanceof doc.defaultView!.Element)) return;
+    if (target.closest(EXPAND_ALL_SELECTOR) === null) return;
+    state.autoCollapsed.clear();
+    schedule();
+  };
+  doc.addEventListener("click", onClick, true);
+
   void loadFilter();
   schedule();
 
@@ -378,6 +392,7 @@ export function startEngine(deps: EngineDeps): Engine {
     },
     dispose() {
       observer.disconnect();
+      doc.removeEventListener("click", onClick, true);
       if (cancel !== null) cancel();
       cancel = null;
       writing = true;
