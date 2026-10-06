@@ -95,7 +95,7 @@ describe("ReviewScreen", () => {
   it("renders every item exactly once across the concerns in the rail", () => {
     const { container } = screenWith({ result: { state: "ok", view: view() } });
     expect(allRenderedKeys(container)).toEqual(["assets/logo.png#0", "src/widget.ts#0", "src/widget.ts#1", "yarn.lock#0"]);
-    expect(container.querySelector("[data-reviewmaxx]")).toHaveAttribute("data-reviewmaxx", "ready");
+    expect(container.querySelector("[data-super-diff]")).toHaveAttribute("data-super-diff", "ready");
     expect(screen.getByText("The widget changes twice.")).toBeInTheDocument();
     expect(screen.getByText("3 files, 4 hunks, all shown")).toBeInTheDocument();
   });
@@ -196,7 +196,7 @@ describe("ReviewScreen", () => {
   });
 
   it("shows why the review is unavailable", () => {
-    screenWith({ result: { state: "unavailable", message: "Reviewmaxx needs a git checkout, and this environment is not one." } });
+    screenWith({ result: { state: "unavailable", message: "Super Diff needs a git checkout, and this environment is not one." } });
     expect(screen.getByText(/needs a git checkout/)).toBeInTheDocument();
   });
 });

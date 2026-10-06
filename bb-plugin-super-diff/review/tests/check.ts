@@ -105,7 +105,7 @@ export function formatTestViolation(violation: TestViolation, grouping: Grouping
     case "tests-missing":
       return `tests missing: ${title} holds ${violation.path} but has no tests block. Add its covered and notCovered scenarios.`;
     case "unknown-step":
-      return `unknown step: ${title} cites ${violation.ref}, which is not a test or step. Run \`bb reviewmaxx tests\` for the ids.`;
+      return `unknown step: ${title} cites ${violation.ref}, which is not a test or step. Run \`bb super-diff tests\` for the ids.`;
     case "test-uncited":
       return `test not described: ${title} holds ${violation.path}:${violation.test} ("${violation.name}"), which no scenario cites.`;
     case "snapshot-uncited":

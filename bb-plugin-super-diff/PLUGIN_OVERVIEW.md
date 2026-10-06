@@ -1,6 +1,6 @@
 ## What you get
 
-A **Reviewmaxx** panel beside each thread that shows the branch's changes
+A **Super Diff** panel beside each thread that shows the branch's changes
 grouped into concerns, most important first, each with a short note on what
 its hunks do. Lockfiles, snapshots, and generated files are set aside in a
 collapsed group, and a count at the bottom says how many hunks are shown.

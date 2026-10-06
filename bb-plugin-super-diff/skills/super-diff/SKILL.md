@@ -1,11 +1,11 @@
 ---
-name: reviewmaxx
-description: Group this branch's changes into concerns for the Reviewmaxx panel, using the `bb reviewmaxx` CLI. Use when the user asks for a Reviewmaxx grouping, asks to group or regroup the branch's changes for review, or the Reviewmaxx panel's Generate button sent the request.
+name: super-diff
+description: Group this branch's changes into concerns for the Super Diff panel, using the `bb super-diff` CLI. Use when the user asks for a Super Diff grouping, asks to group or regroup the branch's changes for review, or the Super Diff panel's Generate button sent the request.
 ---
 
 # Group the branch for review
 
-The Reviewmaxx panel shows this branch's changes grouped into concerns: the
+The Super Diff panel shows this branch's changes grouped into concerns: the
 parts of the change that belong together, most important first, each with a
 short note. You write the grouping; the plugin checks that every hunk on the
 branch is in exactly one concern before it accepts it.
@@ -14,14 +14,14 @@ branch is in exactly one concern before it accepts it.
 
 | Command | Effect |
 | --- | --- |
-| `bb reviewmaxx hunks` | Every file with its hunks numbered from 0. Mechanical files (lockfiles, snapshots, generated output) are marked. |
-| `bb reviewmaxx hunks --full` | The same, with each hunk's lines under a `### path#n` marker. |
-| `bb reviewmaxx tests [--helpers a,b]` | Each test file on the branch, its tests numbered from 1, and each test's assertions as steps (`1.3`), labelled asserted, snapshot only, or checked to exist. Calls to `expect…` and `assert…` helpers, such as `expectPosted(post)`, count as asserted steps; `--helpers` adds others. |
-| `bb reviewmaxx submit <file>` | Check the grouping and store it. Exits 1 with a list of problems if any hunk is missing, in two concerns, or unknown. |
+| `bb super-diff hunks` | Every file with its hunks numbered from 0. Mechanical files (lockfiles, snapshots, generated output) are marked. |
+| `bb super-diff hunks --full` | The same, with each hunk's lines under a `### path#n` marker. |
+| `bb super-diff tests [--helpers a,b]` | Each test file on the branch, its tests numbered from 1, and each test's assertions as steps (`1.3`), labelled asserted, snapshot only, or checked to exist. Calls to `expect…` and `assert…` helpers, such as `expectPosted(post)`, count as asserted steps; `--helpers` adds others. |
+| `bb super-diff submit <file>` | Check the grouping and store it. Exits 1 with a list of problems if any hunk is missing, in two concerns, or unknown. |
 
 ## Procedure
 
-1. Run `bb reviewmaxx hunks --full` and read every hunk.
+1. Run `bb super-diff hunks --full` and read every hunk.
 2. **Group from the diff, not from memory.** You may have written this code.
    Group by what each hunk does as it reads in the diff, not by what you
    meant it to do or the order you wrote it in. A reviewer will read the
@@ -50,7 +50,7 @@ branch is in exactly one concern before it accepts it.
    ```
 
    ```bash
-   bb reviewmaxx submit /tmp/reviewmaxx-grouping.json
+   bb super-diff submit /tmp/super-diff-grouping.json
    ```
 
    A bare path means every hunk in that file. Mechanical files need no
@@ -58,14 +58,14 @@ branch is in exactly one concern before it accepts it.
 7. **For every concern that holds a test file, add a `tests` block.** The
    panel shows it as Gherkin in place of the raw snapshot diff, so a reviewer
    reads what each test proves instead of hundreds of recorded lines. Run
-   `bb reviewmaxx tests` for the step ids, then read the tests and the code
+   `bb super-diff tests` for the step ids, then read the tests and the code
    they call.
 
    **Assertion helpers.** A call to a function named `expect…` or `assert…`
    (a capital letter after the prefix) already counts as a step. If the tests
    check things through a helper named otherwise, such as `checkPosted(post)`,
    read the test-support code to confirm it asserts, then run
-   `bb reviewmaxx tests --helpers checkPosted` so it is numbered as a step, and
+   `bb super-diff tests --helpers checkPosted` so it is numbered as a step, and
    put the same names in the grouping's top-level `"assertionHelpers":
    ["checkPosted"]`. The step ids you cite must come from a run with the same
    list. `submit` rejects a name no test on the branch calls.
@@ -115,4 +115,4 @@ branch is in exactly one concern before it accepts it.
      leave `notCovered` empty and say why in `notCoveredNote`.
 8. If `submit` rejects the grouping, fix each problem it lists and submit
    again. Do not stop at a rejected grouping.
-9. Tell the user in one line that the grouping is in the Reviewmaxx panel.
+9. Tell the user in one line that the grouping is in the Super Diff panel.

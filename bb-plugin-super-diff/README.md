@@ -1,14 +1,14 @@
-# Reviewmaxx
+# Super Diff
 
 Review a branch one concern at a time. bb's changes panel lists a branch's
-files in path order; Reviewmaxx adds a panel beside the thread that groups the
+files in path order; Super Diff adds a panel beside the thread that groups the
 branch's hunks into concerns, the parts of the change that belong together,
 each with a short note on what its hunks do and why they go together. The
 thread's own agent writes the grouping, and the plugin checks it against the
 real diff before accepting it, so every hunk on the branch appears in the panel
 exactly once.
 
-![The Reviewmaxx panel: a one-sentence headline and a viewed bar, the first concern on the left with its note and two files, and a rail of concerns on the right with each one's viewed count and lines changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--grouped.png)
+![The Super Diff panel: a one-sentence headline and a viewed bar, the first concern on the left with its note and two files, and a rail of concerns on the right with each one's viewed count and lines changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--grouped.png)
 
 From top to bottom, the panel shows:
 
@@ -29,7 +29,7 @@ From top to bottom, the panel shows:
    and **Mechanical** for lockfiles, snapshots, and generated files.
 6. A count of files and hunks, and whether all of them are shown.
 
-![A test concern on Scenarios: its two scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--test-concern.png)
+![A test concern on Scenarios: its two scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--test-concern.png)
 
 ## Marking files viewed
 
@@ -77,15 +77,15 @@ and no reason for leaving it empty.
 
 ## Using it
 
-Open the thread's right panel, open a new tab, and pick **Reviewmaxx**. Before
+Open the thread's right panel, open a new tab, and pick **Super Diff**. Before
 anything is grouped, it shows every hunk under Not yet grouped.
 
 **Generate** sends this thread a message asking its agent to group the branch.
 If the agent is busy, the message waits in bb's queue. The agent follows the
-`reviewmaxx` skill: it reads the numbered hunks with `bb reviewmaxx hunks
---full` and the numbered test steps with `bb reviewmaxx tests`, writes a
+`super-diff` skill: it reads the numbered hunks with `bb super-diff hunks
+--full` and the numbered test steps with `bb super-diff tests`, writes a
 headline, the concerns, and scenarios for each test concern, and submits them
-with `bb reviewmaxx submit`. A submission that leaves a hunk out, puts one in two
+with `bb super-diff submit`. A submission that leaves a hunk out, puts one in two
 concerns, or names a file or hunk that is not in the diff is rejected with a
 list of what to fix, and the agent submits again. The panel updates when a
 grouping is accepted.
@@ -107,7 +107,7 @@ message saying so.
 
 ## Built for any repository
 
-Reviewmaxx has to work on any git repository, so nothing in it should assume
+Super Diff has to work on any git repository, so nothing in it should assume
 one codebase's layout, test framework, naming, or helpers. When a feature
 needs to know something about a repository, it gets it from one of three
 places, and never from a path or a name written into the plugin:
@@ -131,7 +131,7 @@ Each time the panel opens, it compares those contents with the files now. If
 nothing differs, the grouping is current, including after a commit of exactly
 the work it grouped.
 
-![The stale banner: "Grouped at a1b2c3d, 1 commit and 1 file changed since", a Regenerate button, and the diff of the one file that changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/reviewmaxx/review-panel--stale.png)
+![The stale banner: "Grouped at a1b2c3d, 1 commit and 1 file changed since", a Regenerate button, and the diff of the one file that changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--stale.png)
 
 If something differs, a banner says when the grouping was made and how many
 commits and files have changed since, or that the branch was rewritten when
@@ -149,11 +149,11 @@ plugin's own database in bb's data directory.
 Two deterministic checks, each exiting 1 on any gap:
 
 ```sh
-bb reviewmaxx verify                      # from the thread
+bb super-diff verify                      # from the thread
 npm run verify -- <thread id>             # in this directory, with bb running
 ```
 
-`bb reviewmaxx verify` lists the changed paths with `git`, builds the panel's
+`bb super-diff verify` lists the changed paths with `git`, builds the panel's
 view from the branch and the stored grouping, and reports any path the parser
 missed and any hunk the view shows zero times or twice: "3 files, 3 hunks: 3
 shown once, 0 missing, 0 twice." The grouping itself was checked when it was
@@ -161,11 +161,11 @@ submitted; a hunk added since then shows under Not yet grouped, which still
 counts as shown.
 
 `npm run verify` runs that first, then opens the thread in bb with Playwright,
-opens the Reviewmaxx panel, chooses each concern in the rail in turn, switches
+opens the Super Diff panel, chooses each concern in the rail in turn, switches
 test concerns to Diff, waits for every diff to draw, and checks that the hunks on the page are exactly the hunks on the
 branch, once each. It also fails on a console error, a diff that never draws,
 or content wider than the panel, and saves light, dark, and narrow screenshots
-to `/tmp/reviewmaxx-verify/`. It uses the Playwright install at
+to `/tmp/super-diff-verify/`. It uses the Playwright install at
 `~/.claude/tools/playwright`.
 
 ## What it runs
@@ -184,15 +184,15 @@ to the thread. Nothing calls GitHub or any other service.
 
 - **Code Review** (`code-review`) lists the pull requests waiting on your
   review, runs your review skills over one, and turns the findings into
-  comments you post on GitHub. Reviewmaxx does not post anything; it
+  comments you post on GitHub. Super Diff does not post anything; it
   reorganises the local diff for reading.
 - **Diff Dad** (`diffdad`) narrates GitHub pull requests through its own
-  daemon, with a verdict and concerns. Reviewmaxx takes its idea of grouping
+  daemon, with a verdict and concerns. Super Diff takes its idea of grouping
   hunks into chapters, but works on the local branch, inside bb, with the
   thread's own agent.
 - **Diff Viewed** (`diff-viewed`) and **Diff Comment** (`diff-comment`)
   decorate bb's own changes panel with Viewed checkboxes and inline comments.
-  Reviewmaxx is a separate panel that regroups the same changes.
+  Super Diff is a separate panel that regroups the same changes.
 
 ## Layout
 
@@ -201,6 +201,6 @@ to the thread. Nothing calls GitHub or any other service.
 | `review/` | The core: parsing the diff, the coverage check, the view, staleness, with `git.ts` for every `git` call and `store.ts` for the database |
 | `review/tests/` | Test concerns: parsing tests and snapshot files, checking scenarios against them, and writing the Gherkin |
 | `components/` | The panel, split from data loading so stories render it |
-| `skills/reviewmaxx/` | The skill the agent groups the branch with |
+| `skills/super-diff/` | The skill the agent groups the branch with |
 | `scripts/verify.mjs` | The rendering half of verify |
 | `review.stories.tsx` | Stories for each state of the panel |

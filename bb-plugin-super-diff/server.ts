@@ -1,8 +1,8 @@
-// bb-plugin-reviewmaxx — backend.
+// bb-plugin-super-diff — backend.
 //
 // Three surfaces over review/service.ts: the panel (over RPC), the
-// `bb reviewmaxx` CLI the agent groups with, and the skill in
-// skills/reviewmaxx/SKILL.md that tells it how. A submit publishes a realtime
+// `bb super-diff` CLI the agent groups with, and the skill in
+// skills/super-diff/SKILL.md that tells it how. A submit publishes a realtime
 // signal so the open panel refetches.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -16,17 +16,17 @@ export const rpcContract = defineRpcContract(rpcShape);
 
 /** What the Generate button sends to the thread. The skill does the rest. */
 export const GENERATE_PROMPT =
-  "Use the reviewmaxx skill to group this branch's changes into concerns for review, then submit the grouping with `bb reviewmaxx submit`.";
+  "Use the super-diff skill to group this branch's changes into concerns for review, then submit the grouping with `bb super-diff submit`.";
 
 /** Leave room under the CLI's 1 MiB output limit for the header lines. */
 const MAX_HUNKS_OUTPUT = 900_000;
 
 const USAGE = [
   "Usage:",
-  "  bb reviewmaxx hunks [--full]          Every file and hunk on this branch, numbered from 0",
-  "  bb reviewmaxx tests [--helpers a,b]   Each test on this branch, with its numbered steps to cite",
-  "  bb reviewmaxx submit <file | json>    Check a grouping and store it if every hunk is placed once",
-  "  bb reviewmaxx verify [--json]         Check the stored grouping against the branch",
+  "  bb super-diff hunks [--full]          Every file and hunk on this branch, numbered from 0",
+  "  bb super-diff tests [--helpers a,b]   Each test on this branch, with its numbered steps to cite",
+  "  bb super-diff submit <file | json>    Check a grouping and store it if every hunk is placed once",
+  "  bb super-diff verify [--json]         Check the stored grouping against the branch",
   "",
   "Each command acts on the thread it runs in. Pass --thread <id> from outside a thread.",
 ].join("\n");
@@ -41,9 +41,9 @@ export default async function plugin(bb: BbPluginApi) {
     const thread = await bb.sdk.threads.get({ threadId });
     if (!thread.environmentId) return "This thread has no environment to review.";
     const env = await bb.sdk.environments.get({ environmentId: thread.environmentId });
-    if (!env.isGitRepo || !env.path) return "Reviewmaxx needs a git checkout, and this environment is not one.";
+    if (!env.isGitRepo || !env.path) return "Super Diff needs a git checkout, and this environment is not one.";
     const root = await toplevel(env.path);
-    if (root === null) return "Reviewmaxx needs a local checkout, and this environment's path is not a git work tree on this machine.";
+    if (root === null) return "Super Diff needs a local checkout, and this environment's path is not a git work tree on this machine.";
     const base = env.mergeBaseBranch ?? env.baseBranch ?? env.defaultBranch;
     if (!base) return "This environment has no base branch to compare against.";
     return { root, mergeBaseBranch: base };
@@ -72,13 +72,13 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.cli.register({
-    name: "reviewmaxx",
-    summary: "Group this branch's hunks into concerns for the Reviewmaxx panel",
+    name: "super-diff",
+    summary: "Group this branch's hunks into concerns for the Super Diff panel",
     commands: [
-      { name: "hunks", summary: "List every file and hunk on the branch, numbered from 0", usage: "bb reviewmaxx hunks [--full]" },
-      { name: "tests", summary: "List each test on the branch with its numbered steps, for scenario citations", usage: "bb reviewmaxx tests [--helpers name,name]" },
-      { name: "submit", summary: "Check a grouping and store it if every hunk is placed once", usage: "bb reviewmaxx submit <file | json>" },
-      { name: "verify", summary: "Check the stored grouping covers every hunk exactly once", usage: "bb reviewmaxx verify [--json]" },
+      { name: "hunks", summary: "List every file and hunk on the branch, numbered from 0", usage: "bb super-diff hunks [--full]" },
+      { name: "tests", summary: "List each test on the branch with its numbered steps, for scenario citations", usage: "bb super-diff tests [--helpers name,name]" },
+      { name: "submit", summary: "Check a grouping and store it if every hunk is placed once", usage: "bb super-diff submit <file | json>" },
+      { name: "verify", summary: "Check the stored grouping covers every hunk exactly once", usage: "bb super-diff verify [--json]" },
     ],
 
     async run(argv, ctx) {

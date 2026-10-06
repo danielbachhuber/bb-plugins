@@ -1,4 +1,4 @@
-// What the Reviewmaxx panel draws, from a ReviewResult. No data loading: the
+// What the Super Diff panel draws, from a ReviewResult. No data loading: the
 // panel passes the result in, and the diff and source viewers too, so tests
 // and stories render it without a server.
 //
@@ -34,13 +34,13 @@ export interface ReviewScreenProps {
  * query has to come from here.
  */
 const LAYOUT_CSS = `
-.rmx-body { container-type: inline-size; }
-.rmx-columns { display: flex; flex-direction: column-reverse; gap: 1.25rem; }
-.rmx-main { min-width: 0; }
+.sd-body { container-type: inline-size; }
+.sd-columns { display: flex; flex-direction: column-reverse; gap: 1.25rem; }
+.sd-main { min-width: 0; }
 @container (min-width: 30rem) {
-  .rmx-columns { flex-direction: row; align-items: flex-start; }
-  .rmx-main { flex: 1 1 0; }
-  .rmx-rail { flex: 0 0 11rem; position: sticky; top: 1rem; }
+  .sd-columns { flex-direction: row; align-items: flex-start; }
+  .sd-main { flex: 1 1 0; }
+  .sd-rail { flex: 0 0 11rem; position: sticky; top: 1rem; }
 }`;
 
 interface Viewers {
@@ -65,16 +65,16 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
   const choose = (id: string) => {
     setChosen(id);
     // Back to the top of the concern, since Next is pressed from the bottom of the last one.
-    document.querySelector<HTMLElement>("[data-reviewmaxx-main]")?.scrollIntoView?.({ block: "start" });
+    document.querySelector<HTMLElement>("[data-super-diff-main]")?.scrollIntoView?.({ block: "start" });
   };
   return (
-    <div data-reviewmaxx="ready" className="flex flex-col gap-5 p-4 text-sm">
+    <div data-super-diff="ready" className="flex flex-col gap-5 p-4 text-sm">
       <Header view={view} generating={generating} onGenerate={onGenerate} />
       {view.stale && <Stale view={view} DiffView={DiffView} generating={generating} onGenerate={onGenerate} />}
       <style>{LAYOUT_CSS}</style>
-      <div className="rmx-body">
-        <div className="rmx-columns">
-        <main data-reviewmaxx-main className="rmx-main flex flex-col gap-3">
+      <div className="sd-body">
+        <div className="sd-columns">
+        <main data-super-diff-main className="sd-main flex flex-col gap-3">
           <Concern
             key={section.id}
             section={section}
@@ -102,7 +102,7 @@ export function ReviewScreen({ result, error, generating, onGenerate, onSetViewe
 
 function Message({ text, ready = false }: { text: string; ready?: boolean }) {
   return (
-    <div data-reviewmaxx={ready ? "ready" : "loading"} className="p-6 text-sm text-muted-foreground">
+    <div data-super-diff={ready ? "ready" : "loading"} className="p-6 text-sm text-muted-foreground">
       {text}
     </div>
   );
@@ -155,7 +155,7 @@ function Header({ view, generating, onGenerate }: { view: ReviewView; generating
 /** The concerns down the right, each with its viewed count and lines changed. */
 function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections: ViewSection[]; chosen: string; onChoose: (id: string) => void }) {
   return (
-    <nav aria-label="Concerns" className="rmx-rail flex flex-col gap-0.5">
+    <nav aria-label="Concerns" className="sd-rail flex flex-col gap-0.5">
       {sections.map((section) => {
         const n = view.concerns.indexOf(section);
         const viewed = section.files.filter((f) => f.viewed).length;

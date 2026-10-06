@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 export async function makeRepo() {
-  const root = mkdtempSync(path.join(tmpdir(), "reviewmaxx-test-"));
+  const root = mkdtempSync(path.join(tmpdir(), "super-diff-test-"));
   const run = (...args: string[]) =>
     execFileSync(
       "git",

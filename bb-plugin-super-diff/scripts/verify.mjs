@@ -1,11 +1,11 @@
 // Verify that every hunk on a thread's branch is shown exactly once in the
-// real Reviewmaxx panel.
+// real Super Diff panel.
 //
 //   npm run verify -- <thread id>
 //
-// 1. Runs `bb reviewmaxx verify`, which checks git against the stored
+// 1. Runs `bb super-diff verify`, which checks git against the stored
 //    grouping, and takes the list of items from it.
-// 2. Opens the thread in bb with Playwright, opens the Reviewmaxx panel,
+// 2. Opens the thread in bb with Playwright, opens the Super Diff panel,
 //    chooses each concern in its rail in turn, waits for every diff to draw,
 //    and compares the rendered items with that list.
 // Exits 1 on any gap. Needs a running bb, and the global Playwright install.
@@ -23,7 +23,7 @@ if (!threadId) {
 // 1. Data.
 let data;
 try {
-  data = JSON.parse(execFileSync("bb", ["reviewmaxx", "verify", "--thread", threadId, "--json"], { encoding: "utf8" }));
+  data = JSON.parse(execFileSync("bb", ["super-diff", "verify", "--thread", threadId, "--json"], { encoding: "utf8" }));
 } catch (error) {
   // verify exits 1 on a gap but still prints its JSON.
   data = JSON.parse(error.stdout);
@@ -34,7 +34,7 @@ if (!data.ok) process.exit(1);
 // 2. Rendering.
 const { chromium } = await import(path.join(os.homedir(), ".claude/tools/playwright/node_modules/playwright/index.mjs"));
 const { serverUrl } = JSON.parse(readFileSync(path.join(os.homedir(), ".bb/bb-app-runtime.json"), "utf8"));
-const outDir = "/tmp/reviewmaxx-verify";
+const outDir = "/tmp/super-diff-verify";
 mkdirSync(outDir, { recursive: true });
 
 const problems = [];
@@ -56,51 +56,51 @@ for (const run of runs) {
   await page.getByRole("toolbar", { name: "Right panel views" }).or(page.getByRole("button", { name: /^Show right panel/ })).first().waitFor();
   const panelOpen = await page.getByRole("button", { name: /^Hide right panel/ }).first().isVisible().catch(() => false);
   if (!panelOpen) await page.getByRole("button", { name: /^Show right panel/ }).first().click();
-  const action = page.locator('[id="plugin-action:reviewmaxx:review"]');
+  const action = page.locator('[id="plugin-action:super-diff:review"]');
   if (!(await action.isVisible().catch(() => false))) {
     await page.getByRole("button", { name: /^Open new tab/ }).first().click();
   }
   await action.click();
-  await page.waitForSelector('[data-reviewmaxx="ready"]', { timeout: 60_000 });
+  await page.waitForSelector('[data-super-diff="ready"]', { timeout: 60_000 });
 
   // The panel shows one concern at a time: choose each entry in the rail,
   // switch a test concern to Diff, open folded files, and collect its hunks.
   const rendered = [];
-  const entries = await page.locator("[data-reviewmaxx] [data-rail-item]").count();
+  const entries = await page.locator("[data-super-diff] [data-rail-item]").count();
   for (let i = 0; i < entries; i++) {
-    await page.locator("[data-reviewmaxx] [data-rail-item]").nth(i).click();
+    await page.locator("[data-super-diff] [data-rail-item]").nth(i).click();
     // A test concern: show every scenario, folded and with values, in this one
     // session, since bb's source viewer keeps what it drew before and a mismatch
     // logs a console error that fails the run.
-    const scenarios = page.locator("[data-reviewmaxx] [data-scenario]");
+    const scenarios = page.locator("[data-super-diff] [data-scenario]");
     const box = page.getByRole("checkbox", { name: "Show values" });
     for (let pass = 0; pass < 2 && (await scenarios.count()) > 0; pass++) {
       for (let n = 0; n < (await scenarios.count()); n++) await scenarios.nth(n).click();
       await box.click();
     }
     await page.evaluate(() => {
-      document.querySelector('[data-reviewmaxx] [data-mode="diff"]')?.click();
-      document.querySelectorAll("[data-reviewmaxx] details").forEach((d) => { d.open = true; });
+      document.querySelector('[data-super-diff] [data-mode="diff"]')?.click();
+      document.querySelectorAll("[data-super-diff] details").forEach((d) => { d.open = true; });
     });
     // A drawn diff has height; an empty placeholder does not. One read per
     // check, not per row in a loop that writes.
     await page
       .waitForFunction(
-        () => [...document.querySelectorAll('[data-reviewmaxx] [data-kind="hunk"]:not([data-status="removed"])')].every((el) => el.getBoundingClientRect().height > 16),
+        () => [...document.querySelectorAll('[data-super-diff] [data-kind="hunk"]:not([data-status="removed"])')].every((el) => el.getBoundingClientRect().height > 16),
         null,
         { timeout: 60_000 },
       )
       .catch(() => errors.push(`not every diff drew within 60 s in rail entry ${i + 1}`));
     rendered.push(
       ...(await page.evaluate(() =>
-        [...document.querySelectorAll("[data-reviewmaxx] [data-file][data-hunk]")]
+        [...document.querySelectorAll("[data-super-diff] [data-file][data-hunk]")]
           .filter((el) => el.getAttribute("data-status") !== "removed")
           .map((el) => `${el.getAttribute("data-file")}#${el.getAttribute("data-hunk")}`),
       )),
     );
   }
   const overflow = await page.evaluate(() => {
-    const root = document.querySelector("[data-reviewmaxx]");
+    const root = document.querySelector("[data-super-diff]");
     return root && root.scrollWidth > root.clientWidth + 1 ? `panel content is ${root.scrollWidth}px wide in ${root.clientWidth}px` : null;
   });
   if (overflow) errors.push(overflow);
@@ -113,7 +113,7 @@ for (const run of runs) {
 
   const shot = path.join(outDir, `${threadId}.${run.name}.png`);
   // bb can remount a panel tab after it first draws; picture the drawn one.
-  await page.locator('[data-reviewmaxx="ready"]').screenshot({ path: shot });
+  await page.locator('[data-super-diff="ready"]').screenshot({ path: shot });
   console.log(
     `${run.name}: ${data.items.length} hunks: ${data.items.length - missing.length - twice.length} rendered once, ${missing.length} missing, ${twice.length} twice -> ${shot}`,
   );

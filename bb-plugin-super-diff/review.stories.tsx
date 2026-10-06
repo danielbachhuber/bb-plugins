@@ -6,7 +6,7 @@ import { buildView } from "./review/view";
 import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./review/tests/feature";
 import type { Scenario } from "./review/grouping";
 
-export default { title: "reviewmaxx/Review panel" };
+export default { title: "super-diff/Review panel" };
 
 const DiffView = ({ patch, path }: { patch: string; path: string }) => <Diff patch={patch} path={path} />;
 const SourceView = ({ content, path }: { content: string; path: string }) => <SourceCode content={content} path={path} overflow="wrap" />;
@@ -104,7 +104,7 @@ export const Generating = () => render({ state: "ok", view: buildView(files, nul
 
 /** An environment without a git checkout. */
 export const Unavailable = () =>
-  render({ state: "unavailable", message: "Reviewmaxx needs a git checkout, and this environment is not one." });
+  render({ state: "unavailable", message: "Super Diff needs a git checkout, and this environment is not one." });
 
 /** A branch with nothing on it yet. */
 export const NoChanges = () => render({ state: "ok", view: buildView([], null, null) });

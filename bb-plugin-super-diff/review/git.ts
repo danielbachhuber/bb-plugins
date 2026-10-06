@@ -103,7 +103,7 @@ export async function fileAtCommit(root: string, sha: string, file: string): Pro
 /** The diff from one state to the other as bare `@@` hunks; "" when either side is binary. */
 export async function diffStates(before: FileState, after: FileState): Promise<string> {
   if ((before.hash !== null && before.text === null) || (after.hash !== null && after.text === null)) return "";
-  const dir = await mkdtemp(path.join(tmpdir(), "reviewmaxx-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "super-diff-"));
   try {
     if (before.text !== null) await writeFile(path.join(dir, "a"), before.text);
     if (after.text !== null) await writeFile(path.join(dir, "b"), after.text);

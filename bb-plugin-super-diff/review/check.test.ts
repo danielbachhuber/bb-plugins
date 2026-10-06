@@ -93,7 +93,7 @@ describe("formatViolation", () => {
   it("names the concern and says what to do", () => {
     const g = grouping([{ title: "Ghost", note: "n", files: ["src/ghost.ts"] }]);
     expect(formatViolation({ kind: "unknown-file", path: "src/ghost.ts", concern: 0 }, g)).toBe(
-      'unknown file: "Ghost" names src/ghost.ts, which is not in the diff. Run `bb reviewmaxx hunks` for the file list.',
+      'unknown file: "Ghost" names src/ghost.ts, which is not in the diff. Run `bb super-diff hunks` for the file list.',
     );
     expect(formatViolation({ kind: "missing", path: "src/widget.ts", index: 1 }, g)).toBe(
       "missing: src/widget.ts#1 is in no concern. Add it to the concern it belongs to, or give it a small concern of its own.",

@@ -1,4 +1,4 @@
-// What `bb reviewmaxx hunks` prints. Pure.
+// What `bb super-diff hunks` prints. Pure.
 import { isMechanical } from "./classify";
 import { itemsOf } from "./items";
 import { itemKey, type DiffFile } from "./types";

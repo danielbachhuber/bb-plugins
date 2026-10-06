@@ -141,7 +141,7 @@ describe("commitsSince", () => {
 describe("toplevel", () => {
   it("finds the repository root, or null outside one", async () => {
     const r = await repo();
-    expect(await toplevel(`${r.root}/src`)).toMatch(/reviewmaxx-test-/);
+    expect(await toplevel(`${r.root}/src`)).toMatch(/super-diff-test-/);
     expect(await toplevel("/")).toBeNull();
   });
 });

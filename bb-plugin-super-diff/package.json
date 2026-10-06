@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-reviewmaxx",
+  "name": "bb-plugin-super-diff",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -7,7 +7,7 @@
     "bbPluginSdk": ">=0.5.29"
   },
   "bb": {
-    "name": "Reviewmaxx",
+    "name": "Super Diff",
     "description": "Review a branch one concern at a time. A panel beside the thread groups every hunk on the branch into concerns, each with a summary written by the thread's agent, checks that every hunk appears exactly once, lets you mark files viewed, shows test changes as Gherkin scenarios with what they leave out, and shows exactly what changed when the branch moves on.",
     "branding": {
       "icon": "Layers"

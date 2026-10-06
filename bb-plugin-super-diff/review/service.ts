@@ -115,7 +115,7 @@ export async function setViewed(store: Store, threadId: string, checkout: Checko
   store.setViewed(threadId, path, viewed && file ? file.hash : null);
 }
 
-/** What `bb reviewmaxx tests` prints: each test on the branch, with its numbered steps. */
+/** What `bb super-diff tests` prints: each test on the branch, with its numbered steps. */
 export async function testsText(checkout: Checkout, helpers: string[] = []): Promise<string> {
   const branch = await loadBranch(checkout);
   const inputs = await loadTests(checkout.root, branch.files, helpers);

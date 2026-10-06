@@ -80,9 +80,9 @@ export function formatViolation(violation: Violation, grouping: Grouping): strin
     case "duplicate":
       return `duplicate: ${itemKey(violation.path, violation.index)} is in ${violation.concerns.map(title).join(" and ")}. Keep it in one.`;
     case "unknown-file":
-      return `unknown file: ${title(violation.concern)} names ${violation.path}, which is not in the diff. Run \`bb reviewmaxx hunks\` for the file list.`;
+      return `unknown file: ${title(violation.concern)} names ${violation.path}, which is not in the diff. Run \`bb super-diff hunks\` for the file list.`;
     case "unknown-hunk":
-      return `unknown hunk: ${title(violation.concern)} names ${itemKey(violation.path, violation.index)}, which that file does not have. Hunks are numbered from 0; run \`bb reviewmaxx hunks\`.`;
+      return `unknown hunk: ${title(violation.concern)} names ${itemKey(violation.path, violation.index)}, which that file does not have. Hunks are numbered from 0; run \`bb super-diff hunks\`.`;
     case "empty-concern":
       return `empty concern: ${title(violation.concern)} holds nothing that is in the diff.`;
   }
