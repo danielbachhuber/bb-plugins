@@ -7,7 +7,9 @@ import { emailThread, githubComment } from "./gmail/body.js";
 import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { nowCli } from "./now/cli.js";
-import { rpcContract, SYNC_CHANNEL } from "./now/contract.js";
+import { PRIORITIES_CHANNEL, rpcContract, SYNC_CHANNEL } from "./now/contract.js";
+import { mondayOf } from "./now/priorities.js";
+import { createPriorityStore } from "./now/priorities-store.js";
 import { readable } from "./now/items.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
@@ -118,6 +120,7 @@ export function createPlugin(deps: PluginDeps = {}) {
     const db = bb.storage.database();
     bb.storage.migrate(db, MIGRATIONS);
     const store = createStore(db as never);
+    const priorities = createPriorityStore(db as never);
 
     // Read here only to decide the load-time status: with no source switched
     // on, the page has nothing to show. The handler re-reads, so a changed
@@ -605,6 +608,19 @@ export function createPlugin(deps: PluginDeps = {}) {
           bb.log.error(`Sync failed: ${messageOf(error)}`);
           return { synced: false, error: messageOf(error) };
         }
+      },
+      priorities_get: async (input) => priorities.read(input?.monday ?? mondayOf(new Date())),
+      priorities_set: async (week) => {
+        priorities.write(week, new Date());
+        bb.realtime.publish(PRIORITIES_CHANNEL, { monday: week.monday });
+        return priorities.read(week.monday)!;
+      },
+      priority_done: async ({ monday, text, done }) => {
+        if (!priorities.setDone(monday, text, done, new Date())) {
+          return { updated: false, error: "That priority is no longer in this week's list." };
+        }
+        bb.realtime.publish(PRIORITIES_CHANNEL, { monday });
+        return { updated: true, error: null };
       },
     });
 

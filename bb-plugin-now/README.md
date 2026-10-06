@@ -96,6 +96,33 @@ configure, and a source that failed shows its error. Either way the other
 sources' items still appear, and a failed source keeps its items from the last
 good sync, with a note saying how many.
 
+## Priorities
+
+A column to the right of the list shows the week's priorities: the bullets
+under `Next:` in last week's journal entry, which
+[Weekly Review](../bb-plugin-weekly-review) writes into Now after each of its
+gathers and whenever you link a priority to a workstream. A bullet nested
+under another shows beneath it in smaller type.
+
+Check a priority off when it is finished. It is struck through and stays in
+place. When Weekly Review writes the list again, a priority whose text has not
+changed keeps its check, and one you reworded in the journal comes back
+unchecked. Nothing is written back to the journal.
+
+Under each priority are the hours its linked workstreams have had this week,
+as of Weekly Review's last gather, which the column's heading names. A linked
+priority with no hours yet says "No time yet" in amber. A priority not linked
+to any workstream shows no hours, since nothing measures it; link it on Weekly
+Review's page.
+
+On a narrow page the column moves above the list. A week with no priorities
+written shows no column.
+
+Opening the page makes one read of Now's own database for the column, and no
+request to Weekly Review or any outside service. The column reads it again when
+Weekly Review writes a new list. Another plugin can write and read the list
+through the `priorities_set` and `priorities_get` RPC methods.
+
 ## Row actions
 
 - **Complete** (on a Todoist row, in its details line) completes the task in
@@ -432,8 +459,11 @@ list `server.ts` passes to `loadSources`.
 | `now/due.ts` | How a due date reads ("Today 14:00", "Tuesday", "Jan 15, 2027") and its color, and how an email's time reads |
 | `now/cli.ts` | `bb now`, the Todoist actions from a shell |
 | `skills/now-cli/` | The skill that tells an agent how to use `bb now` |
-| `now/contract.ts` | The RPC contract: reading the stored list, syncing, the row actions, and an email in full |
-| `now/store.ts` | The database tables: the stored list and the threads started from rows |
+| `now/contract.ts` | The RPC contract: reading the stored list, syncing, the row actions, an email in full, and the week's priorities |
+| `now/store.ts` | The database tables: the stored list, the threads started from rows, and the week's priorities |
+| `now/priorities.ts` | The priorities' shape, keeping a check across a rewrite, this week's Monday, and the column's labels |
+| `now/priorities-store.ts` | Reading and writing a week's priorities and their checks |
+| `now/priorities-column.tsx` | The Priorities column, and the page layout that puts it beside or above the list |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/postpone-menu.tsx` | Postpone's menu on a Todoist row |
 | `now/task-edit.tsx` | A Todoist row's edit strip: the name, the description, the due date and deadline boxes, project picker, priority flags, and Delete |
@@ -473,6 +503,7 @@ list `server.ts` passes to `loadSources`.
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |
 | `sidebar-counts.stories.tsx` | The sidebar entry's counts, for `npm run storybook` at the root |
+| `priorities.stories.tsx` | The Priorities column and its wide, narrow, and empty layouts, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page, its title-bar sync control, and its Email tab, which read the stored list and sync on open |
 | `components/ui/sync-status.tsx` | The "synced 4m ago" label and Refresh button, the same file the sweeps carry |

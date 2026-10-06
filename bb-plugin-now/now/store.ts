@@ -36,9 +36,19 @@ export const MIGRATIONS = [
    )`,
   // Snoozing was removed.
   `DROP TABLE IF EXISTS snoozes`,
+  // The week's priorities, written by another plugin and checked off here.
+  // items is the list as JSON, each with its checked time.
+  `CREATE TABLE IF NOT EXISTS priority_weeks (
+     monday TEXT PRIMARY KEY,
+     source TEXT NOT NULL,
+     heading TEXT,
+     hours_at TEXT,
+     written_at TEXT NOT NULL,
+     items TEXT NOT NULL
+   )`,
 ];
 
-interface StatementLike {
+export interface StatementLike {
   run(...params: unknown[]): unknown;
   all(...params: unknown[]): unknown[];
   get(...params: unknown[]): unknown;

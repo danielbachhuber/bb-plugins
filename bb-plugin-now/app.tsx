@@ -16,9 +16,11 @@ import { toast } from "sonner";
 import { SyncStatus } from "@/components/ui/sync-status";
 
 import type { rpcContract } from "./server";
-import { listingSchema, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
+import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
 import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
+import { mondayOf, type PriorityWeek } from "./now/priorities.js";
+import { PrioritiesColumn, WithPriorities } from "./now/priorities-column.js";
 import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
@@ -428,14 +430,69 @@ function NowPage() {
     rpc.call("items_sync", { ifOlderThanMs: STALE_ON_OPEN_MS }).catch(() => undefined);
   }, [rpc]);
 
+  const priorities = usePriorities(rpc);
+
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <ReadingContext.Provider value={reading}>
-        <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
+        <WithPriorities
+          priorities={
+            priorities.week === null || priorities.week.items.length === 0 ? null : (
+              <PrioritiesColumn week={priorities.week} now={new Date()} onToggle={priorities.toggle} />
+            )
+          }
+        >
+          <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
+        </WithPriorities>
       </ReadingContext.Provider>
       {dialog}
     </div>
   );
+}
+
+/**
+ * This week's priorities: one database read on open, again when another
+ * plugin writes them, and a check saved at once and undone if it fails.
+ */
+function usePriorities(rpc: ReturnType<typeof useRpc<typeof rpcContract>>) {
+  const [week, setWeek] = useState<PriorityWeek | null>(null);
+  const load = useCallback(() => {
+    rpc.call("priorities_get", { monday: mondayOf(new Date()) }).then(setWeek, () => undefined);
+  }, [rpc]);
+  useEffect(load, [load]);
+  useRealtime(PRIORITIES_CHANNEL, load);
+
+  const toggle = useCallback(
+    (text: string, done: boolean) => {
+      if (week === null) return;
+      const monday = week.monday;
+      const mark = (value: boolean) =>
+        setWeek((current) =>
+          current === null || current.monday !== monday
+            ? current
+            : {
+                ...current,
+                items: current.items.map((each) =>
+                  each.text === text ? { ...each, doneAt: value ? (each.doneAt ?? new Date().toISOString()) : null } : each,
+                ),
+              },
+        );
+      mark(done);
+      rpc.call("priority_done", { monday, text, done }).then(
+        (result) => {
+          if (result.error === null) return;
+          mark(!done);
+          toast.error(result.error);
+        },
+        (cause) => {
+          mark(!done);
+          toast.error(messageOf(cause));
+        },
+      );
+    },
+    [rpc, week],
+  );
+  return { week, toggle };
 }
 
 /**

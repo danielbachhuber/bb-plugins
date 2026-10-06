@@ -1,6 +1,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
+import { mondaySchema, priorityInputSchema, priorityWeekSchema } from "./priorities.js";
 import { itemSchema, todoistProjectSchema } from "./types.js";
 
 /** How one source's fetch went. Its items, if any, are in the merged list. */
@@ -222,12 +223,44 @@ export const rpcContract = defineRpcContract({
     input: z.object({ id: z.string(), method: z.enum(["merge", "squash", "rebase"]) }),
     output: z.object({ merged: z.boolean(), error: z.string().nullable() }),
   },
+  /**
+   * The week's priorities, or null when none have been written. `monday`
+   * defaults to this week's. Reads the database only.
+   */
+  priorities_get: {
+    input: z.object({ monday: mondaySchema.optional() }).nullable(),
+    output: priorityWeekSchema.nullable(),
+  },
+  /**
+   * Replace a week's priorities. Called by another plugin, such as Weekly
+   * Review after it reads the journal. A priority whose text is unchanged
+   * keeps its checked state; a reworded one starts unchecked. Returns the
+   * week as stored, so the writer learns which are checked in the same call.
+   */
+  priorities_set: {
+    input: z.object({
+      monday: mondaySchema,
+      source: z.string().min(1).max(100),
+      heading: z.string().max(500).nullable(),
+      hoursAt: z.string().nullable(),
+      items: z.array(priorityInputSchema).max(30),
+    }),
+    output: priorityWeekSchema,
+  },
+  /** Check a priority off, or uncheck it. */
+  priority_done: {
+    input: z.object({ monday: mondaySchema, text: z.string().min(1).max(2000), done: z.boolean() }),
+    output: z.object({ updated: z.boolean(), error: z.string().nullable() }),
+  },
   /** Comment on a GitHub row's pull request or issue, as you. */
   items_reply: {
     input: z.object({ id: z.string(), body: z.string().trim().min(1).max(65_000) }),
     output: z.object({ url: z.string().nullable(), error: z.string().nullable() }),
   },
 });
+
+/** Published after the priorities change; the page re-reads them. */
+export const PRIORITIES_CHANNEL = "now-priorities";
 
 /** Published after a sync starts or finishes; the page re-reads the listing. */
 export const SYNC_CHANNEL = "now-synced";
