@@ -15,7 +15,9 @@ a file whose diff changes comes back unread.
 A concern shows its code changes first, then its tests as **Scenarios**: what
 the tests check, as Gherkin with each recorded snapshot value under the step
 that wrote it, and a second block of the scenarios no test tries, each tagged
-with why. **Diff** shows the raw test files in their place.
+with why. **Diff** shows the raw test files in their place. When the scenarios
+do not line up one to one with the test() calls, such as three scenarios
+written from one test, the panel says so.
 
 ## When the branch moves on
 

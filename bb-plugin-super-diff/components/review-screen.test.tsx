@@ -119,8 +119,8 @@ index 1111111..2222222 100644
 
 const TESTS: ViewTests = {
   scenarios: [
-    { title: "It works", asserted: 1, snapshotOnly: 1, steps: "Scenario: It works\n  # 1.1 x toMatchSnapshot  (recorded: 3 lines)", values: 'Scenario: It works\n  """\n  {}\n  """' },
-    { title: "It refuses", asserted: 0, snapshotOnly: 1, steps: "Scenario: It refuses", values: "Scenario: It refuses" },
+    { title: "It works", tests: [{ path: "src/widget.test.ts", test: 1, name: "works", cited: 2, total: 2, sharedWith: 0 }], asserted: 1, snapshotOnly: 1, steps: "Scenario: It works\n  # 1.1 x toMatchSnapshot  (recorded: 3 lines)", values: 'Scenario: It works\n  """\n  {}\n  """' },
+    { title: "It refuses", tests: [{ path: "src/widget.test.ts", test: 2, name: "refuses", cited: 1, total: 1, sharedWith: 0 }], asserted: 0, snapshotOnly: 1, steps: "Scenario: It refuses", values: "Scenario: It refuses" },
   ],
   notCovered: "Feature: Not covered by these tests\n\n  @untested",
   asserted: 1,
@@ -293,6 +293,26 @@ describe("ReviewScreen", () => {
         expect.stringContaining("tests"),
         expect.stringContaining("2 scenarios"),
       ]);
+    });
+
+    it("says when the scenarios do not match the test() calls one to one", () => {
+      const v = shapes();
+      const split = (title: string) => ({ ...TESTS.scenarios[0]!, title, tests: [{ path: "src/gadget.test.ts", test: 1, name: "gadget", cited: 1, total: 2, sharedWith: 1 }] });
+      v.concerns[2] = { ...v.concerns[2]!, tests: { ...TESTS, scenarios: [split("First"), split("Second")] } };
+      const { container } = screenWith({ result: { state: "ok", view: v }, initialSection: "concern-2" });
+      expect(container.querySelector("[data-scenario-mismatch]")).toHaveTextContent(
+        '2 scenarios describe 1 test() call, "gadget", so the descriptions do not match the tests one to one.',
+      );
+      expect(Array.from(container.querySelectorAll("[data-scenario-note]")).map((el) => el.textContent)).toEqual([
+        "1 of 2 steps of one test",
+        "1 of 2 steps of one test",
+      ]);
+    });
+
+    it("says nothing when each scenario is one test() call", () => {
+      const { container } = screenWith({ result: { state: "ok", view: shapes() }, initialSection: "concern-2" });
+      expect(container.querySelector("[data-scenario-mismatch]")).toBeNull();
+      expect(container.querySelector("[data-scenario-note]")).toBeNull();
     });
 
     it("renders every hunk once across the shapes", () => {

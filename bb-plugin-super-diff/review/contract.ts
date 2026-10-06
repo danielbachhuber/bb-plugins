@@ -30,8 +30,23 @@ export const viewFileSchema = z.object({
 });
 
 /** One scenario, as Gherkin with its recorded values folded and in full. */
+/** A test() call a scenario cites, and how much of it. */
+export const viewScenarioTestSchema = z.object({
+  path: z.string(),
+  /** The test's number in its file, from 1. */
+  test: z.number().int(),
+  name: z.string(),
+  /** How many of the test's steps this scenario cites. */
+  cited: z.number().int(),
+  total: z.number().int(),
+  /** How many other scenarios in the concern cite this test too. */
+  sharedWith: z.number().int(),
+});
+
 export const viewScenarioSchema = z.object({
   title: z.string(),
+  /** The test() calls it describes, in the order it cites them. */
+  tests: z.array(viewScenarioTestSchema),
   asserted: z.number().int(),
   snapshotOnly: z.number().int(),
   /** Each recorded value folded to a note on its step. */
@@ -94,6 +109,7 @@ export type ViewFile = z.infer<typeof viewFileSchema>;
 export type ViewSection = z.infer<typeof viewSectionSchema>;
 export type ViewTests = z.infer<typeof viewTestsSchema>;
 export type ViewScenario = z.infer<typeof viewScenarioSchema>;
+export type ViewScenarioTest = z.infer<typeof viewScenarioTestSchema>;
 export type StaleInfo = z.infer<typeof staleSchema>;
 export type ReviewView = z.infer<typeof reviewViewSchema>;
 export type ReviewResult = z.infer<typeof reviewResultSchema>;

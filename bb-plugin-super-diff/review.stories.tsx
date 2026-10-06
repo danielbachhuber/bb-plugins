@@ -130,7 +130,7 @@ const RECORDED = `{
   "sprocketVersion": 2,
 }`;
 STEPS["src/sprocket.test.ts:1.1"] = [{ id: "1.1", kind: "snapshot", code: "sprocket(4) toMatchSnapshot", value: RECORDED }];
-STEPS["src/sprocket.test.ts:1.3"] = [{ id: "1.3", kind: "snapshot", code: "sprocket(Infinity) rejects toMatchSnapshot", value: "[Error: The gadget must be finite]" }];
+STEPS["src/sprocket.test.ts:2.1"] = [{ id: "2.1", kind: "snapshot", code: "sprocket(Infinity) rejects toMatchSnapshot", value: "[Error: The gadget must be finite]" }];
 const SCENARIOS: Scenario[] = [
   {
     title: "The sprocket adds one",
@@ -145,7 +145,7 @@ const SCENARIOS: Scenario[] = [
     title: "An endless gadget is refused",
     given: ["a gadget worth Infinity"],
     when: ["the widget passes it through the sprocket"],
-    then: [{ text: "the call is refused", steps: ["src/sprocket.test.ts:1.3"] }],
+    then: [{ text: "the call is refused", steps: ["src/sprocket.test.ts:2.1"] }],
   },
 ];
 const scenarioViews = SCENARIOS.map((scenario) => {
@@ -153,6 +153,15 @@ const scenarioViews = SCENARIOS.map((scenario) => {
   const full = scenarioFeature(scenario, (ref) => STEPS[ref] ?? null, { values: true });
   return { title: scenario.title, asserted: folded.asserted, snapshotOnly: folded.snapshotOnly, steps: folded.text, values: full.text };
 });
+// Each scenario is one whole test() call: test 1 has two steps, test 2 one.
+const SPROCKET_TESTS = [
+  { name: "sprocket adds one", total: 2 },
+  { name: "sprocket refuses Infinity", total: 1 },
+];
+const matchedViews = scenarioViews.map((view, i) => ({
+  ...view,
+  tests: [{ path: "src/sprocket.test.ts", test: i + 1, name: SPROCKET_TESTS[i]!.name, cited: SPROCKET_TESTS[i]!.total, total: SPROCKET_TESTS[i]!.total, sharedWith: 0 }],
+}));
 const notCovered = notCoveredFeature(
   [
     {
@@ -185,8 +194,10 @@ new file mode 100644
 index 0000000..7777777
 --- /dev/null
 +++ b/src/__snapshots__/sprocket.test.ts.snap
-@@ -0,0 +1 @@
-+exports[\`sprocket 1\`] = \`5\`;
+@@ -0,0 +1,3 @@
++exports[\`sprocket adds one 1\`] = \`5\`;
++
++exports[\`sprocket refuses Infinity 1\`] = \`"The gadget must be finite"\`;
 diff --git a/src/widget.test.ts b/src/widget.test.ts
 index 8888888..9999999 100644
 --- a/src/widget.test.ts
@@ -224,7 +235,7 @@ const withTestsBase = buildView(
   null,
   { base: "origin/main" },
 );
-const testsBlock = { scenarios: scenarioViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
+const testsBlock = { scenarios: matchedViews, notCovered, asserted: 1, snapshotOnly: 2, gaps: 1, snapshots: 2 };
 const withTests = {
   ...withTestsBase,
   concerns: withTestsBase.concerns.map((c, i) => (testConcerns[i]!.tests ? { ...c, tests: testsBlock } : c)),
@@ -246,3 +257,42 @@ export const SomeViewed = () =>
       coverage: { ...grouped.coverage, viewed: 1 },
     },
   });
+
+// One widget test() that checks three things, described as three scenarios.
+const WIDGET_STEPS: Record<string, ResolvedStep[]> = {
+  "src/widget.test.ts:1.1": [{ id: "1.1", kind: "exact", code: "widget() toBe 5", value: null }],
+  "src/widget.test.ts:1.2": [{ id: "1.2", kind: "exact", code: "widget(0) toBe 1", value: null }],
+  "src/widget.test.ts:1.3": [{ id: "1.3", kind: "error", code: "widget(-1) toThrow", value: null }],
+};
+const SPLIT: Scenario[] = [
+  { title: "A widget passes its gadget through the sprocket", given: ["a gadget worth 4"], when: ["the widget runs"], then: [{ text: "it returns 5", steps: ["src/widget.test.ts:1.1"] }] },
+  { title: "An empty gadget still gets one", given: ["a gadget worth 0"], when: ["the widget runs"], then: [{ text: "it returns 1", steps: ["src/widget.test.ts:1.2"] }] },
+  { title: "A negative gadget is refused", given: ["a gadget worth -1"], when: ["the widget runs"], then: [{ text: "it throws", steps: ["src/widget.test.ts:1.3"] }] },
+];
+const splitViews = SPLIT.map((scenario) => {
+  const folded = scenarioFeature(scenario, (ref) => WIDGET_STEPS[ref] ?? null, { values: false });
+  return {
+    title: scenario.title,
+    tests: [{ path: "src/widget.test.ts", test: 1, name: "widget", cited: 1, total: 3, sharedWith: 2 }],
+    asserted: folded.asserted,
+    snapshotOnly: folded.snapshotOnly,
+    steps: folded.text,
+    values: folded.text,
+  };
+});
+
+/** Scenarios that do not match the test() calls: three scenarios written from one test. A note above the list says so, and each scenario says how much of the test it covers. */
+export const ScenariosSplitOneTest = () =>
+  render(
+    {
+      state: "ok",
+      view: {
+        ...withTests,
+        concerns: withTests.concerns.map((c, i) =>
+          i === 2 ? { ...c, tests: { scenarios: splitViews, notCovered, asserted: 3, snapshotOnly: 0, gaps: 1, snapshots: 0 } } : c,
+        ),
+      },
+    },
+    false,
+    "concern-2",
+  );

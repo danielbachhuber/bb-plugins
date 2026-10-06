@@ -1,5 +1,5 @@
 // The panel's small pieces of text. Pure.
-import type { ReviewView, ViewFile, ViewSection } from "@/review/contract";
+import type { ReviewView, ViewFile, ViewScenario, ViewSection, ViewTests } from "@/review/contract";
 import { hashText } from "@/review/items";
 import { isTestSide } from "@/review/tests/paths";
 
@@ -73,4 +73,27 @@ export function testsTag(section: ViewSection): string | null {
   if (section.tests === null) return null;
   if (section.files.every((file) => isTestSide(file.path))) return "tests";
   return plural(section.tests.scenarios.length, "scenario", "scenarios");
+}
+
+/**
+ * A scenario's note when it does not describe exactly one whole test() call
+ * of its own: when it covers part of a test, several tests, or a test another
+ * scenario also describes. Null when it lines up, or cites nothing that is
+ * still in the tests.
+ */
+export function scenarioMismatch(scenario: ViewScenario): string | null {
+  const [test, ...more] = scenario.tests;
+  if (test === undefined) return null;
+  if (more.length > 0) return `spans ${scenario.tests.length} tests`;
+  if (test.cited < test.total) return `${test.cited} of ${test.total} steps of one test`;
+  if (test.sharedWith > 0) return `shares its test with ${plural(test.sharedWith, "other scenario", "other scenarios")}`;
+  return null;
+}
+
+/** The concern's note when its scenarios and its test() calls do not pair up one to one. */
+export function testsMismatch(tests: ViewTests): string | null {
+  if (tests.scenarios.every((scenario) => scenarioMismatch(scenario) === null)) return null;
+  const cited = new Map(tests.scenarios.flatMap((s) => s.tests.map((t) => [`${t.path}:${t.test}`, t.name] as const)));
+  const which = cited.size === 1 ? ` call, "${[...cited.values()][0]}"` : " calls";
+  return `${plural(tests.scenarios.length, "scenario describes", "scenarios describe")} ${cited.size} test()${which}, so the descriptions do not match the tests one to one.`;
 }

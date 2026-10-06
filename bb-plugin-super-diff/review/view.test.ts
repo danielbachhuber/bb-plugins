@@ -107,7 +107,7 @@ describe("placeItems", () => {
 
   it("attaches a test overlay to its concern", () => {
     const tests = {
-      scenarios: [{ title: "x", asserted: 0, snapshotOnly: 1, steps: "Scenario: x", values: "Scenario: x" }],
+      scenarios: [{ title: "x", tests: [], asserted: 0, snapshotOnly: 1, steps: "Scenario: x", values: "Scenario: x" }],
       notCovered: "Feature: Not covered by these tests",
       asserted: 0,
       snapshotOnly: 1,

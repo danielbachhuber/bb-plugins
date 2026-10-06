@@ -56,8 +56,8 @@ scenario count. Test files are those named `*.test.*` or `*.spec.*` or under
 
 Scenarios has three parts, the Gherkin drawn by bb's own source viewer:
 
-- **The scenarios, listed.** One line each, with how many of its steps are
-  asserted and how many are snapshot only. Choosing one shows it below.
+- **The scenarios, listed.** Each with how many of its steps are asserted
+  and how many are snapshot only. Choosing one shows it below.
 - **The chosen scenario.** Its Given, When, and Then lines in the agent's
   words. Under each Then line are the assertions that check it, numbered as
   `1.3` and marked asserted, snapshot only, or checked to exist. A recorded
@@ -68,6 +68,16 @@ Scenarios has three parts, the Gherkin drawn by bb's own source viewer:
   need, each tagged with why it is a gap (`@untested`, `@unchecked`,
   `@never-run`, or `@outside-layer`), with a note and the code location as
   comments.
+
+The agent writes one scenario per behaviour, so the scenarios need not match
+the test() calls one to one: a single test that checks three things can
+become three scenarios, and one scenario can describe several tests. The panel
+says when that happens, since a reader expects one scenario per test. A note
+above the list counts the scenarios against the tests they describe, such as
+"3 scenarios describe 1 test() call", and each scenario that is not one whole
+test of its own says why: "22 of 46 steps of one test", "spans 2 tests", or
+"shares its test with 1 other scenario". The plugin works this out from the
+step ids each scenario cites, so it needs nothing from the agent.
 
 The plugin does the mechanical part itself. It parses each test file with the
 TypeScript compiler into tests and assertions, counting calls to assertion
@@ -189,7 +199,8 @@ panel, and saves light, dark, and narrow screenshots to
 ### Each shape a concern can take
 
 A concern can be code only, code and tests, tests only, or scenarios over
-files that are not tests. Each draws differently, and a change made for one
+files that are not tests, and its scenarios can match its test() calls one to
+one or not. Each draws differently, and a change made for one
 has hidden another's code before. So each shape has a test under "concern
 shapes" in `components/review-screen.test.tsx`, checking which hunks show, where
 the toggle sits, and what the rail says, and each has a story in

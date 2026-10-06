@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { isTestSide } from "@/review/tests/paths";
-import { coverageLabel, fileStats, hunkNote, sourcePath, staleLabel, testsLabel, testsTag, viewedLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag, viewedLabel } from "./labels";
 
 export type DiffViewComponent = ComponentType<{ patch: string; path: string }>;
 export type SourceViewComponent = ComponentType<{ content: string; path: string }>;
@@ -314,12 +314,14 @@ function Concern({ section, number, of, viewers }: { section: ViewSection; numbe
 /**
  * A test concern on Scenarios: a list of its scenarios, the chosen one as
  * Gherkin below with its recorded values folded until Show values, then what
- * the tests leave out.
+ * the tests leave out. When the scenarios do not pair up one to one with the
+ * test() calls, a note says so and each scenario that does not says why.
  */
 function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: ViewTests; viewers: Viewers }) {
   const [at, setAt] = useState(0);
   const [values, setValues] = useState(false);
   const scenario = tests.scenarios[Math.min(at, tests.scenarios.length - 1)];
+  const mismatch = testsMismatch(tests);
   return (
     <>
       <div className="flex items-center gap-3">
@@ -331,6 +333,12 @@ function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: V
           Show values
         </label>
       </div>
+      {mismatch && (
+        <p data-scenario-mismatch className="flex items-start gap-1.5 text-xs" style={{ color: "var(--warning-text)" }}>
+          <Icon name="AlertTriangle" className="mt-px size-3.5 shrink-0" />
+          {mismatch}
+        </p>
+      )}
       <ol aria-label="Scenarios" className="flex flex-col">
         {tests.scenarios.map((s, i) => (
           <li key={`${i}-${s.title}`}>
@@ -344,12 +352,19 @@ function Scenarios({ section, tests, viewers }: { section: ViewSection; tests: V
               <span className="shrink-0 font-mono text-xs" style={{ color: "var(--destructive-text)" }}>
                 Scenario
               </span>
-              <span className="min-w-0 flex-1">{s.title}</span>
-              <span className="shrink-0 text-[11px] tabular-nums" style={{ color: "var(--success)" }}>
-                {s.asserted} asserted
-              </span>
-              <span className="shrink-0 text-[11px] tabular-nums" style={{ color: "var(--warning-text)" }}>
-                {s.snapshotOnly} snapshot
+              <span className="min-w-0 flex-1">
+                {s.title}
+                {/* Counts and any mismatch sit under the title, which keeps the panel's full width. */}
+                <span className="flex flex-wrap gap-x-2 text-[11px] font-normal tabular-nums">
+                  <span style={{ color: "var(--success)" }}>{s.asserted} asserted</span>
+                  <span style={{ color: "var(--warning-text)" }}>{s.snapshotOnly} snapshot</span>
+                  {scenarioMismatch(s) && (
+                    <span data-scenario-note className="inline-flex items-center gap-1" style={{ color: "var(--warning-text)" }}>
+                      <Icon name="AlertTriangle" className="size-3" />
+                      {scenarioMismatch(s)}
+                    </span>
+                  )}
+                </span>
               </span>
             </button>
           </li>
