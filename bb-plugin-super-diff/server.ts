@@ -55,10 +55,10 @@ export default async function plugin(bb: BbPluginApi) {
       if (typeof checkout === "string") return { state: "unavailable", message: checkout };
       return { state: "ok", view: await getView(store, threadId, checkout) };
     },
-    review_set_viewed: async ({ threadId, path, viewed }) => {
+    review_set_viewed: async ({ threadId, path, hunks, viewed }) => {
       const checkout = await checkoutFor(threadId);
       if (typeof checkout === "string") throw new Error(checkout);
-      await setViewed(store, threadId, checkout, path, viewed);
+      await setViewed(store, threadId, checkout, path, hunks, viewed);
       return { ok: true as const };
     },
     review_generate: async ({ threadId }) => {

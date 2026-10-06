@@ -120,7 +120,8 @@ export const rpcShape = {
     output: reviewResultSchema,
   },
   review_set_viewed: {
-    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), viewed: z.boolean() }),
+    /** The hunks of the file one concern shows, so a file split across concerns is viewed one concern at a time. */
+    input: z.object({ threadId: z.string().min(1), path: z.string().min(1), hunks: z.array(z.number().int().min(0)).min(1), viewed: z.boolean() }),
     output: z.object({ ok: z.literal(true) }),
   },
   review_generate: {

@@ -2,7 +2,7 @@ import { experimental_Diff as Diff, experimental_SourceCode as SourceCode } from
 import { ReviewScreen } from "./components/review-screen";
 import type { ReviewResult } from "./review/contract";
 import { parseDiff } from "./review/items";
-import { buildView } from "./review/view";
+import { buildView, type StoredGrouping } from "./review/view";
 import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./review/tests/feature";
 import type { Scenario } from "./review/grouping";
 
@@ -41,32 +41,34 @@ index 4444444..5555555 100644
 `;
 
 const files = parseDiff(DIFF);
-const grouped = buildView(
-  files,
-  {
-    grouping: {
-      headline: "Widgets pass their gadget through a new sprocket.",
-      concerns: [
-        {
-          title: "Add the sprocket",
-          note: "A one-line function that adds one, with the import that brings it into the widget.",
-          files: ["src/sprocket.ts", { path: "src/widget.ts", hunks: [0] }],
-        },
-        { title: "Call it from the widget", note: "The widget now returns its gadget through the sprocket.", files: [{ path: "src/widget.ts", hunks: [1] }] },
-      ],
-    },
-    assignments: [
-      { path: "src/widget.ts", index: 0, hash: files[0]!.hunks[0]!.hash, concern: 0 },
-      { path: "src/widget.ts", index: 1, hash: files[0]!.hunks[1]!.hash, concern: 1 },
-      { path: "src/sprocket.ts", index: 0, hash: files[1]!.hunks[0]!.hash, concern: 0 },
+const STORED: StoredGrouping = {
+  grouping: {
+    headline: "Widgets pass their gadget through a new sprocket.",
+    concerns: [
+      {
+        title: "Add the sprocket",
+        note: "A one-line function that adds one, with the import that brings it into the widget.",
+        files: ["src/sprocket.ts", { path: "src/widget.ts", hunks: [0] }],
+      },
+      { title: "Call it from the widget", note: "The widget now returns its gadget through the sprocket.", files: [{ path: "src/widget.ts", hunks: [1] }] },
     ],
-    baseSha: "base",
-    headSha: "head",
-    groupedAt: "2026-10-05T12:00:00.000Z",
   },
-  null,
-  { base: "origin/main" },
-);
+  assignments: [
+    { path: "src/widget.ts", index: 0, hash: files[0]!.hunks[0]!.hash, concern: 0 },
+    { path: "src/widget.ts", index: 1, hash: files[0]!.hunks[1]!.hash, concern: 1 },
+    { path: "src/sprocket.ts", index: 0, hash: files[1]!.hunks[0]!.hash, concern: 0 },
+  ],
+  baseSha: "base",
+  headSha: "head",
+  groupedAt: "2026-10-05T12:00:00.000Z",
+};
+const grouped = buildView(files, STORED, null, { base: "origin/main" });
+/** The grouped branch with some hunks marked viewed at their current lines. */
+const viewedAt = (...keys: Array<[string, number]>) =>
+  buildView(files, STORED, null, {
+    base: "origin/main",
+    viewed: new Map(keys.map(([path, index]) => [`${path}#${index}`, files.find((f) => f.path === path)!.hunks[index]!.hash])),
+  });
 
 const render = (result: ReviewResult | null, generating = false, initialSection?: string) => (
   <div className="w-[560px]">
@@ -247,16 +249,11 @@ export const CodeAndTests = () => render({ state: "ok", view: withTests });
 /** A concern that is only tests: its scenarios listed, the chosen one as Gherkin with recorded values folded until Show values, then what the tests leave out. Diff, beside the title, shows the raw files. The rail tags it "tests". */
 export const TestConcern = () => render({ state: "ok", view: withTests }, false, "concern-2");
 
-/** Some files marked viewed: they fold and dim, and the bar and the outline count them. */
-export const SomeViewed = () =>
-  render({
-    state: "ok",
-    view: {
-      ...grouped,
-      concerns: grouped.concerns.map((c, i) => (i === 1 ? { ...c, files: c.files.map((f) => ({ ...f, viewed: true })) } : c)),
-      coverage: { ...grouped.coverage, viewed: 1 },
-    },
-  });
+/** Some files marked viewed: they fold and dim, and the bar and the rail count them. */
+export const SomeViewed = () => render({ state: "ok", view: viewedAt(["src/sprocket.ts", 0]) });
+
+/** A file split across concerns, viewed in one: src/widget.ts folds in Add the sprocket, which holds its first hunk, but stays open in Call it from the widget, and the bar does not count it until both are read. */
+export const SplitFileViewedInOneConcern = () => render({ state: "ok", view: viewedAt(["src/widget.ts", 0]) });
 
 // One widget test() that checks three things, described as three scenarios.
 const WIDGET_STEPS: Record<string, ResolvedStep[]> = {

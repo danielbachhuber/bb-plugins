@@ -54,7 +54,7 @@ export function placeItems(items: Item[], assignments: Assignment[]): { placed: 
 }
 
 export interface ViewExtras {
-  /** Viewed files: path to the diff hash they were marked at. */
+  /** Viewed items: `path#index` to the hash of their lines when they were marked. */
   viewed?: Map<string, string>;
   /** Test overlays, by concern index. */
   tests?: Map<number, ViewTests>;
@@ -64,8 +64,13 @@ export interface ViewExtras {
 
 export function buildView(files: DiffFile[], stored: StoredGrouping | null, stale: StaleInfo | null, extras: ViewExtras = {}): ReviewView {
   const viewed = extras.viewed ?? new Map<string, string>();
-  const isViewed = (file: DiffFile | undefined) => file !== undefined && viewed.get(file.path) === file.hash;
   const items = itemsOf(files);
+  // An item is viewed while its lines are the ones that were marked.
+  const hashOf = new Map(items.map((item) => [itemKey(item.path, item.index), item.hash]));
+  const isViewed = (path: string, index: number) => {
+    const key = itemKey(path, index);
+    return hashOf.has(key) && viewed.get(key) === hashOf.get(key);
+  };
   const fileByPath = new Map(files.map((file) => [file.path, file]));
   const { placed, removed } = stored ? placeItems(items, stored.assignments) : { placed: new Map<string, Placement>(), removed: [] };
 
@@ -103,12 +108,19 @@ export function buildView(files: DiffFile[], stored: StoredGrouping | null, stal
     notYetGrouped: section("not-yet-grouped", "Not yet grouped", null),
     mechanical: section("mechanical", "Mechanical", "Lockfiles, snapshots, and generated files."),
     stale,
-    coverage: { files: files.length, hunks: items.length, shown, viewed: files.filter(isViewed).length, base: extras.base },
+    coverage: {
+      files: files.length,
+      hunks: items.length,
+      shown,
+      // A file counts once every one of its items is viewed, in whichever concerns hold them.
+      viewed: files.filter((file) => items.filter((item) => item.path === file.path).every((item) => isViewed(item.path, item.index))).length,
+      base: extras.base,
+    },
   };
 }
 
 /** Group a section's hunks by file, files in first-seen order, hunks by index. */
-function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: (file: DiffFile | undefined) => boolean): ViewFile[] {
+function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: (path: string, index: number) => boolean): ViewFile[] {
   const order: string[] = [];
   const grouped = new Map<string, ViewHunk[]>();
   for (const hunk of hunks) {
@@ -117,6 +129,7 @@ function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: 
   }
   return order.map((path) => {
     const file = fileByPath.get(path);
+    const live = grouped.get(path)!.filter((hunk) => hunk.status !== "removed");
     return {
       path,
       previousPath: file?.previousPath ?? null,
@@ -124,7 +137,8 @@ function byFile(hunks: ViewHunk[], fileByPath: Map<string, DiffFile>, isViewed: 
       binary: file?.binary ?? false,
       header: file?.header ?? "",
       total: file ? Math.max(file.hunks.length, 1) : 0,
-      viewed: isViewed(file),
+      // Viewed here when the hunks this section shows are; a file split across concerns is viewed one concern at a time.
+      viewed: live.length > 0 && live.every((hunk) => isViewed(path, hunk.index)),
       hunks: grouped.get(path)!.sort((a, b) => a.index - b.index),
     };
   });

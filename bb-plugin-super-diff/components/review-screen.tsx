@@ -22,7 +22,7 @@ export interface ReviewScreenProps {
   error: string | null;
   generating: boolean;
   onGenerate: () => void;
-  onSetViewed: (path: string, viewed: boolean) => void;
+  onSetViewed: (path: string, hunks: number[], viewed: boolean) => void;
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
   /** The section to open on, for stories and tests; the first concern otherwise. */
@@ -49,7 +49,7 @@ const LAYOUT_CSS = `
 interface Viewers {
   DiffView: DiffViewComponent;
   SourceView: SourceViewComponent;
-  onSetViewed: (path: string, viewed: boolean) => void;
+  onSetViewed: (path: string, hunks: number[], viewed: boolean) => void;
 }
 
 export function ReviewScreen({ result, error, generating, onGenerate, onSetViewed, DiffView, SourceView, initialSection }: ReviewScreenProps) {
@@ -397,6 +397,11 @@ function PathLabel({ file }: { file: ViewFile }) {
   );
 }
 
+/** The hunks a card shows that are still in the diff: what its Viewed box marks. */
+function shownHunks(file: ViewFile): number[] {
+  return file.hunks.filter((hunk) => hunk.status !== "removed").map((hunk) => hunk.index);
+}
+
 /** A file as a header bar with its hunks under it; viewed files start folded. */
 function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
   const note = hunkNote(file);
@@ -409,7 +414,7 @@ function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
         <span className="ml-auto" />
         <Counts {...fileStats(file)} />
         <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" onClick={(event) => event.stopPropagation()}>
-          <Checkbox aria-label={`Viewed ${file.path}`} checked={file.viewed} onCheckedChange={(checked) => viewers.onSetViewed(file.path, checked === true)} />
+          <Checkbox aria-label={`Viewed ${file.path}`} checked={file.viewed} onCheckedChange={(checked) => viewers.onSetViewed(file.path, shownHunks(file), checked === true)} />
           Viewed
         </label>
       </summary>

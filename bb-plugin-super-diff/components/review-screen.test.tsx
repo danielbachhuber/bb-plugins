@@ -214,7 +214,8 @@ describe("ReviewScreen", () => {
       ["assets/logo.png", false],
     ]);
     fireEvent.click(screen.getByRole("checkbox", { name: "Viewed src/widget.ts" }));
-    expect(onSetViewed).toHaveBeenCalledWith("src/widget.ts", true);
+    // Only the hunks this concern shows: hunk 0 here, hunk 1 belongs to Second.
+    expect(onSetViewed).toHaveBeenCalledWith("src/widget.ts", [0], true);
   });
 
   it("lists a test concern's scenarios, shows the chosen one, and folds its values", () => {

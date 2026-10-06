@@ -95,14 +95,29 @@ describe("placeItems", () => {
     expect(removed).toEqual([]);
   });
 
-  it("marks a file viewed only while its diff is the one that was viewed", () => {
+  describe("viewed marks", () => {
     const files = parseDiff(DIFF);
-    const widget = files.find((f) => f.path === "src/widget.ts")!;
-    const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts", widget.hash], ["src/gadget.ts", "old-hash"]]) });
-    const all = view.concerns.flatMap((c) => c.files);
-    expect(all.filter((f) => f.path === "src/widget.ts").every((f) => f.viewed)).toBe(true);
-    expect(all.find((f) => f.path === "src/gadget.ts")!.viewed).toBe(false);
-    expect(view.coverage.viewed).toBe(1);
+    const hash = (path: string, index: number) => files.find((f) => f.path === path)!.hunks[index]!.hash;
+    const cards = (view: ReviewView) => view.concerns.map((c) => c.files.map((f) => [f.path, f.viewed]));
+
+    it("marks a split file viewed only in the concern whose hunks were viewed", () => {
+      // src/widget.ts is split: hunks 0 and 2 in Sprocket, hunk 1 in Call site.
+      const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/widget.ts#0", hash("src/widget.ts", 0)], ["src/widget.ts#2", hash("src/widget.ts", 2)]]) });
+      expect(cards(view)).toEqual([[["src/widget.ts", true]], [["src/widget.ts", false], ["src/gadget.ts", false]]]);
+      expect(view.coverage.viewed).toBe(0);
+    });
+
+    it("counts a file in the bar once every concern holding it is viewed", () => {
+      const all = new Map([0, 1, 2].map((i) => [`src/widget.ts#${i}`, hash("src/widget.ts", i)]));
+      const view = buildView(files, stored(DIFF), null, { viewed: all });
+      expect(cards(view)).toEqual([[["src/widget.ts", true]], [["src/widget.ts", true], ["src/gadget.ts", false]]]);
+      expect(view.coverage.viewed).toBe(1);
+    });
+
+    it("drops a hunk's mark when its lines change", () => {
+      const view = buildView(files, stored(DIFF), null, { viewed: new Map([["src/gadget.ts#0", "old-hash"]]) });
+      expect(view.concerns[1]!.files.find((f) => f.path === "src/gadget.ts")!.viewed).toBe(false);
+    });
   });
 
   it("attaches a test overlay to its concern", () => {

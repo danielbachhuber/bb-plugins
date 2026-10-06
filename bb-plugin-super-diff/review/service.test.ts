@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { getView, hunks, submit, testsText, verifyData, type Checkout } from "./service";
+import { getView, hunks, setViewed, submit, testsText, verifyData, type Checkout } from "./service";
 import { createStore, MIGRATIONS } from "./store";
 import { makeRepo } from "./testing/repo";
 
@@ -62,6 +62,19 @@ describe("service", () => {
     expect(view.stale).toBeNull();
     expect(view.coverage.base).toBe("main");
     expect((await verifyData(store, "thr_1", checkout)).text).toBe("2 files, 2 hunks: 2 shown once, 0 missing, 0 twice.");
+  });
+
+  it("marks the hunks a card shows viewed, until their lines change, and clears them", async () => {
+    const { r, store, checkout } = await setup();
+    await submit(store, "thr_1", checkout, GOOD, NOW);
+    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], true);
+    const widget = async () => (await getView(store, "thr_1", checkout)).concerns[0]!.files[0]!;
+    expect((await widget()).viewed).toBe(true);
+    r.write("src/widget.ts", "export const widget = 4;\n");
+    expect((await widget()).viewed).toBe(false);
+    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], true);
+    await setViewed(store, "thr_1", checkout, "src/widget.ts", [0], false);
+    expect((await widget()).viewed).toBe(false);
   });
 
   it("a commit that changes no content stays current", async () => {

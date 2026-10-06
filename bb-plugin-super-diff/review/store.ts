@@ -2,6 +2,7 @@
 // every changed file at the moment it was accepted.
 import type Database from "better-sqlite3";
 import type { FileState } from "./stale";
+import { itemKey } from "./types";
 import type { StoredGrouping } from "./view";
 
 /** Append-only: bb.storage.migrate rejects an edited or reordered statement. */
@@ -27,16 +28,25 @@ export const MIGRATIONS = [
     hash TEXT NOT NULL,
     PRIMARY KEY (thread_id, path)
   )`,
+  // Marks move from files to hunks, so a file split across concerns is viewed one concern at a time.
+  `DROP TABLE viewed`,
+  `CREATE TABLE viewed_items (
+    thread_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    idx INTEGER NOT NULL,
+    hash TEXT NOT NULL,
+    PRIMARY KEY (thread_id, path, idx)
+  )`,
 ];
 
 export interface Store {
   get(threadId: string): StoredGrouping | null;
   snapshot(threadId: string): Map<string, FileState>;
   put(threadId: string, stored: StoredGrouping, files: Map<string, FileState>): void;
-  /** Each viewed file's path, with the hash of its diff when it was marked. */
+  /** Each viewed item, by `path#index`, with the hash of its lines when it was marked. */
   viewed(threadId: string): Map<string, string>;
-  /** Mark a file viewed at this diff hash, or clear its mark with null. */
-  setViewed(threadId: string, path: string, hash: string | null): void;
+  /** Mark items viewed at their current hashes, or clear their marks. */
+  setViewed(threadId: string, items: Array<{ path: string; index: number; hash: string }>, viewed: boolean): void;
 }
 
 interface GroupingRow {
@@ -64,11 +74,17 @@ export function createStore(db: Database.Database): Store {
   const deleteFiles = db.prepare("DELETE FROM snapshot_files WHERE thread_id = ?");
   const insertFile = db.prepare("INSERT INTO snapshot_files (thread_id, path, hash, content) VALUES (?, ?, ?, ?)");
 
-  const selectViewed = db.prepare<[string], { path: string; hash: string }>("SELECT path, hash FROM viewed WHERE thread_id = ?");
+  const selectViewed = db.prepare<[string], { path: string; idx: number; hash: string }>("SELECT path, idx, hash FROM viewed_items WHERE thread_id = ?");
   const upsertViewed = db.prepare(
-    "INSERT INTO viewed (thread_id, path, hash) VALUES (?, ?, ?) ON CONFLICT(thread_id, path) DO UPDATE SET hash = excluded.hash",
+    "INSERT INTO viewed_items (thread_id, path, idx, hash) VALUES (?, ?, ?, ?) ON CONFLICT(thread_id, path, idx) DO UPDATE SET hash = excluded.hash",
   );
-  const deleteViewed = db.prepare("DELETE FROM viewed WHERE thread_id = ? AND path = ?");
+  const deleteViewed = db.prepare("DELETE FROM viewed_items WHERE thread_id = ? AND path = ? AND idx = ?");
+  const setViewed = db.transaction((threadId: string, items: Array<{ path: string; index: number; hash: string }>, viewed: boolean) => {
+    for (const item of items) {
+      if (viewed) upsertViewed.run(threadId, item.path, item.index, item.hash);
+      else deleteViewed.run(threadId, item.path, item.index);
+    }
+  });
 
   const put = db.transaction((threadId: string, stored: StoredGrouping, files: Map<string, FileState>) => {
     upsertGrouping.run(
@@ -102,11 +118,10 @@ export function createStore(db: Database.Database): Store {
       put(threadId, stored, files);
     },
     viewed(threadId) {
-      return new Map(selectViewed.all(threadId).map((row) => [row.path, row.hash]));
+      return new Map(selectViewed.all(threadId).map((row) => [itemKey(row.path, row.idx), row.hash]));
     },
-    setViewed(threadId, path, hash) {
-      if (hash === null) deleteViewed.run(threadId, path);
-      else upsertViewed.run(threadId, path, hash);
+    setViewed(threadId, items, viewed) {
+      setViewed(threadId, items, viewed);
     },
   };
 }

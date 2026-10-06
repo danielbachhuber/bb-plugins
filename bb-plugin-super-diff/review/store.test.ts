@@ -34,12 +34,12 @@ describe("store", () => {
     expect(s.get("thr_2")).toBeNull();
   });
 
-  it("keeps viewed marks per thread and file, and clears one", () => {
+  it("keeps viewed marks per thread and hunk, and clears some", () => {
     const s = store();
-    s.setViewed("thr_1", "a.ts", "h1");
-    s.setViewed("thr_1", "b.ts", "h2");
-    s.setViewed("thr_2", "a.ts", "h9");
-    s.setViewed("thr_1", "b.ts", null);
-    expect(s.viewed("thr_1")).toEqual(new Map([["a.ts", "h1"]]));
+    s.setViewed("thr_1", [{ path: "a.ts", index: 0, hash: "h1" }, { path: "a.ts", index: 2, hash: "h2" }, { path: "b.ts", index: 0, hash: "h3" }], true);
+    s.setViewed("thr_2", [{ path: "a.ts", index: 0, hash: "h9" }], true);
+    s.setViewed("thr_1", [{ path: "b.ts", index: 0, hash: "h3" }], false);
+    s.setViewed("thr_1", [{ path: "a.ts", index: 2, hash: "h4" }], true);
+    expect(s.viewed("thr_1")).toEqual(new Map([["a.ts#0", "h1"], ["a.ts#2", "h4"]]));
   });
 });

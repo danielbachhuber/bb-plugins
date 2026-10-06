@@ -110,10 +110,17 @@ export async function getView(store: Store, threadId: string, checkout: Checkout
   });
 }
 
-/** Mark a file viewed at its current diff, or clear the mark. */
-export async function setViewed(store: Store, threadId: string, checkout: Checkout, path: string, viewed: boolean): Promise<void> {
-  const file = (await loadBranch(checkout)).files.find((f) => f.path === path);
-  store.setViewed(threadId, path, viewed && file ? file.hash : null);
+/** Mark some of a file's hunks viewed at their current lines, or clear their marks. */
+export async function setViewed(
+  store: Store,
+  threadId: string,
+  checkout: Checkout,
+  path: string,
+  hunks: number[],
+  viewed: boolean,
+): Promise<void> {
+  const items = itemsOf((await loadBranch(checkout)).files).filter((item) => item.path === path && hunks.includes(item.index));
+  store.setViewed(threadId, items, viewed);
 }
 
 /** What `bb super-diff tests` prints: each test on the branch, with its numbered steps. */

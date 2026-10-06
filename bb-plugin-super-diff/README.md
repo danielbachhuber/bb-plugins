@@ -33,12 +33,20 @@ From top to bottom, the panel shows:
 
 ## Marking files viewed
 
-Check **Viewed** on a file once you have read it. The file folds and dims, the
-bar at the top fills, and its concern's entry in the rail counts it; a concern
-whose files are all viewed gets a check. A mark is kept per thread and per
-file, against that file's diff at the time. When the file's diff changes, by a
-commit or an edit, its mark clears itself, so a changed file always comes back
-unread. Marks belong to files, not concerns, so they survive regenerating the
+Check **Viewed** on a file once you have read it. The file folds and dims,
+and its concern's entry in the rail counts it; a concern whose files are all
+viewed gets a check.
+
+A mark covers the hunks the card shows, not the whole file. A file that serves
+two concerns is split between them by hunk, and checking it in one concern
+marks only that concern's hunks, so the same file in the other concern stays
+open until you read it there. The bar at the top counts a file once all of
+its hunks are viewed, in every concern that holds them.
+
+Each hunk's mark is kept per thread, against that hunk's lines at the time.
+When a commit or an edit changes those lines, its mark clears itself, so a
+changed hunk always comes back unread, and a file's other hunks stay viewed.
+Marks belong to hunks, not concerns, so they survive regenerating the
 grouping.
 
 ## Test concerns

@@ -10,7 +10,8 @@ it only when every hunk on the branch is in exactly one concern, so nothing on
 the branch is left out of the review.
 
 Check **Viewed** on each file as you read it; a bar counts your progress, and
-a file whose diff changes comes back unread.
+a file whose diff changes comes back unread. A file split across concerns is
+marked one concern at a time.
 
 A concern shows its code changes first, then its tests as **Scenarios**: what
 the tests check, as Gherkin with each recorded snapshot value under the step
