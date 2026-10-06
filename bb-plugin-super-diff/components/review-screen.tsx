@@ -13,7 +13,7 @@ import { Icon } from "@/components/ui/icon";
 import { hunkPatch, type ReviewResult, type ReviewView, type ViewFile, type ViewHunk, type ViewSection, type ViewTests } from "@/review/contract";
 import { isTestSide } from "@/review/tests/paths";
 import { BranchBar } from "./branch-bar";
-import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
+import { coverageLabel, fileStats, hunkNote, reviewedNote, scenarioMismatch, sourcePath, staleLabel, testsLabel, testsMismatch, testsTag } from "./labels";
 
 /**
  * Draws one file's patch. `file`, when given, is the changed file it belongs
@@ -442,6 +442,7 @@ function GithubViewed({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
 /** A file as a header bar with its hunks under it; a file whose hunks are all read starts folded. */
 function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
   const note = hunkNote(file);
+  const reviewed = reviewedNote(file);
   return (
     <details data-file-card={file.path} open={!file.viewed} className="overflow-hidden rounded-md border">
       <summary className={`flex cursor-pointer list-none items-center gap-2 bg-muted/50 px-3 py-1.5 ${file.viewed ? "opacity-60" : ""}`}>
@@ -449,6 +450,12 @@ function FileCard({ file, viewers }: { file: ViewFile; viewers: Viewers }) {
         {file.fileStatus === "added" && <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-success">new</span>}
         {note && <span className="shrink-0 text-xs text-muted-foreground">{note}</span>}
         <span className="ml-auto" />
+        {reviewed && (
+          <span data-file-reviewed className={`flex shrink-0 items-center gap-1 text-xs ${file.viewed ? "text-success" : "text-muted-foreground"}`}>
+            {file.viewed && <Icon name="Check" className="size-3" />}
+            {reviewed}
+          </span>
+        )}
         <Counts {...fileStats(file)} />
         <GithubViewed file={file} viewers={viewers} />
       </summary>
@@ -507,7 +514,7 @@ function HunkBlock({ file, hunk, viewers }: { file: ViewFile; hunk: ViewHunk; vi
         <button type="button" data-hunk-toggle aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span>
             {place}
-            {hunk.read && " · read"}
+            {hunk.read && " · reviewed"}
           </span>
           {hunk.status === "changed" && <span className="rounded bg-amber-500/20 px-1.5 text-foreground">changed since grouping</span>}
         </button>

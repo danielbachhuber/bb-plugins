@@ -17,6 +17,14 @@ export function hunkNote(file: ViewFile): string | null {
   return `${shown.length === 1 ? "hunk" : "hunks"} ${list(shown.map(String))} of ${file.total}`;
 }
 
+/** "2 of 5 hunks reviewed" for the hunks a file card shows, once any is read. */
+export function reviewedNote(file: ViewFile): string | null {
+  const live = file.hunks.filter((h) => h.status !== "removed");
+  const read = live.filter((h) => h.read).length;
+  if (read === 0) return null;
+  return `${read} of ${plural(live.length, "hunk", "hunks")} reviewed`;
+}
+
 export function staleLabel(commitsSince: number | null, files: number): string {
   const fileText = plural(files, "file", "files");
   if (commitsSince === null) return `the branch was rewritten, and ${fileText} changed since`;

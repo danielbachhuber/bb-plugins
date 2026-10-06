@@ -244,12 +244,14 @@ describe("ReviewScreen", () => {
       const onSetRead = vi.fn();
       const { container } = screenWith({ result: { state: "ok", view: withRead(true) }, onSetRead });
       expect(within(strip(container)).queryByTestId("diff")).toBeNull();
-      expect(within(strip(container)).getByText(/Hunk 1 of 2 · read/)).toBeInTheDocument();
+      expect(within(strip(container)).getByText(/Hunk 1 of 2 · reviewed/)).toBeInTheDocument();
       fireEvent.click(within(strip(container)).getByRole("button", { name: /Hunk 1 of 2/ }));
       expect(within(strip(container)).getByTestId("diff")).toBeInTheDocument();
       expect(onSetRead).not.toHaveBeenCalled();
-      // A card whose hunks are all read starts folded.
-      expect(container.querySelector<HTMLDetailsElement>('details[data-file-card="src/widget.ts"]')!.open).toBe(false);
+      // A card whose hunks are all read starts folded, and says so in its header.
+      const card = container.querySelector<HTMLDetailsElement>('details[data-file-card="src/widget.ts"]')!;
+      expect(card.open).toBe(false);
+      expect(card.querySelector("[data-file-reviewed]")).toHaveTextContent("1 of 1 hunk reviewed");
     });
 
     it("shows Viewed only for a file synced with the pull request, and sends it as GitHub's", () => {

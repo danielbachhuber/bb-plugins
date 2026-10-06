@@ -72,8 +72,10 @@ file has no context to show, and its hunks draw as before.
 
 Each hunk opens with a strip: a round checkmark, then "Hunk 1 of 2". Check it
 once you have read the hunk, and the hunk folds to its strip; click the
-strip's text to open it again without unchecking it. A card whose hunks are all
-read folds to its header, and a concern whose files are all read gets a check
+strip's text to open it again without unchecking it. Once any hunk is checked,
+the card's header counts them, as in "2 of 5 hunks reviewed". A card whose
+hunks are all read folds to its header, which shows a green check beside "5 of
+5 hunks reviewed", and a concern whose files are all read gets a check
 in the rail. The bar at the top fills hunk by hunk.
 
 A check belongs to one hunk, kept per thread against that hunk's lines. A file

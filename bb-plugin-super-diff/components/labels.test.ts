@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverageLabel, fileStats, hunkNote, scenarioMismatch, sourcePath, staleLabel, testsMismatch, testsTag, viewedLabel, crossCheckLabel } from "./labels";
+import { coverageLabel, fileStats, hunkNote, reviewedNote, scenarioMismatch, sourcePath, staleLabel, testsMismatch, testsTag, viewedLabel, crossCheckLabel } from "./labels";
 
 const file = (indexes: number[], total: number) => ({
   path: "a.ts",
@@ -21,6 +21,14 @@ describe("labels", () => {
     expect(hunkNote(file([0, 1, 3], 4))).toBe("hunks 1, 2, and 4 of 4");
     expect(hunkNote(file([1], 2))).toBe("hunk 2 of 2");
     expect(hunkNote(file([0, 1], 2))).toBeNull();
+  });
+
+  it("counts the reviewed hunks a card shows, once any is read", () => {
+    const f = file([0, 1, 3], 4);
+    expect(reviewedNote(f)).toBeNull();
+    expect(reviewedNote({ ...f, hunks: f.hunks.map((h, i) => ({ ...h, read: i === 0 })) })).toBe("1 of 3 hunks reviewed");
+    expect(reviewedNote({ ...f, hunks: f.hunks.map((h) => ({ ...h, read: true })) })).toBe("3 of 3 hunks reviewed");
+    expect(reviewedNote({ ...f, hunks: [{ ...f.hunks[0]!, read: true }] })).toBe("1 of 1 hunk reviewed");
   });
 
   it("says how far the branch has moved", () => {
