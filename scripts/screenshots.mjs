@@ -5,6 +5,14 @@
 //
 //   npm run screenshots          build and capture, then list what changed
 //   npm run screenshots:commit   commit the capture there and push it
+//   npm run screenshots:isolated build and capture in directories of its own
+//
+// Plain `npm run screenshots` builds into build/ and captures into the shared
+// checkout, so two threads running it at once delete each other's build and
+// mix their images. The isolated run builds into a temporary directory and
+// captures into a new git worktree of the screenshots checkout, made from
+// origin/main, and prints the commit command for that worktree. Committing
+// from a worktree rebases onto origin/main, pushes, and removes the worktree.
 //
 // Two steps because that checkout's history is public. Every image a capture
 // changed is read for private information while it is still only in the
@@ -21,6 +29,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
@@ -28,13 +37,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:http";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commitMode = process.argv.includes("--commit");
+const isolated = process.argv.includes("--isolated");
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -56,20 +66,46 @@ const configured =
   process.env.BB_PLUGINS_SCREENSHOTS_DIR ??
   readDotEnv(join(repoRoot, ".env")).BB_PLUGINS_SCREENSHOTS_DIR ??
   "../bb-plugins-screenshots";
-const outDir = resolve(repoRoot, expandHome(configured));
+const sharedDir = resolve(repoRoot, expandHome(configured));
 
-if (!existsSync(join(outDir, ".git"))) {
+if (!existsSync(join(sharedDir, ".git"))) {
   console.error(
-    `No git checkout at ${outDir}. Clone bb-plugins-screenshots there, or set BB_PLUGINS_SCREENSHOTS_DIR in .env.`,
+    `No git checkout at ${sharedDir}. Clone bb-plugins-screenshots there, or set BB_PLUGINS_SCREENSHOTS_DIR in .env.`,
   );
   process.exit(1);
 }
 
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
+/** A new worktree of the screenshots checkout at origin/main, for this run alone. */
+function isolatedWorktree() {
+  git(sharedDir, "fetch", "-q", "origin");
+  const dir = mkdtempSync(join(tmpdir(), "bb-plugins-screenshots-"));
+  git(sharedDir, "worktree", "add", "-q", "--detach", dir, "origin/main");
+  return dir;
+}
+
+const outDir = isolated && !commitMode ? isolatedWorktree() : sharedDir;
+// A worktree's git directory differs from the one its repository shares, and
+// the main checkout is the directory holding that shared one. Committing from a
+// worktree names the worktree in BB_PLUGINS_SCREENSHOTS_DIR, so the worktree is
+// removed from the main checkout rather than from inside itself.
+const commonDir = resolve(outDir, git(outDir, "rev-parse", "--git-common-dir"));
+const inWorktree = git(outDir, "rev-parse", "--absolute-git-dir") !== commonDir;
+const mainDir = dirname(commonDir);
+const removeWorktree = `git -C ${mainDir} worktree remove --force ${outDir}`;
+// Set once there is a capture to read; until then, an isolated run that stops
+// for any reason takes its worktree with it.
+let keepWorktree = false;
+if (inWorktree && !commitMode) {
+  process.on("exit", () => {
+    if (!keepWorktree) execFileSync("git", ["worktree", "remove", "--force", outDir], { cwd: mainDir });
+  });
+}
+
 // Which bb-plugins commit the capture in the working tree came from. Inside
-// .git, so it is never committed itself.
-const capturePath = join(outDir, ".git", "bb-plugins-capture.json");
+// the git directory, so it is never committed itself.
+const capturePath = join(git(outDir, "rev-parse", "--absolute-git-dir"), "bb-plugins-capture.json");
 
 if (commitMode) {
   if (!existsSync(capturePath)) {
@@ -91,8 +127,16 @@ if (commitMode) {
   ].join("\n");
   execFileSync("git", ["commit", "-q", "-F", "-"], { cwd: outDir, input: message });
   rmSync(capturePath);
-  execFileSync("git", ["push", "-q"], { cwd: outDir, stdio: "inherit" });
+  if (inWorktree) {
+    // The worktree started from origin/main, which may have moved since.
+    git(outDir, "fetch", "-q", "origin");
+    execFileSync("git", ["rebase", "-q", "origin/main"], { cwd: outDir, stdio: "inherit" });
+    execFileSync("git", ["push", "-q", "origin", "HEAD:main"], { cwd: outDir, stdio: "inherit" });
+  } else {
+    execFileSync("git", ["push", "-q"], { cwd: outDir, stdio: "inherit" });
+  }
   console.log(`Committed and pushed ${git(outDir, "rev-parse", "--short", "HEAD")}.`);
+  if (inWorktree) execFileSync("git", ["worktree", "remove", "--force", outDir], { cwd: mainDir });
   process.exit(0);
 }
 
@@ -101,7 +145,9 @@ const sha = git(repoRoot, "rev-parse", "HEAD");
 const subject = git(repoRoot, "log", "-1", "--format=%s");
 const dirty = git(repoRoot, "status", "--porcelain") !== "";
 
-const build = spawnSync("node", [join(repoRoot, "scripts/ladle.mjs"), "build"], {
+const buildDir = isolated ? mkdtempSync(join(tmpdir(), "bb-plugins-build-")) : join(repoRoot, "build");
+if (isolated) process.on("exit", () => rmSync(buildDir, { recursive: true, force: true }));
+const build = spawnSync("node", [join(repoRoot, "scripts/ladle.mjs"), "build", "--outDir", buildDir], {
   cwd: repoRoot,
   encoding: "utf8",
   // Rollup's warnings run to megabytes, past spawnSync's 1 MB default.
@@ -115,7 +161,6 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-const buildDir = join(repoRoot, "build");
 const storyMeta = JSON.parse(readFileSync(join(buildDir, "meta.json"), "utf8")).stories;
 const stories = Object.keys(storyMeta);
 
@@ -246,7 +291,8 @@ for (const id of stories) {
     section: story.levels.at(-1),
     file,
     line: story.locStart,
-    caption: docCommentAbove(readFileSync(file, "utf8"), story.locStart),
+    // Another thread can delete a story file during the capture.
+    caption: existsSync(file) ? docCommentAbove(readFileSync(file, "utf8"), story.locStart) : "",
   });
 }
 
@@ -340,9 +386,17 @@ if (changed.length === 0) {
   console.log("\nNo visual changes.");
   process.exit(0);
 }
+keepWorktree = true;
 console.log(`\nNot committed. Read each of these for private information first:`);
 for (const file of changed) console.log(`  ${join(outDir, file)}`);
-console.log(
-  `\nIf all are clean: npm run screenshots:commit` +
-    `\nIf one is not: git -C ${outDir} checkout -- . && git -C ${outDir} clean -fd, then fix the fixture and capture again.`,
-);
+if (inWorktree) {
+  console.log(
+    `\nIf all are clean: BB_PLUGINS_SCREENSHOTS_DIR=${outDir} npm run screenshots:commit` +
+      `\nIf one is not: ${removeWorktree}, then fix the fixture and capture again.`,
+  );
+} else {
+  console.log(
+    `\nIf all are clean: npm run screenshots:commit` +
+      `\nIf one is not: git -C ${outDir} checkout -- . && git -C ${outDir} clean -fd, then fix the fixture and capture again.`,
+  );
+}

@@ -10,6 +10,7 @@
 // Usage:
 //   node scripts/ladle.mjs serve [ladle options]
 //   node scripts/ladle.mjs build [ladle options]
+//   node scripts/ladle.mjs build --outDir /tmp/somewhere
 
 import { spawn } from "node:child_process";
 import {
@@ -22,7 +23,7 @@ import {
   symlinkSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -84,7 +85,12 @@ if (current !== bbSourceDir) {
 // Ladle reports success even when Vite's build fails: it still writes
 // meta.json and exits 0, leaving the last good bundle in place. So a build
 // starts from an empty directory, and one that leaves no index.html failed.
-const buildDir = join(repoRoot, "build");
+// `--outDir` builds somewhere else, as `npm run screenshots:isolated` does.
+const outDirIndex = rest.findIndex((arg) => arg === "--outDir" || arg === "-o");
+const buildDir = outDirIndex === -1 ? join(repoRoot, "build") : resolve(rest[outDirIndex + 1]);
+// Ladle joins outDir onto its working directory even when it is absolute, so
+// it is handed the path relative to bb's app directory.
+if (outDirIndex !== -1) rest[outDirIndex + 1] = relative(bbAppDir, buildDir);
 if (command === "build") rmSync(buildDir, { recursive: true, force: true });
 
 // Ladle runs from bb's app directory, so Vite's root is bb's and every bare

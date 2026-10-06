@@ -31,6 +31,23 @@ here.
 
 Commit one logical change at a time rather than one commit at the end.
 
+## Build and reload after you commit
+
+bb runs each plugin from its `dist/`, not its source. The plugins are
+installed as `path:` sources pointing at this checkout, so a committed change
+does nothing in bb until it is built. After every commit that touches a
+plugin's code, build and reload it:
+
+```sh
+bb plugin build . && bb plugin reload <id>   # from the plugin's directory
+```
+
+`./sync.sh` does the same for every plugin whose `dist/` has drifted from its
+source, and `./sync.sh --check` lists them without changing anything. A prompt
+fix in Review Sweep was once committed and pushed, then the next review thread
+was spawned with the old prompt, because the running build was a day older
+than the commit.
+
 ## Commit only your own work
 
 Several agents work in this one checkout on `main` at the same time, so the
@@ -48,8 +65,8 @@ with `git add bb-plugin-now` instead of by file.
   whole directory.
 - Read `git diff --cached --stat` before committing, and unstage anything
   you do not recognise.
-- The same goes for screenshots. `npm run screenshots` captures every story
-  in the checkout, including another thread's uncommitted ones. Before
+- The same goes for screenshots. A capture photographs every story in this
+  checkout, including another thread's uncommitted ones. Before
   `screenshots:commit`, restore the images and READMEs that your commit did
   not change, with `git -C <screenshots dir> checkout -- <path>` and
   `git clean` for new files.
@@ -61,9 +78,19 @@ Every story is photographed into a separate repository,
 looks lives there instead of bloating this one. After you push a commit here:
 
 ```sh
-npm run screenshots          # build, capture, list the images that changed
-npm run screenshots:commit   # after reading them: commit there and push
+npm run screenshots:isolated   # build, capture, list the images that changed
+# after reading them, the commit command it prints:
+BB_PLUGINS_SCREENSHOTS_DIR=<worktree> npm run screenshots:commit
 ```
+
+Use the isolated run, because other threads capture at the same time. Plain
+`npm run screenshots` builds into `build/` and captures into the shared
+screenshots checkout, so two runs at once delete each other's build and mix
+their images in one working tree. The isolated run builds into a temporary
+directory and captures into a new git worktree of the screenshots checkout,
+made from `origin/main`. Committing from that worktree rebases onto
+`origin/main`, pushes, and removes the worktree. A run that finds no changes,
+or fails, removes it too.
 
 Run it after every commit, not only visual ones: a change to a shared
 component alters stories that its commit never touched. When nothing looks
@@ -73,8 +100,7 @@ The capture does not commit, because that repository is public too, and an
 image can carry what a text scan of the diff misses. Read every image it
 lists, with the same rule as the top of this file, while it is still only in
 the working tree there. If one shows something private, throw the capture away
-with the `checkout` and `clean` command it prints, fix the fixture here, and
-capture again. Nothing reaches that repository's history until
+with the command it prints, fix the fixture here, and capture again. Nothing reaches that repository's history until
 `screenshots:commit`, which commits with a message naming this repository's
 commit and pushes. That repository's AGENTS.md says the same.
 

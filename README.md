@@ -133,6 +133,9 @@ It also writes that repository's READMEs: a table of the plugins, and a page
 per plugin with its description and every story, captioned with the comment
 above the story. It lists the files that changed without committing them;
 `npm run screenshots:commit` commits and pushes them once you have checked
-them for anything private. It
+them for anything private. `npm run screenshots:isolated` does the same in a
+temporary build directory and a new worktree of that checkout, so threads
+capturing at the same time do not collide, and prints the commit command for
+that worktree. It
 needs `npm install` at the root, for Playwright, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.
