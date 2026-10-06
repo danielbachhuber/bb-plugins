@@ -17,7 +17,7 @@ const write = {
   hoursAt: "2026-10-06T13:00:00.000Z",
   items: [
     { text: "Ship the widget export", details: [], hours: 6.5 },
-    { text: "People", details: ["1:1 prep for octocat"], hours: null },
+    { text: "People", details: [{ text: "1:1 prep for octocat", depth: 1 }], hours: null },
   ],
 };
 
@@ -37,7 +37,7 @@ describe("priority store", () => {
       writtenAt: "2026-10-06T13:01:00.000Z",
       items: [
         { text: "Ship the widget export", details: [], hours: 6.5, doneAt: null },
-        { text: "People", details: ["1:1 prep for octocat"], hours: null, doneAt: null },
+        { text: "People", details: [{ text: "1:1 prep for octocat", depth: 1 }], hours: null, doneAt: null },
       ],
     });
   });

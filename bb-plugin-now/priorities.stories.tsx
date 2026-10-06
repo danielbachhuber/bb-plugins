@@ -22,7 +22,17 @@ const week: PriorityWeek = {
     { text: "Finish pagination for the gadgets list", details: [], hours: 0, doneAt: null },
     { text: "Review project plans with the team", details: [], hours: 1.5, doneAt: null },
     { text: "Plan the fall talk series", details: [], hours: null, doneAt: null },
-    { text: "People", details: ["1:1 prep for octocat", "Feedback for hubber"], hours: 2, doneAt: null },
+    {
+      text: "People:",
+      details: [
+        { text: "Octocat:", depth: 1 },
+        { text: "Prepare the 1:1 agenda and ask about the widget sync handoff.", depth: 2 },
+        { text: "Hubber:", depth: 1 },
+        { text: "Write up feedback on the gadget launch plan.", depth: 2 },
+      ],
+      hours: 2,
+      doneAt: null,
+    },
   ],
 };
 
@@ -57,7 +67,7 @@ function List() {
   );
 }
 
-/** The column beside Now's list: one priority checked off, one with no time yet, one not linked to any workstream, and one with nested bullets. */
+/** The column beside Now's list: one priority checked off, one with no time yet, one not linked to any workstream, and one with bullets nested two levels deep. */
 export function Default() {
   return (
     <StoryCard>
@@ -73,27 +83,34 @@ export function Default() {
   );
 }
 
-/** Wide, the priorities sit to the right of the list. Narrow, they move above it. */
+/** Wide, the priorities sit to the right of the list, and dragging the column's left edge changes its width. Narrow, they move above it. */
 export function Layout() {
   return (
     <StoryCard>
       <StoryRow label="Wide" hint="A column on the right, kept in view while the list scrolls.">
         <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={<Column initial={week} />}>
+          <WithPriorities priorities={<Column initial={week} />} initialWidth={256}>
+            <List />
+          </WithPriorities>
+        </div>
+      </StoryRow>
+      <StoryRow label="Wide, widened" hint="The column dragged wider. The width is remembered across visits; double-clicking the edge puts it back.">
+        <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
+          <WithPriorities priorities={<Column initial={week} />} initialWidth={400}>
             <List />
           </WithPriorities>
         </div>
       </StoryRow>
       <StoryRow label="Narrow" hint="Above the list, full width.">
         <div className="w-[560px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={<Column initial={week} />}>
+          <WithPriorities priorities={<Column initial={week} />} initialWidth={256}>
             <List />
           </WithPriorities>
         </div>
       </StoryRow>
       <StoryRow label="No priorities" hint="A week with none written: no column, and the list keeps the full width.">
         <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={null}>
+          <WithPriorities priorities={null} initialWidth={256}>
             <List />
           </WithPriorities>
         </div>

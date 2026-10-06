@@ -5,12 +5,25 @@ import { z } from "zod";
 
 export const mondaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+/**
+ * A bullet nested under a priority. A bare string, the shape lists were first
+ * stored in, reads as a bullet directly under it.
+ */
+export const priorityDetailSchema = z.preprocess(
+  (value) => (typeof value === "string" ? { text: value, depth: 1 } : value),
+  z.object({
+    text: z.string().max(2000),
+    /** 1 directly under the priority, 2 under that, and so on. */
+    depth: z.number().int().min(1).max(6),
+  }),
+);
+
 /** One priority as a writer sends it. */
 export const priorityInputSchema = z.object({
   /** The top-level bullet. Also how a rewrite finds its checked state. */
   text: z.string().trim().min(1).max(2000),
-  /** Bullets nested under it. */
-  details: z.array(z.string().max(2000)).max(50),
+  /** Bullets nested under it, in order. */
+  details: z.array(priorityDetailSchema).max(50),
   /** Hours spent on it this week, or null when nothing measures it. */
   hours: z.number().nonnegative().nullable(),
 });
@@ -32,6 +45,7 @@ export const priorityWeekSchema = z.object({
   items: z.array(storedPrioritySchema),
 });
 
+export type PriorityDetail = z.infer<typeof priorityDetailSchema>;
 export type PriorityInput = z.infer<typeof priorityInputSchema>;
 export type StoredPriority = z.infer<typeof storedPrioritySchema>;
 export type PriorityWeek = z.infer<typeof priorityWeekSchema>;
@@ -55,7 +69,7 @@ export function mergeDone(stored: readonly StoredPriority[], incoming: readonly 
   const done = new Map(stored.map((each) => [each.text.trim(), each.doneAt]));
   return incoming.map((each) => {
     const text = each.text.trim();
-    return { text, details: [...each.details], hours: each.hours, doneAt: done.get(text) ?? null };
+    return { text, details: each.details.map((detail) => ({ ...detail })), hours: each.hours, doneAt: done.get(text) ?? null };
   });
 }
 
@@ -84,4 +98,14 @@ export function hoursAsOf(hoursAt: string | null, now: Date): string | null {
 export function weekLabel(monday: string): string {
   const [year, month, day] = monday.split("-").map(Number) as [number, number, number];
   return `Week of ${new Date(year, month - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+/** The column's width in pixels, when it sits beside the list. */
+export const COLUMN_WIDTH = { min: 192, max: 520, initial: 256, step: 16 } as const;
+
+/** A width the column can take: whole pixels, within its bounds, or the initial width for anything unreadable. */
+export function clampColumnWidth(value: unknown): number {
+  const number = typeof value === "string" ? Number(value) : value;
+  if (typeof number !== "number" || !Number.isFinite(number)) return COLUMN_WIDTH.initial;
+  return Math.round(Math.min(COLUMN_WIDTH.max, Math.max(COLUMN_WIDTH.min, number)));
 }

@@ -1,6 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import { doneCount, hoursAsOf, hoursLabel, mergeDone, mondayOf, weekLabel, type StoredPriority } from "./priorities.js";
+import {
+  clampColumnWidth,
+  doneCount,
+  hoursAsOf,
+  hoursLabel,
+  mergeDone,
+  mondayOf,
+  priorityWeekSchema,
+  weekLabel,
+  type StoredPriority,
+} from "./priorities.js";
 
 function stored(text: string, doneAt: string | null = null): StoredPriority {
   return { text, details: [], hours: null, doneAt };
@@ -30,12 +40,12 @@ describe("mergeDone", () => {
       [stored("Ship the widget export", "2026-10-06T10:00:00.000Z"), stored("Plan the fall talk series")],
       [
         { text: "Ship the widget export", details: [], hours: 6.5 },
-        { text: "Plan the fall talk series", details: ["Ask hubber"], hours: 0 },
+        { text: "Plan the fall talk series", details: [{ text: "Ask hubber", depth: 1 }], hours: 0 },
       ],
     );
     expect(merged).toEqual([
       { text: "Ship the widget export", details: [], hours: 6.5, doneAt: "2026-10-06T10:00:00.000Z" },
-      { text: "Plan the fall talk series", details: ["Ask hubber"], hours: 0, doneAt: null },
+      { text: "Plan the fall talk series", details: [{ text: "Ask hubber", depth: 1 }], hours: 0, doneAt: null },
     ]);
   });
 
@@ -92,4 +102,25 @@ describe("labels", () => {
   test("weekLabel", () => {
     expect(weekLabel("2026-10-05")).toBe("Week of Oct 5");
   });
+});
+
+test("a list stored with bare-string details reads them as one level deep", () => {
+  const week = priorityWeekSchema.parse({
+    monday: "2026-10-05",
+    source: "weekly-review",
+    heading: null,
+    hoursAt: null,
+    writtenAt: "2026-10-06T13:00:00.000Z",
+    items: [{ text: "People", details: ["1:1 prep for octocat"], hours: null, doneAt: null }],
+  });
+  expect(week.items[0]!.details).toEqual([{ text: "1:1 prep for octocat", depth: 1 }]);
+});
+
+test("clampColumnWidth keeps the column within its bounds", () => {
+  expect(clampColumnWidth(300.4)).toBe(300);
+  expect(clampColumnWidth("320")).toBe(320);
+  expect(clampColumnWidth(40)).toBe(192);
+  expect(clampColumnWidth(4000)).toBe(520);
+  expect(clampColumnWidth(null)).toBe(256);
+  expect(clampColumnWidth("wide")).toBe(256);
 });

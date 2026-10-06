@@ -101,8 +101,9 @@ good sync, with a note saying how many.
 A column to the right of the list shows the week's priorities: the bullets
 under `Next:` in last week's journal entry, which
 [Weekly Review](../bb-plugin-weekly-review) writes into Now after each of its
-gathers and whenever you link a priority to a workstream. A bullet nested
-under another shows beneath it in smaller type.
+gathers and whenever you link a priority to a workstream. The bullets nested
+under a priority show beneath it as a list that keeps the journal's levels,
+each deeper level indented further.
 
 Check a priority off when it is finished. It is struck through and stays in
 place. When Weekly Review writes the list again, a priority whose text has not
@@ -115,8 +116,11 @@ priority with no hours yet says "No time yet" in amber. A priority not linked
 to any workstream shows no hours, since nothing measures it; link it on Weekly
 Review's page.
 
-On a narrow page the column moves above the list. A week with no priorities
-written shows no column.
+Drag the column's left edge to change its width, between 192 and 520 pixels.
+The width is remembered across visits, and double-clicking the edge puts it
+back to 256. With the edge focused, the left and right arrow keys widen and
+narrow it. On a narrow page the column moves above the list. A week with no
+priorities written shows no column.
 
 Opening the page makes one read of Now's own database for the column, and no
 request to Weekly Review or any outside service. The column reads it again when
@@ -461,9 +465,9 @@ list `server.ts` passes to `loadSources`.
 | `skills/now-cli/` | The skill that tells an agent how to use `bb now` |
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, the row actions, an email in full, and the week's priorities |
 | `now/store.ts` | The database tables: the stored list, the threads started from rows, and the week's priorities |
-| `now/priorities.ts` | The priorities' shape, keeping a check across a rewrite, this week's Monday, and the column's labels |
+| `now/priorities.ts` | The priorities' shape, keeping a check across a rewrite, this week's Monday, the column's labels, and its width bounds |
 | `now/priorities-store.ts` | Reading and writing a week's priorities and their checks |
-| `now/priorities-column.tsx` | The Priorities column, and the page layout that puts it beside or above the list |
+| `now/priorities-column.tsx` | The Priorities column with its nested bullets, and the page layout that puts it beside or above the list, with the edge that resizes it |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/postpone-menu.tsx` | Postpone's menu on a Todoist row |
 | `now/task-edit.tsx` | A Todoist row's edit strip: the name, the description, the due date and deadline boxes, project picker, priority flags, and Delete |

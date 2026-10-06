@@ -1,12 +1,22 @@
 // The week's priorities beside the list: each with a checkbox, its nested
 // bullets, and the hours it has had this week. Draws only; the page loads
 // the week and saves a check.
+import { useRef, useState } from "react";
 import type * as React from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
-import { doneCount, hoursAsOf, hoursLabel, weekLabel, type PriorityWeek } from "./priorities.js";
+import {
+  clampColumnWidth,
+  COLUMN_WIDTH,
+  doneCount,
+  hoursAsOf,
+  hoursLabel,
+  weekLabel,
+  type PriorityDetail,
+  type PriorityWeek,
+} from "./priorities.js";
 
 export interface PrioritiesColumnProps {
   /** This week's priorities, or null when none have been written. */
@@ -39,11 +49,7 @@ export function PrioritiesColumn({ week, now, onToggle }: PrioritiesColumnProps)
                 <label htmlFor={id} className={cn("cursor-pointer break-words", done && "text-muted-foreground line-through")}>
                   {priority.text}
                 </label>
-                {priority.details.map((detail) => (
-                  <div key={detail} className="break-words text-xs text-muted-foreground">
-                    {detail}
-                  </div>
-                ))}
+                <Details details={priority.details} />
                 {hours === null ? null : (
                   <div
                     className={cn(
@@ -64,16 +70,109 @@ export function PrioritiesColumn({ week, now, onToggle }: PrioritiesColumnProps)
 }
 
 /**
- * The page's layout around the list. On a wide page the priorities sit in a
- * column to the right, kept in view while the list scrolls; on a narrow one
- * they sit above the list, full width.
+ * The bullets nested under a priority, as a list that keeps the journal's
+ * levels: each deeper level indented, with a hanging marker so a wrapped line
+ * lines up under its own text.
  */
-export function WithPriorities({ priorities, children }: { priorities: React.ReactNode; children: React.ReactNode }) {
+function Details({ details }: { details: readonly PriorityDetail[] }) {
+  if (details.length === 0) return null;
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+      {details.map((detail, at) => (
+        <li key={at} className="flex gap-1.5" style={{ paddingLeft: `${(detail.depth - 1) * 0.875}rem` }}>
+          <span aria-hidden className="shrink-0 select-none">
+            {detail.depth === 1 ? "•" : "◦"}
+          </span>
+          <span className="min-w-0 break-words">{detail.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const WIDTH_KEY = "bb-plugin-now:priorities-width";
+
+function storedWidth(): number {
+  try {
+    return clampColumnWidth(window.localStorage.getItem(WIDTH_KEY) ?? COLUMN_WIDTH.initial);
+  } catch {
+    return COLUMN_WIDTH.initial;
+  }
+}
+
+function rememberWidth(width: number): void {
+  try {
+    window.localStorage.setItem(WIDTH_KEY, String(width));
+  } catch {
+    // A storage-blocked tab keeps the width until it closes.
+  }
+}
+
+/**
+ * The page's layout around the list. On a wide page the priorities sit in a
+ * column to the right, kept in view while the list scrolls, and dragging its
+ * left edge changes its width, remembered across visits. Double-clicking the
+ * edge puts the width back. On a narrow page they sit above the list.
+ */
+export function WithPriorities({
+  priorities,
+  children,
+  initialWidth,
+}: {
+  priorities: React.ReactNode;
+  children: React.ReactNode;
+  /** For stories; the page reads the remembered width. */
+  initialWidth?: number;
+}) {
+  const [width, setWidth] = useState(() => initialWidth ?? storedWidth());
+  const drag = useRef<{ x: number; width: number } | null>(null);
+
+  const resize = (next: number) => {
+    const clamped = clampColumnWidth(next);
+    setWidth(clamped);
+    rememberWidth(clamped);
+  };
+
   if (priorities === null) return <>{children}</>;
   return (
     <div className="@container">
       <div className="flex flex-col @4xl:flex-row-reverse @4xl:items-start">
-        <aside className="border-b border-border px-4 pb-3 pt-3 md:px-5 md:pt-4 @4xl:sticky @4xl:top-0 @4xl:w-64 @4xl:shrink-0 @4xl:border-b-0 @4xl:border-l @4xl:px-4 @4xl:pb-4">
+        <aside
+          className="relative border-b border-border px-4 pb-3 pt-3 md:px-5 md:pt-4 @4xl:sticky @4xl:top-0 @4xl:w-[var(--priorities-width)] @4xl:shrink-0 @4xl:border-b-0 @4xl:border-l @4xl:px-4 @4xl:pb-4"
+          style={{ "--priorities-width": `${width}px` } as React.CSSProperties}
+        >
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize priorities"
+            aria-valuemin={COLUMN_WIDTH.min}
+            aria-valuemax={COLUMN_WIDTH.max}
+            aria-valuenow={width}
+            tabIndex={0}
+            title="Drag to resize. Double-click to reset."
+            className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize touch-none outline-none transition-colors hover:bg-border focus-visible:bg-ring/40 @4xl:block"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              drag.current = { x: event.clientX, width };
+            }}
+            onPointerMove={(event) => {
+              // The column is on the right, so dragging left widens it.
+              if (drag.current !== null) setWidth(clampColumnWidth(drag.current.width + drag.current.x - event.clientX));
+            }}
+            onPointerUp={() => {
+              if (drag.current === null) return;
+              drag.current = null;
+              rememberWidth(width);
+            }}
+            onDoubleClick={() => resize(COLUMN_WIDTH.initial)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") resize(width + COLUMN_WIDTH.step);
+              else if (event.key === "ArrowRight") resize(width - COLUMN_WIDTH.step);
+              else return;
+              event.preventDefault();
+            }}
+          />
           {priorities}
         </aside>
         <div className="min-w-0 flex-1">{children}</div>
