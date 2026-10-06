@@ -265,7 +265,13 @@ const items: Item[] = [
   }),
   item({ id: "a8", title: "Submit the widget grant report", priority: 1, deadline: "2026-09-16", context: "Admin" }),
   item({ id: "a7", title: "Someday: rewrite the widget docs", context: null }),
-  item({ id: "a9", title: "Look into gadget insurance", context: "Inbox", inbox: true }),
+  item({
+    id: "a9",
+    title: "Look into gadget insurance",
+    description: "Ask hubber which plan covers the lab.",
+    context: "Inbox",
+    inbox: true,
+  }),
 ];
 
 const docComments: Item = {

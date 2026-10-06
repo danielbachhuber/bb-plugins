@@ -26,7 +26,7 @@ function task(overrides: Partial<Item> = {}): Item {
 
 describe("taskChanges", () => {
   test("sends the typed date, the priority on Todoist's scale, and the move together", () => {
-    expect(taskChanges(task(), { content: "Order widget samples", due: " next fri ", priority: 2, projectId: "widgets" })).toEqual({
+    expect(taskChanges(task(), { content: "Order widget samples", description: "", due: " next fri ", priority: 2, projectId: "widgets" })).toEqual({
       update: { due_string: "next fri", priority: 3 },
       move: "widgets",
     });
@@ -34,25 +34,25 @@ describe("taskChanges", () => {
 
   test("leaves out what the draft did not change, so a recurring date keeps its rule", () => {
     const recurring = task({ priority: 1, due: { date: "2026-09-28", recurring: true, text: "every mon" } });
-    expect(taskChanges(recurring, { content: "Order widget samples", due: "", priority: 3, projectId: "inbox" })).toEqual({
+    expect(taskChanges(recurring, { content: "Order widget samples", description: "", due: "", priority: 3, projectId: "inbox" })).toEqual({
       update: { priority: 2 },
       move: null,
     });
   });
 
   test("sends a new deadline, or null to clear it, apart from the due date", () => {
-    expect(taskChanges(task(), { content: "Order widget samples", due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }).update).toEqual({
+    expect(taskChanges(task(), { content: "Order widget samples", description: "", due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }).update).toEqual({
       deadline_date: "2026-09-30",
     });
     const withDeadline = task({ deadline: "2026-09-30" });
-    expect(taskChanges(withDeadline, { content: "Order widget samples", due: "", deadline: null, priority: 4, projectId: "inbox" }).update).toEqual({
+    expect(taskChanges(withDeadline, { content: "Order widget samples", description: "", due: "", deadline: null, priority: 4, projectId: "inbox" }).update).toEqual({
       deadline_date: null,
     });
-    expect(hasChanges(taskChanges(withDeadline, { content: "Order widget samples", due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }))).toBe(false);
+    expect(hasChanges(taskChanges(withDeadline, { content: "Order widget samples", description: "", due: "", deadline: "2026-09-30", priority: 4, projectId: "inbox" }))).toBe(false);
   });
 
   test("sends a new name, trimmed, and nothing for the same name or a blank one", () => {
-    const draft = { due: "", priority: 4, projectId: "inbox" } as const;
+    const draft = { description: "", due: "", priority: 4, projectId: "inbox" } as const;
     expect(taskChanges(task(), { ...draft, content: " Order gadget samples " }).update).toEqual({
       content: "Order gadget samples",
     });
@@ -66,11 +66,21 @@ describe("taskChanges", () => {
       todoist: { projectId: "inbox", content: "Read [the widget spec](https://example.com/spec)" },
     });
     expect(rowContent(linked)).toBe("Read [the widget spec](https://example.com/spec)");
-    const draft = { due: "", priority: 4, projectId: "inbox" } as const;
+    const draft = { description: "", due: "", priority: 4, projectId: "inbox" } as const;
     expect(hasChanges(taskChanges(linked, { ...draft, content: rowContent(linked) }))).toBe(false);
   });
 
+  test("sends a new description, trimmed, and an empty one to clear it", () => {
+    const draft = { content: "Order widget samples", due: "", priority: 4, projectId: "inbox" } as const;
+    expect(taskChanges(task(), { ...draft, description: " Two of each size\n" }).update).toEqual({
+      description: "Two of each size",
+    });
+    const described = task({ description: "Two of each size" });
+    expect(taskChanges(described, { ...draft, description: "  " }).update).toEqual({ description: "" });
+    expect(hasChanges(taskChanges(described, { ...draft, description: "Two of each size " }))).toBe(false);
+  });
+
   test("finds nothing to send in an untouched draft", () => {
-    expect(hasChanges(taskChanges(task(), { content: "Order widget samples", due: "  ", priority: 4, projectId: "inbox" }))).toBe(false);
+    expect(hasChanges(taskChanges(task(), { content: "Order widget samples", description: "", due: "  ", priority: 4, projectId: "inbox" }))).toBe(false);
   });
 });

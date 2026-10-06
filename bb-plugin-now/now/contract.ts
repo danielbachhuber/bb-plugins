@@ -126,8 +126,8 @@ export const rpcContract = defineRpcContract({
     output: z.object({ projects: z.array(todoistProjectSchema), error: z.string().nullable() }),
   },
   /**
-   * Save a Todoist row's edit strip: the date in words, the priority, and the
-   * project, sent together. The row takes what Todoist saved, and a sync
+   * Save a Todoist row's edit strip: the name, the description, the date in
+   * words, the priority, and the project, sent together. The row takes what Todoist saved, and a sync
    * follows, since the new date or project can move it or take it off the page.
    */
   items_edit: {
@@ -135,6 +135,8 @@ export const rpcContract = defineRpcContract({
       id: z.string(),
       /** Todoist caps a task's name at 500 characters. */
       content: z.string().max(500),
+      /** Todoist caps a task's description at 16,383 characters. */
+      description: z.string().max(16383),
       due: z.string().max(200),
       /** Already a day: Todoist does not read a deadline's words, so the page does. */
       deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),

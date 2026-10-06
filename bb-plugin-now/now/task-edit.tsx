@@ -1,4 +1,4 @@
-// The edit strip under a Todoist row: its name, a date in words, a project,
+// The edit strip under a Todoist row: its name and description, a date in words, a project,
 // and a priority, held here and sent together on Save, so a new project or date
 // cannot move the row away halfway through. Draws only.
 import { useMemo, useState, type FormEvent } from "react";
@@ -7,10 +7,12 @@ import Calendar03Icon from "@hugeicons/core-free-icons/Calendar03Icon";
 import Cancel01Icon from "@hugeicons/core-free-icons/Cancel01Icon";
 import Flag02Icon from "@hugeicons/core-free-icons/Flag02Icon";
 import HashIcon from "@hugeicons/core-free-icons/HashIcon";
+import TextAlignLeftIcon from "@hugeicons/core-free-icons/TextAlignLeftIcon";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -179,6 +181,7 @@ export interface TaskEditProps {
 export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy }: TaskEditProps) {
   const [draft, setDraft] = useState<TaskDraft>(() => ({
     content: rowContent(item),
+    description: item.description,
     due: "",
     priority: rowPriority(item),
     projectId: item.todoist?.projectId ?? null,
@@ -218,6 +221,26 @@ export function TaskEdit({ item, now, projects, onSave, onDelete, onCancel, busy
           maxLength={500}
           disabled={busy}
           className={cn("h-7 bg-background pl-7 text-xs", nameless && "border-destructive/60")}
+        />
+      </div>
+      <div className="relative w-full">
+        <HugeiconsIcon
+          icon={TextAlignLeftIcon}
+          className="pointer-events-none absolute left-2 top-2 size-3 text-muted-foreground"
+        />
+        <Textarea
+          value={draft.description}
+          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          onKeyDown={(event) => {
+            // Enter starts a new line here, so ⌘↩ saves.
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event);
+          }}
+          placeholder="Description"
+          aria-label="Description"
+          maxLength={16383}
+          rows={2}
+          disabled={busy}
+          className="min-h-12 max-h-60 resize-y bg-background py-1.5 pl-7 pr-2 text-xs [field-sizing:content]"
         />
       </div>
       <div className="relative w-36">

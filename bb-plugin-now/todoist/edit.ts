@@ -7,6 +7,8 @@ import { apiPriority } from "./normalize.js";
 export interface TaskDraft {
   /** The task's name. Blank leaves the name as it is. */
   content: string;
+  /** The task's description, in Markdown. Empty clears it. */
+  description: string;
   /** A date in words. Empty leaves the date as it is. */
   due: string;
   /** The day the deadline moves to, null to clear it, or absent to leave it as it is. */
@@ -40,6 +42,8 @@ export function taskChanges(item: Item, draft: TaskDraft): TaskChanges {
   const update: TaskUpdate = {};
   const content = draft.content.trim();
   if (content !== "" && content !== rowContent(item).trim()) update.content = content;
+  const description = draft.description.trim();
+  if (description !== item.description.trim()) update.description = description;
   const due = draft.due.trim();
   if (due !== "") update.due_string = due;
   if (draft.deadline !== undefined && draft.deadline !== item.deadline) update.deadline_date = draft.deadline;
