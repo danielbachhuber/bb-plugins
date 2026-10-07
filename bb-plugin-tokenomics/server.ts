@@ -1,7 +1,8 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { CONTEXT_EVENT, contextRowOf, parseThreshold } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
@@ -17,12 +18,22 @@ export default async function plugin(bb: BbPluginApi) {
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db);
   const recordingSince = store.startedAt(Date.now());
+  const settings = bb.settings.define({
+    contextWarningAt: {
+      type: "string",
+      label: "Warn when a thread's context passes (tokens)",
+      // Every model call re-reads the whole context, so past this a turn
+      // costs tens of millions of tokens. Claude Code's own auto-compact on a
+      // 1M-token model waits until about 967K. Empty turns the warning off.
+      default: "300K",
+    },
+  });
 
   const source: EventSource = {
     async listUsage({ threadId, afterSeq, limit }) {
       return bb.sdk.threads.events.list({
         threadId,
-        types: [TOKEN_USAGE_EVENT],
+        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT],
         order: "asc",
         limit: String(limit),
         ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),
@@ -53,8 +64,28 @@ export default async function plugin(bb: BbPluginApi) {
     onAdded: (threadId) => {
       if (!backfilling) bb.realtime.publish(USAGE_CHANNEL, { threadIds: [threadId] });
     },
+    onContext: (threadId) => bb.realtime.publish(CONTEXT_CHANNEL, { threadIds: [threadId] }),
     onError: warn,
   });
+
+  /**
+   * The thread's latest context size. A thread read before the plugin
+   * recorded context has its older events behind the cursor, so the first
+   * ask reads bb's latest one directly.
+   */
+  async function latestContext(threadId: string) {
+    const recorded = store.latestContext(threadId);
+    if (recorded !== null) return recorded;
+    const [event] = await bb.sdk.threads.events.list({
+      threadId,
+      types: [CONTEXT_EVENT],
+      order: "desc",
+      limit: "1",
+    });
+    const row = event === undefined ? null : contextRowOf(event);
+    if (row !== null) store.recordContext(threadId, [row]);
+    return row;
+  }
 
   // Archiving writes no thread events, so these keep the page's Active and
   // Archived lists right without waiting for the next load's backfill.
@@ -118,6 +149,28 @@ export default async function plugin(bb: BbPluginApi) {
     thread_usage: ({ threadId }) => {
       const { tokens, total, turns } = store.threadTotal(threadId);
       return { ...tokens, total, turns, recent: store.threadRows(threadId, MAX_ROWS) };
+    },
+    thread_context: async ({ threadId }) => {
+      const [context, { contextWarningAt }] = await Promise.all([latestContext(threadId), settings.get()]);
+      const [last] = store.threadRows(threadId, 1);
+      return {
+        context:
+          context === null
+            ? null
+            : {
+                usedTokens: context.usedTokens,
+                contextWindow: context.contextWindow,
+                autoCompactAt: context.autoCompactAt,
+                at: context.createdAt,
+              },
+        lastTurn: last === undefined ? null : last.input + last.cacheRead + last.output,
+        threshold: parseThreshold(contextWarningAt),
+        archived: store.isArchived(threadId),
+      };
+    },
+    compact_thread: async ({ threadId }) => {
+      await bb.sdk.threads.compact({ threadId });
+      return { ok: true as const };
     },
     thread_turns: async ({ threadId }) => {
       const { started, completed, outline } = await sync.turnContext(threadId);

@@ -3,7 +3,8 @@
 How many tokens your threads use, and when. A Tokenomics page in the sidebar
 graphs token use over time and lists the threads behind it, and each thread's
 header has a sparkline of its token use over time that opens a summary of
-which of your messages used the most.
+which of your messages used the most. A thread whose context has grown past a
+size you set shows a meter above its composer, with a button that compacts it.
 
 ## The page
 
@@ -68,6 +69,44 @@ recorded usage on its own.
 
 A thread with no usage yet shows nothing. Claude Code reports usage when a turn
 ends, so a thread still on its first turn has none.
+
+## The context meter
+
+![The context meter in each of its states: past the setting, a turn running, compacting, no usable window, compaction refused, and a narrow composer](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--context-meter-states.png)
+
+A thread's context is everything the model reads on each call: the
+conversation so far, tool results included. Every model call in a turn reads
+all of it again from the prompt cache, so a turn's cache reads are roughly its
+number of calls times the context's size. At 500K tokens of context, a turn of
+40 calls reads 20M tokens. A thread that has grown that large keeps costing
+that much on every turn until it is compacted.
+
+Claude Code compacts on its own, but on a 1M-token model only once the context
+reaches about 967K. So once a thread's context passes the **Warn when a
+thread's context passes (tokens)** setting, 300K by default, a meter shows
+above its composer:
+
+- the context size, in amber
+- a bar of the context against the model's window, with a tick where the
+  setting is. When the provider reports a window smaller than the context,
+  which Claude Code sometimes does, the bar and the window are left out
+- how many tokens the latest turn used, and the window's size
+- **Compact**, which asks bb to compact the thread. bb runs `/compact` as a
+  turn, which replaces the conversation so far with a summary. bb compacts
+  only an idle thread, so the button is disabled while a turn runs. Once the
+  smaller context is reported, the meter goes away.
+
+The meter sits above the other plugins' banners, including the GitHub context
+one. It does not show on archived threads. In a narrow composer the bar and
+the latest turn drop out. Set the threshold with
+`bb plugin config tokenomics set contextWarningAt 500K`; an empty value turns
+the meter off.
+
+bb reports the context size many times a turn. The plugin reads those events
+in the same request it already makes for each thread's usage, so recording
+them adds no requests to bb. The meter reads from the plugin's copy, and only
+the first time it opens on a thread recorded before this copy existed does it
+read bb's latest context event, one request. Compact makes one request.
 
 ## Related plugins
 
@@ -136,20 +175,22 @@ before it.
 
 | Path | What it holds |
 | --- | --- |
+| `usage/context.ts` | The pure reading of bb's context window events and of the warning setting |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
-| `usage/store.ts` | The only module that touches SQLite: the ledger, per-thread cursors and archive state, and the hourly and per-thread sums |
-| `usage/sync.ts` | The only module that reads from bb: copying new usage events into the ledger, one thread at a time, and reading a thread's turn events and outline |
+| `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, per-thread cursors and archive state, and the hourly and per-thread sums |
+| `usage/sync.ts` | The only module that reads from bb: copying new usage and context events into the ledger, one thread at a time, and reading a thread's turn events and outline |
 | `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
 | `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |
-| `usage/contract.ts` | The RPC contract and the realtime channel |
+| `usage/contract.ts` | The RPC contract and the realtime channels |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
 | `components/thread-usage-list.tsx` | The thread list under the chart, its Active, Recent, and Older filter, and each row's sparkline |
 | `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
+| `components/context-meter.tsx` | The meter above the composer and its Compact button |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
-| `app.tsx` | Loads the data for the page and the header |
-| `tokenomics.stories.tsx` | Each range, every thread listed, the empty page, the header button, and its summary, including the hovered and open states the README shows |
+| `app.tsx` | Loads the data for the page, the header, and the context meter |
+| `tokenomics.stories.tsx` | Each range, every thread listed, the empty page, the header button, its summary, and the context meter's states, including the hovered and open states the README shows |
 
 ## Working on it
 

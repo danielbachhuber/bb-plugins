@@ -1,18 +1,21 @@
-// bb-plugin-tokenomics — the Tokenomics page and the thread header's token count.
-import { useCallback, useEffect, useMemo, useState } from "react";
+// bb-plugin-tokenomics — the Tokenomics page, the thread header's token count,
+// and the context meter above a thread's composer.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
   useBbNavigate,
+  useComposerView,
   useRealtime,
   useRpc,
   type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 
+import { ContextMeter, overThreshold } from "@/components/context-meter";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
 import { UsageView, type UsageData } from "@/components/usage-view";
 
 import type { rpcContract } from "./server";
-import { USAGE_CHANNEL, type TurnDetail } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, USAGE_CHANNEL, type TurnDetail } from "./usage/contract.js";
 import { fillBars, windowFor, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
@@ -123,6 +126,82 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
   );
 }
 
+interface ContextState {
+  context: { usedTokens: number; contextWindow: number | null; at: number } | null;
+  lastTurn: number | null;
+  threshold: number | null;
+  archived: boolean;
+}
+
+/** The meter above the composer, drawn only once the thread's context passes the setting. */
+function ContextMeterBanner() {
+  const view = useComposerView();
+  const threadId = view.scope.kind === "thread" ? view.scope.threadId : null;
+  const rpc = useRpc<typeof rpcContract>();
+  const [state, setState] = useState<ContextState | null>(null);
+  // When Compact was pressed; cleared once a newer context size arrives.
+  const [requestedAt, setRequestedAt] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const current = useRef(threadId);
+  current.current = threadId;
+
+  const load = useCallback(() => {
+    if (threadId === null) return;
+    rpc.call("thread_context", { threadId }).then(
+      (next: ContextState) => {
+        if (current.current === threadId) setState(next);
+      },
+      () => undefined,
+    );
+  }, [rpc, threadId]);
+
+  useEffect(() => {
+    setState(null);
+    setRequestedAt(null);
+    setError(null);
+    load();
+  }, [load]);
+  const onChange = useMemo(
+    () => (payload: unknown) => {
+      if (threadId !== null && isForThread(payload, threadId)) load();
+    },
+    [load, threadId],
+  );
+  useRealtime(CONTEXT_CHANNEL, onChange);
+  useRealtime(USAGE_CHANNEL, onChange);
+
+  useEffect(() => {
+    if (requestedAt !== null && state?.context != null && state.context.at > requestedAt) setRequestedAt(null);
+  }, [requestedAt, state]);
+
+  if (threadId === null || state === null || state.archived) return null;
+  if (state.context === null || state.threshold === null) return null;
+  if (!overThreshold(state.context.usedTokens, state.threshold)) return null;
+
+  const onCompact = () => {
+    setError(null);
+    setRequestedAt(Date.now());
+    rpc.call("compact_thread", { threadId }).catch((cause: unknown) => {
+      setRequestedAt(null);
+      setError(messageOf(cause));
+    });
+  };
+
+  return (
+    <ContextMeter
+      usedTokens={state.context.usedTokens}
+      contextWindow={state.context.contextWindow}
+      threshold={state.threshold}
+      lastTurn={state.lastTurn}
+      running={view.run.isRunning}
+      compacting={requestedAt !== null}
+      error={error}
+      compact={view.layout === "compact"}
+      onCompact={onCompact}
+    />
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.navPanel({
     id: "tokenomics",
@@ -136,5 +215,13 @@ export default definePluginApp((app) => {
     id: "thread-tokens",
     title: "Tokens used",
     component: ThreadTokensAction,
+  });
+
+  app.composer.customize({
+    id: "context-meter",
+    scopes: ["thread"],
+    // Bare: the meter draws its own card, and a thread under the setting
+    // draws nothing at all.
+    banners: [{ id: "context-meter", chrome: "bare", component: ContextMeterBanner }],
   });
 });

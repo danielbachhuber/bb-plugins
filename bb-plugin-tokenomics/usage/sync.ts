@@ -2,6 +2,7 @@
 // turns that usage belongs to. The only module that talks to bb; the store and
 // the arithmetic stay pure.
 import { splitBreakdown, type ProviderTokenBreakdown } from "./breakdown.js";
+import { contextRowOf, type ContextRow } from "./context.js";
 import type { Store, ThreadInfo, UsageRow } from "./store.js";
 import type { OutlineItem, TurnEvent } from "./turns.js";
 
@@ -33,6 +34,7 @@ export interface UsageEventLike {
 export type TurnEventType = "turn/started" | "turn/completed";
 
 export interface EventSource {
+  /** The thread's token usage and context window events after `afterSeq`, oldest first. */
   listUsage(args: { threadId: string; afterSeq: number | null; limit: number }): Promise<UsageEventLike[]>;
   listTurnEvents?(args: {
     threadId: string;
@@ -75,6 +77,8 @@ export function threadInfoOf(thread: ThreadLike): ThreadInfo {
 export interface SyncHooks {
   /** Called after rows are added for a thread, however the read started. */
   onAdded?: (threadId: string) => void;
+  /** Called after context rows are added for a thread. */
+  onContext?: (threadId: string) => void;
   onError?: (threadId: string, error: unknown) => void;
 }
 
@@ -88,15 +92,20 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
     const info = threadInfoOf(thread);
     let cursor = store.cursor(thread.id);
     let added = 0;
+    let contextAdded = 0;
     for (;;) {
       const events = await source.listUsage({ threadId: thread.id, afterSeq: cursor, limit: PAGE_SIZE });
       const rows = events.map(usageRowOf).filter((row): row is UsageRow => row !== null);
+      const contextRows = events.map(contextRowOf).filter((row): row is ContextRow => row !== null);
       const lastSeq = events.reduce((seq, event) => Math.max(seq, event.seq), cursor ?? 0);
+      // Before the cursor moves, so a failure here reads these events again.
+      contextAdded += store.recordContext(thread.id, contextRows);
       added += store.record(info, rows, lastSeq);
       cursor = lastSeq;
       if (events.length < PAGE_SIZE) break;
     }
     if (added > 0) hooks.onAdded?.(thread.id);
+    if (contextAdded > 0) hooks.onContext?.(thread.id);
     return added;
   }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
+import { ContextMeter, type ContextMeterProps } from "./components/context-meter";
 import {
   ThreadTokenCount,
   ThreadTokenSummary,
@@ -288,4 +289,54 @@ export const HeaderOpen = () => (
       <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} defaultOpen initialHovered="largest" />
     </div>
   </div>
+);
+
+const METER: ContextMeterProps = {
+  usedTokens: 510_000,
+  contextWindow: 1_000_000,
+  threshold: 300_000,
+  lastTurn: 22_400_000,
+  running: false,
+  compacting: false,
+  error: null,
+  onCompact: () => undefined,
+};
+
+/**
+ * The meter above a thread's composer once its context passes the warning
+ * setting, 300K tokens here, with a button that compacts the thread.
+ */
+export const ContextMeterStates = () => (
+  <StoryCard>
+    <StoryRow label="past the setting" hint="the tick on the bar marks the setting">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} />
+      </div>
+    </StoryRow>
+    <StoryRow label="a turn running" hint="bb compacts only an idle thread">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} running />
+      </div>
+    </StoryRow>
+    <StoryRow label="compacting" hint="until the smaller context arrives">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} running compacting />
+      </div>
+    </StoryRow>
+    <StoryRow label="no usable window" hint="the provider reported a window smaller than the context">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} usedTokens={347_000} contextWindow={200_000} lastTurn={1_430_000} />
+      </div>
+    </StoryRow>
+    <StoryRow label="compaction refused" hint="bb's reason, under the meter">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} error="Context can only be compacted while the thread is idle or errored" />
+      </div>
+    </StoryRow>
+    <StoryRow label="narrow composer" hint="the bar and the last turn drop out">
+      <div className="w-[320px]">
+        <ContextMeter {...METER} compact />
+      </div>
+    </StoryRow>
+  </StoryCard>
 );

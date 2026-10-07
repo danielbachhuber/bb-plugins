@@ -5,6 +5,9 @@ import { z } from "zod";
 /** Published with `{ threadIds }` after new usage is recorded. */
 export const USAGE_CHANNEL = "usage-changed";
 
+/** Published with `{ threadIds }` after a thread's context size is recorded. */
+export const CONTEXT_CHANNEL = "context-changed";
+
 /** The page's longest range is a week; allow a little over for clock skew. */
 export const MAX_WINDOW_MS = 9 * 24 * 3_600_000;
 
@@ -70,6 +73,34 @@ export const rpcContract = defineRpcContract({
   thread_turns: {
     input: z.object({ threadId: z.string().min(1).max(200) }),
     output: z.object({ turns: z.array(turnDetailSchema) }),
+  },
+  /**
+   * The thread's latest context size and the warning setting, for the meter
+   * above the composer. Null `context` means none recorded yet.
+   */
+  thread_context: {
+    input: z.object({ threadId: z.string().min(1).max(200) }),
+    output: z.object({
+      context: z
+        .object({
+          usedTokens: z.number(),
+          contextWindow: z.number().nullable(),
+          autoCompactAt: z.number().nullable(),
+          at: z.number(),
+        })
+        .nullable(),
+      /** Tokens the thread's latest recorded turn used. */
+      lastTurn: z.number().nullable(),
+      /** The warning setting in tokens; null when the warning is off. */
+      threshold: z.number().nullable(),
+      /** Archived or deleted threads get no meter. */
+      archived: z.boolean(),
+    }),
+  },
+  /** Asks bb to compact the thread, which runs /compact as a turn. Only an idle or errored thread can. */
+  compact_thread: {
+    input: z.object({ threadId: z.string().min(1).max(200) }),
+    output: z.object({ ok: z.literal(true) }),
   },
 });
 

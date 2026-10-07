@@ -6,6 +6,7 @@
 // rather than from bb's events.
 import type { Database } from "better-sqlite3";
 
+import type { ContextRow } from "./context.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
 
 /**
@@ -41,6 +42,17 @@ export const MIGRATIONS = [
   // When the thread was archived or deleted, or null while it is active, so
   // the page can list active and archived threads apart.
   `ALTER TABLE threads ADD COLUMN archived_at INTEGER`,
+  // One row per bb context window event: how many tokens the thread's context
+  // held then. bb prunes these as it does usage events.
+  `CREATE TABLE IF NOT EXISTS context (
+     event_id TEXT PRIMARY KEY,
+     thread_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     used_tokens INTEGER NOT NULL,
+     context_window INTEGER,
+     auto_compact_at INTEGER
+   )`,
+  `CREATE INDEX IF NOT EXISTS context_thread_idx ON context (thread_id, created_at)`,
 ];
 
 export interface ThreadInfo {
@@ -123,6 +135,7 @@ export function createStore(db: Database) {
      GROUP BY thread_id, hour ORDER BY hour`,
   );
   const selectCursor = db.prepare(`SELECT last_seq FROM threads WHERE thread_id = ?`);
+  const selectArchived = db.prepare(`SELECT archived_at FROM threads WHERE thread_id = ?`);
   const selectMeta = db.prepare(`SELECT value FROM meta WHERE key = ?`);
   const insertMeta = db.prepare(`INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)`);
   const selectHours = db.prepare(
@@ -157,6 +170,32 @@ export function createStore(db: Database) {
      ) ORDER BY at`,
   );
 
+  const insertContext = db.prepare(
+    `INSERT OR IGNORE INTO context
+       (event_id, thread_id, created_at, used_tokens, context_window, auto_compact_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  const selectLatestContext = db.prepare(
+    `SELECT event_id AS eventId, created_at AS createdAt, used_tokens AS usedTokens,
+            context_window AS contextWindow, auto_compact_at AS autoCompactAt
+     FROM context WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+  );
+  const recordContext = db.transaction((threadId: string, rows: ContextRow[]) => {
+    let inserted = 0;
+    for (const row of rows) {
+      const result = insertContext.run(
+        row.eventId,
+        threadId,
+        row.createdAt,
+        row.usedTokens,
+        row.contextWindow,
+        row.autoCompactAt,
+      );
+      inserted += Number(result.changes);
+    }
+    return inserted;
+  });
+
   const record = db.transaction((thread: ThreadInfo, rows: UsageRow[], lastSeq: number) => {
     let inserted = 0;
     for (const row of rows) {
@@ -187,6 +226,16 @@ export function createStore(db: Database) {
       return record(thread, rows, lastSeq);
     },
 
+    /** Stores new context rows. Returns rows added. */
+    recordContext(threadId: string, rows: ContextRow[]): number {
+      return recordContext(threadId, rows);
+    },
+
+    /** The thread's latest recorded context size, or null before any. */
+    latestContext(threadId: string): ContextRow | null {
+      return (selectLatestContext.get(threadId) as ContextRow | undefined) ?? null;
+    },
+
     /** When the ledger was first opened; set once, on the first call. */
     startedAt(now: number): number {
       insertMeta.run("started_at", String(now));
@@ -205,6 +254,12 @@ export function createStore(db: Database) {
     /** Each thread's tokens per hour since `since`, for the page's sparklines. */
     threadHoursSince(since: number): ThreadHour[] {
       return selectThreadHours.all(since) as ThreadHour[];
+    },
+
+    /** True when the thread was archived or deleted, as last recorded. */
+    isArchived(threadId: string): boolean {
+      const row = selectArchived.get(threadId) as { archived_at: number | null } | undefined;
+      return row?.archived_at != null;
     },
 
     /** Marks a thread archived or deleted at `at`, or active again when null. */
