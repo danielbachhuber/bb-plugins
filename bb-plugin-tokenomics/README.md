@@ -19,8 +19,9 @@ size you set shows a meter above its composer, with a button that compacts it.
   rescale the chart. Cache reads are usually most of the total, so hiding them
   shows the other two.
 - **The thread list** has the threads that used tokens in the period, most
-  first, with each one's project, provider, number of turns, and total. Above
-  it, "Active | Recent | Older" picks which threads it lists, with a count on
+  first, with each one's project, provider, number of turns, latest context
+  size, and total. A thread archived before the plugin recorded context has
+  no context size to show. Above it, "Active | Recent | Older" picks which threads it lists, with a count on
   each; it starts on Active. Recent lists the threads archived in the past
   three days, and Older the ones archived before that. Archived threads, and
   deleted ones, are dimmed and labeled "Archived". Beside each total is a
@@ -30,9 +31,8 @@ size you set shows a meter above its composer, with a button that compacts it.
   row to open the thread.
 - **A large-context thread** is an active one whose latest context is past
   the context meter's setting (see below). Its row gets a red bar down its
-  left edge over a red tint, as the Now page marks what is overdue, and
-  its context size joins the line under its title. A few of these threads
-  usually account for most of a period's tokens.
+  left edge over a red tint, as the Now page marks what is overdue. A few of
+  these threads usually account for most of a period's tokens.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.

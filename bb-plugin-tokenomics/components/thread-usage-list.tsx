@@ -133,7 +133,7 @@ export function ThreadUsageList({
           thread.projectName,
           providerName(thread.providerId),
           `${thread.turns} ${thread.turns === 1 ? "turn" : "turns"}`,
-          large ? `${formatTokens(thread.context!)} context` : null,
+          thread.context === null ? null : `${formatTokens(thread.context)} context`,
         ].filter((part) => part !== null && part !== "");
         return (
           <li
