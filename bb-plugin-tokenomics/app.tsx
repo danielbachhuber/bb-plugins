@@ -38,6 +38,7 @@ function useUsage(range: RangeId) {
           unit: span.unit,
           threads: result.threads,
           recordingSince: result.recordingSince,
+          contextThreshold: result.contextThreshold,
         });
         setError(null);
       },

@@ -28,6 +28,8 @@ export const threadUsageSchema = z.object({
   /** When it was archived or deleted; null while it is active. */
   archivedAt: z.number().nullable(),
   turns: z.number(),
+  /** Its latest recorded context size, or null before any. */
+  context: z.number().nullable(),
   /** Its tokens per hour in the window, for its sparkline. */
   hours: z.array(z.object({ hour: z.number(), total: z.number() })),
   ...tokens,
@@ -55,6 +57,8 @@ export const rpcContract = defineRpcContract({
       threads: z.array(threadUsageSchema),
       /** When this plugin started recording; earlier hours may be missing turns. */
       recordingSince: z.number(),
+      /** The context warning setting in tokens; null when it is off. */
+      contextThreshold: z.number().nullable(),
     }),
   },
   thread_usage: {

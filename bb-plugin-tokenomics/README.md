@@ -28,6 +28,11 @@ size you set shows a meter above its composer, with a button that compacts it.
   the chart and scaled to the thread's own busiest one, so a thread still
   running when you expected it to stop shows bars at the right end. Click a
   row to open the thread.
+- **A large-context thread** is an active one whose latest context is past
+  the context meter's setting (see below). Its row gets an amber bar down its
+  left edge over an amber tint, as the Now page marks what is due today, and
+  its context size joins the line under its title. A few of these threads
+  usually account for most of a period's tokens.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
@@ -106,7 +111,10 @@ bb reports the context size many times a turn. The plugin reads those events
 in the same request it already makes for each thread's usage, so recording
 them adds no requests to bb. The meter reads from the plugin's copy, and only
 the first time it opens on a thread recorded before this copy existed does it
-read bb's latest context event, one request. Compact makes one request.
+read bb's latest context event, one request. Each load's backfill does the
+same, once, for every active thread with no context recorded, so the page can
+mark large-context threads that have not run a turn since. Compact makes one
+request.
 
 ## Related plugins
 

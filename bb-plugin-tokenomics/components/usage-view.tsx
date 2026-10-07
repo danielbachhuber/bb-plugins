@@ -16,6 +16,8 @@ export interface UsageData {
   unit: "hour" | "day";
   threads: ThreadUsage[];
   recordingSince: number;
+  /** Threads whose context is past this are tinted; null when the setting is off. */
+  contextThreshold?: number | null;
 }
 
 function recordingNote(data: UsageData): string | null {
@@ -113,6 +115,7 @@ export function UsageView({
             threads={threadsIn(data.threads, lifecycle, now)}
             bars={data.bars}
             lifecycle={lifecycle}
+            contextThreshold={data.contextThreshold ?? null}
             onOpen={onOpenThread}
           />
         )}

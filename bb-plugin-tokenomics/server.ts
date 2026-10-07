@@ -109,7 +109,20 @@ export default async function plugin(bb: BbPluginApi) {
       try {
         const changed = await sync.syncAll(signal);
         bb.log.info(`backfill found new usage in ${changed.length} threads`);
-        if (changed.length > 0) bb.realtime.publish(USAGE_CHANNEL, { threadIds: changed });
+        // Threads read before the plugin recorded context have their context
+        // events behind the cursor. One request each, once, for the latest.
+        const missing = store.activeWithoutContext();
+        let found = 0;
+        for (const threadId of missing) {
+          if (signal.aborted) break;
+          try {
+            if ((await latestContext(threadId)) !== null) found += 1;
+          } catch (error) {
+            warn(threadId, error);
+          }
+        }
+        if (missing.length > 0) bb.log.info(`backfill read the latest context of ${missing.length} threads, ${found} had one`);
+        if (changed.length > 0 || found > 0) bb.realtime.publish(USAGE_CHANNEL, { threadIds: changed });
       } finally {
         backfilling = false;
       }
@@ -129,7 +142,8 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
-      const names = await projectNames();
+      const [names, { contextWarningAt }] = await Promise.all([projectNames(), settings.get()]);
+      const contexts = store.latestContexts();
       const hoursByThread = new Map<string, Array<{ hour: number; total: number }>>();
       for (const { threadId, hour, total } of store.threadHoursSince(floor)) {
         const hours = hoursByThread.get(threadId) ?? [];
@@ -141,9 +155,11 @@ export default async function plugin(bb: BbPluginApi) {
         threads: store.threadsSince(floor).map((thread) => ({
           ...thread,
           projectName: names.get(thread.projectId) ?? null,
+          context: contexts.get(thread.threadId) ?? null,
           hours: hoursByThread.get(thread.threadId) ?? [],
         })),
         recordingSince,
+        contextThreshold: parseThreshold(contextWarningAt),
       };
     },
     thread_usage: ({ threadId }) => {

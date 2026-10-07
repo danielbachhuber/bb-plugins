@@ -55,6 +55,8 @@ function thread(
   busyHoursAgo: number[],
   /** How many hours before NOW it was archived, or null while it is active. */
   archivedHoursAgo: number | null = null,
+  /** Its latest context size; past 300K tints its row. */
+  context: number | null = null,
 ): ThreadUsage {
   const input = Math.round(cacheRead * 0.02);
   const output = Math.round(cacheRead * 0.006);
@@ -69,6 +71,7 @@ function thread(
     providerId: threadId.endsWith("x") ? "codex" : "claude-code",
     archivedAt: archivedHoursAgo === null ? null : hourAgo(archivedHoursAgo),
     turns,
+    context,
     hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
     input,
     cacheRead,
@@ -80,8 +83,9 @@ const range = (from: number, to: number) => Array.from({ length: from - to + 1 }
 
 const THREADS: ThreadUsage[] = [
   // Busy all day and still going in the latest hour.
-  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)]),
-  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2)),
+  // Its context has grown past the 300K setting, so its row is tinted.
+  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 510_000),
+  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2), null, 180_000),
   thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), 2),
   thread("thr_a4", null, "gadgets", 3, 2_100_000, [3]),
   thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000, [20], 18),
@@ -97,6 +101,7 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
     unit: span.unit,
     threads: THREADS.filter((thread) => thread.hours.some(({ hour }) => hour >= span.since)),
     recordingSince: recordingSince ?? span.since - HOUR,
+    contextThreshold: 300_000,
   };
 }
 

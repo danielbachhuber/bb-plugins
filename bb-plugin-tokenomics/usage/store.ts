@@ -180,6 +180,16 @@ export function createStore(db: Database) {
             context_window AS contextWindow, auto_compact_at AS autoCompactAt
      FROM context WHERE thread_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
   );
+  const selectLatestContexts = db.prepare(
+    `SELECT c.thread_id AS threadId, c.used_tokens AS usedTokens FROM context c
+     WHERE c.rowid = (SELECT rowid FROM context WHERE thread_id = c.thread_id
+                      ORDER BY created_at DESC, rowid DESC LIMIT 1)`,
+  );
+  const selectActiveWithoutContext = db.prepare(
+    `SELECT thread_id AS threadId FROM threads t
+     WHERE t.archived_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM context c WHERE c.thread_id = t.thread_id)`,
+  );
   const recordContext = db.transaction((threadId: string, rows: ContextRow[]) => {
     let inserted = 0;
     for (const row of rows) {
@@ -229,6 +239,17 @@ export function createStore(db: Database) {
     /** Stores new context rows. Returns rows added. */
     recordContext(threadId: string, rows: ContextRow[]): number {
       return recordContext(threadId, rows);
+    },
+
+    /** Active threads with no context recorded, such as those read before the plugin recorded context. */
+    activeWithoutContext(): string[] {
+      return (selectActiveWithoutContext.all() as Array<{ threadId: string }>).map((row) => row.threadId);
+    },
+
+    /** Each thread's latest recorded context size. */
+    latestContexts(): Map<string, number> {
+      const rows = selectLatestContexts.all() as Array<{ threadId: string; usedTokens: number }>;
+      return new Map(rows.map((row) => [row.threadId, row.usedTokens]));
     },
 
     /** The thread's latest recorded context size, or null before any. */

@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadUsage } from "@/usage/contract";
 
-import { threadBars, threadsIn } from "./thread-usage-list";
+import { isLargeContext, threadBars, threadsIn } from "./thread-usage-list";
 
 const HOUR = 3_600_000;
 
-function thread(threadId: string, archivedAt: number | null, hours: ThreadUsage["hours"] = []): ThreadUsage {
-  return { threadId, title: null, projectId: "prj_acme", projectName: "widgets", providerId: "claude-code", archivedAt, turns: 1, hours, input: 0, cacheRead: 0, output: 0 };
+function thread(
+  threadId: string,
+  archivedAt: number | null,
+  hours: ThreadUsage["hours"] = [],
+  context: number | null = null,
+): ThreadUsage {
+  return { threadId, title: null, projectId: "prj_acme", projectName: "widgets", providerId: "claude-code", archivedAt, turns: 1, context, hours, input: 0, cacheRead: 0, output: 0 };
 }
 
 describe("threadsIn", () => {
@@ -39,5 +44,19 @@ describe("threadBars", () => {
       bars,
     );
     expect(totals).toEqual([8, 0, 7]);
+  });
+});
+
+describe("isLargeContext", () => {
+  it("flags an active thread at or past the setting", () => {
+    expect(isLargeContext(thread("thr_big", null, [], 510_000), 300_000)).toBe(true);
+    expect(isLargeContext(thread("thr_edge", null, [], 300_000), 300_000)).toBe(true);
+    expect(isLargeContext(thread("thr_small", null, [], 180_000), 300_000)).toBe(false);
+  });
+
+  it("leaves out archived threads, threads with no recorded context, and a setting that is off", () => {
+    expect(isLargeContext(thread("thr_archived", 1, [], 510_000), 300_000)).toBe(false);
+    expect(isLargeContext(thread("thr_unknown", null, [], null), 300_000)).toBe(false);
+    expect(isLargeContext(thread("thr_big", null, [], 510_000), null)).toBe(false);
   });
 });

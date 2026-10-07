@@ -91,10 +91,16 @@ const EMPTY: Record<Lifecycle, string> = {
   older: "No thread archived more than three days ago used tokens in this period.",
 };
 
+/** True for an active thread whose latest context is past the setting. */
+export function isLargeContext(thread: ThreadUsage, threshold: number | null): boolean {
+  return threshold !== null && thread.archivedAt === null && thread.context !== null && thread.context >= threshold;
+}
+
 export function ThreadUsageList({
   threads,
   bars,
   lifecycle = "active",
+  contextThreshold = null,
   onOpen,
 }: {
   /** Already narrowed to the lifecycle; the lifecycle only picks the empty message. */
@@ -102,6 +108,8 @@ export function ThreadUsageList({
   /** The page chart's bars, which the sparklines line up with. */
   bars: readonly Bar[];
   lifecycle?: Lifecycle;
+  /** The context warning setting; rows past it are tinted, as Now tints what is due today. */
+  contextThreshold?: number | null;
   onOpen: (threadId: string) => void;
 }) {
   if (threads.length === 0) {
@@ -120,17 +128,30 @@ export function ThreadUsageList({
       {threads.map((thread) => {
         const total = totalOf(thread);
         const archived = thread.archivedAt !== null;
+        const large = isLargeContext(thread, contextThreshold);
         const meta = [
           thread.projectName,
           providerName(thread.providerId),
           `${thread.turns} ${thread.turns === 1 ? "turn" : "turns"}`,
+          large ? `${formatTokens(thread.context!)} context` : null,
         ].filter((part) => part !== null && part !== "");
         return (
-          <li key={thread.threadId} className={cn(archived && "bg-muted/30")}>
+          <li
+            key={thread.threadId}
+            className={cn(
+              archived && "bg-muted/30",
+              // Now's due-today treatment: an amber bar where the padding was.
+              large && "border-l-2 border-l-[#eda100] bg-[#eda100]/[0.06] dark:border-l-[#c98500] dark:bg-[#c98500]/[0.08]",
+            )}
+            title={large ? `Its context is ${formatTokens(thread.context!)} tokens, which every model call re-reads` : undefined}
+          >
             <button
               type="button"
               onClick={() => onOpen(thread.threadId)}
-              className="flex w-full items-center gap-4 px-4 py-2.5 text-left text-sm hover:bg-muted/50"
+              className={cn(
+                "flex w-full items-center gap-4 py-2.5 pr-4 text-left text-sm hover:bg-muted/50",
+                large ? "pl-[14px]" : "pl-4",
+              )}
             >
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
