@@ -17,6 +17,28 @@ export const personActivitySchema = z.object({
   givenTotal: z.number(),
 });
 
+export const awaitingReviewSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  requestedAt: z.string(),
+  waitingDays: z.number(),
+});
+
+export const authoredPullRequestSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  state: z.enum(["OPEN", "CLOSED", "MERGED"]),
+  isDraft: z.boolean(),
+  createdAt: z.string(),
+  firstReviewDays: z.number().nullable(),
+  followUps: z.number(),
+  mergeDays: z.number().nullable(),
+  waitingDays: z.number().nullable(),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -40,6 +62,20 @@ export const rpcContract = defineRpcContract({
       sync: syncStatusSchema,
     }),
   },
+  person_activity: {
+    // A login is GitHub's own, so it is bounded and has no path separators.
+    input: z.object({ login: z.string().min(1).max(100), period: periodSchema }),
+    output: z.object({
+      repository: z.string().nullable(),
+      login: z.string(),
+      buckets: z.array(bucketSchema),
+      /** Null when the person has no review activity in the period. */
+      activity: personActivitySchema.nullable(),
+      awaiting: z.array(awaitingReviewSchema),
+      authored: z.array(authoredPullRequestSchema),
+      sync: syncStatusSchema,
+    }),
+  },
   sync_now: {
     input: z.null(),
     output: syncStatusSchema,
@@ -48,3 +84,4 @@ export const rpcContract = defineRpcContract({
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
+export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;

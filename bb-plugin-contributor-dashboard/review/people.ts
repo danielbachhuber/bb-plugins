@@ -3,6 +3,8 @@
 import { isBot, type PullRequestReview, type PullRequestWithActivity, type TimelineItem } from "../mirror/github.js";
 import { bucketIndex, type Bucket } from "../dashboard/period.js";
 
+import { countedReviews, localDay } from "./reviews.js";
+
 export interface PersonActivity {
   login: string;
   /** Review requests per bucket: made of them directly, or made of a team they then reviewed for. */
@@ -17,25 +19,6 @@ type RequestEvent = Extract<TimelineItem, { __typename: "ReviewRequestedEvent" |
 
 const isRequestEvent = (item: TimelineItem): item is RequestEvent =>
   item.__typename === "ReviewRequestedEvent" || item.__typename === "ReviewRequestRemovedEvent";
-
-/** Reviews that count: submitted, by a person other than the author. */
-function countedReviews(pr: PullRequestWithActivity): PullRequestReview[] {
-  const author = pr.author?.login;
-  return pr.reviews.filter(
-    (review) =>
-      review.state !== "PENDING" &&
-      review.submittedAt !== null &&
-      review.author !== null &&
-      !isBot(review.author) &&
-      review.author.login !== author,
-  );
-}
-
-/** The local calendar day, so a burst of replies in one sitting counts once. */
-function localDay(iso: string): string {
-  const at = new Date(iso);
-  return `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}`;
-}
 
 /**
  * Who picked up a request made of a team: the first person to review after it
@@ -101,7 +84,7 @@ export function peopleActivity(prs: readonly PullRequestWithActivity[], buckets:
   };
 
   for (const pr of prs) {
-    const reviews = countedReviews(pr).sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
+    const reviews = countedReviews(pr);
     const events = pr.timelineItems.filter(isRequestEvent);
 
     for (const event of events) {

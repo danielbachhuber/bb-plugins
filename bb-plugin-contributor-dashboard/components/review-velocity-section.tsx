@@ -11,6 +11,7 @@ export function ReviewVelocitySection({
   period,
   syncing,
   initialHovered,
+  onOpenPerson,
 }: {
   buckets: readonly Bucket[];
   people: readonly PersonActivity[];
@@ -18,6 +19,7 @@ export function ReviewVelocitySection({
   /** A sync is still storing pages, so an empty period may fill in. */
   syncing: boolean;
   initialHovered?: number;
+  onOpenPerson: (login: string) => void;
 }) {
   const max = Math.max(0, ...people.flatMap((person) => [...person.requested, ...person.given]));
   const unit = period === "6w" || period === "12w" ? "Week of" : "";
@@ -49,6 +51,7 @@ export function ReviewVelocitySection({
               max={max}
               unit={unit}
               initialHovered={index === 0 ? initialHovered : undefined}
+              onOpenPerson={onOpenPerson}
             />
           ))}
         </div>

@@ -33,6 +33,7 @@ export function PersonChart({
   max,
   unit,
   initialHovered,
+  onOpenPerson,
 }: {
   person: PersonActivity;
   buckets: readonly Bucket[];
@@ -40,6 +41,8 @@ export function PersonChart({
   max: number;
   unit: "Week of" | "";
   initialHovered?: number;
+  /** Opens their page. Left out on their own page, where the name is a heading. */
+  onOpenPerson?: (login: string) => void;
 }) {
   const [hovered, setHovered] = useState<number | null>(initialHovered ?? null);
   const step = buckets.length > 1 ? WIDTH / (buckets.length - 1) : 0;
@@ -50,7 +53,17 @@ export function PersonChart({
   return (
     <div className="rounded-lg border border-border bg-card px-3 pb-2 pt-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-medium">{person.login}</span>
+        {onOpenPerson === undefined ? (
+          <span className="truncate text-sm font-medium">{person.login}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenPerson(person.login)}
+            className="cursor-pointer truncate text-sm font-medium hover:underline"
+          >
+            {person.login}
+          </button>
+        )}
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {person.givenTotal} of {person.requestedTotal}
         </span>

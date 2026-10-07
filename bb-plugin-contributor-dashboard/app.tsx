@@ -1,42 +1,101 @@
 // bb-plugin-contributor-dashboard — the Contributor Dashboard page.
 import { useCallback, useEffect, useState } from "react";
-import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 
 import { DashboardView } from "@/components/dashboard-view";
+import { PersonView } from "@/components/person-view";
 
 import type { rpcContract } from "./server";
-import { DASHBOARD_CHANNEL, type PeopleActivityResult } from "./dashboard/contract.js";
+import {
+  DASHBOARD_CHANNEL,
+  type PeopleActivityResult,
+  type PersonActivityResult,
+} from "./dashboard/contract.js";
 import { DEFAULT_PERIOD, type PeriodId } from "./dashboard/period.js";
+
+const PANEL_PATH = "contributor-dashboard";
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function ContributorDashboardPage() {
-  const rpc = useRpc<typeof rpcContract>();
-  const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
-  const [data, setData] = useState<PeopleActivityResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+/** `person/<login>` is the only sub-path; anything else is the dashboard. */
+function personFrom(subPath: string): string | null {
+  const match = /^person\/([^/]+)\/?$/.exec(subPath);
+  return match === null ? null : decodeURIComponent(match[1]);
+}
 
-  // Reads only the local mirror; the server decides whether GitHub needs asking.
+/**
+ * Reads the page's data and re-reads it whenever a sync stores more. The
+ * request is by period, and by login on a person's page; both read the local
+ * mirror only.
+ */
+function useDashboardData<T>(call: () => Promise<T>, deps: unknown[]) {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
-    rpc.call("people_activity", { period }).then(
+    call().then(
       (result) => {
         setData(result);
         setError(null);
       },
       (cause) => setError(messageOf(cause)),
     );
-  }, [rpc, period]);
+    // The caller's `call` closes over the deps below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   useEffect(load, [load]);
   useRealtime(DASHBOARD_CHANNEL, load);
+  return { data, error, reload: load };
+}
 
+function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
+  const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
+  const login = personFrom(subPath);
+
+  const dashboard = useDashboardData<PeopleActivityResult | null>(
+    () => (login === null ? rpc.call("people_activity", { period }) : Promise.resolve(null)),
+    [rpc, period, login],
+  );
+  const person = useDashboardData<PersonActivityResult | null>(
+    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, period })),
+    [rpc, period, login],
+  );
+
+  const openPerson = useCallback(
+    (who: string) => navigate.toPluginPanel(PANEL_PATH, { subPath: `person/${encodeURIComponent(who)}` }),
+    [navigate],
+  );
+  const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
   const sync = useCallback(() => {
-    rpc.call("sync_now", null).then(load, (cause) => setError(messageOf(cause)));
-  }, [rpc, load]);
+    rpc.call("sync_now", null).then(dashboard.reload, () => undefined);
+  }, [rpc, dashboard.reload]);
 
-  return <DashboardView period={period} onPeriod={setPeriod} data={data} error={error} onSync={sync} />;
+  if (login !== null) {
+    return (
+      <PersonView
+        login={login}
+        period={period}
+        onPeriod={setPeriod}
+        data={person.data}
+        error={person.error}
+        onBack={back}
+      />
+    );
+  }
+  return (
+    <DashboardView
+      period={period}
+      onPeriod={setPeriod}
+      data={dashboard.data}
+      error={dashboard.error}
+      onSync={sync}
+      onOpenPerson={openPerson}
+    />
+  );
 }
 
 export default definePluginApp((app) => {
@@ -44,7 +103,7 @@ export default definePluginApp((app) => {
     id: "contributor-dashboard",
     title: "Contributor Dashboard",
     icon: "ChartColumn",
-    path: "contributor-dashboard",
+    path: PANEL_PATH,
     component: ContributorDashboardPage,
   });
 });

@@ -32,6 +32,7 @@ export function DashboardView({
   data,
   error,
   onSync,
+  onOpenPerson,
   now = Date.now(),
   initialHovered,
 }: {
@@ -41,6 +42,7 @@ export function DashboardView({
   /** Loading the page failed. */
   error: string | null;
   onSync: () => void;
+  onOpenPerson: (login: string) => void;
   now?: number;
   /** A bucket to show hovered on the first person's chart, for stories. */
   initialHovered?: number;
@@ -94,6 +96,7 @@ export function DashboardView({
             period={period}
             syncing={data.sync.running}
             initialHovered={initialHovered}
+            onOpenPerson={onOpenPerson}
           />
         )}
       </div>

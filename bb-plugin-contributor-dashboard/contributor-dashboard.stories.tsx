@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { DashboardView } from "./components/dashboard-view";
+import { PersonView } from "./components/person-view";
 import type { PeopleActivityResult, SyncStatus } from "./dashboard/contract";
 import { bucketsFor, type PeriodId } from "./dashboard/period";
 
@@ -53,6 +54,7 @@ function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sy
       data={fixture(period, sync)}
       error={null}
       onSync={() => undefined}
+      onOpenPerson={() => undefined}
       now={NOW}
       initialHovered={initialHovered}
     />
@@ -81,6 +83,7 @@ export const NoRepository = () => (
     data={{ repository: null, buckets: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0 } }}
     error={null}
     onSync={() => undefined}
+    onOpenPerson={() => undefined}
     now={NOW}
   />
 );
@@ -89,3 +92,57 @@ export const NoRepository = () => (
 export const SyncFailed = () => (
   <Page sync={{ ...SYNCED, error: "`gh` is not authenticated. Run `gh auth login`." }} />
 );
+
+const AWAITING = [
+  { number: 1840, title: "Add retry to widget sync", url: "https://github.com/acme/widgets/pull/1840", author: "mona", requestedAt: "2026-10-02T09:00:00Z", waitingDays: 3.2 },
+  { number: 1831, title: "Rename sprocket fields", url: "https://github.com/acme/widgets/pull/1831", author: "webcat", requestedAt: "2026-10-05T14:00:00Z", waitingDays: 1.9 },
+  { number: 1828, title: "Cache avatar lookups", url: "https://github.com/acme/widgets/pull/1828", author: "yeti", requestedAt: "2026-10-06T10:00:00Z", waitingDays: 0.8 },
+];
+
+const AUTHORED = [
+  { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", state: "OPEN" as const, isDraft: false, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
+  { number: 1822, title: "Validate webhook payloads", url: "https://github.com/acme/widgets/pull/1822", state: "MERGED" as const, isDraft: false, createdAt: "2026-09-29T09:00:00Z", firstReviewDays: 1.4, followUps: 2, mergeDays: 3.7, waitingDays: null },
+  { number: 1816, title: "Upgrade chart library", url: "https://github.com/acme/widgets/pull/1816", state: "MERGED" as const, isDraft: false, createdAt: "2026-09-24T09:00:00Z", firstReviewDays: 0.3, followUps: 0, mergeDays: 1.1, waitingDays: null },
+  { number: 1807, title: "Show empty state on list", url: "https://github.com/acme/widgets/pull/1807", state: "OPEN" as const, isDraft: true, createdAt: "2026-09-21T09:00:00Z", firstReviewDays: null, followUps: 0, mergeDays: null, waitingDays: null },
+  { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", state: "CLOSED" as const, isDraft: false, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
+];
+
+function Person({
+  initial = "6w",
+  awaiting = AWAITING,
+  authored = AUTHORED,
+  login = "octocat",
+}: {
+  initial?: PeriodId;
+  awaiting?: typeof AWAITING;
+  authored?: typeof AUTHORED;
+  login?: string;
+}) {
+  const [period, setPeriod] = useState<PeriodId>(initial);
+  const page = fixture(period);
+  return (
+    <PersonView
+      login={login}
+      period={period}
+      onPeriod={setPeriod}
+      data={{
+        repository: "acme/widgets",
+        login,
+        buckets: page.buckets,
+        activity: page.people.find((person) => person.login === login) ?? null,
+        awaiting,
+        authored,
+        sync: SYNCED,
+      }}
+      error={null}
+      onBack={() => undefined}
+      now={NOW}
+    />
+  );
+}
+
+/** One person's page, reached by clicking their name on the dashboard. */
+export const PersonPage = () => <Person />;
+
+/** Nobody is waiting on them and they have opened nothing this period. */
+export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} authored={[]} />;

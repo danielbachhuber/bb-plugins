@@ -3,7 +3,9 @@
 A **Contributor Dashboard** page in the sidebar about how people contribute to
 one GitHub repository, over 6 weeks, 12 weeks, 6 months, or a year. Its first
 section, **Review velocity**, charts for each person the reviews requested of
-them and the reviews they gave, week by week.
+them and the reviews they gave, week by week. Clicking a name opens that
+person's page: their review lines, the pull requests waiting on their review,
+and how their own pull requests fared in review.
 
 ## How it works
 

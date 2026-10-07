@@ -31,6 +31,28 @@ What counts:
   a burst of replies to comments is one review. Pending reviews, reviews by
   the pull request's author, and bots are left out.
 
+### A person's page
+
+Clicking a name on a chart opens that person's page, at
+`contributor-dashboard/person/<login>`, and the browser's back button returns
+to the dashboard. It shows:
+
+- **Reviews**, their two lines from the dashboard drawn full width.
+- **Waiting on their review**: open pull requests whose latest review request
+  naming them has not been withdrawn and which they have not reviewed since,
+  longest wait first. Only requests that name the person: a request made of a
+  team is waiting on the team, with no one to attribute it to until someone
+  reviews.
+- **Their pull requests**: the ones they opened that were touched in the
+  period, newest first, each with the time to its first review, how many
+  follow-up reviews it needed, and the time to merge or how long it has been
+  open.
+
+Times there are business days from when the pull request became ready for
+review, which is when it left draft, or when it opened if it never was one.
+Weekends do not count; a span under a day reads in hours, and under an hour in
+minutes.
+
 ## Settings
 
 ```sh
@@ -96,15 +118,19 @@ needs no new sync.
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
 | `review/people.ts` | The pure count of reviews requested and given per person per week or month |
+| `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
+| `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
+| `review/business-time.ts` | Elapsed time with weekends left out |
 | `dashboard/period.ts` | The periods, and the weeks or months each is drawn in |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
 | `components/review-velocity-section.tsx` | The Review velocity section |
+| `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its hover, and the legend |
 | `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, and a failed sync |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, and a person's page busy and quiet |
 
 ## Working on it
 
