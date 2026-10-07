@@ -1,20 +1,23 @@
-# bb-plugin-review-velocity
+# bb-plugin-contributor-dashboard
 
-Charts code review for one GitHub repository. A Review Velocity page in the
-sidebar shows, for each person, the reviews requested of them and the reviews
-they gave, week by week, from a local copy of the repository's pull requests
-and reviews.
+A dashboard of how people contribute to one GitHub repository. A Contributor
+Dashboard page in the sidebar draws its sections from a local copy of the
+repository's pull requests and reviews.
 
 ## The page
 
-One small chart per person, in alphabetical order, with two lines: reviews
-**requested** of them and reviews they **gave**. The corner shows the totals
+The top of the page names the repository, says when it last synced, and has
+the period picker, which every section follows: 6 weeks (the default), 12
+weeks, 6 months, and 1 year. The weeks start on Monday; 6 months and a year are
+drawn by month.
+
+### Review velocity
+
+**Reviews per person** is one small chart per person, in alphabetical order,
+with two lines: reviews **requested** of them and reviews they **gave**. The corner shows the totals
 for the period as "given of requested". Every chart shares one scale, so a
 busy reviewer's lines sit higher than a quiet one's. Hovering a week shows its
 counts.
-
-The period picker offers 6 weeks (the default), 12 weeks, 6 months, and 1
-year. The weeks start on Monday; 6 months and a year are drawn by month.
 
 What counts:
 
@@ -31,8 +34,8 @@ What counts:
 ## Settings
 
 ```sh
-bb plugin config review-velocity set repository owner/name
-bb plugin reload review-velocity
+bb plugin config contributor-dashboard set repository owner/name
+bb plugin reload contributor-dashboard
 ```
 
 | Setting | Default | What it does |
@@ -78,29 +81,30 @@ needs no new sync.
 ## Related plugins
 
 - **GitHub** (`github`), bundled with bb, browses a repository's issues and
-  pull requests. It lists what is open now; Review Velocity charts review
-  activity over time.
+  pull requests. It lists what is open now; Contributor Dashboard charts
+  review activity over time.
 - **Review Sweep** (`review-sweep`), in this repository, lists the pull
-  requests waiting on your review. Review Velocity counts everyone's reviews
-  rather than queueing yours.
+  requests waiting on your review. Contributor Dashboard counts everyone's
+  reviews rather than queueing yours.
 
 ## Layout
 
 | Path | What it holds |
 | --- | --- |
-| `velocity/github.ts` | GitHub's objects as the plugin reads them, and the GraphQL queries |
-| `velocity/sync.ts` | The sync: catching up to the last high-water mark, the resumable two-year backfill, and fetching past 100 reviews or events |
-| `velocity/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
-| `velocity/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
-| `velocity/people.ts` | The pure count of reviews requested and given per person per week or month |
-| `velocity/period.ts` | The periods, and the weeks or months each is drawn in |
-| `velocity/contract.ts` | The RPC contract and the realtime channel |
-| `components/people-view.tsx` | The page, drawn from props alone |
+| `mirror/github.ts` | GitHub's objects as the plugin reads them, and the GraphQL queries |
+| `mirror/sync.ts` | The sync: catching up to the last high-water mark, the resumable two-year backfill, and fetching past 100 reviews or events |
+| `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
+| `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
+| `review/people.ts` | The pure count of reviews requested and given per person per week or month |
+| `dashboard/period.ts` | The periods, and the weeks or months each is drawn in |
+| `dashboard/contract.ts` | The RPC contract and the realtime channel |
+| `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
+| `components/review-velocity-section.tsx` | The Review velocity section |
 | `components/person-chart.tsx` | One person's small chart, its hover, and the legend |
 | `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
-| `review-velocity.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, and a failed sync |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, and a failed sync |
 
 ## Working on it
 
@@ -108,7 +112,7 @@ needs no new sync.
 npm install
 npx tsc --noEmit -p tsconfig.json
 npm test
-bb plugin build . && bb plugin reload review-velocity
+bb plugin build . && bb plugin reload contributor-dashboard
 ```
 
 `npm run storybook` at the root of this repository renders the page with

@@ -1,14 +1,14 @@
-// bb-plugin-review-velocity — mirrors a repository's pull requests and reviews
-// from GitHub, and serves the Review Velocity page from that mirror.
+// bb-plugin-contributor-dashboard — mirrors a repository's pull requests and reviews
+// from GitHub, and serves the Contributor Dashboard page from that mirror.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createGhRunner, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/gh-shared/gh";
 
-import { rpcContract, VELOCITY_CHANNEL, type SyncStatus } from "./velocity/contract.js";
-import { ghGraphql } from "./velocity/gh.js";
-import { peopleActivity } from "./velocity/people.js";
-import { bucketsFor } from "./velocity/period.js";
-import { createStore, MIGRATIONS } from "./velocity/store.js";
-import { runSync } from "./velocity/sync.js";
+import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
+import { ghGraphql } from "./mirror/gh.js";
+import { peopleActivity } from "./review/people.js";
+import { bucketsFor } from "./dashboard/period.js";
+import { createStore, MIGRATIONS } from "./mirror/store.js";
+import { runSync } from "./mirror/sync.js";
 
 export { rpcContract };
 
@@ -69,7 +69,7 @@ export default async function plugin(bb: BbPluginApi) {
       query,
       repository,
       signal: aborter.signal,
-      onPage: () => bb.realtime.publish(VELOCITY_CHANNEL, null),
+      onPage: () => bb.realtime.publish(DASHBOARD_CHANNEL, null),
     })
       .then((result) => {
         lastError = null;
@@ -84,7 +84,7 @@ export default async function plugin(bb: BbPluginApi) {
       })
       .finally(() => {
         running = null;
-        if (!aborter.signal.aborted) bb.realtime.publish(VELOCITY_CHANNEL, null);
+        if (!aborter.signal.aborted) bb.realtime.publish(DASHBOARD_CHANNEL, null);
       });
   }
 

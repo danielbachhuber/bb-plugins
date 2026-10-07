@@ -2,8 +2,8 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-/** Published while a sync stores pages and when it finishes; open pages re-read. */
-export const VELOCITY_CHANNEL = "velocity-changed";
+/** Published while a sync stores pages and when it finishes; the open dashboard re-reads. */
+export const DASHBOARD_CHANNEL = "dashboard-changed";
 
 export const periodSchema = z.enum(["6w", "12w", "6m", "1y"]);
 

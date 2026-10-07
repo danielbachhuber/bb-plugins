@@ -2,8 +2,8 @@
 // per week or month. Every card shares one y scale so people compare honestly.
 import { useState } from "react";
 
-import type { Bucket } from "@/velocity/period";
-import type { PersonActivity } from "@/velocity/people";
+import type { Bucket } from "@/dashboard/period";
+import type { PersonActivity } from "@/review/people";
 
 export const SERIES = [
   { key: "requested", label: "Requested", stroke: "stroke-[#2a78d6] dark:stroke-[#3987e5]", swatch: "bg-[#2a78d6] dark:bg-[#3987e5]" },

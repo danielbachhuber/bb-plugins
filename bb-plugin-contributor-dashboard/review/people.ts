@@ -1,7 +1,7 @@
 // Reviews requested from and given by each person, per bucket of a period.
 // Pure: reads stored GitHub objects, makes no calls.
-import { isBot, type PullRequestReview, type PullRequestWithActivity, type TimelineItem } from "./github.js";
-import { bucketIndex, type Bucket } from "./period.js";
+import { isBot, type PullRequestReview, type PullRequestWithActivity, type TimelineItem } from "../mirror/github.js";
+import { bucketIndex, type Bucket } from "../dashboard/period.js";
 
 export interface PersonActivity {
   login: string;

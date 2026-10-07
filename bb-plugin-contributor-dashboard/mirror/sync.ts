@@ -14,7 +14,7 @@ import {
   type PullRequestReview,
   type TimelineItem,
 } from "./github.js";
-import { BACKFILL_MS } from "./period.js";
+import { BACKFILL_MS } from "../dashboard/period.js";
 import type { Store, SyncState } from "./store.js";
 
 /** Runs one GraphQL query and returns its `data`. */

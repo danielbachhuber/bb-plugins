@@ -1,18 +1,18 @@
-// bb-plugin-review-velocity — the Review Velocity page.
+// bb-plugin-contributor-dashboard — the Contributor Dashboard page.
 import { useCallback, useEffect, useState } from "react";
 import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 
-import { PeopleView } from "@/components/people-view";
+import { DashboardView } from "@/components/dashboard-view";
 
 import type { rpcContract } from "./server";
-import { VELOCITY_CHANNEL, type PeopleActivityResult } from "./velocity/contract.js";
-import { DEFAULT_PERIOD, type PeriodId } from "./velocity/period.js";
+import { DASHBOARD_CHANNEL, type PeopleActivityResult } from "./dashboard/contract.js";
+import { DEFAULT_PERIOD, type PeriodId } from "./dashboard/period.js";
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function ReviewVelocityPage() {
+function ContributorDashboardPage() {
   const rpc = useRpc<typeof rpcContract>();
   const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
   const [data, setData] = useState<PeopleActivityResult | null>(null);
@@ -30,21 +30,21 @@ function ReviewVelocityPage() {
   }, [rpc, period]);
 
   useEffect(load, [load]);
-  useRealtime(VELOCITY_CHANNEL, load);
+  useRealtime(DASHBOARD_CHANNEL, load);
 
   const sync = useCallback(() => {
     rpc.call("sync_now", null).then(load, (cause) => setError(messageOf(cause)));
   }, [rpc, load]);
 
-  return <PeopleView period={period} onPeriod={setPeriod} data={data} error={error} onSync={sync} />;
+  return <DashboardView period={period} onPeriod={setPeriod} data={data} error={error} onSync={sync} />;
 }
 
 export default definePluginApp((app) => {
   app.slots.navPanel({
-    id: "review-velocity",
-    title: "Review Velocity",
+    id: "contributor-dashboard",
+    title: "Contributor Dashboard",
     icon: "ChartColumn",
-    path: "review-velocity",
-    component: ReviewVelocityPage,
+    path: "contributor-dashboard",
+    component: ContributorDashboardPage,
   });
 });

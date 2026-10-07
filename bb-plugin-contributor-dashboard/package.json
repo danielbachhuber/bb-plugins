@@ -1,5 +1,5 @@
 {
-  "name": "bb-plugin-review-velocity",
+  "name": "bb-plugin-contributor-dashboard",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -7,8 +7,8 @@
     "bbPluginSdk": ">=0.5.29"
   },
   "bb": {
-    "name": "Review Velocity",
-    "description": "Charts code review for one GitHub repository from a local mirror of its pull requests and reviews: for each person, the reviews requested of them and the reviews they gave, week by week, over six weeks to a year.",
+    "name": "Contributor Dashboard",
+    "description": "A dashboard of how people contribute to one GitHub repository, from a local mirror of its pull requests and reviews. Its first section, Review Velocity, charts for each person the reviews requested of them and the reviews they gave, week by week, over six weeks to a year.",
     "branding": {
       "icon": "ChartColumn"
     },

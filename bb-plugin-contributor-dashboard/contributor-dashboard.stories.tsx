@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-import { PeopleView } from "./components/people-view";
-import type { PeopleActivityResult, SyncStatus } from "./velocity/contract";
-import { bucketsFor, type PeriodId } from "./velocity/period";
+import { DashboardView } from "./components/dashboard-view";
+import type { PeopleActivityResult, SyncStatus } from "./dashboard/contract";
+import { bucketsFor, type PeriodId } from "./dashboard/period";
 
 export default {
-  title: "review-velocity/Page",
+  title: "contributor-dashboard/Page",
 };
 
 const NOW = new Date(2026, 9, 7, 14, 20).getTime();
@@ -47,7 +47,7 @@ function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityRes
 function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sync?: SyncStatus; initialHovered?: number }) {
   const [period, setPeriod] = useState<PeriodId>(initial);
   return (
-    <PeopleView
+    <DashboardView
       period={period}
       onPeriod={setPeriod}
       data={fixture(period, sync)}
@@ -75,7 +75,7 @@ export const FirstSync = () => (
 
 /** Before a repository is set. */
 export const NoRepository = () => (
-  <PeopleView
+  <DashboardView
     period="6w"
     onPeriod={() => undefined}
     data={{ repository: null, buckets: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0 } }}

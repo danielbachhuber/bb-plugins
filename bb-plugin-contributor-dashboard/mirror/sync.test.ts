@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { MORE_REVIEWS_QUERY, PULL_REQUESTS_QUERY, type PullRequestNode } from "./github";
-import { BACKFILL_MS } from "./period";
+import { BACKFILL_MS } from "../dashboard/period";
 import { createStore, MIGRATIONS } from "./store";
 import { runSync, type GraphqlQuery } from "./sync";
 

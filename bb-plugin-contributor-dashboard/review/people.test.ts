@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "./github";
-import { bucketsFor } from "./period";
+import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "../mirror/github";
+import { bucketsFor } from "../dashboard/period";
 import { peopleActivity } from "./people";
 
 const NOW = Date.parse("2026-10-07T15:00:00Z"); // a Wednesday

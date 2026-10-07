@@ -8,6 +8,10 @@
       "source": "./bb-plugin-automation-palette"
     },
     {
+      "name": "contributor-dashboard",
+      "source": "./bb-plugin-contributor-dashboard"
+    },
+    {
       "name": "diff-comment",
       "source": "./bb-plugin-diff-comment"
     },
@@ -62,10 +66,6 @@
     {
       "name": "review-sweep",
       "source": "./bb-plugin-review-sweep"
-    },
-    {
-      "name": "review-velocity",
-      "source": "./bb-plugin-review-velocity"
     },
     {
       "name": "super-diff",
