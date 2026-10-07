@@ -49,6 +49,8 @@ export const turnDetailSchema = z.object({
   ...tokens,
 });
 
+const thresholdsSchema = z.object({ warning: z.number().nullable(), error: z.number().nullable() });
+
 export const rpcContract = defineRpcContract({
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),
@@ -57,8 +59,8 @@ export const rpcContract = defineRpcContract({
       threads: z.array(threadUsageSchema),
       /** When this plugin started recording; earlier hours may be missing turns. */
       recordingSince: z.number(),
-      /** The context warning setting in tokens; null when it is off. */
-      contextThreshold: z.number().nullable(),
+      /** The context warning and error settings in tokens; null when one is off. */
+      contextThresholds: thresholdsSchema,
     }),
   },
   thread_usage: {
@@ -95,8 +97,8 @@ export const rpcContract = defineRpcContract({
         .nullable(),
       /** Tokens the thread's latest recorded turn used. */
       lastTurn: z.number().nullable(),
-      /** The warning setting in tokens; null when the warning is off. */
-      threshold: z.number().nullable(),
+      /** The context warning and error settings in tokens; null when one is off. */
+      thresholds: thresholdsSchema,
       /** Archived or deleted threads get no meter. */
       archived: z.boolean(),
     }),

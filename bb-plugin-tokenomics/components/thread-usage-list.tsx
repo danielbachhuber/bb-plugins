@@ -3,6 +3,7 @@
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { totalOf } from "@/usage/breakdown";
+import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage/context";
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
 
@@ -91,16 +92,19 @@ const EMPTY: Record<Lifecycle, string> = {
   older: "No thread archived more than three days ago used tokens in this period.",
 };
 
-/** True for an active thread whose latest context is past the setting. */
-export function isLargeContext(thread: ThreadUsage, threshold: number | null): boolean {
-  return threshold !== null && thread.archivedAt === null && thread.context !== null && thread.context >= threshold;
+/** How an active thread's latest context rates against the settings; archived threads are not rated. */
+export function threadContextLevel(thread: ThreadUsage, thresholds: ContextThresholds): ContextLevel | null {
+  if (thread.archivedAt !== null || thread.context === null) return null;
+  return contextLevel(thread.context, thresholds);
 }
+
+const NO_THRESHOLDS: ContextThresholds = { warning: null, error: null };
 
 export function ThreadUsageList({
   threads,
   bars,
   lifecycle = "active",
-  contextThreshold = null,
+  contextThresholds = NO_THRESHOLDS,
   onOpen,
 }: {
   /** Already narrowed to the lifecycle; the lifecycle only picks the empty message. */
@@ -108,8 +112,8 @@ export function ThreadUsageList({
   /** The page chart's bars, which the sparklines line up with. */
   bars: readonly Bar[];
   lifecycle?: Lifecycle;
-  /** The context warning setting; rows past it are tinted, as Now tints what is overdue. */
-  contextThreshold?: number | null;
+  /** The context settings; rows past them are tinted as Now tints what is due today, then what is overdue. */
+  contextThresholds?: ContextThresholds;
   onOpen: (threadId: string) => void;
 }) {
   if (threads.length === 0) {
@@ -128,7 +132,7 @@ export function ThreadUsageList({
       {threads.map((thread) => {
         const total = totalOf(thread);
         const archived = thread.archivedAt !== null;
-        const large = isLargeContext(thread, contextThreshold);
+        const level = threadContextLevel(thread, contextThresholds);
         const meta = [
           thread.projectName,
           providerName(thread.providerId),
@@ -140,17 +144,19 @@ export function ThreadUsageList({
             key={thread.threadId}
             className={cn(
               archived && "bg-muted/30",
-              // Now's overdue treatment: a red bar where the padding was.
-              large && "border-l-2 border-l-destructive bg-destructive/[0.04]",
+              // Now's due-today and overdue treatments: a bar where the padding was.
+              level === "warning" &&
+                "border-l-2 border-l-[#eda100] bg-[#eda100]/[0.06] dark:border-l-[#c98500] dark:bg-[#c98500]/[0.08]",
+              level === "error" && "border-l-2 border-l-destructive bg-destructive/[0.04]",
             )}
-            title={large ? `Its context is ${formatTokens(thread.context!)} tokens, which every model call re-reads` : undefined}
+            title={level === null ? undefined : `Its context is ${formatTokens(thread.context!)} tokens, which every model call re-reads`}
           >
             <button
               type="button"
               onClick={() => onOpen(thread.threadId)}
               className={cn(
                 "flex w-full items-center gap-4 py-2.5 pr-4 text-left text-sm hover:bg-muted/50",
-                large ? "pl-[14px]" : "pl-4",
+                level === null ? "pl-4" : "pl-[14px]",
               )}
             >
               <span className="min-w-0 flex-1">

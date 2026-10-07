@@ -1,7 +1,10 @@
 // The meter above a thread's composer once its context passes the warning
-// setting: the context size against the model's window, the last turn's
-// tokens, and a button that compacts the thread. Display only.
+// setting: the context size against the model's window, amber past the
+// warning and red past the error, the last turn's tokens, and a button that
+// compacts the thread. Display only.
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { ContextLevel, ContextThresholds } from "@/usage/context";
 import { formatTokens } from "@/usage/series";
 
 /** Tailwind's amber-600, which reads on both light and dark backgrounds. */
@@ -11,7 +14,9 @@ export interface ContextMeterProps {
   usedTokens: number;
   /** The model's window; without it the bar is left out. */
   contextWindow: number | null;
-  threshold: number;
+  thresholds: ContextThresholds;
+  /** Which setting the context has passed. */
+  level: ContextLevel;
   lastTurn: number | null;
   /** A turn is running, so bb would refuse to compact. */
   running: boolean;
@@ -23,15 +28,11 @@ export interface ContextMeterProps {
   onCompact: () => void;
 }
 
-/** True when the meter should show. */
-export function overThreshold(usedTokens: number, threshold: number | null): boolean {
-  return threshold !== null && usedTokens >= threshold;
-}
-
 export function ContextMeter({
   usedTokens,
   contextWindow,
-  threshold,
+  thresholds,
+  level,
   lastTurn,
   running,
   compacting,
@@ -44,7 +45,12 @@ export function ContextMeter({
   const window = contextWindow !== null && contextWindow >= usedTokens ? contextWindow : null;
   const showBar = !compact && window !== null;
   const fill = window === null ? 0 : usedTokens / window;
-  const tick = window === null ? 0 : Math.min(1, threshold / window);
+  const ticks = [thresholds.warning, thresholds.error].filter(
+    (at): at is number => at !== null && window !== null && at < window,
+  );
+  // Red is bb's destructive color, so it follows the theme.
+  const color = level === "error" ? undefined : AMBER;
+  const passed = level === "error" ? thresholds.error : thresholds.warning;
   const details = [
     !compact && lastTurn !== null ? `${formatTokens(lastTurn)} last turn` : null,
     window !== null ? `${formatTokens(window)} max` : null,
@@ -60,23 +66,28 @@ export function ContextMeter({
       // and order puts it above the other plugins' banners, such as the
       // GitHub context one.
       style={{ order: -1 }}
-      aria-label={`This thread's context is ${formatTokens(usedTokens)} tokens, past the ${formatTokens(threshold)} warning.`}
+      aria-label={`This thread's context is ${formatTokens(usedTokens)} tokens, past the ${formatTokens(passed ?? 0)} ${level === "error" ? "limit" : "warning"}.`}
     >
       <div className="flex items-center gap-3">
         <span className="shrink-0 tabular-nums">
-          <span className="font-medium" style={{ color: AMBER }}>
+          <span className={cn("font-medium", level === "error" && "text-destructive")} style={{ color }}>
             {formatTokens(usedTokens)}
           </span>
           <span className="text-muted-foreground"> context</span>
         </span>
         {showBar ? (
           <span className="relative h-1.5 min-w-0 flex-1 rounded-full bg-muted" aria-hidden>
-            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${fill * 100}%`, background: AMBER }} />
             <span
-              className="absolute bg-foreground/50"
-              style={{ left: `${tick * 100}%`, top: -3, bottom: -3, width: 1 }}
-              title={`Warns at ${formatTokens(threshold)}`}
+              className={cn("absolute inset-y-0 left-0 rounded-full", level === "error" && "bg-destructive")}
+              style={{ width: `${fill * 100}%`, background: color }}
             />
+            {ticks.map((at) => (
+              <span
+                key={at}
+                className="absolute bg-foreground/50"
+                style={{ left: `${(at / window!) * 100}%`, top: -3, bottom: -3, width: 1 }}
+              />
+            ))}
           </span>
         ) : (
           <span className="flex-1" />

@@ -2,7 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
-import { CONTEXT_EVENT, contextRowOf, parseThreshold } from "./usage/context.js";
+import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
@@ -26,6 +26,13 @@ export default async function plugin(bb: BbPluginApi) {
       // costs tens of millions of tokens. Claude Code's own auto-compact on a
       // 1M-token model waits until about 967K. Empty turns the warning off.
       default: "300K",
+    },
+    contextErrorAt: {
+      type: "string",
+      label: "Mark a thread's context as too large past (tokens)",
+      // Past this the meter and the page row turn from amber to red. Empty
+      // leaves only the warning.
+      default: "550K",
     },
   });
 
@@ -129,6 +136,11 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  async function contextThresholds(): Promise<ContextThresholds> {
+    const { contextWarningAt, contextErrorAt } = await settings.get();
+    return { warning: parseThreshold(contextWarningAt), error: parseThreshold(contextErrorAt) };
+  }
+
   async function projectNames(): Promise<Map<string, string>> {
     try {
       const projects = await bb.sdk.projects.list();
@@ -142,7 +154,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
-      const [names, { contextWarningAt }] = await Promise.all([projectNames(), settings.get()]);
+      const [names, thresholds] = await Promise.all([projectNames(), contextThresholds()]);
       const contexts = store.latestContexts();
       const hoursByThread = new Map<string, Array<{ hour: number; total: number }>>();
       for (const { threadId, hour, total } of store.threadHoursSince(floor)) {
@@ -159,7 +171,7 @@ export default async function plugin(bb: BbPluginApi) {
           hours: hoursByThread.get(thread.threadId) ?? [],
         })),
         recordingSince,
-        contextThreshold: parseThreshold(contextWarningAt),
+        contextThresholds: thresholds,
       };
     },
     thread_usage: ({ threadId }) => {
@@ -167,7 +179,7 @@ export default async function plugin(bb: BbPluginApi) {
       return { ...tokens, total, turns, recent: store.threadRows(threadId, MAX_ROWS) };
     },
     thread_context: async ({ threadId }) => {
-      const [context, { contextWarningAt }] = await Promise.all([latestContext(threadId), settings.get()]);
+      const [context, thresholds] = await Promise.all([latestContext(threadId), contextThresholds()]);
       const [last] = store.threadRows(threadId, 1);
       return {
         context:
@@ -180,7 +192,7 @@ export default async function plugin(bb: BbPluginApi) {
                 at: context.createdAt,
               },
         lastTurn: last === undefined ? null : last.input + last.cacheRead + last.output,
-        threshold: parseThreshold(contextWarningAt),
+        thresholds,
         archived: store.isArchived(threadId),
       };
     },

@@ -48,7 +48,22 @@ export function contextRowOf(event: ContextEventLike): ContextRow | null {
   };
 }
 
-/** The setting's value as a token count, or null when the warning is off. */
+/** Where a thread's context earns a warning, and where an error; null turns a level off. */
+export interface ContextThresholds {
+  warning: number | null;
+  error: number | null;
+}
+
+export type ContextLevel = "warning" | "error";
+
+/** How a context of `usedTokens` rates against the thresholds, or null below both. */
+export function contextLevel(usedTokens: number, thresholds: ContextThresholds): ContextLevel | null {
+  if (thresholds.error !== null && usedTokens >= thresholds.error) return "error";
+  if (thresholds.warning !== null && usedTokens >= thresholds.warning) return "warning";
+  return null;
+}
+
+/** A setting's value as a token count, or null when it is off. */
 export function parseThreshold(value: string): number | null {
   const match = /^\s*([\d.,_]+)\s*([km]?)\s*$/i.exec(value);
   if (match === null) return null;

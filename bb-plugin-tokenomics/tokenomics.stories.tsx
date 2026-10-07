@@ -83,9 +83,10 @@ const range = (from: number, to: number) => Array.from({ length: from - to + 1 }
 
 const THREADS: ThreadUsage[] = [
   // Busy all day and still going in the latest hour.
-  // Its context has grown past the 300K setting, so its row is tinted.
-  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 510_000),
-  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2), null, 180_000),
+  // Its context has grown past the 550K error setting, so its row is red.
+  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 620_000),
+  // Past the 300K warning setting, so its row is amber.
+  thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2), null, 340_000),
   thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), 2),
   thread("thr_a4", null, "gadgets", 3, 2_100_000, [3]),
   thread("thr_a5", "Rename the gadget sizes enum", "gadgets", 1, 240_000, [20], 18),
@@ -101,7 +102,7 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
     unit: span.unit,
     threads: THREADS.filter((thread) => thread.hours.some(({ hour }) => hour >= span.since)),
     recordingSince: recordingSince ?? span.since - HOUR,
-    contextThreshold: 300_000,
+    contextThresholds: { warning: 300_000, error: 550_000 },
   };
 }
 
@@ -299,7 +300,8 @@ export const HeaderOpen = () => (
 const METER: ContextMeterProps = {
   usedTokens: 510_000,
   contextWindow: 1_000_000,
-  threshold: 300_000,
+  thresholds: { warning: 300_000, error: 550_000 },
+  level: "warning",
   lastTurn: 22_400_000,
   running: false,
   compacting: false,
@@ -309,13 +311,19 @@ const METER: ContextMeterProps = {
 
 /**
  * The meter above a thread's composer once its context passes the warning
- * setting, 300K tokens here, with a button that compacts the thread.
+ * setting, 300K tokens here, and red past the error setting, 550K, with a
+ * button that compacts the thread.
  */
 export const ContextMeterStates = () => (
   <StoryCard>
-    <StoryRow label="past the setting" hint="the tick on the bar marks the setting">
+    <StoryRow label="past the warning" hint="amber past 300K; the ticks mark both settings">
       <div className="w-[720px]">
         <ContextMeter {...METER} />
+      </div>
+    </StoryRow>
+    <StoryRow label="past the error" hint="red past 550K">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} usedTokens={620_000} level="error" />
       </div>
     </StoryRow>
     <StoryRow label="a turn running" hint="bb compacts only an idle thread">

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadUsage } from "@/usage/contract";
 
-import { isLargeContext, threadBars, threadsIn } from "./thread-usage-list";
+import { threadBars, threadContextLevel, threadsIn } from "./thread-usage-list";
 
 const HOUR = 3_600_000;
 
@@ -47,16 +47,23 @@ describe("threadBars", () => {
   });
 });
 
-describe("isLargeContext", () => {
-  it("flags an active thread at or past the setting", () => {
-    expect(isLargeContext(thread("thr_big", null, [], 510_000), 300_000)).toBe(true);
-    expect(isLargeContext(thread("thr_edge", null, [], 300_000), 300_000)).toBe(true);
-    expect(isLargeContext(thread("thr_small", null, [], 180_000), 300_000)).toBe(false);
+describe("threadContextLevel", () => {
+  const thresholds = { warning: 300_000, error: 550_000 };
+
+  it("rates an active thread's latest context against both settings", () => {
+    expect(threadContextLevel(thread("thr_small", null, [], 180_000), thresholds)).toBeNull();
+    expect(threadContextLevel(thread("thr_edge", null, [], 300_000), thresholds)).toBe("warning");
+    expect(threadContextLevel(thread("thr_big", null, [], 510_000), thresholds)).toBe("warning");
+    expect(threadContextLevel(thread("thr_huge", null, [], 629_000), thresholds)).toBe("error");
   });
 
-  it("leaves out archived threads, threads with no recorded context, and a setting that is off", () => {
-    expect(isLargeContext(thread("thr_archived", 1, [], 510_000), 300_000)).toBe(false);
-    expect(isLargeContext(thread("thr_unknown", null, [], null), 300_000)).toBe(false);
-    expect(isLargeContext(thread("thr_big", null, [], 510_000), null)).toBe(false);
+  it("leaves out archived threads and threads with no recorded context", () => {
+    expect(threadContextLevel(thread("thr_archived", 1, [], 629_000), thresholds)).toBeNull();
+    expect(threadContextLevel(thread("thr_unknown", null, [], null), thresholds)).toBeNull();
+  });
+
+  it("skips a level whose setting is off", () => {
+    expect(threadContextLevel(thread("thr_big", null, [], 510_000), { warning: null, error: 550_000 })).toBeNull();
+    expect(threadContextLevel(thread("thr_huge", null, [], 629_000), { warning: 300_000, error: null })).toBe("warning");
   });
 });

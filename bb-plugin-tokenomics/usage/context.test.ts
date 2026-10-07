@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { CONTEXT_EVENT, contextRowOf, parseThreshold } from "./context.js";
+import { CONTEXT_EVENT, contextLevel, contextRowOf, parseThreshold } from "./context.js";
 import { createStore, MIGRATIONS } from "./store.js";
 import { createSync, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
 
@@ -80,5 +80,14 @@ describe("recording context", () => {
     // Nothing new, so nothing to announce.
     await sync.syncThread(thread);
     expect(announced).toEqual([thread.id]);
+  });
+});
+
+describe("contextLevel", () => {
+  it("is an error past the error setting and a warning past the warning one", () => {
+    const thresholds = { warning: 300_000, error: 550_000 };
+    expect(contextLevel(299_999, thresholds)).toBeNull();
+    expect(contextLevel(300_000, thresholds)).toBe("warning");
+    expect(contextLevel(550_000, thresholds)).toBe("error");
   });
 });

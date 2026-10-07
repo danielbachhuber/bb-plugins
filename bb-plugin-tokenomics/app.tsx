@@ -10,11 +10,12 @@ import {
   type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 
-import { ContextMeter, overThreshold } from "@/components/context-meter";
+import { ContextMeter } from "@/components/context-meter";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
 import { UsageView, type UsageData } from "@/components/usage-view";
 
 import type { rpcContract } from "./server";
+import { contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, USAGE_CHANNEL, type TurnDetail } from "./usage/contract.js";
 import { fillBars, windowFor, type RangeId } from "./usage/series.js";
 
@@ -38,7 +39,7 @@ function useUsage(range: RangeId) {
           unit: span.unit,
           threads: result.threads,
           recordingSince: result.recordingSince,
-          contextThreshold: result.contextThreshold,
+          contextThresholds: result.contextThresholds,
         });
         setError(null);
       },
@@ -130,7 +131,7 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
 interface ContextState {
   context: { usedTokens: number; contextWindow: number | null; at: number } | null;
   lastTurn: number | null;
-  threshold: number | null;
+  thresholds: ContextThresholds;
   archived: boolean;
 }
 
@@ -176,8 +177,9 @@ function ContextMeterBanner() {
   }, [requestedAt, state]);
 
   if (threadId === null || state === null || state.archived) return null;
-  if (state.context === null || state.threshold === null) return null;
-  if (!overThreshold(state.context.usedTokens, state.threshold)) return null;
+  if (state.context === null) return null;
+  const level = contextLevel(state.context.usedTokens, state.thresholds);
+  if (level === null) return null;
 
   const onCompact = () => {
     setError(null);
@@ -192,7 +194,8 @@ function ContextMeterBanner() {
     <ContextMeter
       usedTokens={state.context.usedTokens}
       contextWindow={state.context.contextWindow}
-      threshold={state.threshold}
+      thresholds={state.thresholds}
+      level={level}
       lastTurn={state.lastTurn}
       running={view.run.isRunning}
       compacting={requestedAt !== null}

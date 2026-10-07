@@ -7,6 +7,8 @@ import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, RANGES, type Bar, type RangeId } from "@/usage/series";
 
 import { Segmented } from "./segmented";
+import type { ContextThresholds } from "@/usage/context";
+
 import { LIFECYCLES, ThreadUsageList, threadsIn, type Lifecycle } from "./thread-usage-list";
 import { PARTS, UsageChart, UsageLegend, type PartKey } from "./usage-chart";
 
@@ -16,8 +18,8 @@ export interface UsageData {
   unit: "hour" | "day";
   threads: ThreadUsage[];
   recordingSince: number;
-  /** Threads whose context is past this are tinted; null when the setting is off. */
-  contextThreshold?: number | null;
+  /** Threads whose context is past these are tinted amber, then red. */
+  contextThresholds?: ContextThresholds;
 }
 
 function recordingNote(data: UsageData): string | null {
@@ -115,7 +117,7 @@ export function UsageView({
             threads={threadsIn(data.threads, lifecycle, now)}
             bars={data.bars}
             lifecycle={lifecycle}
-            contextThreshold={data.contextThreshold ?? null}
+            contextThresholds={data.contextThresholds}
             onOpen={onOpenThread}
           />
         )}

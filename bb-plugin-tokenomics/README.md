@@ -30,9 +30,11 @@ size you set shows a meter above its composer, with a button that compacts it.
   running when you expected it to stop shows bars at the right end. Click a
   row to open the thread.
 - **A large-context thread** is an active one whose latest context is past
-  the context meter's setting (see below). Its row gets a red bar down its
-  left edge over a red tint, as the Now page marks what is overdue. A few of
-  these threads usually account for most of a period's tokens.
+  one of the context meter's settings (see below). Past the warning, 300K by
+  default, its row gets an amber bar down its left edge over an amber tint, as
+  the Now page marks what is due today. Past the error, 550K by default, the
+  bar and tint are red, as Now marks what is overdue. A few of these threads
+  usually account for most of a period's tokens.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
@@ -89,11 +91,12 @@ that much on every turn until it is compacted.
 Claude Code compacts on its own, but on a 1M-token model only once the context
 reaches about 967K. So once a thread's context passes the **Warn when a
 thread's context passes (tokens)** setting, 300K by default, a meter shows
-above its composer:
+above its composer. Past the **Mark a thread's context as too large past
+(tokens)** setting, 550K by default, it turns from amber to red.
 
-- the context size, in amber
-- a bar of the context against the model's window, with a tick where the
-  setting is. When the provider reports a window smaller than the context,
+- the context size, in amber or red
+- a bar of the context against the model's window, with a tick at each
+  setting. When the provider reports a window smaller than the context,
   which Claude Code sometimes does, the bar and the window are left out
 - how many tokens the latest turn used, and the window's size
 - **Compact**, which asks bb to compact the thread. bb runs `/compact` as a
@@ -103,9 +106,10 @@ above its composer:
 
 The meter sits above the other plugins' banners, including the GitHub context
 one. It does not show on archived threads. In a narrow composer the bar and
-the latest turn drop out. Set the threshold with
-`bb plugin config tokenomics set contextWarningAt 500K`; an empty value turns
-the meter off.
+the latest turn drop out. Set the thresholds with
+`bb plugin config tokenomics set contextWarningAt 300K` and
+`bb plugin config tokenomics set contextErrorAt 550K`. An empty warning turns
+the meter off below the error; an empty error leaves only the warning.
 
 bb reports the context size many times a turn. The plugin reads those events
 in the same request it already makes for each thread's usage, so recording
