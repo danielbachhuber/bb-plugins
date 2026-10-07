@@ -206,6 +206,18 @@ describe("ReviewScreen", () => {
     expect(screen.getByText("1 of 4 hunks viewed")).toBeInTheDocument();
   });
 
+  it("fills each concern's ring with its hunks read, and shows a done concern as reviewed", () => {
+    const v = view();
+    // First holds two hunks; read one. Second holds one; read it.
+    v.concerns[0]!.files[0]!.hunks = v.concerns[0]!.files[0]!.hunks.map((h) => ({ ...h, read: true }));
+    v.concerns[1]!.files = v.concerns[1]!.files.map((f) => ({ ...f, viewed: true, hunks: f.hunks.map((h) => ({ ...h, read: true })) }));
+    const { container } = screenWith({ result: { state: "ok", view: v } });
+    const rings = Array.from(container.querySelectorAll("[data-rail-item]")).map((item) => item.querySelector("[data-rail-progress]")!.getAttribute("data-rail-progress"));
+    expect(rings).toEqual(["1/2", "done", "0/1"]);
+    const second = container.querySelector('[data-rail-item="concern-1"]')!;
+    expect(second).toHaveTextContent("Reviewed");
+  });
+
   it("moves to the next concern from the bottom of the page", () => {
     screenWith({ result: { state: "ok", view: view() } });
     fireEvent.click(screen.getByRole("button", { name: /^Next: Second/ }));

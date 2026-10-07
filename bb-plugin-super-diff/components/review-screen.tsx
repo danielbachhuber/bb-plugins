@@ -208,7 +208,26 @@ function Header({
   );
 }
 
-/** The concerns down the right, each with its viewed count and lines changed. */
+/** A ring that fills with the share of a section's hunks read, and turns into a green check when they all are. */
+function ProgressRing({ read, total }: { read: number; total: number }) {
+  if (total > 0 && read >= total) {
+    return (
+      <span data-rail-progress="done" className="flex size-4 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--success)", color: "white" }}>
+        <Icon name="Check" className="size-2.5" />
+      </span>
+    );
+  }
+  const r = 6.5;
+  const around = 2 * Math.PI * r;
+  return (
+    <svg data-rail-progress={`${read}/${total}`} aria-hidden width="16" height="16" viewBox="0 0 16 16" className="shrink-0" style={{ transform: "rotate(-90deg)" }}>
+      <circle cx="8" cy="8" r={r} fill="none" stroke="var(--muted-foreground)" strokeOpacity={0.3} strokeWidth="2" />
+      {read > 0 && <circle cx="8" cy="8" r={r} fill="none" stroke="var(--success)" strokeWidth="2" strokeDasharray={`${(around * read) / total} ${around}`} />}
+    </svg>
+  );
+}
+
+/** The concerns down the right, each with a ring for its hunks read, its viewed count, and its lines changed. */
 function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections: ViewSection[]; chosen: string; onChoose: (id: string) => void }) {
   return (
     <nav aria-label="Concerns" className="sd-rail flex flex-col gap-0.5">
@@ -218,6 +237,7 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
         const done = viewed === section.files.length;
         const current = section.id === chosen;
         const tag = testsTag(section);
+        const hunks = section.files.flatMap((f) => f.hunks).filter((h) => h.status !== "removed");
         return (
           <button
             key={section.id}
@@ -230,14 +250,22 @@ function Rail({ view, sections, chosen, onChoose }: { view: ReviewView; sections
             } ${current ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/50"}`}
           >
             <span className="flex items-start gap-1.5">
-              <span className="w-3.5 shrink-0 pt-px text-xs font-semibold tabular-nums text-muted-foreground">
-                {n === -1 ? <Icon name={section.id === "mechanical" ? "Archive" : "Circle"} className="size-3.5" /> : n + 1}
+              <span className="pt-0.5">
+                <ProgressRing read={hunks.filter((h) => h.read).length} total={hunks.length} />
               </span>
-              <span className={`leading-snug ${current ? "font-semibold" : n === -1 || done ? "text-muted-foreground" : "font-medium"}`}>{section.title}</span>
+              <span className={`leading-snug ${current ? "font-semibold" : n === -1 || done ? "text-muted-foreground" : "font-medium"}`}>
+                {/* The ring already marks Not yet grouped; Mechanical keeps its archive box. */}
+                {(n !== -1 || section.id === "mechanical") && (
+                  <span className="mr-1 inline-flex text-xs font-semibold tabular-nums text-muted-foreground" style={{ verticalAlign: "-1px" }}>
+                    {n === -1 ? <Icon name="Archive" className="size-3.5" /> : n + 1}
+                  </span>
+                )}
+                {section.title}
+              </span>
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap pl-5 text-[11px] text-muted-foreground">
-              {done ? <Icon name="Check" className="size-3 text-success" /> : <span className="tabular-nums">{`${viewed}/${section.files.length}`}</span>}
-              {tag && <span>{tag}</span>}
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[11px] text-muted-foreground" style={{ paddingLeft: 22 }}>
+              {done ? <span style={{ color: "var(--success)" }}>Reviewed</span> : <span className="tabular-nums">{`${viewed}/${section.files.length}`}</span>}
+              {tag && !done && <span>{tag}</span>}
               <Counts {...sectionStats(section)} />
             </span>
           </button>

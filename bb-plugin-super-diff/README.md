@@ -17,8 +17,8 @@ From top to bottom, the panel shows:
 2. When the branch has moved on since the grouping, a banner and a
    **Changed since grouping** section.
 3. Down the right, a rail of the concerns, numbered, most important first,
-   each with its lines added and removed and how many of its files are
-   viewed. It stays in place as you scroll. Choosing one shows it on the left;
+   each with a ring that fills as its hunks are read, its lines added and
+   removed, and how many of its files are viewed. It stays in place as you scroll. Choosing one shows it on the left;
    **Next** at the bottom of a concern moves to the one after. On a panel too
    narrow for both, the rail sits above instead.
 4. On the left, the chosen concern: its title and note, then each file as a
@@ -79,8 +79,9 @@ once you have read the hunk, and the hunk folds to its strip; click the
 strip's text to open it again without unchecking it. Once any hunk is checked,
 the card's header counts them, as in "2 of 5 hunks reviewed". A card whose
 hunks are all read folds to its header, which shows a green check beside "5 of
-5 hunks reviewed", and a concern whose files are all read gets a check
-in the rail. The bar at the top fills hunk by hunk.
+5 hunks reviewed". In the rail, each concern's ring fills with its share of
+hunks read, and a concern whose hunks are all read turns into a green check
+and says "Reviewed". The bar at the top fills hunk by hunk.
 
 A check belongs to one hunk, kept per thread against that hunk's lines. A file
 split between concerns is read a concern at a time, and when a commit or an
