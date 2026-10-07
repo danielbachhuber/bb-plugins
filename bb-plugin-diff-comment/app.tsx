@@ -14,7 +14,7 @@
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
-import { CommentCard, CommentComposer } from "@/comment/cards";
+import { CommentCard, CommentComposer, type GithubTarget } from "@/comment/cards";
 import { CommentHeaderAction } from "@/comment/header";
 import { CommentPanel } from "@/comment/panel";
 import type { Comment, CommentState } from "@/comment/types";
@@ -178,6 +178,20 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
           onRemove={() =>
             write("comments_remove", { threadId: comment.threadId, id: comment.id })
           }
+          github={{
+            check: () =>
+              rpc<GithubTarget>("github_target", {
+                threadId: comment.threadId,
+                path: comment.path,
+                side: comment.side,
+                line: comment.line,
+                anchor: comment.anchor,
+              }),
+            post: () =>
+              rpc("comments_post_to_github", { threadId: comment.threadId, id: comment.id }).then(
+                () => engine?.refresh(),
+              ),
+          }}
         />
       ));
     },
@@ -188,22 +202,34 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
 
     mountComposer: (holder, draft: Draft) => {
       const threadId = /\/threads\/([^/?#]+)/.exec(window.location.pathname)?.[1];
+      const location =
+        threadId === undefined
+          ? null
+          : {
+              threadId: decodeURIComponent(threadId),
+              path: draft.path,
+              side: draft.side,
+              line: draft.line,
+              anchor: draft.anchor,
+            };
       renderInto(holder, (
         <CommentComposer
           location={`${draft.path}:${draft.line}${draft.side === "old" ? " (old)" : ""}`}
           initialBody={draft.body}
           onCancel={() => engine?.refresh()}
           onSave={(body) => {
-            if (threadId === undefined) return;
-            write("comments_add", {
-              threadId: decodeURIComponent(threadId),
-              path: draft.path,
-              side: draft.side,
-              line: draft.line,
-              anchor: draft.anchor,
-              body,
-            });
+            if (location === null) return;
+            write("comments_add", { ...location, body });
           }}
+          github={
+            location === null
+              ? undefined
+              : {
+                  check: () => rpc<GithubTarget>("github_target", location),
+                  post: (body) =>
+                    rpc("github_post", { ...location, body }).then(() => engine?.refresh()),
+                }
+          }
         />
       ));
     },

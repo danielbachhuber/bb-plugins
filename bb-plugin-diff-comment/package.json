@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Diff Comment",
-    "description": "Leave review comments inline on a thread's diff, then have the agent work through them one at a time. The thread's pull request review comments show on the same diff.",
+    "description": "Leave review comments inline on a thread's diff, then have the agent work through them one at a time. The thread's pull request review comments show on the same diff, and a comment, or a question with the agent's answer, can go to the pull request as a draft review comment.",
     "branding": {
       "icon": "MessageSquare"
     },

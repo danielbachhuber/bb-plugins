@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { CommentCard, CommentComposer, type GithubTarget } from "./comment/cards";
+import type { Comment } from "./comment/types";
 import { GithubThreadCard } from "./github/card";
 import { GithubSection } from "./github/section";
 import type { GithubComment, GithubReview, GithubThread } from "./github/threads";
 
-export default { title: "diff-comment/GitHub review threads" };
+export default { title: "diff-comment/GitHub review comments" };
 
 const NOW = Date.parse("2026-09-17T12:00:00Z");
 const PR = "https://github.com/acme/widgets/pull/42";
@@ -99,5 +101,69 @@ export const PanelSection = () => (
     <div className="bg-background rounded-md border">
       <GithubSection review={review} />
     </div>
+  </Frame>
+);
+
+const noop = () => {};
+const never = () => new Promise<void>(noop);
+const checked = (target: GithubTarget) => async () => target;
+
+// The composer opens with text so the buttons show their enabled state.
+const QUESTION = "Does `ratio` need clamping here too?";
+
+/** With a pull request, a comment can go to GitHub as a draft on your pending review instead of staying local. */
+export const ComposerWithPullRequest = () => (
+  <Frame>
+    <CommentComposer
+      location="src/sprocket.ts:18"
+      initialBody={QUESTION}
+      onSave={noop}
+      onCancel={noop}
+      github={{ check: checked({ state: "ready", number: 42 }), post: never }}
+    />
+  </Frame>
+);
+
+/** Without a pull request the GitHub button stays visible but disabled; its tooltip says why. */
+export const ComposerWithoutPullRequest = () => (
+  <Frame>
+    <CommentComposer
+      location="src/sprocket.ts:18"
+      initialBody={QUESTION}
+      onSave={noop}
+      onCancel={noop}
+      github={{
+        check: checked({ state: "blocked", reason: "Open a pull request to add review comments." }),
+        post: never,
+      }}
+    />
+  </Frame>
+);
+
+const answered: Comment = {
+  id: "c1",
+  threadId: "thr_1",
+  path: "src/sprocket.ts",
+  side: "new",
+  line: 18,
+  anchor: { text: "  return gear.teeth * ratio;", before: null, after: null },
+  body: QUESTION,
+  state: "addressed",
+  reply: "No: `gearFor()` already clamps it to at least `1`, and this is its only caller.",
+  seq: 3,
+  createdAt: new Date(NOW - 2 * 3_600_000).toISOString(),
+  updatedAt: new Date(NOW - 3_600_000).toISOString(),
+};
+
+/** Once the agent answers a local question, Post to GitHub shares the question and the answer as one draft review comment. */
+export const AnsweredCommentToPost = () => (
+  <Frame>
+    <CommentCard
+      comment={answered}
+      onSetState={noop}
+      onEdit={noop}
+      onRemove={noop}
+      github={{ check: checked({ state: "ready", number: 42 }), post: never }}
+    />
   </Frame>
 );

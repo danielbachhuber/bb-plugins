@@ -71,11 +71,41 @@ carrying its first 50 comments. It runs when you open the thread and when the
 window regains focus, and the server reuses the result for 30 seconds, so a
 burst of focus changes is one request. The panel reads the same cached result.
 
+### Adding to your review on GitHub
+
+The composer has two buttons. **Comment** keeps the comment here, for the
+agent, as before; `⌘↵` does the same. **Add to GitHub review** posts it to the
+pull request as a draft on your pending review instead, starting one if you
+have none. It does not go in the agent's queue. Nobody else sees a draft until
+you submit the review on GitHub, and once posted it shows on the diff as a
+review thread marked **Pending**.
+
+When the agent has answered a local comment, its card offers **Post to
+GitHub**. That posts your question and the answer as one draft, with the
+answer credited to the thread's provider ("**Answer** (from Claude Code):"),
+then marks the local comment resolved and links to it on GitHub.
+
+GitHub takes a review comment only on a line in the pull request's diff, and
+the line number bb shows is not necessarily GitHub's, because bb's diff can
+include changes you have not pushed. So the line is found in the pull
+request's own patch for the file, by its text and the line above, and posted
+at GitHub's line number for it. When the button cannot post, it stays visible
+but disabled, and its tooltip says why: there is no pull request yet, the file
+or line is not in the pull request's diff yet, or `gh` is unavailable. If
+GitHub refuses a post, the reason shows under the buttons and your text stays
+in the box.
+
+The patches are read with one `gh api` call per 100 files, made the first time
+a composer opens or an answered card is drawn, and reused for 30 seconds. The
+diff on its own never reads them. A post makes two GraphQL calls, or three
+when it has to start your review, and reads the patches again first, so a push
+since the composer opened is taken into account.
+
 Two settings, under `bb plugin config diff-comment`:
 
 | Setting | Default | |
 | --- | --- | --- |
-| `showGithub` | `on` | `off` stops reading the pull request entirely |
+| `showGithub` | `on` | `off` stops reading the pull request and hides the GitHub buttons |
 | `ghPath` | `gh` | The `gh` binary, if it is not on bb's PATH |
 
 ## Where it draws
@@ -92,5 +122,6 @@ across bb upgrades.
 ## Requirements
 
 Needs bb 0.42 or later. Your own comments live in the plugin's own storage and
-are sent nowhere. Showing review comments needs the GitHub CLI, signed in
-(`gh auth status`); without it the diff shows your own comments only.
+are sent nowhere unless you post one. Showing and posting review comments
+needs the GitHub CLI, signed in (`gh auth status`); without it the diff shows
+your own comments only.

@@ -57,6 +57,16 @@ function Row({
         <Button size="sm" variant="ghost" onClick={onRemove}>
           Delete
         </Button>
+        {comment.github ? (
+          <a
+            href={comment.github.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground hover:text-foreground self-center text-xs underline-offset-2 hover:underline"
+          >
+            On GitHub
+          </a>
+        ) : null}
         <span className="text-muted-foreground ml-auto text-[11px]">
           {relativeTime(comment.updatedAt, Date.now())}
         </span>

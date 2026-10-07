@@ -12,6 +12,102 @@ import { cn } from "@/lib/utils";
 import { relativeTime } from "./time";
 import type { Comment, CommentState } from "./types";
 
+/** Whether a line can take a draft review comment on the pull request. */
+export type GithubTarget =
+  | { state: "off" }
+  | { state: "blocked"; reason: string }
+  | { state: "ready"; number: number };
+
+/** The GitHub half of a composer or card: where it stands, and how to post. */
+export interface GithubAction {
+  /** Asked once when the composer or card mounts. */
+  check: () => Promise<GithubTarget>;
+  /** Resolves once GitHub has the comment; rejects with the reason it doesn't. */
+  post: (body: string) => Promise<void>;
+}
+
+/** The card's version: what it posts is already written. */
+export interface PostExchangeAction {
+  check: () => Promise<GithubTarget>;
+  post: () => Promise<void>;
+}
+
+/** Read the GitHub target once on mount. Null while it is being checked. */
+function useGithubTarget(action: { check: () => Promise<GithubTarget> } | undefined): GithubTarget | null {
+  const [target, setTarget] = useState<GithubTarget | null>(null);
+  useEffect(() => {
+    if (action === undefined) return;
+    let live = true;
+    action.check().then(
+      (result) => {
+        if (live) setTarget(result);
+      },
+      (cause: unknown) => {
+        if (live) {
+          setTarget({
+            state: "blocked",
+            reason: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
+      },
+    );
+    return () => {
+      live = false;
+    };
+    // Checked once per mount: the composer is short-lived, and a card is
+    // remounted whenever its comment changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return action === undefined ? { state: "off" } : target;
+}
+
+/**
+ * A button that posts to GitHub, shown disabled with the reason in its
+ * tooltip when the line can't take a review comment yet. The tooltip sits on
+ * a wrapper because a disabled button does not receive the pointer.
+ */
+function GithubButton({
+  target,
+  label,
+  busy,
+  onClick,
+}: {
+  target: GithubTarget | null;
+  label: string;
+  busy: boolean;
+  onClick: () => void;
+}) {
+  if (target?.state === "off") return null;
+  const reason =
+    target === null
+      ? "Checking the pull request…"
+      : target.state === "blocked"
+        ? target.reason
+        : `Adds a draft to your pending review on #${target.number}. Only you see it until you submit the review on GitHub.`;
+  return (
+    <span title={reason} className="inline-flex">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy || target === null || target.state !== "ready"}
+        onClick={onClick}
+      >
+        {label}
+      </Button>
+    </span>
+  );
+}
+
+/** Why a post failed, under the actions that caused it. */
+function PostError({ message }: { message: string | null }) {
+  if (message === null) return null;
+  return <p className="text-destructive border-t px-3 py-2 text-xs">{message}</p>;
+}
+
+function errorText(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 /**
  * The overlay mounts these outside bb's React tree, so `Markdown` runs without
  * the app's providers around it. If that ever fails, a comment losing its
@@ -124,14 +220,19 @@ function BodyEditor({
   submitLabel,
   onSubmit,
   onCancel,
+  github,
 }: {
   initialBody: string;
   submitLabel: string;
   onSubmit: (body: string) => void;
   onCancel: () => void;
+  /** Adds "Add to GitHub review" beside the submit button. */
+  github?: GithubAction;
 }) {
   const [body, setBody] = useState(initialBody);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const target = useGithubTarget(github);
   const box = useRef<HTMLTextAreaElement>(null);
   const ready = body.trim() !== "" && !busy;
 
@@ -150,6 +251,18 @@ function BodyEditor({
     if (!ready) return;
     setBusy(true);
     onSubmit(body.trim());
+  };
+
+  // On failure the text stays in the box and the reason shows below, so
+  // nothing written is lost to a GitHub error.
+  const postToGithub = () => {
+    if (!ready || github === undefined) return;
+    setBusy(true);
+    setError(null);
+    github.post(body.trim()).catch((cause: unknown) => {
+      setError(errorText(cause));
+      setBusy(false);
+    });
   };
 
   return (
@@ -182,11 +295,20 @@ function BodyEditor({
         <Button size="sm" disabled={!ready} onClick={submit}>
           {submitLabel}
         </Button>
+        {github !== undefined ? (
+          <GithubButton
+            target={target}
+            label="Add to GitHub review"
+            busy={!ready}
+            onClick={postToGithub}
+          />
+        ) : null}
         <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
         <span className="text-muted-foreground ml-auto text-[11px]">⌘↵ to save</span>
       </Footer>
+      <PostError message={error} />
     </>
   );
 }
@@ -198,6 +320,11 @@ export interface CommentCardProps {
   onSetState: (state: CommentState) => void;
   onEdit: (body: string) => void;
   onRemove: () => void;
+  /**
+   * Posts the comment and the agent's answer as one draft review comment.
+   * Offered once the agent has answered and the comment is not on GitHub yet.
+   */
+  github?: PostExchangeAction;
 }
 
 export function CommentCard({
@@ -206,9 +333,24 @@ export function CommentCard({
   onSetState,
   onEdit,
   onRemove,
+  github,
 }: CommentCardProps) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const offerGithub =
+    github !== undefined && comment.reply !== null && !comment.github && comment.state !== "resolved";
+  const target = useGithubTarget(offerGithub ? github : undefined);
+
+  const postToGithub = () => {
+    if (github === undefined) return;
+    setBusy(true);
+    setError(null);
+    github.post().catch((cause: unknown) => {
+      setError(errorText(cause));
+      setBusy(false);
+    });
+  };
 
   const act = (run: () => void) => () => {
     setBusy(true);
@@ -273,6 +415,19 @@ export function CommentCard({
             Mark resolved
           </Button>
         )}
+        {offerGithub ? (
+          <GithubButton target={target} label="Post to GitHub" busy={busy} onClick={postToGithub} />
+        ) : null}
+        {comment.github ? (
+          <a
+            href={comment.github.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+          >
+            On GitHub
+          </a>
+        ) : null}
         <Button
           size="sm"
           variant="ghost"
@@ -292,6 +447,7 @@ export function CommentCard({
           Delete
         </Button>
       </Footer>
+      <PostError message={error} />
         </>
       )}
     </Shell>
@@ -305,6 +461,8 @@ export interface CommentComposerProps {
   initialBody?: string;
   onSave: (body: string) => void;
   onCancel: () => void;
+  /** Adds "Add to GitHub review", which posts instead of saving locally. */
+  github?: GithubAction;
 }
 
 export function CommentComposer({
@@ -312,6 +470,7 @@ export function CommentComposer({
   initialBody,
   onSave,
   onCancel,
+  github,
 }: CommentComposerProps) {
   return (
     <Shell>
@@ -323,6 +482,7 @@ export function CommentComposer({
         submitLabel="Comment"
         onSubmit={onSave}
         onCancel={onCancel}
+        github={github}
       />
     </Shell>
   );

@@ -12,7 +12,7 @@
 // thread. The CLI reads the thread from its invocation context, so an agent
 // never has to name it.
 import { randomUUID } from "node:crypto";
-import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
+import { createGhRunner, GhUnavailableError, type GhRunner } from "@danielb/gh-shared/gh";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, rpcShape } from "./comment/contract";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
@@ -25,8 +25,10 @@ import {
   summarize,
 } from "./comment/store";
 import type { Comment, CommentState } from "./comment/types";
-import { fetchReview } from "./github/fetch";
-import type { GithubReview } from "./github/threads";
+import type { Anchored } from "./comment/anchor";
+import { addDraftComment, fetchFiles, fetchReview, pullRequestRef } from "./github/fetch";
+import { exchangeBody, reviewTarget, type PullFile } from "./github/patch";
+import { githubPath, type GithubReview } from "./github/threads";
 
 export const rpcContract = defineRpcContract(rpcShape);
 
@@ -67,8 +69,35 @@ export default async function plugin(bb: BbPluginApi) {
     return runner.gh;
   }
 
-  const reviewCache = new Map<string, { value: GithubReview | null; fetchedAt: number }>();
-  const inFlight = new Map<string, Promise<GithubReview | null>>();
+  /**
+   * A per-thread cache of one GitHub read, reused for `GITHUB_TTL_MS`, with
+   * concurrent callers sharing one request.
+   */
+  function cachedPerThread<T>(load: (threadId: string) => Promise<T>) {
+    const cache = new Map<string, { value: T; fetchedAt: number }>();
+    const inFlight = new Map<string, Promise<T>>();
+    return {
+      get(threadId: string): Promise<T> {
+        const cached = cache.get(threadId);
+        if (cached && Date.now() - cached.fetchedAt < GITHUB_TTL_MS) return Promise.resolve(cached.value);
+        const running = inFlight.get(threadId);
+        if (running) return running;
+        const request = load(threadId)
+          .then((value) => {
+            cache.set(threadId, { value, fetchedAt: Date.now() });
+            return value;
+          })
+          .finally(() => inFlight.delete(threadId));
+        inFlight.set(threadId, request);
+        return request;
+      },
+      /** After a post, so the next read shows the new comment. */
+      forget(threadId: string): void {
+        cache.delete(threadId);
+      },
+    };
+  }
+
   // Failures already logged, so a missing gh is one log line, not one a pass.
   const logged = new Set<string>();
   function warnOnce(message: string): void {
@@ -87,7 +116,7 @@ export default async function plugin(bb: BbPluginApi) {
     return result.pullRequest.state === "open" ? result.pullRequest.url : null;
   }
 
-  async function loadReview(threadId: string): Promise<GithubReview | null> {
+  const reviews = cachedPerThread(async (threadId): Promise<GithubReview | null> => {
     const { showGithub, ghPath } = await settings.get();
     if (showGithub !== "on") return null;
     try {
@@ -97,22 +126,90 @@ export default async function plugin(bb: BbPluginApi) {
       warnOnce(`GitHub review comments unavailable: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
+  });
+
+  /**
+   * What posting needs: the pull request and its patches. Read only when a
+   * composer opens or an answered comment is drawn, never for the diff alone.
+   */
+  type Postable =
+    | { state: "off" }
+    | { state: "blocked"; reason: string }
+    | { state: "ready"; url: string; number: number; files: PullFile[] };
+
+  const postables = cachedPerThread(async (threadId): Promise<Postable> => {
+    const { showGithub, ghPath } = await settings.get();
+    if (showGithub !== "on") return { state: "off" };
+    let url: string | null;
+    try {
+      url = await pullRequestUrl(threadId);
+    } catch (error) {
+      // bb could not look the pull request up, for example because the
+      // thread's worktree is gone. Not a GitHub failure, so not worded as one.
+      const message = error instanceof Error ? error.message : String(error);
+      return { state: "blocked", reason: `Couldn't find this thread's pull request: ${message}` };
+    }
+    if (url === null) {
+      return { state: "blocked", reason: "Open a pull request to add review comments." };
+    }
+    try {
+      const files = await fetchFiles(ghFor(ghPath), url);
+      const number = pullRequestRef(url)?.number;
+      if (files === null || number === undefined) {
+        return { state: "blocked", reason: "Couldn't read the pull request from GitHub." };
+      }
+      return { state: "ready", url, number, files };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      warnOnce(`GitHub posting unavailable: ${message}`);
+      return {
+        state: "blocked",
+        reason:
+          error instanceof GhUnavailableError
+            ? `GitHub CLI isn't available: ${message}`
+            : `Couldn't reach GitHub: ${message}`,
+      };
+    }
+  });
+
+  /** Where a comment would land on the pull request, or why it can't. */
+  async function target(
+    threadId: string,
+    path: string,
+    anchored: Anchored,
+  ): Promise<
+    | { state: "off" }
+    | { state: "blocked"; reason: string }
+    | { state: "ready"; url: string; number: number; line: number }
+  > {
+    const postable = await postables.get(threadId);
+    if (postable.state !== "ready") return postable;
+    const found = reviewTarget(postable.files, path, anchored);
+    if (!found.ok) return { state: "blocked", reason: found.reason };
+    return { state: "ready", url: postable.url, number: postable.number, line: found.line };
   }
 
-  /** The thread's pull request review, cached, with one request in flight. */
-  async function review(threadId: string): Promise<GithubReview | null> {
-    const cached = reviewCache.get(threadId);
-    if (cached && Date.now() - cached.fetchedAt < GITHUB_TTL_MS) return cached.value;
-    const running = inFlight.get(threadId);
-    if (running) return running;
-    const request = loadReview(threadId)
-      .then((value) => {
-        reviewCache.set(threadId, { value, fetchedAt: Date.now() });
-        return value;
-      })
-      .finally(() => inFlight.delete(threadId));
-    inFlight.set(threadId, request);
-    return request;
+  /** Post a draft review comment, or throw with the reason it can't go. */
+  async function post(
+    threadId: string,
+    path: string,
+    anchored: Anchored,
+    body: string,
+  ): Promise<string> {
+    // Fresh, so a push since the composer opened is taken into account.
+    postables.forget(threadId);
+    const found = await target(threadId, path, anchored);
+    if (found.state === "off") throw new Error("GitHub review comments are turned off.");
+    if (found.state === "blocked") throw new Error(found.reason);
+    const { ghPath } = await settings.get();
+    const url = await addDraftComment(ghFor(ghPath), found.url, {
+      path: githubPath(path),
+      side: anchored.side,
+      line: found.line,
+      body,
+    });
+    reviews.forget(threadId);
+    return url;
   }
 
   async function read(threadId: string): Promise<Comment[]> {
@@ -182,7 +279,41 @@ export default async function plugin(bb: BbPluginApi) {
       return { removed: true };
     },
 
-    github_review: async ({ threadId }) => ({ review: await review(threadId) }),
+    github_review: async ({ threadId }) => ({ review: await reviews.get(threadId) }),
+
+    github_target: async ({ threadId, path, side, line, anchor }) => {
+      const found = await target(threadId, path, { side, line, anchor });
+      if (found.state === "ready") return { state: "ready" as const, number: found.number };
+      return found;
+    },
+
+    github_post: async ({ threadId, path, side, line, anchor, body }) => ({
+      url: await post(threadId, path, { side, line, anchor }, body),
+    }),
+
+    comments_post_to_github: async ({ threadId, id }) => {
+      const comment = (await read(threadId)).find((candidate) => candidate.id === id);
+      if (comment === undefined) throw new Error(`No comment with id ${id}`);
+      if (comment.reply === null) throw new Error("Only a comment the agent has answered can be posted.");
+      if (comment.github) throw new Error("This comment is already on GitHub.");
+      const thread = await bb.sdk.threads.get({ threadId });
+      const providerId = (thread as { providerId?: string | null }).providerId ?? null;
+      const url = await post(
+        threadId,
+        comment.path,
+        comment,
+        exchangeBody(comment.body, comment.reply, providerId),
+      );
+      const now = new Date().toISOString();
+      const updated = await mutate(threadId, id, (comments) =>
+        comments.map((candidate) =>
+          candidate.id === id
+            ? { ...candidate, state: "resolved" as const, github: { url }, updatedAt: now }
+            : candidate,
+        ),
+      );
+      return updated!;
+    },
   });
 
   // ---------------------------------------------------------------------------

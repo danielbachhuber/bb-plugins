@@ -46,6 +46,12 @@ export interface Comment {
   reply: string | null;
   /** Monotonic per thread, so "work through them in order" is well defined. */
   seq: number;
+  /**
+   * Set once the comment and the agent's answer were posted to the pull
+   * request as a draft review comment. Absent on comments stored before
+   * posting existed.
+   */
+  github?: { url: string } | null;
   createdAt: string;
   updatedAt: string;
 }
