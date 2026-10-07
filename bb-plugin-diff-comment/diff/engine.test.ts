@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCard } from "./fixture";
-import { startEngine, DRAFT_ID, TRIGGER_ATTR, type Draft, type EngineDeps } from "./engine";
+import {
+  startEngine,
+  githubSlotId,
+  DRAFT_ID,
+  TRIGGER_ATTR,
+  type Draft,
+  type EngineDeps,
+} from "./engine";
+import type { GithubReview, GithubThread } from "@/github/threads";
 import { OWNED_ATTR, slotNameFor } from "./dom";
 import type { Comment } from "@/comment/types";
 
@@ -33,6 +41,7 @@ interface Harness {
   deps: EngineDeps;
   mountCard: ReturnType<typeof vi.fn>;
   mountComposer: ReturnType<typeof vi.fn>;
+  mountThread: ReturnType<typeof vi.fn>;
   unmountCard: ReturnType<typeof vi.fn>;
   prepareHost: ReturnType<typeof vi.fn>;
   readSelection: ReturnType<typeof vi.fn>;
@@ -41,12 +50,18 @@ interface Harness {
   controller: AbortController;
 }
 
-function harness(comments: Comment[], pathname = "/threads/thr_1"): Harness {
+function harness(
+  comments: Comment[],
+  pathname = "/threads/thr_1",
+  review: GithubReview | null = null,
+): Harness {
   const rpc = vi.fn(async (method: string) => {
     if (method === "comments_list") return { comments };
+    if (method === "github_review") return { review };
     return {};
   });
   const mountCard = vi.fn();
+  const mountThread = vi.fn();
   const mountComposer = vi.fn();
   const unmountCard = vi.fn();
   const prepareHost = vi.fn();
@@ -58,6 +73,7 @@ function harness(comments: Comment[], pathname = "/threads/thr_1"): Harness {
     rpc,
     mountCard,
     mountComposer,
+    mountThread,
     unmountCard,
     prepareHost,
     readSelection,
@@ -76,6 +92,7 @@ function harness(comments: Comment[], pathname = "/threads/thr_1"): Harness {
       signal: controller.signal,
       mountCard,
       mountComposer,
+      mountThread,
       unmountCard,
       prepareHost,
       readSelection,
@@ -97,6 +114,86 @@ function ownedRows(host: HTMLElement): number {
 afterEach(() => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
+});
+
+function thread(overrides: Partial<GithubThread> = {}): GithubThread {
+  return {
+    id: "PRRT_1",
+    path: "src/a.ts",
+    side: "new",
+    line: 3,
+    anchor: { text: "const c = 3;", before: "const b = 2;", after: null },
+    resolved: false,
+    outdated: false,
+    comments: [
+      {
+        id: "PRRC_1",
+        url: "https://github.com/acme/widgets/pull/7#discussion_r1",
+        author: "octocat",
+        body: "Why three?",
+        createdAt: "2026-09-14T00:00:00Z",
+        pending: false,
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function reviewWith(threads: GithubThread[]): GithubReview {
+  return { number: 7, url: "https://github.com/acme/widgets/pull/7", threads };
+}
+
+describe("startEngine with GitHub review threads", () => {
+  it("draws a thread on its line beside the local comments", async () => {
+    const { host } = buildCard("src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([comment()], "/threads/thr_1", reviewWith([thread()]));
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    expect(ownedRows(host)).toBe(2);
+    expect(h.mountThread).toHaveBeenCalledTimes(1);
+    const [holder, mounted] = h.mountThread.mock.calls[0]!;
+    expect((holder as HTMLElement).getAttribute("slot")).toBe(slotNameFor(githubSlotId(thread())));
+    expect((mounted as GithubThread).id).toBe("PRRT_1");
+    engine.dispose();
+  });
+
+  it("matches a renamed file by its current path", async () => {
+    const { host } = buildCard("src/old.ts -> src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([], "/threads/thr_1", reviewWith([thread()]));
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    expect(ownedRows(host)).toBe(1);
+    engine.dispose();
+  });
+
+  it("still draws local comments when GitHub fails", async () => {
+    const { host } = buildCard("src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([comment()]);
+    h.rpc.mockImplementation(async (method: string) => {
+      if (method === "comments_list") return { comments: [comment()] };
+      throw new Error("gh was not found");
+    });
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    expect(ownedRows(host)).toBe(1);
+    expect(h.warn).toHaveBeenCalled();
+    engine.dispose();
+  });
+
+  it("does not redraw an unchanged thread on bb's next render", async () => {
+    buildCard("src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([], "/threads/thr_1", reviewWith([thread()]));
+    const engine = startEngine(h.deps);
+    await settle(engine);
+    engine.syncNow();
+    engine.syncNow();
+
+    expect(h.mountThread).toHaveBeenCalledTimes(1);
+    engine.dispose();
+  });
 });
 
 describe("startEngine", () => {
@@ -240,11 +337,13 @@ describe("startEngine", () => {
     const h = harness([comment()]);
     const engine = startEngine({ ...h.deps, pathname: () => pathname });
     await settle(engine);
-    expect(h.rpc).toHaveBeenLastCalledWith("comments_list", { threadId: "thr_1" });
+    expect(h.rpc).toHaveBeenCalledWith("comments_list", { threadId: "thr_1" });
+    expect(h.rpc).toHaveBeenCalledWith("github_review", { threadId: "thr_1" });
 
     pathname = "/threads/thr_2";
     engine.syncNow();
-    expect(h.rpc).toHaveBeenLastCalledWith("comments_list", { threadId: "thr_2" });
+    expect(h.rpc).toHaveBeenCalledWith("comments_list", { threadId: "thr_2" });
+    expect(h.rpc).toHaveBeenCalledWith("github_review", { threadId: "thr_2" });
     engine.dispose();
   });
 

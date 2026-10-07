@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useComposer } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
+import { GithubSection, useGithubReview } from "@/github/section";
 import { cn } from "@/lib/utils";
 import { agentPrompt } from "./prompt";
 import { relativeTime } from "./time";
@@ -120,6 +121,8 @@ function SendToAgent({ open }: { open: number }) {
 
 export function CommentPanel({ threadId }: { threadId: string }) {
   const { comments, counts, error, refetch, rpc } = useThreadComments(threadId);
+  const review = useGithubReview(threadId);
+  const github = review !== null && review.threads.some((thread) => !thread.resolved);
 
   const setState = (id: string, state: CommentState) => {
     rpc.call("comments_set_state", { threadId, id, state }).then(refetch, refetch);
@@ -134,18 +137,20 @@ export function CommentPanel({ threadId }: { threadId: string }) {
   if (comments === null) {
     return <p className="text-muted-foreground px-3 py-4 text-sm">Loading…</p>;
   }
-  if (comments.length === 0) {
+  if (comments.length === 0 && !github) {
     return <Empty />;
   }
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-3 py-2">
-        <p className="text-muted-foreground text-xs">
-          {counts.open} open · {counts.addressed} addressed · {counts.resolved} resolved
-        </p>
-        <SendToAgent open={counts.open} />
-      </div>
+      {comments.length > 0 ? (
+        <div className="flex items-center gap-2 px-3 py-2">
+          <p className="text-muted-foreground text-xs">
+            {counts.open} open · {counts.addressed} addressed · {counts.resolved} resolved
+          </p>
+          <SendToAgent open={counts.open} />
+        </div>
+      ) : null}
       {GROUPS.map((group) => {
         const rows = comments.filter((comment) => comment.state === group.state);
         if (rows.length === 0) return null;
@@ -172,6 +177,7 @@ export function CommentPanel({ threadId }: { threadId: string }) {
           </section>
         );
       })}
+      {github ? <GithubSection review={review} /> : null}
     </div>
   );
 }

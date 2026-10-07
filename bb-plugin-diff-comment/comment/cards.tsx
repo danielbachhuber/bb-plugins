@@ -37,7 +37,7 @@ class MarkdownBoundary extends Component<{ text: string; children: ReactNode }, 
   }
 }
 
-function Body({ text }: { text: string }) {
+export function Body({ text }: { text: string }) {
   return (
     <MarkdownBoundary text={text}>
       <Markdown content={text} />
@@ -86,7 +86,7 @@ const CARD_TYPE: CSSProperties = {
 };
 
 /** Shared frame so the card and the composer sit identically in the diff. */
-function Shell({ children }: { children: ReactNode }) {
+export function Shell({ children }: { children: ReactNode }) {
   return (
     <div
       style={CARD_TYPE}
@@ -98,7 +98,7 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 /** The muted strip across the top of a card, as GitHub frames a review note. */
-function Header({ children }: { children: ReactNode }) {
+export function Header({ children }: { children: ReactNode }) {
   return (
     <div className="bg-muted/40 flex flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1.5 text-xs">
       {children}
@@ -107,7 +107,7 @@ function Header({ children }: { children: ReactNode }) {
 }
 
 /** The tinted strip along the bottom that holds a card's actions. */
-function Footer({ children }: { children: ReactNode }) {
+export function Footer({ children }: { children: ReactNode }) {
   return (
     <div className="bg-muted/40 flex items-center gap-2 border-t px-3 py-2">{children}</div>
   );

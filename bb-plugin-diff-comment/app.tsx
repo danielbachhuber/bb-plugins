@@ -5,7 +5,8 @@
 // replace bb's renderer wholesale, and replacing it means owning a diff view
 // that then drifts from bb's. Decorating what bb rendered keeps this plugin's
 // comments and bb's diff the same diff. A thread panel lists the same comments
-// for reading and resolving.
+// for reading and resolving. The thread's pull request review threads are
+// drawn on the same diff, read-only, beside the local comments.
 //
 // The wiring lives here; the behaviour lives in diff/ and comment/ so it can
 // be tested under jsdom. See diff/dom.ts for every DOM assumption in one
@@ -18,6 +19,7 @@ import { CommentHeaderAction } from "@/comment/header";
 import { CommentPanel } from "@/comment/panel";
 import type { Comment, CommentState } from "@/comment/types";
 import { OVERLAY_CSS } from "@/diff/style";
+import { GithubThreadCard } from "@/github/card";
 import { startEngine, type Draft, type Engine } from "@/diff/engine";
 import type { rpcContract } from "./server";
 
@@ -178,6 +180,10 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
           }
         />
       ));
+    },
+
+    mountThread: (holder, thread, review) => {
+      renderInto(holder, <GithubThreadCard thread={thread} number={review.number} />);
     },
 
     mountComposer: (holder, draft: Draft) => {

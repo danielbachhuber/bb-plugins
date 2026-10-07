@@ -30,6 +30,35 @@ export const commentSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const githubCommentSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  body: z.string(),
+  createdAt: z.string(),
+  pending: z.boolean(),
+});
+
+export const githubThreadSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  side: sideSchema,
+  line: z.number().int().nullable(),
+  anchor: anchorSchema.nullable(),
+  resolved: z.boolean(),
+  outdated: z.boolean(),
+  comments: z.array(githubCommentSchema),
+});
+
+/** The thread's pull request and its review threads, or null for none. */
+export const githubReviewSchema = z
+  .object({
+    number: z.number().int(),
+    url: z.string(),
+    threads: z.array(githubThreadSchema),
+  })
+  .nullable();
+
 /** Longest comment body accepted. Generous for prose, bounded for storage. */
 export const MAX_BODY = 10_000;
 
@@ -68,6 +97,10 @@ export const rpcShape = {
   comments_remove: {
     input: z.object({ threadId: z.string().min(1), id: z.string().min(1) }),
     output: z.object({ removed: z.boolean() }),
+  },
+  github_review: {
+    input: z.object({ threadId: z.string().min(1) }),
+    output: z.object({ review: githubReviewSchema }),
   },
 } as const;
 

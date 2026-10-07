@@ -6,6 +6,7 @@
 // and which comments have lost their anchor entirely.
 import { locate } from "@/comment/anchor";
 import type { Comment, DiffLine } from "@/comment/types";
+import { drawable, type GithubThread } from "@/github/threads";
 
 /** One column of a rendered diff, with the lines it is showing. */
 export interface Column {
@@ -79,6 +80,59 @@ export function placementKey(placements: Placement[], columns: Column[]): string
         placement.comment.state,
         placement.comment.updatedAt,
       ].join(":");
+    })
+    .sort()
+    .join("|");
+}
+
+/** A GitHub review thread's place in a rendered diff. */
+export interface ThreadPlacement {
+  thread: GithubThread;
+  column: Element;
+  line: number;
+}
+
+/**
+ * Place the pull request's review threads for one file, by the same text
+ * matching as a local comment. A thread whose line is not in this diff is
+ * left off rather than forced somewhere: GitHub still shows it, and the panel
+ * lists it.
+ */
+export function placeThreads(threads: GithubThread[], columns: Column[]): ThreadPlacement[] {
+  const placements: ThreadPlacement[] = [];
+  for (const thread of threads) {
+    if (!drawable(thread)) continue;
+    for (const column of columns) {
+      const line = locate(thread, column.lines);
+      if (line === null) continue;
+      placements.push({ thread, column: column.element, line });
+      break;
+    }
+  }
+  return placements;
+}
+
+/** A short hash, so an edit on GitHub changes a key without carrying the text. */
+function hash(text: string): string {
+  let value = 5381;
+  for (let index = 0; index < text.length; index += 1) {
+    value = ((value << 5) + value + text.charCodeAt(index)) | 0;
+  }
+  return (value >>> 0).toString(36);
+}
+
+/**
+ * The thread counterpart of `placementKey`. A reply, an edit, or a draft
+ * being submitted on GitHub each change it, so the card is redrawn.
+ */
+export function threadPlacementKey(placements: ThreadPlacement[], columns: Column[]): string {
+  return placements
+    .map((placement) => {
+      const columnIndex = columns.findIndex((column) => column.element === placement.column);
+      const comments = placement.thread.comments
+        .map((comment) => `${comment.id}${comment.pending ? "*" : ""}${hash(comment.body)}`)
+        .join(",");
+      return [placement.thread.id, `@${columnIndex}:${placement.line}`, comments].join(":");
     })
     .sort()
     .join("|");

@@ -5,10 +5,14 @@
 // skills/diff-comments/SKILL.md that tells the agent how. Every write
 // publishes a realtime signal so open windows refetch.
 //
+// It also reads the thread's pull request review threads through `gh`, for the
+// overlay to draw beside the local comments. Those are never stored here.
+//
 // Comments are keyed by thread because a changes-panel diff belongs to a
 // thread. The CLI reads the thread from its invocation context, so an agent
 // never has to name it.
 import { randomUUID } from "node:crypto";
+import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, rpcShape } from "./comment/contract";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
@@ -21,6 +25,8 @@ import {
   summarize,
 } from "./comment/store";
 import type { Comment, CommentState } from "./comment/types";
+import { fetchReview } from "./github/fetch";
+import type { GithubReview } from "./github/threads";
 
 export const rpcContract = defineRpcContract(rpcShape);
 
@@ -29,8 +35,85 @@ function keyFor(threadId: string): string {
   return `comments:${threadId}`;
 }
 
+/**
+ * How long a pull request's review threads are reused before GitHub is asked
+ * again. The overlay asks on every thread open and window focus; this caps
+ * that at one query a thread per half minute.
+ */
+const GITHUB_TTL_MS = 30_000;
+
 export default async function plugin(bb: BbPluginApi) {
   bb.log.info("loaded");
+
+  const settings = bb.settings.define({
+    showGithub: {
+      type: "select",
+      label: "Show GitHub review comments",
+      // On: a thread with an open pull request shows the pull request's
+      // unresolved review threads on the lines they were left on.
+      options: ["on", "off"],
+      default: "on",
+    },
+    ghPath: {
+      type: "string",
+      label: "Path to the gh CLI",
+      default: "gh",
+    },
+  });
+
+  let runner: { path: string; gh: GhRunner } | null = null;
+  function ghFor(path: string): GhRunner {
+    if (runner?.path !== path) runner = { path, gh: createGhRunner(path) };
+    return runner.gh;
+  }
+
+  const reviewCache = new Map<string, { value: GithubReview | null; fetchedAt: number }>();
+  const inFlight = new Map<string, Promise<GithubReview | null>>();
+  // Failures already logged, so a missing gh is one log line, not one a pass.
+  const logged = new Set<string>();
+  function warnOnce(message: string): void {
+    if (logged.has(message)) return;
+    logged.add(message);
+    bb.log.warn(message);
+  }
+
+  /** The URL of the thread's open pull request, or null. */
+  async function pullRequestUrl(threadId: string): Promise<string | null> {
+    const thread = await bb.sdk.threads.get({ threadId });
+    const environmentId = (thread as { environmentId?: string | null }).environmentId;
+    if (!environmentId) return null;
+    const result = await bb.sdk.environments.pullRequest({ environmentId });
+    if (result.outcome !== "available") return null;
+    return result.pullRequest.state === "open" ? result.pullRequest.url : null;
+  }
+
+  async function loadReview(threadId: string): Promise<GithubReview | null> {
+    const { showGithub, ghPath } = await settings.get();
+    if (showGithub !== "on") return null;
+    try {
+      const url = await pullRequestUrl(threadId);
+      return url === null ? null : await fetchReview(ghFor(ghPath), url);
+    } catch (error) {
+      warnOnce(`GitHub review comments unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
+  /** The thread's pull request review, cached, with one request in flight. */
+  async function review(threadId: string): Promise<GithubReview | null> {
+    const cached = reviewCache.get(threadId);
+    if (cached && Date.now() - cached.fetchedAt < GITHUB_TTL_MS) return cached.value;
+    const running = inFlight.get(threadId);
+    if (running) return running;
+    const request = loadReview(threadId)
+      .then((value) => {
+        reviewCache.set(threadId, { value, fetchedAt: Date.now() });
+        return value;
+      })
+      .finally(() => inFlight.delete(threadId));
+    inFlight.set(threadId, request);
+    return request;
+  }
 
   async function read(threadId: string): Promise<Comment[]> {
     return (await bb.storage.kv.get<Comment[]>(keyFor(threadId))) ?? [];
@@ -98,6 +181,8 @@ export default async function plugin(bb: BbPluginApi) {
       await write(threadId, after);
       return { removed: true };
     },
+
+    github_review: async ({ threadId }) => ({ review: await review(threadId) }),
   });
 
   // ---------------------------------------------------------------------------

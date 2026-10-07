@@ -27,6 +27,7 @@
     "lib",
     "hooks",
     "comment",
-    "diff"
+    "diff",
+    "github"
   ]
 }

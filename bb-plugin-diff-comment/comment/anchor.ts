@@ -10,13 +10,16 @@
 // two together, plus proximity as a tie-break, are what make this stable.
 import type { Comment, DiffLine } from "./types";
 
+/** What `locate` needs: a local comment, or a GitHub thread with a line. */
+export type Anchored = Pick<Comment, "side" | "line" | "anchor">;
+
 /** Indentation moves around under a formatter; it should not detach a comment. */
 function normalize(text: string): string {
   return text.trim();
 }
 
 /** How strongly a candidate line matches the comment's remembered context. */
-function score(comment: Comment, lines: DiffLine[], index: number): number {
+function score(comment: Anchored, lines: DiffLine[], index: number): number {
   const { anchor } = comment;
   const candidate = lines[index];
   if (candidate === undefined) return 0;
@@ -47,7 +50,7 @@ function score(comment: Comment, lines: DiffLine[], index: number): number {
  * code it was written about is no longer in the diff. Null is a state the UI
  * shows ("detached"), not an error.
  */
-export function locate(comment: Comment, lines: DiffLine[]): number | null {
+export function locate(comment: Anchored, lines: DiffLine[]): number | null {
   let best: { line: number; points: number; distance: number } | null = null;
 
   for (let index = 0; index < lines.length; index += 1) {

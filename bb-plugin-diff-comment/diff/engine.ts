@@ -19,11 +19,23 @@ import {
 } from "./dom";
 import { quoteSelection } from "@/comment/quote";
 import { pathForDiff, threadIdFromPath } from "./locate";
-import { placeComments, placementKey, type Column } from "./place";
+import { githubPath, type GithubReview, type GithubThread } from "@/github/threads";
+import {
+  placeComments,
+  placeThreads,
+  placementKey,
+  threadPlacementKey,
+  type Column,
+} from "./place";
 
 export { TRIGGER_ATTR };
 /** The slot a not-yet-saved comment's composer is projected through. */
 export const DRAFT_ID = "draft";
+
+/** The slot id of a GitHub review thread's card, kept apart from comment ids. */
+export function githubSlotId(thread: GithubThread): string {
+  return `gh-${thread.id}`;
+}
 
 /** Where a new comment is being written. */
 export interface Draft {
@@ -47,6 +59,8 @@ export interface EngineDeps {
   signal: AbortSignal;
   /** Draw a saved comment into its light-DOM holder. */
   mountCard: (holder: HTMLElement, comment: Comment) => void;
+  /** Draw a GitHub review thread into its light-DOM holder. */
+  mountThread: (holder: HTMLElement, thread: GithubThread, review: GithubReview) => void;
   /** Draw the composer for a new comment into its holder. */
   mountComposer: (holder: HTMLElement, draft: Draft) => void;
   /** Tear down whatever React put in a holder, before it is removed. */
@@ -91,6 +105,8 @@ export function startEngine(deps: EngineDeps): Engine {
 
   let threadId: string | null = null;
   let comments: Comment[] | null = null;
+  /** The pull request's review threads. Null while loading, or with no pull request. */
+  let review: GithubReview | null = null;
   let draft: Draft | null = null;
   let disposed = false;
 
@@ -128,6 +144,25 @@ export function startEngine(deps: EngineDeps): Engine {
     }
   }
 
+  /**
+   * Fetched apart from the comments, so a slow or failing GitHub never holds
+   * back the local comments. Its threads join the diff on the next pass.
+   */
+  async function loadReview(): Promise<void> {
+    if (threadId === null) return;
+    const target = threadId;
+    try {
+      const result = await deps.rpc<{ review: GithubReview | null }>("github_review", {
+        threadId: target,
+      });
+      if (disposed || threadId !== target) return;
+      review = result.review ?? null;
+      schedule();
+    } catch (cause) {
+      deps.warn(cause);
+    }
+  }
+
   function unmountHolders(host: HTMLElement): void {
     for (const holder of Array.from(host.children)) {
       if (holder instanceof HTMLElement && mounted.has(holder)) {
@@ -158,13 +193,26 @@ export function startEngine(deps: EngineDeps): Engine {
       columns,
     );
 
+    const remotePath = githubPath(path);
+    const threadPlacements =
+      review === null
+        ? []
+        : placeThreads(
+            review.threads.filter((thread) => thread.path === remotePath),
+            columns,
+          );
+
     const draftHere = draft !== null && draft.host === host;
-    const key = `${placementKey(placements, columns)}${draftHere ? `|draft@${draft!.side}:${draft!.line}` : ""}`;
+    const key = [
+      placementKey(placements, columns),
+      threadPlacementKey(threadPlacements, columns),
+      draftHere ? `draft@${draft!.side}:${draft!.line}` : "",
+    ].join("#");
 
     // A re-render by bb drops our rows without changing the placements, so
     // presence has to be checked as well as the key — otherwise the rows never
     // come back. Counting the content rows we own is enough to tell.
-    const expectedRows = placements.length + (draftHere ? 1 : 0);
+    const expectedRows = placements.length + threadPlacements.length + (draftHere ? 1 : 0);
     const actualRows = root.querySelectorAll(`[${OWNED_ATTR}][data-line-annotation]`).length;
     if (applied.get(host) === key && actualRows === expectedRows) return;
 
@@ -177,6 +225,17 @@ export function startEngine(deps: EngineDeps): Engine {
       }
       const holder = cardHolder(host, placement.comment.id);
       deps.mountCard(holder, placement.comment);
+      mounted.add(holder);
+    }
+
+    // After the local comments, so a GitHub thread sits directly under its
+    // line and the local notes about it follow: each row opens right below
+    // the line, pushing earlier ones down.
+    for (const placement of threadPlacements) {
+      const id = githubSlotId(placement.thread);
+      if (!insertRow(placement.column, placement.line, slotNameFor(id))) continue;
+      const holder = cardHolder(host, id);
+      deps.mountThread(holder, placement.thread, review!);
       mounted.add(holder);
     }
 
@@ -325,8 +384,10 @@ export function startEngine(deps: EngineDeps): Engine {
     if (nextThreadId !== threadId) {
       threadId = nextThreadId;
       comments = null;
+      review = null;
       draft = null;
       void load();
+      void loadReview();
       return;
     }
     if (threadId === null || comments === null) return;
@@ -347,6 +408,7 @@ export function startEngine(deps: EngineDeps): Engine {
   function refresh(): void {
     draft = null;
     void load();
+    void loadReview();
   }
 
   const observer = new MutationObserver(() => schedule());

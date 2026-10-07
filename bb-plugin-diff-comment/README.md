@@ -51,6 +51,33 @@ bb diff-comment reply "#1" "…"       # what you did; marks it addressed
 `skills/diff-comments/SKILL.md` tells the agent that procedure, so "work
 through my diff comments" is enough of a prompt.
 
+## Pull request review comments
+
+When the thread has an open pull request, its unresolved review threads show
+on the diff too, under the lines they were left on, beside your own comments.
+Each card shows the conversation and links to it on GitHub, where you reply or
+resolve. A draft on your own review that you have not submitted yet is marked
+**Pending**, since only you can see it.
+
+A thread is placed by the text of its line and the line above, read from the
+diff hunk GitHub stores with the comment, the same way a local comment is. So
+it follows its code through edits you have not pushed. Resolved threads stay
+off the diff, as GitHub collapses them. Outdated threads and comments on a
+whole file have no line to sit under. The **Diff comments** panel lists every
+unresolved thread in an **On GitHub** section, including those.
+
+Reading them costs one `gh api graphql` request per 100 review threads, each
+carrying its first 50 comments. It runs when you open the thread and when the
+window regains focus, and the server reuses the result for 30 seconds, so a
+burst of focus changes is one request. The panel reads the same cached result.
+
+Two settings, under `bb plugin config diff-comment`:
+
+| Setting | Default | |
+| --- | --- | --- |
+| `showGithub` | `on` | `off` stops reading the pull request entirely |
+| `ghPath` | `gh` | The `gh` binary, if it is not on bb's PATH |
+
 ## Where it draws
 
 Only the changes panel. Timeline diffs inside messages are deliberately
@@ -64,5 +91,6 @@ across bb upgrades.
 
 ## Requirements
 
-Needs bb 0.42 or later. No account, external service, or separate install.
-Comments live in the plugin's own storage and are sent nowhere.
+Needs bb 0.42 or later. Your own comments live in the plugin's own storage and
+are sent nowhere. Showing review comments needs the GitHub CLI, signed in
+(`gh auth status`); without it the diff shows your own comments only.

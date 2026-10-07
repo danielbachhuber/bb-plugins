@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { placeComments, placementKey, type Column } from "./place";
+import {
+  placeComments,
+  placeThreads,
+  placementKey,
+  threadPlacementKey,
+  type Column,
+} from "./place";
+import type { GithubThread } from "@/github/threads";
 import type { Comment, CommentState, DiffLine, Side } from "@/comment/types";
 
 function comment(
@@ -119,5 +126,75 @@ describe("placementKey and edits", () => {
     const a = placeComments([before], columns);
     const b = placeComments([after], columns);
     expect(placementKey(a.placements, columns)).not.toBe(placementKey(b.placements, columns));
+  });
+});
+
+describe("placeThreads", () => {
+  function thread(overrides: Partial<GithubThread> = {}): GithubThread {
+    return {
+      id: "PRRT_1",
+      path: "src/a.ts",
+      side: "new",
+      line: 2,
+      anchor: { text: "b", before: "a", after: null },
+      resolved: false,
+      outdated: false,
+      comments: [
+        {
+          id: "PRRC_1",
+          url: "https://github.com/acme/widgets/pull/7#discussion_r1",
+          author: "octocat",
+          body: "Why b?",
+          createdAt: "2026-09-14T00:00:00Z",
+          pending: false,
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  it("follows its line's text when unpushed edits have moved it", () => {
+    const columns = [
+      column("unified", [
+        { side: "new", line: 5, text: "a" },
+        { side: "new", line: 6, text: "b" },
+      ]),
+    ];
+    const placements = placeThreads([thread()], columns);
+    expect(placements.map((p) => p.line)).toEqual([6]);
+  });
+
+  it("leaves a thread off when its line is not in this diff", () => {
+    const columns = [column("unified", [{ side: "new", line: 2, text: "other" }])];
+    expect(placeThreads([thread()], columns)).toEqual([]);
+  });
+
+  it("leaves resolved and outdated threads off", () => {
+    const columns = [
+      column("unified", [
+        { side: "new", line: 1, text: "a" },
+        { side: "new", line: 2, text: "b" },
+      ]),
+    ];
+    expect(placeThreads([thread({ resolved: true }), thread({ outdated: true })], columns)).toEqual(
+      [],
+    );
+  });
+
+  it("changes its key when a reply arrives or a draft is submitted", () => {
+    const columns = [
+      column("unified", [
+        { side: "new", line: 1, text: "a" },
+        { side: "new", line: 2, text: "b" },
+      ]),
+    ];
+    const base = thread();
+    const draft = thread({ comments: [{ ...base.comments[0]!, pending: true }] });
+    const replied = thread({
+      comments: [...base.comments, { ...base.comments[0]!, id: "PRRC_2", body: "Because." }],
+    });
+    const key = (t: GithubThread) => threadPlacementKey(placeThreads([t], columns), columns);
+    expect(key(base)).not.toBe(key(draft));
+    expect(key(base)).not.toBe(key(replied));
   });
 });
