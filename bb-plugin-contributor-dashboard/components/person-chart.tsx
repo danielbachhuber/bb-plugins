@@ -64,9 +64,14 @@ export function PersonChart({
             {person.login}
           </button>
         )}
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {person.givenTotal} of {person.requestedTotal}
-        </span>
+      </div>
+      {/*
+        Both totals are named. Neither is a share of the other: a person can
+        review a pull request nobody asked them to, so "given of requested"
+        read as a fraction, and often one over 100%.
+      */}
+      <div className="text-xs tabular-nums text-muted-foreground">
+        {person.requestedTotal} requested · {person.givenTotal} given
       </div>
       <div className="relative mt-1.5">
         <svg

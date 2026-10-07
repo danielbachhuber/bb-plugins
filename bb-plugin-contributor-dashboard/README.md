@@ -14,10 +14,12 @@ drawn by month.
 ### Review velocity
 
 **Reviews per person** is one small chart per person, in alphabetical order,
-with two lines: reviews **requested** of them and reviews they **gave**. The corner shows the totals
-for the period as "given of requested". Every chart shares one scale, so a
-busy reviewer's lines sit higher than a quiet one's. Hovering a week shows its
-counts.
+with two lines: reviews **requested** of them and reviews they **gave**, and
+both totals for the period beneath their name. Neither total is a share of the
+other: a person can review a pull request nobody asked them to, so the reviews
+someone gives often outnumber the ones asked of them. Every chart shares one
+scale, so a busy reviewer's lines sit higher than a quiet one's. Hovering a
+week shows its counts.
 
 What counts:
 
