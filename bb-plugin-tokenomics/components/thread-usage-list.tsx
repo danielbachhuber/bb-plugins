@@ -108,7 +108,7 @@ export function ThreadUsageList({
   /** The page chart's bars, which the sparklines line up with. */
   bars: readonly Bar[];
   lifecycle?: Lifecycle;
-  /** The context warning setting; rows past it are tinted, as Now tints what is due today. */
+  /** The context warning setting; rows past it are tinted, as Now tints what is overdue. */
   contextThreshold?: number | null;
   onOpen: (threadId: string) => void;
 }) {
@@ -140,8 +140,8 @@ export function ThreadUsageList({
             key={thread.threadId}
             className={cn(
               archived && "bg-muted/30",
-              // Now's due-today treatment: an amber bar where the padding was.
-              large && "border-l-2 border-l-[#eda100] bg-[#eda100]/[0.06] dark:border-l-[#c98500] dark:bg-[#c98500]/[0.08]",
+              // Now's overdue treatment: a red bar where the padding was.
+              large && "border-l-2 border-l-destructive bg-destructive/[0.04]",
             )}
             title={large ? `Its context is ${formatTokens(thread.context!)} tokens, which every model call re-reads` : undefined}
           >

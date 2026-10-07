@@ -29,8 +29,8 @@ size you set shows a meter above its composer, with a button that compacts it.
   running when you expected it to stop shows bars at the right end. Click a
   row to open the thread.
 - **A large-context thread** is an active one whose latest context is past
-  the context meter's setting (see below). Its row gets an amber bar down its
-  left edge over an amber tint, as the Now page marks what is due today, and
+  the context meter's setting (see below). Its row gets a red bar down its
+  left edge over a red tint, as the Now page marks what is overdue, and
   its context size joins the line under its title. A few of these threads
   usually account for most of a period's tokens.
 
