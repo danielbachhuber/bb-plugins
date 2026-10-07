@@ -56,7 +56,7 @@ export function PeopleView({
           <div>
             <h1 className="text-base font-semibold">Reviews per person</h1>
             <p className="text-xs text-muted-foreground">
-              {data?.repository ?? "…"} · reviews requested of each person and reviews they gave
+              {data?.repository ? `${data.repository} · ` : ""}reviews requested of each person and reviews they gave
             </p>
           </div>
           <Segmented label="Period" options={PERIODS} value={period} onChange={onPeriod} />
