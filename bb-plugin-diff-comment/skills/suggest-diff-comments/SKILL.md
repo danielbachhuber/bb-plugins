@@ -40,18 +40,18 @@ from `git diff` so the card shows the code.
       "items": [
         {
           "id": "point-1",
-          "title": "space.created_by is described two ways",
-          "badges": [{ "label": "docs/adr/0002-keys.md:36" }],
-          "summary": "The new section says it holds the creator's ID with no foreign key; this table still lists a foreign key.",
-          "changes": [{ "label": "docs/adr/0002-keys.md", "patch": "@@ -30,8 +30,9 @@\n ..." }],
+          "title": "ratio can be zero when a gear has no teeth",
+          "badges": [{ "label": "src/sprocket.ts:18" }],
+          "summary": "gearFor() returns 0 for a toothless gear, and this line divides by it.",
+          "changes": [{ "label": "src/sprocket.ts", "patch": "@@ -14,6 +14,7 @@\n ..." }],
           "draftLabel": "Comment",
-          "draft": "This table still lists `created_by` as a foreign key to `profile`, but the new Identifiers section says it has none. Which one is right?",
+          "draft": "`gearFor()` returns `0` for a gear with no teeth, so `ratio` can be zero here and the division below throws. Could `gearFor()` clamp it to at least `1`?",
           "actions": [
             {
               "type": "message",
               "label": "Add comment",
               "primary": true,
-              "text": "Add point-1 as a diff comment on docs/adr/0002-keys.md:36:\n\n{draft}"
+              "text": "Add point-1 as a diff comment on src/sprocket.ts:18:\n\n{draft}"
             }
           ]
         }
