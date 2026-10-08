@@ -22,17 +22,45 @@ const SYNCED: SyncStatus = {
   error: null,
 };
 
-/** Invented reviewers, each with a weekly rhythm and a share of requests they answer. */
-const PEOPLE: Array<{ login: string; base: number; answers: number; trend: number }> = [
-  { login: "hubber", base: 5, answers: 0.85, trend: -0.1 },
-  { login: "mona", base: 7, answers: 0.55, trend: 0.25 },
-  { login: "monalisa", base: 3.5, answers: 1, trend: 0 },
-  { login: "octocat", base: 8, answers: 0.7, trend: 0.15 },
-  { login: "spacecat", base: 2, answers: 1.1, trend: -0.05 },
-  { login: "thehubbot", base: 4.5, answers: 0.9, trend: 0.05 },
-  { login: "webcat", base: 6, answers: 0.8, trend: 0.2 },
-  { login: "yeti", base: 3, answers: 0.75, trend: 0 },
+/**
+ * Invented people, with a real repository's shape: three of them open and
+ * review most of the work, and a dozen appear once or twice, so the page has
+ * a tail to fold. Each row is six weeks of totals.
+ */
+const PEOPLE: Array<{ login: string; opened: number; merged: number; requested: number; given: number }> = [
+  { login: "octocat", opened: 132, merged: 108, requested: 53, given: 108 },
+  { login: "hubber", opened: 119, merged: 94, requested: 66, given: 83 },
+  { login: "mona", opened: 76, merged: 60, requested: 34, given: 61 },
+  { login: "monalisa", opened: 25, merged: 19, requested: 16, given: 23 },
+  { login: "spacecat", opened: 21, merged: 17, requested: 14, given: 19 },
+  { login: "webcat", opened: 9, merged: 7, requested: 9, given: 12 },
+  { login: "yeti", opened: 7, merged: 5, requested: 8, given: 9 },
+  { login: "dinotocat", opened: 6, merged: 5, requested: 5, given: 7 },
+  { login: "wavetocat", opened: 5, merged: 4, requested: 4, given: 6 },
+  { login: "snowtocat", opened: 5, merged: 4, requested: 4, given: 5 },
+  { login: "mountietocat", opened: 3, merged: 2, requested: 3, given: 4 },
+  { login: "jetpacktocat", opened: 3, merged: 2, requested: 2, given: 3 },
+  { login: "bannekat", opened: 3, merged: 2, requested: 2, given: 2 },
+  { login: "inspectocat", opened: 2, merged: 2, requested: 1, given: 2 },
+  { login: "welderocat", opened: 2, merged: 1, requested: 1, given: 1 },
+  { login: "baracktocat", opened: 1, merged: 0, requested: 0, given: 1 },
+  { login: "swagtocat", opened: 1, merged: 0, requested: 0, given: 0 },
 ];
+
+/** A person's weekly rhythm: uneven, repeatable, and the same shape each period. */
+const rhythm = (seed: number, buckets: number): number[] =>
+  Array.from({ length: buckets }, (_, i) => 1 + (((i + 2) * (seed + 5) * 7919) % 7) / 7);
+
+/** A total spread over a rhythm, summing to the total exactly. */
+function spread(total: number, weights: readonly number[]): number[] {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const counts = weights.map((weight) => Math.round((weight / sum) * total));
+  counts[0] += total - counts.reduce((a, b) => a + b, 0);
+  return counts.map((count) => Math.max(0, count));
+}
+
+/** The same rhythm a week later: a pull request merges after it is opened. */
+const lagged = (weights: readonly number[]): number[] => [weights[0], ...weights.slice(0, -1)];
 
 /** The stage flow, shaped like a real repository: fast in the middle, long tails. */
 const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
@@ -112,25 +140,41 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
 
 function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(period, NOW);
-  const perBucket = period === "6w" || period === "12w" ? 1 : 4.3;
-  const people = PEOPLE.map(({ login, base, answers, trend }, p) => {
-    const requested = buckets.map((_, i) => {
-      const wobble = (((i + 3) * (p + 5) * 7919) % 11) / 11 - 0.5;
-      return Math.max(0, Math.round((base + trend * i + wobble * 3) * perBucket));
-    });
-    const given = requested.map((count, i) => Math.max(0, Math.round(count * answers + ((i * (p + 2)) % 3) - 1)));
+  // A longer period holds more of everything, so the totals scale with it.
+  const scale = period === "6w" ? 1 : period === "12w" ? 2 : period === "6m" ? 4.3 : 8.7;
+  const totals = PEOPLE.map((person, p) => ({
+    ...person,
+    opened: Math.round(person.opened * scale),
+    merged: Math.round(person.merged * scale),
+    requested: Math.round(person.requested * scale),
+    given: Math.round(person.given * scale),
+    seed: p,
+  }));
+  const people = totals.map(({ login, requested, given, seed }) => {
+    const weights = rhythm(seed, buckets.length);
     return {
       login,
-      requested,
-      given,
-      requestedTotal: requested.reduce((a, b) => a + b, 0),
-      givenTotal: given.reduce((a, b) => a + b, 0),
+      requested: spread(requested, weights),
+      given: spread(given, lagged(weights)),
+      requestedTotal: requested,
+      givenTotal: given,
+    };
+  });
+  const authors = totals.map(({ login, opened, merged, seed }) => {
+    const weights = rhythm(seed + 1, buckets.length);
+    return {
+      login,
+      opened: spread(opened, weights),
+      merged: spread(merged, lagged(weights)),
+      openedTotal: opened,
+      mergedTotal: merged,
     };
   });
   return {
     repository: "acme/widgets",
     buckets,
     stages: STAGES.map((stage) => ({ ...stage, weekly: stage.weekly.slice(0, buckets.length) })),
+    authors,
     people,
     sync,
   };
@@ -152,10 +196,10 @@ function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sy
   );
 }
 
-/** Six weeks, the default: one small chart per person, alphabetical, all on one scale. */
+/** Six weeks, the default: a chart per person in each section, busiest first, and the quiet tail folded into rows of counts. */
 export const SixWeeks = () => <Page />;
 
-/** Hovering a week shows that week's requested and given counts. */
+/** Hovering a week shows that week's counts for the person hovered. */
 export const SixWeeksHovered = () => <Page initialHovered={3} />;
 
 /** A year, drawn by month. */
@@ -171,7 +215,7 @@ export const NoRepository = () => (
   <DashboardView
     period="6w"
     onPeriod={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}

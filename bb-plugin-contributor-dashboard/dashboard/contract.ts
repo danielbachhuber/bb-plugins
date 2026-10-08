@@ -17,6 +17,14 @@ export const personActivitySchema = z.object({
   givenTotal: z.number(),
 });
 
+export const authorActivitySchema = z.object({
+  login: z.string(),
+  opened: z.array(z.number()),
+  merged: z.array(z.number()),
+  openedTotal: z.number(),
+  mergedTotal: z.number(),
+});
+
 export const awaitingReviewSchema = z.object({
   number: z.number(),
   title: z.string(),
@@ -89,6 +97,7 @@ export const rpcContract = defineRpcContract({
       repository: z.string().nullable(),
       buckets: z.array(bucketSchema),
       stages: z.array(stageSummarySchema),
+      authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       sync: syncStatusSchema,
     }),

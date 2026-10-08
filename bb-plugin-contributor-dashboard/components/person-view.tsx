@@ -2,8 +2,9 @@
 // on their review, and how their own pull requests fared. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
 import { PERIODS, type PeriodId } from "@/dashboard/period";
+import { reviewerRow } from "@/review/velocity";
 
-import { PersonChart, SeriesLegend } from "./person-chart";
+import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 import { Segmented } from "./segmented";
 
 /**
@@ -111,14 +112,15 @@ export function PersonView({
                 <h2 id="person-reviews" className="text-base font-semibold">
                   Reviews
                 </h2>
-                <SeriesLegend />
+                <SeriesLegend series={REVIEW_SERIES} />
               </div>
               {data.activity === null ? (
                 <p className="mt-3 text-sm text-muted-foreground">No review requests or reviews in this period.</p>
               ) : (
                 <div className="mt-3">
                   <PersonChart
-                    person={data.activity}
+                    person={reviewerRow(data.activity)}
+                    series={REVIEW_SERIES}
                     buckets={data.buckets}
                     max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
                     unit={period === "6w" || period === "12w" ? "Week of" : ""}

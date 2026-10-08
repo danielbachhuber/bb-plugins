@@ -1,26 +1,40 @@
-// One person's small multiple: reviews requested of them and given by them,
-// per week or month. Every card shares one y scale so people compare honestly.
+// One person's small multiple: two weekly lines, named by the section that
+// draws it. Every card in a section shares one y scale, so people compare
+// honestly, and the card's own peak is written beside the name for the
+// people whose line sits close to the axis on that scale.
 import { useState } from "react";
 
 import type { Bucket } from "@/dashboard/period";
-import type { PersonActivity } from "@/review/people";
+import { peakOf, type VelocityRow } from "@/review/velocity";
 
-export const SERIES = [
-  { key: "requested", label: "Requested", stroke: "stroke-[#2a78d6] dark:stroke-[#3987e5]", swatch: "bg-[#2a78d6] dark:bg-[#3987e5]" },
-  { key: "given", label: "Given", stroke: "stroke-[#1baf7a] dark:stroke-[#199e70]", swatch: "bg-[#1baf7a] dark:bg-[#199e70]" },
-] as const;
+export interface SeriesPair {
+  first: { label: string; color: string };
+  second: { label: string; color: string };
+}
+
+// Colours are written out rather than set as Tailwind classes: bb's stylesheet
+// is prebuilt, so an arbitrary colour class a plugin invents has no rule.
+export const REVIEW_SERIES: SeriesPair = {
+  first: { label: "Requested", color: "#3987e5" },
+  second: { label: "Given", color: "#1baf7a" },
+};
+
+export const AUTHOR_SERIES: SeriesPair = {
+  first: { label: "Opened", color: "#3987e5" },
+  second: { label: "Merged", color: "#9b6cbf" },
+};
 
 const WIDTH = 240;
 const HEIGHT = 72;
 const PAD_Y = 4;
 
-export function SeriesLegend() {
+export function SeriesLegend({ series }: { series: SeriesPair }) {
   return (
     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-      {SERIES.map((series) => (
-        <span key={series.key} className="inline-flex items-center gap-1.5">
-          <span className={`inline-block h-0.5 w-3 rounded ${series.swatch}`} />
-          {series.label}
+      {[series.first, series.second].map((line) => (
+        <span key={line.label} className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-3 rounded" style={{ background: line.color }} />
+          {line.label}
         </span>
       ))}
     </div>
@@ -29,17 +43,22 @@ export function SeriesLegend() {
 
 export function PersonChart({
   person,
+  series,
   buckets,
   max,
   unit,
+  peak = false,
   initialHovered,
   onOpenPerson,
 }: {
-  person: PersonActivity;
+  person: VelocityRow;
+  series: SeriesPair;
   buckets: readonly Bucket[];
   /** The largest count on any card, so every card shares one scale. */
   max: number;
   unit: "Week of" | "";
+  /** Says what this card's busiest bucket was, for a card that reads flat. */
+  peak?: boolean;
   initialHovered?: number;
   /** Opens their page. Left out on their own page, where the name is a heading. */
   onOpenPerson?: (login: string) => void;
@@ -49,6 +68,11 @@ export function PersonChart({
   const x = (index: number) => index * step;
   const y = (value: number) => HEIGHT - PAD_Y - (value / Math.max(1, max)) * (HEIGHT - 2 * PAD_Y);
   const path = (values: readonly number[]) => values.map((value, index) => `${index ? "L" : "M"}${x(index)},${y(value)}`).join("");
+  const lines = [
+    { ...series.first, values: person.first, total: person.firstTotal },
+    { ...series.second, values: person.second, total: person.secondTotal },
+  ];
+  const counts = lines.map((line) => `${line.total} ${line.label.toLowerCase()}`).join(" · ");
 
   return (
     <div className="rounded-lg border border-border bg-card px-3 pb-2 pt-2.5">
@@ -64,34 +88,35 @@ export function PersonChart({
             {person.login}
           </button>
         )}
+        {peak ? (
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">peak {peakOf(person)}/wk</span>
+        ) : null}
       </div>
       {/*
         Both totals are named. Neither is a share of the other: a person can
-        review a pull request nobody asked them to, so "given of requested"
-        read as a fraction, and often one over 100%.
+        review a pull request nobody asked them to, and a pull request can
+        merge in a week later than the one it was opened in.
       */}
-      <div className="text-xs tabular-nums text-muted-foreground">
-        {person.requestedTotal} requested · {person.givenTotal} given
-      </div>
+      <div className="text-xs tabular-nums text-muted-foreground">{counts}</div>
       <div className="relative mt-1.5">
         <svg
           viewBox={`-3 0 ${WIDTH + 6} ${HEIGHT}`}
           className="block h-[72px] w-full overflow-visible"
           preserveAspectRatio="none"
           role="img"
-          aria-label={`${person.login}: ${person.requestedTotal} reviews requested, ${person.givenTotal} given`}
+          aria-label={`${person.login}: ${counts}`}
           onMouseLeave={() => setHovered(null)}
         >
           <line x1={0} x2={WIDTH} y1={HEIGHT - PAD_Y} y2={HEIGHT - PAD_Y} className="stroke-border" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           {hovered === null ? null : (
             <line x1={x(hovered)} x2={x(hovered)} y1={0} y2={HEIGHT} className="stroke-muted-foreground/40" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           )}
-          {SERIES.map((series) => (
+          {lines.map((line) => (
             <path
-              key={series.key}
-              d={path(person[series.key])}
+              key={line.label}
+              d={path(line.values)}
               fill="none"
-              className={series.stroke}
+              stroke={line.color}
               strokeWidth={2}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -119,7 +144,7 @@ export function PersonChart({
               {unit} {buckets[hovered].label}
             </div>
             <div className="tabular-nums">
-              {person.requested[hovered]} requested · {person.given[hovered]} given
+              {lines.map((line) => `${line.values[hovered]} ${line.label.toLowerCase()}`).join(" · ")}
             </div>
           </div>
         )}

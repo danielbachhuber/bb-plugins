@@ -3,9 +3,12 @@
 import type { PeopleActivityResult, StageKey, SyncStatus } from "@/dashboard/contract";
 import { PERIODS, PERIOD_LENGTHS, type PeriodId } from "@/dashboard/period";
 
-import { ReviewVelocitySection } from "./review-velocity-section";
+import { authorRow, reviewerRow } from "@/review/velocity";
+
+import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { StageFlowSection } from "./stage-flow";
 import { Segmented } from "./segmented";
+import { VelocitySection } from "./velocity-section";
 
 /**
  * What the first sync is doing, while it is still reaching back two years.
@@ -76,14 +79,41 @@ export function DashboardView({
         )}
 
         {data === null || data.repository === null ? null : (
-          <ReviewVelocitySection
-            buckets={data.buckets}
-            people={data.people}
-            period={period}
-            syncing={data.sync.running}
-            initialHovered={initialHovered}
-            onOpenPerson={onOpenPerson}
-          />
+          <>
+            <VelocitySection
+              id="pr-velocity"
+              heading="PR velocity"
+              title="Pull requests per person"
+              note="opened by each person, and merged"
+              rows={data.authors.map(authorRow)}
+              series={AUTHOR_SERIES}
+              buckets={data.buckets}
+              period={period}
+              emptyNote={
+                data.sync.running
+                  ? "Nothing in this period yet. The sync is still running."
+                  : "No pull requests opened or merged in this period."
+              }
+              initialHovered={initialHovered}
+              onOpenPerson={onOpenPerson}
+            />
+            <VelocitySection
+              id="review-velocity"
+              heading="Review velocity"
+              title="Reviews per person"
+              note="requested of each person, and given by them"
+              rows={data.people.map(reviewerRow)}
+              series={REVIEW_SERIES}
+              buckets={data.buckets}
+              period={period}
+              emptyNote={
+                data.sync.running
+                  ? "Nothing in this period yet. The sync is still running."
+                  : "No review requests or reviews in this period."
+              }
+              onOpenPerson={onOpenPerson}
+            />
+          </>
         )}
       </div>
     </div>

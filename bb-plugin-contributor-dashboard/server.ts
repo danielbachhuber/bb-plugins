@@ -5,6 +5,7 @@ import { createGhRunner, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/
 
 import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
 import { ghGraphql } from "./mirror/gh.js";
+import { authorActivity } from "./review/authors.js";
 import { peopleActivity } from "./review/people.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
@@ -96,7 +97,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     people_activity: ({ period }) => {
       if (!configured) {
-        return { repository: null, buckets: [], stages: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -109,6 +110,9 @@ export default async function plugin(bb: BbPluginApi) {
         repository,
         buckets,
         stages: stageSummaries({ pullRequests: prs, issues: store.readIssues(repository, 0) }, buckets, now),
+        // A pull request opened before the period can still merge inside it,
+        // so authoring reads them all rather than only the recently updated.
+        authors: authorActivity(prs, buckets),
         people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
         sync: status(),
       };

@@ -69,17 +69,35 @@ busy one.
 The queue is what is in the stage now, whatever the period, since a pull
 request waiting three months is waiting today.
 
-### Review velocity
+### PR velocity and Review velocity
 
-**Reviews per person** is one small chart per person, in alphabetical order,
-with two lines: reviews **requested** of them and reviews they **gave**, and
-both totals for the period beneath their name. Neither total is a share of the
-other: a person can review a pull request nobody asked them to, so the reviews
-someone gives often outnumber the ones asked of them. Every chart shares one
-scale, so a busy reviewer's lines sit higher than a quiet one's. Hovering a
-week shows its counts.
+Two sections of small multiples, one card per person, busiest first. **PR
+velocity** draws the pull requests each person **opened** and the ones that
+**merged**; **Review velocity** draws the reviews **requested** of them and the
+ones they **gave**. Both totals for the period sit beneath the name, and the
+card's busiest week is written beside it as its peak. Hovering a week shows
+that week's counts.
 
-What counts:
+Neither pair of totals is a share of the other. A person can review a pull
+request nobody asked them to, so reviews given often outnumber reviews
+requested, and a pull request merges in the week it merged rather than the week
+it was opened, so a week can merge more than it opened.
+
+Every card in a section shares one scale, so a busy person's lines sit higher
+than a quiet one's. That leaves a problem on a repository where three people do
+most of the work: a line under a tenth of the scale is a few pixels off the
+axis whatever its shape. Those people fold into rows of names and counts under
+the cards, still clickable, and **Show all** draws everyone.
+
+What counts in PR velocity:
+
+- **Opened:** each pull request, counted for whoever opened it, in the week it
+  was opened. Bots are left out.
+- **Merged:** each of their pull requests that merged, counted in the week it
+  merged, which may be later than the week it was opened and may be outside
+  the period even when the opening was not.
+
+What counts in Review velocity:
 
 - **Requested:** each review request naming the person, counted in the week it
   was made. A re-request counts again, because it asks for another review. A
@@ -93,7 +111,7 @@ What counts:
 
 ### A person's page
 
-Clicking a name on a chart opens that person's page, at
+Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
 to the dashboard. It shows:
 
@@ -188,6 +206,8 @@ needs no new sync.
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per week or month |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
+| `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
+| `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
 | `review/business-time.ts` | Elapsed time with weekends left out |
 | `dashboard/period.ts` | The periods, and the weeks or months each is drawn in |
@@ -196,12 +216,13 @@ needs no new sync.
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
 | `components/stage-flow.tsx` | The Execute → Verify → Release flow at the top of the page |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each week |
-| `components/review-velocity-section.tsx` | The Review velocity section |
+| `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
-| `components/person-chart.tsx` | One person's small chart, its hover, and the legend |
+| `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
+| `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
 | `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
 
 ## Working on it
