@@ -242,16 +242,18 @@ export function shortDate(date: string, now: Date, { clock: withClock = false } 
 }
 
 /**
- * The two counts beside the page's name in the sidebar: the Urgent run, and
- * every row in the Now section, the same number as its tab. The first is part
- * of the second.
+ * The three counts beside the page's name in the sidebar: the Urgent run, the
+ * Today run, and every row in the Now section, the same number as its tab.
+ * The first two are part of the third.
  */
-export function sidebarCounts(items: readonly Item[], now: Date): { urgent: number; now: number } {
-  const counts = { urgent: 0, now: 0 };
+export function sidebarCounts(items: readonly Item[], now: Date): { urgent: number; today: number; now: number } {
+  const counts = { urgent: 0, today: 0, now: 0 };
   for (const item of items) {
     if (sectionOf(item) !== "now") continue;
     counts.now++;
-    if (nowGroupOf(item, now) === "urgent") counts.urgent++;
+    const group = nowGroupOf(item, now);
+    if (group === "urgent") counts.urgent++;
+    else if (group === "today") counts.today++;
   }
   return counts;
 }

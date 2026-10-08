@@ -239,10 +239,13 @@ describe("shortDate", () => {
 });
 
 describe("sidebarCounts", () => {
-  test("counts the Urgent run and every row in the Now section as its tab does", () => {
+  test("counts the Urgent and Today runs and every row in the Now section as its tab does", () => {
     const items = [
       item("overdue", due("2026-09-20")),
       item("today", due("2026-09-24")),
+      item("today-later", due("2026-09-24T15:00:00")),
+      // Due today at a time already past, so urgent rather than today.
+      item("today-past", due("2026-09-24T08:00:00")),
       item("inbox", { inbox: true }),
       item("to-you", { gmail: { threadIds: ["t0"], unread: false, toYou: true }, activityAt: hoursAgo(1) }),
       mail("request", 2, true),
@@ -256,12 +259,12 @@ describe("sidebarCounts", () => {
       item("later", due("2026-10-02")),
       item("undated"),
     ];
-    expect(sidebarCounts(items, now)).toEqual({ urgent: 2, now: 8 });
+    expect(sidebarCounts(items, now)).toEqual({ urgent: 3, today: 2, now: 10 });
     expect(sidebarCounts(items, now).now).toBe(groupIntoSections(items, now)[0]!.items.length);
   });
 
   test("counts nothing in an empty list", () => {
-    expect(sidebarCounts([], now)).toEqual({ urgent: 0, now: 0 });
+    expect(sidebarCounts([], now)).toEqual({ urgent: 0, today: 0, now: 0 });
   });
 });
 

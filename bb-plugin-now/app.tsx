@@ -591,14 +591,23 @@ function EmailTab() {
 }
 
 /**
- * The urgent and Now counts beside the page's name in the sidebar. It re-reads
- * on the same signal as the page, so completing or archiving a row lowers them
- * at once.
+ * The urgent, due today, and Now counts beside the page's name in the
+ * sidebar. It re-reads on the same signal as the page, so completing or
+ * archiving a row lowers them at once.
  */
 function NowSidebarCounts() {
   const { listing } = useListing();
-  const { urgent, now } = sidebarCounts(listing?.list?.items ?? [], new Date());
-  return <SidebarCount urgent={urgent} total={now} urgentLabel={`${urgent} urgent`} totalLabel={`${now} in Now`} />;
+  const { urgent, today, now } = sidebarCounts(listing?.list?.items ?? [], new Date());
+  return (
+    <SidebarCount
+      urgent={urgent}
+      soon={today}
+      total={now}
+      urgentLabel={`${urgent} urgent`}
+      soonLabel={`${today} due today`}
+      totalLabel={`${now} in Now`}
+    />
+  );
 }
 
 export default definePluginApp((app) => {
