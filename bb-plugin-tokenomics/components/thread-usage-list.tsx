@@ -98,6 +98,9 @@ export function threadContextLevel(thread: ThreadUsage, thresholds: ContextThres
   return contextLevel(thread.context, thresholds);
 }
 
+/** The context meter's amber, so a warning reads the same on the page and above the composer. */
+const AMBER = "#d97706";
+
 const NO_THRESHOLDS: ContextThresholds = { warning: null, error: null };
 
 export function ThreadUsageList({
@@ -137,7 +140,6 @@ export function ThreadUsageList({
           thread.projectName,
           providerName(thread.providerId),
           `${thread.turns} ${thread.turns === 1 ? "turn" : "turns"}`,
-          thread.context === null ? null : `${formatTokens(thread.context)} context`,
         ].filter((part) => part !== null && part !== "");
         return (
           <li
@@ -176,7 +178,20 @@ export function ThreadUsageList({
                     </span>
                   ) : null}
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">{meta.join(" · ")}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {meta.join(" · ")}
+                  {thread.context === null ? null : (
+                    <>
+                      {" · "}
+                      <span
+                        className={cn(level === "error" && "font-medium text-destructive")}
+                        style={level === "warning" ? { color: AMBER, fontWeight: 500 } : undefined}
+                      >
+                        {formatTokens(thread.context)} context
+                      </span>
+                    </>
+                  )}
+                </span>
               </span>
               <span className={cn("hidden sm:block", archived ? "text-muted-foreground/60" : "text-foreground/60")}>
                 <RowSpark totals={threadBars(thread, bars)} />

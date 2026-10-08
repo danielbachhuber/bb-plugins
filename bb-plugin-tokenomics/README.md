@@ -32,8 +32,9 @@ size you set shows a meter above its composer, with a button that compacts it.
 - **A large-context thread** is an active one whose latest context is past
   one of the context meter's settings (see below). Past the warning, 300K by
   default, its row gets an amber bar down its left edge over an amber tint, as
-  the Now page marks what is due today. Past the error, 550K by default, the
-  bar and tint are red, as Now marks what is overdue. A few of these threads
+  the Now page marks what is due today, and its context size is bold amber.
+  Past the error, 550K by default, the bar, tint, and context size are red,
+  as Now marks what is overdue. A few of these threads
   usually account for most of a period's tokens.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
