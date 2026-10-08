@@ -3,6 +3,7 @@
 // the arithmetic stay pure.
 import { splitBreakdown, type ProviderTokenBreakdown } from "./breakdown.js";
 import { contextRowOf, type ContextRow } from "./context.js";
+import { isEmpty, timingRowsOf } from "./timing.js";
 import type { Store, ThreadInfo, UsageRow } from "./store.js";
 import type { OutlineItem, TurnEvent } from "./turns.js";
 
@@ -28,13 +29,14 @@ export interface UsageEventLike {
   seq: number;
   createdAt: number;
   type: string;
+  scope?: { kind: string; turnId?: string } | null;
   data: unknown;
 }
 
 export type TurnEventType = "turn/started" | "turn/completed";
 
 export interface EventSource {
-  /** The thread's token usage and context window events after `afterSeq`, oldest first. */
+  /** The thread's token usage, context window, and timing events after `afterSeq`, oldest first. */
   listUsage(args: { threadId: string; afterSeq: number | null; limit: number }): Promise<UsageEventLike[]>;
   listTurnEvents?(args: {
     threadId: string;
@@ -100,6 +102,8 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
       const lastSeq = events.reduce((seq, event) => Math.max(seq, event.seq), cursor ?? 0);
       // Before the cursor moves, so a failure here reads these events again.
       contextAdded += store.recordContext(thread.id, contextRows);
+      const timings = timingRowsOf(events);
+      if (!isEmpty(timings)) store.recordTimings(thread.id, timings);
       added += store.record(info, rows, lastSeq);
       cursor = lastSeq;
       if (events.length < PAGE_SIZE) break;

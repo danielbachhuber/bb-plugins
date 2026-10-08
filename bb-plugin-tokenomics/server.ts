@@ -2,6 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { TIMING_EVENTS } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
@@ -40,7 +41,7 @@ export default async function plugin(bb: BbPluginApi) {
     async listUsage({ threadId, afterSeq, limit }) {
       return bb.sdk.threads.events.list({
         threadId,
-        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT],
+        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT, ...TIMING_EVENTS],
         order: "asc",
         limit: String(limit),
         ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),

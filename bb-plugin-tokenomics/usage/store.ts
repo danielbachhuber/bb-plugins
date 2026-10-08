@@ -7,6 +7,7 @@
 import type { Database } from "better-sqlite3";
 
 import type { ContextRow } from "./context.js";
+import type { TimingRows } from "./timing.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
 
 /**
@@ -53,6 +54,44 @@ export const MIGRATIONS = [
      auto_compact_at INTEGER
    )`,
   `CREATE INDEX IF NOT EXISTS context_thread_idx ON context (thread_id, created_at)`,
+  // When each turn started and finished.
+  `CREATE TABLE IF NOT EXISTS turn_times (
+     thread_id TEXT NOT NULL,
+     turn_id TEXT NOT NULL,
+     started_at INTEGER,
+     completed_at INTEGER,
+     PRIMARY KEY (thread_id, turn_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS turn_times_started_idx ON turn_times (started_at)`,
+  // Each tool a turn waited on: a shell command, a tool call, a file read.
+  `CREATE TABLE IF NOT EXISTS item_times (
+     thread_id TEXT NOT NULL,
+     item_id TEXT NOT NULL,
+     turn_id TEXT,
+     kind TEXT NOT NULL,
+     label TEXT,
+     started_at INTEGER,
+     completed_at INTEGER,
+     PRIMARY KEY (thread_id, item_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS item_times_turn_idx ON item_times (thread_id, turn_id)`,
+  // Each question the agent asked you, from asking to your answer.
+  `CREATE TABLE IF NOT EXISTS waits (
+     thread_id TEXT NOT NULL,
+     interaction_id TEXT NOT NULL,
+     turn_id TEXT,
+     kind TEXT NOT NULL,
+     started_at INTEGER NOT NULL,
+     resolved_at INTEGER,
+     PRIMARY KEY (thread_id, interaction_id)
+   )`,
+  // Reads the past nine days again, the page's longest range and some, so
+  // their timings are recorded. Usage and context rows already recorded are
+  // ignored by their event ids.
+  `UPDATE threads SET last_seq = 0 WHERE thread_id IN (
+     SELECT DISTINCT thread_id FROM usage
+     WHERE created_at > (CAST(strftime('%s', 'now') AS INTEGER) - 9 * 86400) * 1000
+   )`,
 ];
 
 export interface ThreadInfo {
@@ -190,6 +229,51 @@ export function createStore(db: Database) {
      WHERE t.archived_at IS NULL
        AND NOT EXISTS (SELECT 1 FROM context c WHERE c.thread_id = t.thread_id)`,
   );
+  // A start and an end arrive in separate events, so each upsert keeps the
+  // earliest start and the latest end it has seen.
+  const upsertTurnTime = db.prepare(
+    `INSERT INTO turn_times (thread_id, turn_id, started_at, completed_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT (thread_id, turn_id) DO UPDATE SET
+       started_at = coalesce(min(turn_times.started_at, excluded.started_at), turn_times.started_at, excluded.started_at),
+       completed_at = coalesce(max(turn_times.completed_at, excluded.completed_at), turn_times.completed_at, excluded.completed_at)`,
+  );
+  const upsertItemTime = db.prepare(
+    `INSERT INTO item_times (thread_id, item_id, turn_id, kind, label, started_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (thread_id, item_id) DO UPDATE SET
+       turn_id = coalesce(item_times.turn_id, excluded.turn_id),
+       label = coalesce(item_times.label, excluded.label),
+       started_at = coalesce(min(item_times.started_at, excluded.started_at), item_times.started_at, excluded.started_at),
+       completed_at = coalesce(max(item_times.completed_at, excluded.completed_at), item_times.completed_at, excluded.completed_at)`,
+  );
+  const upsertWait = db.prepare(
+    `INSERT INTO waits (thread_id, interaction_id, turn_id, kind, started_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (thread_id, interaction_id) DO UPDATE SET
+       turn_id = coalesce(waits.turn_id, excluded.turn_id),
+       started_at = min(waits.started_at, excluded.started_at),
+       resolved_at = coalesce(max(waits.resolved_at, excluded.resolved_at), waits.resolved_at, excluded.resolved_at)`,
+  );
+  const recordTimings = db.transaction((threadId: string, rows: TimingRows) => {
+    for (const turn of rows.turns) upsertTurnTime.run(threadId, turn.turnId, turn.startedAt, turn.completedAt);
+    for (const item of rows.items) {
+      upsertItemTime.run(threadId, item.itemId, item.turnId, item.kind, item.label, item.startedAt, item.completedAt);
+    }
+    for (const wait of rows.waits) {
+      upsertWait.run(threadId, wait.interactionId, wait.turnId, wait.kind, wait.startedAt, wait.resolvedAt);
+    }
+  });
+  const selectTurnTimes = db.prepare(
+    `SELECT turn_id AS turnId, started_at AS startedAt, completed_at AS completedAt
+     FROM turn_times WHERE thread_id = ? ORDER BY started_at`,
+  );
+  const selectItemTimes = db.prepare(
+    `SELECT item_id AS itemId, turn_id AS turnId, kind, label, started_at AS startedAt, completed_at AS completedAt
+     FROM item_times WHERE thread_id = ? ORDER BY started_at`,
+  );
+  const selectWaits = db.prepare(
+    `SELECT interaction_id AS interactionId, turn_id AS turnId, kind, started_at AS startedAt, resolved_at AS resolvedAt
+     FROM waits WHERE thread_id = ? ORDER BY started_at`,
+  );
   const recordContext = db.transaction((threadId: string, rows: ContextRow[]) => {
     let inserted = 0;
     for (const row of rows) {
@@ -234,6 +318,20 @@ export function createStore(db: Database) {
     /** Stores new usage rows and moves the thread's cursor. Returns rows added. */
     record(thread: ThreadInfo, rows: UsageRow[], lastSeq: number): number {
       return record(thread, rows, lastSeq);
+    },
+
+    /** Stores turn, tool, and wait times, merging a start and an end that arrived apart. */
+    recordTimings(threadId: string, rows: TimingRows): void {
+      recordTimings(threadId, rows);
+    },
+
+    /** Everything recorded about when the thread's turns ran. */
+    threadTimings(threadId: string): TimingRows {
+      return {
+        turns: selectTurnTimes.all(threadId) as TimingRows["turns"],
+        items: selectItemTimes.all(threadId) as TimingRows["items"],
+        waits: selectWaits.all(threadId) as TimingRows["waits"],
+      };
     },
 
     /** Stores new context rows. Returns rows added. */

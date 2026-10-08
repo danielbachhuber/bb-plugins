@@ -175,6 +175,17 @@ provider's latest running total. The sum misses turns bb deleted before they
 were recorded. The running total misses turns from before the provider's last
 restart, because Claude Code starts its count over when its session restarts.
 
+## Time
+
+Alongside usage, the plugin records when each turn started and finished,
+each tool the turn waited on (a shell command with its command line, a tool
+call with the tool's name, a file read), and each question the agent asked
+you, from asking to your answer. Reasoning and replies are the model's own
+time, and background tasks and subagents run beside the turn rather than
+holding it up, so neither is recorded as a tool. These come from the same
+event request as usage, so they add no requests to bb. The first load with
+this recording reads the past nine days of each thread again to fill them in.
+
 ## Matching usage to messages
 
 The plugin's copy of each usage row has no turn id, and bb deletes the usage
@@ -189,9 +200,10 @@ before it.
 | Path | What it holds |
 | --- | --- |
 | `usage/context.ts` | The pure reading of bb's context window events and of the warning setting |
+| `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
-| `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, per-thread cursors and archive state, and the hourly and per-thread sums |
-| `usage/sync.ts` | The only module that reads from bb: copying new usage and context events into the ledger, one thread at a time, and reading a thread's turn events and outline |
+| `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes and turn, tool, and question times, per-thread cursors and archive state, and the hourly and per-thread sums |
+| `usage/sync.ts` | The only module that reads from bb: copying new usage, context, and timing events into the ledger, one thread at a time, and reading a thread's turn events and outline |
 | `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
 | `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |
 | `usage/contract.ts` | The RPC contract and the realtime channels |

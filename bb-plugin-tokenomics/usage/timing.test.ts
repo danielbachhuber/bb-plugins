@@ -1,0 +1,74 @@
+import Database from "better-sqlite3";
+import { describe, expect, it } from "vitest";
+
+import { createStore, MIGRATIONS } from "./store.js";
+import { timingRowsOf, type TimingEventLike } from "./timing.js";
+
+const turn = { kind: "turn", turnId: "t1" };
+
+function item(type: "item/started" | "item/completed", createdAt: number, body: Record<string, unknown>): TimingEventLike {
+  return { type, createdAt, scope: turn, data: { item: body } };
+}
+
+const EVENTS: TimingEventLike[] = [
+  { type: "turn/started", createdAt: 0, scope: turn, data: {} },
+  item("item/started", 1_000, { id: "i1", type: "reasoning" }),
+  item("item/started", 2_000, { id: "i2", type: "commandExecution", command: "npm test" }),
+  item("item/completed", 62_000, { id: "i2", type: "commandExecution", command: "npm test" }),
+  item("item/started", 63_000, { id: "i3", type: "toolCall", tool: "Skill" }),
+  item("item/started", 64_000, { id: "i4", type: "delegation", background: true, label: "Research" }),
+  item("item/started", 64_500, { id: "i5", type: "backgroundTask" }),
+  {
+    type: "system/interaction/lifecycle",
+    createdAt: 70_000,
+    scope: turn,
+    data: { interaction: { id: "pint_1", status: "pending", payload: { kind: "user_question" } } },
+  },
+  {
+    type: "system/interaction/lifecycle",
+    createdAt: 130_000,
+    scope: turn,
+    data: { interaction: { id: "pint_1", status: "resolved", payload: { kind: "user_question" } } },
+  },
+  { type: "turn/completed", createdAt: 200_000, scope: turn, data: {} },
+];
+
+describe("timingRowsOf", () => {
+  it("keeps turns, the tools a turn waits on, and questions to you", () => {
+    const rows = timingRowsOf(EVENTS);
+    expect(rows.turns).toEqual([
+      { turnId: "t1", startedAt: 0, completedAt: null },
+      { turnId: "t1", startedAt: null, completedAt: 200_000 },
+    ]);
+    // Reasoning is the model's own time; a background subagent or task does not hold the turn up.
+    expect(rows.items.map((row) => [row.itemId, row.kind, row.label])).toEqual([
+      ["i2", "commandExecution", "npm test"],
+      ["i2", "commandExecution", "npm test"],
+      ["i3", "toolCall", "Skill"],
+    ]);
+    expect(rows.waits.map((row) => [row.kind, row.startedAt, row.resolvedAt])).toEqual([
+      ["user_question", 70_000, null],
+      ["user_question", 130_000, 130_000],
+    ]);
+  });
+});
+
+describe("recording timings", () => {
+  it("merges a start and an end read in different pages", () => {
+    const db = new Database(":memory:");
+    for (const statement of MIGRATIONS) db.exec(statement);
+    const store = createStore(db);
+    store.recordTimings("thr_widgets", timingRowsOf(EVENTS.slice(0, 3)));
+    store.recordTimings("thr_widgets", timingRowsOf(EVENTS.slice(3)));
+    // A page read twice changes nothing.
+    store.recordTimings("thr_widgets", timingRowsOf(EVENTS.slice(3)));
+
+    const timings = store.threadTimings("thr_widgets");
+    expect(timings.turns).toEqual([{ turnId: "t1", startedAt: 0, completedAt: 200_000 }]);
+    expect(timings.items[0]).toMatchObject({ itemId: "i2", label: "npm test", startedAt: 2_000, completedAt: 62_000 });
+    expect(timings.items[1]).toMatchObject({ itemId: "i3", startedAt: 63_000, completedAt: null });
+    expect(timings.waits).toEqual([
+      { interactionId: "pint_1", turnId: "t1", kind: "user_question", startedAt: 70_000, resolvedAt: 130_000 },
+    ]);
+  });
+});
