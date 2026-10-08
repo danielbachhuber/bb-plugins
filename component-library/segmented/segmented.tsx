@@ -1,7 +1,6 @@
-// A row of mutually exclusive choices, like bb's own segmented controls.
-// Copied from Tokenomics (bb-plugin-tokenomics/components/segmented.tsx), with
-// a toggle form beside it for a filter that can also be off.
-import { cn } from "@/lib/utils";
+// A row of mutually exclusive choices, like bb's own segmented controls, and
+// a toggle form of it for a filter that can also be off.
+import { cn } from "../lib/cn";
 
 export function Segmented<T extends string>({
   label,

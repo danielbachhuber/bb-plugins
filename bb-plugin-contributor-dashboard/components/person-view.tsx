@@ -5,7 +5,7 @@ import { PERIODS, type PeriodId } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
-import { Segmented } from "./segmented";
+import { Segmented } from "component-library/segmented";
 
 /**
  * A review that landed in 50 minutes is not "0.0d", so anything under a

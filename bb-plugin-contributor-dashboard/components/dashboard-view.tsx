@@ -7,7 +7,7 @@ import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { StageFlowSection } from "./stage-flow";
-import { Segmented } from "./segmented";
+import { Segmented } from "component-library/segmented";
 import { VelocitySection } from "./velocity-section";
 
 /**

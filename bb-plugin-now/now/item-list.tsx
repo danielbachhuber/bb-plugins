@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
-import { SegmentedToggle } from "@/components/segmented";
+import { SegmentedToggle } from "component-library/segmented";
 
 import { NowSummary } from "./now-summary.js";
 import { groupIntoSections, nowGroupOf, NOW_GROUPS, type NowGroupId, type SectionId } from "./sections.js";

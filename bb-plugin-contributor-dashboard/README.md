@@ -219,7 +219,6 @@ needs no new sync.
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
-| `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |

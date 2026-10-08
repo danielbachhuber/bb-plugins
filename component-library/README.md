@@ -13,6 +13,7 @@ what not to do with it.
 | --- | --- | --- |
 | [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
 | [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, then the total |
+| [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -111,6 +112,33 @@ Now, PR Sweep, Issue Sweep, and Review Sweep use it.
 
 **Don't** draw a bare number in a `<span>`, which drifts out of line with
 the rows around it, or count rows the page would not show.
+
+## Segmented
+
+```tsx
+import { Segmented, SegmentedToggle } from "component-library/segmented";
+
+<Segmented label="Period" options={periods} value={period} onChange={setPeriod} />
+<SegmentedToggle label="Source" options={sources} value={source} onChange={setSource} />
+```
+
+A row of a few short choices in one bordered group, drawn like bb's own
+segmented controls.
+
+**Which one.** `Segmented` is for a choice that always has an answer, such as
+the period a page charts. It is a `radiogroup`, and one option is always on.
+`SegmentedToggle` is for a filter that can also be off: pressing an option
+shows only it, and pressing it again passes `null` and shows everything. It is
+a group of `aria-pressed` buttons.
+
+**Options.** Each has an `id` and a `label`, an optional `count` drawn muted
+after the label, and an optional `title` for a tooltip that says what the
+option holds. `label` names the whole group for assistive technology.
+
+Now, Tokenomics, and Contributor Dashboard use it.
+
+**Don't** use it for more than about five options, or for options whose
+labels need more than a word or two. A select fits those better.
 
 ## Working on it
 

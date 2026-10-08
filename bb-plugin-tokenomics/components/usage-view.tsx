@@ -6,7 +6,7 @@ import { addTokens, totalOf, ZERO_TOKENS } from "@/usage/breakdown";
 import type { ThreadUsage, TurnTimeBreakdown as Breakdown } from "@/usage/contract";
 import { formatTokens, RANGES, type Bar, type RangeId } from "@/usage/series";
 
-import { Segmented } from "./segmented";
+import { Segmented } from "component-library/segmented";
 import type { ContextThresholds } from "@/usage/context";
 
 import { TurnTimeBreakdown } from "./turn-time-breakdown";

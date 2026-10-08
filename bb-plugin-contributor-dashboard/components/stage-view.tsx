@@ -4,7 +4,7 @@ import type { StageDetailResult } from "@/dashboard/contract";
 import { PERIODS, type PeriodId } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
-import { Segmented } from "./segmented";
+import { Segmented } from "component-library/segmented";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const DONE = "bg-[#1baf7a] dark:bg-[#199e70]";
