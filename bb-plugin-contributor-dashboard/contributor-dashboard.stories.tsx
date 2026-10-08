@@ -2,9 +2,10 @@ import { useState } from "react";
 
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
-import type { PeopleActivityResult, SyncStatus } from "./dashboard/contract";
+import { StageView } from "./components/stage-view";
+import type { PeopleActivityResult, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
-import { bucketsFor, type PeriodId } from "./dashboard/period";
+import { bucketsFor, PERIOD_LENGTHS, type PeriodId } from "./dashboard/period";
 
 export default {
   title: "contributor-dashboard/Page",
@@ -26,6 +27,54 @@ const PEOPLE: Array<{ login: string; base: number; answers: number; trend: numbe
   { login: "yeti", base: 3, answers: 0.75, trend: 0 },
 ];
 
+/** The stage flow, shaped like a real repository: fast in the middle, long tails. */
+const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
+  {
+    key: "implement",
+    label: "Implement change",
+    measures: "opened as a draft, until marked ready for review",
+    left: 71,
+    waiting: 6,
+    median: 0.9,
+    p75: 2.4,
+    p90: 5.1,
+    weekly: [1.4, 1.2, 1.1, 1, 0.8, 0.9],
+  },
+  {
+    key: "prepare",
+    label: "Prepare pull request",
+    measures: "ready for review, until a reviewer is asked",
+    left: 118,
+    waiting: 2,
+    median: 0.08,
+    p75: 0.5,
+    p90: 1.6,
+    weekly: [0.2, 0.1, 0.1, 0.2, 0.1, 0.08],
+  },
+  {
+    key: "review",
+    label: "Code review",
+    measures: "a reviewer asked, until they leave a review",
+    left: 548,
+    waiting: 14,
+    median: 0.35,
+    p75: 0.95,
+    p90: 2.8,
+    weekly: [0.7, 0.9, 0.9, 0.3, 0.1, 0.4],
+  },
+  {
+    key: "decision",
+    label: "Merge decision",
+    measures: "approved, until merged",
+    left: 62,
+    waiting: 3,
+    median: 0.3,
+    p75: 0.8,
+    p90: 2,
+    weekly: [0.5, 0.4, 0.3, 0.3, 0.2, 0.3],
+  },
+];
+
 function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(period, NOW);
   const perBucket = period === "6w" || period === "12w" ? 1 : 4.3;
@@ -43,7 +92,13 @@ function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityRes
       givenTotal: given.reduce((a, b) => a + b, 0),
     };
   });
-  return { repository: "acme/widgets", buckets, people, sync };
+  return {
+    repository: "acme/widgets",
+    buckets,
+    stages: STAGES.map((stage) => ({ ...stage, weekly: stage.weekly.slice(0, buckets.length) })),
+    people,
+    sync,
+  };
 }
 
 function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sync?: SyncStatus; initialHovered?: number }) {
@@ -56,6 +111,7 @@ function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sy
       error={null}
       onSync={() => undefined}
       onOpenPerson={() => undefined}
+      onOpenStage={() => undefined}
       now={NOW}
       initialHovered={initialHovered}
     />
@@ -81,10 +137,11 @@ export const NoRepository = () => (
   <DashboardView
     period="6w"
     onPeriod={() => undefined}
-    data={{ repository: null, buckets: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0 } }}
     error={null}
     onSync={() => undefined}
     onOpenPerson={() => undefined}
+    onOpenStage={() => undefined}
     now={NOW}
   />
 );
@@ -162,3 +219,128 @@ export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
 
 /** Nobody is waiting on them and they have opened nothing this period. */
 export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} authored={[]} />;
+
+const WAITING_NOW = [
+  {
+    number: 1796,
+    title: "Rebuild the gadget importer so a partial upload can be resumed from the last good row",
+    url: "https://github.com/acme/widgets/pull/1796",
+    author: "mona",
+    startedAt: "2026-09-02T09:00:00Z",
+    endedAt: null,
+    days: 23.4,
+  },
+  {
+    number: 1812,
+    title: "Keep the widget picker open while a gadget loads",
+    url: "https://github.com/acme/widgets/pull/1812",
+    author: "octocat",
+    startedAt: "2026-09-17T09:00:00Z",
+    endedAt: null,
+    days: 10.8,
+  },
+  {
+    number: 1829,
+    title: "Retry gadget sync once before reporting failure",
+    url: "https://github.com/acme/widgets/pull/1829",
+    author: "hubber",
+    startedAt: "2026-09-30T09:00:00Z",
+    endedAt: null,
+    days: 5.6,
+  },
+  {
+    number: 1835,
+    title: "Drop the unused widgets index",
+    url: "https://github.com/acme/widgets/pull/1835",
+    author: "monalisa",
+    startedAt: "2026-10-02T09:00:00Z",
+    endedAt: null,
+    days: 4.1,
+  },
+  {
+    number: 1841,
+    title: "Name both totals on a gadget card",
+    url: "https://github.com/acme/widgets/pull/1841",
+    author: "spacecat",
+    startedAt: "2026-10-05T09:00:00Z",
+    endedAt: null,
+    days: 2.9,
+  },
+];
+
+function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): StageDetailResult {
+  const buckets = bucketsFor("6w", NOW);
+  const counts = [34, 92, 51, 84, 97, 128];
+  const medians = [0.7, 0.9, 0.9, 0.3, 0.1, 0.4];
+  const p90s = [2.8, 4.4, 3.1, 1.8, 1.7, 2.3];
+  return {
+    repository: "acme/widgets",
+    buckets,
+    stage: {
+      ...STAGES[2],
+      weekly: medians,
+      spread: [
+        { label: "under 6h", count: 262 },
+        { label: "6h–1d", count: 168 },
+        { label: "1–2d", count: 46 },
+        { label: "2–3d", count: 28 },
+        { label: "3–5d", count: 41 },
+        { label: "over 5d", count: 6 },
+      ],
+      queue: [
+        { label: "under 1d", count: 5, late: false },
+        { label: "1–3d", count: 5, late: false },
+        { label: "3–7d", count: 2, late: true },
+        { label: "over 7d", count: 2, late: true },
+      ],
+      series: buckets.map((bucket, index) => ({
+        label: bucket.label,
+        count: counts[index],
+        median: medians[index],
+        p90: p90s[index],
+      })),
+      waitingNow: WAITING_NOW,
+      ...overrides,
+    },
+    waitingPaging: { page: 0, pages: 3, from: 1, to: 5, total: 14 },
+    sync: SYNCED,
+  };
+}
+
+function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
+  const [period, setPeriod] = useState<PeriodId>("6w");
+  return (
+    <StageView
+      period={period}
+      onPeriod={setPeriod}
+      data={data}
+      error={null}
+      onBack={() => undefined}
+      onWaitingPage={() => undefined}
+      periodLabel={PERIOD_LENGTHS[period]}
+      now={NOW}
+    />
+  );
+}
+
+/** One stage's page: how long it took, how long the queue has waited, what is in it, and each week. */
+export const StagePage = () => <Stage />;
+
+/** A stage with nothing waiting: the queue chart is empty and the list says so. */
+export const StagePageClear = () => (
+  <Stage
+    data={{
+      ...stageFixture({
+        waiting: 0,
+        queue: [
+          { label: "under 1d", count: 0, late: false },
+          { label: "1–3d", count: 0, late: false },
+          { label: "3–7d", count: 0, late: true },
+          { label: "over 7d", count: 0, late: true },
+        ],
+        waitingNow: [],
+      }),
+      waitingPaging: { page: 0, pages: 1, from: 0, to: 0, total: 0 },
+    }}
+  />
+);

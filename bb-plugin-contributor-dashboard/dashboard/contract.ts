@@ -39,6 +39,30 @@ export const authoredPullRequestSchema = z.object({
   waitingDays: z.number().nullable(),
 });
 
+export const stageKeySchema = z.enum(["implement", "prepare", "review", "decision"]);
+
+export const stageSummarySchema = z.object({
+  key: stageKeySchema,
+  label: z.string(),
+  measures: z.string(),
+  left: z.number(),
+  waiting: z.number(),
+  median: z.number(),
+  p75: z.number(),
+  p90: z.number(),
+  weekly: z.array(z.number()),
+});
+
+export const stageSpanSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  startedAt: z.string(),
+  endedAt: z.string().nullable(),
+  days: z.number(),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -58,6 +82,7 @@ export const rpcContract = defineRpcContract({
       /** The configured repository, or null when it has not been set. */
       repository: z.string().nullable(),
       buckets: z.array(bucketSchema),
+      stages: z.array(stageSummarySchema),
       people: z.array(personActivitySchema),
       sync: syncStatusSchema,
     }),
@@ -90,6 +115,35 @@ export const rpcContract = defineRpcContract({
       sync: syncStatusSchema,
     }),
   },
+  stage_detail: {
+    input: z.object({
+      stage: stageKeySchema,
+      period: periodSchema,
+      /** Which page of what is waiting; clamped into range by the server. */
+      waitingPage: z.number().int().min(0).max(10_000).default(0),
+    }),
+    output: z.object({
+      repository: z.string().nullable(),
+      buckets: z.array(bucketSchema),
+      stage: stageSummarySchema.extend({
+        spread: z.array(z.object({ label: z.string(), count: z.number() })),
+        queue: z.array(z.object({ label: z.string(), count: z.number(), late: z.boolean() })),
+        series: z.array(
+          z.object({ label: z.string(), count: z.number(), median: z.number(), p90: z.number() }),
+        ),
+        /** One page of what is in the stage now, longest wait first. */
+        waitingNow: z.array(stageSpanSchema),
+      }),
+      waitingPaging: z.object({
+        page: z.number(),
+        pages: z.number(),
+        from: z.number(),
+        to: z.number(),
+        total: z.number(),
+      }),
+      sync: syncStatusSchema,
+    }),
+  },
   sync_now: {
     input: z.null(),
     output: syncStatusSchema,
@@ -98,4 +152,8 @@ export const rpcContract = defineRpcContract({
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
+export type StageSummary = z.infer<typeof stageSummarySchema>;
+export type StageSpan = z.infer<typeof stageSpanSchema>;
+export type StageKey = z.infer<typeof stageKeySchema>;
+export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;

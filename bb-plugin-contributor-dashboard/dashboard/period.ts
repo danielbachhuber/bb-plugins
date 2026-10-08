@@ -12,6 +12,14 @@ export const PERIODS: ReadonlyArray<{ id: PeriodId; label: string }> = [
 
 export const DEFAULT_PERIOD: PeriodId = "6w";
 
+/** The period's length as a sentence reads it: "over six weeks". */
+export const PERIOD_LENGTHS: Record<PeriodId, string> = {
+  "6w": "six weeks",
+  "12w": "twelve weeks",
+  "6m": "six months",
+  "1y": "a year",
+};
+
 /** How far back the first sync reaches: the longest period and the one before it. */
 export const BACKFILL_MS = 2 * 366 * 24 * 3_600_000;
 

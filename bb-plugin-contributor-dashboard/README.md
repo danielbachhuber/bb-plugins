@@ -11,6 +11,48 @@ the period picker, which every section follows: 6 weeks (the default), 12
 weeks, 6 months, and 1 year. The weeks start on Monday; 6 months and a year are
 drawn by month.
 
+### Execute → Verify → Release
+
+The flow at the top is one row per stage a pull request passes through. The
+stages are named for the nodes in the delivery model they come from, and each
+says in a line what its clock measures:
+
+| Stage | From | To |
+| --- | --- | --- |
+| Implement change | opened as a draft | marked ready for review |
+| Prepare pull request | ready for review | a reviewer is asked |
+| Code review | a reviewer asked | they leave a review |
+| Merge decision | approved | merged |
+
+Together they divide one timeline, so a pull request is in at most one stage at
+a time. Each row shows how many pull requests are in the stage now, then the
+**median**, **p75** and **p90** of how long it took the ones that left it in
+the period: half pass the stage within the median, a quarter take longer than
+the p75, and a tenth longer than the p90. The bar runs to the median and the
+two ticks mark p75 and p90, all four rows on one scale. The small line on the
+right is the median week by week, green where it is falling and red where it is
+rising.
+
+Three numbers rather than one, because an average is the wrong summary here: on
+a real repository the mean time to a first review is three times the median,
+pulled up by a few reviews that waited days. The median alone has the opposite
+problem, since it is blind to exactly those.
+
+#### A stage's page
+
+Clicking a stage name opens its page, at
+`contributor-dashboard/stage/<stage>`. It leads with two charts: **how long it
+took**, every pull request that left the stage in the period counted into
+bands, and **how long the queue has waited**, the ones in the stage now, with
+the bands past three days in red. Under them is the list of what is in the
+stage, longest wait first, twenty-five to a page, each linking to GitHub. Under
+that, **each week**: bars for how many left the stage that week, with that
+week's median and p90 drawn over them, so a slow week can be read against a
+busy one.
+
+The queue is what is in the stage now, whatever the period, since a pull
+request waiting three months is waiting today.
+
 ### Review velocity
 
 **Reviews per person** is one small chart per person, in alphabetical order,
@@ -120,6 +162,7 @@ needs no new sync.
 | `mirror/sync.ts` | The sync: catching up to the last high-water mark, the resumable two-year backfill, and fetching past 100 reviews or events |
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
+| `review/stages.ts` | The pure stage model: each stage's spans, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per week or month |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
@@ -128,13 +171,15 @@ needs no new sync.
 | `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
+| `components/stage-flow.tsx` | The Execute → Verify → Release flow at the top of the page |
+| `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each week |
 | `components/review-velocity-section.tsx` | The Review velocity section |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its hover, and the legend |
 | `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, and a person's page busy, paged, and quiet |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
 
 ## Working on it
 

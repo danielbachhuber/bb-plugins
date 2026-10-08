@@ -4,14 +4,17 @@ import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPane
 
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
+import { StageView } from "@/components/stage-view";
 
 import type { rpcContract } from "./server";
 import {
   DASHBOARD_CHANNEL,
   type PeopleActivityResult,
   type PersonActivityResult,
+  type StageDetailResult,
+  type StageKey,
 } from "./dashboard/contract.js";
-import { DEFAULT_PERIOD, type PeriodId } from "./dashboard/period.js";
+import { DEFAULT_PERIOD, PERIOD_LENGTHS, type PeriodId } from "./dashboard/period.js";
 
 const PANEL_PATH = "contributor-dashboard";
 
@@ -19,10 +22,18 @@ function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-/** `person/<login>` is the only sub-path; anything else is the dashboard. */
+/** `person/<login>` and `stage/<key>` are the sub-paths; anything else is the dashboard. */
 function personFrom(subPath: string): string | null {
   const match = /^person\/([^/]+)\/?$/.exec(subPath);
   return match === null ? null : decodeURIComponent(match[1]);
+}
+
+const STAGE_KEYS: readonly StageKey[] = ["implement", "prepare", "review", "decision"];
+
+function stageFrom(subPath: string): StageKey | null {
+  const match = /^stage\/([^/]+)\/?$/.exec(subPath);
+  const key = match === null ? null : decodeURIComponent(match[1]);
+  return STAGE_KEYS.find((stage) => stage === key) ?? null;
 }
 
 /**
@@ -55,17 +66,24 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const navigate = useBbNavigate();
   const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
   const [authoredPage, setAuthoredPage] = useState(0);
+  const [waitingPage, setWaitingPage] = useState(0);
   // A shorter period has fewer pages; the server clamps, and this follows it
   // back to the first page rather than leaving a stale number in hand.
   const choosePeriod = useCallback((next: PeriodId) => {
     setAuthoredPage(0);
+    setWaitingPage(0);
     setPeriod(next);
   }, []);
   const login = personFrom(subPath);
+  const stage = stageFrom(subPath);
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
-    () => (login === null ? rpc.call("people_activity", { period }) : Promise.resolve(null)),
-    [rpc, period, login],
+    () => (login === null && stage === null ? rpc.call("people_activity", { period }) : Promise.resolve(null)),
+    [rpc, period, login, stage],
+  );
+  const stageDetail = useDashboardData<StageDetailResult | null>(
+    () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, period, waitingPage })),
+    [rpc, period, stage, waitingPage],
   );
   const person = useDashboardData<PersonActivityResult | null>(
     () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, period, authoredPage })),
@@ -79,11 +97,31 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     },
     [navigate],
   );
+  const openStage = useCallback(
+    (which: StageKey) => {
+      setWaitingPage(0);
+      navigate.toPluginPanel(PANEL_PATH, { subPath: `stage/${which}` });
+    },
+    [navigate],
+  );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
   const sync = useCallback(() => {
     rpc.call("sync_now", null).then(dashboard.reload, () => undefined);
   }, [rpc, dashboard.reload]);
 
+  if (stage !== null) {
+    return (
+      <StageView
+        period={period}
+        onPeriod={choosePeriod}
+        data={stageDetail.data}
+        error={stageDetail.error}
+        onBack={back}
+        onWaitingPage={setWaitingPage}
+        periodLabel={PERIOD_LENGTHS[period]}
+      />
+    );
+  }
   if (login !== null) {
     return (
       <PersonView
@@ -105,6 +143,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       error={dashboard.error}
       onSync={sync}
       onOpenPerson={openPerson}
+      onOpenStage={openStage}
     />
   );
 }

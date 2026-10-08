@@ -1,9 +1,10 @@
 // The Contributor Dashboard page: the repository, period picker, and sync line
 // every section shares, then each section. Display only; app.tsx loads the data.
-import type { PeopleActivityResult, SyncStatus } from "@/dashboard/contract";
-import { PERIODS, type PeriodId } from "@/dashboard/period";
+import type { PeopleActivityResult, StageKey, SyncStatus } from "@/dashboard/contract";
+import { PERIODS, PERIOD_LENGTHS, type PeriodId } from "@/dashboard/period";
 
 import { ReviewVelocitySection } from "./review-velocity-section";
+import { StageFlowSection } from "./stage-flow";
 import { Segmented } from "./segmented";
 
 function ago(at: number, now: number): string {
@@ -33,6 +34,7 @@ export function DashboardView({
   error,
   onSync,
   onOpenPerson,
+  onOpenStage,
   now = Date.now(),
   initialHovered,
 }: {
@@ -43,6 +45,7 @@ export function DashboardView({
   error: string | null;
   onSync: () => void;
   onOpenPerson: (login: string) => void;
+  onOpenStage: (stage: StageKey) => void;
   now?: number;
   /** A bucket to show hovered on the first person's chart, for stories. */
   initialHovered?: number;
@@ -87,6 +90,10 @@ export function DashboardView({
           <p role="alert" className="mt-3 text-sm text-destructive">
             {message}
           </p>
+        )}
+
+        {data === null || data.repository === null ? null : (
+          <StageFlowSection stages={data.stages} periodLabel={PERIOD_LENGTHS[period]} onOpenStage={onOpenStage} />
         )}
 
         {data === null || data.repository === null ? null : (

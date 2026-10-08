@@ -6,6 +6,7 @@ import { createGhRunner, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/
 import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
 import { ghGraphql } from "./mirror/gh.js";
 import { peopleActivity } from "./review/people.js";
+import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
@@ -93,13 +94,22 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     people_activity: ({ period }) => {
       if (!configured) {
-        return { repository: null, buckets: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
-      const buckets = bucketsFor(period, Date.now());
-      const prs = store.readActivity(repository, buckets[0].start);
-      return { repository, buckets, people: peopleActivity(prs, buckets), sync: status() };
+      const now = Date.now();
+      const buckets = bucketsFor(period, now);
+      // A stage's queue is what is in it now, whatever the period, so the
+      // stages read every stored pull request rather than only the period's.
+      const prs = store.readActivity(repository, 0);
+      return {
+        repository,
+        buckets,
+        stages: stageSummaries(prs, buckets, now),
+        people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
+        sync: status(),
+      };
     },
     person_activity: ({ login, period, authoredPage }) => {
       const noPaging = { page: 0, pages: 1, from: 0, to: 0, total: 0 };
@@ -132,6 +142,29 @@ export default async function plugin(bb: BbPluginApi) {
         awaiting: awaitingReview(store.readActivity(repository, 0), login, now),
         authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
+        sync: status(),
+      };
+    },
+    stage_detail: ({ stage, period, waitingPage }) => {
+      const now = Date.now();
+      const buckets = configured ? bucketsFor(period, now) : [];
+      const detail = stageDetail(stage, configured ? store.readActivity(repository, 0) : [], buckets, now);
+      const paging = pageOf(detail.waitingNow.length, waitingPage);
+      if (configured) {
+        const { syncedAt } = store.syncState(repository);
+        if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
+      }
+      return {
+        repository: configured ? repository : null,
+        buckets,
+        stage: { ...detail, waitingNow: detail.waitingNow.slice(paging.offset, paging.offset + PAGE_SIZE) },
+        waitingPaging: {
+          page: paging.page,
+          pages: paging.pages,
+          from: paging.from,
+          to: paging.to,
+          total: detail.waitingNow.length,
+        },
         sync: status(),
       };
     },
