@@ -12,7 +12,7 @@ what not to do with it.
 | Entry | Import | What it is |
 | --- | --- | --- |
 | [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
-| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in an amber one, then the total; or rows past a warning in amber and past an error in red |
+| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
@@ -104,8 +104,10 @@ total of zero. Each number has a tooltip naming what it counts, such as
 "2 need you" and "5 to review".
 
 A page that also knows what needs you soon passes `soon` and `soonLabel`,
-and that count goes in an amber circle between the red one and the total.
-Count a row in one circle only. Now passes the tasks due today.
+and that count goes in an amber circle before the total. When both counts
+are above zero, the red and amber join into one pill, red then amber, so
+they read as one group. Count a row in one of them only. Now passes the
+tasks due today.
 
 **Lining up.** bb centers a lone count in a box at least 20px wide, so the
 total keeps that box. A row with a circle and a row without one then have

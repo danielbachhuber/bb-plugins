@@ -7,10 +7,10 @@ Gmail inbox.
 ## What it adds
 
 A **Now** page in the left sidebar, whose entry shows three counts: the
-Urgent run described below in a red circle, the Today run (tasks due today
-whose time has not passed) in an amber one, and then how many rows are in the
-Now section, the same number as its tab, which includes the other two. Each
-circle is left out at zero. It loads every
+Urgent run described below in red, the Today run (tasks due today whose
+time has not passed) in amber, joined into one pill when both are above zero,
+and then how many rows are in the Now section, the same number as its tab,
+which includes the other two. Each is left out at zero. It loads every
 configured source at once and merges their items into one list. The header
 has the sections on the left (**Now**, **Anytime**) and the sources
 on the right (**Gmail**, **Todoist**; hover one for its query), each with its

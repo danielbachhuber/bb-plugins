@@ -21,12 +21,25 @@ describe("SidebarCount", () => {
     expect(container.textContent).toBe("3");
   });
 
-  it("puts the rows due soon in an amber circle between the red one and the total", () => {
+  it("joins urgent and soon into one pill, red then amber, before the total", () => {
     const { container } = render(
       <SidebarCount urgent={2} soon={3} total={9} urgentLabel="2 need you" soonLabel="3 due today" totalLabel="9" />,
     );
-    expect(screen.getByTitle("3 due today")).toHaveClass("bg-amber-500");
+    const red = screen.getByTitle("2 need you");
+    const amber = screen.getByTitle("3 due today");
+    expect(red).toHaveClass("bg-red-600");
+    expect(amber).toHaveClass("bg-amber-500");
+    expect(red.parentElement).toBe(amber.parentElement);
+    expect(red.parentElement).toHaveClass("rounded-full");
     expect(container.textContent).toBe("239");
+  });
+
+  it("draws the rows due soon alone in an amber circle when nothing is urgent", () => {
+    const { container } = render(
+      <SidebarCount urgent={0} soon={3} total={9} urgentLabel="none" soonLabel="3 due today" totalLabel="9" />,
+    );
+    expect(screen.getByTitle("3 due today")).toHaveClass("bg-amber-500", "rounded-full");
+    expect(container.textContent).toBe("39");
   });
 
   it("draws nothing at a total of zero", () => {

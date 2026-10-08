@@ -25,7 +25,7 @@ function Row({ name, urgent, soon = 0, total }: { name: string; urgent: number; 
   );
 }
 
-/** The counts beside a page's name in the sidebar: the rows that need you most in a red circle, those due today in an amber one when the page counts them, then every row. */
+/** The counts beside a page's name in the sidebar: the rows that need you most in a red circle, those due today in an amber one when the page counts them, joined into one pill when both show, then every row. */
 export const States = () => (
   <StoryCard>
     <StoryRow label="Both" hint="Forty rows, four of them urgent.">
@@ -34,8 +34,11 @@ export const States = () => (
     <StoryRow label="Due today" hint="Four urgent, three due today, forty in all.">
       <Row name="Now" urgent={4} soon={3} total={40} />
     </StoryRow>
-    <StoryRow label="Due today, large" hint="Two-digit counts in both circles and the total still fit.">
+    <StoryRow label="Due today, large" hint="Two-digit counts in both halves of the pill and the total still fit.">
       <Row name="Now" urgent={12} soon={15} total={88} />
+    </StoryRow>
+    <StoryRow label="Due today, nothing urgent" hint="The amber circle stands alone.">
+      <Row name="Now" urgent={0} soon={4} total={28} />
     </StoryRow>
     <StoryRow label="Nothing urgent" hint="Only the total shows.">
       <Row name="Issues" urgent={0} total={12} />
