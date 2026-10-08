@@ -7,6 +7,12 @@
 //   npm run screenshots:commit   commit the capture there and push it
 //   npm run screenshots:isolated build and capture in directories of its own
 //
+// A capture photographs only the stories that import a file changed since the
+// bb-plugins commit the screenshots checkout last captured, uncommitted
+// changes included, and keeps the images of the rest as they are. It
+// photographs every story when the capture's own setup changed, when that
+// commit cannot be found, or when run with `-- --all`.
+//
 // Add `-- --explore` to either capture command to include the stories in
 // explore/ directories, which are left out otherwise.
 //
@@ -49,6 +55,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commitMode = process.argv.includes("--commit");
 const isolated = process.argv.includes("--isolated");
 const includeExplore = process.argv.includes("--explore");
+const captureAll = process.argv.includes("--all");
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -149,10 +156,42 @@ const sha = git(repoRoot, "rev-parse", "HEAD");
 const subject = git(repoRoot, "log", "-1", "--format=%s");
 const dirty = git(repoRoot, "status", "--porcelain") !== "";
 
+/** The bb-plugins commit the latest capture in the screenshots checkout was taken from, if it is in this history. */
+function lastCapturedSha() {
+  const sha = git(outDir, "log", "-20", "--format=%B").match(/danielbachhuber\/bb-plugins@([0-9a-f]{40})/)?.[1];
+  if (!sha) return null;
+  const isAncestor = spawnSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], { cwd: repoRoot });
+  return isAncestor.status === 0 ? sha : null;
+}
+
+// A change to any of these can alter every story's picture.
+const CAPTURE_SETUP = /^(\.ladle\/|scripts\/(screenshots|ladle)\.mjs$|package(-lock)?\.json$|\.nvmrc$)/;
+
+const baseSha = captureAll ? null : lastCapturedSha();
+const changedFiles = baseSha
+  ? [
+      ...new Set([
+        ...git(repoRoot, "diff", "--name-only", baseSha).split("\n"),
+        ...git(repoRoot, "ls-files", "--others", "--exclude-standard").split("\n"),
+      ]),
+    ].filter(Boolean)
+  : [];
+const captureEverything = captureAll
+  ? "asked for with --all"
+  : !baseSha
+    ? "the commit the last capture was taken from is not in this history"
+    : changedFiles.some((file) => CAPTURE_SETUP.test(file))
+      ? "the capture's own setup changed"
+      : null;
+
 const buildDir = isolated ? mkdtempSync(join(tmpdir(), "bb-plugins-build-")) : join(repoRoot, "build");
 if (isolated) process.on("exit", () => rmSync(buildDir, { recursive: true, force: true }));
+// Outside the build directory, which the build empties after writing this.
+const graphPath = join(mkdtempSync(join(tmpdir(), "bb-plugins-graph-")), "importers.json");
+process.on("exit", () => rmSync(dirname(graphPath), { recursive: true, force: true }));
 const build = spawnSync("node", [join(repoRoot, "scripts/ladle.mjs"), "build", "--outDir", buildDir], {
   cwd: repoRoot,
+  env: { ...process.env, BB_PLUGINS_MODULE_GRAPH: graphPath },
   encoding: "utf8",
   // Rollup's warnings run to megabytes, past spawnSync's 1 MB default.
   maxBuffer: 256 * 1024 * 1024,
@@ -169,9 +208,64 @@ const storyMeta = JSON.parse(readFileSync(join(buildDir, "meta.json"), "utf8")).
 // Stories in an explore/ directory are design options that git ignores, so
 // their images would only be thrown away before committing. They are captured
 // only when asked for with --explore.
-const stories = Object.keys(storyMeta).filter(
-  (id) => includeExplore || !storyMeta[id].filePath.includes("/explore/"),
-);
+const isExplore = (id) => storyMeta[id].filePath.includes("/explore/");
+const stories = Object.keys(storyMeta).filter((id) => includeExplore || !isExplore(id));
+
+/** The directory of this checkout a story's file is in, and the file's absolute path. */
+function storySource(id) {
+  const filePath = storyMeta[id].filePath;
+  const sourceDir = filePath.match(/(bb-plugin-[^/]+|gh-shared|sweep-ui|component-library)\//)?.[1];
+  if (!sourceDir) throw new Error(`Cannot tell which plugin ${filePath} belongs to.`);
+  return { sourceDir, file: join(repoRoot, sourceDir, filePath.split(`${sourceDir}/`)[1]) };
+}
+
+/** Every module that imports one of `changed`, directly or through others, by absolute path. */
+function modulesImporting(changed) {
+  const importers = JSON.parse(readFileSync(graphPath, "utf8"));
+  // A shared package is installed as a copy in each plugin's node_modules, so
+  // a module in that copy stands for the same file in the package's directory.
+  const localPackages = new Map();
+  for (const entry of readdirSync(repoRoot, { withFileTypes: true })) {
+    const pkg = join(repoRoot, entry.name, "package.json");
+    if (entry.isDirectory() && existsSync(pkg)) localPackages.set(JSON.parse(readFileSync(pkg, "utf8")).name, entry.name);
+  }
+  // A changed package.json or lockfile can change anything installed beside it.
+  const installs = changed
+    .filter((file) => /(^|\/)package(-lock)?\.json$/.test(file))
+    .map((file) => `${dirname(file)}/node_modules/`);
+  const changedSet = new Set(changed);
+  const isChanged = (id) => {
+    if (id.startsWith("\0")) return false;
+    const path = relative(repoRoot, id.split("?")[0]);
+    if (path.startsWith("..")) return false;
+    const copy = path.match(/^[^/]+\/node_modules\/((?:@[^/]+\/)?[^/]+)\/(.*)$/);
+    const source = copy && localPackages.has(copy[1]) ? `${localPackages.get(copy[1])}/${copy[2]}` : null;
+    return [path, source].some((candidate) => candidate && (changedSet.has(candidate) || installs.some((dir) => candidate.startsWith(dir))));
+  };
+  const queue = Object.keys(importers).filter(isChanged);
+  const reached = new Set(queue);
+  while (queue.length) {
+    for (const importer of importers[queue.pop()] ?? []) {
+      if (!reached.has(importer)) {
+        reached.add(importer);
+        queue.push(importer);
+      }
+    }
+  }
+  return new Set([...reached].map((id) => id.split("?")[0]));
+}
+
+let toCapture = stories;
+if (captureEverything || !existsSync(graphPath)) {
+  console.log(`Capturing all ${stories.length} stories: ${captureEverything ?? "the build wrote no module graph"}.`);
+} else {
+  const affected = modulesImporting(changedFiles);
+  // Explore stories are never committed, so with --explore they are all captured.
+  toCapture = stories.filter((id) => (includeExplore && isExplore(id)) || affected.has(storySource(id).file));
+  console.log(
+    `Capturing ${toCapture.length} of ${stories.length} stories, the ones that import a file changed since ${baseSha.slice(0, 7)}.`,
+  );
+}
 
 const TYPES = {
   ".html": "text/html",
@@ -217,14 +311,14 @@ const contextOptions = {
 // then for half a second more, so several are captured at once. Each worker has
 // a browser context of its own and takes the next story when it finishes one.
 const concurrency = Number(process.env.SCREENSHOTS_CONCURRENCY) || Math.max(1, Math.min(10, availableParallelism() - 2));
-const results = new Array(stories.length);
+const results = new Array(toCapture.length);
 let next = 0;
 
 async function captureStories() {
   const context = await browser.newContext(contextOptions);
-  while (next < stories.length) {
+  while (next < toCapture.length) {
     const index = next++;
-    const id = stories[index];
+    const id = toCapture[index];
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(String(error)));
@@ -254,9 +348,8 @@ async function captureStories() {
   await context.close();
 }
 
-await Promise.all(Array.from({ length: Math.min(concurrency, stories.length) }, captureStories));
+await Promise.all(Array.from({ length: Math.min(concurrency, toCapture.length) }, captureStories));
 const failures = results.filter((result) => result.error).map((result) => result.error);
-const written = new Set(results.filter((result) => result.file).map((result) => result.file));
 await browser.close();
 server.close();
 
@@ -266,12 +359,14 @@ if (failures.length) {
   process.exit(1);
 }
 
-// A story that was removed or renamed takes its old image with it.
+// A story that was removed or renamed takes its old image with it. The images
+// of stories this run did not capture stay as they were.
+const storyImages = new Set(stories.map(outputPath));
 for (const entry of readdirSync(outDir, { withFileTypes: true })) {
   if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
   for (const name of readdirSync(join(outDir, entry.name))) {
     const file = join(outDir, entry.name, name);
-    if (name.endsWith(".png") && !written.has(file)) rmSync(file);
+    if (name.endsWith(".png") && !storyImages.has(file)) rmSync(file);
   }
 }
 
@@ -304,9 +399,7 @@ const plugins = new Map();
 for (const id of stories) {
   const story = storyMeta[id];
   const dir = id.split("--")[0];
-  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+|gh-shared|sweep-ui|component-library)\//)?.[1];
-  if (!sourceDir) throw new Error(`Cannot tell which plugin ${story.filePath} belongs to.`);
-  const file = join(repoRoot, sourceDir, story.filePath.split(`${sourceDir}/`)[1]);
+  const { sourceDir, file } = storySource(id);
   if (!plugins.has(dir)) {
     const pkg = JSON.parse(readFileSync(join(repoRoot, sourceDir, "package.json"), "utf8"));
     const bb = pkg.bb ?? {};

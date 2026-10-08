@@ -1,7 +1,7 @@
 // bb's Ladle Vite config, plus what it takes to render this checkout's files.
 // scripts/ladle.mjs sets BB_SOURCE_DIR and BB_PLUGINS_DIR and links
 // ./bb-source to the bb checkout before Ladle loads this.
-import { existsSync, lstatSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin, UserConfig } from "vite";
 import bbConfig from "./bb-source/apps/app/.ladle/vite.config";
@@ -82,13 +82,35 @@ function newStoryFiles(): Plugin {
   };
 }
 
+/**
+ * When BB_PLUGINS_MODULE_GRAPH names a file, a build writes each module's
+ * importers there, so `npm run screenshots` can tell which stories import a
+ * changed file and capture only those.
+ */
+function moduleGraph(): Plugin {
+  return {
+    name: "bb-plugins:module-graph",
+    apply: "build",
+    buildEnd() {
+      const target = process.env.BB_PLUGINS_MODULE_GRAPH;
+      if (!target) return;
+      const importers: Record<string, string[]> = {};
+      for (const id of this.getModuleIds()) {
+        const info = this.getModuleInfo(id);
+        if (info) importers[id] = [...info.importers, ...info.dynamicImporters];
+      }
+      writeFileSync(target, JSON.stringify(importers));
+    },
+  };
+}
+
 // Through the bb-source link rather than the real path, so a story's own
 // `@bb-app/...` import does not look like a plugin's `@/` to the plugin above.
 const bbAppViaLink = path.join(pluginsDir, ".ladle/bb-source/apps/app");
 
 const config: UserConfig = {
   ...bbConfig,
-  plugins: [pluginAtImports(), newStoryFiles(), ...(bbConfig.plugins ?? [])],
+  plugins: [pluginAtImports(), newStoryFiles(), moduleGraph(), ...(bbConfig.plugins ?? [])],
   // Kept apart from bb's own Ladle cache so the two can run side by side.
   cacheDir: "node_modules/.vite/bb-plugins-ladle",
   resolve: {

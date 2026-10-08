@@ -65,9 +65,10 @@ with `git add bb-plugin-now` instead of by file.
   whole directory.
 - Read `git diff --cached --stat` before committing, and unstage anything
   you do not recognise.
-- The same goes for screenshots. A capture photographs every story in this
-  checkout, including another thread's uncommitted ones (though not the
-  `explore/` ones, which it leaves out unless run with `-- --explore`). Before
+- The same goes for screenshots. A capture photographs every story affected
+  by changes in this checkout since the last capture, including another
+  thread's commits and uncommitted changes (though not the `explore/` stories,
+  which it leaves out unless run with `-- --explore`). Before
   `screenshots:commit`, restore the images and READMEs that your commit did
   not change, with `git -C <screenshots dir> checkout -- <path>` and
   `git clean` for new files.
@@ -94,8 +95,17 @@ made from `origin/main`. Committing from that worktree rebases onto
 or fails, removes it too.
 
 Run it after every commit, not only visual ones: a change to a shared
-component alters stories that its commit never touched. When nothing looks
-different, the capture says so and there is nothing to commit.
+component alters stories that its commit never touched. The capture finds
+those itself. It photographs only the stories that import a file changed
+since the bb-plugins commit the screenshots repository last captured,
+following imports through shared packages and their copies in each plugin's
+`node_modules`, and leaves the other images as they are. A change to the
+capture's own setup (`.ladle/`, `scripts/ladle.mjs`, `scripts/screenshots.mjs`,
+the root `package.json` or lockfile, `.nvmrc`) photographs every story, and so
+does `npm run screenshots:isolated -- --all`. Use `--all` after updating the
+bb checkout, whose components every story renders and whose changes the
+capture cannot see. When nothing looks different, the capture says so and
+there is nothing to commit.
 
 The capture does not commit, because that repository is public too, and an
 image can carry what a text scan of the diff misses. Read every image it

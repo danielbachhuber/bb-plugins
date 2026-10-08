@@ -133,7 +133,7 @@ if it is somewhere else. They run the Ladle, Vite, and Tailwind bb already has
 installed, and a checkout whose `node_modules` is older than its source fails
 on whichever package it is missing. Run `pnpm install` in bb when that happens.
 
-`npm run screenshots` captures every story outside an `explore/` directory in
+`npm run screenshots` captures the stories outside an `explore/` directory in
 the light theme and commits the
 images to a separate checkout of `bb-plugins-screenshots`, so there is a
 visual history of each plugin without images in this repository's history.
@@ -147,6 +147,9 @@ capturing at the same time do not collide, and prints the commit command for
 that worktree. Both capture up to ten stories at once, leaving two CPU cores
 free; set `SCREENSHOTS_CONCURRENCY` to change the number. Add `-- --explore`
 to include the `explore/` stories, for when you want pictures of design
-options; those images are not meant to be committed. It
+options; those images are not meant to be committed. A run captures only the
+stories that import a file changed since the bb-plugins commit that checkout
+last captured, and keeps the other images as they are; add `-- --all` to
+capture every story. It
 needs `npm install` at the root, for Playwright, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.
