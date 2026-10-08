@@ -7,15 +7,17 @@ export default {
 };
 
 // A sidebar row with bb's own spacing, so the counts sit where bb puts them.
-function Row({ name, urgent, total }: { name: string; urgent: number; total: number }) {
+function Row({ name, urgent, soon = 0, total }: { name: string; urgent: number; soon?: number; total: number }) {
   return (
     <div className="flex h-8 w-60 items-center justify-between rounded-md bg-sidebar px-2 text-sm text-sidebar-foreground">
       <span>{name}</span>
       <span className="flex h-5 w-16 items-center justify-end overflow-hidden">
         <SidebarCount
           urgent={urgent}
+          soon={soon}
           total={total}
           urgentLabel={`${urgent} need you`}
+          soonLabel={`${soon} due today`}
           totalLabel={`${total} in the list`}
         />
       </span>
@@ -23,11 +25,17 @@ function Row({ name, urgent, total }: { name: string; urgent: number; total: num
   );
 }
 
-/** The counts beside a page's name in the sidebar: the rows that need you most in a red circle, then every row. */
+/** The counts beside a page's name in the sidebar: the rows that need you most in a red circle, those due today in an amber one when the page counts them, then every row. */
 export const States = () => (
   <StoryCard>
     <StoryRow label="Both" hint="Forty rows, four of them urgent.">
       <Row name="Now" urgent={4} total={40} />
+    </StoryRow>
+    <StoryRow label="Due today" hint="Four urgent, three due today, forty in all.">
+      <Row name="Now" urgent={4} soon={3} total={40} />
+    </StoryRow>
+    <StoryRow label="Due today, large" hint="Two-digit counts in both circles and the total still fit.">
+      <Row name="Now" urgent={12} soon={15} total={88} />
     </StoryRow>
     <StoryRow label="Nothing urgent" hint="Only the total shows.">
       <Row name="Issues" urgent={0} total={12} />

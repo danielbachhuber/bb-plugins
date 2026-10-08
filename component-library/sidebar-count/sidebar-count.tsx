@@ -12,8 +12,9 @@ function Circle({ count, label, className }: { count: number; label: string; cla
 
 /**
  * The counts beside a page's name in bb's sidebar: the rows that need you
- * most in a red circle, then the total. The circle is left out at zero, and
- * both are at a total of zero.
+ * most in a red circle, then, when given, the rows that need you soon in an
+ * amber one, then the total. Each circle is left out at zero, and everything
+ * is at a total of zero.
  *
  * bb centers a lone count in a box at least 20px wide, so the total keeps
  * that box and lines up with the counts on other rows when the circle is
@@ -24,18 +25,25 @@ export function SidebarCount({
   total,
   urgentLabel,
   totalLabel,
+  soon = 0,
+  soonLabel = "",
 }: {
   urgent: number;
   total: number;
-  /** The circle's tooltip, such as "2 need you". */
+  /** The red circle's tooltip, such as "2 need you". */
   urgentLabel: string;
   /** The total's tooltip, such as "5 to review". */
   totalLabel: string;
+  /** Rows that need you soon, such as those due today, counted apart from `urgent`. */
+  soon?: number;
+  /** The amber circle's tooltip, such as "3 due today". */
+  soonLabel?: string;
 }) {
   if (total === 0) return null;
   return (
     <span className="flex items-center justify-end gap-0.5 text-xs tabular-nums">
       {urgent === 0 ? null : <Circle count={urgent} label={urgentLabel} className={RED} />}
+      {soon === 0 ? null : <Circle count={soon} label={soonLabel} className={AMBER} />}
       <span title={totalLabel} className="inline-block min-w-5 text-center text-muted-foreground">
         {total}
       </span>

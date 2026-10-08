@@ -21,6 +21,14 @@ describe("SidebarCount", () => {
     expect(container.textContent).toBe("3");
   });
 
+  it("puts the rows due soon in an amber circle between the red one and the total", () => {
+    const { container } = render(
+      <SidebarCount urgent={2} soon={3} total={9} urgentLabel="2 need you" soonLabel="3 due today" totalLabel="9" />,
+    );
+    expect(screen.getByTitle("3 due today")).toHaveClass("bg-amber-500");
+    expect(container.textContent).toBe("239");
+  });
+
   it("draws nothing at a total of zero", () => {
     const { container } = render(<SidebarCount urgent={0} total={0} urgentLabel="" totalLabel="" />);
     expect(container.textContent).toBe("");
