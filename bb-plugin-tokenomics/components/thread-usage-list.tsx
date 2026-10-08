@@ -7,6 +7,9 @@ import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
 
+import { formatSpan } from "./thread-token-count";
+import { TurnDots, TurnDotsAxis, turnStats } from "./turn-dots";
+
 export type Lifecycle = "active" | "recent" | "older";
 
 export const LIFECYCLES: ReadonlyArray<{ id: Lifecycle; label: string }> = [
@@ -131,11 +134,23 @@ export function ThreadUsageList({
   }
 
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="hidden items-end gap-3 border-b border-border px-4 py-1.5 text-[11px] text-muted-foreground sm:flex">
+        <span className="flex-1" />
+        <span className="w-[120px] shrink-0">Tokens over time</span>
+        <span className="w-16 shrink-0 text-right">Tokens</span>
+        <span className="hidden shrink-0 lg:block" title="One dot per turn, on a log scale; the bar marks the median">
+          <TurnDotsAxis />
+        </span>
+        <span className="hidden w-20 shrink-0 text-right lg:block">Time</span>
+      </div>
+    <ul className="divide-y divide-border">
       {threads.map((thread) => {
         const total = totalOf(thread);
         const archived = thread.archivedAt !== null;
         const level = threadContextLevel(thread, contextThresholds);
+        const durations = thread.turnTimes ?? [];
+        const stats = turnStats(durations);
         const meta = [
           thread.projectName,
           providerName(thread.providerId),
@@ -157,7 +172,7 @@ export function ThreadUsageList({
               type="button"
               onClick={() => onOpen(thread.threadId)}
               className={cn(
-                "flex w-full items-center gap-4 py-2.5 pr-4 text-left text-sm hover:bg-muted/50",
+                "flex w-full items-center gap-3 py-2.5 pr-4 text-left text-sm hover:bg-muted/50",
                 level === null ? "pl-4" : "pl-[14px]",
               )}
             >
@@ -202,10 +217,31 @@ export function ThreadUsageList({
               >
                 {formatTokens(total)}
               </span>
+              <span className={cn("hidden lg:block", archived && "opacity-50")}>
+                <TurnDots durations={durations} />
+              </span>
+              <span
+                className={cn("hidden w-20 shrink-0 text-right tabular-nums lg:block", archived && "text-muted-foreground")}
+                title={
+                  stats === null
+                    ? "No turn times recorded"
+                    : `${durations.length} turns took ${formatSpan(stats.total)}; the longest ${formatSpan(stats.longest)}`
+                }
+              >
+                {stats === null ? (
+                  "–"
+                ) : (
+                  <>
+                    <span className="block">{formatSpan(stats.total)}</span>
+                    <span className="block text-xs text-muted-foreground">median {formatSpan(stats.median)}</span>
+                  </>
+                )}
+              </span>
             </button>
           </li>
         );
       })}
     </ul>
+    </div>
   );
 }

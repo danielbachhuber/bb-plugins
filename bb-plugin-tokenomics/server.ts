@@ -203,6 +203,7 @@ export default async function plugin(bb: BbPluginApi) {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
       const [names, thresholds] = await Promise.all([projectNames(), contextThresholds()]);
       const contexts = store.latestContexts();
+      const turnTimes = store.turnTimesSince(floor);
       const hoursByThread = new Map<string, Array<{ hour: number; total: number }>>();
       for (const { threadId, hour, total } of store.threadHoursSince(floor)) {
         const hours = hoursByThread.get(threadId) ?? [];
@@ -215,6 +216,7 @@ export default async function plugin(bb: BbPluginApi) {
           ...thread,
           projectName: names.get(thread.projectId) ?? null,
           context: contexts.get(thread.threadId) ?? null,
+          turnTimes: turnTimes.get(thread.threadId) ?? [],
           hours: hoursByThread.get(thread.threadId) ?? [],
         })),
         recordingSince,

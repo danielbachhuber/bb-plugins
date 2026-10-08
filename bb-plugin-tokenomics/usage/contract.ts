@@ -30,6 +30,8 @@ export const threadUsageSchema = z.object({
   turns: z.number(),
   /** Its latest recorded context size, or null before any. */
   context: z.number().nullable(),
+  /** How long each of its finished turns that started in the window took, in milliseconds, oldest first. */
+  turnTimes: z.array(z.number()).optional(),
   /** Its tokens per hour in the window, for its sparkline. */
   hours: z.array(z.object({ hour: z.number(), total: z.number() })),
   ...tokens,

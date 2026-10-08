@@ -72,6 +72,10 @@ function thread(
     archivedAt: archivedHoursAgo === null ? null : hourAgo(archivedHoursAgo),
     turns,
     context,
+    // Turn lengths spread from seconds to half an hour, the way real turns do.
+    turnTimes: Array.from({ length: Math.min(turns, 40) }, (_, index) =>
+      Math.round(12_000 * 150 ** (((index * 7919 + threadId.length * 31) % 97) / 97)),
+    ),
     hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
     input,
     cacheRead,

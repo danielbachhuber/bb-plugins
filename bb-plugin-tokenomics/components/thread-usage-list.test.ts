@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ThreadUsage } from "@/usage/contract";
 
 import { threadBars, threadContextLevel, threadsIn } from "./thread-usage-list";
+import { logPosition, turnStats } from "./turn-dots";
 
 const HOUR = 3_600_000;
 
@@ -65,5 +66,21 @@ describe("threadContextLevel", () => {
   it("skips a level whose setting is off", () => {
     expect(threadContextLevel(thread("thr_big", null, [], 510_000), { warning: null, error: 550_000 })).toBeNull();
     expect(threadContextLevel(thread("thr_huge", null, [], 629_000), { warning: 300_000, error: null })).toBe("warning");
+  });
+});
+
+describe("turn dots", () => {
+  it("puts ten seconds at the left, an hour at the right, and clamps past either", () => {
+    expect(logPosition(10_000, 240)).toBe(0);
+    expect(logPosition(3_600_000, 240)).toBeCloseTo(240);
+    expect(logPosition(2_000, 240)).toBe(0);
+    expect(logPosition(11 * 3_600_000, 240)).toBeCloseTo(240);
+    // A minute is well left of the middle on a log scale from 10s to 1h.
+    expect(logPosition(60_000, 240)).toBeCloseTo(73, 0);
+  });
+
+  it("summarizes a thread's turns with the median, the longest, and the total", () => {
+    expect(turnStats([60_000, 30_000, 2_340_000, 240_000])).toEqual({ median: 150_000, longest: 2_340_000, total: 2_670_000 });
+    expect(turnStats([])).toBeNull();
   });
 });
