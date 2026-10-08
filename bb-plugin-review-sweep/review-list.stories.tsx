@@ -4,8 +4,10 @@ import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
 import { SyncStatus } from "./components/ui/sync-status";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { BatchPicker } from "./review/batch-dialog";
 import {
   ReviewListView,
+  canBatch,
   type HarvestPanelState,
   type Listing,
   type Row,
@@ -231,6 +233,7 @@ function Frame({
             onNoteSave={async () => true}
             onOpenLink={noop}
             avatarFor={avatarFor}
+            onBatch={noop}
           />
         </div>
       </div>
@@ -370,6 +373,41 @@ export function LongList() {
     <StoryCard>
       <StoryRow label="Long list" hint="Eight draft requests, three of them folded.">
         <Frame listing={long} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/** The requests Batch can start: those with no thread, and a project here. */
+const batchRows = everything.rows.filter(canBatch);
+
+/** Batch's dialog, drawn as its body so the story needs no overlay. */
+function BatchFrame({ picked }: { picked: string[] }): ReactNode {
+  return (
+    <div className="max-w-full rounded-xl border border-border bg-background p-5 shadow-lg" style={{ width: "56rem" }}>
+      <h2 className="text-base font-semibold">Start reviews</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">
+        Tick the requests to review. Each starts in a new worktree, with the pull request named before its prompt and
+        the rule against posting to GitHub after it.
+      </p>
+      <BatchPicker rows={batchRows} now={now} initialPicked={picked} onStart={async () => {}} onCancel={noop} />
+    </div>
+  );
+}
+
+/**
+ * Batch, beside the summary squares, opens this dialog. Ticking a request
+ * shows the prompt its review will start with, in a column to edit before
+ * starting; clicking another ticked title shows its prompt instead.
+ */
+export function Batch() {
+  return (
+    <StoryCard>
+      <StoryRow label="Two ticked" hint="The re-review was ticked last, so its prompt is the one shown.">
+        <BatchFrame picked={["acme/widgets#412", "acme/widgets#398"]} />
+      </StoryRow>
+      <StoryRow label="Nothing ticked" hint="The column says what it is for, and Start is disabled.">
+        <BatchFrame picked={[]} />
       </StoryRow>
     </StoryCard>
   );

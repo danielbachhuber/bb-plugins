@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Review Sweep",
-    "description": "Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, and where a stacked pull request sits in its stack. Needs gh-context.",
+    "description": "Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, and where a stacked pull request sits in its stack, plus Batch to start reviews for several at once. Needs gh-context.",
     "branding": {
       "icon": "Eye"
     },

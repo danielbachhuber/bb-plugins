@@ -547,6 +547,66 @@ describe("thread action", () => {
   });
 });
 
+describe("batch", () => {
+  it("lists only the requests that can start, in the dialog Batch opens", async () => {
+    const slot = render(
+      listing({
+        rows: [
+          rowFixture({ number: 1, title: "First widget change" }),
+          rowFixture({ number: 2, title: "Second widget change", threadId: "thr_1" }),
+          rowFixture({ number: 3, title: "Third widget change", canSpawn: false }),
+        ],
+      }),
+    );
+    fireEvent.click(await slot.findByRole("button", { name: "Batch" }));
+
+    expect(await slot.findByRole("checkbox", { name: "Pick #1" })).toBeInTheDocument();
+    expect(slot.queryByRole("checkbox", { name: "Pick #2" })).toBeNull();
+    expect(slot.queryByRole("checkbox", { name: "Pick #3" })).toBeNull();
+  });
+
+  it("disables Batch when nothing could start", async () => {
+    const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }));
+    expect(await slot.findByRole("button", { name: "Batch" })).toBeDisabled();
+  });
+
+  it("starts each ticked review with its prompt, then closes", async () => {
+    const slot = render(
+      listing({ rows: [rowFixture({ number: 1 }), rowFixture({ number: 2 })] }),
+      { reviewBatchStart: ({ number }: { number: number }) => ({ threadId: `thr_${number}`, existing: false, reason: null }) },
+    );
+    fireEvent.click(await slot.findByRole("button", { name: "Batch" }));
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Pick #1" }));
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Pick #2" }));
+    fireEvent.change(slot.getByLabelText("Prompt for #2"), { target: { value: "Only the tests." } });
+    fireEvent.click(slot.getByRole("button", { name: "Start 2 reviews" }));
+
+    await waitFor(() =>
+      expect(slot.inspection.rpcCalls.filter((call) => call.method === "reviewBatchStart")).toHaveLength(2),
+    );
+    const inputs = slot.inspection.rpcCalls
+      .filter((call) => call.method === "reviewBatchStart")
+      .map((call) => call.input as { number: number; prompt: string });
+    expect(inputs.find((input) => input.number === 2)?.prompt).toBe("Only the tests.");
+    expect(inputs.find((input) => input.number === 1)?.prompt).toMatch(/Use the `code-review` skill/);
+    await waitFor(() => expect(slot.queryByRole("checkbox", { name: "Pick #1" })).toBeNull());
+  });
+
+  it("keeps the dialog open when a start fails", async () => {
+    const slot = render(listing({ rows: [rowFixture({ number: 1 })] }), {
+      reviewBatchStart: () => ({ threadId: null, existing: false, reason: "No bb project is checked out for acme/widgets." }),
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Batch" }));
+    fireEvent.click(await slot.findByRole("checkbox", { name: "Pick #1" }));
+    fireEvent.click(slot.getByRole("button", { name: "Start 1 review" }));
+
+    await waitFor(() =>
+      expect(slot.inspection.rpcCalls.some((call) => call.method === "reviewBatchStart")).toBe(true),
+    );
+    expect(slot.getByRole("checkbox", { name: "Pick #1" })).toBeInTheDocument();
+  });
+});
+
 describe("sidebar count", () => {
   function renderCount(result: Record<string, unknown>) {
     const slot = renderSlot(

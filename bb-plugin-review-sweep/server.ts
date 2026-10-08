@@ -2,7 +2,9 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./review/gh.js";
-import { buildPromptParts, headerItem, trailerItem } from "./review/prompt.js";
+import { buildPromptParts, headerItem, trailerItem, type PromptParts } from "./review/prompt.js";
+import type { ClassifiedRow } from "./review/types.js";
+import type { z } from "zod";
 import {
   parsePermissionMode,
   parseStaleAfterDays,
@@ -22,6 +24,10 @@ import { createSweepLinks, createThreadLinksBridge } from "bb-plugin-gh-context/
 export { rpcContract };
 
 const REALTIME_CHANNEL = "reviews-updated";
+
+type SpawnArgs = Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0];
+type StartResult = { threadId: string | null; existing: boolean; reason: string | null };
+type ReviewSeed = NonNullable<z.infer<typeof rpcContract.reviewThisDraft.output>["seed"]>;
 
 const NO_CHECKS = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 };
 
@@ -95,10 +101,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   /** In-flight spawns, keyed repo#number, so racing clicks share one result. */
-  const spawning = new Map<
-    string,
-    Promise<{ threadId: string | null; existing: boolean; reason: string | null }>
-  >();
+  const spawning = new Map<string, Promise<StartResult>>();
 
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
@@ -331,6 +334,110 @@ export default async function plugin(bb: BbPluginApi) {
     return { available: true, running: await harvest.runningReference() };
   }
 
+  /**
+   * What Start review seeds the composer with, and what Batch starts with
+   * directly: the project checked out for the repository, a new worktree in
+   * it, and the settings' provider, model and permission mode.
+   */
+  async function seedFor(row: ClassifiedRow): Promise<{ seed: ReviewSeed } | { reason: string }> {
+    const target = matchProjectTargetForRepo(row.repo, await projectCandidates());
+    if (!target) return { reason: `No bb project is checked out for ${row.repo}.` };
+
+    const { providerId, model, permissionMode } = await settings.get();
+    const chosenModel = model.trim();
+
+    return {
+      seed: {
+        projectId: target.id,
+        providerId: providerId || null,
+        model: chosenModel || null,
+        permissionMode: parsePermissionMode(permissionMode),
+        prompt: buildPromptParts(row, Date.now()).body,
+        preview: {
+          title: row.title,
+          number: row.number,
+          url: row.url,
+          meta: [row.repo, `by ${row.author}`, row.isDraft ? "draft" : null]
+            .filter(Boolean)
+            .join(" · "),
+        },
+        // A new worktree by default. A review is someone else's branch,
+        // so the thread has nothing to land and every reason to stay out of
+        // the main checkout while it reads. The composer still offers Work
+        // locally and Existing worktree for the times that is not what you
+        // want.
+        environment: {
+          type: "host",
+          workspace: {
+            type: "managed-worktree",
+            baseBranch: { kind: "default" },
+          },
+          ...(target.hostId ? { hostId: target.hostId } : {}),
+        } as const,
+      },
+    };
+  }
+
+  /**
+   * Starts the review's thread with what `spawnFor` builds, or returns the one
+   * already linked to it.
+   *
+   * One thread per review, enforced on three levels: the durable link below,
+   * the in-flight map for starts that race before the first spawn returns,
+   * and a disabled button in the panel. The link alone is not enough — two
+   * clicks a few hundred ms apart both read "no link yet".
+   */
+  function startReview(
+    repo: string,
+    number: number,
+    spawnFor: (
+      row: ClassifiedRow,
+      parts: PromptParts,
+    ) => Promise<{ args: SpawnArgs; projectId: string } | { reason: string }>,
+  ): Promise<StartResult> {
+    const key = `${repo}#${number}`;
+    const inFlight = spawning.get(key);
+    if (inFlight) return inFlight;
+
+    const attempt = (async (): Promise<StartResult> => {
+      const row = store
+        .readRows()
+        .find((entry) => entry.repo === repo && entry.number === number);
+      // Starting or reopening the thread is reading the pull request, so its
+      // new comments are no longer new.
+      const markSeen = () => {
+        if (row?.comments !== undefined) store.markSeen(repo, number, row.comments, Date.now());
+      };
+
+      const existingThreadId = await links.threadFor(repo, number);
+      if (existingThreadId) {
+        markSeen();
+        return { threadId: existingThreadId, existing: true, reason: null };
+      }
+
+      if (!row) {
+        return {
+          threadId: null,
+          existing: false,
+          reason: "That review request is no longer in the sweep.",
+        };
+      }
+
+      const built = await spawnFor(row, buildPromptParts(row, Date.now()));
+      if ("reason" in built) return { threadId: null, existing: false, reason: built.reason };
+
+      const thread = await bb.sdk.threads.spawn(built.args);
+      bb.log.info(`started ${thread.id} for ${key} in ${built.projectId}`);
+      await links.link(repo, number, thread.id, "spawned");
+      markSeen();
+      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
+      return { threadId: thread.id, existing: false, reason: null };
+    })();
+
+    spawning.set(key, attempt);
+    return attempt.finally(() => spawning.delete(key));
+  }
+
   bb.rpc.register(rpcContract, {
     harvestAssignments() {
       return harvest.assignments();
@@ -456,98 +563,24 @@ export default async function plugin(bb: BbPluginApi) {
         };
       }
 
-      const target = matchProjectTargetForRepo(repo, await projectCandidates());
-      if (!target) {
-        return {
-          existingThreadId: null,
-          reason: `No bb project is checked out for ${repo}.`,
-          seed: null,
-        };
-      }
-
-      const { providerId, model, permissionMode } = await settings.get();
-      const chosenModel = model.trim();
-
-      return {
-        existingThreadId: null,
-        reason: null,
-        seed: {
-          projectId: target.id,
-          providerId: providerId || null,
-          model: chosenModel || null,
-          permissionMode: parsePermissionMode(permissionMode),
-          prompt: buildPromptParts(row, Date.now()).body,
-          preview: {
-            title: row.title,
-            number: row.number,
-            url: row.url,
-            meta: [row.repo, `by ${row.author}`, row.isDraft ? "draft" : null]
-              .filter(Boolean)
-              .join(" · "),
-          },
-          // A new worktree by default. A review is someone else's branch,
-          // so the thread has nothing to land and every reason to stay out of
-          // the main checkout while it reads. The composer still offers Work
-          // locally and Existing worktree for the times that is not what you
-          // want.
-          environment: {
-            type: "host",
-            workspace: {
-              type: "managed-worktree",
-              baseBranch: { kind: "default" },
-            },
-            ...(target.hostId ? { hostId: target.hostId } : {}),
-          } as const,
-        },
-      };
+      const resolved = await seedFor(row);
+      if ("reason" in resolved) return { existingThreadId: null, reason: resolved.reason, seed: null };
+      return { existingThreadId: null, reason: null, seed: resolved.seed };
     },
 
     async reviewThisSubmit({ repo, number, request }) {
-      const key = `${repo}#${number}`;
-
-      // One thread per review, enforced on three levels: the durable link
-      // below, this in-flight map for submits that race before the first spawn
-      // returns, and a disabled button in the panel. The link alone is not
-      // enough — two clicks a few hundred ms apart both read "no link yet".
-      const inFlight = spawning.get(key);
-      if (inFlight) return inFlight;
-
-      const attempt = (async () => {
-        const row = store
-          .readRows()
-          .find((entry) => entry.repo === repo && entry.number === number);
-        // Starting or reopening the thread is reading the pull request, so its
-        // new comments are no longer new.
-        const markSeen = () => {
-          if (row?.comments !== undefined) store.markSeen(repo, number, row.comments, Date.now());
-        };
-
-        const existingThreadId = await links.threadFor(repo, number);
-        if (existingThreadId) {
-          markSeen();
-          return { threadId: existingThreadId, existing: true, reason: null };
-        }
-
-        if (!row) {
-          return {
-            threadId: null,
-            existing: false,
-            reason: "That review request is no longer in the sweep.",
-          };
-        }
-
-        // Everything the composer resolved — project, environment, provider,
-        // model, reasoning, permission mode, execution provenance — is
-        // forwarded untouched. Only the title is the plugin's business: the
-        // composer has no field for one, and the sidebar should name the
-        // review.
-        // The composer only ever held the middle of the prompt, so the two
-        // ends are put back here — including the no-posting rule, which is in
-        // the trailer precisely because it must not depend on anyone leaving
-        // it in the box. Its own items sit between them untouched, which is
-        // what keeps any @-mention or attachment that was added.
-        const parts = buildPromptParts(row, Date.now());
-        const thread = await bb.sdk.threads.spawn({
+      // Everything the composer resolved — project, environment, provider,
+      // model, reasoning, permission mode, execution provenance — is
+      // forwarded untouched. Only the title is the plugin's business: the
+      // composer has no field for one, and the sidebar should name the
+      // review.
+      // The composer only ever held the middle of the prompt, so the two
+      // ends are put back here — including the no-posting rule, which is in
+      // the trailer precisely because it must not depend on anyone leaving
+      // it in the box. Its own items sit between them untouched, which is
+      // what keeps any @-mention or attachment that was added.
+      return startReview(repo, number, async (row, parts) => ({
+        args: {
           ...request,
           input: [
             { type: "text", text: headerItem(parts), mentions: [] },
@@ -555,21 +588,46 @@ export default async function plugin(bb: BbPluginApi) {
             { type: "text", text: trailerItem(parts), mentions: [] },
           ],
           title: threadTitle(row.state, number, row.title),
-        } as Parameters<typeof bb.sdk.threads.spawn>[0]);
+        } as SpawnArgs,
+        projectId: request.projectId,
+      }));
+    },
 
-        bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
-        await links.link(repo, number, thread.id, "spawned");
-        markSeen();
-        bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
-        return { threadId: thread.id, existing: false, reason: null };
-      })();
-
-      spawning.set(key, attempt);
-      try {
-        return await attempt;
-      } finally {
-        spawning.delete(key);
-      }
+    async reviewBatchStart({ repo, number, prompt }) {
+      // No composer resolved anything, so the seeds Start review would open
+      // the composer with are the request: the settings' provider, model and
+      // permission mode, and a new worktree in the matching project.
+      return startReview(repo, number, async (row, parts) => {
+        const resolved = await seedFor(row);
+        if ("reason" in resolved) return resolved;
+        const { seed } = resolved;
+        return {
+          args: {
+            projectId: seed.projectId,
+            environment: seed.environment,
+            permissionMode: seed.permissionMode,
+            ...(seed.providerId ? { providerId: seed.providerId } : {}),
+            ...(seed.model ? { model: seed.model } : {}),
+            // Marked as chosen, which is what keeps them: bb drops a provider
+            // or model that carries no source and re-derives the project's
+            // own defaults in its place.
+            executionInputSources: {
+              permissionMode: "explicit",
+              ...(seed.providerId ? { providerId: "explicit" } : {}),
+              ...(seed.model ? { model: "explicit" } : {}),
+            },
+            // The same three pieces the composer path sends, with the edited
+            // middle in place of the composer's.
+            input: [
+              { type: "text", text: headerItem(parts), mentions: [] },
+              { type: "text", text: prompt, mentions: [] },
+              { type: "text", text: trailerItem(parts), mentions: [] },
+            ],
+            title: threadTitle(row.state, number, row.title),
+          } as SpawnArgs,
+          projectId: seed.projectId,
+        };
+      });
     },
   });
 

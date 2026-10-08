@@ -42,6 +42,12 @@ export function trailerItem(parts: PromptParts): string {
   return `\n\n${parts.trailer}`;
 }
 
+/** The facts a prompt names, which a stored row and a listed row both have. */
+export type PromptRow = Pick<
+  ClassifiedRow,
+  "repo" | "number" | "title" | "url" | "author" | "state" | "requestedAt" | "size"
+>;
+
 /**
  * What the sweep found, stated as fact, then the one constraint that matters.
  *
@@ -54,7 +60,7 @@ export function trailerItem(parts: PromptParts): string {
  * A direct user instruction outranks a skill's own steps, so the instruction is
  * what holds, not the routing.
  */
-export function buildPromptParts(row: ClassifiedRow, now: number): PromptParts {
+export function buildPromptParts(row: PromptRow, now: number): PromptParts {
   const waited = ageInDays(row.requestedAt, now);
   const context =
     row.state === "re-review"
@@ -100,6 +106,6 @@ export function buildPromptParts(row: ClassifiedRow, now: number): PromptParts {
 }
 
 /** The whole prompt, for anything that wants it in one piece. */
-export function buildPrompt(row: ClassifiedRow, now: number): string {
+export function buildPrompt(row: PromptRow, now: number): string {
   return joinPromptParts(buildPromptParts(row, now));
 }

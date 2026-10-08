@@ -6,7 +6,7 @@ then Later, and oldest request first within each run.
 
 The sweep is deterministic: it runs one `gh` query, classifies the result with
 pure functions, and spends no model tokens. An agent is only involved when you
-click "Start review" on a row.
+click "Start review" on a row, or start several reviews at once from Batch.
 
 ## Install on a new machine
 
@@ -84,7 +84,7 @@ throwing:
 Every review request is in one run, and every run is in one tier. The summary
 squares above the list show one square per request, grouped by run and counted
 ("2 to review"). Pressing a run shows only its requests; pressing it again
-shows them all.
+shows them all. Batch sits at the right end of the same line.
 
 | Tier | Runs, in order |
 | --- | --- |
@@ -230,6 +230,30 @@ prompt first. A thread started from a row is linked to its pull request in gh-co
 the row then opens that thread rather than starting another. A review thread
 is not on the pull request's branch, so bb itself finds no pull request for it;
 gh-context's banner above the composer shows the one this plugin linked.
+
+## Starting several reviews at once
+
+Batch opens a dialog listing every request that Start review could start: no
+thread yet, and a project here for its repository. Drafts come last, as in the
+list. Tick the ones to review. The request ticked last is shaded, and its
+prompt fills the column on the right, where you can edit it; clicking another
+ticked title shows that one's prompt instead, and clicking an unticked title
+ticks it. An edited prompt says "edited" in the list, with Reset beside the
+prompt to go back to the one the panel wrote.
+
+"Start N reviews" starts them all, with no composer. Each starts as Start
+review would by default: in a new worktree in the matching project, with the
+provider, model and permission mode from the settings, and the prompt the
+column held. The line naming the pull request comes before that prompt and the
+rule against posting to GitHub after it, so neither can be edited away, and a
+prompt left empty cannot be started. The dialog closes once every review
+started. One that could not start says why in a toast and stays ticked, with
+the dialog still open to try again.
+
+Starting is one call to this plugin's server per ticked review, all at once.
+Each one spawns one thread; nothing asks GitHub for anything. A review that
+already has a thread, such as one started from its row a moment earlier, gets
+that thread back instead of a second one.
 
 ## Relationship to pr-sweep
 

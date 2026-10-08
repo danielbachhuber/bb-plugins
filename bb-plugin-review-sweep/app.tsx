@@ -15,10 +15,12 @@ import {
 } from "@/components/start-thread-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection } from "./review/actions.js";
-import { runOf } from "./review/tiers.js";
+import { runOf, sortReviews } from "./review/tiers.js";
+import { BatchDialog, type BatchStart } from "./review/batch-dialog.js";
 import { SidebarCount } from "sweep-ui/sidebar-count";
 import {
   ReviewListView,
+  canBatch,
   type HarvestPanelState,
   type Listing,
   type Row,
@@ -232,6 +234,41 @@ function Panel() {
     [reload, rpc],
   );
 
+  const [batchOpen, setBatchOpen] = useState(false);
+
+  // Starts every ticked review at once. A review that fails stays ticked in
+  // the dialog, which stays open to try it again; the ones that started leave
+  // the dialog's list as their rows gain a thread.
+  const onBatchStart = useCallback(
+    async (starts: BatchStart[]) => {
+      const keys = starts.map(({ row }) => `${row.repo}#${row.number}`);
+      setStarting((current) => new Set([...current, ...keys]));
+      try {
+        const results = await Promise.all(
+          starts.map(({ row, prompt }) =>
+            rpc
+              .call("reviewBatchStart", { repo: row.repo, number: row.number, prompt })
+              .then((result) => ({ row, reason: result.threadId ? null : (result.reason ?? "Could not start a thread.") }))
+              .catch((error: unknown) => ({ row, reason: error instanceof Error ? error.message : String(error) })),
+          ),
+        );
+        const failed = results.filter((result) => result.reason !== null);
+        const started = results.length - failed.length;
+        if (started > 0) toast.success(`Started ${started} review ${started === 1 ? "thread" : "threads"}`);
+        for (const { row, reason } of failed) toast.error(`#${row.number}: ${reason}`);
+        if (failed.length === 0) setBatchOpen(false);
+        await reload();
+      } finally {
+        setStarting((current) => {
+          const next = new Set(current);
+          for (const key of keys) next.delete(key);
+          return next;
+        });
+      }
+    },
+    [reload, rpc],
+  );
+
   const onRefresh = useCallback(async () => {
     setBusy(true);
     try {
@@ -255,6 +292,19 @@ function Panel() {
         onArchive={onArchive}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
+        onBatch={() => setBatchOpen(true)}
+      />
+
+      <BatchDialog
+        open={batchOpen}
+        onOpenChange={setBatchOpen}
+        rows={
+          listing
+            ? sortReviews(listing.rows, { staleAfterDays: listing.staleAfterDays, now }).filter(canBatch)
+            : []
+        }
+        now={now}
+        onStart={onBatchStart}
       />
 
       <StartThreadDialog

@@ -19,6 +19,7 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
@@ -143,6 +144,30 @@ function ThreadAction({
       />
       {label}
     </button>
+  );
+}
+
+/**
+ * Whether Batch can start a review for the row: it has no thread yet, and a
+ * project here is checked out for its repository.
+ */
+export function canBatch(row: Row): boolean {
+  return row.threadId === null && row.canSpawn;
+}
+
+/**
+ * Opens the dialog that starts several reviews at once. Disabled, with its
+ * reason as the tooltip, when no row could be started.
+ */
+function BatchButton({ count, onBatch }: { count: number; onBatch: () => void }) {
+  // The reason sits on a wrapper, since a disabled button shows no tooltip of its own.
+  return (
+    <span title={count === 0 ? "Every request already has a thread, or no project here" : undefined}>
+      <Button size="sm" variant="outline" disabled={count === 0} onClick={onBatch}>
+        <Icon name="Layers" className="size-3.5" />
+        Batch
+      </Button>
+    </span>
   );
 }
 
@@ -402,6 +427,8 @@ export interface ReviewListViewProps {
    * pass drawn ones so they need no network.
    */
   avatarFor?: (owner: string) => string;
+  /** Opens the dialog that starts several reviews at once. Without it there is no Batch button. */
+  onBatch?: () => void;
 }
 
 export function ReviewListView({
@@ -415,6 +442,7 @@ export function ReviewListView({
   onNoteSave,
   onOpenLink,
   avatarFor = githubAvatar,
+  onBatch,
 }: ReviewListViewProps): ReactNode {
   if (!listing) return <SweepingReviews />;
 
@@ -490,6 +518,9 @@ export function ReviewListView({
             }}
             // Every row stays open: each review is one to do, so none hides its actions.
             collapsible={false}
+            summaryAction={
+              onBatch ? <BatchButton count={listing.rows.filter(canBatch).length} onBatch={onBatch} /> : undefined
+            }
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
               const row = rowsByKey.get(item.key);

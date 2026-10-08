@@ -135,6 +135,7 @@ describe("server", () => {
         "refresh",
         "reviewThisDraft",
         "reviewThisSubmit",
+        "reviewBatchStart",
         "archiveThread",
         "setNote",
         "markSeen",
@@ -416,6 +417,131 @@ describe("reviewThisSubmit is one thread per review", () => {
     await harness.behavior.callRpc("refresh", null);
 
     expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.threadId).toBeNull();
+  });
+});
+
+describe("reviewBatchStart", () => {
+  type SpawnedArgs = {
+    projectId: string;
+    providerId?: string;
+    model?: string;
+    permissionMode?: string;
+    environment: unknown;
+    executionInputSources?: Record<string, string>;
+    input: { type: string; text?: string }[];
+    title: string;
+  };
+
+  function spawned(harness: Awaited<ReturnType<typeof seededHost>>["harness"]): SpawnedArgs {
+    const [[args]] = harness.inspection.sdk.callsTo("threads.spawn") as [[SpawnedArgs]];
+    return args;
+  }
+
+  it("starts with the settings Start review seeds, in a new worktree, and marks them chosen", async () => {
+    const { harness } = await seededHost({ settings: { model: "claude-sonnet-5" } });
+
+    const result = await harness.behavior.callRpc("reviewBatchStart", {
+      repo: "acme/widgets",
+      number: 42,
+      prompt: "Look at the endpoint's error handling first.",
+    });
+
+    expect(result).toEqual({ threadId: "thr_1", existing: false, reason: null });
+    const args = spawned(harness);
+    expect(args).toMatchObject({
+      projectId: "proj_a",
+      providerId: "claude-code",
+      model: "claude-sonnet-5",
+      permissionMode: "full",
+      environment: {
+        type: "host",
+        hostId: "host_1",
+        workspace: { type: "managed-worktree", baseBranch: { kind: "default" } },
+      },
+      title: "Review #42: Add the widget endpoint",
+    });
+    // Without a source, bb drops the provider and model and re-derives the
+    // project's own defaults, which would undo the settings.
+    expect(args.executionInputSources).toEqual({
+      permissionMode: "explicit",
+      providerId: "explicit",
+      model: "explicit",
+    });
+  });
+
+  it("leaves a blank model out rather than marking it chosen", async () => {
+    const { harness } = await seededHost();
+    await harness.behavior.callRpc("reviewBatchStart", { repo: "acme/widgets", number: 42, prompt: "Review it." });
+
+    const args = spawned(harness);
+    expect(args.model).toBeUndefined();
+    expect(args.executionInputSources).not.toHaveProperty("model");
+  });
+
+  it("sends the edited prompt between the pull request and the no-posting rule", async () => {
+    const { harness } = await seededHost();
+    await harness.behavior.callRpc("reviewBatchStart", {
+      repo: "acme/widgets",
+      number: 42,
+      prompt: "just look at it",
+    });
+
+    const sent = spawned(harness).input.map((item) => item.text ?? "").join("");
+    expect(sent).toContain("acme/widgets#42");
+    expect(sent).toContain("pull/42\n\njust look at it");
+    expect(sent).toContain("just look at it\n\nReport your findings");
+    expect(sent).toMatch(/Do NOT post anything to GitHub/);
+  });
+
+  it("returns the thread a review already has rather than starting another", async () => {
+    const { harness } = await seededHost();
+    const first = await reviewThis(harness, { repo: "acme/widgets", number: 42 });
+
+    const second = await harness.behavior.callRpc("reviewBatchStart", {
+      repo: "acme/widgets",
+      number: 42,
+      prompt: "Review it.",
+    });
+
+    expect(second).toEqual({ threadId: first.threadId, existing: true, reason: null });
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("starts one thread when Batch and Start review race", async () => {
+    const { harness } = await seededHost();
+
+    const [batch, single] = await Promise.all([
+      harness.behavior.callRpc("reviewBatchStart", { repo: "acme/widgets", number: 42, prompt: "Review it." }),
+      reviewThis(harness, { repo: "acme/widgets", number: 42 }),
+    ]);
+
+    expect(single.threadId).toBe(batch.threadId);
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  });
+
+  it("says why when no project here has the repository", async () => {
+    const { harness } = await seededHost({ row: { repo: "acme/gadgets" } });
+
+    const result = await harness.behavior.callRpc("reviewBatchStart", {
+      repo: "acme/gadgets",
+      number: 42,
+      prompt: "Review it.",
+    });
+
+    expect(result).toEqual({
+      threadId: null,
+      existing: false,
+      reason: "No bb project is checked out for acme/gadgets.",
+    });
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  });
+
+  it("refuses an empty prompt", async () => {
+    const { harness } = await seededHost();
+    await expect(
+      harness.behavior.callRpc("reviewBatchStart", { repo: "acme/widgets", number: 42, prompt: "   " }),
+    ).rejects.toThrow();
+    expect(harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
   });
 });
 

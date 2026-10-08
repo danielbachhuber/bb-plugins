@@ -274,4 +274,24 @@ export const rpcContract = defineRpcContract({
       reason: z.string().nullable(),
     }),
   },
+  /**
+   * Starts a review from Batch, without a composer: with the seeds Start
+   * review would open the composer with, and `prompt` as the editable middle
+   * of the prompt. Returns the thread already linked to the review, if it has
+   * one, rather than starting another.
+   */
+  reviewBatchStart: {
+    input: z
+      .object({
+        repo: z.string(),
+        number: z.number(),
+        prompt: z.string().trim().min(1),
+      })
+      .strict(),
+    output: z.object({
+      threadId: z.string().nullable(),
+      existing: z.boolean(),
+      reason: z.string().nullable(),
+    }),
+  },
 });
