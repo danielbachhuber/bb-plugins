@@ -334,6 +334,22 @@ export function createStore(db: Database) {
      WHERE started_at >= ? AND completed_at IS NOT NULL AND completed_at >= started_at
      ORDER BY started_at`,
   );
+  const selectSubagentsSince = db.prepare(
+    `SELECT thread_id AS threadId, count(DISTINCT agent_id) AS count,
+            sum(input + cache_read + output) AS tokens
+     FROM subagent_calls WHERE created_at >= ? GROUP BY thread_id`,
+  );
+  const selectPeakContextSince = db.prepare(
+    `SELECT thread_id AS threadId, max(used_tokens) AS peak FROM context WHERE created_at >= ? GROUP BY thread_id`,
+  );
+  const selectWaitingSince = db.prepare(
+    `SELECT thread_id AS threadId, count(*) AS count, sum(resolved_at - started_at) AS ms FROM waits
+     WHERE started_at >= ? AND resolved_at IS NOT NULL GROUP BY thread_id`,
+  );
+  const selectCommandsSince = db.prepare(
+    `SELECT thread_id AS threadId, label, completed_at - started_at AS ms FROM item_times
+     WHERE kind = 'commandExecution' AND started_at >= ? AND completed_at IS NOT NULL AND label IS NOT NULL`,
+  );
   const selectClaudeCode = db.prepare(`SELECT thread_id FROM threads WHERE provider_id = 'claude-code'`);
   const selectSessionId = db.prepare(`SELECT session_id FROM threads WHERE thread_id = ?`);
   const updateSessionId = db.prepare(`UPDATE threads SET session_id = ? WHERE thread_id = ?`);
@@ -398,6 +414,29 @@ export function createStore(db: Database) {
         byThread.set(threadId, [...(byThread.get(threadId) ?? []), ms]);
       }
       return byThread;
+    },
+
+    /** Each thread's subagents and their tokens since `since`. */
+    subagentsSince(since: number): Map<string, { count: number; tokens: number }> {
+      const rows = selectSubagentsSince.all(since) as Array<{ threadId: string; count: number; tokens: number }>;
+      return new Map(rows.map((row) => [row.threadId, { count: row.count, tokens: row.tokens }]));
+    },
+
+    /** Each thread's largest context since `since`. */
+    peakContextsSince(since: number): Map<string, number> {
+      const rows = selectPeakContextSince.all(since) as Array<{ threadId: string; peak: number }>;
+      return new Map(rows.map((row) => [row.threadId, row.peak]));
+    },
+
+    /** How many questions each thread asked you since `since`, and how long the answers took. */
+    waitingSince(since: number): Map<string, { count: number; ms: number }> {
+      const rows = selectWaitingSince.all(since) as Array<{ threadId: string; count: number; ms: number }>;
+      return new Map(rows.map((row) => [row.threadId, { count: row.count, ms: row.ms }]));
+    },
+
+    /** Every finished shell command since `since`, with its command line and how long it ran. */
+    commandsSince(since: number): Array<{ threadId: string; label: string; ms: number }> {
+      return selectCommandsSince.all(since) as Array<{ threadId: string; label: string; ms: number }>;
     },
 
     claudeCodeThreads(): string[] {

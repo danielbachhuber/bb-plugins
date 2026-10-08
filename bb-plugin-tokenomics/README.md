@@ -4,7 +4,8 @@ How many tokens your threads use, and when. A Tokenomics page in the sidebar
 graphs token use over time and lists the threads behind it, and each thread's
 header has a sparkline of its token use over time that opens a summary of
 which of your messages used the most tokens and time. A thread whose context has grown past a
-size you set shows a meter above its composer, with a button that compacts it.
+size you set shows a meter above its composer, with a button that compacts it. The
+`bb tokenomics` command prints the same numbers per thread for scripts.
 
 ## The page
 
@@ -135,6 +136,33 @@ same, once, for every active thread with no context recorded, so the page can
 mark large-context threads that have not run a turn since. Compact makes one
 request.
 
+## The command
+
+`bb tokenomics` prints what the page and header show, for scripts and agents
+that would otherwise read whole thread logs to find the expensive threads.
+
+```sh
+bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]
+bb tokenomics commands [--days N] [--limit N] [--json]
+```
+
+- `threads` lists each thread that used tokens in the past N days (default 7,
+  at most 30), most first, 20 by default. For each: tokens split into new
+  input, cache reads, and output, with Claude Code subagents included and
+  counted; turns; peak and latest context; turn times (count, total, median,
+  90th percentile, longest); how long the agent waited on your answers; and
+  its three slowest shell commands. `--sort time` and `--sort context` rank by
+  turn time or peak context instead, and `--active` leaves out archived
+  threads.
+- `commands` lists the shell commands that took the most time across all
+  threads, with runs, total, median, and longest. Runs of one command are
+  grouped by a short key, such as `npm test` or `git status`: a chained
+  command line counts as its last step after `cd`, `source`, and the like,
+  without pipes, redirections, or arguments.
+
+Both read only the plugin's own database. Context sizes, turn times, and
+command times go back only to when Tokenomics began recording them.
+
 ## Related plugins
 
 - **Usage Meter** (`usage-meter`) shows Claude subscription limits and reads
@@ -236,6 +264,7 @@ before it.
 | `usage/context.ts` | The pure reading of bb's context window events and of the warning setting |
 | `usage/subagents.ts` | The pure reading of a subagent transcript's lines into model calls |
 | `usage/subagent-files.ts` | The only module that touches `~/.claude`: finding a session's subagent transcripts and reading what is new in them |
+| `usage/report.ts` | The pure reports `bb tokenomics` prints: per-thread summaries, command keys, and the slowest commands |
 | `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
 | `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, turn, tool, and question times, and subagent calls, per-thread cursors and archive state, and the hourly and per-thread sums |

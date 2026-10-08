@@ -2,6 +2,15 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import {
+  formatCommands,
+  formatThreads,
+  slowestCommands,
+  sortReports,
+  turnTimeSummary,
+  type SortKey,
+  type ThreadReport,
+} from "./usage/report.js";
 import { readTranscripts, subagentsDir } from "./usage/subagent-files.js";
 import { TIMING_EVENTS, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
@@ -197,6 +206,98 @@ export default async function plugin(bb: BbPluginApi) {
       return new Map();
     }
   }
+
+  /** One report per thread that used tokens since `since`. */
+  async function threadReports(since: number): Promise<ThreadReport[]> {
+    const names = await projectNames();
+    const subagents = store.subagentsSince(since);
+    const peaks = store.peakContextsSince(since);
+    const latest = store.latestContexts();
+    const turnTimes = store.turnTimesSince(since);
+    const waits = store.waitingSince(since);
+    const commandsByThread = new Map<string, Array<{ label: string; ms: number }>>();
+    for (const run of store.commandsSince(since)) {
+      commandsByThread.set(run.threadId, [...(commandsByThread.get(run.threadId) ?? []), run]);
+    }
+    return store.threadsSince(since).map((thread) => ({
+      threadId: thread.threadId,
+      title: thread.title,
+      project: names.get(thread.projectId) ?? null,
+      provider: thread.providerId,
+      archived: thread.archivedAt !== null,
+      turns: thread.turns,
+      tokens: {
+        input: thread.input,
+        cacheRead: thread.cacheRead,
+        output: thread.output,
+        total: thread.input + thread.cacheRead + thread.output,
+      },
+      subagents: subagents.get(thread.threadId) ?? { count: 0, tokens: 0 },
+      context: { peak: peaks.get(thread.threadId) ?? null, latest: latest.get(thread.threadId) ?? null },
+      turnTime: turnTimeSummary(turnTimes.get(thread.threadId) ?? []),
+      waitingOnYou: waits.get(thread.threadId) ?? { count: 0, ms: 0 },
+      slowestCommands: slowestCommands(commandsByThread.get(thread.threadId) ?? [], 3),
+    }));
+  }
+
+  const CLI_USAGE = [
+    "bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]",
+    "  One entry per thread that used tokens in the past N days (default 7, at most 30): tokens",
+    "  (Claude Code subagents included), turns, peak and latest context, turn times, time spent",
+    "  waiting on your answers, and its slowest shell commands. Context sizes, turn times, and",
+    "  command times go back only to when Tokenomics began recording them.",
+    "bb tokenomics commands [--days N] [--limit N] [--json]",
+    "  The shell commands that took the most time across all threads.",
+  ].join("\n");
+
+  function flag(argv: string[], name: string): string | undefined {
+    const index = argv.indexOf(name);
+    return index === -1 ? undefined : argv[index + 1];
+  }
+
+  bb.cli.register({
+    name: "tokenomics",
+    summary: "Report token use, context size, and turn times per thread",
+    commands: [
+      {
+        name: "threads",
+        summary: "One entry per thread: tokens, context, turn times, slowest commands",
+        usage: "bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]",
+      },
+      {
+        name: "commands",
+        summary: "The shell commands that took the most time",
+        usage: "bb tokenomics commands [--days N] [--limit N] [--json]",
+      },
+    ],
+    async run(argv) {
+      const [command] = argv.filter((arg, index) => !arg.startsWith("--") && !argv[index - 1]?.startsWith("--"));
+      if (command === undefined || command === "help") return { exitCode: 0, stdout: CLI_USAGE };
+      const json = argv.includes("--json");
+      const days = Number(flag(argv, "--days") ?? 7);
+      if (!Number.isFinite(days) || days <= 0 || days > 30) {
+        return { exitCode: 1, stderr: "--days takes a number from 1 to 30." };
+      }
+      const since = Date.now() - days * 86_400_000;
+      if (command === "threads") {
+        const sort = (flag(argv, "--sort") ?? "tokens") as SortKey;
+        if (!["tokens", "time", "context"].includes(sort)) {
+          return { exitCode: 1, stderr: "--sort takes tokens, time, or context." };
+        }
+        const limit = Number(flag(argv, "--limit") ?? 20);
+        let reports = sortReports(await threadReports(since), sort);
+        if (argv.includes("--active")) reports = reports.filter((report) => !report.archived);
+        reports = reports.slice(0, Math.max(1, limit));
+        return { exitCode: 0, stdout: json ? JSON.stringify(reports, null, 2) : formatThreads(reports, days) };
+      }
+      if (command === "commands") {
+        const limit = Number(flag(argv, "--limit") ?? 15);
+        const commands = slowestCommands(store.commandsSince(since), Math.max(1, limit));
+        return { exitCode: 0, stdout: json ? JSON.stringify(commands, null, 2) : formatCommands(commands, days) };
+      }
+      return { exitCode: 1, stderr: `Unknown command "${command}".\n\n${CLI_USAGE}` };
+    },
+  });
 
   bb.rpc.register(rpcContract, {
     usage_window: async ({ since }) => {
