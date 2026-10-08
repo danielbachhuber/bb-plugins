@@ -40,6 +40,7 @@ function useUsage(range: RangeId) {
           threads: result.threads,
           recordingSince: result.recordingSince,
           contextThresholds: result.contextThresholds,
+          turnTime: result.turnTime,
         });
         setError(null);
       },

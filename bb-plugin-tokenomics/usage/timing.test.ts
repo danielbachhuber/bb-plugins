@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { createStore, MIGRATIONS } from "./store.js";
-import { timingRowsOf, turnSplits, type TimingEventLike } from "./timing.js";
+import { timeBreakdown, timingRowsOf, turnSplits, type TimingEventLike } from "./timing.js";
 
 const turn = { kind: "turn", turnId: "t1" };
 
@@ -94,5 +94,34 @@ describe("turnSplits", () => {
   it("leaves out a turn that has not finished", () => {
     const splits = turnSplits({ turns: [{ turnId: "t2", startedAt: 0, completedAt: null }], items: [], waits: [] });
     expect(splits.size).toBe(0);
+  });
+});
+
+describe("timeBreakdown", () => {
+  it("totals the split, each kind of tool outside waits, and turns by length", () => {
+    const breakdown = timeBreakdown({
+      turns: [
+        { turnId: "t1", startedAt: 0, completedAt: 100_000 },
+        { turnId: "t2", startedAt: 200_000, completedAt: 230_000 },
+        { turnId: "t3", startedAt: 300_000, completedAt: null },
+      ],
+      items: [
+        { itemId: "a", turnId: "t1", kind: "commandExecution", label: "npm test", startedAt: 10_000, completedAt: 30_000 },
+        { itemId: "b", turnId: "t1", kind: "commandExecution", label: "npm run build", startedAt: 20_000, completedAt: 40_000 },
+        { itemId: "c", turnId: "t1", kind: "toolCall", label: "AskUserQuestion", startedAt: 50_000, completedAt: 70_000 },
+        { itemId: "d", turnId: "t2", kind: "fileRead", label: null, startedAt: 205_000, completedAt: 206_000 },
+        { itemId: "e", turnId: "t3", kind: "commandExecution", label: "npm run e2e", startedAt: 300_000, completedAt: 400_000 },
+      ],
+      waits: [{ interactionId: "q", turnId: "t1", kind: "user_question", startedAt: 51_000, resolvedAt: 69_000 }],
+    });
+    expect(breakdown.turns).toBe(2);
+    expect(breakdown.questions).toBe(1);
+    expect(breakdown.split).toEqual({ model: 50_000 + 29_000, tools: 32_000 + 1_000, waiting: 18_000 });
+    expect(breakdown.kinds).toEqual([
+      { kind: "commandExecution", ms: 30_000, count: 2 },
+      { kind: "toolCall", ms: 2_000, count: 1 },
+      { kind: "fileRead", ms: 1_000, count: 1 },
+    ]);
+    expect(breakdown.lengths.map((length) => length.turns)).toEqual([1, 1, 0, 0]);
   });
 });

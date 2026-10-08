@@ -9,7 +9,7 @@ import {
   type ThreadTokens,
 } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
-import type { ThreadUsage, TurnDetail } from "./usage/contract";
+import type { ThreadUsage, TurnDetail, TurnTimeBreakdown } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
 export default {
@@ -99,6 +99,57 @@ const THREADS: ThreadUsage[] = [
   thread("thr_a6", "Bump the widgets lint config", "widgets", 6, 4_800_000, range(110, 104), 100),
 ];
 
+const MIN = 60_000;
+
+// Shaped like a real day: most of the time in long turns, most of that in shell commands.
+const DAY_TIME: TurnTimeBreakdown = {
+  turns: 160,
+  split: { model: 192 * MIN, tools: 330 * MIN, waiting: 24 * MIN },
+  kinds: [
+    { kind: "commandExecution", ms: 280 * MIN, count: 1_820 },
+    { kind: "toolCall", ms: 40 * MIN, count: 102 },
+    { kind: "fileRead", ms: 6 * MIN, count: 211 },
+    { kind: "delegation", ms: 4 * MIN, count: 2 },
+    { kind: "fileChange", ms: 0.5 * MIN, count: 72 },
+  ],
+  questions: 9,
+  lengths: [
+    { turns: 83, split: { model: 22 * MIN, tools: 7 * MIN, waiting: 1 * MIN } },
+    { turns: 44, split: { model: 57 * MIN, tools: 45 * MIN, waiting: 5 * MIN } },
+    { turns: 27, split: { model: 70 * MIN, tools: 191 * MIN, waiting: 0 } },
+    { turns: 6, split: { model: 43 * MIN, tools: 87 * MIN, waiting: 18 * MIN } },
+  ],
+  commands: [
+    { command: "npm run e2e", runs: 12, totalMs: 60 * MIN, medianMs: 8 * MIN, longestMs: 9 * MIN },
+    { command: "pnpm test", runs: 41, totalMs: 38 * MIN, medianMs: 50_000, longestMs: 3 * MIN },
+    { command: "python3", runs: 231, totalMs: 26 * MIN, medianMs: 1_000, longestMs: 2 * MIN },
+  ],
+};
+
+// A week with one question left unanswered overnight.
+const WEEK_TIME: TurnTimeBreakdown = {
+  turns: 884,
+  split: { model: 942 * MIN, tools: 1_134 * MIN, waiting: 750 * MIN },
+  kinds: [
+    { kind: "commandExecution", ms: 1_010 * MIN, count: 8_735 },
+    { kind: "toolCall", ms: 102 * MIN, count: 436 },
+    { kind: "fileRead", ms: 12 * MIN, count: 883 },
+    { kind: "delegation", ms: 10 * MIN, count: 11 },
+  ],
+  questions: 36,
+  lengths: [
+    { turns: 470, split: { model: 120 * MIN, tools: 40 * MIN, waiting: 6 * MIN } },
+    { turns: 250, split: { model: 290 * MIN, tools: 230 * MIN, waiting: 20 * MIN } },
+    { turns: 130, split: { model: 340 * MIN, tools: 610 * MIN, waiting: 10 * MIN } },
+    { turns: 34, split: { model: 192 * MIN, tools: 254 * MIN, waiting: 714 * MIN } },
+  ],
+  commands: [
+    { command: "npm run e2e", runs: 23, totalMs: 132 * MIN, medianMs: 6 * MIN, longestMs: 9 * MIN },
+    { command: "pnpm test", runs: 101, totalMs: 96 * MIN, medianMs: 11_000, longestMs: 3 * MIN },
+    { command: "python3", runs: 1_033, totalMs: 90 * MIN, medianMs: 1_000, longestMs: 4 * MIN },
+  ],
+};
+
 function dataFor(range: RangeId, recordingSince?: number): UsageData {
   const span = windowFor(range, NOW);
   return {
@@ -108,6 +159,7 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
     threads: THREADS.filter((thread) => thread.hours.some(({ hour }) => hour >= span.since)),
     recordingSince: recordingSince ?? span.since - HOUR,
     contextThresholds: { warning: 300_000, error: 550_000 },
+    turnTime: range === "day" ? DAY_TIME : WEEK_TIME,
   };
 }
 
@@ -174,7 +226,12 @@ export const Empty = () => (
   <UsageView
     range="day"
     onRange={() => undefined}
-    data={{ ...dataFor("day"), bars: windowFor("day", NOW).bars, threads: [] }}
+    data={{
+      ...dataFor("day"),
+      bars: windowFor("day", NOW).bars,
+      threads: [],
+      turnTime: { turns: 0, split: { model: 0, tools: 0, waiting: 0 }, kinds: [], questions: 0, lengths: [], commands: [] },
+    }}
     error={null}
     onOpenThread={() => undefined}
     now={NOW.getTime()}

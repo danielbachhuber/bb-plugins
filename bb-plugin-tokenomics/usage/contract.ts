@@ -55,6 +55,23 @@ export const turnDetailSchema = z.object({
 
 const thresholdsSchema = z.object({ warning: z.number().nullable(), error: z.number().nullable() });
 
+const splitSchema = z.object({ model: z.number(), tools: z.number(), waiting: z.number() });
+
+/** Where the period's finished turns spent their time. See timeBreakdown. */
+export const turnTimeSchema = z.object({
+  turns: z.number(),
+  split: splitSchema,
+  kinds: z.array(z.object({ kind: z.string(), ms: z.number(), count: z.number() })),
+  questions: z.number(),
+  lengths: z.array(z.object({ turns: z.number(), split: splitSchema })),
+  /** The shell commands that took the most time, grouped by commandKey. */
+  commands: z.array(
+    z.object({ command: z.string(), runs: z.number(), totalMs: z.number(), medianMs: z.number(), longestMs: z.number() }),
+  ),
+});
+
+export type TurnTimeBreakdown = z.infer<typeof turnTimeSchema>;
+
 export const rpcContract = defineRpcContract({
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),
@@ -65,6 +82,7 @@ export const rpcContract = defineRpcContract({
       recordingSince: z.number(),
       /** The context warning and error settings in tokens; null when one is off. */
       contextThresholds: thresholdsSchema,
+      turnTime: turnTimeSchema,
     }),
   },
   thread_usage: {

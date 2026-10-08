@@ -350,6 +350,23 @@ export function createStore(db: Database) {
     `SELECT thread_id AS threadId, label, completed_at - started_at AS ms FROM item_times
      WHERE kind = 'commandExecution' AND started_at >= ? AND completed_at IS NOT NULL AND label IS NOT NULL`,
   );
+  // Turn ids are qualified with the thread's, so one TimingRows can hold every thread's turns.
+  const selectTurnsSince = db.prepare(
+    `SELECT thread_id || ':' || turn_id AS turnId, started_at AS startedAt, completed_at AS completedAt
+     FROM turn_times WHERE started_at >= ?`,
+  );
+  const selectItemsSince = db.prepare(
+    `SELECT i.item_id AS itemId, i.thread_id || ':' || i.turn_id AS turnId, i.kind, i.label,
+            i.started_at AS startedAt, i.completed_at AS completedAt
+     FROM item_times i JOIN turn_times t ON t.thread_id = i.thread_id AND t.turn_id = i.turn_id
+     WHERE t.started_at >= ?`,
+  );
+  const selectWaitsSince = db.prepare(
+    `SELECT w.interaction_id AS interactionId, w.thread_id || ':' || w.turn_id AS turnId, w.kind,
+            w.started_at AS startedAt, w.resolved_at AS resolvedAt
+     FROM waits w JOIN turn_times t ON t.thread_id = w.thread_id AND t.turn_id = w.turn_id
+     WHERE t.started_at >= ?`,
+  );
   const selectClaudeCode = db.prepare(`SELECT thread_id FROM threads WHERE provider_id = 'claude-code'`);
   const selectSessionId = db.prepare(`SELECT session_id FROM threads WHERE thread_id = ?`);
   const updateSessionId = db.prepare(`UPDATE threads SET session_id = ? WHERE thread_id = ?`);
@@ -471,6 +488,14 @@ export function createStore(db: Database) {
     },
 
     /** Everything recorded about when the thread's turns ran. */
+    /** Every thread's turns that started since, with their tools and waits. */
+    timingsSince(since: number): TimingRows {
+      return {
+        turns: selectTurnsSince.all(since) as TimingRows["turns"],
+        items: selectItemsSince.all(since) as TimingRows["items"],
+        waits: selectWaitsSince.all(since) as TimingRows["waits"],
+      };
+    },
     threadTimings(threadId: string): TimingRows {
       return {
         turns: selectTurnTimes.all(threadId) as TimingRows["turns"],

@@ -12,7 +12,7 @@ import {
   type ThreadReport,
 } from "./usage/report.js";
 import { readTranscripts, subagentsDir } from "./usage/subagent-files.js";
-import { TIMING_EVENTS, turnSplits } from "./usage/timing.js";
+import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
@@ -299,6 +299,9 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  /** Commands the page lists under Shell commands. */
+  const TOP_COMMANDS = 3;
+
   bb.rpc.register(rpcContract, {
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
@@ -322,6 +325,10 @@ export default async function plugin(bb: BbPluginApi) {
         })),
         recordingSince,
         contextThresholds: thresholds,
+        turnTime: {
+          ...timeBreakdown(store.timingsSince(floor)),
+          commands: slowestCommands(store.commandsSince(floor), TOP_COMMANDS),
+        },
       };
     },
     thread_usage: ({ threadId }) => {

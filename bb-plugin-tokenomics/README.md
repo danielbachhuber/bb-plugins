@@ -1,7 +1,8 @@
 # bb-plugin-tokenomics
 
 How many tokens your threads use, and when. A Tokenomics page in the sidebar
-graphs token use over time and lists the threads behind it, and each thread's
+graphs token use over time, shows where turn time went, and lists the threads
+behind it, and each thread's
 header has a sparkline of its token use over time that opens a summary of
 which of your messages used the most tokens and time. A thread whose context has grown past a
 size you set shows a meter above its composer, with a button that compacts it. The
@@ -19,6 +20,19 @@ size you set shows a meter above its composer, with a button that compacts it. T
   Hover a bar for its numbers. Click a legend entry to hide that part and
   rescale the chart. Cache reads are usually most of the total, so hiding them
   shows the other two.
+- **Where turn time goes**, under the chart, splits the period's finished
+  turns into the model's time, tools, and waiting on you to answer a
+  question. "By kind" ranks them, with tools broken into shell commands,
+  tool calls, file reads, subagents, and the rest, and the three shell
+  commands that took the most time listed under Shell commands with how
+  many times each ran. Tools of different kinds can run at once, so the
+  kinds can add up to a little more than the tools total. Kinds under 1% of
+  the time are folded into Other tools. "By turn length" groups the turns
+  into under 1 minute, 1 to 5, 5 to 15, and longer, each bar as long as
+  those turns' total time and split the same way, which shows whether the
+  time is in many short turns or a few long ones. Hover a kind or a command
+  for its count.
+  On a narrow window the two halves stack.
 - **The thread list** has the threads that used tokens in the period, most
   first, with each one's project, provider, number of turns, latest context
   size, and total. A thread archived before the plugin recorded context has
@@ -254,8 +268,10 @@ you, from asking to your answer. Reasoning and replies are the model's own
 time, and background tasks and subagents run beside the turn rather than
 holding it up, so neither is recorded as a tool. These come from the same
 event request as usage, so they add no requests to bb. The first load with
-this recording reads the past nine days of each thread again to fill them in. The header summary's
-minutes-per-turn chart draws them.
+this recording reads the past nine days of each thread again to fill them in. The page's
+Where turn time goes section and the header summary's minutes-per-turn chart
+draw them. The section is worked out from the plugin's own copy each time the
+page loads, with no requests to bb.
 
 ## Matching usage to messages
 
@@ -274,7 +290,7 @@ before it.
 | `usage/subagents.ts` | The pure reading of a subagent transcript's lines into model calls |
 | `usage/subagent-files.ts` | The only module that touches `~/.claude`: finding a session's subagent transcripts and reading what is new in them |
 | `usage/report.ts` | The pure reports `bb tokenomics` prints: per-thread summaries, command keys, and the slowest commands |
-| `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times |
+| `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times, and each turn's split and the period's breakdown from them |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
 | `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, turn, tool, and question times, and subagent calls, per-thread cursors and archive state, and the hourly and per-thread sums |
 | `usage/sync.ts` | The only module that reads from bb: copying new usage, context, and timing events into the ledger, one thread at a time, and reading a thread's turn events and outline |
@@ -288,6 +304,7 @@ before it.
 | `components/turn-dots.tsx` | A thread's turn lengths as dots on a log scale, and the scale's labels |
 | `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
+| `components/turn-time-breakdown.tsx` | The page's Where turn time goes section, by kind and by turn length |
 | `components/context-meter.tsx` | The meter above the composer and its Compact button |
 | `icons/tokenomics.svg` | The plugin's icon, a stack of coins from Hugeicons, used for the plugin and its sidebar entry |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |

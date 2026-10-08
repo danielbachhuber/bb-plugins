@@ -3,12 +3,13 @@
 import { useState } from "react";
 
 import { addTokens, totalOf, ZERO_TOKENS } from "@/usage/breakdown";
-import type { ThreadUsage } from "@/usage/contract";
+import type { ThreadUsage, TurnTimeBreakdown as Breakdown } from "@/usage/contract";
 import { formatTokens, RANGES, type Bar, type RangeId } from "@/usage/series";
 
 import { Segmented } from "./segmented";
 import type { ContextThresholds } from "@/usage/context";
 
+import { TurnTimeBreakdown } from "./turn-time-breakdown";
 import { LIFECYCLES, ThreadUsageList, threadsIn, type Lifecycle } from "./thread-usage-list";
 import { PARTS, UsageChart, UsageLegend, type PartKey } from "./usage-chart";
 
@@ -20,6 +21,8 @@ export interface UsageData {
   recordingSince: number;
   /** Threads whose context is past these are tinted amber, then red. */
   contextThresholds?: ContextThresholds;
+  /** Where the period's turn time went, for the section under the chart. */
+  turnTime?: Breakdown;
 }
 
 function recordingNote(data: UsageData): string | null {
@@ -100,6 +103,12 @@ export function UsageView({
           </div>
         </div>
         {note === null ? null : <p className="mt-2 text-xs text-muted-foreground">{note}</p>}
+        {data?.turnTime === undefined ? null : (
+          <TurnTimeBreakdown
+            breakdown={data.turnTime}
+            period={RANGES.find((option) => option.id === range)?.label ?? ""}
+          />
+        )}
 
         <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium">Threads</h2>
