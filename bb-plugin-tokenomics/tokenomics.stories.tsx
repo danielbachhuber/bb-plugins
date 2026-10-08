@@ -235,6 +235,15 @@ function usageOf(turns: TurnDetail[], pruned = 0): ThreadTokens {
 
 const LONG_TURNS = fixtureTurns(18, NOW.getTime() - 5 * HOUR);
 const LONG = usageOf(LONG_TURNS);
+// Three subagents whose 9.4M bb never reported; the totals include them.
+const WITH_SUBAGENTS: ThreadTokens = {
+  ...LONG,
+  input: LONG.input + 180_000,
+  cacheRead: LONG.cacheRead + 9_180_000,
+  output: LONG.output + 40_000,
+  total: LONG.total + 9_400_000,
+  subagents: { count: 3, tokens: 9_400_000 },
+};
 const PRUNED_TURNS = fixtureTurns(6, NOW.getTime() - 2 * HOUR);
 const PRUNED = usageOf(PRUNED_TURNS, 12_480_000);
 const SHORT_TURNS = fixtureTurns(1, NOW.getTime() - 5 * 60_000);
@@ -281,6 +290,9 @@ export const HeaderSummary = () => (
     </StoryRow>
     <StoryRow label="loading the turns" hint="the chart draws the recorded usage until the messages arrive">
       <Summary usage={LONG} turns={null} />
+    </StoryRow>
+    <StoryRow label="subagents counted" hint="bb leaves their tokens out; the summary adds them and says so">
+      <Summary usage={WITH_SUBAGENTS} turns={LONG_TURNS} />
     </StoryRow>
     <StoryRow label="earlier turns pruned" hint="the provider's running total covers what bb deleted">
       <Summary usage={PRUNED} turns={PRUNED_TURNS} />

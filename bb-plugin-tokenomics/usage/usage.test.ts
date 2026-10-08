@@ -115,6 +115,7 @@ describe("sync and store", () => {
       tokens: { input: 300, cacheRead: 2_900, output: 300 },
       total: 3_500,
       turns: 3,
+      subagents: { count: 0, tokens: 0 },
     });
     expect(store.threadRows(thread.id, 2).map((turn) => turn.at)).toEqual([T0 + 60_000, T0 + HOUR]);
   });

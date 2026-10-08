@@ -17,6 +17,8 @@ export interface ThreadTokens extends Tokens {
   turns: number;
   /** The latest usage rows, oldest first. */
   recent: UsageAt[];
+  /** Claude Code subagents the thread ran and the tokens they used; already in the totals. */
+  subagents?: { count: number; tokens: number };
 }
 
 /** Buckets in the header's sparkline and the summary's chart. */
@@ -476,6 +478,12 @@ export function ThreadTokenSummary({
             <span className="w-9 text-right tabular-nums text-muted-foreground">{percent(usage[part.key], recorded)}</span>
           </p>
         ))}
+        {usage.subagents !== undefined && usage.subagents.tokens > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Includes {formatTokens(usage.subagents.tokens)} from {usage.subagents.count}{" "}
+            {usage.subagents.count === 1 ? "subagent" : "subagents"}, which bb does not count in the thread's own usage.
+          </p>
+        ) : null}
         {unrecorded > 0 ? (
           <p className="text-xs text-muted-foreground">
             Plus {unrecorded.toLocaleString()} from earlier turns that bb deleted before Tokenomics could record them.

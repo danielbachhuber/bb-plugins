@@ -69,6 +69,7 @@ off the tokens:
 - **Biggest turns**: the three turns that used the most, the same way, each
   with a bar of its time split
 - the split into new input, cache reads, and output, with each part's share
+- how many of the total came from Claude Code subagents, when there are any
 - how many of the total came from turns bb deleted before Tokenomics could
   record them, when there are any
 - "Open Tokenomics", which goes to the page
@@ -182,6 +183,25 @@ provider's latest running total. The sum misses turns bb deleted before they
 were recorded. The running total misses turns from before the provider's last
 restart, because Claude Code starts its count over when its session restarts.
 
+## Subagents
+
+bb reports only a thread's own usage. When a Claude Code thread runs
+subagents, their tokens never reach bb, though they can be most of what the
+thread cost: one review run used 4.6M tokens of its own and 55.7M in its 15
+subagents. Claude Code writes each subagent's calls to a transcript under
+`~/.claude/projects/<working directory>/<session>/subagents/`, so the plugin
+reads those transcripts and adds their tokens to the page, the thread list,
+and the header. A subagent's calls count toward the hours they ran in and the
+turn that was running then, but not as turns of their own. The header summary
+says how much of the total came from subagents.
+
+The plugin reads a thread's transcripts when its turn ends, and on each load
+reads every transcript that has grown since. Each thread's Claude Code session
+id comes from its usage events, one request per thread the first time and
+none after. Finding the transcripts lists the session folders on this machine
+once, and again at most once a minute when a session is not among them. Only
+threads that ran on this machine have transcripts here.
+
 ## Time
 
 Alongside usage, the plugin records when each turn started and finished,
@@ -208,9 +228,11 @@ before it.
 | Path | What it holds |
 | --- | --- |
 | `usage/context.ts` | The pure reading of bb's context window events and of the warning setting |
+| `usage/subagents.ts` | The pure reading of a subagent transcript's lines into model calls |
+| `usage/subagent-files.ts` | The only module that touches `~/.claude`: finding a session's subagent transcripts and reading what is new in them |
 | `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times |
 | `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
-| `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes and turn, tool, and question times, per-thread cursors and archive state, and the hourly and per-thread sums |
+| `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, turn, tool, and question times, and subagent calls, per-thread cursors and archive state, and the hourly and per-thread sums |
 | `usage/sync.ts` | The only module that reads from bb: copying new usage, context, and timing events into the ledger, one thread at a time, and reading a thread's turn events and outline |
 | `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
 | `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |

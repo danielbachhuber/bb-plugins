@@ -7,6 +7,7 @@
 import type { Database } from "better-sqlite3";
 
 import type { ContextRow } from "./context.js";
+import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
 
@@ -92,6 +93,29 @@ export const MIGRATIONS = [
      SELECT DISTINCT thread_id FROM usage
      WHERE created_at > (CAST(strftime('%s', 'now') AS INTEGER) - 9 * 86400) * 1000
    )`,
+  // The Claude Code session behind the thread, which names its subagents' transcripts.
+  `ALTER TABLE threads ADD COLUMN session_id TEXT`,
+  // How far into each subagent transcript the plugin has read.
+  `CREATE TABLE IF NOT EXISTS subagent_files (
+     path TEXT PRIMARY KEY,
+     thread_id TEXT NOT NULL,
+     agent_id TEXT NOT NULL,
+     description TEXT,
+     offset INTEGER NOT NULL
+   )`,
+  // One row per model call a subagent made. bb never reports these, so the
+  // thread's own usage leaves them out.
+  `CREATE TABLE IF NOT EXISTS subagent_calls (
+     thread_id TEXT NOT NULL,
+     agent_id TEXT NOT NULL,
+     message_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     input INTEGER NOT NULL,
+     cache_read INTEGER NOT NULL,
+     output INTEGER NOT NULL,
+     PRIMARY KEY (thread_id, message_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS subagent_calls_created_at_idx ON subagent_calls (created_at)`,
 ];
 
 export interface ThreadInfo {
@@ -146,6 +170,8 @@ export interface ThreadTotal {
    */
   total: number;
   turns: number;
+  /** Claude Code subagents the thread ran, and the tokens they used, which bb does not report. */
+  subagents: { count: number; tokens: number };
 }
 
 const HOUR_MS = 3_600_000;
@@ -170,7 +196,9 @@ export function createStore(db: Database) {
   const selectThreadHours = db.prepare(
     `SELECT thread_id AS threadId, (created_at / ${HOUR_MS}) * ${HOUR_MS} AS hour,
             sum(input + cache_read + output) AS total
-     FROM usage WHERE created_at >= ?
+     FROM (SELECT thread_id, created_at, input, cache_read, output, 1 AS is_turn FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output, 0 FROM subagent_calls) WHERE created_at >= ?
      GROUP BY thread_id, hour ORDER BY hour`,
   );
   const selectCursor = db.prepare(`SELECT last_seq FROM threads WHERE thread_id = ?`);
@@ -180,7 +208,9 @@ export function createStore(db: Database) {
   const selectHours = db.prepare(
     `SELECT (created_at / ${HOUR_MS}) * ${HOUR_MS} AS hour,
             sum(input) AS input, sum(cache_read) AS cacheRead, sum(output) AS output
-     FROM usage WHERE created_at >= ?
+     FROM (SELECT thread_id, created_at, input, cache_read, output, 1 AS is_turn FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output, 0 FROM subagent_calls) WHERE created_at >= ?
      GROUP BY hour ORDER BY hour`,
   );
   const selectThreads = db.prepare(
@@ -188,8 +218,10 @@ export function createStore(db: Database) {
             coalesce(t.project_id, '') AS projectId, coalesce(t.provider_id, '') AS providerId,
             t.archived_at AS archivedAt,
             sum(u.input) AS input, sum(u.cache_read) AS cacheRead, sum(u.output) AS output,
-            count(*) AS turns
-     FROM usage u LEFT JOIN threads t ON t.thread_id = u.thread_id
+            sum(u.is_turn) AS turns
+     FROM (SELECT thread_id, created_at, input, cache_read, output, 1 AS is_turn FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output, 0 FROM subagent_calls) u LEFT JOIN threads t ON t.thread_id = u.thread_id
      WHERE u.created_at >= ?
      GROUP BY u.thread_id
      ORDER BY sum(u.input) + sum(u.cache_read) + sum(u.output) DESC`,
@@ -204,7 +236,9 @@ export function createStore(db: Database) {
   const selectRows = db.prepare(
     `SELECT at, input, cacheRead, output FROM (
        SELECT created_at AS at, input, cache_read AS cacheRead, output
-       FROM usage WHERE thread_id = ?
+       FROM (SELECT thread_id, created_at, input, cache_read, output, 1 AS is_turn FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output, 0 FROM subagent_calls) WHERE thread_id = ?
        ORDER BY created_at DESC LIMIT ?
      ) ORDER BY at`,
   );
@@ -290,6 +324,38 @@ export function createStore(db: Database) {
     return inserted;
   });
 
+  const selectSubagentTotal = db.prepare(
+    `SELECT coalesce(sum(input), 0) AS input, coalesce(sum(cache_read), 0) AS cacheRead,
+            coalesce(sum(output), 0) AS output, count(DISTINCT agent_id) AS agents
+     FROM subagent_calls WHERE thread_id = ?`,
+  );
+  const selectClaudeCode = db.prepare(`SELECT thread_id FROM threads WHERE provider_id = 'claude-code'`);
+  const selectSessionId = db.prepare(`SELECT session_id FROM threads WHERE thread_id = ?`);
+  const updateSessionId = db.prepare(`UPDATE threads SET session_id = ? WHERE thread_id = ?`);
+  const selectOffsets = db.prepare(`SELECT path, offset FROM subagent_files WHERE thread_id = ?`);
+  const upsertFile = db.prepare(
+    `INSERT INTO subagent_files (path, thread_id, agent_id, description, offset) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (path) DO UPDATE SET offset = excluded.offset,
+       description = coalesce(excluded.description, subagent_files.description)`,
+  );
+  const upsertCall = db.prepare(
+    `INSERT INTO subagent_calls (thread_id, agent_id, message_id, created_at, input, cache_read, output)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (thread_id, message_id) DO UPDATE SET
+       input = excluded.input, cache_read = excluded.cache_read, output = excluded.output`,
+  );
+  const recordSubagents = db.transaction((threadId: string, reads: TranscriptRead[]) => {
+    let calls = 0;
+    for (const read of reads) {
+      for (const call of read.calls) {
+        upsertCall.run(threadId, read.agentId, call.messageId, call.createdAt, call.input, call.cacheRead, call.output);
+        calls += 1;
+      }
+      upsertFile.run(read.path, threadId, read.agentId, read.description, read.offset);
+    }
+    return calls;
+  });
+
   const record = db.transaction((thread: ThreadInfo, rows: UsageRow[], lastSeq: number) => {
     let inserted = 0;
     for (const row of rows) {
@@ -318,6 +384,31 @@ export function createStore(db: Database) {
     /** Stores new usage rows and moves the thread's cursor. Returns rows added. */
     record(thread: ThreadInfo, rows: UsageRow[], lastSeq: number): number {
       return record(thread, rows, lastSeq);
+    },
+
+    claudeCodeThreads(): string[] {
+      return (selectClaudeCode.all() as Array<{ thread_id: string }>).map((row) => row.thread_id);
+    },
+
+    /** The Claude Code session id recorded for the thread, or null before one is known. */
+    sessionId(threadId: string): string | null {
+      const row = selectSessionId.get(threadId) as { session_id: string | null } | undefined;
+      return row?.session_id ?? null;
+    },
+
+    setSessionId(threadId: string, sessionId: string): void {
+      updateSessionId.run(sessionId, threadId);
+    },
+
+    /** How far into each of the thread's subagent transcripts the plugin has read. */
+    subagentOffsets(threadId: string): Map<string, number> {
+      const rows = selectOffsets.all(threadId) as Array<{ path: string; offset: number }>;
+      return new Map(rows.map((row) => [row.path, row.offset]));
+    },
+
+    /** Stores subagent calls and how far each transcript was read. Returns the calls read. */
+    recordSubagents(threadId: string, reads: TranscriptRead[]): number {
+      return recordSubagents(threadId, reads);
     },
 
     /** Stores turn, tool, and wait times, merging a start and an end that arrived apart. */
@@ -396,11 +487,15 @@ export function createStore(db: Database) {
         turns: number;
         runningTotal: number;
       };
-      const tokens = addTokens(ZERO_TOKENS, row);
+      const own = addTokens(ZERO_TOKENS, row);
+      const sub = selectSubagentTotal.get(threadId) as Tokens & { agents: number };
+      const subagentTokens = addTokens(ZERO_TOKENS, sub);
       return {
-        tokens,
-        total: Math.max(totalOf(tokens), row.runningTotal),
+        tokens: addTokens(own, subagentTokens),
+        // The provider's running total covers only the thread's own turns.
+        total: Math.max(totalOf(own), row.runningTotal) + totalOf(subagentTokens),
         turns: row.turns,
+        subagents: { count: sub.agents, tokens: totalOf(subagentTokens) },
       };
     },
   };

@@ -2,6 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { readTranscripts, subagentsDir } from "./usage/subagent-files.js";
 import { TIMING_EVENTS, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
@@ -71,10 +72,40 @@ export default async function plugin(bb: BbPluginApi) {
   const sync = createSync(store, source, {
     onAdded: (threadId) => {
       if (!backfilling) bb.realtime.publish(USAGE_CHANNEL, { threadIds: [threadId] });
+      // A turn ended, so its subagents have written their calls.
+      scanSubagents(threadId)
+        .then((calls) => {
+          if (calls > 0 && !backfilling) bb.realtime.publish(USAGE_CHANNEL, { threadIds: [threadId] });
+        })
+        .catch((error: unknown) => warn(threadId, error));
     },
     onContext: (threadId) => bb.realtime.publish(CONTEXT_CHANNEL, { threadIds: [threadId] }),
     onError: warn,
   });
+
+  /**
+   * Reads the thread's Claude Code subagent transcripts past where it last
+   * stopped. bb does not report subagents' usage, so this is the only record
+   * of it. Returns the calls read.
+   */
+  async function scanSubagents(threadId: string): Promise<number> {
+    let sessionId = store.sessionId(threadId);
+    if (sessionId === null) {
+      const [event] = await bb.sdk.threads.events.list({
+        threadId,
+        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT],
+        order: "desc",
+        limit: "1",
+      });
+      const found = (event?.data as { providerThreadId?: unknown } | undefined)?.providerThreadId;
+      if (typeof found !== "string") return 0;
+      sessionId = found;
+      store.setSessionId(threadId, sessionId);
+    }
+    const dir = await subagentsDir(sessionId);
+    if (dir === null) return 0;
+    return store.recordSubagents(threadId, await readTranscripts(dir, store.subagentOffsets(threadId)));
+  }
 
   /**
    * The thread's latest context size. A thread read before the plugin
@@ -130,7 +161,22 @@ export default async function plugin(bb: BbPluginApi) {
           }
         }
         if (missing.length > 0) bb.log.info(`backfill read the latest context of ${missing.length} threads, ${found} had one`);
-        if (changed.length > 0 || found > 0) bb.realtime.publish(USAGE_CHANNEL, { threadIds: changed });
+        // Every Claude Code thread's subagents, including ones that finished
+        // after their turn's usage was recorded. The first load looks up each
+        // thread's session id once, one request per thread; later loads only
+        // read transcripts that grew.
+        let subagentCalls = 0;
+        for (const threadId of store.claudeCodeThreads()) {
+          if (signal.aborted) break;
+          const thread = { threadId };
+          try {
+            subagentCalls += await scanSubagents(thread.threadId);
+          } catch (error) {
+            warn(thread.threadId, error);
+          }
+        }
+        if (subagentCalls > 0) bb.log.info(`backfill read ${subagentCalls} subagent calls`);
+        if (changed.length > 0 || found > 0 || subagentCalls > 0) bb.realtime.publish(USAGE_CHANNEL, { threadIds: changed });
       } finally {
         backfilling = false;
       }
@@ -176,8 +222,8 @@ export default async function plugin(bb: BbPluginApi) {
       };
     },
     thread_usage: ({ threadId }) => {
-      const { tokens, total, turns } = store.threadTotal(threadId);
-      return { ...tokens, total, turns, recent: store.threadRows(threadId, MAX_ROWS) };
+      const { tokens, total, turns, subagents } = store.threadTotal(threadId);
+      return { ...tokens, total, turns, subagents, recent: store.threadRows(threadId, MAX_ROWS) };
     },
     thread_context: async ({ threadId }) => {
       const [context, thresholds] = await Promise.all([latestContext(threadId), contextThresholds()]);

@@ -73,8 +73,10 @@ export const rpcContract = defineRpcContract({
       output: z.number(),
       total: z.number(),
       turns: z.number(),
-      /** The latest usage rows, up to MAX_ROWS, oldest first. */
+      /** The latest usage rows, up to MAX_ROWS, oldest first, subagents' calls included. */
       recent: z.array(usageAtSchema),
+      /** Claude Code subagents the thread ran and the tokens they used, which bb does not report. */
+      subagents: z.object({ count: z.number(), tokens: z.number() }),
     }),
   },
   /** The thread's usage by turn, with the message that began each. Reads bb, so it runs when the summary opens. */
