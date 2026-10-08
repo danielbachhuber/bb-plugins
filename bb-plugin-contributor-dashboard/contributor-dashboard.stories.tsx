@@ -49,7 +49,10 @@ const PEOPLE: Array<{ login: string; opened: number; merged: number; requested: 
 
 /** A person's weekly rhythm: uneven, repeatable, and the same shape each period. */
 const rhythm = (seed: number, buckets: number): number[] =>
-  Array.from({ length: buckets }, (_, i) => 1 + (((i + 2) * (seed + 5) * 7919) % 7) / 7);
+  Array.from(
+    { length: buckets },
+    (_, i) => 1 + 0.45 * Math.sin((i + seed) / 1.7) + 0.2 * Math.sin((i * 2 + seed) / 1.1),
+  );
 
 /** A total spread over a rhythm, summing to the total exactly. */
 function spread(total: number, weights: readonly number[]): number[] {

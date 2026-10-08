@@ -48,6 +48,7 @@ export function PersonChart({
   max,
   unit,
   peak = false,
+  per = "wk",
   initialHovered,
   onOpenPerson,
 }: {
@@ -59,6 +60,8 @@ export function PersonChart({
   unit: "Week of" | "";
   /** Says what this card's busiest bucket was, for a card that reads flat. */
   peak?: boolean;
+  /** What one bucket is called in the peak: a week, or a month. */
+  per?: "wk" | "mo";
   initialHovered?: number;
   /** Opens their page. Left out on their own page, where the name is a heading. */
   onOpenPerson?: (login: string) => void;
@@ -89,7 +92,7 @@ export function PersonChart({
           </button>
         )}
         {peak ? (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">peak {peakOf(person)}/wk</span>
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">peak {peakOf(person)}/{per}</span>
         ) : null}
       </div>
       {/*

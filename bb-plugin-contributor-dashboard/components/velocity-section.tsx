@@ -38,7 +38,8 @@ export function VelocitySection({
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
   const { charted, folded, max } = foldRows(rows);
-  const unit = period === "6w" || period === "12w" ? "Week of" : "";
+  const weekly = period === "6w" || period === "12w";
+  const unit = weekly ? "Week of" : "";
   const cards = showAll ? [...charted, ...folded] : charted;
 
   return (
@@ -67,6 +68,7 @@ export function VelocitySection({
                 buckets={buckets}
                 max={max}
                 unit={unit}
+                per={weekly ? "wk" : "mo"}
                 peak
                 initialHovered={index === 0 ? initialHovered : undefined}
                 onOpenPerson={onOpenPerson}
@@ -78,8 +80,8 @@ export function VelocitySection({
             <>
               <div className="mt-3 flex items-baseline justify-between gap-2">
                 <h4 className="text-xs font-medium text-muted-foreground">
-                  {folded.length} more {folded.length === 1 ? "person" : "people"}, whose busiest week is under a tenth
-                  of the scale
+                  {folded.length} more {folded.length === 1 ? "person" : "people"}, whose busiest {weekly ? "week" : "month"} is under a
+                  tenth of the scale
                 </h4>
                 <button
                   type="button"
