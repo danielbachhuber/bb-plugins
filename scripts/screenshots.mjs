@@ -7,6 +7,9 @@
 //   npm run screenshots:commit   commit the capture there and push it
 //   npm run screenshots:isolated build and capture in directories of its own
 //
+// Add `-- --explore` to either capture command to include the stories in
+// explore/ directories, which are left out otherwise.
+//
 // Plain `npm run screenshots` builds into build/ and captures into the shared
 // checkout, so two threads running it at once delete each other's build and
 // mix their images. The isolated run builds into a temporary directory and
@@ -45,6 +48,7 @@ import { chromium } from "playwright";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commitMode = process.argv.includes("--commit");
 const isolated = process.argv.includes("--isolated");
+const includeExplore = process.argv.includes("--explore");
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -162,7 +166,12 @@ if (build.status !== 0) {
 }
 
 const storyMeta = JSON.parse(readFileSync(join(buildDir, "meta.json"), "utf8")).stories;
-const stories = Object.keys(storyMeta);
+// Stories in an explore/ directory are design options that git ignores, so
+// their images would only be thrown away before committing. They are captured
+// only when asked for with --explore.
+const stories = Object.keys(storyMeta).filter(
+  (id) => includeExplore || !storyMeta[id].filePath.includes("/explore/"),
+);
 
 const TYPES = {
   ".html": "text/html",

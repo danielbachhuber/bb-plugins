@@ -66,7 +66,8 @@ with `git add bb-plugin-now` instead of by file.
 - Read `git diff --cached --stat` before committing, and unstage anything
   you do not recognise.
 - The same goes for screenshots. A capture photographs every story in this
-  checkout, including another thread's uncommitted ones. Before
+  checkout, including another thread's uncommitted ones (though not the
+  `explore/` ones, which it leaves out unless run with `-- --explore`). Before
   `screenshots:commit`, restore the images and READMEs that your commit did
   not change, with `git -C <screenshots dir> checkout -- <path>` and
   `git clean` for new files.
@@ -362,7 +363,10 @@ components. The root README covers the setup. What costs time:
   updates in place.
 - Stories that lay out design options to pick from go in the plugin's
   `explore/` directory, which git ignores. Move the chosen direction into a
-  real story once it ships.
+  real story once it ships. The screenshot capture skips these stories. To
+  photograph them, for example to show the options side by side, run
+  `npm run screenshots:isolated -- --explore`, and throw that capture away
+  rather than committing it.
 - Fixtures follow the public-repository rule above: `acme/widgets`, never a
   real repository or PR. When a fixture copies the layout of a real screen,
   invent every field: titles, PR numbers, line counts, and ages as well as
