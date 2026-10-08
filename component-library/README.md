@@ -12,7 +12,7 @@ what not to do with it.
 | Entry | Import | What it is |
 | --- | --- | --- |
 | [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
-| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, then the total |
+| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, then the total; or rows past a warning in amber and past an error in red |
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
@@ -112,6 +112,20 @@ Now, PR Sweep, Issue Sweep, and Review Sweep use it.
 
 **Don't** draw a bare number in a `<span>`, which drifts out of line with
 the rows around it, or count rows the page would not show.
+
+**Warnings and errors.** A page whose total means nothing, such as
+Tokenomics, where every thread counts, draws `SidebarLevels` instead:
+
+```tsx
+import { SidebarLevels } from "component-library/sidebar-count";
+
+<SidebarLevels warning={3} error={1} warningLabel="3 past the warning" errorLabel="1 past the limit" />
+```
+
+Rows past the warning go in an amber circle, then rows past the error in a
+red one, the same red as `SidebarCount`'s urgent circle. A row counts in one
+circle only, the higher. Each circle is left out at zero, and nothing is
+drawn when both are. Tokenomics uses it.
 
 ## Segmented
 

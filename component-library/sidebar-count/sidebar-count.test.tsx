@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { SidebarCount } from "./sidebar-count";
+import { SidebarCount, SidebarLevels } from "./sidebar-count";
 
 afterEach(cleanup);
 
@@ -23,6 +23,23 @@ describe("SidebarCount", () => {
 
   it("draws nothing at a total of zero", () => {
     const { container } = render(<SidebarCount urgent={0} total={0} urgentLabel="" totalLabel="" />);
+    expect(container.textContent).toBe("");
+  });
+});
+
+describe("SidebarLevels", () => {
+  it("puts warnings in an amber circle before errors in a red one", () => {
+    const { container } = render(<SidebarLevels warning={2} error={1} warningLabel="2 warn" errorLabel="1 error" />);
+    expect(screen.getByTitle("2 warn")).toHaveClass("bg-amber-400");
+    expect(screen.getByTitle("1 error")).toHaveClass("bg-red-600");
+    expect(container.textContent).toBe("21");
+  });
+
+  it("leaves out a circle at zero, and draws nothing when both are", () => {
+    const { container, rerender } = render(<SidebarLevels warning={0} error={3} warningLabel="none" errorLabel="3" />);
+    expect(screen.queryByTitle("none")).toBeNull();
+    expect(container.textContent).toBe("3");
+    rerender(<SidebarLevels warning={0} error={0} warningLabel="" errorLabel="" />);
     expect(container.textContent).toBe("");
   });
 });
