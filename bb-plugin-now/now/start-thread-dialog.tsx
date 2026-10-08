@@ -27,7 +27,8 @@ export type StartThreadSeed = {
   /** The row itself, drawn as a card. Facts, not instructions: not editable. */
   preview: {
     title: string;
-    url: string;
+    /** Null for something with no page of its own, such as a priority. */
+    url: string | null;
     meta: string;
   };
 };
@@ -118,14 +119,18 @@ export function StartThreadDialog({
               link between the thread and the row it came from.
             */}
             <div className="rounded-lg border border-border p-3 text-sm">
-              <UrlLink
-                href={seed.preview.url}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium hover:underline"
-              >
-                {seed.preview.title}
-              </UrlLink>
+              {seed.preview.url === null ? (
+                <span className="font-medium">{seed.preview.title}</span>
+              ) : (
+                <UrlLink
+                  href={seed.preview.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium hover:underline"
+                >
+                  {seed.preview.title}
+                </UrlLink>
+              )}
               {seed.preview.meta ? (
                 <p className="mt-1 text-xs text-muted-foreground">{seed.preview.meta}</p>
               ) : null}

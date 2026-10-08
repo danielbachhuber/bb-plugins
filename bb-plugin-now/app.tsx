@@ -19,7 +19,7 @@ import type { rpcContract } from "./server";
 import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
 import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
-import { mondayOf, type PriorityWeek } from "./now/priorities.js";
+import { mondayOf, priorityPrompt, priorityThreadId, weekLabel, type PriorityWeek, type StoredPriority } from "./now/priorities.js";
 import { PrioritiesColumn, WithPriorities } from "./now/priorities-column.js";
 import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
@@ -324,18 +324,21 @@ function useRowActions(
 }
 
 /**
- * Start a thread about a row: `start` opens bb's composer seeded with the
- * row, and `dialog` is that composer, for the caller to render.
+ * Start a thread about a row or a priority: `start` and `startPriority` open
+ * bb's composer seeded with it, and `dialog` is that composer, for the caller
+ * to render.
  */
 function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
-  // The row whose composer is open. Null when the dialog is closed.
-  const [draft, setDraft] = useState<{ item: Item; seed: StartThreadSeed } | null>(null);
+  // What the open composer is about: its id for the thread link, its title
+  // for the toast. Null when the dialog is closed.
+  const [draft, setDraft] = useState<{ id: string; title: string; seed: StartThreadSeed } | null>(null);
 
   const start = useCallback(
     (item: Item) =>
       setDraft({
-        item,
+        id: item.id,
+        title: item.title,
         seed: {
           projectId: threadProjectId,
           prompt: threadPrompt(item),
@@ -345,10 +348,24 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
     [threadProjectId],
   );
 
+  const startPriority = useCallback(
+    (monday: string, priority: StoredPriority) =>
+      setDraft({
+        id: priorityThreadId(monday, priority.text),
+        title: priority.text,
+        seed: {
+          projectId: threadProjectId,
+          prompt: priorityPrompt(monday, priority),
+          preview: { title: priority.text, url: null, meta: `Priority for the ${weekLabel(monday).replace(/^Week/, "week")}` },
+        },
+      }),
+    [threadProjectId],
+  );
+
   const onSubmitDraft = useCallback(
     async (request: NewThreadRequest) => {
       if (draft === null) return;
-      const result = await rpc.call("items_start_thread", { id: draft.item.id, request: request as never });
+      const result = await rpc.call("items_start_thread", { id: draft.id, request: request as never });
       if (result.threadId === null) {
         toast.error(result.error ?? "Could not start a thread.");
         // Thrown so the composer keeps the draft rather than clearing it.
@@ -356,7 +373,7 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
       }
       setDraft(null);
       if (result.existing) navigate.toThread(result.threadId);
-      else toast.success(`Started a thread for "${draft.item.title}"`);
+      else toast.success(`Started a thread for "${draft.title}"`);
     },
     [draft, navigate, rpc],
   );
@@ -369,13 +386,13 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
       }}
       heading="Start a thread"
       description="Write what this thread should do, then start it."
-      draftKey={draft === null ? "" : `now:${draft.item.id}`}
+      draftKey={draft === null ? "" : `now:${draft.id}`}
       seed={draft?.seed ?? null}
       onSubmit={onSubmitDraft}
     />
   );
 
-  return { start, dialog };
+  return { start, startPriority, dialog };
 }
 
 function NowPage() {
@@ -384,7 +401,7 @@ function NowPage() {
   const navigate = useBbNavigate();
   const panel = experimental_useAppPanel();
   const reading = experimental_useFixedTabTarget(EMAIL_TAB)?.target.id ?? null;
-  const { start, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, startPriority, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
 
   const threadActions = useMemo(
     () => ({
@@ -438,7 +455,14 @@ function NowPage() {
         <WithPriorities
           priorities={
             priorities.week === null || priorities.week.items.length === 0 ? null : (
-              <PrioritiesColumn week={priorities.week} now={new Date()} onToggle={priorities.toggle} />
+              <PrioritiesColumn
+                week={priorities.week}
+                now={new Date()}
+                onToggle={priorities.toggle}
+                threads={listing?.threads ?? {}}
+                onStartThread={(priority) => startPriority(priorities.week!.monday, priority)}
+                onOpenThread={(threadId) => navigate.toThread(threadId)}
+              />
             )
           }
         >

@@ -105,6 +105,11 @@ gathers and whenever you link a priority to a workstream. The bullets nested
 under a priority show beneath it as a list that keeps the journal's levels,
 each deeper level indented further.
 
+The small icon after each priority starts a thread about it, in bb's own
+composer seeded with the priority and the bullets under it, as Start thread
+does for a row. Once a thread has been started from a priority, the icon opens
+that thread instead.
+
 Check a priority off when it is finished. It is struck through and stays in
 place. When Weekly Review writes the list again, a priority whose text has not
 changed keeps its check, and one you reworded in the journal comes back

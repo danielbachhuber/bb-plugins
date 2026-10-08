@@ -1,7 +1,7 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { useState } from "react";
 
-import type { PriorityWeek } from "./now/priorities";
+import { priorityThreadId, type PriorityWeek } from "./now/priorities";
 import { PrioritiesColumn, WithPriorities } from "./now/priorities-column";
 
 export default {
@@ -36,6 +36,9 @@ const week: PriorityWeek = {
   ],
 };
 
+/** One priority already has a thread, so its button opens it. */
+const threads = { [priorityThreadId("2026-10-05", "Review project plans with the team")]: "thread-1" };
+
 /** Checking a box here changes only the story. */
 function Column({ initial }: { initial: PriorityWeek | null }) {
   const [current, setCurrent] = useState(initial);
@@ -43,6 +46,9 @@ function Column({ initial }: { initial: PriorityWeek | null }) {
     <PrioritiesColumn
       week={current}
       now={now}
+      threads={threads}
+      onStartThread={() => {}}
+      onOpenThread={() => {}}
       onToggle={(text, done) =>
         setCurrent((value) =>
           value === null
@@ -67,13 +73,13 @@ function List() {
   );
 }
 
-/** The column beside Now's list: one priority checked off, one with no time yet, one not linked to any workstream, and one with bullets nested two levels deep. */
+/** The column beside Now's list: one priority checked off, one with no time yet, one not linked to any workstream, and one with bullets nested two levels deep. The icon after each priority starts a thread about it, or opens the one already started. */
 export function Default() {
   return (
     <StoryCard>
       <StoryRow
         label="States"
-        hint="Checked: struck through, still showing its hours. No time yet: linked workstreams got no hours this week. No hours line: nothing linked to measure it."
+        hint="Checked: struck through, still showing its hours. No time yet: linked workstreams got no hours this week. No hours line: nothing linked to measure it. The third priority already has a thread, so its icon opens it."
       >
         <div className="w-64 rounded-lg border border-border bg-background p-4">
           <Column initial={week} />

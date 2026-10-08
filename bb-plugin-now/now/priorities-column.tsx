@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import type * as React from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
 import {
@@ -13,9 +14,11 @@ import {
   doneCount,
   hoursAsOf,
   hoursLabel,
+  priorityThreadId,
   weekLabel,
   type PriorityDetail,
   type PriorityWeek,
+  type StoredPriority,
 } from "./priorities.js";
 
 export interface PrioritiesColumnProps {
@@ -23,10 +26,15 @@ export interface PrioritiesColumnProps {
   week: PriorityWeek | null;
   now: Date;
   onToggle: (text: string, done: boolean) => void;
+  /** Thread ids by the id they were started under, as the page's listing has them. */
+  threads?: Readonly<Record<string, string>>;
+  /** Left out, the column draws no thread buttons. */
+  onStartThread?: (priority: StoredPriority) => void;
+  onOpenThread?: (threadId: string) => void;
 }
 
 /** Nothing at all for a week with no priorities, so the list keeps the full width. */
-export function PrioritiesColumn({ week, now, onToggle }: PrioritiesColumnProps) {
+export function PrioritiesColumn({ week, now, onToggle, threads = {}, onStartThread, onOpenThread }: PrioritiesColumnProps) {
   if (week === null || week.items.length === 0) return null;
   // Said only when some priority has hours, since it dates them.
   const asOf = week.items.some((each) => each.hours !== null) ? hoursAsOf(week.hoursAt, now) : null;
@@ -49,6 +57,14 @@ export function PrioritiesColumn({ week, now, onToggle }: PrioritiesColumnProps)
                 <label htmlFor={id} className={cn("cursor-pointer break-words", done && "text-muted-foreground line-through")}>
                   {priority.text}
                 </label>
+                {onStartThread === undefined ? null : (
+                  <ThreadButton
+                    text={priority.text}
+                    threadId={threads[priorityThreadId(week.monday, priority.text)] ?? null}
+                    onStart={() => onStartThread(priority)}
+                    onOpen={(threadId) => onOpenThread?.(threadId)}
+                  />
+                )}
                 <Details details={priority.details} />
                 {hours === null ? null : (
                   <div
@@ -66,6 +82,35 @@ export function PrioritiesColumn({ week, now, onToggle }: PrioritiesColumnProps)
         })}
       </ol>
     </section>
+  );
+}
+
+/**
+ * A small button after a priority's text: Start thread, or Open thread once
+ * one has been started from it. Inline, so it follows the last word.
+ */
+function ThreadButton({
+  text,
+  threadId,
+  onStart,
+  onOpen,
+}: {
+  text: string;
+  threadId: string | null;
+  onStart: () => void;
+  onOpen: (threadId: string) => void;
+}) {
+  const label = threadId === null ? "Start thread" : "Open thread";
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={`${label}: ${text}`}
+      className="-my-1 ml-1 inline-flex size-5 items-center justify-center rounded align-middle text-muted-foreground/70 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      onClick={() => (threadId === null ? onStart() : onOpen(threadId))}
+    >
+      <Icon name={threadId === null ? "MessageSquarePlus" : "MessageSquare"} className="size-3.5" />
+    </button>
   );
 }
 

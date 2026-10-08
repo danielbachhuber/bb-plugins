@@ -7,6 +7,9 @@ import {
   hoursLabel,
   mergeDone,
   mondayOf,
+  parsePriorityThreadId,
+  priorityPrompt,
+  priorityThreadId,
   priorityWeekSchema,
   weekLabel,
   type StoredPriority,
@@ -123,4 +126,33 @@ test("clampColumnWidth keeps the column within its bounds", () => {
   expect(clampColumnWidth(4000)).toBe(520);
   expect(clampColumnWidth(null)).toBe(256);
   expect(clampColumnWidth("wide")).toBe(256);
+});
+
+describe("threads from a priority", () => {
+  test("a priority's thread id carries its week and text, and reads back", () => {
+    const id = priorityThreadId("2026-10-05", "People: and more");
+    expect(id).toBe("priority:2026-10-05:People: and more");
+    expect(parsePriorityThreadId(id)).toEqual({ monday: "2026-10-05", text: "People: and more" });
+  });
+
+  test("a row's id is not a priority's", () => {
+    expect(parsePriorityThreadId("todoist:123")).toBeNull();
+    expect(parsePriorityThreadId("priority:soon:Ship it")).toBeNull();
+  });
+
+  test("the prompt names the week and keeps the nested bullets' levels", () => {
+    const priority = {
+      text: "People:",
+      details: [
+        { text: "Octocat:", depth: 1 },
+        { text: "Ask about the widget sync handoff.", depth: 2 },
+      ],
+      hours: null,
+      doneAt: null,
+    };
+    expect(priorityPrompt("2026-10-05", priority)).toBe(
+      "Priority for the week of Oct 5: People:\n- Octocat:\n  - Ask about the widget sync handoff.\n\n",
+    );
+    expect(priorityPrompt("2026-10-05", { ...priority, details: [] })).toBe("Priority for the week of Oct 5: People:\n\n");
+  });
 });

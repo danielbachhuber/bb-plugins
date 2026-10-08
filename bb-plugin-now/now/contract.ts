@@ -192,7 +192,8 @@ export const rpcContract = defineRpcContract({
     output: z.object({ restored: z.boolean(), error: z.string().nullable() }),
   },
   /**
-   * Start a thread about a row, from what bb's composer resolved, or return the
+   * Start a thread about a row, or about one of the week's priorities (an id
+   * from `priorityThreadId`), from what bb's composer resolved, or return the
    * one already started from it.
    */
   items_start_thread: {

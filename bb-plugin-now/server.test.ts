@@ -1280,6 +1280,33 @@ describe("starting a thread", () => {
     expect(listing.threads).toEqual({ "todoist:a": "thr_1" });
   });
 
+  test("starts a thread about one of the week's priorities, titled with its text", async () => {
+    const { bb, harness, plugin } = threadHost();
+    await plugin(bb);
+    await harness.behavior.callRpc("priorities_set", {
+      monday: "2026-10-05",
+      source: "weekly-review",
+      heading: null,
+      hoursAt: null,
+      items: [{ text: "Ship the widget export", details: [], hours: null }],
+    });
+    const id = "priority:2026-10-05:Ship the widget export";
+
+    await expect(harness.behavior.callRpc("items_start_thread", { id, request: REQUEST })).resolves.toEqual({
+      threadId: "thr_1",
+      existing: false,
+      error: null,
+    });
+    const [[args]] = harness.inspection.sdk.callsTo("threads.spawn") as [[Record<string, unknown>]];
+    expect(args).toMatchObject({ title: "Ship the widget export" });
+    const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
+    expect(listing.threads).toEqual({ [id]: "thr_1" });
+
+    await expect(
+      harness.behavior.callRpc("items_start_thread", { id: "priority:2026-10-05:Not a priority", request: REQUEST }),
+    ).resolves.toMatchObject({ threadId: null });
+  });
+
   test("starts one thread when two submits race, and returns it after", async () => {
     const { bb, harness, plugin } = threadHost();
     await plugin(bb);

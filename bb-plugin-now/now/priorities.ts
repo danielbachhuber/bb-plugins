@@ -109,3 +109,30 @@ export function clampColumnWidth(value: unknown): number {
   if (typeof number !== "number" || !Number.isFinite(number)) return COLUMN_WIDTH.initial;
   return Math.round(Math.min(COLUMN_WIDTH.max, Math.max(COLUMN_WIDTH.min, number)));
 }
+
+const THREAD_ID = /^priority:(\d{4}-\d{2}-\d{2}):(.+)$/s;
+
+/**
+ * The id a thread started from a priority is kept under, beside the ids of
+ * threads started from rows. A priority is known by its week and its text.
+ */
+export function priorityThreadId(monday: string, text: string): string {
+  return `priority:${monday}:${text}`;
+}
+
+/** The week and text a priority's thread id names, or null for any other id. */
+export function parsePriorityThreadId(id: string): { monday: string; text: string } | null {
+  const match = THREAD_ID.exec(id);
+  return match === null ? null : { monday: match[1]!, text: match[2]! };
+}
+
+/**
+ * What a thread started from a priority opens with: the priority and the
+ * bullets under it, at their levels, then a blank line for what the thread
+ * should do. Facts only, as with a row.
+ */
+export function priorityPrompt(monday: string, priority: StoredPriority): string {
+  const lines = [`Priority for the ${weekLabel(monday).replace(/^Week/, "week")}: ${priority.text}`];
+  for (const detail of priority.details) lines.push(`${"  ".repeat(detail.depth - 1)}- ${detail.text}`);
+  return `${lines.join("\n")}\n\n`;
+}

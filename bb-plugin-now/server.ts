@@ -8,7 +8,7 @@ import { createGwsRunner, runJson, type GwsRunner } from "./gmail/gws.js";
 import { DEFAULT_MAX_THREADS, DEFAULT_QUERY, gmailSource, rememberedAccount } from "./gmail/source.js";
 import { nowCli } from "./now/cli.js";
 import { PRIORITIES_CHANNEL, rpcContract, SYNC_CHANNEL } from "./now/contract.js";
-import { mondayOf } from "./now/priorities.js";
+import { mondayOf, parsePriorityThreadId } from "./now/priorities.js";
 import { createPriorityStore } from "./now/priorities-store.js";
 import { readable } from "./now/items.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
@@ -323,6 +323,19 @@ export function createPlugin(deps: PluginDeps = {}) {
       return { deleted: true, error: null };
     }
 
+    /**
+     * The title for a thread started from a row, or from one of the week's
+     * priorities. Null when neither is there any more.
+     */
+    function titleFor(id: string): string | null {
+      const priority = parsePriorityThreadId(id);
+      if (priority !== null) {
+        const listed = priorities.read(priority.monday)?.items.some((each) => each.text === priority.text) === true;
+        return listed ? priority.text : null;
+      }
+      return (findItem(id) ?? store.read()?.items.find((kept) => kept.id === id) ?? null)?.title ?? null;
+    }
+
     bb.rpc.register(rpcContract, {
       items_list: async () => {
         const stored = store.read();
@@ -497,14 +510,14 @@ export function createPlugin(deps: PluginDeps = {}) {
         if (inFlight !== undefined) return inFlight;
 
         const attempt = (async () => {
-          const item = findItem(id) ?? store.read()?.items.find((kept) => kept.id === id) ?? null;
-          if (item === null) return { threadId: null, existing: false, error: "That row is no longer on the page." };
+          const title = titleFor(id);
+          if (title === null) return { threadId: null, existing: false, error: "That row is no longer on the page." };
           try {
             // Everything the composer resolved goes through unchanged; the
             // title is the one thing it has no field for.
             const thread = await bb.sdk.threads.spawn({
               ...request,
-              title: item.title,
+              title,
             } as Parameters<typeof bb.sdk.threads.spawn>[0]);
             store.linkThread(id, thread.id, now());
             announce();
