@@ -258,6 +258,12 @@ export function createStore(db: Database) {
      WHERE c.rowid = (SELECT rowid FROM context WHERE thread_id = c.thread_id
                       ORDER BY created_at DESC, rowid DESC LIMIT 1)`,
   );
+  const selectActiveLatestContexts = db.prepare(
+    `SELECT c.used_tokens AS usedTokens FROM context c JOIN threads t ON t.thread_id = c.thread_id
+     WHERE t.archived_at IS NULL
+       AND c.rowid = (SELECT rowid FROM context WHERE thread_id = c.thread_id
+                      ORDER BY created_at DESC, rowid DESC LIMIT 1)`,
+  );
   const selectActiveWithoutContext = db.prepare(
     `SELECT thread_id AS threadId FROM threads t
      WHERE t.archived_at IS NULL
@@ -518,6 +524,11 @@ export function createStore(db: Database) {
     latestContexts(): Map<string, number> {
       const rows = selectLatestContexts.all() as Array<{ threadId: string; usedTokens: number }>;
       return new Map(rows.map((row) => [row.threadId, row.usedTokens]));
+    },
+
+    /** The latest recorded context size of each thread that is not archived or deleted. */
+    activeLatestContexts(): number[] {
+      return (selectActiveLatestContexts.all() as Array<{ usedTokens: number }>).map((row) => row.usedTokens);
     },
 
     /** The thread's latest recorded context size, or null before any. */

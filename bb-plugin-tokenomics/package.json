@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "Graphs how many tokens your threads used over the past day, three days, or week, shows where their turn time went, lists each thread's share, puts a sparkline of each thread's token use over time in its header that opens a summary of which of your messages used the most tokens and time, and shows a meter above a thread's composer once its context passes a size you set, with a button that compacts it. The bb tokenomics command prints the same numbers per thread for scripts.",
+    "description": "Graphs how many tokens your threads used over the past day, three days, or week, shows where their turn time went, lists each thread's share, puts a sparkline of each thread's token use over time in its header that opens a summary of which of your messages used the most tokens and time, and shows a meter above a thread's composer once its context passes a size you set, with a button that compacts it, counting those threads in amber and red in the sidebar. The bb tokenomics command prints the same numbers per thread for scripts.",
     "branding": {
       "icon": "./icons/tokenomics.svg",
       "experimental_icons": {

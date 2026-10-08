@@ -5,7 +5,8 @@ graphs token use over time, shows where turn time went, and lists the threads
 behind it, and each thread's
 header has a sparkline of its token use over time that opens a summary of
 which of your messages used the most tokens and time. A thread whose context has grown past a
-size you set shows a meter above its composer, with a button that compacts it. The
+size you set shows a meter above its composer, with a button that compacts it,
+and the sidebar counts those threads beside Tokenomics in amber and red. The
 `bb tokenomics` command prints the same numbers per thread for scripts.
 
 ## The page
@@ -58,6 +59,14 @@ size you set shows a meter above its composer, with a button that compacts it. T
   Past the error, 550K by default, the bar, tint, and context size are red,
   as Now marks what is overdue. A few of these threads
   usually account for most of a period's tokens.
+
+Beside Tokenomics in the sidebar, an amber circle counts the active threads
+past the warning and a red one those past the error, whether or not they used
+tokens in the period on the page. Each thread counts once, at the higher
+setting it passes, and a circle at zero is left out. The count makes one
+request to the plugin's own database when the sidebar loads, again when a
+context size is recorded or a thread is archived, and once a minute so a
+changed setting shows.
 
 The page re-reads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.

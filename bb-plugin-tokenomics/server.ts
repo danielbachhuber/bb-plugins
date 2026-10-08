@@ -13,7 +13,7 @@ import {
 } from "./usage/report.js";
 import { readTranscripts, subagentsDir } from "./usage/subagent-files.js";
 import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
-import { CONTEXT_EVENT, contextRowOf, parseThreshold, type ContextThresholds } from "./usage/context.js";
+import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
@@ -353,6 +353,7 @@ export default async function plugin(bb: BbPluginApi) {
         archived: store.isArchived(threadId),
       };
     },
+    context_levels: async () => countLevels(store.activeLatestContexts(), await contextThresholds()),
     compact_thread: async ({ threadId }) => {
       await bb.sdk.threads.compact({ threadId });
       return { ok: true as const };

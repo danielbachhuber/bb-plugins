@@ -63,6 +63,16 @@ export function contextLevel(usedTokens: number, thresholds: ContextThresholds):
   return null;
 }
 
+/** How many of the contexts are past the warning but not the error, and how many are past the error. */
+export function countLevels(contexts: Iterable<number>, thresholds: ContextThresholds): Record<ContextLevel, number> {
+  const counts = { warning: 0, error: 0 };
+  for (const usedTokens of contexts) {
+    const level = contextLevel(usedTokens, thresholds);
+    if (level !== null) counts[level] += 1;
+  }
+  return counts;
+}
+
 /** A setting's value as a token count, or null when it is off. */
 export function parseThreshold(value: string): number | null {
   const match = /^\s*([\d.,_]+)\s*([km]?)\s*$/i.exec(value);

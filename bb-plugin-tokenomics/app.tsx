@@ -10,6 +10,8 @@ import {
   type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 
+import { SidebarLevels } from "component-library/sidebar-count";
+
 import { ContextMeter } from "@/components/context-meter";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
 import { UsageView, type UsageData } from "@/components/usage-view";
@@ -74,6 +76,38 @@ function TokenomicsPage() {
       data={data}
       error={error}
       onOpenThread={(threadId) => navigate.toThread(threadId)}
+    />
+  );
+}
+
+const plural = (count: number) => `${count} ${count === 1 ? "thread" : "threads"}`;
+
+/**
+ * Beside Tokenomics in the sidebar: how many active threads have their
+ * context past the warning, in amber, and past the error, in red. Re-read
+ * when a context size or an archive is recorded, and once a minute for a
+ * changed setting.
+ */
+function ContextLevelsAccessory() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [levels, setLevels] = useState<{ warning: number; error: number } | null>(null);
+  const load = useCallback(() => {
+    rpc.call("context_levels", null).then(setLevels, () => undefined);
+  }, [rpc]);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 60_000);
+    return () => clearInterval(timer);
+  }, [load]);
+  useRealtime(CONTEXT_CHANNEL, load);
+  useRealtime(USAGE_CHANNEL, load);
+  if (levels === null) return null;
+  return (
+    <SidebarLevels
+      warning={levels.warning}
+      error={levels.error}
+      warningLabel={`${plural(levels.warning)} past the context warning`}
+      errorLabel={`${plural(levels.error)} past the context limit`}
     />
   );
 }
@@ -215,6 +249,7 @@ export default definePluginApp((app) => {
     icon: "tokenomics/coins",
     path: "tokenomics",
     component: TokenomicsPage,
+    experimental_sidebarAccessory: ContextLevelsAccessory,
   });
 
   app.slots.experimental_threadHeaderAction({

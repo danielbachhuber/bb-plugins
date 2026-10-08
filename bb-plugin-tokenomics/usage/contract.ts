@@ -127,6 +127,11 @@ export const rpcContract = defineRpcContract({
       archived: z.boolean(),
     }),
   },
+  /** How many active threads have their latest context past the warning setting, and past the error one, for the sidebar. */
+  context_levels: {
+    input: z.null(),
+    output: z.object({ warning: z.number(), error: z.number() }),
+  },
   /** Asks bb to compact the thread, which runs /compact as a turn. Only an idle or errored thread can. */
   compact_thread: {
     input: z.object({ threadId: z.string().min(1).max(200) }),

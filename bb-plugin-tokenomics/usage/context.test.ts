@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { CONTEXT_EVENT, contextLevel, contextRowOf, parseThreshold } from "./context.js";
+import { CONTEXT_EVENT, contextLevel, contextRowOf, countLevels, parseThreshold } from "./context.js";
 import { createStore, MIGRATIONS } from "./store.js";
 import { createSync, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
 
@@ -89,5 +89,45 @@ describe("contextLevel", () => {
     expect(contextLevel(299_999, thresholds)).toBeNull();
     expect(contextLevel(300_000, thresholds)).toBe("warning");
     expect(contextLevel(550_000, thresholds)).toBe("error");
+  });
+});
+
+describe("countLevels", () => {
+  it("counts each context once, at the higher level it passes", () => {
+    expect(countLevels([100_000, 300_000, 549_999, 550_000, 900_000], { warning: 300_000, error: 550_000 })).toEqual({
+      warning: 2,
+      error: 2,
+    });
+    expect(countLevels([400_000, 900_000], { warning: 300_000, error: null })).toEqual({ warning: 2, error: 0 });
+    expect(countLevels([400_000], { warning: null, error: null })).toEqual({ warning: 0, error: 0 });
+  });
+});
+
+describe("activeLatestContexts", () => {
+  it("lists each active thread's latest context and leaves archived threads out", async () => {
+    const db = new Database(":memory:");
+    for (const statement of MIGRATIONS) db.exec(statement);
+    const store = createStore(db);
+    const gadgets: ThreadLike = { ...thread, id: "thr_gadgets", title: "Fix the gadget sync" };
+    // Event ids are unique across threads, so each thread gets its own.
+    const events: Record<string, UsageEventLike[]> = {
+      [thread.id]: [contextEvent(1, 200_000), contextEvent(2, 600_000)],
+      [gadgets.id]: [contextEvent(3, 350_000)],
+    };
+    const source: EventSource = {
+      async listUsage({ threadId, afterSeq }) {
+        return events[threadId]!.filter((event) => event.seq > (afterSeq ?? 0));
+      },
+      async listThreads() {
+        return [thread, gadgets];
+      },
+    };
+    const sync = createSync(store, source);
+    await sync.syncThread(thread);
+    await sync.syncThread(gadgets);
+    expect(store.activeLatestContexts().sort()).toEqual([350_000, 600_000]);
+
+    store.setArchived(gadgets.id, 5_000);
+    expect(store.activeLatestContexts()).toEqual([600_000]);
   });
 });
