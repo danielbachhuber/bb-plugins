@@ -91,6 +91,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `renderTrack` | Optional. `(item, line)` draws the right-hand column in place of the stage track. Returning null leaves the column out, so the row takes the full width |
 | `collapsible` | Optional, default true. False keeps every row open, whatever its tier, with no chevron and no column for one |
 | `renderTrailing` | Optional. `(item)` draws at the right end of an open row's action line, after the note button. The sweeps put the Harvest timer there |
+| `summaryAction` | Optional. Drawn on the summary squares' line, at its right end. Review Sweep puts its Batch button there |
 
 ## Working on it
 

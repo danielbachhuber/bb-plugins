@@ -96,6 +96,13 @@ describe("SweepList", () => {
     expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
+  it("draws the summary action on the squares' line", () => {
+    render(<SweepList {...props([item(1, "new")], { summaryAction: <button type="button">Batch</button> })} />);
+    const squares = screen.getByRole("group", { name: "Rows by run" });
+    // The squares and the action share one row, above the list.
+    expect(squares.parentElement!.parentElement).toContainElement(screen.getByRole("button", { name: "Batch" }));
+  });
+
   it("names a run of one in the singular", () => {
     render(<SweepList {...props([item(1, "new"), item(2, "new"), item(3, "to-start")])} />);
     expect(screen.getByRole("button", { name: "2 new comments" })).toBeInTheDocument();

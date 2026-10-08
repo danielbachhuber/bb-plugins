@@ -65,6 +65,8 @@ export interface SweepListProps {
    * nothing folded, for a caller that orders them itself.
    */
   order?: "tier" | "given";
+  /** Drawn on the summary squares' line, at its right end, such as a button acting on the list. */
+  summaryAction?: ReactNode;
 }
 
 const TIERS: Tier[] = ["now", "next", "later"];
@@ -86,6 +88,7 @@ export function SweepList({
   renderTrailing,
   renderComments,
   order = "tier",
+  summaryAction,
 }: SweepListProps) {
   const [filter, setFilter] = useState<string | null>(null);
   // Rows opened or closed by hand. Open state lives only as long as the panel.
@@ -160,7 +163,16 @@ export function SweepList({
 
   return (
     <div className="space-y-3">
-      <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
+      {summaryAction ? (
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
+          </div>
+          <div className="shrink-0">{summaryAction}</div>
+        </div>
+      ) : (
+        <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
+      )}
       <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
         {order === "given" ? (
           shown.map((item) => rowFor(item, tierOf.get(item.runId) ?? "later"))
