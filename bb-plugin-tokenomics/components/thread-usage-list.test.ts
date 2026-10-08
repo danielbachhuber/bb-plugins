@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ThreadUsage } from "@/usage/contract";
 
 import { threadBars, threadContextLevel, threadsIn } from "./thread-usage-list";
-import { logPosition, turnStats } from "./turn-dots";
+import { logPosition, nearestDot, turnStats } from "./turn-dots";
 
 const HOUR = 3_600_000;
 
@@ -82,5 +82,13 @@ describe("turn dots", () => {
   it("summarizes a thread's turns with the median, the longest, and the total", () => {
     expect(turnStats([60_000, 30_000, 2_340_000, 240_000])).toEqual({ median: 150_000, longest: 2_340_000, total: 2_670_000 });
     expect(turnStats([])).toBeNull();
+  });
+});
+
+describe("nearestDot", () => {
+  it("picks the closest dot within reach, or none", () => {
+    expect(nearestDot([10, 40, 44], 43)).toBe(2);
+    expect(nearestDot([10, 40, 44], 39)).toBe(1);
+    expect(nearestDot([10, 40], 25)).toBeNull();
   });
 });

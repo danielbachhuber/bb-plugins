@@ -1,5 +1,7 @@
 // The threads that used tokens in the window, most first, each with a
 // sparkline of when it used them. Display only.
+import { useState, type MouseEvent } from "react";
+
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { totalOf } from "@/usage/breakdown";
@@ -7,6 +9,7 @@ import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
 
+import { HoverTip, type TipPosition } from "./hover-tip";
 import { formatSpan } from "./thread-token-count";
 import { TurnDots, TurnDotsAxis, turnStats } from "./turn-dots";
 
@@ -63,29 +66,65 @@ export function threadBars(thread: ThreadUsage, bars: readonly Bar[]): number[] 
  * scaled to its own busiest one, so a thread still running when you expected
  * it to stop shows bars at the right end. The total beside it gives the size.
  */
-function RowSpark({ totals }: { totals: readonly number[] }) {
+function sparkLabel(bar: Bar): string {
+  const daily = bar.end - bar.start >= 86_400_000;
+  return new Date(bar.start).toLocaleString(
+    [],
+    daily ? { weekday: "short", month: "short", day: "numeric" } : { weekday: "short", hour: "numeric" },
+  );
+}
+
+/**
+ * When the thread used its tokens, on the same bars as the page's chart and
+ * scaled to its own busiest one, so a thread still running when you expected
+ * it to stop shows bars at the right end. The total beside it gives the size.
+ * Hover a bar for its time and tokens.
+ */
+function RowSpark({ totals, bars }: { totals: readonly number[]; bars: readonly Bar[] }) {
+  const [hovered, setHovered] = useState<{ index: number; at: TipPosition } | null>(null);
   const most = Math.max(1, ...totals);
   const slot = totals.length === 0 ? 0 : SPARK_WIDTH / totals.length;
   const barWidth = Math.max(1, slot - (slot > 4 ? 1 : 0.5));
+  const onMove = (event: MouseEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const index = Math.min(totals.length - 1, Math.max(0, Math.floor((event.clientX - box.left) / slot)));
+    setHovered(totals[index]! > 0 ? { index, at: { x: box.left + index * slot + barWidth / 2, y: box.top } } : null);
+  };
+  const bar = hovered === null ? undefined : bars[hovered.index];
   return (
-    <svg width={SPARK_WIDTH} height={SPARK_HEIGHT} aria-hidden className="shrink-0">
-      <line x1={0} x2={SPARK_WIDTH} y1={SPARK_HEIGHT - 0.5} y2={SPARK_HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
-      {totals.map((total, index) => {
-        if (total === 0) return null;
-        const height = Math.max(1, (total / most) * SPARK_HEIGHT);
-        return (
-          <rect
-            key={index}
-            x={index * slot}
-            y={SPARK_HEIGHT - height}
-            width={barWidth}
-            height={height}
-            rx={Math.min(1, barWidth / 2)}
-            fill="currentColor"
-          />
-        );
-      })}
-    </svg>
+    <>
+      <svg
+        width={SPARK_WIDTH}
+        height={SPARK_HEIGHT}
+        className="shrink-0"
+        onMouseMove={slot === 0 ? undefined : onMove}
+        onMouseLeave={() => setHovered(null)}
+      >
+        <line x1={0} x2={SPARK_WIDTH} y1={SPARK_HEIGHT - 0.5} y2={SPARK_HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
+        {totals.map((total, index) => {
+          if (total === 0) return null;
+          const height = Math.max(1, (total / most) * SPARK_HEIGHT);
+          return (
+            <rect
+              key={index}
+              x={index * slot}
+              y={SPARK_HEIGHT - height}
+              width={barWidth}
+              height={height}
+              rx={Math.min(1, barWidth / 2)}
+              fill="currentColor"
+              opacity={hovered === null || hovered.index === index ? 1 : 0.45}
+            />
+          );
+        })}
+      </svg>
+      {hovered === null || bar === undefined ? null : (
+        <HoverTip at={hovered.at}>
+          <span className="font-medium">{formatTokens(totals[hovered.index]!)} tokens</span>
+          <span className="text-muted-foreground"> · {sparkLabel(bar)}</span>
+        </HoverTip>
+      )}
+    </>
   );
 }
 
@@ -149,7 +188,8 @@ export function ThreadUsageList({
         const total = totalOf(thread);
         const archived = thread.archivedAt !== null;
         const level = threadContextLevel(thread, contextThresholds);
-        const durations = thread.turnTimes ?? [];
+        const turnTimes = thread.turnTimes ?? [];
+        const durations = turnTimes.map((turn) => turn.ms);
         const stats = turnStats(durations);
         const meta = [
           thread.projectName,
@@ -209,7 +249,7 @@ export function ThreadUsageList({
                 </span>
               </span>
               <span className={cn("hidden sm:block", archived ? "text-muted-foreground/60" : "text-foreground/60")}>
-                <RowSpark totals={threadBars(thread, bars)} />
+                <RowSpark totals={threadBars(thread, bars)} bars={bars} />
               </span>
               <span
                 className={cn("w-16 shrink-0 text-right tabular-nums", archived && "text-muted-foreground")}
@@ -218,7 +258,7 @@ export function ThreadUsageList({
                 {formatTokens(total)}
               </span>
               <span className={cn("hidden lg:block", archived && "opacity-50")}>
-                <TurnDots durations={durations} />
+                <TurnDots turns={turnTimes} />
               </span>
               <span
                 className={cn("hidden w-20 shrink-0 text-right tabular-nums lg:block", archived && "text-muted-foreground")}
@@ -233,7 +273,7 @@ export function ThreadUsageList({
                 ) : (
                   <>
                     <span className="block">{formatSpan(stats.total)}</span>
-                    <span className="block text-xs text-muted-foreground">median {formatSpan(stats.median)}</span>
+                    <span className="block whitespace-nowrap text-xs text-muted-foreground">median {formatSpan(stats.median)}</span>
                   </>
                 )}
               </span>

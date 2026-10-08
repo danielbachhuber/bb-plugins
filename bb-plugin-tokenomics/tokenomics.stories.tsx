@@ -73,9 +73,10 @@ function thread(
     turns,
     context,
     // Turn lengths spread from seconds to half an hour, the way real turns do.
-    turnTimes: Array.from({ length: Math.min(turns, 40) }, (_, index) =>
-      Math.round(12_000 * 150 ** (((index * 7919 + threadId.length * 31) % 97) / 97)),
-    ),
+    turnTimes: Array.from({ length: Math.min(turns, 40) }, (_, index) => ({
+      at: hourAgo(busyHoursAgo[index % busyHoursAgo.length]!) + index * 60_000,
+      ms: Math.round(12_000 * 150 ** (((index * 7919 + threadId.length * 31) % 97) / 97)),
+    })),
     hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
     input,
     cacheRead,

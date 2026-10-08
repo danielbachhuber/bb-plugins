@@ -234,7 +234,7 @@ export default async function plugin(bb: BbPluginApi) {
       },
       subagents: subagents.get(thread.threadId) ?? { count: 0, tokens: 0 },
       context: { peak: peaks.get(thread.threadId) ?? null, latest: latest.get(thread.threadId) ?? null },
-      turnTime: turnTimeSummary(turnTimes.get(thread.threadId) ?? []),
+      turnTime: turnTimeSummary((turnTimes.get(thread.threadId) ?? []).map((turn) => turn.ms)),
       waitingOnYou: waits.get(thread.threadId) ?? { count: 0, ms: 0 },
       slowestCommands: slowestCommands(commandsByThread.get(thread.threadId) ?? [], 3),
     }));

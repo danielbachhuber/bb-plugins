@@ -33,8 +33,9 @@ size you set shows a meter above its composer, with a button that compacts it. T
   a log scale from 10 seconds to an hour, with a bar at the median, then the
   turns' total time with the median under it. Most turns take under a minute
   and a few take far longer, so a linear scale would pile the short ones at
-  zero. A turn longer than an hour sits at the right end; hover the total for
-  the longest. On a narrow window the dots and time drop out. Click a row to
+  zero. A turn longer than an hour sits at the right end. Hover a bar in the
+  sparkline for its tokens and when, a dot for how long that turn took and
+  when it started, and the total for the longest turn. On a narrow window the dots and time drop out. Click a row to
   open the thread.
 - **A large-context thread** is an active one whose latest context is past
   one of the context meter's settings (see below). Past the warning, 300K by
@@ -283,6 +284,7 @@ before it.
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
 | `components/thread-usage-list.tsx` | The thread list under the chart, its Active, Recent, and Older filter, and each row's sparkline |
+| `components/hover-tip.tsx` | The readout that follows the pointer over a sparkline bar or a turn's dot |
 | `components/turn-dots.tsx` | A thread's turn lengths as dots on a log scale, and the scale's labels |
 | `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |

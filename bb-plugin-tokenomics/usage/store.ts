@@ -330,7 +330,7 @@ export function createStore(db: Database) {
      FROM subagent_calls WHERE thread_id = ?`,
   );
   const selectTurnTimesSince = db.prepare(
-    `SELECT thread_id AS threadId, completed_at - started_at AS ms FROM turn_times
+    `SELECT thread_id AS threadId, started_at AS at, completed_at - started_at AS ms FROM turn_times
      WHERE started_at >= ? AND completed_at IS NOT NULL AND completed_at >= started_at
      ORDER BY started_at`,
   );
@@ -408,10 +408,11 @@ export function createStore(db: Database) {
     },
 
     /** How long each finished turn that started since `since` took, by thread. */
-    turnTimesSince(since: number): Map<string, number[]> {
-      const byThread = new Map<string, number[]>();
-      for (const { threadId, ms } of selectTurnTimesSince.all(since) as Array<{ threadId: string; ms: number }>) {
-        byThread.set(threadId, [...(byThread.get(threadId) ?? []), ms]);
+    turnTimesSince(since: number): Map<string, Array<{ at: number; ms: number }>> {
+      const byThread = new Map<string, Array<{ at: number; ms: number }>>();
+      const rows = selectTurnTimesSince.all(since) as Array<{ threadId: string; at: number; ms: number }>;
+      for (const { threadId, at, ms } of rows) {
+        byThread.set(threadId, [...(byThread.get(threadId) ?? []), { at, ms }]);
       }
       return byThread;
     },

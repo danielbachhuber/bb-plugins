@@ -2,7 +2,12 @@
 // seconds to an hour, with a bar at the median. Most turns take under a
 // minute and a few take far longer, so a linear scale would pile the short
 // ones at zero. Display only.
+import { useState, type MouseEvent } from "react";
+
 import { cn } from "@/lib/utils";
+
+import { HoverTip, type TipPosition } from "./hover-tip";
+import { formatSpan } from "./thread-token-count";
 
 const MIN_MS = 10_000;
 const MAX_MS = 3_600_000;
@@ -32,27 +37,70 @@ export function turnStats(durations: readonly number[]): TurnStats | null {
   };
 }
 
-export function TurnDots({ durations, width = DOTS_WIDTH }: { durations: readonly number[]; width?: number }) {
-  const stats = turnStats(durations);
+export interface TurnTime {
+  /** When the turn started. */
+  at: number;
+  ms: number;
+}
+
+function startedLabel(at: number): string {
+  return new Date(at).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
+}
+
+/** The index of the dot nearest `x`, or null when none is within a few pixels. */
+export function nearestDot(positions: readonly number[], x: number, reach = 8): number | null {
+  let best: number | null = null;
+  for (const [index, position] of positions.entries()) {
+    const distance = Math.abs(position - x);
+    if (distance <= reach && (best === null || distance < Math.abs(positions[best]! - x))) best = index;
+  }
+  return best;
+}
+
+export function TurnDots({ turns, width = DOTS_WIDTH }: { turns: readonly TurnTime[]; width?: number }) {
+  const [hovered, setHovered] = useState<{ index: number; at: TipPosition } | null>(null);
+  const stats = turnStats(turns.map((turn) => turn.ms));
   const height = 22;
   const middle = height / 2;
+  const positions = turns.map((turn) => logPosition(turn.ms, width));
+  const onMove = (event: MouseEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const index = nearestDot(positions, event.clientX - box.left);
+    setHovered(index === null ? null : { index, at: { x: box.left + positions[index]!, y: box.top } });
+  };
+  const turn = hovered === null ? undefined : turns[hovered.index];
   return (
-    <svg width={width} height={height} aria-hidden className="shrink-0 overflow-visible">
-      <line x1={0} x2={width} y1={middle} y2={middle} stroke="currentColor" opacity={0.15} />
-      {durations.map((ms, index) => (
-        <circle key={index} cx={logPosition(ms, width)} cy={middle} r={3.5} fill="#2a9fd6" opacity={0.55} />
-      ))}
-      {stats === null ? null : (
-        <line
-          x1={logPosition(stats.median, width)}
-          x2={logPosition(stats.median, width)}
-          y1={2}
-          y2={height - 2}
-          stroke="currentColor"
-          strokeWidth={2}
-        />
+    <>
+      <svg width={width} height={height} className="shrink-0 overflow-visible" onMouseMove={onMove} onMouseLeave={() => setHovered(null)}>
+        <line x1={0} x2={width} y1={middle} y2={middle} stroke="currentColor" opacity={0.15} />
+        {turns.map((_, index) => (
+          <circle
+            key={index}
+            cx={positions[index]}
+            cy={middle}
+            r={hovered?.index === index ? 5 : 3.5}
+            fill="#2a9fd6"
+            opacity={hovered === null ? 0.55 : hovered.index === index ? 1 : 0.3}
+          />
+        ))}
+        {stats === null ? null : (
+          <line
+            x1={logPosition(stats.median, width)}
+            x2={logPosition(stats.median, width)}
+            y1={2}
+            y2={height - 2}
+            stroke="currentColor"
+            strokeWidth={2}
+          />
+        )}
+      </svg>
+      {turn === undefined || hovered === null ? null : (
+        <HoverTip at={hovered.at}>
+          <span className="font-medium">{formatSpan(turn.ms)}</span>
+          <span className="text-muted-foreground"> · started {startedLabel(turn.at)}</span>
+        </HoverTip>
       )}
-    </svg>
+    </>
   );
 }
 
