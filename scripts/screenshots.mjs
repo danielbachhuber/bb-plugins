@@ -271,7 +271,7 @@ const plugins = new Map();
 for (const id of stories) {
   const story = storyMeta[id];
   const dir = id.split("--")[0];
-  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+|gh-shared|sweep-ui)\//)?.[1];
+  const sourceDir = story.filePath.match(/(bb-plugin-[^/]+|gh-shared|sweep-ui|component-library)\//)?.[1];
   if (!sourceDir) throw new Error(`Cannot tell which plugin ${story.filePath} belongs to.`);
   const file = join(repoRoot, sourceDir, story.filePath.split(`${sourceDir}/`)[1]);
   if (!plugins.has(dir)) {

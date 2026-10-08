@@ -44,6 +44,12 @@ time, so an edit there needs all three rebuilt. The sweeps deliberately do not
 share their classifiers or fetch strategies: those genuinely differ, and an
 earlier attempt to merge the three into one plugin was reverted.
 
+`component-library` is not a plugin either. It holds UI that several plugins
+draw the same way, such as the sync status in a page's title bar, with a
+story for each state and a section in its README on how each piece is used.
+Plugins install it as a `file:` dependency rather than keeping their own
+copies, so an edit there needs every plugin that uses it rebuilt.
+
 `bb-plugin-harvest` is also a `file:` dependency of the three sweeps, which use
 its timer components to draw a clock on each row.
 
