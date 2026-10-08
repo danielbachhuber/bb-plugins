@@ -312,7 +312,9 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
     repository: "acme/widgets",
     buckets,
     stage: {
-      ...STAGES[2],
+      // The Code review row from the dashboard, with the detail its page adds.
+      ...STAGES.find((stage) => stage.key === "review")!,
+      waiting: WAITING_NOW.length + 9,
       weekly: medians,
       spread: [
         { label: "under 6h", count: 262 },
