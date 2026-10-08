@@ -21,7 +21,7 @@ runs from the list: the button and the row both open the item. An item
 moves to the bottom of the list once it is done or dismissed. The
 list collapses to one line from its header, and does so by itself once every
 item is done or dismissed. The archive button on the header hides the view until the thread
-publishes again. Clicking a row opens that item in
+publishes again, and the agent can do the same with `bb dynamic-ui hide`. Clicking a row opens that item in
 the side panel, with its full summary, its details, and every button; the panel
 keeps one tab per view and switches items as rows are clicked. Publishing again
 with the same key replaces the view and keeps what the user already did to
@@ -121,6 +121,7 @@ view marks `confirm: false` skips that step and runs on the first click.
 ```
 bb dynamic-ui publish --file <view.json> [--key <name>]
 bb dynamic-ui state [--key <name>]
+bb dynamic-ui hide [--key <name>]
 bb dynamic-ui list
 ```
 

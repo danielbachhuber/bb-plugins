@@ -299,3 +299,11 @@ bb dynamic-ui state [--key <name>]
 ```
 
 Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{In progress}` if it has one, with the last action and its result (and `sent to <thread id>` when it went to another thread), or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.
+
+## Take a view down
+
+```bash
+bb dynamic-ui hide [--key <name>]
+```
+
+Hides the view from above this thread's composer, as the archive button on its header does. Run it when a view's items are settled or a later round replaces it under a different key, rather than asking the user to dismiss it. The view and what the user did to it stay readable with `state`, and the next `publish` under the same key shows it again.

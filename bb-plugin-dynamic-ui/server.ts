@@ -322,13 +322,15 @@ export default async function plugin(bb: BbPluginApi) {
     "Usage:",
     "  bb dynamic-ui publish --file <view.json> [--key <name>]",
     "  bb dynamic-ui state [--key <name>]",
+    "  bb dynamic-ui hide [--key <name>]",
     "  bb dynamic-ui list",
     "",
     "Run these from the thread the view belongs to. `publish` shows the view above",
     "that thread's composer; publishing again with the same key replaces it and",
     "keeps what the user already did to each item. `state` prints each item's",
-    "state and the result of the last button pressed on it. The view file's shape",
-    "is in the dynamic-ui skill.",
+    "state and the result of the last button pressed on it. `hide` takes the view",
+    "down from above the composer, as its archive button does, until the next",
+    "publish under its key. The view file's shape is in the dynamic-ui skill.",
   ].join("\n");
 
   function flag(args: string[], name: string): string | undefined {
@@ -349,6 +351,11 @@ export default async function plugin(bb: BbPluginApi) {
         name: "state",
         summary: "Print each item's state and the result of its last action",
         usage: "bb dynamic-ui state [--key <name>]",
+      },
+      {
+        name: "hide",
+        summary: "Take this thread's view down from above the composer until the next publish",
+        usage: "bb dynamic-ui hide [--key <name>]",
       },
       { name: "list", summary: "List this thread's views", usage: "bb dynamic-ui list" },
     ],
@@ -408,6 +415,16 @@ export default async function plugin(bb: BbPluginApi) {
             };
           }
           return { exitCode: 1, stderr: `This thread has no view with key "${key}".` };
+        }
+        case "hide": {
+          const stored = store.forThread(threadId).find((candidate) => candidate.key === key);
+          if (stored === undefined) return { exitCode: 1, stderr: `This thread has no view with key "${key}".` };
+          store.setHidden(stored.id, true, now());
+          changed(stored);
+          return {
+            exitCode: 0,
+            stdout: `Hid "${stored.view.title}" (view ${stored.id}). Publishing again under key "${key}" shows it again.`,
+          };
         }
         case "list": {
           const views = [...store.forThread(threadId), ...store.linkedTo(threadId)];
