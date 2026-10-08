@@ -30,7 +30,7 @@ describe("SidebarCount", () => {
 describe("SidebarLevels", () => {
   it("puts warnings in an amber circle before errors in a red one", () => {
     const { container } = render(<SidebarLevels warning={2} error={1} warningLabel="2 warn" errorLabel="1 error" />);
-    expect(screen.getByTitle("2 warn")).toHaveClass("bg-amber-400");
+    expect(screen.getByTitle("2 warn")).toHaveClass("bg-amber-500");
     expect(screen.getByTitle("1 error")).toHaveClass("bg-red-600");
     expect(container.textContent).toBe("21");
   });

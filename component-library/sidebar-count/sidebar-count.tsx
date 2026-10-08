@@ -1,7 +1,6 @@
 const CIRCLE = "inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none";
 const RED = "bg-red-600 text-white";
-// Dark text, since white on amber is too faint to read at this size.
-const AMBER = "bg-amber-400 text-amber-950";
+const AMBER = "bg-amber-500 text-white";
 
 function Circle({ count, label, className }: { count: number; label: string; className: string }) {
   return (
