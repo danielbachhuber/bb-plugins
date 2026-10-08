@@ -19,7 +19,6 @@
     "./note": "./note.tsx",
     "./banner": "./banner.tsx",
     "./pull-request": "./pull-request.tsx",
-    "./sidebar-count": "./sidebar-count.tsx",
     "./stack-chip": "./stack-chip.tsx",
     "./actions": "./actions.tsx",
     "./types": "./types.ts",

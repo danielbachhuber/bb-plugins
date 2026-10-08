@@ -13,7 +13,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./sync-status": "./sync-status/sync-status.tsx"
+    "./sync-status": "./sync-status/sync-status.tsx",
+    "./sidebar-count": "./sidebar-count/sidebar-count.tsx"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

@@ -25,7 +25,7 @@ import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
 import { hideSidePanel } from "./now/side-panel.js";
-import { SidebarCounts } from "./now/sidebar-counts.js";
+import { SidebarCount } from "component-library/sidebar-count";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
@@ -597,7 +597,8 @@ function EmailTab() {
  */
 function NowSidebarCounts() {
   const { listing } = useListing();
-  return <SidebarCounts {...sidebarCounts(listing?.list?.items ?? [], new Date())} />;
+  const { urgent, now } = sidebarCounts(listing?.list?.items ?? [], new Date());
+  return <SidebarCount urgent={urgent} total={now} urgentLabel={`${urgent} urgent`} totalLabel={`${now} in Now`} />;
 }
 
 export default definePluginApp((app) => {

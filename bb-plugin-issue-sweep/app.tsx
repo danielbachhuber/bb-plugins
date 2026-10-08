@@ -7,6 +7,7 @@ import {
   type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { SidebarCount } from "component-library/sidebar-count";
 import { SyncStatus } from "component-library/sync-status";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -305,10 +306,9 @@ function AssignedCount() {
   const count = listing
     ? countedRows(listing.rows, listing.countedStatuses).length
     : 0;
-  if (count === 0) return null;
-  return (
-    <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
-  );
+  // Nothing here is urgent enough for the red circle, but drawing the total
+  // through SidebarCount keeps it lined up with the counts on other rows.
+  return <SidebarCount urgent={0} total={count} urgentLabel="" totalLabel={`${count} assigned`} />;
 }
 
 export default definePluginApp((app) => {

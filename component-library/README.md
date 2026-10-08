@@ -12,6 +12,7 @@ what not to do with it.
 | Entry | Import | What it is |
 | --- | --- | --- |
 | [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
+| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, then the total |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -82,6 +83,34 @@ exported too.
 
 **Don't** show an absolute time, put the control in the page body, call the
 button anything but Refresh, or write another formatter for the same label.
+
+## Sidebar count
+
+```tsx
+import { SidebarCount } from "component-library/sidebar-count";
+
+<SidebarCount urgent={2} total={5} urgentLabel="2 need you" totalLabel="5 to review" />
+```
+
+It answers "how much is on me here?" from the sidebar, without opening the
+page. Pass it to the route as `experimental_sidebarAccessory`, in a small
+component that reads the same listing as the page, so completing or archiving
+a row lowers the count at once.
+
+**What it draws.** The rows that need you most in a red circle, then every
+row in muted text. The circle is left out at zero, and nothing is drawn at a
+total of zero. Each number has a tooltip naming what it counts, such as
+"2 need you" and "5 to review".
+
+**Lining up.** bb centers a lone count in a box at least 20px wide, so the
+total keeps that box. A row with a circle and a row without one then have
+their totals in the same column. A page with nothing urgent still draws its
+total through this component, with `urgent={0}`, for that reason.
+
+Now, PR Sweep, Issue Sweep, and Review Sweep use it.
+
+**Don't** draw a bare number in a `<span>`, which drifts out of line with
+the rows around it, or count rows the page would not show.
 
 ## Working on it
 

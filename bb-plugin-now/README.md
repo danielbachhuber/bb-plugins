@@ -490,7 +490,6 @@ list `server.ts` passes to `loadSources`.
 | `now/email-text.ts` | A plain email's latest message as the text Show more puts in place of its snippet |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
 | `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
-| `now/sidebar-counts.tsx` | The red urgent badge and the Now count beside the page's name in the sidebar |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |
@@ -511,7 +510,6 @@ list `server.ts` passes to `loadSources`.
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |
-| `sidebar-counts.stories.tsx` | The sidebar entry's counts, for `npm run storybook` at the root |
 | `priorities.stories.tsx` | The Priorities column and its wide, narrow, and empty layouts, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page, its title-bar sync control, and its Email tab, which read the stored list and sync on open |

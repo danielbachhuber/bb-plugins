@@ -1,7 +1,7 @@
 /**
- * The counts beside a sweep's name in bb's sidebar: the rows that need you
- * most in a red circle, as Now shows its urgent rows, then the total. The
- * circle is left out at zero, and both are at a total of zero.
+ * The counts beside a page's name in bb's sidebar: the rows that need you
+ * most in a red circle, then the total. The circle is left out at zero, and
+ * both are at a total of zero.
  *
  * bb centers a lone count in a box at least 20px wide, so the total keeps
  * that box and lines up with the counts on other rows when the circle is

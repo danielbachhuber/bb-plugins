@@ -17,7 +17,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection } from "./review/actions.js";
 import { runOf, sortReviews } from "./review/tiers.js";
 import { BatchDialog, type BatchStart } from "./review/batch-dialog.js";
-import { SidebarCount } from "sweep-ui/sidebar-count";
+import { SidebarCount } from "component-library/sidebar-count";
 import {
   ReviewListView,
   canBatch,

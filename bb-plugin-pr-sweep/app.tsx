@@ -17,7 +17,7 @@ import {
 } from "@/components/start-thread-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sectionForRow } from "./sweep/actions.js";
-import { SidebarCount } from "sweep-ui/sidebar-count";
+import { SidebarCount } from "component-library/sidebar-count";
 import {
   PrListView,
   type HarvestPanelState,
