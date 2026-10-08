@@ -10,8 +10,8 @@ import {
   type Listing,
   type Row,
 } from "./sweep/list-view";
-import { FeedbackDrawer, FeedbackList } from "./sweep/feedback-drawer";
-import type { FeedbackEntry } from "./sweep/feedback";
+import { relativeTime } from "./sweep/format";
+import { FeedbackDrawer, FeedbackList, type FeedbackEntry } from "sweep-ui/feedback";
 import { PlainLink } from "sweep-ui/row";
 
 export default {
@@ -583,24 +583,25 @@ export function CommentsDrawer() {
     <div className="w-full max-w-3xl rounded-md border border-border bg-muted/40 px-3 py-2">{children}</div>
   );
   const url = "https://github.com/acme/widgets/pull/487";
+  const age = (at: number) => relativeTime(at, now);
   return (
     <StoryCard>
       <StoryRow label="Open" hint="What reviewers left on #487.">
-        {box(<FeedbackList entries={FEEDBACK} now={now} url={url} Link={PlainLink} />)}
+        {box(<FeedbackList entries={FEEDBACK} age={age} url={url} Link={PlainLink} />)}
       </StoryRow>
       <StoryRow label="Reading" hint="While the one request to GitHub runs.">
-        <FeedbackDrawer load={() => new Promise(() => {})} now={now} url={url} Link={PlainLink} />
+        <FeedbackDrawer load={() => new Promise(() => {})} age={age} url={url} Link={PlainLink} />
       </StoryRow>
       <StoryRow label="Failed" hint="GitHub could not be reached.">
         <FeedbackDrawer
           load={async () => ({ entries: [], error: "Could not read the comments from GitHub." })}
-          now={now}
+          age={age}
           url={url}
           Link={PlainLink}
         />
       </StoryRow>
       <StoryRow label="Nothing open" hint="Every thread resolved.">
-        {box(<FeedbackList entries={FEEDBACK.slice(-1)} now={now} url={url} Link={PlainLink} />)}
+        {box(<FeedbackList entries={FEEDBACK.slice(-1)} age={age} url={url} Link={PlainLink} />)}
       </StoryRow>
     </StoryCard>
   );

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
+import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
 import { SweepList } from "sweep-ui/list";
 import {
   ChecksBadge,
@@ -30,7 +31,6 @@ import {
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
 import { actionSummary, commentsToRead, hasNothingToDo } from "./actions.js";
 import { relativeTime } from "./format.js";
-import { FeedbackDrawer, type FeedbackResult } from "./feedback-drawer.js";
 import { bannerFor, blockedStageOf, diffOf, reviewersFor } from "./row-status.js";
 import {
   PR_RUNS,
@@ -670,7 +670,7 @@ export function PrListView({
               return (
                 <FeedbackDrawer
                   url={row.url}
-                  now={now}
+                  age={(at) => relativeTime(at, now)}
                   Link={UrlLink}
                   load={async () => {
                     const result = await loadFeedback(row);

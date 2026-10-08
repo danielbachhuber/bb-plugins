@@ -76,7 +76,7 @@ const feedbackEntrySchema = z.discriminatedUnion("kind", [
     avatarUrl: z.string(),
     path: z.string(),
     line: z.number().nullable(),
-    status: z.enum(["unanswered", "replied", "resolved"]),
+    status: z.enum(["unanswered", "replied", "waiting", "resolved"]),
     outdated: z.boolean(),
     replies: z.number(),
     body: z.string(),

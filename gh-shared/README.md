@@ -42,6 +42,14 @@ and nothing else:
   applies the filter where its own fetching allows: pr-sweep and issue-sweep
   before the per-repository fan-out, review-sweep to the rows of its single
   search.
+- **`bots`** and **`feedback`**, both served from the `gh` path for the same
+  reason as `stacks`. `isBotLogin` matches the logins whose comments are not a
+  question waiting on anyone. `fetchFeedback` reads what people left on one
+  pull request in one GraphQL call: reviews, inline threads, and general
+  comments, in reading order, bots left out. PR Sweep leaves your own out too,
+  since on your own pull request they are not feedback for you; Review Sweep
+  passes `includeViewer`, since on one you are reviewing they are half the
+  conversation. Both draw the result with `sweep-ui/feedback`.
 
 Deliberately **not** here: the classifiers, the row types, or the stores. They
 look alike and encode different rules; sharing them would couple things that

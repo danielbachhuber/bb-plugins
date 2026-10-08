@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GhRunner } from "@danielb/gh-shared/gh";
+import type { GhRunner } from "./gh.js";
 import { fetchFeedback, parseFeedback } from "./feedback.js";
 
 const author = (login: string, typename = "User") => ({ __typename: typename, login, avatarUrl: `https://example.test/${login}.png` });
@@ -89,6 +89,30 @@ describe("parseFeedback", () => {
       }),
     );
     expect(entries).toEqual([]);
+  });
+
+  it("keeps your own when asked, and says which threads still wait on someone else", () => {
+    const entries = parseFeedback(
+      response({
+        reviews: { nodes: [review("octocat", "COMMENTED", "A few notes inline.")] },
+        reviewThreads: {
+          nodes: [
+            thread("octocat", "octocat"),
+            thread("octocat", "hubber", { total: 2, createdAt: "2026-01-03T00:00:00Z" }),
+            thread("octocat", "octocat", { total: 3, createdAt: "2026-01-04T00:00:00Z" }),
+          ],
+        },
+        comments: { nodes: [comment("octocat", "Rebased"), comment("github-actions", "Coverage 91%")] },
+      }),
+      { includeViewer: true },
+    );
+    expect(entries.map((entry) => [entry.kind, entry.author, entry.kind === "thread" ? entry.status : null])).toEqual([
+      ["review", "octocat", null],
+      ["thread", "octocat", "unanswered"],
+      ["thread", "octocat", "waiting"],
+      ["thread", "octocat", "replied"],
+      ["comment", "octocat", null],
+    ]);
   });
 
   it("reads a thread's line, falling back to where it was before the code moved", () => {

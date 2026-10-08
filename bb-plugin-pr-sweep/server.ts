@@ -20,8 +20,8 @@ import {
   unclaimedPromptThreadIds,
 } from "bb-plugin-gh-context/links";
 import { rpcContract } from "./sweep/contract.js";
+import { fetchFeedback } from "@danielb/gh-shared/gh";
 import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, runSweep } from "./sweep/gh.js";
-import { fetchFeedback } from "./sweep/feedback.js";
 import { buildPromptParts, headerItem, trailerItem } from "./sweep/prompt.js";
 import {
   actionSummary,

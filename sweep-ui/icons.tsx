@@ -6,10 +6,12 @@ import {
   AlertCircleIcon,
   ArrowDown01Icon,
   ArrowRight01Icon,
+  ArrowUpRight01Icon,
   BubbleChatIcon,
   Cancel01Icon,
   CancelCircleIcon,
   CheckmarkCircle02Icon,
+  DashedLineCircleIcon,
   Clock01Icon,
   Copy01Icon,
   Edit02Icon,
@@ -26,6 +28,7 @@ const ICONS = {
   AlertTriangle: Alert02Icon,
   ChevronDown: ArrowDown01Icon,
   ChevronRight: ArrowRight01Icon,
+  ArrowUpRight: ArrowUpRight01Icon,
   Check: Tick02Icon,
   CircleCheck: CheckmarkCircle02Icon,
   CircleX: CancelCircleIcon,
@@ -38,6 +41,7 @@ const ICONS = {
   Info: InformationCircleIcon,
   Layers: Layers01Icon,
   Lock: LockIcon,
+  Spinner: DashedLineCircleIcon,
   X: Cancel01Icon,
 } satisfies Record<string, IconSvgElement>;
 

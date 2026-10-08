@@ -22,7 +22,8 @@
     "./sidebar-count": "./sidebar-count.tsx",
     "./stack-chip": "./stack-chip.tsx",
     "./actions": "./actions.tsx",
-    "./types": "./types.ts"
+    "./types": "./types.ts",
+    "./feedback": "./feedback.tsx"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

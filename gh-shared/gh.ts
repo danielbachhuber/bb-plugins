@@ -121,3 +121,6 @@ export async function readGitRemoteUrls(path: string): Promise<string[]> {
 // a package's exports map for as long as its server runs, so a new subpath
 // would not load in a running bb until it restarted.
 export * from "./stacks.js";
+// The same, for the bot logins and one pull request's comments.
+export * from "./bots.js";
+export * from "./feedback.js";

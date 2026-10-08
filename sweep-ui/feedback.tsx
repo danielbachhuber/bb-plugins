@@ -1,15 +1,47 @@
 import { useEffect, useState, type ComponentType } from "react";
-import type { SweepLinkProps } from "sweep-ui/row";
-import { Icon } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
-import type { FeedbackEntry } from "./feedback.js";
-import { relativeTime } from "./format.js";
+
+import { Icon } from "./icons";
+import { cn } from "./lib/cn";
+import type { SweepLinkProps } from "./row";
 
 /**
- * The drawer a row's comment count opens: what reviewers left, each entry a
- * link to it on GitHub. The reviews and the threads still open come first;
- * resolved threads wait behind a toggle at the end.
+ * The drawer a row's comment count opens: what people left on the pull
+ * request, each entry a link to it on GitHub. The reviews and the threads
+ * still open come first; resolved threads wait behind a toggle at the end.
  */
+
+/** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. */
+export type FeedbackEntry =
+  | {
+      kind: "review";
+      author: string;
+      avatarUrl: string;
+      state: "changes_requested" | "approved" | "commented";
+      body: string;
+      url: string;
+      at: number;
+    }
+  | {
+      kind: "thread";
+      author: string;
+      avatarUrl: string;
+      path: string;
+      line: number | null;
+      status: "unanswered" | "replied" | "waiting" | "resolved";
+      outdated: boolean;
+      replies: number;
+      body: string;
+      url: string;
+      at: number;
+    }
+  | {
+      kind: "comment";
+      author: string;
+      avatarUrl: string;
+      body: string;
+      url: string;
+      at: number;
+    };
 
 export type FeedbackResult = { entries: FeedbackEntry[]; error: string | null };
 
@@ -31,13 +63,15 @@ const REVIEW_TEXT = {
   commented: <span>reviewed</span>,
 } as const;
 
+const THREAD_TEXT = { replied: "you replied", waiting: "waiting on a reply", resolved: "resolved" } as const;
+
 /** Where the entry sits and where it stands: "export/csv.ts:42 · unanswered". */
-function Context({ entry, now }: { entry: FeedbackEntry; now: number }) {
+function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => string }) {
   const parts =
     entry.kind === "review"
-      ? [REVIEW_TEXT[entry.state], <span>{relativeTime(entry.at, now)}</span>]
+      ? [REVIEW_TEXT[entry.state], <span>{age(entry.at)}</span>]
       : entry.kind === "comment"
-        ? [<span>commented</span>, <span>{relativeTime(entry.at, now)}</span>]
+        ? [<span>commented</span>, <span>{age(entry.at)}</span>]
         : [
             <span className="font-mono text-[11px]">
               {entry.path}
@@ -46,7 +80,7 @@ function Context({ entry, now }: { entry: FeedbackEntry; now: number }) {
             entry.status === "unanswered" ? (
               <span className="font-medium text-destructive-text">unanswered</span>
             ) : (
-              <span>{entry.status === "replied" ? "you replied" : "resolved"}</span>
+              <span>{THREAD_TEXT[entry.status]}</span>
             ),
             ...(entry.outdated ? [<span>outdated</span>] : []),
             ...(entry.replies > 0 ? [<span>{entry.replies === 1 ? "1 reply" : `${entry.replies} replies`}</span>] : []),
@@ -63,14 +97,14 @@ function Context({ entry, now }: { entry: FeedbackEntry; now: number }) {
   );
 }
 
-function Entry({ entry, now, Link }: { entry: FeedbackEntry; now: number; Link: ComponentType<SweepLinkProps> }) {
+function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) => string; Link: ComponentType<SweepLinkProps> }) {
   const quiet = entry.kind === "thread" && entry.status !== "unanswered";
   return (
     <li>
       <Link href={entry.url} className={cn("block rounded px-2 py-1.5 hover:bg-accent", quiet && "opacity-70")}>
         <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
           <Who entry={entry} />
-          <Context entry={entry} now={now} />
+          <Context entry={entry} age={age} />
         </span>
         {entry.body ? (
           <span className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-foreground">{entry.body}</span>
@@ -82,14 +116,15 @@ function Entry({ entry, now, Link }: { entry: FeedbackEntry; now: number; Link: 
 
 export interface FeedbackListProps {
   entries: FeedbackEntry[];
-  now: number;
+  /** How long ago a time was, in the plugin's own words: "2d ago". */
+  age: (at: number) => string;
   /** The pull request, for the link at the bottom. */
   url: string;
   Link: ComponentType<SweepLinkProps>;
 }
 
 /** The entries as they come, with resolved threads folded behind a toggle. */
-export function FeedbackList({ entries, now, url, Link }: FeedbackListProps) {
+export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
   const [showResolved, setShowResolved] = useState(false);
   const resolved = entries.filter((entry) => entry.kind === "thread" && entry.status === "resolved");
   const shown = showResolved ? entries : entries.filter((entry) => !resolved.includes(entry));
@@ -98,11 +133,11 @@ export function FeedbackList({ entries, now, url, Link }: FeedbackListProps) {
       {shown.length > 0 ? (
         <ul className="-mx-2 space-y-0.5">
           {shown.map((entry, index) => (
-            <Entry key={`${entry.url}-${index}`} entry={entry} now={now} Link={Link} />
+            <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
           ))}
         </ul>
       ) : (
-        <p className="py-1 text-xs text-muted-foreground">Nothing open from reviewers.</p>
+        <p className="py-1 text-xs text-muted-foreground">Nothing open on it.</p>
       )}
       <div className="mt-1.5 flex items-center gap-3 border-t border-border pt-1.5 text-xs text-muted-foreground">
         <Link href={url} className="inline-flex items-center gap-1 hover:text-foreground hover:underline">
@@ -126,13 +161,13 @@ export function FeedbackList({ entries, now, url, Link }: FeedbackListProps) {
 export interface FeedbackDrawerProps {
   /** Reads the entries. Called once, when the drawer opens. */
   load: () => Promise<FeedbackResult>;
-  now: number;
+  age: (at: number) => string;
   url: string;
   Link: ComponentType<SweepLinkProps>;
 }
 
 /** Loads the entries when it mounts, then draws them. */
-export function FeedbackDrawer({ load, now, url, Link }: FeedbackDrawerProps) {
+export function FeedbackDrawer({ load, age, url, Link }: FeedbackDrawerProps) {
   const [result, setResult] = useState<FeedbackResult | null>(null);
   useEffect(() => {
     let live = true;
@@ -156,7 +191,7 @@ export function FeedbackDrawer({ load, now, url, Link }: FeedbackDrawerProps) {
       ) : result.error ? (
         <p className="py-1 text-xs text-destructive-text">{result.error}</p>
       ) : (
-        <FeedbackList entries={result.entries} now={now} url={url} Link={Link} />
+        <FeedbackList entries={result.entries} age={age} url={url} Link={Link} />
       )}
     </div>
   );

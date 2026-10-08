@@ -1,11 +1,12 @@
-import type { GhRunner } from "@danielb/gh-shared/gh";
-import { isBotLogin } from "./classify.js";
+import { isBotLogin } from "./bots.js";
+import type { GhRunner } from "./gh.js";
 
 /**
- * What reviewers left on one pull request, for the drawer under its row: the
+ * What people left on one pull request, for the drawer under its row: the
  * reviews with something to say, every inline thread, and the general
- * comments. Your own comments and bots' are left out, since neither is
- * feedback for you.
+ * comments. Bots' are always left out. Your own are left out too unless
+ * `includeViewer` is set: on your own pull request they are not feedback for
+ * you, but on one you are reviewing they are half the conversation.
  */
 
 export type FeedbackEntry =
@@ -25,8 +26,11 @@ export type FeedbackEntry =
       path: string;
       /** The line on the current diff, or where it was before the code changed. */
       line: number | null;
-      /** "unanswered" when someone else spoke last, "replied" when you did. */
-      status: "unanswered" | "replied" | "resolved";
+      /**
+       * "unanswered" when someone else spoke last, "replied" when you did, and
+       * "waiting" when you started it and nobody has answered yet.
+       */
+      status: "unanswered" | "replied" | "waiting" | "resolved";
       outdated: boolean;
       /** Comments after the first. */
       replies: number;
@@ -104,10 +108,19 @@ const REVIEW_STATE: Record<string, "changes_requested" | "approved" | "commented
   COMMENTED: "commented",
 };
 
-/** Someone other than you and not a bot, with a login to show. */
-function person(author: RawAuthor | null | undefined, viewer: string | undefined): { login: string; avatarUrl: string } | null {
+export interface FeedbackOptions {
+  /** Keeps your own reviews, threads, and comments. */
+  includeViewer?: boolean;
+}
+
+/** Not a bot, and not you unless asked for, with a login to show. */
+function person(
+  author: RawAuthor | null | undefined,
+  viewer: string | undefined,
+  includeViewer: boolean,
+): { login: string; avatarUrl: string } | null {
   const login = author?.login;
-  if (!login || login === viewer) return null;
+  if (!login || (login === viewer && !includeViewer)) return null;
   if (author?.__typename === "Bot" || isBotLogin(login)) return null;
   return { login, avatarUrl: author?.avatarUrl ?? "" };
 }
@@ -117,14 +130,15 @@ function time(iso: string | undefined): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-const THREAD_ORDER = { unanswered: 0, replied: 1, resolved: 2 } as const;
+const THREAD_ORDER = { unanswered: 0, waiting: 1, replied: 2, resolved: 3 } as const;
 
 /**
  * The feedback in reading order: reviews that requested changes, then the
- * other reviews with a body, then unanswered threads, threads you replied to,
- * and general comments, then resolved threads last. Oldest first within each.
+ * other reviews with a body, then unanswered threads, threads you started
+ * that nobody has answered, threads you replied to, and general comments, then
+ * resolved threads last. Oldest first within each.
  */
-export function parseFeedback(raw: string): FeedbackEntry[] {
+export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOptions = {}): FeedbackEntry[] {
   const parsed = JSON.parse(raw) as {
     data?: { viewer?: { login?: string }; repository?: { pullRequest?: RawPull | null } | null };
   };
@@ -134,7 +148,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
 
   const reviews: Array<Extract<FeedbackEntry, { kind: "review" }>> = [];
   for (const review of pr.reviews?.nodes ?? []) {
-    const who = review && person(review.author, viewer);
+    const who = review && person(review.author, viewer, includeViewer);
     const state = review?.state ? REVIEW_STATE[review.state] : undefined;
     if (!who || !state) continue;
     const body = review!.bodyText?.trim() ?? "";
@@ -156,10 +170,15 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
   for (const thread of pr.reviewThreads?.nodes ?? []) {
     const first = thread?.first?.nodes?.[0];
     if (!thread || !first) continue;
-    const who = person(first.author, viewer);
+    const who = person(first.author, viewer, includeViewer);
     if (!who) continue;
     const last = thread.last?.nodes?.[0]?.author?.login;
-    const status = thread.isResolved ? "resolved" : viewer && last === viewer ? "replied" : "unanswered";
+    const replies = Math.max(0, (thread.last?.totalCount ?? 1) - 1);
+    const status = thread.isResolved
+      ? "resolved"
+      : viewer && last === viewer
+        ? replies === 0 ? "waiting" : "replied"
+        : "unanswered";
     threads.push({
       kind: "thread",
       author: who.login,
@@ -168,7 +187,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
       line: thread.line ?? thread.originalLine ?? null,
       status,
       outdated: thread.isOutdated === true,
-      replies: Math.max(0, (thread.last?.totalCount ?? 1) - 1),
+      replies,
       body: first.bodyText?.trim() ?? "",
       url: first.url ?? "",
       at: time(first.createdAt),
@@ -178,7 +197,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
 
   const comments: Array<Extract<FeedbackEntry, { kind: "comment" }>> = [];
   for (const comment of pr.comments?.nodes ?? []) {
-    const who = comment && person(comment.author, viewer);
+    const who = comment && person(comment.author, viewer, includeViewer);
     const body = comment?.bodyText?.trim();
     if (!who || !body) continue;
     comments.push({ kind: "comment", author: who.login, avatarUrl: who.avatarUrl, body, url: comment!.url ?? "", at: time(comment!.createdAt) });
@@ -194,7 +213,12 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
  * One pull request's feedback, in one GraphQL call. Runs when its drawer
  * opens, never during a sweep.
  */
-export async function fetchFeedback(gh: GhRunner, repo: string, number: number): Promise<FeedbackEntry[]> {
+export async function fetchFeedback(
+  gh: GhRunner,
+  repo: string,
+  number: number,
+  options: FeedbackOptions = {},
+): Promise<FeedbackEntry[]> {
   const [owner, name] = repo.split("/");
   const raw = await gh.run([
     "api", "graphql",
@@ -203,5 +227,5 @@ export async function fetchFeedback(gh: GhRunner, repo: string, number: number):
     "-f", `name=${name}`,
     "-F", `number=${number}`,
   ]);
-  return parseFeedback(raw);
+  return parseFeedback(raw, options);
 }
