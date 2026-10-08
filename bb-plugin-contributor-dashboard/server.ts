@@ -7,6 +7,7 @@ import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/con
 import { ghGraphql } from "./mirror/gh.js";
 import { peopleActivity } from "./review/people.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
+import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS } from "./mirror/store.js";
 import { runSync } from "./mirror/sync.js";
@@ -100,15 +101,27 @@ export default async function plugin(bb: BbPluginApi) {
       const prs = store.readActivity(repository, buckets[0].start);
       return { repository, buckets, people: peopleActivity(prs, buckets), sync: status() };
     },
-    person_activity: ({ login, period }) => {
+    person_activity: ({ login, period, authoredPage }) => {
+      const noPaging = { page: 0, pages: 1, from: 0, to: 0, total: 0 };
       if (!configured) {
-        return { repository: null, login, buckets: [], activity: null, awaiting: [], authored: [], sync: status() };
+        return {
+          repository: null,
+          login,
+          buckets: [],
+          activity: null,
+          awaiting: [],
+          authored: [],
+          authoredPaging: noPaging,
+          sync: status(),
+        };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
       const now = Date.now();
       const buckets = bucketsFor(period, now);
       const prs = store.readActivity(repository, buckets[0].start);
+      const authored = authoredPullRequests(prs, login, buckets[0].start, now);
+      const paging = pageOf(authored.length, authoredPage);
       return {
         repository,
         login,
@@ -117,7 +130,8 @@ export default async function plugin(bb: BbPluginApi) {
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
         awaiting: awaitingReview(store.readActivity(repository, 0), login, now),
-        authored: authoredPullRequests(prs, login, buckets[0].start, now),
+        authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),
+        authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: status(),
       };
     },

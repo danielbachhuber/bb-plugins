@@ -48,7 +48,8 @@ to the dashboard. It shows:
 - **Their pull requests**: the ones they opened that were touched in the
   period, newest first, each with the time to its first review, how many
   follow-up reviews it needed, and the time to merge or how long it has been
-  open.
+  open. Twenty-five to a page, since an active author can have a few hundred
+  in a year; the server sends one page at a time.
 
 Times there are business days from when the pull request became ready for
 review, which is when it left draft, or when it opened if it never was one.
@@ -124,6 +125,7 @@ needs no new sync.
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
 | `review/business-time.ts` | Elapsed time with weekends left out |
 | `dashboard/period.ts` | The periods, and the weeks or months each is drawn in |
+| `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
 | `components/review-velocity-section.tsx` | The Review velocity section |
@@ -132,7 +134,7 @@ needs no new sync.
 | `components/segmented.tsx` | The period picker |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, and a person's page busy and quiet |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, and a person's page busy, paged, and quiet |
 
 ## Working on it
 

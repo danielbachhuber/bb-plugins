@@ -64,7 +64,12 @@ export const rpcContract = defineRpcContract({
   },
   person_activity: {
     // A login is GitHub's own, so it is bounded and has no path separators.
-    input: z.object({ login: z.string().min(1).max(100), period: periodSchema }),
+    input: z.object({
+      login: z.string().min(1).max(100),
+      period: periodSchema,
+      /** Which page of their pull requests; clamped into range by the server. */
+      authoredPage: z.number().int().min(0).max(10_000).default(0),
+    }),
     output: z.object({
       repository: z.string().nullable(),
       login: z.string(),
@@ -72,7 +77,16 @@ export const rpcContract = defineRpcContract({
       /** Null when the person has no review activity in the period. */
       activity: personActivitySchema.nullable(),
       awaiting: z.array(awaitingReviewSchema),
+      /** One page of their pull requests. */
       authored: z.array(authoredPullRequestSchema),
+      /** The page that came back, and how the whole list divides into pages. */
+      authoredPaging: z.object({
+        page: z.number(),
+        pages: z.number(),
+        from: z.number(),
+        to: z.number(),
+        total: z.number(),
+      }),
       sync: syncStatusSchema,
     }),
   },

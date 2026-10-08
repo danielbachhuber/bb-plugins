@@ -28,6 +28,19 @@ const STATES: Record<"OPEN" | "CLOSED" | "MERGED", { label: string; className: s
   CLOSED: { label: "Closed", className: "text-muted-foreground" },
 };
 
+function PageButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="cursor-pointer rounded border border-border px-2 py-0.5 text-foreground hover:bg-muted disabled:cursor-default disabled:opacity-50"
+    >
+      {label}
+    </button>
+  );
+}
+
 function PullRequestLink({ number, title, url }: { number: number; title: string; url: string }) {
   return (
     <a href={url} target="_blank" rel="noreferrer" className="truncate hover:underline">
@@ -43,6 +56,7 @@ export function PersonView({
   data,
   error,
   onBack,
+  onAuthoredPage,
   now = Date.now(),
 }: {
   login: string;
@@ -51,6 +65,8 @@ export function PersonView({
   data: PersonActivityResult | null;
   error: string | null;
   onBack: () => void;
+  /** Shows another page of their pull requests. */
+  onAuthoredPage: (page: number) => void;
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
@@ -136,7 +152,9 @@ export function PersonView({
             <section className="mt-8" aria-labelledby="person-authored">
               <h2 id="person-authored" className="text-base font-semibold">
                 Their pull requests
-                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{data.authored.length}</span>
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
+                  {data.authoredPaging.total}
+                </span>
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Business days from ready for review. Weekends do not count.
@@ -159,6 +177,25 @@ export function PersonView({
                     </li>
                   ))}
                 </ul>
+              )}
+              {data.authoredPaging.pages < 2 ? null : (
+                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span className="tabular-nums">
+                    {data.authoredPaging.from}–{data.authoredPaging.to} of {data.authoredPaging.total}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <PageButton
+                      label="Previous"
+                      onClick={() => onAuthoredPage(data.authoredPaging.page - 1)}
+                      disabled={data.authoredPaging.page === 0}
+                    />
+                    <PageButton
+                      label="Next"
+                      onClick={() => onAuthoredPage(data.authoredPaging.page + 1)}
+                      disabled={data.authoredPaging.page >= data.authoredPaging.pages - 1}
+                    />
+                  </span>
+                </div>
               )}
             </section>
           </>

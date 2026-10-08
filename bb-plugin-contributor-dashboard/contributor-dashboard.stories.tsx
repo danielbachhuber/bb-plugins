@@ -3,6 +3,7 @@ import { useState } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import type { PeopleActivityResult, SyncStatus } from "./dashboard/contract";
+import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, type PeriodId } from "./dashboard/period";
 
 export default {
@@ -107,6 +108,14 @@ const AUTHORED = [
   { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", state: "CLOSED" as const, isDraft: false, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
 ];
 
+/** Enough pull requests to page through, by repeating the five above. */
+function manyAuthored(total: number) {
+  return Array.from({ length: total }, (_, index) => ({
+    ...AUTHORED[index % AUTHORED.length],
+    number: 1837 - index * 3,
+  }));
+}
+
 function Person({
   initial = "6w",
   awaiting = AWAITING,
@@ -119,7 +128,9 @@ function Person({
   login?: string;
 }) {
   const [period, setPeriod] = useState<PeriodId>(initial);
+  const [authoredPage, setAuthoredPage] = useState(0);
   const page = fixture(period);
+  const paging = pageOf(authored.length, authoredPage);
   return (
     <PersonView
       login={login}
@@ -131,11 +142,13 @@ function Person({
         buckets: page.buckets,
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
-        authored,
+        authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),
+        authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: SYNCED,
       }}
       error={null}
       onBack={() => undefined}
+      onAuthoredPage={setAuthoredPage}
       now={NOW}
     />
   );
@@ -143,6 +156,9 @@ function Person({
 
 /** One person's page, reached by clicking their name on the dashboard. */
 export const PersonPage = () => <Person />;
+
+/** A prolific author: their pull requests page 25 at a time. */
+export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
 
 /** Nobody is waiting on them and they have opened nothing this period. */
 export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} authored={[]} />;

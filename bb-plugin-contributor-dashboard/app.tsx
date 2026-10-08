@@ -54,6 +54,13 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
+  const [authoredPage, setAuthoredPage] = useState(0);
+  // A shorter period has fewer pages; the server clamps, and this follows it
+  // back to the first page rather than leaving a stale number in hand.
+  const choosePeriod = useCallback((next: PeriodId) => {
+    setAuthoredPage(0);
+    setPeriod(next);
+  }, []);
   const login = personFrom(subPath);
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
@@ -61,12 +68,15 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [rpc, period, login],
   );
   const person = useDashboardData<PersonActivityResult | null>(
-    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, period })),
-    [rpc, period, login],
+    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, period, authoredPage })),
+    [rpc, period, login, authoredPage],
   );
 
   const openPerson = useCallback(
-    (who: string) => navigate.toPluginPanel(PANEL_PATH, { subPath: `person/${encodeURIComponent(who)}` }),
+    (who: string) => {
+      setAuthoredPage(0);
+      navigate.toPluginPanel(PANEL_PATH, { subPath: `person/${encodeURIComponent(who)}` });
+    },
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
@@ -79,17 +89,18 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       <PersonView
         login={login}
         period={period}
-        onPeriod={setPeriod}
+        onPeriod={choosePeriod}
         data={person.data}
         error={person.error}
         onBack={back}
+        onAuthoredPage={setAuthoredPage}
       />
     );
   }
   return (
     <DashboardView
       period={period}
-      onPeriod={setPeriod}
+      onPeriod={choosePeriod}
       data={dashboard.data}
       error={dashboard.error}
       onSync={sync}
