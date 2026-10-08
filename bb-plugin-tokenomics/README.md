@@ -289,6 +289,7 @@ before it.
 | `components/segmented.tsx` | The segmented control the period and the thread filter use |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |
 | `components/context-meter.tsx` | The meter above the composer and its Compact button |
+| `icons/tokenomics.svg` | The plugin's icon, a stack of coins from Hugeicons, used for the plugin and its sidebar entry |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page, the header, and the context meter |
 | `tokenomics.stories.tsx` | Each range, every thread listed, the empty page, the header button, its summary, and the context meter's states, including the hovered and open states the README shows |

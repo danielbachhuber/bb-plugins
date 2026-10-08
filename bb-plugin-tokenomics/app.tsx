@@ -210,7 +210,8 @@ export default definePluginApp((app) => {
   app.slots.navPanel({
     id: "tokenomics",
     title: "Tokenomics",
-    icon: "ChartColumn",
+    // The plugin's own coin stack, declared under bb.branding.experimental_icons.
+    icon: "tokenomics/coins",
     path: "tokenomics",
     component: TokenomicsPage,
   });
