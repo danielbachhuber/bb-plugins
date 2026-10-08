@@ -109,14 +109,19 @@ describe("CommentCard's Post to GitHub", () => {
     />
   );
 
-  it("is offered once the agent has answered", async () => {
+  it("is offered on an answered comment", async () => {
     const view = await render(card(base));
     expect(button(view, "Post to GitHub")!.disabled).toBe(false);
   });
 
-  it("is not offered, or checked, before the agent answers", async () => {
+  it("is offered on an open comment with no answer", async () => {
+    const view = await render(card({ ...base, state: "open", reply: null }));
+    expect(button(view, "Post to GitHub")!.disabled).toBe(false);
+  });
+
+  it("is not offered, or checked, once resolved", async () => {
     const check = vi.fn(async (): Promise<GithubTarget> => ({ state: "ready", number: 7 }));
-    const view = await render(card({ ...base, state: "open", reply: null }, check));
+    const view = await render(card({ ...base, state: "resolved" }, check));
     expect(button(view, "Post to GitHub")).toBeNull();
     expect(check).not.toHaveBeenCalled();
   });

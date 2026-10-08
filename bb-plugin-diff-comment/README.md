@@ -51,6 +51,26 @@ bb diff-comment reply "#1" "…"       # what you did; marks it addressed
 `skills/diff-comments/SKILL.md` tells the agent that procedure, so "work
 through my diff comments" is enough of a prompt.
 
+## Review points as comments
+
+When the agent reviews the thread's changes and raises points about specific
+lines, it also publishes them above the composer through Dynamic UI, one card
+per point. Each card shows the code, the comment as it would read, which you
+can edit, and **Add comment**. Pressing it has the agent put that text on the
+line as an open comment:
+
+```sh
+bb diff-comment add src/widget.ts:42 --body-file /tmp/point-1.md
+```
+
+`add` reads the line and its neighbours from the file in the agent's working
+directory, which anchors the comment the same way one you write is anchored.
+From the diff, the comment is like any other: keep it, send it to the agent,
+or post it to the pull request. Points with no line, and points about a
+deleted line, stay in the chat. `skills/suggest-diff-comments/SKILL.md` tells
+the agent how to publish the cards. It needs the Dynamic UI plugin; without
+it, the review stays in chat.
+
 ## Pull request review comments
 
 When the thread has an open pull request, its unresolved review threads show
@@ -80,10 +100,11 @@ have none. It does not go in the agent's queue. Nobody else sees a draft until
 you submit the review on GitHub, and once posted it shows on the diff as a
 review thread marked **Pending**.
 
-When the agent has answered a local comment, its card offers **Post to
-GitHub**. That posts your question and the answer as one draft, with the
-answer credited to the thread's provider ("**Answer** (from Claude Code):"),
-then marks the local comment resolved and links to it on GitHub.
+Every local comment's card offers **Post to GitHub**, until it is resolved.
+It posts the comment as a draft, then marks the local comment resolved and
+links to it on GitHub. When the agent has answered the comment, the draft
+holds your question and the answer together, with the answer credited to the
+thread's provider ("**Answer** (from Claude Code):").
 
 GitHub takes a review comment only on a line in the pull request's diff, and
 the line number bb shows is not necessarily GitHub's, because bb's diff can
@@ -96,7 +117,7 @@ GitHub refuses a post, the reason shows under the buttons and your text stays
 in the box.
 
 The patches are read with one `gh api` call per 100 files, made the first time
-a composer opens or an answered card is drawn, and reused for 30 seconds. The
+a composer opens or a comment's card is drawn, and reused for 30 seconds. The
 diff on its own never reads them. A post makes two GraphQL calls, or three
 when it has to start your review, and reads the patches again first, so a push
 since the composer opened is taken into account.

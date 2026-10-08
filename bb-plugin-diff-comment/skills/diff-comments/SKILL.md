@@ -21,6 +21,7 @@ diff without being told which one.
 | `bb diff-comment next` | The next open comment in full: the code it sits on, and what was written. |
 | `bb diff-comment show <ref>` | One comment in full. |
 | `bb diff-comment reply <ref> <text>` | Record what you did. Moves the comment to `addressed`. |
+| `bb diff-comment add <path:line> --body-file <file>` | Put a point on a line of the diff, as an open comment. Only when the user asks; the `suggest-diff-comments` skill covers when. |
 
 `<ref>` is the `#n` from the listing, or a comment id. Add `--json` when the
 output drives code rather than your reading.

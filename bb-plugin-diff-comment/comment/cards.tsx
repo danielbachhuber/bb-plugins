@@ -321,8 +321,8 @@ export interface CommentCardProps {
   onEdit: (body: string) => void;
   onRemove: () => void;
   /**
-   * Posts the comment and the agent's answer as one draft review comment.
-   * Offered once the agent has answered and the comment is not on GitHub yet.
+   * Posts the comment as a draft review comment, with the agent's answer when
+   * it has one. Offered until the comment is on GitHub or resolved.
    */
   github?: PostExchangeAction;
 }
@@ -338,8 +338,7 @@ export function CommentCard({
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const offerGithub =
-    github !== undefined && comment.reply !== null && !comment.github && comment.state !== "resolved";
+  const offerGithub = github !== undefined && !comment.github && comment.state !== "resolved";
   const target = useGithubTarget(offerGithub ? github : undefined);
 
   const postToGithub = () => {

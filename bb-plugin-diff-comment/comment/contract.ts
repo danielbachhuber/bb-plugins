@@ -129,7 +129,7 @@ export const rpcShape = {
     input: locationSchema.extend({ body: z.string().trim().min(1).max(MAX_BODY) }),
     output: z.object({ url: z.string() }),
   },
-  /** Post a comment and the agent's answer as one draft, then resolve it. */
+  /** Post a comment, and the agent's answer if any, as one draft, then resolve it. */
   comments_post_to_github: {
     input: z.object({ threadId: z.string().min(1), id: z.string().min(1) }),
     output: commentSchema,

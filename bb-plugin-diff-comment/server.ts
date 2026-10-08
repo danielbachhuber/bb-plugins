@@ -12,9 +12,12 @@
 // thread. The CLI reads the thread from its invocation context, so an agent
 // never has to name it.
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import { createGhRunner, GhUnavailableError, type GhRunner } from "@danielb/gh-shared/gh";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
-import { COMMENTS_CHANGED, rpcShape } from "./comment/contract";
+import { COMMENTS_CHANGED, MAX_BODY, rpcShape } from "./comment/contract";
+import { anchorFromFile, parseLocation } from "./comment/add";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
 import {
   addComment,
@@ -294,7 +297,6 @@ export default async function plugin(bb: BbPluginApi) {
     comments_post_to_github: async ({ threadId, id }) => {
       const comment = (await read(threadId)).find((candidate) => candidate.id === id);
       if (comment === undefined) throw new Error(`No comment with id ${id}`);
-      if (comment.reply === null) throw new Error("Only a comment the agent has answered can be posted.");
       if (comment.github) throw new Error("This comment is already on GitHub.");
       const thread = await bb.sdk.threads.get({ threadId });
       const providerId = (thread as { providerId?: string | null }).providerId ?? null;
@@ -302,7 +304,9 @@ export default async function plugin(bb: BbPluginApi) {
         threadId,
         comment.path,
         comment,
-        exchangeBody(comment.body, comment.reply, providerId),
+        comment.reply === null
+          ? comment.body
+          : exchangeBody(comment.body, comment.reply, providerId),
       );
       const now = new Date().toISOString();
       const updated = await mutate(threadId, id, (comments) =>
@@ -326,6 +330,8 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb diff-comment next [--json]             The next open comment, in full",
     "  bb diff-comment show <ref> [--json]       One comment, in full",
     "  bb diff-comment reply <ref> <text>        Say what you did; marks it addressed",
+    "  bb diff-comment add <path:line> <text>    Put a review point on that line of the diff",
+    "      [--body-file <file>]                  Read the text from a file instead",
     "  bb diff-comment resolve <ref>             Close it (for the author, not the agent)",
     "  bb diff-comment reopen <ref>              Put it back in the queue",
     "",
@@ -357,6 +363,11 @@ export default async function plugin(bb: BbPluginApi) {
         usage: "bb diff-comment reply <ref> <text>",
       },
       {
+        name: "add",
+        summary: "Put a review point on a line of this thread's diff, as an open comment",
+        usage: "bb diff-comment add <path:line> <text> | --body-file <file>",
+      },
+      {
         name: "resolve",
         summary: "Close a comment (the author's call, not the agent's)",
         usage: "bb diff-comment resolve <ref>",
@@ -371,7 +382,12 @@ export default async function plugin(bb: BbPluginApi) {
     async run(argv, ctx) {
       const json = argv.includes("--json");
       const all = argv.includes("--all");
-      const [command, ...args] = argv.filter((arg) => !arg.startsWith("--"));
+      // The one flag that takes a value; its value is not a positional arg.
+      const bodyFileAt = argv.indexOf("--body-file");
+      const bodyFile = bodyFileAt === -1 ? undefined : argv[bodyFileAt + 1];
+      const [command, ...args] = argv.filter(
+        (arg, index) => !arg.startsWith("--") && (bodyFileAt === -1 || index !== bodyFileAt + 1),
+      );
 
       const reply = (value: unknown, text: string) => ({
         exitCode: 0,
@@ -462,6 +478,62 @@ export default async function plugin(bb: BbPluginApi) {
             applyReply(list, found.comment!.id, text, new Date().toISOString()),
           );
           return reply(updated, formatRow(updated!));
+        }
+
+        case "add": {
+          const location = parseLocation(args[0] ?? "");
+          if (location === null) {
+            return { exitCode: 1, stderr: 'Give the line as path:line: bb diff-comment add src/widget.ts:42 "…"' };
+          }
+          if (ctx.cwd === undefined) {
+            return { exitCode: 1, stderr: "No working directory in context, so the file can't be read." };
+          }
+          const file = resolve(ctx.cwd, location.path);
+          const inside = relative(ctx.cwd, file);
+          if (inside.startsWith("..") || isAbsolute(inside)) {
+            return { exitCode: 1, stderr: `${location.path} is outside this thread's working directory.` };
+          }
+
+          let body: string;
+          try {
+            body = (bodyFile === undefined
+              ? args.slice(1).join(" ")
+              : await readFile(resolve(ctx.cwd, bodyFile), "utf8")
+            ).trim();
+          } catch (error) {
+            return { exitCode: 1, stderr: `Couldn't read ${bodyFile}: ${error instanceof Error ? error.message : String(error)}` };
+          }
+          if (body === "") {
+            return { exitCode: 1, stderr: "A comment needs text, after the location or in --body-file." };
+          }
+          if (body.length > MAX_BODY) {
+            return { exitCode: 1, stderr: `A comment is at most ${MAX_BODY} characters.` };
+          }
+
+          let content: string;
+          try {
+            content = await readFile(file, "utf8");
+          } catch (error) {
+            return { exitCode: 1, stderr: `Couldn't read ${location.path}: ${error instanceof Error ? error.message : String(error)}` };
+          }
+          const anchor = anchorFromFile(content, location.line);
+          if (anchor === null) {
+            return { exitCode: 1, stderr: `${location.path} has no line ${location.line}.` };
+          }
+
+          const added = addComment(comments, {
+            threadId,
+            path: location.path,
+            side: "new",
+            line: location.line,
+            anchor,
+            body,
+            now: new Date().toISOString(),
+            id: randomUUID().slice(0, 8),
+          });
+          await write(threadId, added);
+          const comment = added[added.length - 1]!;
+          return reply(comment, formatRow(comment));
         }
 
         case "resolve":
