@@ -256,7 +256,7 @@ first prompt names that pull request and nothing else.
 A pull request with a thread attached moves to **working**, whatever its flags
 say, so needs you only ever holds work that is actually waiting on you. The
 sidebar follows the same rule: the rows in needs you in a red circle, then
-those plus the ones ready to merge.
+the count of every open pull request you authored.
 
 A PR that is answered and awaiting re-review carries no flag: the ball is in the
 reviewer's court.

@@ -951,7 +951,7 @@ describe("sidebar count", () => {
     return slot;
   }
 
-  it("counts rows that need work and rows ready to merge, the first in a red circle", async () => {
+  it("counts every open pull request, with the ones that need you in a red circle", async () => {
     const slot = renderBadge(
       listing({
         rows: [
@@ -964,17 +964,18 @@ describe("sidebar count", () => {
         ],
       }),
     );
-    expect(await slot.findByTitle("2 to act on")).toHaveTextContent("2");
+    expect(await slot.findByTitle("5 open")).toHaveTextContent("5");
     expect(slot.getByTitle("1 need you")).toHaveClass("bg-red-600");
   });
 
-  it("stops counting a row once a thread is running on it", async () => {
+  it("takes a row out of the red circle once a thread is running on it", async () => {
     const slot = renderBadge(
       listing({
         rows: [rowFixture({ flags: ["conflict"], group: "needs-action", threadId: "thr_1" })],
       }),
     );
-    await waitFor(() => expect(slot.container.textContent).toBe(""));
+    expect(await slot.findByTitle("1 open")).toHaveTextContent("1");
+    expect(slot.queryByTitle("1 need you")).toBeNull();
   });
 });
 
