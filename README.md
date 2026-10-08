@@ -143,6 +143,7 @@ above the story. It lists the files that changed without committing them;
 them for anything private. `npm run screenshots:isolated` does the same in a
 temporary build directory and a new worktree of that checkout, so threads
 capturing at the same time do not collide, and prints the commit command for
-that worktree. It
+that worktree. Both capture up to ten stories at once, leaving two CPU cores
+free; set `SCREENSHOTS_CONCURRENCY` to change the number. It
 needs `npm install` at the root, for Playwright, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.

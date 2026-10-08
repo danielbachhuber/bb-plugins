@@ -37,7 +37,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:http";
-import { homedir, tmpdir } from "node:os";
+import { availableParallelism, homedir, tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -197,33 +197,57 @@ const browser = await chromium.launch();
 // or a spinner is on the same frame each run rather than showing a new diff
 // in the history every time. The second catches what the first does not:
 // `animate-spin` ignores the reduced-motion preference.
-const context = await browser.newContext({
+const contextOptions = {
   viewport: { width: 1400, height: 900 },
   deviceScaleFactor: 2,
   reducedMotion: "reduce",
   colorScheme: "light",
-});
+};
 
-const failures = [];
-const written = new Set();
-for (const id of stories) {
-  const page = await context.newPage();
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(String(error)));
-  await page.goto(`${base}/?story=${id}&mode=preview&theme=light`, { waitUntil: "networkidle" });
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(500);
-  if (errors.length) {
-    failures.push(`${id}: ${errors[0]}`);
-  } else {
-    const file = outputPath(id);
-    mkdirSync(dirname(file), { recursive: true });
-    await page.screenshot({ path: file, fullPage: true, animations: "disabled" });
-    written.add(file);
-    console.log(relative(outDir, file));
+// Each story spends most of its time waiting, for the network to go quiet and
+// then for half a second more, so several are captured at once. Each worker has
+// a browser context of its own and takes the next story when it finishes one.
+const concurrency = Number(process.env.SCREENSHOTS_CONCURRENCY) || Math.max(1, Math.min(10, availableParallelism() - 2));
+const results = new Array(stories.length);
+let next = 0;
+
+async function captureStories() {
+  const context = await browser.newContext(contextOptions);
+  while (next < stories.length) {
+    const index = next++;
+    const id = stories[index];
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(String(error)));
+    await page.goto(`${base}/?story=${id}&mode=preview&theme=light`, { waitUntil: "networkidle" });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(500);
+    if (errors.length) {
+      results[index] = { error: `${id}: ${errors[0]}` };
+    } else {
+      // A busy machine can catch a story before it has finished laying out,
+      // so it is photographed again until two pictures in a row match.
+      let image = await page.screenshot({ fullPage: true, animations: "disabled" });
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await page.waitForTimeout(100);
+        const again = await page.screenshot({ fullPage: true, animations: "disabled" });
+        if (again.equals(image)) break;
+        image = again;
+      }
+      const file = outputPath(id);
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, image);
+      results[index] = { file };
+      console.log(relative(outDir, file));
+    }
+    await page.close();
   }
-  await page.close();
+  await context.close();
 }
+
+await Promise.all(Array.from({ length: Math.min(concurrency, stories.length) }, captureStories));
+const failures = results.filter((result) => result.error).map((result) => result.error);
+const written = new Set(results.filter((result) => result.file).map((result) => result.file));
 await browser.close();
 server.close();
 
