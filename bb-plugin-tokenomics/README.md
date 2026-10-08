@@ -3,7 +3,7 @@
 How many tokens your threads use, and when. A Tokenomics page in the sidebar
 graphs token use over time and lists the threads behind it, and each thread's
 header has a sparkline of its token use over time that opens a summary of
-which of your messages used the most. A thread whose context has grown past a
+which of your messages used the most tokens and time. A thread whose context has grown past a
 size you set shows a meter above its composer, with a button that compacts it.
 
 ## The page
@@ -60,7 +60,14 @@ off the tokens:
   stretch of time. Hover a bucket for its time, its tokens, and the messages
   whose turns used them, with when each started, how long it ran, and its
   share of the thread.
-- **Biggest turns**: the three turns that used the most, the same way
+- **Minutes per turn**: one bar per turn, in the order they ran, stacked
+  into the model's time (thinking and writing), tools (shell commands, tool
+  calls, file reads), and waiting on you to answer a question. Overlapping
+  tools count once. The scale is in minutes, and the median turn is named
+  under it. Hover a bar for the message that started the turn. Turns from
+  before Tokenomics recorded times have no bar.
+- **Biggest turns**: the three turns that used the most, the same way, each
+  with a bar of its time split
 - the split into new input, cache reads, and output, with each part's share
 - how many of the total came from turns bb deleted before Tokenomics could
   record them, when there are any
@@ -184,7 +191,8 @@ you, from asking to your answer. Reasoning and replies are the model's own
 time, and background tasks and subagents run beside the turn rather than
 holding it up, so neither is recorded as a tool. These come from the same
 event request as usage, so they add no requests to bb. The first load with
-this recording reads the past nine days of each thread again to fill them in.
+this recording reads the past nine days of each thread again to fill them in. The header summary's
+minutes-per-turn chart draws them.
 
 ## Matching usage to messages
 

@@ -159,6 +159,137 @@ function percent(part: number, total: number): string {
   return value > 0 && value < 1 ? "<1%" : `${Math.round(value)}%`;
 }
 
+/** Where a turn's time went, in the order the bars stack them. */
+export const TIME_PARTS = [
+  { key: "model", label: "Model", color: "#7c6cf2" },
+  { key: "tools", label: "Tools", color: "#2a9fd6" },
+  { key: "waiting", label: "Waiting on you", color: "#e0a100" },
+] as const;
+
+type TimeSplit = NonNullable<TurnDetail["time"]>;
+
+const timeTotal = (split: TimeSplit) => split.model + split.tools + split.waiting;
+
+/** "36 sec", "14 min", "1 hr 5 min", for a span in milliseconds. */
+export function formatSpan(ms: number): string {
+  const seconds = Math.round(ms / 1_000);
+  if (seconds < 60) return `${seconds} sec`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} hr${minutes % 60 === 0 ? "" : ` ${minutes % 60} min`}`;
+}
+
+function SplitBar({ split, width }: { split: TimeSplit; width: number }) {
+  const all = Math.max(1, timeTotal(split));
+  return (
+    <span className="mt-1 flex h-1.5 overflow-hidden rounded-full bg-muted" style={{ width }} aria-hidden>
+      {TIME_PARTS.map((part) =>
+        split[part.key] > 0 ? (
+          <span key={part.key} style={{ width: `${(split[part.key] / all) * 100}%`, background: part.color }} />
+        ) : null,
+      )}
+    </span>
+  );
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+}
+
+/**
+ * One stacked bar per finished turn, in the order they ran, split into model,
+ * tools, and waiting on you. Hover a bar for the message behind it.
+ */
+function TurnMinutes({ turns, total, reference }: { turns: TurnDetail[]; total: number; reference: number }) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const timed = turns.filter((turn): turn is TurnDetail & { time: TimeSplit } => turn.time != null);
+  if (timed.length === 0) return null;
+  const width = 368;
+  const height = 70;
+  const ticks = niceTicks(Math.max(...timed.map((turn) => timeTotal(turn.time))) / 60_000, 2);
+  const most = Math.max(1, ticks.at(-1)!) * 60_000;
+  const plot = height - 2 * AXIS_PAD;
+  const slot = (width - AXIS_WIDTH) / timed.length;
+  const barWidth = Math.max(1, slot - (timed.length > 24 ? 1 : 2));
+  const y = (ms: number) => AXIS_PAD + plot - (ms / most) * plot;
+  const hoveredTurn = hovered === null ? undefined : timed[hovered];
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium">Minutes per turn</p>
+      <svg width={width} height={height} aria-hidden className="text-foreground/70" onMouseLeave={() => setHovered(null)}>
+        {ticks.map((tick) => (
+          <g key={tick}>
+            <line
+              x1={AXIS_WIDTH}
+              x2={width}
+              y1={Math.round(y(tick * 60_000)) - 0.5}
+              y2={Math.round(y(tick * 60_000)) - 0.5}
+              stroke="currentColor"
+              opacity={tick === 0 ? 0.2 : 0.1}
+            />
+            <text x={AXIS_WIDTH - 6} y={y(tick * 60_000)} dy="0.32em" textAnchor="end" className="fill-muted-foreground text-[10px] tabular-nums">
+              {tick}
+            </text>
+          </g>
+        ))}
+        {timed.map((turn, index) => {
+          let base = 0;
+          return (
+            <g key={turn.turnId ?? index} opacity={hovered === null || hovered === index ? 1 : 0.45}>
+              {TIME_PARTS.map((part) => {
+                const value = turn.time[part.key];
+                if (value <= 0) return null;
+                const top = y(base + value);
+                const bottom = y(base);
+                base += value;
+                return (
+                  <rect
+                    key={part.key}
+                    x={AXIS_WIDTH + index * slot}
+                    y={top}
+                    width={barWidth}
+                    height={Math.max(0.5, bottom - top)}
+                    fill={part.color}
+                  />
+                );
+              })}
+              <rect
+                x={AXIS_WIDTH + index * slot}
+                y={0}
+                width={slot}
+                height={height}
+                fill="transparent"
+                onMouseEnter={() => setHovered(index)}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      <p className="flex pl-[34px] text-[11px] text-muted-foreground">
+        <span className="flex-1">Turn 1</span>
+        <span>
+          Turn {timed.length} · median {formatSpan(median(timed.map((turn) => timeTotal(turn.time))))}
+        </span>
+      </p>
+      <div className="flex gap-3 pl-[34px] text-[11px] text-muted-foreground">
+        {TIME_PARTS.map((part) => (
+          <span key={part.key} className="flex items-center gap-1">
+            <span className="size-2 rounded-sm" style={{ background: part.color }} aria-hidden />
+            {part.label}
+          </span>
+        ))}
+      </div>
+      {hoveredTurn === undefined ? null : (
+        <ul className="rounded-md bg-muted/50 px-2.5 py-2">
+          <TurnLine turn={hoveredTurn} total={total} reference={reference} />
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function duration(turn: TurnDetail): string | null {
   if (turn.endedAt === null) return "still running";
   const minutes = Math.round((turn.endedAt - turn.startedAt) / 60_000);
@@ -195,6 +326,14 @@ function TurnLine({ turn, total, reference }: { turn: TurnDetail; total: number;
           {turn.prompt ?? (turn.turnId === null ? "Before the first recorded turn" : "Continued without a new message")}
         </span>
         <span className="block truncate text-muted-foreground">{meta.join(" · ")}</span>
+        {turn.time == null || timeTotal(turn.time) === 0 ? null : (
+          <span
+            className="block"
+            title={TIME_PARTS.map((part) => `${part.label} ${formatSpan(turn.time![part.key])}`).join(" · ")}
+          >
+            <SplitBar split={turn.time} width={200} />
+          </span>
+        )}
       </span>
       <span className="shrink-0 tabular-nums">{formatTokens(tokens)}</span>
     </li>
@@ -307,6 +446,8 @@ export function ThreadTokenSummary({
           </div>
         </div>
       )}
+
+      {turns === null ? null : <TurnMinutes turns={turns} total={usage.total} reference={from ?? start ?? 0} />}
 
       {turns === null || biggest.length < 2 ? null : (
         <div className="space-y-1.5">

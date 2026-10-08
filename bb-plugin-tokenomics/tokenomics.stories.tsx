@@ -198,12 +198,17 @@ function fixtureTurns(count: number, start: number): TurnDetail[] {
     const startedAt = at;
     at += (minutes + (index === Math.floor(count / 3) ? 55 : 3)) * 60_000;
     const cacheRead = Math.round(1_200_000 * wobble * heavy);
+    // Heavy turns spend most of their time in tools; one stops to ask a question.
+    const length = minutes * 60_000;
+    const waiting = index === Math.floor(count * 0.7) ? 3 * 60_000 : 0;
+    const tools = Math.round((length - waiting) * (heavy >= 2 ? 0.6 : 0.3) * wobble);
     return {
       turnId: `t${index + 1}`,
       startedAt,
       endedAt: startedAt + minutes * 60_000,
       usageAt: startedAt + minutes * 60_000,
       prompt: index === count - 2 ? null : PROMPTS[index % PROMPTS.length]!,
+      time: { model: length - waiting - tools, tools, waiting },
       input: Math.round(cacheRead * 0.013),
       cacheRead,
       output: Math.round(cacheRead * 0.0037),

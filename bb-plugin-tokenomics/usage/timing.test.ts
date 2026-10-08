@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
 import { createStore, MIGRATIONS } from "./store.js";
-import { timingRowsOf, type TimingEventLike } from "./timing.js";
+import { timingRowsOf, turnSplits, type TimingEventLike } from "./timing.js";
 
 const turn = { kind: "turn", turnId: "t1" };
 
@@ -70,5 +70,29 @@ describe("recording timings", () => {
     expect(timings.waits).toEqual([
       { interactionId: "pint_1", turnId: "t1", kind: "user_question", startedAt: 70_000, resolvedAt: 130_000 },
     ]);
+  });
+});
+
+describe("turnSplits", () => {
+  it("splits a turn into model, tools, and waiting on you, counting overlaps once", () => {
+    const splits = turnSplits({
+      turns: [{ turnId: "t1", startedAt: 0, completedAt: 100_000 }],
+      items: [
+        // Two commands that overlap for 10 seconds.
+        { itemId: "a", turnId: "t1", kind: "commandExecution", label: "npm test", startedAt: 10_000, completedAt: 30_000 },
+        { itemId: "b", turnId: "t1", kind: "commandExecution", label: "npm run build", startedAt: 20_000, completedAt: 40_000 },
+        // The question tool call, which covers the wait.
+        { itemId: "c", turnId: "t1", kind: "toolCall", label: "AskUserQuestion", startedAt: 50_000, completedAt: 70_000 },
+        // Still open when the turn ended, so it counts to the turn's end.
+        { itemId: "d", turnId: "t1", kind: "commandExecution", label: "npm run watch", startedAt: 90_000, completedAt: null },
+      ],
+      waits: [{ interactionId: "q", turnId: "t1", kind: "user_question", startedAt: 51_000, resolvedAt: 69_000 }],
+    });
+    expect(splits.get("t1")).toEqual({ tools: 30_000 + 2_000 + 10_000, waiting: 18_000, model: 40_000 });
+  });
+
+  it("leaves out a turn that has not finished", () => {
+    const splits = turnSplits({ turns: [{ turnId: "t2", startedAt: 0, completedAt: null }], items: [], waits: [] });
+    expect(splits.size).toBe(0);
   });
 });

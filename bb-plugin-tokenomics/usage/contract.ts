@@ -46,6 +46,8 @@ export const turnDetailSchema = z.object({
   endedAt: z.number().nullable(),
   usageAt: z.number(),
   prompt: z.string().nullable(),
+  /** Where the turn's time went, in milliseconds; null before timings were recorded or while it runs. */
+  time: z.object({ model: z.number(), tools: z.number(), waiting: z.number() }).nullable().optional(),
   ...tokens,
 });
 
