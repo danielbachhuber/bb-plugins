@@ -181,7 +181,7 @@ export function ThreadUsageList({
         <span className="hidden shrink-0 lg:block" title="One dot per turn, on a log scale; the bar marks the median">
           <TurnDotsAxis />
         </span>
-        <span className="hidden w-20 shrink-0 text-right lg:block">Time</span>
+        <span className="hidden w-20 shrink-0 text-right lg:block">Turn time</span>
       </div>
     <ul className="divide-y divide-border">
       {threads.map((thread) => {
