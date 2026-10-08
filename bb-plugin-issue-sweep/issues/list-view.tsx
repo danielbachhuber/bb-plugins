@@ -14,6 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
+import { CommentsDrawer, type CommentsResult } from "./comments-drawer.js";
 import { relativeTime } from "./format.js";
 import {
   ISSUE_RUNS,
@@ -519,6 +520,11 @@ export interface IssueListViewProps {
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the issue is about to open. */
   onOpenLink: (row: Row) => void;
+  /**
+   * Reads the issue's latest comments, when its comment count is clicked.
+   * Once it has read them, the row's "N new" is marked seen.
+   */
+  loadComments: (row: Row) => Promise<CommentsResult>;
 }
 
 export function IssueListView({
@@ -532,6 +538,7 @@ export function IssueListView({
   onOpen,
   onNoteSave,
   onOpenLink,
+  loadComments,
 }: IssueListViewProps): ReactNode {
   if (!listing) return <SweepingBoard />;
 
@@ -649,6 +656,23 @@ export function IssueListView({
               const row = rowsByKey.get(item.key);
               if (row) onOpenLink(row);
             }}
+            renderComments={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row) return null;
+              return (
+                <CommentsDrawer
+                  url={row.url}
+                  now={now}
+                  newCount={row.newComments}
+                  Link={UrlLink}
+                  load={async () => {
+                    const result = await loadComments(row);
+                    if (!result.error && row.newComments > 0) onOpenLink(row);
+                    return result;
+                  }}
+                />
+              );
+            }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
               const row = rowsByKey.get(item.key);
@@ -703,6 +727,8 @@ interface SplitListProps {
   renderStatus: (row: Row, stretch: boolean) => ReactNode;
   renderActions: (item: SweepItem) => ReactNode;
   renderTrailing: (item: SweepItem) => ReactNode;
+  /** The drawer the comment count opens, drawn only while it is open. */
+  renderComments: (item: SweepItem) => ReactNode;
   onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
   onOpenLink: (item: SweepItem) => void;
 }
@@ -734,12 +760,14 @@ function SplitList({
   renderStatus,
   renderActions,
   renderTrailing,
+  renderComments,
   onNoteSave,
   onOpenLink,
 }: SplitListProps) {
   // Rows opened by hand in the right column. Open state lives only as long as the panel.
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState<ReadonlySet<string>>(new Set());
   const [mineFilter, setMineFilter] = useState<string | null>(null);
   const [restFilter, setRestFilter] = useState<string | null>(null);
 
@@ -791,6 +819,15 @@ function SplitList({
         Link={UrlLink}
         actions={renderActions(item)}
         trailing={renderTrailing(item)}
+        onToggleComments={() =>
+          setCommentsOpen((current) => {
+            const next = new Set(current);
+            if (!next.delete(item.key)) next.add(item.key);
+            return next;
+          })
+        }
+        commentsOpen={commentsOpen.has(item.key)}
+        commentsDrawer={commentsOpen.has(item.key) ? renderComments(item) : undefined}
         editing={editing === item.key}
         onEditNote={() => setEditing(item.key)}
         onNoteSave={async (body) => {

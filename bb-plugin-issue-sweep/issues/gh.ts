@@ -8,6 +8,7 @@ import {
 export { GhUnavailableError, createGhRunner };
 export type { GhRunner };
 
+import { COMMENTS_QUERY, parseComments, type IssueComment } from "./comments.js";
 import { factsKey, fetchIssueFacts } from "./graph.js";
 import {
   REPO_SLUG_PATTERN,
@@ -150,4 +151,25 @@ export async function fetchCommentAuthors(gh: GhRunner, repo: string, number: nu
     ".[].user.login",
   ]);
   return out.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+}
+
+/**
+ * An issue's latest comments, in one GraphQL call. Runs when its comments
+ * drawer opens, never during a sweep.
+ */
+export async function fetchComments(
+  gh: GhRunner,
+  repo: string,
+  number: number,
+): Promise<{ comments: IssueComment[]; total: number }> {
+  if (!REPO_SLUG_PATTERN.test(repo)) throw new Error(`not a repository: ${repo}`);
+  const [owner, name] = repo.split("/");
+  const raw = await gh.run([
+    "api", "graphql",
+    "-f", `query=${COMMENTS_QUERY}`,
+    "-f", `owner=${owner}`,
+    "-f", `name=${name}`,
+    "-F", `number=${number}`,
+  ]);
+  return parseComments(raw);
 }

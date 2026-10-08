@@ -141,7 +141,7 @@ describe("panel", () => {
     );
     const row = await rowFor(slot, /Widget rotation/);
     expect(within(row).getByText("3h ago")).toBeInTheDocument();
-    expect(within(row).getByTitle("2 comments")).toHaveTextContent("2");
+    expect(within(row).getByRole("button", { name: "Show 2 comments" })).toHaveTextContent("2");
     expect(within(row).getByText("8/14")).toBeInTheDocument();
     // The bar says it, so the number line does not.
     expect(within(row).queryByText("8/14 tasks")).toBeNull();
@@ -544,6 +544,56 @@ describe("seen comments", () => {
     });
     fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
     await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+
+  it("reads the comments when the comment count is clicked, marks the new ones, and marks the issue seen", async () => {
+    const commentCalls: unknown[] = [];
+    const seenCalls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow({ commentsCount: 2, newComments: 1 })] }), {
+      listComments: (input: unknown) => {
+        commentCalls.push(input);
+        return {
+          comments: [
+            { author: "octocat", avatarUrl: "", body: "Seen this one before.", url: "u1", at: Date.now() - 5 * HOUR },
+            { author: "hubber", avatarUrl: "", body: "It drifts on every second resize.", url: "u2", at: Date.now() - HOUR },
+          ],
+          total: 2,
+          error: null,
+        };
+      },
+      markSeen: (input: unknown) => {
+        seenCalls.push(input);
+        return { ok: true };
+      },
+    });
+    const row = await rowFor(slot, /Widget rotation/);
+    expect(commentCalls).toEqual([]);
+
+    fireEvent.click(within(row).getByRole("button", { name: "Show 2 comments" }));
+    const newest = await within(row).findByText("It drifts on every second resize.");
+    expect(within(newest.closest("a")!).getByText("new")).toBeInTheDocument();
+    const older = within(row).getByText("Seen this one before.");
+    expect(within(older.closest("a")!).queryByText("new")).toBeNull();
+    expect(commentCalls).toEqual([{ repo: "acme/widgets", number: 42 }]);
+    await waitFor(() => expect(seenCalls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+
+    fireEvent.click(within(row).getByRole("button", { name: "Hide 2 comments" }));
+    expect(within(row).queryByText("It drifts on every second resize.")).toBeNull();
+  });
+
+  it("says so in the drawer when GitHub could not be read, and leaves the issue unseen", async () => {
+    const seenCalls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow({ newComments: 1 })] }), {
+      listComments: () => ({ comments: [], total: 0, error: "Could not read the comments from GitHub." }),
+      markSeen: (input: unknown) => {
+        seenCalls.push(input);
+        return { ok: true };
+      },
+    });
+    const row = await rowFor(slot, /Widget rotation/);
+    fireEvent.click(within(row).getByRole("button", { name: "Show 2 comments" }));
+    expect(await within(row).findByText("Could not read the comments from GitHub.")).toBeInTheDocument();
+    expect(seenCalls).toEqual([]);
   });
 
   it("marks the issue seen when its thread is opened", async () => {

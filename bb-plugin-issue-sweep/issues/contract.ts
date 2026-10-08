@@ -287,6 +287,27 @@ export const rpcContract = defineRpcContract({
     input: z.object({ repo: z.string(), number: z.number() }).strict(),
     output: z.object({ ok: z.boolean() }),
   },
+  /**
+   * The issue's latest comments, read from GitHub when its comments drawer
+   * opens. One GraphQL call per open; the sweep never makes it.
+   */
+  listComments: {
+    input: z.object({ repo: z.string(), number: z.number() }).strict(),
+    output: z.object({
+      comments: z.array(
+        z.object({
+          author: z.string(),
+          avatarUrl: z.string(),
+          body: z.string(),
+          url: z.string(),
+          at: z.number(),
+        }),
+      ),
+      /** Every comment the issue has, of which `comments` is the latest. */
+      total: z.number(),
+      error: z.string().nullable(),
+    }),
+  },
   setBoardStatus: {
     input: z.object({ repo: z.string(), number: z.number(), status: z.string() }),
     output: z.object({

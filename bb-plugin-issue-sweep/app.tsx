@@ -122,6 +122,11 @@ function Panel() {
     [reload, rpc],
   );
 
+  const loadComments = useCallback(
+    (row: Row) => rpc.call("listComments", { repo: row.repo, number: row.number }),
+    [rpc],
+  );
+
   const onOpen = useCallback(
     (row: Row) => {
       if (row.threadId) navigate.toThread(row.threadId);
@@ -273,6 +278,7 @@ function Panel() {
         onOpen={onOpen}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
+        loadComments={loadComments}
       />
 
       <StartThreadDialog

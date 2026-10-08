@@ -49,8 +49,9 @@ them all.
 | Needs you | new comments, stale, working, in progress, to start | Open: title, number line, note, actions, and why the issue is there |
 | Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
-- **New comments**: comments others posted since you last opened the issue or
-  its thread from the panel, started one, or commented yourself. A comment of
+- **New comments**: comments others posted since you last opened the issue,
+  its thread, or its comments drawer from the panel, started one, or commented
+  yourself. A comment of
   yours is never new, and neither is anything before it, since you read the
   thread to reply. The first sweep to see an issue records its count, so
   nothing is new on the first sync.
@@ -113,6 +114,14 @@ or Edit note, then the progress bar, with its count in green, and the comment co
 the right end of that line. Start
 thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
+
+Clicking the comment count opens the issue's latest comments in a drawer under
+the action line, oldest first, with the ones that are new marked in blue. Each
+comment opens on GitHub, and its text is cut to three lines. The drawer reads
+the latest 50, and when the issue has more, the link at the bottom says how many
+there are in all. Opening the drawer makes one GitHub GraphQL request for that
+issue, and none is made until you click; once it has read the comments, the
+row's "N new" clears. Clicking the count again closes it.
 
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. It shows in a grey drawer under the action line, and Add note or Edit

@@ -10,6 +10,9 @@ import {
   type Listing,
   type Row,
 } from "./issues/list-view";
+import { CommentsDrawer, CommentsList } from "./issues/comments-drawer";
+import type { IssueComment } from "./issues/comments";
+import { PlainLink } from "sweep-ui/row";
 
 export default {
   title: "issue-sweep/Issue list",
@@ -232,12 +235,38 @@ function Frame({
             onOpen={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
+            loadComments={async () => ({ comments: COMMENTS, total: COMMENTS.length, error: null })}
           />
         </div>
       </div>
     </TooltipProvider>
   );
 }
+
+/** The conversation on #42, as the comments drawer reads it. */
+const COMMENTS: IssueComment[] = [
+  {
+    author: "octocat",
+    avatarUrl: "",
+    body: "Reproduced on a 1280px window: the widget turns a few degrees further each time the window is resized.",
+    url: "https://github.com/acme/widgets/issues/42",
+    at: now - 3 * DAY,
+  },
+  {
+    author: "hubber",
+    avatarUrl: "",
+    body: "Could this be the rounding in the layout pass? It only shows up at fractional zoom levels for me.",
+    url: "https://github.com/acme/widgets/issues/42",
+    at: now - 2 * DAY,
+  },
+  {
+    author: "hubber",
+    avatarUrl: "",
+    body: "Confirmed: at 100% zoom it holds steady. At 110% it drifts on every second resize.",
+    url: "https://github.com/acme/widgets/issues/42",
+    at: now - 5 * HOUR,
+  },
+];
 
 /**
  * Four issues assigned to you. The one with new comments, the one with a
@@ -424,6 +453,41 @@ const long: Listing = {
     ),
   ],
 };
+
+/**
+ * The drawer a row's comment count opens: the issue's latest comments, oldest
+ * first, with the ones that arrived since it was last seen marked new. Each
+ * opens on GitHub. Then the drawer while it reads, when GitHub fails, and when
+ * the issue has more comments than the drawer reads.
+ */
+export function CommentsDrawerStates() {
+  const box = (children: ReactNode) => (
+    <div className="w-full max-w-3xl rounded-md border border-border bg-muted/40 px-3 py-2">{children}</div>
+  );
+  const url = "https://github.com/acme/widgets/issues/42";
+  return (
+    <StoryCard>
+      <StoryRow label="Open" hint="Three comments on #42, the latest one new.">
+        {box(<CommentsList comments={COMMENTS} total={COMMENTS.length} newCount={1} now={now} url={url} Link={PlainLink} />)}
+      </StoryRow>
+      <StoryRow label="Reading" hint="While the one request to GitHub runs.">
+        <CommentsDrawer load={() => new Promise(() => {})} newCount={0} now={now} url={url} Link={PlainLink} />
+      </StoryRow>
+      <StoryRow label="Failed" hint="GitHub could not be reached.">
+        <CommentsDrawer
+          load={async () => ({ comments: [], total: 0, error: "Could not read the comments from GitHub." })}
+          newCount={0}
+          now={now}
+          url={url}
+          Link={PlainLink}
+        />
+      </StoryRow>
+      <StoryRow label="More than it reads" hint="The latest of 80 comments, with a link to the rest.">
+        {box(<CommentsList comments={COMMENTS} total={80} newCount={0} now={now} url={url} Link={PlainLink} />)}
+      </StoryRow>
+    </StoryCard>
+  );
+}
 
 /**
  * A long list: what needs you on the left, and a long backlog grouped on the

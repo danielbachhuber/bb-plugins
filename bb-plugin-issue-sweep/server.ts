@@ -13,6 +13,7 @@ import {
   GhUnavailableError,
   createGhRunner,
   fetchCommentAuthors,
+  fetchComments,
   fetchViewerLogin,
   runSweep,
   type GhRunner,
@@ -845,6 +846,16 @@ export default async function plugin(bb: BbPluginApi) {
     setNote({ repo, number, body }) {
       store.setNote(repo, number, body, Date.now());
       return { ok: true };
+    },
+
+    async listComments({ repo, number }) {
+      const { ghPath } = await settings.get();
+      try {
+        return { ...(await fetchComments(createGhRunner(ghPath), repo, number)), error: null };
+      } catch (error) {
+        bb.log.warn(`could not read the comments on ${repo}#${number}: ${String(error)}`);
+        return { comments: [], total: 0, error: "Could not read the comments from GitHub." };
+      }
     },
 
     markSeen({ repo, number }) {
