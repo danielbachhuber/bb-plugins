@@ -12,6 +12,9 @@ import {
   type Listing,
   type Row,
 } from "./review/list-view";
+import { relativeTime } from "./review/format";
+import { FeedbackDrawer, FeedbackList, type FeedbackEntry } from "sweep-ui/feedback";
+import { PlainLink } from "sweep-ui/row";
 
 export default {
   title: "review-sweep/Review list",
@@ -62,6 +65,7 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     canSpawn: true,
     threadId: null,
     comments: 0,
+    inlineComments: 0,
     checks: GREEN,
     reviewers: [YOU],
     stack: null,
@@ -83,6 +87,7 @@ const needsReview: Row[] = [
       { login: "acme/widgets-api-experts", state: "pending", team: true },
       { login: "octocat", state: "commented", team: false },
     ],
+    inlineComments: 2,
   }),
   row({
     number: 437,
@@ -93,6 +98,7 @@ const needsReview: Row[] = [
     size: { additions: 18, deletions: 4, changedFiles: 2 },
     reviewers: TEAM_PENDING,
     comments: 3,
+    inlineComments: 5,
     newComments: 2,
   }),
 ];
@@ -200,6 +206,66 @@ function harvestFor(listing: Listing): HarvestPanelState {
   };
 }
 
+/** What is on #437 for you as its reviewer, your own threads included. */
+const FEEDBACK: FeedbackEntry[] = [
+  {
+    kind: "review",
+    author: "mona",
+    avatarUrl: avatarFor("mona"),
+    state: "commented",
+    body: "Looks right overall. Two questions inline before I approve.",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 30 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "mona",
+    avatarUrl: avatarFor("mona"),
+    path: "gadgets/rename.ts",
+    line: 27,
+    status: "unanswered",
+    outdated: false,
+    replies: 1,
+    body: "Does this keep the order when two gadgets share a name?",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 30 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "mona",
+    avatarUrl: avatarFor("mona"),
+    path: "gadgets/sort.ts",
+    line: 9,
+    status: "waiting",
+    outdated: false,
+    replies: 0,
+    body: "Could the comparator move next to the other sort helpers?",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 30 * HOUR,
+  },
+  {
+    kind: "comment",
+    author: "hubber",
+    avatarUrl: avatarFor("hubber"),
+    body: "Pushed a fix for the duplicate-name case. Mind another look?",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 4 * HOUR,
+  },
+  {
+    kind: "thread",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    path: "gadgets/rename.ts",
+    line: 3,
+    status: "resolved",
+    outdated: true,
+    replies: 1,
+    body: "Unused import.",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 32 * HOUR,
+  },
+];
+
 /** The panel's title bar, so a frame reads like the real panel. */
 function Frame({
   listing,
@@ -232,6 +298,7 @@ function Frame({
             onArchive={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
+            loadFeedback={async () => ({ entries: FEEDBACK, error: null })}
             avatarFor={avatarFor}
             onBatch={noop}
           />
@@ -303,6 +370,38 @@ export function Rows() {
       </StoryRow>
       <StoryRow label="Without Harvest" hint="No clock in the action line.">
         <Frame listing={{ ...baseline, harvest: { available: false, running: null } }} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/**
+ * The drawer a row's comment count opens, on a pull request you are
+ * reviewing. Your own threads stay in: the author's answer to one is marked
+ * unanswered, and one nobody has answered yet waits on a reply. Resolved
+ * threads wait behind "1 resolved". Then the drawer while it reads, and when
+ * GitHub fails.
+ */
+export function CommentsDrawer() {
+  const url = "https://github.com/acme/widgets/pull/437";
+  const age = (at: number) => relativeTime(at, now);
+  return (
+    <StoryCard>
+      <StoryRow label="Open" hint="What is on #437, your own threads included.">
+        <div className="w-full max-w-3xl rounded-md border border-border bg-muted/40 px-3 py-2">
+          <FeedbackList entries={FEEDBACK} age={age} url={url} Link={PlainLink} />
+        </div>
+      </StoryRow>
+      <StoryRow label="Reading" hint="While the one request to GitHub runs.">
+        <FeedbackDrawer load={() => new Promise(() => {})} age={age} url={url} Link={PlainLink} />
+      </StoryRow>
+      <StoryRow label="Failed" hint="GitHub could not be reached.">
+        <FeedbackDrawer
+          load={async () => ({ entries: [], error: "Could not read the comments from GitHub." })}
+          age={age}
+          url={url}
+          Link={PlainLink}
+        />
       </StoryRow>
     </StoryCard>
   );

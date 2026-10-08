@@ -208,6 +208,20 @@ describe("classifyOne", () => {
     expect(classifyOne(makePr({ comments: { totalCount: 7 } }), ME)?.comments).toBe(7);
     expect(classifyOne(makePr({ comments: null }), ME)?.comments).toBe(0);
   });
+
+  it("counts inline comments through the reviews that posted them, leaving out a pending one", () => {
+    const pr = makePr({
+      reviews: {
+        nodes: [
+          { ...submittedReview("COMMENTED", "octocat", daysAgo(3)), comments: { totalCount: 3 } },
+          { ...submittedReview("COMMENTED", "hubber", daysAgo(2)), comments: { totalCount: 1 } },
+          { ...submittedReview("PENDING", ME, daysAgo(1)), comments: { totalCount: 4 } },
+          submittedReview("APPROVED", "hubber", daysAgo(1)),
+        ],
+      },
+    });
+    expect(classifyOne(pr, ME)?.inlineComments).toBe(4);
+  });
 });
 
 describe("classify", () => {

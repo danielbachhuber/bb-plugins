@@ -1,4 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { REPO_SLUG_PATTERN, fetchFeedback } from "@danielb/gh-shared/gh";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./review/gh.js";
@@ -497,6 +498,7 @@ export default async function plugin(bb: BbPluginApi) {
           return {
             ...row,
             comments,
+            inlineComments: row.inlineComments ?? 0,
             // Rows stored before the sweep read these draw no checks and no reviewers.
             checks: row.checks ?? NO_CHECKS,
             reviewers: row.reviewers ?? [],
@@ -524,6 +526,20 @@ export default async function plugin(bb: BbPluginApi) {
     setNote({ repo, number, body }) {
       store.setNote(repo, number, body, Date.now());
       return { ok: true };
+    },
+
+    async listFeedback({ repo, number }) {
+      if (!REPO_SLUG_PATTERN.test(repo)) return { entries: [], error: "Not a repository." };
+      const { ghPath } = await settings.get();
+      try {
+        // Your own threads are kept: on a pull request you are reviewing, the
+        // author's answers to them are what you came back to read.
+        const entries = await fetchFeedback(createGhRunner(ghPath), repo, number, { includeViewer: true });
+        return { entries, error: null };
+      } catch (error) {
+        bb.log.warn(`could not read feedback on ${repo}#${number}: ${String(error)}`);
+        return { entries: [], error: "Could not read the comments from GitHub." };
+      }
     },
 
     markSeen({ repo, number }) {

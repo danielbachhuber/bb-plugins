@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
+import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
 import { SweepList } from "sweep-ui/list";
 import {
   Avatar,
@@ -423,6 +424,11 @@ export interface ReviewListViewProps {
   /** The title was clicked, and the pull request is about to open. */
   onOpenLink: (row: Row) => void;
   /**
+   * Reads what everyone left on the pull request, when its comment count is
+   * clicked. Once it has read them, the row's "N new" is marked seen.
+   */
+  loadFeedback: (row: Row) => Promise<FeedbackResult>;
+  /**
    * A user's or organization's picture. Defaults to GitHub's; the stories
    * pass drawn ones so they need no network.
    */
@@ -441,6 +447,7 @@ export function ReviewListView({
   onArchive,
   onNoteSave,
   onOpenLink,
+  loadFeedback,
   avatarFor = githubAvatar,
   onBatch,
 }: ReviewListViewProps): ReactNode {
@@ -460,6 +467,7 @@ export function ReviewListView({
     url: row.url,
     number: row.number,
     newComments: row.newComments,
+    comments: row.comments + (row.inlineComments ?? 0),
     flags: flagsFor(row, inputs),
     // Only the age: the body draws the rest as icons.
     facts: [relativeTime(row.requestedAt, now)],
@@ -521,6 +529,22 @@ export function ReviewListView({
             summaryAction={
               onBatch ? <BatchButton count={listing.rows.filter(canBatch).length} onBatch={onBatch} /> : undefined
             }
+            renderComments={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row) return null;
+              return (
+                <FeedbackDrawer
+                  url={row.url}
+                  age={(at) => relativeTime(at, now)}
+                  Link={UrlLink}
+                  load={async () => {
+                    const result = await loadFeedback(row);
+                    if (!result.error && row.newComments > 0) onOpenLink(row);
+                    return result;
+                  }}
+                />
+              );
+            }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
               const row = rowsByKey.get(item.key);

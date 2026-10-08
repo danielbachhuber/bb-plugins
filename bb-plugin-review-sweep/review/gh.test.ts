@@ -36,6 +36,10 @@ describe("SEARCH_GRAPHQL", () => {
   it("asks for the comment count, for the row's new comments", () => {
     expect(SEARCH_GRAPHQL).toContain("comments { totalCount }");
   });
+
+  it("asks each review for its inline comment count, for the row's comment count", () => {
+    expect(SEARCH_GRAPHQL).toContain("author { login } comments { totalCount } }");
+  });
 });
 
 describe("parseSearch", () => {

@@ -138,6 +138,11 @@ function Panel() {
     [reload, rpc],
   );
 
+  const loadFeedback = useCallback(
+    (row: Row) => rpc.call("listFeedback", { repo: row.repo, number: row.number }),
+    [rpc],
+  );
+
   const onOpen = useCallback(
     (row: Row, threadId: string) => {
       navigate.toThread(threadId);
@@ -292,6 +297,7 @@ function Panel() {
         onArchive={onArchive}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
+        loadFeedback={loadFeedback}
         onBatch={() => setBatchOpen(true)}
       />
 

@@ -28,6 +28,8 @@ export interface ListedReview {
   threadId: string | null;
   /** How many general comments the pull request has. */
   comments: number;
+  /** Inline review comments, resolved threads included. Left out reads as none. */
+  inlineComments?: number;
   /** The head commit's checks, all zero when it has none. */
   checks: ChecksSummary;
   /** Everyone else asked to review or who has reviewed. */

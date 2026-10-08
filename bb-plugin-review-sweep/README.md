@@ -58,8 +58,9 @@ for three weeks would read as "20 minutes". A review queue whose age column is a
 guess is not worth having.
 
 So: one `gh api graphql` call, with an exact `requestedAt` per row. The same
-call reads `comments { totalCount }`, the count behind each row's "N new", and
-the head commit's `statusCheckRollup` counts by state, behind each row's checks.
+call reads `comments { totalCount }`, the count behind each row's "N new", each
+review's own `comments { totalCount }`, which together are its inline
+comments, and the head commit's `statusCheckRollup` counts by state, behind each row's checks.
 The reviewers come from the `reviews` and `reviewRequests` it already reads for
 the request time. It also
 means there is no per-repository partial-failure state to carry; the sweep
@@ -163,8 +164,27 @@ A row has no stage track on the right, unlike Issue Sweep's: the banner and
 the icons say where a review stands.
 
 An open row's actions are Start review or Open thread; Archive thread on a row
-with a thread; Copy link; and Add note or Edit note. The Harvest clock, when the Harvest
-plugin is installed, sits at the right end of that line.
+with a thread; Copy link; and Add note or Edit note, then the comment count:
+general and inline comments together, resolved threads included. Inline
+comments are counted through the reviews that posted them, since each reply to
+a thread is a review of its own, leaving out your pending review. Only general
+comments count toward "N new". The Harvest clock, when the Harvest plugin is
+installed, sits at the right end of that line.
+
+Clicking the comment count opens what is on the pull request in a drawer under
+the action line, drawn the same way as PR Sweep's: reviews that requested
+changes first, then other reviews with something to say, then the inline
+threads still open, each with its file and line, then general comments.
+Resolved threads wait behind "N resolved" at the bottom. Unlike PR Sweep's,
+the drawer keeps your own reviews, threads, and comments, since on a pull
+request you are reviewing the author's answers to your threads are what you
+came back to read. A thread is "unanswered" when someone else spoke last,
+including the author answering one of yours; "waiting on a reply" when you
+started it and nobody has answered; and "you replied" when you spoke last.
+Bots' comments are left out. Each entry opens on GitHub, and its text is cut to
+three lines. Opening the drawer makes one GitHub GraphQL request for that pull
+request, and none is made until you click; once it has read the comments, the
+row's "N new" clears. Clicking the count again closes it.
 
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. It shows in a grey drawer under the action line, and Add note or Edit

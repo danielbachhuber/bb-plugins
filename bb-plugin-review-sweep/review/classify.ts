@@ -296,11 +296,26 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
       changedFiles: pr.changedFiles ?? 0,
     },
     comments: pr.comments?.totalCount ?? 0,
+    inlineComments: inlineComments(pr),
     checks: checksOf(pr),
     reviewers: reviewersOf(pr, viewer),
     // Filled in by the sweep, which reads the rest of each stack in one more call.
     stack: null,
   };
+}
+
+/**
+ * Every inline comment, counted through the reviews that posted them, since a
+ * reply to a thread is a review of its own. A pending review is a draft only
+ * its author can see, so its comments are not counted yet.
+ */
+function inlineComments(pr: RawPullRequest): number {
+  let total = 0;
+  for (const review of pr.reviews?.nodes ?? []) {
+    if (!review || review.state === "PENDING") continue;
+    total += review.comments?.totalCount ?? 0;
+  }
+  return total;
 }
 
 /**

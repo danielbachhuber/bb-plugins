@@ -73,6 +73,12 @@ export interface ClassifiedRow {
    */
   comments?: number;
   /**
+   * How many inline comments the pull request has, resolved threads included.
+   * Drawn with `comments` as the row's comment count, but left out of "N new".
+   * Optional for the same reason.
+   */
+  inlineComments?: number;
+  /**
    * The head commit's checks. Optional, as `comments` is, for rows stored
    * before the sweep read them; the listing reads a missing one as no checks.
    */
@@ -108,6 +114,8 @@ export interface RawReview {
   state?: string;
   submittedAt?: string | null;
   author?: { login?: string } | null;
+  /** The inline comments the review posted, replies included. */
+  comments?: { totalCount?: number } | null;
 }
 
 export interface RawStateCount {

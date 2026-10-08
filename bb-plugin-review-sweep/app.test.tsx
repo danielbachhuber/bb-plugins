@@ -31,6 +31,7 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     canSpawn: true,
     threadId: null,
     comments: 2,
+    inlineComments: 0,
     checks: { pass: 3, fail: 0, skip: 1, pending: 0, cancelled: 0, total: 4 },
     reviewers: [],
     note: null,
@@ -446,6 +447,54 @@ describe("seen comments", () => {
     const slot = render(listing({ rows: [rowFixture({ threadId: "thr_1" })] }), seen.rpc);
     fireEvent.click(await slot.findByRole("button", { name: "Open thread" }));
     await waitFor(() => expect(seen.calls).toEqual([{ repo: "acme/widgets", number: 42 }]));
+  });
+});
+
+describe("comments drawer", () => {
+  it("counts general and inline comments together in the action line", async () => {
+    const slot = render(listing({ rows: [rowFixture({ comments: 1, inlineComments: 4 })] }));
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(within(row).getByRole("button", { name: "Show 5 comments" })).toHaveTextContent("5");
+  });
+
+  it("reads the comments when the count is clicked, and marks them seen", async () => {
+    const feedbackCalls: unknown[] = [];
+    const seenCalls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ comments: 2, newComments: 1 })] }), {
+      listFeedback: (input: unknown) => {
+        feedbackCalls.push(input);
+        return {
+          entries: [
+            {
+              kind: "thread",
+              author: "hubber",
+              avatarUrl: "",
+              path: "export/csv.ts",
+              line: 42,
+              status: "waiting",
+              outdated: false,
+              replies: 0,
+              body: "Should this skip widgets whose owner is null?",
+              url: "https://github.com/acme/widgets/pull/42#discussion_r1",
+              at: 0,
+            },
+          ],
+          error: null,
+        };
+      },
+      markSeen: (input: unknown) => {
+        seenCalls.push(input);
+        return { ok: true };
+      },
+    });
+    const row = await rowFor(slot, /Add the widget endpoint/);
+    expect(feedbackCalls).toEqual([]);
+
+    fireEvent.click(within(row).getByRole("button", { name: "Show 2 comments" }));
+    expect(await within(row).findByText("Should this skip widgets whose owner is null?")).toBeInTheDocument();
+    expect(within(row).getByText("waiting on a reply")).toBeInTheDocument();
+    expect(feedbackCalls).toEqual([{ repo: "acme/widgets", number: 42 }]);
+    await waitFor(() => expect(seenCalls).toEqual([{ repo: "acme/widgets", number: 42 }]));
   });
 });
 

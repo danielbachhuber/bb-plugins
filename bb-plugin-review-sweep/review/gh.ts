@@ -54,7 +54,7 @@ query($q: String!, $limit: Int!) {
         author { login }
         comments { totalCount }
         reviews(last: 100) {
-          nodes { state submittedAt author { login } }
+          nodes { state submittedAt author { login } comments { totalCount } }
         }
         reviewRequests(first: 20) {
           nodes {
