@@ -374,6 +374,7 @@ function Frame({
           syncedAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
           busy={listing?.syncing === true}
           onRefresh={noop}
+          now={now.getTime()}
         />
       </div>
       <ItemListView
