@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
-import { SyncStatus } from "./components/ui/sync-status";
+import { SyncStatus } from "component-library/sync-status";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { BatchPicker } from "./review/batch-dialog";
 import {
@@ -219,7 +219,7 @@ function Frame({
             <Icon name="Eye" className="size-4 text-muted-foreground" />
             Reviews
           </span>
-          <SyncStatus sweptAt={listing?.sweptAt ?? null} busy={false} onRefresh={noop} />
+          <SyncStatus syncedAt={listing?.sweptAt ?? null} busy={false} onRefresh={noop} />
         </div>
         <div className="min-h-0 flex-1">
           <ReviewListView

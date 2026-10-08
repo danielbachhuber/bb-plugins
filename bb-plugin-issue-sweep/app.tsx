@@ -7,7 +7,7 @@ import {
   type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { SyncStatus } from "@/components/ui/sync-status";
+import { SyncStatus } from "component-library/sync-status";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   StartThreadDialog,
@@ -91,7 +91,7 @@ function SyncHeader() {
 
   return (
     <SyncStatus
-      sweptAt={listing?.sweptAt ?? null}
+      syncedAt={listing?.sweptAt ?? null}
       busy={busy}
       onRefresh={() => void onRefresh()}
     />

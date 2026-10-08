@@ -13,7 +13,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
-import { SyncStatus } from "@/components/ui/sync-status";
+import { SyncStatus } from "component-library/sync-status";
 
 import type { rpcContract } from "./server";
 import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
@@ -130,7 +130,7 @@ function SyncHeader() {
   const fetchedAt = listing?.list?.fetchedAt;
   return (
     <SyncStatus
-      sweptAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
+      syncedAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
       busy={busy || listing?.syncing === true}
       onRefresh={() => void onRefresh()}
     />

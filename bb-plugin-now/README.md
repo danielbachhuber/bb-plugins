@@ -515,12 +515,12 @@ list `server.ts` passes to `loadSources`.
 | `priorities.stories.tsx` | The Priorities column and its wide, narrow, and empty layouts, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page, its title-bar sync control, and its Email tab, which read the stored list and sync on open |
-| `components/ui/sync-status.tsx` | The "synced 4m ago" label and Refresh button, the same file the sweeps carry |
 
 ## Working on it
 
 ```sh
 npm install
+npm run harvest:sync   # installs component-library as a copy, not a link
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload now

@@ -137,7 +137,7 @@ database. The page reads only the mirror, so opening it or switching periods
 makes no request to GitHub.
 
 The sync runs when the page opens and the mirror is more than 30 minutes old,
-and when you press **Sync**. Each run is GraphQL calls through `gh api
+and when you press **Refresh** in the title bar. Each run is GraphQL calls through `gh api
 graphql`:
 
 Pull requests and issues sync in two passes, each keeping its own high-water
@@ -208,6 +208,7 @@ needs no new sync.
 
 ```sh
 npm install
+npm run harvest:sync   # installs component-library as a copy, not a link
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload contributor-dashboard

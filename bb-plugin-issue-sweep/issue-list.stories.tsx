@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
-import { SyncStatus } from "./components/ui/sync-status";
+import { SyncStatus } from "component-library/sync-status";
 import { TooltipProvider } from "./components/ui/tooltip";
 import {
   IssueListView,
@@ -218,7 +218,7 @@ function Frame({
             <Icon name="ListTodo" className="size-4 text-muted-foreground" />
             Issues
           </span>
-          <SyncStatus sweptAt={listing?.sweptAt ?? null} busy={false} onRefresh={noop} />
+          <SyncStatus syncedAt={listing?.sweptAt ?? null} busy={false} onRefresh={noop} />
         </div>
         <div className="min-h-0 flex-1">
           <IssueListView

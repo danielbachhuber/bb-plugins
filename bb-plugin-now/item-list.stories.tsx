@@ -1,6 +1,6 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { SyncStatus } from "./components/ui/sync-status";
+import { SyncStatus } from "component-library/sync-status";
 
 import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView, type Filter } from "./now/item-list";
@@ -371,7 +371,7 @@ function Frame({
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <span className="text-sm font-medium text-foreground">Now</span>
         <SyncStatus
-          sweptAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
+          syncedAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
           busy={listing?.syncing === true}
           onRefresh={noop}
         />

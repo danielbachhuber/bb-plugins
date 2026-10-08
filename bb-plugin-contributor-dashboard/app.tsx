@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 
-import { SyncStatus as SyncStatusBar } from "@/components/ui/sync-status";
+import { SyncStatus as SyncStatusBar } from "component-library/sync-status";
 
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
