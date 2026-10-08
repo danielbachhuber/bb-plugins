@@ -137,7 +137,7 @@ export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
           ))}
         </ul>
       ) : (
-        <p className="py-1 text-xs text-muted-foreground">Nothing open on it.</p>
+        <p className="py-1 text-xs text-muted-foreground">Nothing open.</p>
       )}
       <div className="mt-1.5 flex items-center gap-3 border-t border-border pt-1.5 text-xs text-muted-foreground">
         <Link href={url} className="inline-flex items-center gap-1 hover:text-foreground hover:underline">
