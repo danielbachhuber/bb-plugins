@@ -98,19 +98,22 @@ describe("store", () => {
 
   it("keeps sync progress per repository", () => {
     const store = openStore();
-    expect(store.syncState("acme/widgets")).toEqual({
-      highWater: null,
-      backfillCursor: null,
-      backfillDone: false,
-      syncedAt: null,
-    });
+    const empty = { highWater: null, backfillCursor: null, backfillDone: false };
+    expect(store.syncState("acme/widgets")).toEqual({ ...empty, issues: { ...empty }, syncedAt: null });
     store.saveSyncState("acme/widgets", {
       highWater: "2026-09-02T10:00:00Z",
       backfillCursor: "Y3Vyc29y",
       backfillDone: false,
+      issues: { highWater: "2026-09-01T10:00:00Z", backfillCursor: "aXNzdWU", backfillDone: true },
       syncedAt: 123,
     });
     expect(store.syncState("acme/widgets").backfillCursor).toBe("Y3Vyc29y");
+    // Issues keep their own marks, so one kind finishing does not move the other.
+    expect(store.syncState("acme/widgets").issues).toEqual({
+      highWater: "2026-09-01T10:00:00Z",
+      backfillCursor: "aXNzdWU",
+      backfillDone: true,
+    });
     expect(store.syncState("acme/gadgets").highWater).toBeNull();
   });
 });

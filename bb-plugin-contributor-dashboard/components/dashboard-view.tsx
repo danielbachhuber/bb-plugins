@@ -17,11 +17,11 @@ function ago(at: number, now: number): string {
 }
 
 function syncLine(sync: SyncStatus, now: number): string {
-  const count = sync.pullRequests.toLocaleString("en-US");
+  const count = `${sync.pullRequests.toLocaleString("en-US")} pull requests and ${sync.issues.toLocaleString("en-US")} issues`;
   if (!sync.backfillDone) {
     return sync.running
-      ? `First sync: ${count} pull requests so far. Counts fill in as it reaches back two years.`
-      : `First sync paused at ${count} pull requests. It resumes on the next sync.`;
+      ? `First sync: ${count} so far. Counts fill in as it reaches back two years.`
+      : `First sync paused at ${count}. It resumes on the next sync.`;
   }
   if (sync.running) return "Syncing…";
   return sync.syncedAt === null ? "Not synced yet" : `Synced ${ago(sync.syncedAt, now)}`;

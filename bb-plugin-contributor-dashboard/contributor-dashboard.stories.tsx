@@ -13,7 +13,14 @@ export default {
 
 const NOW = new Date(2026, 9, 7, 14, 20).getTime();
 
-const SYNCED: SyncStatus = { syncedAt: NOW - 12 * 60_000, running: false, backfillDone: true, pullRequests: 1_284, error: null };
+const SYNCED: SyncStatus = {
+  syncedAt: NOW - 12 * 60_000,
+  running: false,
+  backfillDone: true,
+  pullRequests: 1_284,
+  issues: 412,
+  error: null,
+};
 
 /** Invented reviewers, each with a weekly rhythm and a share of requests they answer. */
 const PEOPLE: Array<{ login: string; base: number; answers: number; trend: number }> = [
@@ -30,7 +37,32 @@ const PEOPLE: Array<{ login: string; base: number; answers: number; trend: numbe
 /** The stage flow, shaped like a real repository: fast in the middle, long tails. */
 const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   {
+    key: "triage",
+    label: "Triage",
+    measures: "opened, until it reaches a milestone or project",
+    source: "issue",
+    left: 96,
+    waiting: 37,
+    median: 1.8,
+    p75: 6,
+    p90: 14,
+    weekly: [2.9, 2.4, 2.6, 1.9, 1.7, 1.8],
+  },
+  {
+    key: "ownership",
+    label: "Assign ownership",
+    measures: "in a milestone or project, until someone is assigned",
+    source: "issue",
+    left: 74,
+    waiting: 112,
+    median: 9.4,
+    p75: 24,
+    p90: 46,
+    weekly: [6.1, 7, 8.2, 8.8, 9.1, 9.4],
+  },
+  {
     key: "implement",
+    source: "pullRequest",
     label: "Implement change",
     measures: "opened as a draft, until marked ready for review",
     left: 71,
@@ -42,6 +74,7 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   },
   {
     key: "prepare",
+    source: "pullRequest",
     label: "Prepare pull request",
     measures: "ready for review, until a reviewer is asked",
     left: 118,
@@ -53,6 +86,7 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   },
   {
     key: "review",
+    source: "pullRequest",
     label: "Code review",
     measures: "a reviewer asked, until they leave a review",
     left: 548,
@@ -64,6 +98,7 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   },
   {
     key: "decision",
+    source: "pullRequest",
     label: "Merge decision",
     measures: "approved, until merged",
     left: 62,
@@ -129,7 +164,7 @@ export const OneYear = () => <Page initial="1y" />;
 
 /** The first sync, still reaching back two years; the charts fill in as pages arrive. */
 export const FirstSync = () => (
-  <Page sync={{ syncedAt: null, running: true, backfillDone: false, pullRequests: 350, error: null }} />
+  <Page sync={{ syncedAt: null, running: true, backfillDone: false, pullRequests: 350, issues: 0, error: null }} />
 );
 
 /** Before a repository is set. */
@@ -137,7 +172,7 @@ export const NoRepository = () => (
   <DashboardView
     period="6w"
     onPeriod={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onSync={() => undefined}
     onOpenPerson={() => undefined}

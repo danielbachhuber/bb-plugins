@@ -6,16 +6,20 @@
 // mark). The first sync instead backfills down to BACKFILL_MS ago, saving its
 // cursor after every page so an interrupted backfill resumes where it stopped.
 import {
+  ISSUES_QUERY,
+  MORE_ISSUE_TIMELINE_QUERY,
   MORE_REVIEWS_QUERY,
   MORE_TIMELINE_QUERY,
   PULL_REQUESTS_QUERY,
   type Connection,
+  type IssueNode,
+  type IssueTimelineItem,
   type PullRequestNode,
   type PullRequestReview,
   type TimelineItem,
 } from "./github.js";
 import { BACKFILL_MS } from "../dashboard/period.js";
-import type { Store, SyncState } from "./store.js";
+import type { KindState, Store, SyncState } from "./store.js";
 
 /** Runs one GraphQL query and returns its `data`. */
 export type GraphqlQuery = (query: string, variables: Record<string, string | number | null>) => Promise<unknown>;
@@ -35,6 +39,8 @@ export interface SyncOptions {
 export interface SyncResult {
   /** Pull requests stored in this run. */
   pullRequests: number;
+  /** Issues stored in this run. */
+  issues: number;
   /** GraphQL calls made. */
   calls: number;
 }
@@ -43,13 +49,24 @@ interface PullRequestsPage {
   repository: { pullRequests: Connection<PullRequestNode> } | null;
 }
 
+interface IssuesPage {
+  repository: { issues: Connection<IssueNode> } | null;
+}
+
+/** What one object type needs to page itself down to the horizon. */
+interface Pass<T extends { updatedAt: string }> {
+  state: KindState;
+  page: (after: string | null) => Promise<Connection<T>>;
+  keep: (nodes: readonly T[]) => Promise<void>;
+}
+
 export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const { store, query, repository, signal } = options;
   const now = options.now ?? Date.now;
   const pageSize = options.pageSize ?? 50;
   const [owner, name] = repository.split("/");
   const state: SyncState = store.syncState(repository);
-  const result: SyncResult = { pullRequests: 0, calls: 0 };
+  const result: SyncResult = { pullRequests: 0, issues: 0, calls: 0 };
 
   async function call(text: string, variables: Record<string, string | number | null>) {
     signal?.throwIfAborted();
@@ -85,6 +102,28 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     }
   }
 
+  async function issuePage(after: string | null): Promise<Connection<IssueNode>> {
+    const data = (await call(ISSUES_QUERY, { owner, name, first: pageSize, after })) as IssuesPage;
+    if (data.repository === null) throw new Error(`GitHub has no repository ${repository}, or this login cannot see it.`);
+    return data.repository.issues;
+  }
+
+  async function keepIssues(nodes: readonly IssueNode[]) {
+    store.upsertIssues(repository, nodes);
+    for (const node of nodes) {
+      let timeline = node.timelineItems.pageInfo;
+      while (timeline.hasNextPage) {
+        const data = (await call(MORE_ISSUE_TIMELINE_QUERY, { id: node.id, after: timeline.endCursor })) as {
+          node: { timelineItems: Connection<IssueTimelineItem> };
+        };
+        store.upsertIssueTimelineItems(node.id, data.node.timelineItems.nodes);
+        timeline = data.node.timelineItems.pageInfo;
+      }
+    }
+    result.issues += nodes.length;
+    options.onPage?.(result.pullRequests + result.issues);
+  }
+
   async function keep(nodes: readonly PullRequestNode[]) {
     store.upsertPullRequests(repository, nodes);
     await completeConnections(nodes);
@@ -92,43 +131,49 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     options.onPage?.(result.pullRequests);
   }
 
-  const newest = (nodes: readonly PullRequestNode[], floor: string | null) =>
+  const newest = <T extends { updatedAt: string }>(nodes: readonly T[], floor: string | null) =>
     nodes.reduce<string | null>((max, node) => (max === null || node.updatedAt > max ? node.updatedAt : max), floor);
 
-  // Catch up on everything updated since the last completed pass.
-  if (state.highWater !== null) {
-    const stopAt = state.highWater;
-    let highWater = stopAt;
-    for (let after: string | null = null; ; ) {
-      const { nodes, pageInfo } = await page(after);
-      const fresh = nodes.filter((node) => node.updatedAt > stopAt);
-      await keep(fresh);
-      highWater = newest(fresh, highWater) ?? highWater;
-      if (fresh.length < nodes.length || !pageInfo.hasNextPage) break;
-      after = pageInfo.endCursor;
-    }
-    state.highWater = highWater;
-    store.saveSyncState(repository, state);
-  }
-
-  // Backfill, the first time, down to the horizon.
-  if (!state.backfillDone) {
-    const horizon = new Date(now() - BACKFILL_MS).toISOString();
-    for (let after = state.backfillCursor; ; ) {
-      const { nodes, pageInfo } = await page(after);
-      const inRange = nodes.filter((node) => node.updatedAt >= horizon);
-      await keep(inRange);
-      if (after === null) state.highWater = newest(inRange, state.highWater);
-      if (inRange.length < nodes.length || !pageInfo.hasNextPage) break;
-      after = pageInfo.endCursor;
-      state.backfillCursor = after;
+  /** One object type: catch up to its high-water mark, then backfill once. */
+  async function run<T extends { updatedAt: string }>({ state: kind, page: fetch, keep: store_ }: Pass<T>) {
+    // Catch up on everything updated since the last completed pass.
+    if (kind.highWater !== null) {
+      const stopAt = kind.highWater;
+      let highWater = stopAt;
+      for (let after: string | null = null; ; ) {
+        const { nodes, pageInfo } = await fetch(after);
+        const fresh = nodes.filter((node) => node.updatedAt > stopAt);
+        await store_(fresh);
+        highWater = newest(fresh, highWater) ?? highWater;
+        if (fresh.length < nodes.length || !pageInfo.hasNextPage) break;
+        after = pageInfo.endCursor;
+      }
+      kind.highWater = highWater;
       store.saveSyncState(repository, state);
     }
-    state.backfillDone = true;
-    state.backfillCursor = null;
-    // An empty repository still needs a mark, or later passes would never start.
-    state.highWater ??= horizon;
+
+    // Backfill, the first time, down to the horizon.
+    if (!kind.backfillDone) {
+      const horizon = new Date(now() - BACKFILL_MS).toISOString();
+      for (let after = kind.backfillCursor; ; ) {
+        const { nodes, pageInfo } = await fetch(after);
+        const inRange = nodes.filter((node) => node.updatedAt >= horizon);
+        await store_(inRange);
+        if (after === null) kind.highWater = newest(inRange, kind.highWater);
+        if (inRange.length < nodes.length || !pageInfo.hasNextPage) break;
+        after = pageInfo.endCursor;
+        kind.backfillCursor = after;
+        store.saveSyncState(repository, state);
+      }
+      kind.backfillDone = true;
+      kind.backfillCursor = null;
+      // An empty repository still needs a mark, or later passes would never start.
+      kind.highWater ??= horizon;
+    }
   }
+
+  await run<PullRequestNode>({ state, page, keep });
+  await run<IssueNode>({ state: state.issues, page: issuePage, keep: keepIssues });
 
   state.syncedAt = now();
   store.saveSyncState(repository, state);

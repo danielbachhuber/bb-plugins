@@ -39,12 +39,16 @@ export const authoredPullRequestSchema = z.object({
   waitingDays: z.number().nullable(),
 });
 
-export const stageKeySchema = z.enum(["implement", "prepare", "review", "decision"]);
+export const stageKeySchema = z.enum(["triage", "ownership", "implement", "prepare", "review", "decision"]);
+
+/** Every stage key, in flow order; `app.tsx` matches sub-paths against these. */
+export const STAGE_KEYS = stageKeySchema.options;
 
 export const stageSummarySchema = z.object({
   key: stageKeySchema,
   label: z.string(),
   measures: z.string(),
+  source: z.enum(["issue", "pullRequest"]),
   left: z.number(),
   waiting: z.number(),
   median: z.number(),
@@ -71,6 +75,8 @@ export const syncStatusSchema = z.object({
   backfillDone: z.boolean(),
   /** Pull requests stored for the repository so far. */
   pullRequests: z.number(),
+  /** Issues stored for the repository so far. */
+  issues: z.number(),
   /** Why the last sync failed, if it did. */
   error: z.string().nullable(),
 });

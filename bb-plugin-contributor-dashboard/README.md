@@ -2,7 +2,7 @@
 
 A dashboard of how people contribute to one GitHub repository. A Contributor
 Dashboard page in the sidebar draws its sections from a local copy of the
-repository's pull requests and reviews.
+repository's pull requests, reviews, and issues.
 
 ## The page
 
@@ -11,25 +11,39 @@ the period picker, which every section follows: 6 weeks (the default), 12
 weeks, 6 months, and 1 year. The weeks start on Monday; 6 months and a year are
 drawn by month.
 
-### Execute → Verify → Release
+### Identify → Define → Execute → Verify → Release
 
-The flow at the top is one row per stage a pull request passes through. The
-stages are named for the nodes in the delivery model they come from, and each
-says in a line what its clock measures:
+The flow at the top is one row per stage, named for the node in the delivery
+model it comes from, each saying in a line what its clock measures:
 
-| Stage | From | To |
-| --- | --- | --- |
-| Implement change | opened as a draft | marked ready for review |
-| Prepare pull request | ready for review | a reviewer is asked |
-| Code review | a reviewer asked | they leave a review |
-| Merge decision | approved | merged |
+| Stage | Reads | From | To |
+| --- | --- | --- | --- |
+| Triage | issues | opened | it reaches a milestone or project |
+| Assign ownership | issues | in a milestone or project | someone is assigned |
+| Implement change | pull requests | opened as a draft | marked ready for review |
+| Prepare pull request | pull requests | ready for review | a reviewer is asked |
+| Code review | pull requests | a reviewer asked | they leave a review |
+| Merge decision | pull requests | approved | merged |
 
-Together they divide one timeline, so a pull request is in at most one stage at
-a time. Each row shows how many pull requests are in the stage now, then the
+Within each object type the stages divide one timeline, so a pull request is in
+at most one pull request stage at a time, and an issue in at most one issue
+stage.
+
+The two groups are drawn separately because they work on different time scales:
+issue stages run in weeks and pull request stages often in minutes, so one
+shared scale would flatten every pull request row into its first pixel. Each
+group's scale is named beside its heading, and a bar in one group cannot be
+compared with a bar in the other.
+
+What the issue stages can and cannot say: they measure the milestone and
+project habit as much as the work, and everything in Identify and Define that
+happens before an issue exists is invisible here. An issue closed before it
+reached a stage's end left the flow rather than passing through it, so it
+counts neither as a duration nor as waiting. Each row shows how many are in the stage now, then the
 **median**, **p75** and **p90** of how long it took the ones that left it in
 the period: half pass the stage within the median, a quarter take longer than
 the p75, and a tenth longer than the p90. The bar runs to the median and the
-two ticks mark p75 and p90, all four rows on one scale. The small line on the
+two ticks mark p75 and p90, on that group's scale. The small line on the
 right is the median week by week, green where it is falling and red where it is
 rising.
 
@@ -114,8 +128,9 @@ Settings are read when the plugin loads, so reload it after changing one.
 
 ## Syncing with GitHub
 
-The plugin keeps a mirror of the repository's pull requests, their reviews,
-and their review-request and ready-for-review events in its own SQLite
+The plugin keeps a mirror of the repository's pull requests, their reviews, and
+their review-request and ready-for-review events, and of its issues and the
+events that milestone, add to a project, and assign them, in its own SQLite
 database. The page reads only the mirror, so opening it or switching periods
 makes no request to GitHub.
 
@@ -123,13 +138,19 @@ The sync runs when the page opens and the mirror is more than 30 minutes old,
 and when you press **Sync**. Each run is GraphQL calls through `gh api
 graphql`:
 
+Pull requests and issues sync in two passes, each keeping its own high-water
+mark and backfill cursor, so finishing one does not affect the other.
+
 - **Each later sync** pages through pull requests most recently updated first,
-  50 per call, and stops at the first one the last sync already saw. Any review
+  50 per call, and stops at the first one the last sync already saw, then does
+  the same for issues. Any review
   or review request bumps a pull request's update time, so this picks up every
   change. A sync after a quiet half hour is usually one call.
 - **The first sync** reaches back two years, so a year can be compared with the
   year before. That is one call per 50 pull requests updated in those two
-  years: about 100 calls, and about five minutes, for a repository with 5,000.
+  years: about 100 calls, and about five minutes, for a repository with 5,000,
+  and another call per 50 issues, which on a repository with 1,700 issues is
+  about 36 calls and a little over a minute.
   It saves its place after every call and resumes there if it is interrupted,
   and the page fills in as it goes.
 - A pull request with more than 100 reviews or events costs one more call per
@@ -139,8 +160,8 @@ Each call of 50 costs one point of GitHub's GraphQL rate limit of 5,000 an
 hour.
 
 The tables follow GitHub's own objects: `pull_requests`,
-`pull_request_reviews`, and `pull_request_timeline_items`, keyed by GitHub's
-node id. Each row holds the object as GitHub returned it, with GitHub's field
+`pull_request_reviews`, `pull_request_timeline_items`, `issues`, and
+`issue_timeline_items`, keyed by GitHub's node id. Each row holds the object as GitHub returned it, with GitHub's field
 names, plus the few fields queries filter on as columns. The counts above are
 computed when the page reads, never stored, so a change to how one is defined
 needs no new sync.
@@ -159,10 +180,10 @@ needs no new sync.
 | Path | What it holds |
 | --- | --- |
 | `mirror/github.ts` | GitHub's objects as the plugin reads them, and the GraphQL queries |
-| `mirror/sync.ts` | The sync: catching up to the last high-water mark, the resumable two-year backfill, and fetching past 100 reviews or events |
+| `mirror/sync.ts` | The sync: one pass per object type, each catching up to its high-water mark and backfilling two years, and fetching past 100 reviews or events |
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
-| `review/stages.ts` | The pure stage model: each stage's spans, its percentiles, and the bands its page draws |
+| `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per week or month |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |

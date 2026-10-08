@@ -5,13 +5,13 @@
 // inside the period contributes a duration; one still inside the stage is
 // waiting, and contributes its age instead. Durations are business days, so a
 // weekend does not read as two days of delay.
-import type { PullRequestWithActivity, TimelineItem } from "../mirror/github.js";
+import type { IssueWithActivity, PullRequestWithActivity, TimelineItem } from "../mirror/github.js";
 
 import { businessDaysBetween } from "./business-time.js";
 import { countedReviews } from "./reviews.js";
 import { readyAt } from "./person.js";
 
-export type StageKey = "implement" | "prepare" | "review" | "decision";
+export type StageKey = "triage" | "ownership" | "implement" | "prepare" | "review" | "decision";
 
 export interface StageDefinition {
   key: StageKey;
@@ -19,14 +19,49 @@ export interface StageDefinition {
   label: string;
   /** What the clock measures, in one line. */
   measures: string;
+  /** Issue stages run in weeks and pull request stages in hours, so each group is drawn on its own scale. */
+  source: "issue" | "pullRequest";
 }
 
 export const STAGES: readonly StageDefinition[] = [
-  { key: "implement", label: "Implement change", measures: "opened as a draft, until marked ready for review" },
-  { key: "prepare", label: "Prepare pull request", measures: "ready for review, until a reviewer is asked" },
-  { key: "review", label: "Code review", measures: "a reviewer asked, until they leave a review" },
-  { key: "decision", label: "Merge decision", measures: "approved, until merged" },
+  {
+    key: "triage",
+    label: "Triage",
+    measures: "opened, until it reaches a milestone or project",
+    source: "issue",
+  },
+  {
+    key: "ownership",
+    label: "Assign ownership",
+    measures: "in a milestone or project, until someone is assigned",
+    source: "issue",
+  },
+  {
+    key: "implement",
+    label: "Implement change",
+    measures: "opened as a draft, until marked ready for review",
+    source: "pullRequest",
+  },
+  {
+    key: "prepare",
+    label: "Prepare pull request",
+    measures: "ready for review, until a reviewer is asked",
+    source: "pullRequest",
+  },
+  {
+    key: "review",
+    label: "Code review",
+    measures: "a reviewer asked, until they leave a review",
+    source: "pullRequest",
+  },
+  { key: "decision", label: "Merge decision", measures: "approved, until merged", source: "pullRequest" },
 ];
+
+/** What the stages read: the mirror's two object types. */
+export interface StageInput {
+  pullRequests: readonly PullRequestWithActivity[];
+  issues: readonly IssueWithActivity[];
+}
 
 /** One pull request's span in a stage: finished, or still running. */
 export interface StageSpan {
@@ -89,17 +124,69 @@ function span(
   };
 }
 
+/** When the issue was first planned: put in a milestone, or added to a project. */
+function plannedAt(issue: IssueWithActivity): string | null {
+  const planned = issue.timelineItems.find(
+    (item) => item.__typename === "MilestonedEvent" || item.__typename === "AddedToProjectV2Event",
+  );
+  return planned?.createdAt ?? null;
+}
+
+function identifyIssue(issue: IssueWithActivity) {
+  return { number: issue.number, title: issue.title, url: issue.url, author: issue.author?.login ?? null };
+}
+
 /**
- * Every pull request's span in one stage: those that left it, and those still
- * in it. A pull request appears at most once per stage.
+ * An issue's span in one of the stages before a change is written. An issue
+ * closed before it reached the stage's end left the flow rather than passing
+ * through it, so it counts neither as a duration nor as waiting.
  */
-export function stageSpans(
-  stage: StageKey,
-  prs: readonly PullRequestWithActivity[],
+function issueSpan(
+  issue: IssueWithActivity,
+  startedAt: string | null,
+  endedAt: string | null,
   now: number,
-): StageSpan[] {
+): StageSpan | null {
+  if (startedAt === null) return null;
+  if (endedAt === null && issue.state !== "OPEN") return null;
+  return {
+    ...identifyIssue(issue),
+    startedAt,
+    endedAt,
+    days: businessDaysBetween(Date.parse(startedAt), endedAt === null ? now : Date.parse(endedAt)),
+  };
+}
+
+function issueSpans(stage: StageKey, issues: readonly IssueWithActivity[], now: number): StageSpan[] {
   const spans: StageSpan[] = [];
-  for (const pr of prs) {
+  for (const issue of issues) {
+    const planned = plannedAt(issue);
+    const made =
+      stage === "triage"
+        ? issueSpan(issue, issue.createdAt, planned, now)
+        : issueSpan(
+            issue,
+            planned,
+            planned === null
+              ? null
+              : (issue.timelineItems.find(
+                  (item) => item.__typename === "AssignedEvent" && item.createdAt >= planned,
+                )?.createdAt ?? null),
+            now,
+          );
+    if (made !== null) spans.push(made);
+  }
+  return spans;
+}
+
+/**
+ * Every pull request's or issue's span in one stage: those that left it, and
+ * those still in it. Each appears at most once per stage.
+ */
+export function stageSpans(stage: StageKey, input: StageInput, now: number): StageSpan[] {
+  if (stage === "triage" || stage === "ownership") return issueSpans(stage, input.issues, now);
+  const spans: StageSpan[] = [];
+  for (const pr of input.pullRequests) {
     const ready = readyAt(pr);
     let made: StageSpan | null = null;
     switch (stage) {
@@ -127,6 +214,8 @@ export function stageSpans(
         made = span(pr, approved, pr.mergedAt, now, pr.state === "OPEN" && pr.mergedAt === null);
         break;
       }
+      default:
+        made = null;
     }
     if (made !== null) spans.push(made);
   }
@@ -242,15 +331,11 @@ function summarise(
 }
 
 /** Every stage, in order, for the dashboard's flow. */
-export function stageSummaries(
-  prs: readonly PullRequestWithActivity[],
-  buckets: readonly Window[],
-  now: number,
-): StageSummary[] {
+export function stageSummaries(input: StageInput, buckets: readonly Window[], now: number): StageSummary[] {
   return STAGES.map((definition) => {
     const { finished: _finished, waitingSpans: _waiting, ...summary } = summarise(
       definition,
-      stageSpans(definition.key, prs, now),
+      stageSpans(definition.key, input, now),
       buckets,
     );
     return summary;
@@ -260,12 +345,12 @@ export function stageSummaries(
 /** One stage, with the detail its own page draws. */
 export function stageDetail(
   key: StageKey,
-  prs: readonly PullRequestWithActivity[],
+  input: StageInput,
   buckets: readonly Window[],
   now: number,
 ): StageDetail {
   const definition = STAGES.find((stage) => stage.key === key)!;
-  const { finished, waitingSpans, ...summary } = summarise(definition, stageSpans(key, prs, now), buckets);
+  const { finished, waitingSpans, ...summary } = summarise(definition, stageSpans(key, input, now), buckets);
   return {
     ...summary,
     spread: countIntoBands(SPREAD_BANDS, finished.map((span) => span.days)).map(({ label, count }) => ({

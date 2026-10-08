@@ -57,8 +57,9 @@ export default async function plugin(bb: BbPluginApi) {
     return {
       syncedAt: state.syncedAt,
       running: running !== null,
-      backfillDone: state.backfillDone,
+      backfillDone: state.backfillDone && state.issues.backfillDone,
       pullRequests: configured ? store.pullRequestCount(repository) : 0,
+      issues: configured ? store.issueCount(repository) : 0,
       error: lastError,
     };
   }
@@ -77,7 +78,8 @@ export default async function plugin(bb: BbPluginApi) {
       .then((result) => {
         lastError = null;
         bb.log.info(
-          `synced ${repository}: ${result.pullRequests} pull requests in ${result.calls} calls, ${Date.now() - started} ms`,
+          `synced ${repository}: ${result.pullRequests} pull requests and ${result.issues} issues in ` +
+            `${result.calls} calls, ${Date.now() - started} ms`,
         );
       })
       .catch((error: unknown) => {
@@ -106,7 +108,7 @@ export default async function plugin(bb: BbPluginApi) {
       return {
         repository,
         buckets,
-        stages: stageSummaries(prs, buckets, now),
+        stages: stageSummaries({ pullRequests: prs, issues: store.readIssues(repository, 0) }, buckets, now),
         people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
         sync: status(),
       };
@@ -148,7 +150,14 @@ export default async function plugin(bb: BbPluginApi) {
     stage_detail: ({ stage, period, waitingPage }) => {
       const now = Date.now();
       const buckets = configured ? bucketsFor(period, now) : [];
-      const detail = stageDetail(stage, configured ? store.readActivity(repository, 0) : [], buckets, now);
+      const detail = stageDetail(
+        stage,
+        configured
+          ? { pullRequests: store.readActivity(repository, 0), issues: store.readIssues(repository, 0) }
+          : { pullRequests: [], issues: [] },
+        buckets,
+        now,
+      );
       const paging = pageOf(detail.waitingNow.length, waitingPage);
       if (configured) {
         const { syncedAt } = store.syncState(repository);

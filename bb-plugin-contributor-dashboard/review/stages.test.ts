@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { PullRequestWithActivity } from "../mirror/github";
+import type { IssueWithActivity, PullRequestWithActivity } from "../mirror/github";
 
 import {
   countIntoBands,
@@ -13,6 +13,14 @@ import {
 } from "./stages";
 
 const NOW = Date.parse("2026-10-08T12:00:00Z");
+
+const input = (pullRequests: PullRequestWithActivity[], issues: IssueWithActivity[] = []) => ({
+  pullRequests,
+  issues,
+});
+
+const spansOf = (stage: Parameters<typeof stageSpans>[0], prs: PullRequestWithActivity[], now = NOW) =>
+  stageSpans(stage, input(prs), now);
 
 function pr(overrides: Partial<PullRequestWithActivity> = {}): PullRequestWithActivity {
   return {
@@ -52,7 +60,7 @@ const review = (submittedAt: string, state: "COMMENTED" | "APPROVED" = "COMMENTE
 
 describe("stageSpans", () => {
   it("times a draft from opening to ready for review", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "implement",
       [
         pr({
@@ -70,17 +78,17 @@ describe("stageSpans", () => {
   });
 
   it("leaves out a pull request that opened ready for review", () => {
-    expect(stageSpans("implement", [pr()], NOW)).toEqual([]);
+    expect(spansOf("implement", [pr()], NOW)).toEqual([]);
   });
 
   it("counts an open draft as still implementing", () => {
-    const spans = stageSpans("implement", [pr({ isDraft: true, createdAt: "2026-10-07T12:00:00Z" })], NOW);
+    const spans = spansOf("implement", [pr({ isDraft: true, createdAt: "2026-10-07T12:00:00Z" })], NOW);
     expect(spans[0].endedAt).toBeNull();
     expect(spans[0].days).toBeCloseTo(1, 5);
   });
 
   it("times preparing from ready to the first review request", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "prepare",
       [pr({ createdAt: "2026-10-05T09:00:00Z", timelineItems: [requested("2026-10-05T15:00:00Z")] })],
       NOW,
@@ -89,12 +97,12 @@ describe("stageSpans", () => {
   });
 
   it("counts a ready pull request with no reviewer asked as still preparing", () => {
-    const spans = stageSpans("prepare", [pr({ createdAt: "2026-10-07T09:00:00Z" })], NOW);
+    const spans = spansOf("prepare", [pr({ createdAt: "2026-10-07T09:00:00Z" })], NOW);
     expect(spans[0].endedAt).toBeNull();
   });
 
   it("times review from the request to the first review, and ignores the author's own", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "review",
       [
         pr({
@@ -110,7 +118,7 @@ describe("stageSpans", () => {
   });
 
   it("counts an open pull request whose reviewer has not answered as waiting", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "review",
       [pr({ createdAt: "2026-10-05T09:00:00Z", timelineItems: [requested("2026-10-07T12:00:00Z")] })],
       NOW,
@@ -120,7 +128,7 @@ describe("stageSpans", () => {
   });
 
   it("times the merge decision from the approval", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "decision",
       [
         pr({
@@ -135,11 +143,11 @@ describe("stageSpans", () => {
   });
 
   it("leaves out a merged pull request that was never approved", () => {
-    expect(stageSpans("decision", [pr({ state: "MERGED", mergedAt: "2026-10-06T15:00:00Z" })], NOW)).toEqual([]);
+    expect(spansOf("decision", [pr({ state: "MERGED", mergedAt: "2026-10-06T15:00:00Z" })], NOW)).toEqual([]);
   });
 
   it("skips the weekend, so Friday to Monday is one day", () => {
-    const spans = stageSpans(
+    const spans = spansOf(
       "review",
       [
         pr({
@@ -208,7 +216,7 @@ describe("stageSummaries and stageDetail", () => {
   ];
 
   it("counts what left the stage in the period, and what is still in it", () => {
-    const review = stageSummaries(prs, buckets, NOW).find((stage) => stage.key === "review")!;
+    const review = stageSummaries(input(prs), buckets, NOW).find((stage) => stage.key === "review")!;
     expect(review.left).toBe(2);
     expect(review.waiting).toBe(1);
     // Nearest rank, so with two spans of 0.25d and 2d the median is the slower.
@@ -217,12 +225,12 @@ describe("stageSummaries and stageDetail", () => {
   });
 
   it("gives each bucket the median of what left in it", () => {
-    const review = stageSummaries(prs, buckets, NOW).find((stage) => stage.key === "review")!;
+    const review = stageSummaries(input(prs), buckets, NOW).find((stage) => stage.key === "review")!;
     expect(review.weekly.map((value) => Number(value.toFixed(2)))).toEqual([2, 0.25]);
   });
 
   it("bands the finished and waiting spans, and sorts the queue longest first", () => {
-    const detail = stageDetail("review", prs, buckets, NOW);
+    const detail = stageDetail("review", input(prs), buckets, NOW);
     expect(detail.spread.map((band) => band.count)).toEqual([1, 0, 1, 0, 0, 0]);
     expect(detail.queue.find((band) => band.label === "3–7d")?.count).toBe(1);
     expect(detail.waitingNow.map((span) => span.number)).toEqual([3]);

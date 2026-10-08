@@ -11,6 +11,7 @@ import {
   DASHBOARD_CHANNEL,
   type PeopleActivityResult,
   type PersonActivityResult,
+  STAGE_KEYS,
   type StageDetailResult,
   type StageKey,
 } from "./dashboard/contract.js";
@@ -27,8 +28,6 @@ function personFrom(subPath: string): string | null {
   const match = /^person\/([^/]+)\/?$/.exec(subPath);
   return match === null ? null : decodeURIComponent(match[1]);
 }
-
-const STAGE_KEYS: readonly StageKey[] = ["implement", "prepare", "review", "decision"];
 
 function stageFrom(subPath: string): StageKey | null {
   const match = /^stage\/([^/]+)\/?$/.exec(subPath);

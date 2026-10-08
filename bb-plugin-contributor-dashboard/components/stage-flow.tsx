@@ -47,6 +47,16 @@ function Mark({ at, className }: { at: number; className: string }) {
   );
 }
 
+const GROUPS: ReadonlyArray<{ source: StageSummary["source"]; title: string; covers: string }> = [
+  { source: "issue", title: "Issues", covers: "Identify and Define" },
+  { source: "pullRequest", title: "Pull requests", covers: "Execute, Verify and Release" },
+];
+
+/** How long the longest p90 in a group is, rounded up to a readable figure. */
+function scaleOf(stages: readonly StageSummary[]): number {
+  return Math.max(0.5, ...stages.map((stage) => stage.p90));
+}
+
 export function StageFlowSection({
   stages,
   periodLabel,
@@ -57,13 +67,16 @@ export function StageFlowSection({
   periodLabel: string;
   onOpenStage: (stage: StageKey) => void;
 }) {
-  const scale = Math.max(1, ...stages.map((stage) => stage.p90));
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    stages: stages.filter((stage) => stage.source === group.source),
+  })).filter((group) => group.stages.length > 0);
 
   return (
     <section className="mt-6" aria-labelledby="stage-flow">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="stage-flow" className="text-base font-semibold">
-          Execute → Verify → Release
+          Identify → Define → Execute → Verify → Release
         </h2>
         <span className="text-xs text-muted-foreground">Business days, over {periodLabel}</span>
       </div>
@@ -85,42 +98,62 @@ export function StageFlowSection({
         <span className="w-14 shrink-0">weekly</span>
       </div>
 
-      <div className="mt-2 space-y-2">
-        {stages.map((stage) => (
-          <div key={stage.key} className="flex items-center gap-3 text-xs">
-            <span className="w-44 shrink-0">
-              <button
-                type="button"
-                onClick={() => onOpenStage(stage.key)}
-                className="block cursor-pointer text-left font-medium hover:underline"
-              >
-                {stage.label}
-              </button>
-              <span className="block text-[11px] leading-tight text-muted-foreground">{stage.measures}</span>
-            </span>
-            <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{stage.waiting}</span>
-            <span className="relative flex h-5 min-w-0 flex-1 items-center">
-              <span className="absolute inset-x-0 h-px bg-border" />
-              <span
-                className={`absolute rounded-sm ${BAR}`}
-                style={{ width: `${(stage.median / scale) * 100}%`, height: 8 }}
-              />
-              <Mark at={stage.p75 / scale} className="text-muted-foreground" />
-              <Mark at={stage.p90 / scale} className="text-destructive" />
-            </span>
-            <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>{days(stage.median)}</span>
-            <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">{days(stage.p75)}</span>
-            <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(stage.p90)}</span>
-            <span className="w-14 shrink-0">
-              <Trend points={stage.weekly} />
-            </span>
+      {groups.map((group) => {
+        // Issue stages run in weeks and pull request stages in hours, so a
+        // shared scale would flatten the second group into its first pixel.
+        const scale = scaleOf(group.stages);
+        return (
+          <div key={group.source}>
+            <div className="mt-3 flex items-baseline gap-2">
+              <h3 className="text-xs font-semibold">{group.title}</h3>
+              <span className="text-[11px] text-muted-foreground">
+                {group.covers} · scale to {days(scale)}
+              </span>
+            </div>
+            <div className="mt-1.5 space-y-2">
+              {group.stages.map((stage) => (
+                <div key={stage.key} className="flex items-center gap-3 text-xs">
+                  <span className="w-44 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onOpenStage(stage.key)}
+                      className="block cursor-pointer text-left font-medium hover:underline"
+                    >
+                      {stage.label}
+                    </button>
+                    <span className="block text-[11px] leading-tight text-muted-foreground">{stage.measures}</span>
+                  </span>
+                  <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{stage.waiting}</span>
+                  <span className="relative flex h-5 min-w-0 flex-1 items-center">
+                    <span className="absolute inset-x-0 h-px bg-border" />
+                    <span
+                      className={`absolute rounded-sm ${BAR}`}
+                      style={{ width: `${(stage.median / scale) * 100}%`, height: 8 }}
+                    />
+                    <Mark at={stage.p75 / scale} className="text-muted-foreground" />
+                    <Mark at={stage.p90 / scale} className="text-destructive" />
+                  </span>
+                  <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>
+                    {days(stage.median)}
+                  </span>
+                  <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">
+                    {days(stage.p75)}
+                  </span>
+                  <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(stage.p90)}</span>
+                  <span className="w-14 shrink-0">
+                    <Trend points={stage.weekly} />
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Half of pull requests pass a stage within its median; a quarter take longer than its p75, a tenth longer than
-        its p90. Open a stage to see what is in it.
+        Half pass a stage within its median; a quarter take longer than its p75, a tenth longer than its p90. Each
+        group has its own scale, so a bar in one is not comparable with a bar in the other. Open a stage to see what
+        is in it.
       </p>
     </section>
   );

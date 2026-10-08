@@ -141,3 +141,85 @@ query($id: ID!, $after: String) {
     }
   }
 }`;
+
+/** An issue without its connections: what the issues table holds. */
+export interface Issue {
+  id: string;
+  number: number;
+  title: string;
+  url: string;
+  state: "OPEN" | "CLOSED";
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  author: Actor | null;
+}
+
+/** The issue events the stages before a change is written are read from. */
+export type IssueTimelineItem =
+  | {
+      __typename: "MilestonedEvent" | "DemilestonedEvent" | "AddedToProjectV2Event" | "ClosedEvent";
+      id: string;
+      createdAt: string;
+    }
+  | {
+      __typename: "AssignedEvent" | "UnassignedEvent";
+      id: string;
+      createdAt: string;
+      assignee: Actor | null;
+    };
+
+export interface IssueNode extends Issue {
+  timelineItems: Connection<IssueTimelineItem>;
+}
+
+/** An issue with everything the store holds for it. */
+export interface IssueWithActivity extends Issue {
+  timelineItems: IssueTimelineItem[];
+}
+
+export const ISSUE_TIMELINE_ITEM_TYPES =
+  "[MILESTONED_EVENT, DEMILESTONED_EVENT, ADDED_TO_PROJECT_V2_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, CLOSED_EVENT]";
+
+const ISSUE_TIMELINE_FIELDS = `
+  __typename
+  ... on MilestonedEvent { id createdAt }
+  ... on DemilestonedEvent { id createdAt }
+  ... on AddedToProjectV2Event { id createdAt }
+  ... on AssignedEvent { id createdAt assignee { ... on User { login } ... on Bot { login } } }
+  ... on UnassignedEvent { id createdAt assignee { ... on User { login } ... on Bot { login } } }
+  ... on ClosedEvent { id createdAt }`;
+
+/**
+ * One page of issues, most recently updated first, each with the events the
+ * stages read. A page of 50 costs one point of GitHub's GraphQL rate limit.
+ */
+export const ISSUES_QUERY = `
+query($owner: String!, $name: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id number title url state createdAt updatedAt closedAt
+        author { __typename login }
+        timelineItems(first: 100, itemTypes: ${ISSUE_TIMELINE_ITEM_TYPES}) {
+          pageInfo { hasNextPage endCursor }
+          nodes { ${ISSUE_TIMELINE_FIELDS} }
+        }
+      }
+    }
+  }
+}`;
+
+/** The rest of one issue's events, for the rare one with more than 100. */
+export const MORE_ISSUE_TIMELINE_QUERY = `
+query($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on Issue {
+      timelineItems(first: 100, after: $after, itemTypes: ${ISSUE_TIMELINE_ITEM_TYPES}) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ${ISSUE_TIMELINE_FIELDS} }
+      }
+    }
+  }
+}`;
