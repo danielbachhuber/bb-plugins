@@ -163,6 +163,14 @@ bb tokenomics commands [--days N] [--limit N] [--json]
 Both read only the plugin's own database. Context sizes, turn times, and
 command times go back only to when Tokenomics began recording them.
 
+To go from these numbers to changes in how you work, consider the
+[self-improve](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve)
+Claude Code skill. It reviews the past week of bb threads for where they
+needed too much correction, took too many steps, used too many tokens, or
+would have gone faster with a UI other than chat, and proposes fixes to the
+skills and plugins involved. Reading every thread's transcript makes a run
+expensive, so it uses `bb tokenomics threads` to choose which threads to read.
+
 ## Related plugins
 
 - **Usage Meter** (`usage-meter`) shows Claude subscription limits and reads
