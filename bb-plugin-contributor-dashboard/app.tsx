@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 
+import { SyncStatus as SyncStatusBar } from "@/components/ui/sync-status";
+
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
 import { StageView } from "@/components/stage-view";
@@ -14,6 +16,7 @@ import {
   STAGE_KEYS,
   type StageDetailResult,
   type StageKey,
+  type SyncStatus,
 } from "./dashboard/contract.js";
 import { DEFAULT_PERIOD, PERIOD_LENGTHS, type PeriodId } from "./dashboard/period.js";
 
@@ -60,6 +63,28 @@ function useDashboardData<T>(call: () => Promise<T>, deps: unknown[]) {
   return { data, error, reload: load };
 }
 
+/**
+ * The sync line and its button in the panel's title bar, where the other
+ * plugins put theirs.
+ *
+ * Mounted separately from the page, so it reads the sync state on its own
+ * rather than the whole dashboard payload. Both mounts re-read on the same
+ * realtime event, so a sync started here updates the page too.
+ */
+function SyncHeader() {
+  const rpc = useRpc<typeof rpcContract>();
+  const { data, reload } = useDashboardData<SyncStatus | null>(
+    () => rpc.call("sync_status", null),
+    [rpc],
+  );
+  const sync = useCallback(() => {
+    rpc.call("sync_now", null).then(reload, () => undefined);
+  }, [rpc, reload]);
+
+  if (data === null) return null;
+  return <SyncStatusBar syncedAt={data.syncedAt} busy={data.running} onRefresh={sync} />;
+}
+
 function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
@@ -104,10 +129,6 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
-  const sync = useCallback(() => {
-    rpc.call("sync_now", null).then(dashboard.reload, () => undefined);
-  }, [rpc, dashboard.reload]);
-
   if (stage !== null) {
     return (
       <StageView
@@ -140,7 +161,6 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       onPeriod={choosePeriod}
       data={dashboard.data}
       error={dashboard.error}
-      onSync={sync}
       onOpenPerson={openPerson}
       onOpenStage={openStage}
     />
@@ -154,5 +174,6 @@ export default definePluginApp((app) => {
     icon: "ChartColumn",
     path: PANEL_PATH,
     component: ContributorDashboardPage,
+    headerContent: SyncHeader,
   });
 });

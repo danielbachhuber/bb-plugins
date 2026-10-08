@@ -150,6 +150,10 @@ export const rpcContract = defineRpcContract({
       sync: syncStatusSchema,
     }),
   },
+  sync_status: {
+    input: z.null(),
+    output: syncStatusSchema,
+  },
   sync_now: {
     input: z.null(),
     output: syncStatusSchema,

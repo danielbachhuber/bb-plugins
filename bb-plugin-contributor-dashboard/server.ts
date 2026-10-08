@@ -177,6 +177,8 @@ export default async function plugin(bb: BbPluginApi) {
         sync: status(),
       };
     },
+    /** Just the sync line, for the panel header, which mounts on its own. */
+    sync_status: () => status(),
     sync_now: () => {
       startSync();
       return status();

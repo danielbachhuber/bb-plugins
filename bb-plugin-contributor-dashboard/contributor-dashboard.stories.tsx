@@ -144,7 +144,6 @@ function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sy
       onPeriod={setPeriod}
       data={fixture(period, sync)}
       error={null}
-      onSync={() => undefined}
       onOpenPerson={() => undefined}
       onOpenStage={() => undefined}
       now={NOW}
@@ -174,7 +173,6 @@ export const NoRepository = () => (
     onPeriod={() => undefined}
     data={{ repository: null, buckets: [], stages: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
-    onSync={() => undefined}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
     now={NOW}

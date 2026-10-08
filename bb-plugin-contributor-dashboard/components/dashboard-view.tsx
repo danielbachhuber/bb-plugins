@@ -7,24 +7,16 @@ import { ReviewVelocitySection } from "./review-velocity-section";
 import { StageFlowSection } from "./stage-flow";
 import { Segmented } from "./segmented";
 
-function ago(at: number, now: number): string {
-  const minutes = Math.round((now - at) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return `${Math.round(hours / 24)} d ago`;
-}
-
-function syncLine(sync: SyncStatus, now: number): string {
+/**
+ * What the first sync is doing, while it is still reaching back two years.
+ * Null once it has finished: from then on the header's line is enough.
+ */
+function backfillLine(sync: SyncStatus): string | null {
+  if (sync.backfillDone) return null;
   const count = `${sync.pullRequests.toLocaleString("en-US")} pull requests and ${sync.issues.toLocaleString("en-US")} issues`;
-  if (!sync.backfillDone) {
-    return sync.running
-      ? `First sync: ${count} so far. Counts fill in as it reaches back two years.`
-      : `First sync paused at ${count}. It resumes on the next sync.`;
-  }
-  if (sync.running) return "Syncing…";
-  return sync.syncedAt === null ? "Not synced yet" : `Synced ${ago(sync.syncedAt, now)}`;
+  return sync.running
+    ? `First sync: ${count} so far. Counts fill in as it reaches back two years.`
+    : `First sync paused at ${count}. It resumes on the next sync.`;
 }
 
 export function DashboardView({
@@ -32,7 +24,6 @@ export function DashboardView({
   onPeriod,
   data,
   error,
-  onSync,
   onOpenPerson,
   onOpenStage,
   now = Date.now(),
@@ -43,7 +34,6 @@ export function DashboardView({
   data: PeopleActivityResult | null;
   /** Loading the page failed. */
   error: string | null;
-  onSync: () => void;
   onOpenPerson: (login: string) => void;
   onOpenStage: (stage: StageKey) => void;
   now?: number;
@@ -51,6 +41,7 @@ export function DashboardView({
   initialHovered?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
+  const backfill = data === null ? null : backfillLine(data.sync);
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -58,19 +49,7 @@ export function DashboardView({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {data?.repository ? <span className="text-sm font-medium text-foreground">{data.repository}</span> : null}
-            {data === null || data.repository === null ? null : (
-              <span className="inline-flex items-center gap-2">
-                <span role="status">{syncLine(data.sync, now)}</span>
-                <button
-                  type="button"
-                  onClick={onSync}
-                  disabled={data.sync.running}
-                  className="cursor-pointer rounded border border-border px-2 py-0.5 text-foreground hover:bg-muted disabled:cursor-default disabled:opacity-50"
-                >
-                  Sync
-                </button>
-              </span>
-            )}
+            {backfill === null ? null : <span role="status">{backfill}</span>}
           </div>
           <Segmented label="Period" options={PERIODS} value={period} onChange={onPeriod} />
         </div>

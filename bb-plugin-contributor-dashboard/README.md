@@ -6,9 +6,11 @@ repository's pull requests, reviews, and issues.
 
 ## The page
 
-The top of the page names the repository, says when it last synced, and has
-the period picker, which every section follows: 6 weeks (the default), 12
-weeks, 6 months, and 1 year. The weeks start on Monday; 6 months and a year are
+The panel's title bar says when the mirror last synced and has the **Sync**
+button, where bb's other plugins put theirs. The top of the page itself names
+the repository and has the period picker, which every section follows: 6 weeks
+(the default), 12 weeks, 6 months, and 1 year. While the first sync is still
+reaching back two years, the page says how far it has got. The weeks start on Monday; 6 months and a year are
 drawn by month.
 
 ### Identify → Define → Execute → Verify → Release
