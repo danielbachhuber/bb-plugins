@@ -117,7 +117,7 @@ out for the repository.
 
 Clicking the comment count opens the issue's latest comments in a drawer under
 the action line, oldest first, with the ones that are new marked in blue. Each
-comment opens on GitHub, and its text is cut to three lines. The drawer reads
+comment shows in full and opens on GitHub. The drawer reads
 the latest 50, and when the issue has more, the link at the bottom says how many
 there are in all. Opening the drawer makes one GitHub GraphQL request for that
 issue, and none is made until you click; once it has read the comments, the

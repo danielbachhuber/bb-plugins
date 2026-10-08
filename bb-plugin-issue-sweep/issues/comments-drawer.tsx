@@ -59,7 +59,7 @@ function Entry({
           ) : null}
         </span>
         {comment.body ? (
-          <span className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-foreground">{comment.body}</span>
+          <span className="mt-0.5 block text-xs whitespace-pre-line text-foreground">{comment.body}</span>
         ) : null}
       </Link>
     </li>

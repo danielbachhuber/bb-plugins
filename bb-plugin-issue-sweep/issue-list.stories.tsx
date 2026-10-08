@@ -255,7 +255,7 @@ const COMMENTS: IssueComment[] = [
   {
     author: "hubber",
     avatarUrl: "",
-    body: "Could this be the rounding in the layout pass? It only shows up at fractional zoom levels for me.",
+    body: "Could this be the rounding in the layout pass? It only shows up at fractional zoom levels for me.\n\nSteps that reproduce it here:\n1. Set the browser zoom to 110%.\n2. Open a board with at least one widget.\n3. Resize the window narrower, then wider again.\n\nThe widget ends up a degree or two off each time, and it never snaps back.",
     url: "https://github.com/acme/widgets/issues/42",
     at: now - 2 * DAY,
   },
