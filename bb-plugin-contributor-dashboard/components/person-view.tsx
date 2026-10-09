@@ -4,6 +4,8 @@ import type { PersonActivityResult } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
+import { ItemRow } from "./item-row";
+import type { ThreadSeed } from "./start-thread-dialog";
 import { PeriodPicker } from "./period-picker";
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 
@@ -42,14 +44,6 @@ function PageButton({ label, onClick, disabled }: { label: string; onClick: () =
   );
 }
 
-function PullRequestLink({ number, title, url }: { number: number; title: string; url: string }) {
-  return (
-    <a href={url} target="_blank" rel="noreferrer" className="truncate hover:underline">
-      <span className="tabular-nums text-muted-foreground">#{number}</span> {title}
-    </a>
-  );
-}
-
 export function PersonView({
   login,
   selection,
@@ -58,6 +52,7 @@ export function PersonView({
   error,
   onBack,
   onAuthoredPage,
+  onThread,
   now = Date.now(),
 }: {
   login: string;
@@ -68,6 +63,8 @@ export function PersonView({
   onBack: () => void;
   /** Shows another page of their pull requests. */
   onAuthoredPage: (page: number) => void;
+  /** Opens the row's thread, or the dialog that starts one. */
+  onThread: (seed: ThreadSeed, threadId: string | null) => void;
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
@@ -139,13 +136,21 @@ export function PersonView({
               ) : (
                 <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                   {data.awaiting.map((row) => (
-                    <li key={row.number} className="flex items-baseline justify-between gap-3 px-3 py-2">
-                      <PullRequestLink {...row} />
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {row.author === null ? "" : `${row.author} · `}
-                        asked {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
-                      </span>
-                    </li>
+                    <ItemRow
+                      key={row.number}
+                      number={row.number}
+                      title={row.title}
+                      url={row.url}
+                      assignees={row.assignees}
+                      threadId={row.threadId}
+                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting` }, row.threadId)}
+                      facts={
+                        <span>
+                          {row.author === null ? "" : `${row.author} · `}
+                          asked {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
+                        </span>
+                      }
+                    />
                   ))}
                 </ul>
               )}
@@ -166,17 +171,24 @@ export function PersonView({
               ) : (
                 <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                   {data.authored.map((row) => (
-                    <li key={row.number} className="flex items-baseline justify-between gap-3 px-3 py-2">
-                      <PullRequestLink {...row} />
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                        <span className={STATES[row.state].className}>{row.isDraft ? "Draft" : STATES[row.state].label}</span>
-                        {" · "}
-                        {row.firstReviewDays === null ? "no review" : `first review ${days(row.firstReviewDays)}`}
-                        {row.followUps === 0 ? "" : ` · ${row.followUps} follow-up${row.followUps === 1 ? "" : "s"}`}
-                        {row.mergeDays !== null ? ` · merged in ${days(row.mergeDays)}` : ""}
-                        {row.waitingDays !== null ? ` · open ${days(row.waitingDays)}` : ""}
-                      </span>
-                    </li>
+                    <ItemRow
+                      key={row.number}
+                      number={row.number}
+                      title={row.title}
+                      url={row.url}
+                      threadId={row.threadId}
+                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: STATES[row.state].label }, row.threadId)}
+                      facts={
+                        <span>
+                          <span className={STATES[row.state].className}>{row.isDraft ? "Draft" : STATES[row.state].label}</span>
+                          {" · "}
+                          {row.firstReviewDays === null ? "no review" : `first review ${days(row.firstReviewDays)}`}
+                          {row.followUps === 0 ? "" : ` · ${row.followUps} follow-up${row.followUps === 1 ? "" : "s"}`}
+                          {row.mergeDays !== null ? ` · merged in ${days(row.mergeDays)}` : ""}
+                          {row.waitingDays !== null ? ` · open ${days(row.waitingDays)}` : ""}
+                        </span>
+                      }
+                    />
                   ))}
                 </ul>
               )}

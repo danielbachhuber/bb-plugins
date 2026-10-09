@@ -1,6 +1,14 @@
 // bb-plugin-contributor-dashboard — the Contributor Dashboard page.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
+import {
+  definePluginApp,
+  useBbContext,
+  useBbNavigate,
+  useRpc,
+  useRealtime,
+  type NewThreadRequest,
+  type PluginNavPanelProps,
+} from "@get-bb/plugin-sdk/app";
 
 import { SyncStatus as SyncStatusBar } from "component-library/sync-status";
 
@@ -19,6 +27,7 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
+import { StartThreadDialog, type ThreadSeed } from "./components/start-thread-dialog.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
 
 const PANEL_PATH = "contributor-dashboard";
@@ -105,6 +114,34 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const range = useMemo(() => rangeOf(selection, Date.now()), [selection]);
   const login = personFrom(subPath);
   const stage = stageFrom(subPath);
+  const { projectId } = useBbContext();
+  const [seed, setSeed] = useState<ThreadSeed | null>(null);
+
+  // A row with a thread opens it; one without offers bb's composer, which
+  // owns the provider, environment and branch choices.
+  const onThread = useCallback(
+    (next: ThreadSeed, threadId: string | null) => {
+      if (threadId !== null) {
+        navigate.toThread(threadId);
+        return;
+      }
+      setSeed(next);
+    },
+    [navigate],
+  );
+  const startThread = useCallback(
+    async (started: ThreadSeed, request: NewThreadRequest) => {
+      setSeed(null);
+      const { threadId } = await rpc.call("start_thread", {
+        kind: started.kind,
+        number: started.number,
+        title: `${started.title} (#${started.number})`,
+        request: request as unknown as Record<string, unknown>,
+      });
+      navigate.toThread(threadId);
+    },
+    [navigate, rpc],
+  );
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
     () => (login === null && stage === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
@@ -134,30 +171,43 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
+  // One dialog for the page, whichever list the row came from.
+  const dialog =
+    projectId === null ? null : (
+      <StartThreadDialog seed={seed} projectId={projectId} onClose={() => setSeed(null)} onSubmit={startThread} />
+    );
   if (stage !== null) {
     return (
-      <StageView
-        selection={selection}
-        onSelect={choose}
-        data={stageDetail.data}
-        error={stageDetail.error}
-        onBack={back}
-        onWaitingPage={setWaitingPage}
-        periodLabel={selectionWords(selection)}
-      />
+      <>
+        <StageView
+          selection={selection}
+          onSelect={choose}
+          data={stageDetail.data}
+          error={stageDetail.error}
+          onBack={back}
+          onWaitingPage={setWaitingPage}
+          periodLabel={selectionWords(selection)}
+          onThread={onThread}
+        />
+        {dialog}
+      </>
     );
   }
   if (login !== null) {
     return (
-      <PersonView
-        login={login}
-        selection={selection}
-        onSelect={choose}
-        data={person.data}
-        error={person.error}
-        onBack={back}
-        onAuthoredPage={setAuthoredPage}
-      />
+      <>
+        <PersonView
+          login={login}
+          selection={selection}
+          onSelect={choose}
+          data={person.data}
+          error={person.error}
+          onBack={back}
+          onAuthoredPage={setAuthoredPage}
+          onThread={onThread}
+        />
+        {dialog}
+      </>
     );
   }
   return (

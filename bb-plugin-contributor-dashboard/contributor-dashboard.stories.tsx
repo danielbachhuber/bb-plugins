@@ -251,17 +251,17 @@ export const SyncFailed = () => (
 );
 
 const AWAITING = [
-  { number: 1840, title: "Add retry to widget sync", url: "https://github.com/acme/widgets/pull/1840", author: "mona", requestedAt: "2026-10-02T09:00:00Z", waitingDays: 3.2 },
-  { number: 1831, title: "Rename sprocket fields", url: "https://github.com/acme/widgets/pull/1831", author: "webcat", requestedAt: "2026-10-05T14:00:00Z", waitingDays: 1.9 },
-  { number: 1828, title: "Cache avatar lookups", url: "https://github.com/acme/widgets/pull/1828", author: "yeti", requestedAt: "2026-10-06T10:00:00Z", waitingDays: 0.8 },
+  { number: 1840, title: "Add retry to widget sync", url: "https://github.com/acme/widgets/pull/1840", author: "mona", assignees: ["hubber"], threadId: "thr_demo", requestedAt: "2026-10-02T09:00:00Z", waitingDays: 3.2 },
+  { number: 1831, title: "Rename sprocket fields", url: "https://github.com/acme/widgets/pull/1831", author: "webcat", assignees: [], threadId: null, requestedAt: "2026-10-05T14:00:00Z", waitingDays: 1.9 },
+  { number: 1828, title: "Cache avatar lookups", url: "https://github.com/acme/widgets/pull/1828", author: "yeti", assignees: [], threadId: null, requestedAt: "2026-10-06T10:00:00Z", waitingDays: 0.8 },
 ];
 
 const AUTHORED = [
-  { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", state: "OPEN" as const, isDraft: false, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
-  { number: 1822, title: "Validate webhook payloads", url: "https://github.com/acme/widgets/pull/1822", state: "MERGED" as const, isDraft: false, createdAt: "2026-09-29T09:00:00Z", firstReviewDays: 1.4, followUps: 2, mergeDays: 3.7, waitingDays: null },
-  { number: 1816, title: "Upgrade chart library", url: "https://github.com/acme/widgets/pull/1816", state: "MERGED" as const, isDraft: false, createdAt: "2026-09-24T09:00:00Z", firstReviewDays: 0.3, followUps: 0, mergeDays: 1.1, waitingDays: null },
-  { number: 1807, title: "Show empty state on list", url: "https://github.com/acme/widgets/pull/1807", state: "OPEN" as const, isDraft: true, createdAt: "2026-09-21T09:00:00Z", firstReviewDays: null, followUps: 0, mergeDays: null, waitingDays: null },
-  { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", state: "CLOSED" as const, isDraft: false, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
+  { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", threadId: "thr_demo", state: "OPEN" as const, isDraft: false, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
+  { number: 1822, title: "Validate webhook payloads", url: "https://github.com/acme/widgets/pull/1822", threadId: null, state: "MERGED" as const, isDraft: false, createdAt: "2026-09-29T09:00:00Z", firstReviewDays: 1.4, followUps: 2, mergeDays: 3.7, waitingDays: null },
+  { number: 1816, title: "Upgrade chart library", url: "https://github.com/acme/widgets/pull/1816", threadId: null, state: "MERGED" as const, isDraft: false, createdAt: "2026-09-24T09:00:00Z", firstReviewDays: 0.3, followUps: 0, mergeDays: 1.1, waitingDays: null },
+  { number: 1807, title: "Show empty state on list", url: "https://github.com/acme/widgets/pull/1807", threadId: null, state: "OPEN" as const, isDraft: true, createdAt: "2026-09-21T09:00:00Z", firstReviewDays: null, followUps: 0, mergeDays: null, waitingDays: null },
+  { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", threadId: null, state: "CLOSED" as const, isDraft: false, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
 ];
 
 /** Enough pull requests to page through, by repeating the five above. */
@@ -305,6 +305,7 @@ function Person({
       error={null}
       onBack={() => undefined}
       onAuthoredPage={setAuthoredPage}
+      onThread={() => undefined}
       now={NOW}
     />
   );
@@ -325,6 +326,8 @@ const WAITING_NOW = [
     title: "Rebuild the gadget importer so a partial upload can be resumed from the last good row",
     url: "https://github.com/acme/widgets/pull/1796",
     author: "mona",
+    assignees: [],
+    threadId: null,
     startedAt: "2026-09-02T09:00:00Z",
     endedAt: null,
     days: 23.4,
@@ -334,6 +337,8 @@ const WAITING_NOW = [
     title: "Keep the widget picker open while a gadget loads",
     url: "https://github.com/acme/widgets/pull/1812",
     author: "octocat",
+    assignees: ["hubber"],
+    threadId: "thr_demo",
     startedAt: "2026-09-17T09:00:00Z",
     endedAt: null,
     days: 10.8,
@@ -343,6 +348,8 @@ const WAITING_NOW = [
     title: "Retry gadget sync once before reporting failure",
     url: "https://github.com/acme/widgets/pull/1829",
     author: "hubber",
+    assignees: ["mona", "spacecat"],
+    threadId: null,
     startedAt: "2026-09-30T09:00:00Z",
     endedAt: null,
     days: 5.6,
@@ -352,6 +359,8 @@ const WAITING_NOW = [
     title: "Drop the unused widgets index",
     url: "https://github.com/acme/widgets/pull/1835",
     author: "monalisa",
+    assignees: [],
+    threadId: null,
     startedAt: "2026-10-02T09:00:00Z",
     endedAt: null,
     days: 4.1,
@@ -361,6 +370,8 @@ const WAITING_NOW = [
     title: "Name both totals on a gadget card",
     url: "https://github.com/acme/widgets/pull/1841",
     author: "spacecat",
+    assignees: [],
+    threadId: null,
     startedAt: "2026-10-05T09:00:00Z",
     endedAt: null,
     days: 2.9,
@@ -418,6 +429,7 @@ function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
       error={null}
       onBack={() => undefined}
       onWaitingPage={() => undefined}
+      onThread={() => undefined}
       periodLabel={selectionWords(selection)}
       now={NOW}
     />

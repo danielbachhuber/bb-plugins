@@ -4,6 +4,8 @@ import type { StageDetailResult } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
+import { ItemRow } from "./item-row";
+import type { ThreadSeed } from "./start-thread-dialog";
 import { PeriodPicker } from "./period-picker";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
@@ -140,6 +142,7 @@ export function StageView({
   onBack,
   onWaitingPage,
   periodLabel,
+  onThread,
   now = Date.now(),
 }: {
   selection: Selection;
@@ -149,6 +152,8 @@ export function StageView({
   onBack: () => void;
   onWaitingPage: (page: number) => void;
   periodLabel: string;
+  /** Opens the row's thread, or the dialog that starts one. */
+  onThread: (seed: ThreadSeed, threadId: string | null) => void;
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
@@ -208,16 +213,33 @@ export function StageView({
             ) : (
               <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                 {stage.waitingNow.map((span) => (
-                  <li key={span.number} className="flex items-baseline justify-between gap-3 px-3 py-2">
-                    <a href={span.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
-                      <span className="tabular-nums text-muted-foreground">#{span.number}</span> {span.title}
-                    </a>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {span.author === null ? "" : `${span.author} · `}
-                      since {ago(span.startedAt, now)} ·{" "}
-                      <span className={span.days > 3 ? "text-destructive" : ""}>{days(span.days)} waiting</span>
-                    </span>
-                  </li>
+                  <ItemRow
+                    key={span.number}
+                    number={span.number}
+                    title={span.title}
+                    url={span.url}
+                    assignees={span.assignees}
+                    threadId={span.threadId}
+                    onThread={() =>
+                      onThread(
+                        {
+                          kind: stage.source === "issue" ? "issue" : "pull",
+                          number: span.number,
+                          title: span.title,
+                          url: span.url,
+                          meta: `${days(span.days)} waiting in ${stage.label}`,
+                        },
+                        span.threadId,
+                      )
+                    }
+                    facts={
+                      <span>
+                        {span.author === null ? "" : `${span.author} · `}
+                        since {ago(span.startedAt, now)} ·{" "}
+                        <span className={span.days > 3 ? "text-destructive" : ""}>{days(span.days)} waiting</span>
+                      </span>
+                    }
+                  />
                 ))}
               </ul>
             )}

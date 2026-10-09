@@ -69,6 +69,8 @@ export interface StageSpan {
   title: string;
   url: string;
   author: string | null;
+  /** Who it is assigned to now, which is nobody for most rows. */
+  assignees: string[];
   /** When it entered the stage. */
   startedAt: string;
   /** When it left, or null while it is still in the stage. */
@@ -80,7 +82,18 @@ export interface StageSpan {
 type RequestEvent = Extract<TimelineItem, { __typename: "ReviewRequestedEvent" | "ReviewRequestRemovedEvent" }>;
 
 function identify(pr: PullRequestWithActivity) {
-  return { number: pr.number, title: pr.title, url: pr.url, author: pr.author?.login ?? null };
+  return {
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    author: pr.author?.login ?? null,
+    assignees: logins(pr.assignees),
+  };
+}
+
+/** The logins of whoever is assigned, with anyone GitHub could not name left out. */
+function logins(assignees: readonly { login?: string }[] | undefined): string[] {
+  return (assignees ?? []).map((who) => who.login).filter((login): login is string => login !== undefined);
 }
 
 /** When the pull request was last turned back into a draft, or opened as one. */
@@ -133,7 +146,13 @@ function plannedAt(issue: IssueWithActivity): string | null {
 }
 
 function identifyIssue(issue: IssueWithActivity) {
-  return { number: issue.number, title: issue.title, url: issue.url, author: issue.author?.login ?? null };
+  return {
+    number: issue.number,
+    title: issue.title,
+    url: issue.url,
+    author: issue.author?.login ?? null,
+    assignees: logins(issue.assignees),
+  };
 }
 
 /**

@@ -31,6 +31,7 @@ function pr(reviews: PullRequestReview[], timelineItems: TimelineItem[], author 
     updatedAt: "2026-10-01T00:00:00Z",
     closedAt: null,
     mergedAt: null,
+    assignees: [],
     author: { __typename: "User", login: author },
     reviews,
     timelineItems,

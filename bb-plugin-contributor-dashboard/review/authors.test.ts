@@ -18,6 +18,7 @@ function pr(fields: Partial<PullRequestWithActivity> & { createdAt: string }): P
     updatedAt: fields.createdAt,
     closedAt: null,
     mergedAt: null,
+    assignees: [],
     author: { __typename: "User", login: "octocat" },
     reviews: [],
     timelineItems: [],

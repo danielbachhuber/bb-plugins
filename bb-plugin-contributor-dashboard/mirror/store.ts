@@ -71,6 +71,17 @@ export const MIGRATIONS = [
   `ALTER TABLE sync_state ADD COLUMN issue_high_water TEXT`,
   `ALTER TABLE sync_state ADD COLUMN issue_backfill_cursor TEXT`,
   `ALTER TABLE sync_state ADD COLUMN issue_backfill_done INTEGER NOT NULL DEFAULT 0`,
+  // The threads this plugin started, so a row can offer to open its own
+  // thread rather than start a second one. Not part of the mirror: nothing
+  // here comes from GitHub.
+  `CREATE TABLE IF NOT EXISTS threads (
+     repository TEXT NOT NULL,
+     kind TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     thread_id TEXT NOT NULL,
+     started_at INTEGER NOT NULL,
+     PRIMARY KEY (repository, kind, number)
+   )`,
 ];
 
 /** One object type's progress through the repository. */
@@ -88,19 +99,29 @@ export interface SyncState extends KindState {
   syncedAt: number | null;
 }
 
+/** What a row was started from: an issue or a pull request. */
+export type ThreadKind = "issue" | "pull";
+
 export type Store = ReturnType<typeof createStore>;
 
 function withoutConnections(node: PullRequestNode): PullRequest {
-  const { reviews: _reviews, timelineItems: _timelineItems, ...pullRequest } = node;
-  return pullRequest;
+  const { reviews: _reviews, timelineItems: _timelineItems, assignees, ...pullRequest } = node;
+  // Assignees arrive as a connection and are stored as the plain list a row draws.
+  return { ...pullRequest, assignees: assignees?.nodes ?? [] };
 }
 
 function issueWithoutConnections(node: IssueNode): Issue {
-  const { timelineItems: _timelineItems, ...issue } = node;
-  return issue;
+  const { timelineItems: _timelineItems, assignees, ...issue } = node;
+  return { ...issue, assignees: assignees?.nodes ?? [] };
 }
 
 export function createStore(db: Database) {
+  const linkThread = db.prepare(
+    `INSERT INTO threads (repository, kind, number, thread_id, started_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (repository, kind, number) DO UPDATE SET thread_id = excluded.thread_id,
+       started_at = excluded.started_at`,
+  );
+  const selectThreads = db.prepare(`SELECT number, thread_id FROM threads WHERE repository = ? AND kind = ?`);
   const upsertPr = db.prepare(
     `INSERT INTO pull_requests (id, repository, number, updated_at, data) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET repository = excluded.repository, number = excluded.number,
@@ -182,6 +203,17 @@ export function createStore(db: Database) {
     }),
     upsertReviews: db.transaction(writeReviews),
 
+    /** Remember the thread a row started, replacing any earlier one. */
+    linkThread(repository: string, kind: ThreadKind, number: number, threadId: string) {
+      linkThread.run(repository, kind, number, threadId, Date.now());
+    },
+
+    /** Every row in this repository that has a thread, as number to thread id. */
+    threadsFor(repository: string, kind: ThreadKind): Map<number, string> {
+      const rows = selectThreads.all(repository, kind) as Array<{ number: number; thread_id: string }>;
+      return new Map(rows.map((row) => [row.number, row.thread_id]));
+    },
+
     /** One page of issues, with the events that came with them. */
     upsertIssues: db.transaction((repository: string, nodes: readonly IssueNode[]) => {
       for (const node of nodes) {
@@ -197,7 +229,9 @@ export function createStore(db: Database) {
       const sinceIso = new Date(since).toISOString();
       const prs = new Map<string, PullRequestWithActivity>();
       for (const row of selectPrs.all(repository, sinceIso) as Array<{ id: string; data: string }>) {
-        prs.set(row.id, { ...(JSON.parse(row.data) as PullRequest), reviews: [], timelineItems: [] });
+        const stored = JSON.parse(row.data) as PullRequest;
+        // A row mirrored before assignees were asked for has no such field.
+        prs.set(row.id, { ...stored, assignees: stored.assignees ?? [], reviews: [], timelineItems: [] });
       }
       for (const row of selectReviews.all(repository, sinceIso) as Array<{ pr: string; data: string }>) {
         prs.get(row.pr)?.reviews.push(JSON.parse(row.data) as PullRequestReview);

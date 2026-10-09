@@ -67,13 +67,43 @@ Clicking a stage name opens its page, at
 took**, every pull request that left the stage in the period counted into
 bands, and **how long the queue has waited**, the ones in the stage now, with
 the bands past three days in red. Under them is the list of what is in the
-stage, longest wait first, twenty-five to a page, each linking to GitHub. Under
-that, **each day, week, or month**, whichever the period is drawn in: bars for
-how many left the stage in each one, with its median and p90 drawn over them,
-so a slow one can be read against a busy one.
+stage, longest wait first, twenty-five to a page, drawn as **A row in a list**
+describes below. Under that, **each day, week, or month**, whichever the period
+is drawn in: bars for how many left the stage in each one, with its median and
+p90 drawn over them, so a slow one can be read against a busy one.
 
 The queue is what is in the stage now, whatever the period, since a pull
 request waiting three months is waiting today.
+
+### A row in a list
+
+Every list of issues and pull requests draws the same row: the number and
+title, linking to GitHub, then what that list has to say about it, then two
+things to do with it.
+
+**Who owns it** comes first on the right. Initials in a circle for each
+assignee, up to three, with the full list on hover. Where nobody is assigned,
+which is most rows, the row carries the amber outline of a person instead: on
+a real repository seven open issues in ten have no assignee, so the absence is
+the common case and the one worth seeing. Initials rather than avatars,
+because avatars would be twenty-five image requests for a page that otherwise
+makes none. The person's own pull requests are the exception, since naming an
+assignee on a list of someone's own work says nothing.
+
+**Start a thread** opens bb's composer with the issue or pull request already
+written into the prompt, and the project, provider, environment and branch
+pickers the composer always has. Once a thread exists for that row, the glyph
+changes and the button opens it rather than starting a second one; the plugin
+remembers which thread belongs to which number in its own table, which is the
+only thing in its database that does not come from GitHub.
+
+**Copy link** writes the title and URL to the clipboard in both flavours,
+rich text for a document or a chat window and markdown for an editor or a
+GitHub comment, and the glyph turns to a tick for a moment.
+
+Both are icons rather than labels, with the label on hover, because the row
+has to stay one line: the lists are long and the information in them is worth
+more than the words around the buttons.
 
 ### PR velocity and Review velocity
 
@@ -134,6 +164,9 @@ to the dashboard. It shows:
   open. Twenty-five to a page, since an active author can have a few hundred
   in a year; the server sends one page at a time.
 
+Each row in both lists carries the actions **A row in a list** describes, and
+the first of them names the assignee as well.
+
 Times there are business days from when the pull request became ready for
 review, which is when it left draft, or when it opened if it never was one.
 Weekends do not count; a span under a day reads in hours, and under an hour in
@@ -155,10 +188,13 @@ Settings are read when the plugin loads, so reload it after changing one.
 
 ## Syncing with GitHub
 
-The plugin keeps a mirror of the repository's pull requests, their reviews, and
-their review-request and ready-for-review events, and of its issues and the
-events that milestone, add to a project, and assign them, in its own SQLite
-database. The page reads only the mirror, so opening it or switching periods
+The plugin keeps a mirror of the repository's pull requests, their reviews,
+their review-request and ready-for-review events, and whoever each is assigned
+to, and of its issues with the events that milestone, add to a project, and
+assign them, in its own SQLite database. The assignees are one more field on a
+query the sync already makes, so they cost no extra call and no extra rate
+limit, but a row mirrored before the field was asked for only gains it the
+next time that row changes on GitHub. The page reads only the mirror, so opening it or switching periods
 makes no request to GitHub.
 
 The sync runs when the page opens and the mirror is more than 30 minutes old,
@@ -226,6 +262,8 @@ needs no new sync.
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
+| `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
+| `components/start-thread-dialog.tsx` | bb's composer in a dialog, seeded with the row |
 | `components/period-picker.tsx` | The presets and the date range, which every page shares |
 | `dashboard/remember.ts` | The chosen span, kept across opens |
 | `server.ts` | Settings, starting syncs, and the RPCs |

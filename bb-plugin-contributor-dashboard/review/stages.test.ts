@@ -34,6 +34,7 @@ function pr(overrides: Partial<PullRequestWithActivity> = {}): PullRequestWithAc
     updatedAt: "2026-10-07T09:00:00Z",
     closedAt: null,
     mergedAt: null,
+    assignees: [],
     author: { login: "octocat" },
     reviews: [],
     timelineItems: [],
@@ -134,6 +135,7 @@ describe("stageSpans", () => {
         pr({
           state: "MERGED",
           mergedAt: "2026-10-06T15:00:00Z",
+          assignees: [],
           reviews: [review("2026-10-06T09:00:00Z", "APPROVED")],
         }),
       ],

@@ -11,7 +11,7 @@ import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
-import { createStore, MIGRATIONS } from "./mirror/store.js";
+import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
 import { runSync } from "./mirror/sync.js";
 
 export { rpcContract };
@@ -94,6 +94,12 @@ export default async function plugin(bb: BbPluginApi) {
       });
   }
 
+  /** Adds the thread each row started, which is null for most of them. */
+  function withThreads<T extends { number: number }>(rows: readonly T[], kind: ThreadKind): Array<T & { threadId: string | null }> {
+    const threads = store.threadsFor(repository, kind);
+    return rows.map((row) => ({ ...row, threadId: threads.get(row.number) ?? null }));
+  }
+
   bb.rpc.register(rpcContract, {
     people_activity: ({ range }) => {
       if (!configured) {
@@ -145,8 +151,8 @@ export default async function plugin(bb: BbPluginApi) {
         activity: peopleActivity(prs, buckets).find((person) => person.login === login) ?? null,
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
-        awaiting: awaitingReview(store.readActivity(repository, 0), login, now),
-        authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),
+        awaiting: withThreads(awaitingReview(store.readActivity(repository, 0), login, now), "pull"),
+        authored: withThreads(authored.slice(paging.offset, paging.offset + PAGE_SIZE), "pull"),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: status(),
       };
@@ -163,6 +169,7 @@ export default async function plugin(bb: BbPluginApi) {
         now,
       );
       const paging = pageOf(detail.waitingNow.length, waitingPage);
+      const kind: ThreadKind = stage === "triage" || stage === "ownership" ? "issue" : "pull";
       if (configured) {
         const { syncedAt } = store.syncState(repository);
         if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -170,7 +177,10 @@ export default async function plugin(bb: BbPluginApi) {
       return {
         repository: configured ? repository : null,
         buckets,
-        stage: { ...detail, waitingNow: detail.waitingNow.slice(paging.offset, paging.offset + PAGE_SIZE) },
+        stage: {
+          ...detail,
+          waitingNow: withThreads(detail.waitingNow.slice(paging.offset, paging.offset + PAGE_SIZE), kind),
+        },
         waitingPaging: {
           page: paging.page,
           pages: paging.pages,
@@ -180,6 +190,21 @@ export default async function plugin(bb: BbPluginApi) {
         },
         sync: status(),
       };
+    },
+    /**
+     * The composer built the request; this forwards it unchanged and adds the
+     * title, then remembers the thread so the row can offer to open it.
+     */
+    start_thread: async ({ kind, number, title, request }) => {
+      const thread = await bb.sdk.threads.spawn({
+        // The composer validated this; `threads.spawn` validates it again.
+        ...(request as unknown as Parameters<typeof bb.sdk.threads.spawn>[0]),
+        title,
+      });
+      store.linkThread(repository, kind, number, thread.id);
+      bb.log.info(`started ${thread.id} for ${kind} #${number} in ${repository}`);
+      bb.realtime.publish(DASHBOARD_CHANNEL, { startedAt: Date.now() });
+      return { threadId: thread.id };
     },
     /** Just the sync line, for the panel header, which mounts on its own. */
     sync_status: () => status(),

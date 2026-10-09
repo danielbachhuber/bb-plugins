@@ -22,6 +22,7 @@ function node(overrides: Partial<PullRequestNode> = {}): PullRequestNode {
     updatedAt: "2026-09-02T10:00:00Z",
     closedAt: null,
     mergedAt: null,
+    assignees: { nodes: [] },
     author: { __typename: "User", login: "octocat" },
     reviews: {
       pageInfo: { hasNextPage: false, endCursor: null },

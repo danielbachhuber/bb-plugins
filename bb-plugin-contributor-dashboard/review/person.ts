@@ -10,6 +10,8 @@ export interface AwaitingReviewRow {
   title: string;
   url: string;
   author: string | null;
+  /** Who it is assigned to now, which is nobody for most rows. */
+  assignees: string[];
   /** When the outstanding request was made. */
   requestedAt: string;
   waitingDays: number;
@@ -81,6 +83,9 @@ export function awaitingReview(
       title: pr.title,
       url: pr.url,
       author: pr.author?.login ?? null,
+      assignees: (pr.assignees ?? [])
+        .map((who) => who.login)
+        .filter((who): who is string => who !== undefined),
       requestedAt: latest.createdAt,
       waitingDays: businessDaysBetween(Date.parse(latest.createdAt), now),
     });

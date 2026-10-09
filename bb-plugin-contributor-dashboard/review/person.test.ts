@@ -41,6 +41,7 @@ function pr(overrides: Partial<PullRequestWithActivity> = {}): PullRequestWithAc
     updatedAt: "2026-09-16T09:00:00Z",
     closedAt: null,
     mergedAt: null,
+    assignees: [],
     author: { __typename: "User", login: "octocat" },
     reviews: [],
     timelineItems: [],
@@ -126,6 +127,7 @@ describe("authoredPullRequests", () => {
     const item = pr({
       state: "MERGED",
       mergedAt: "2026-09-17T09:00:00Z",
+      assignees: [],
       reviews: [
         review("hubber", "2026-09-15T09:00:00Z", "CHANGES_REQUESTED"),
         review("hubber", "2026-09-16T09:00:00Z"),

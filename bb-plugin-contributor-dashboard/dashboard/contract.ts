@@ -26,11 +26,18 @@ export const authorActivitySchema = z.object({
   mergedTotal: z.number(),
 });
 
+/** Who a row is assigned to now, and the thread this plugin started for it. */
+export const rowOwnershipSchema = {
+  assignees: z.array(z.string()),
+  threadId: z.string().nullable(),
+};
+
 export const awaitingReviewSchema = z.object({
   number: z.number(),
   title: z.string(),
   url: z.string(),
   author: z.string().nullable(),
+  ...rowOwnershipSchema,
   requestedAt: z.string(),
   waitingDays: z.number(),
 });
@@ -39,6 +46,8 @@ export const authoredPullRequestSchema = z.object({
   number: z.number(),
   title: z.string(),
   url: z.string(),
+  /** No assignee here: the list is the person's own pull requests. */
+  threadId: z.string().nullable(),
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   isDraft: z.boolean(),
   createdAt: z.string(),
@@ -71,6 +80,7 @@ export const stageSpanSchema = z.object({
   title: z.string(),
   url: z.string(),
   author: z.string().nullable(),
+  ...rowOwnershipSchema,
   startedAt: z.string(),
   endedAt: z.string().nullable(),
   days: z.number(),
@@ -159,6 +169,20 @@ export const rpcContract = defineRpcContract({
       }),
       sync: syncStatusSchema,
     }),
+  },
+  /**
+   * Starts a thread for one issue or pull request and remembers it, so the
+   * row offers to open that thread rather than start a second one. The
+   * composer builds the request; this forwards it and adds the title.
+   */
+  start_thread: {
+    input: z.object({
+      kind: z.enum(["issue", "pull"]),
+      number: z.number(),
+      title: z.string(),
+      request: z.record(z.string(), z.unknown()),
+    }),
+    output: z.object({ threadId: z.string() }),
   },
   sync_status: {
     input: z.null(),

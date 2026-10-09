@@ -55,10 +55,14 @@ export interface PullRequest {
   closedAt: string | null;
   mergedAt: string | null;
   author: Actor | null;
+  /** Who it is assigned to now. Empty for most rows: GitHub assigns nobody by default. */
+  assignees: Actor[];
 }
 
-/** A pull request as one page of the sync returns it. */
-export interface PullRequestNode extends PullRequest {
+/** A pull request as one page of the sync returns it, connections and all. */
+export interface PullRequestNode extends Omit<PullRequest, "assignees"> {
+  /** Optional, so a fixture or an older page without the field still parses. */
+  assignees?: { nodes: Actor[] };
   reviews: Connection<PullRequestReview>;
   timelineItems: Connection<TimelineItem>;
 }
@@ -103,6 +107,7 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
       nodes {
         id number title url state isDraft createdAt updatedAt closedAt mergedAt
         author { __typename login }
+        assignees(first: 5) { nodes { login } }
         reviews(first: 100) {
           pageInfo { hasNextPage endCursor }
           nodes { ${REVIEW_FIELDS} }
@@ -153,6 +158,8 @@ export interface Issue {
   updatedAt: string;
   closedAt: string | null;
   author: Actor | null;
+  /** Who it is assigned to now. Empty for most rows: GitHub assigns nobody by default. */
+  assignees: Actor[];
 }
 
 /** The issue events the stages before a change is written are read from. */
@@ -169,7 +176,9 @@ export type IssueTimelineItem =
       assignee: Actor | null;
     };
 
-export interface IssueNode extends Issue {
+export interface IssueNode extends Omit<Issue, "assignees"> {
+  /** Optional, so a fixture or an older page without the field still parses. */
+  assignees?: { nodes: Actor[] };
   timelineItems: Connection<IssueTimelineItem>;
 }
 
@@ -202,6 +211,7 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
       nodes {
         id number title url state createdAt updatedAt closedAt
         author { __typename login }
+        assignees(first: 5) { nodes { login } }
         timelineItems(first: 100, itemTypes: ${ISSUE_TIMELINE_ITEM_TYPES}) {
           pageInfo { hasNextPage endCursor }
           nodes { ${ISSUE_TIMELINE_FIELDS} }
