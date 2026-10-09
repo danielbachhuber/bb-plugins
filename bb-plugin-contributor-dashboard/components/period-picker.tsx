@@ -4,7 +4,7 @@
 import { Segmented } from "component-library/segmented";
 import { DateRange, type DayRange } from "component-library/date-range";
 
-import { BACKFILL_MS, PRESETS, type PresetId, type Selection } from "@/dashboard/period";
+import { BACKFILL_MS, DEFAULT_SELECTION, PRESETS, type PresetId, type Selection } from "@/dashboard/period";
 
 export function PeriodPicker({
   selection,
@@ -29,6 +29,8 @@ export function PeriodPicker({
       <DateRange
         value={custom}
         onChange={({ from, to }) => onSelect({ kind: "custom", from, to: Math.min(to, now) })}
+        // Clearing has to leave some span chosen, so it leaves the default one.
+        onClear={() => onSelect(DEFAULT_SELECTION)}
         // The mirror reaches back two years, so earlier days have nothing to draw.
         earliest={now - BACKFILL_MS}
         latest={now}

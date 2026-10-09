@@ -3,6 +3,8 @@
 // of the first and the start of the day after the last, so the last day is
 // included without the caller doing date arithmetic.
 import { useEffect, useRef, useState } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import type { DateRange as DayPickerRange } from "react-day-picker";
 
 import { cn } from "../lib/cn";
@@ -47,6 +49,7 @@ export function dayRangeLabel(value: DayRange | null, placeholder: string): stri
 export function DateRange({
   value,
   onChange,
+  onClear,
   placeholder = "Custom",
   earliest,
   latest,
@@ -55,6 +58,8 @@ export function DateRange({
 }: {
   value: DayRange | null;
   onChange: (value: DayRange) => void;
+  /** Drops the range and goes back to whatever the caller shows without one. */
+  onClear?: () => void;
   /** What the button says when no range is chosen. */
   placeholder?: string;
   /** The first day there is anything to read, if the data does not go back forever. */
@@ -98,27 +103,46 @@ export function DateRange({
     setOpen(false);
   };
 
+  const clear = () => {
+    setOpen(false);
+    setDraft(undefined);
+    onClear?.();
+  };
+
   return (
-    <div ref={root} className={cn("relative inline-block", className)}>
+    // Bordered box around padded buttons, which is how the segmented control
+    // beside it is built, so the two stand the same height.
+    <div ref={root} className={cn("relative inline-flex items-center rounded-md border border-border p-0.5", className)}>
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={cn(
-          "rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground",
+          "cursor-pointer rounded px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground",
           value !== null && "bg-muted font-medium text-foreground",
         )}
       >
         {dayRangeLabel(value, placeholder)}
       </button>
+      {value !== null && onClear !== undefined ? (
+        <button
+          type="button"
+          aria-label="Clear the date range"
+          title="Clear the date range"
+          onClick={clear}
+          className="cursor-pointer rounded px-1 py-1 text-muted-foreground hover:bg-state-hover hover:text-foreground"
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" strokeWidth={2} />
+        </button>
+      ) : null}
 
       {open ? (
         <div
           role="dialog"
           aria-label="Choose a date range"
           data-slot="popover-content"
-          className="absolute right-0 z-50 mt-1 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+          className="absolute right-0 top-full z-50 mt-1 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
         >
           <Calendar
             mode="range"

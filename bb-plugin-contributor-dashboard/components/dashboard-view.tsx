@@ -50,12 +50,19 @@ export function DashboardView({
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {data?.repository ? <span className="text-sm font-medium text-foreground">{data.repository}</span> : null}
-            {backfill === null ? null : <span role="status">{backfill}</span>}
           </div>
           <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>
+
+        {/* Below the row rather than in it: the sentence is long enough to push
+            the span picker onto a line of its own. */}
+        {backfill === null ? null : (
+          <p role="status" className="mt-1 text-xs text-muted-foreground">
+            {backfill}
+          </p>
+        )}
 
         {data !== null && data.repository === null ? (
           <div className="mt-6 rounded-lg border border-border bg-card p-4 text-sm">

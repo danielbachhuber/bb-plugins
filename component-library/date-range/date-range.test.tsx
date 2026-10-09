@@ -52,6 +52,20 @@ describe("DateRange", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("offers no clear until there is a range to clear", () => {
+    render(<DateRange value={null} onChange={vi.fn()} onClear={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Clear the date range" })).not.toBeInTheDocument();
+  });
+
+  it("clears the applied range without reporting a new one", () => {
+    const onChange = vi.fn();
+    const onClear = vi.fn();
+    render(<DateRange value={SEP_19_TO_OCT_9} onChange={onChange} onClear={onClear} />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear the date range" }));
+    expect(onClear).toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("leaves the applied range alone when it is cancelled", () => {
     const onChange = vi.fn();
     render(<DateRange value={SEP_19_TO_OCT_9} onChange={onChange} defaultOpen />);

@@ -13,7 +13,14 @@ function Picker({ initial = null, defaultOpen }: { initial?: DayRange | null; de
   const [value, setValue] = useState<DayRange | null>(initial);
   return (
     <div className="flex min-h-[26rem] justify-end p-4">
-      <DateRange value={value} onChange={setValue} earliest={day(0, 1)} latest={NOW} defaultOpen={defaultOpen} />
+      <DateRange
+        value={value}
+        onChange={setValue}
+        onClear={() => setValue(null)}
+        earliest={day(0, 1)}
+        latest={NOW}
+        defaultOpen={defaultOpen}
+      />
     </div>
   );
 }
@@ -21,7 +28,7 @@ function Picker({ initial = null, defaultOpen }: { initial?: DayRange | null; de
 /** Closed, with nothing picked: a button the width of its placeholder. */
 export const Empty = () => <Picker />;
 
-/** Closed, with a range applied: the button names the days it covers. */
+/** Closed, with a range applied: the button names the days it covers, and the cross beside it drops the range. */
 export const Picked = () => <Picker initial={{ from: day(8, 19), to: day(9, 10) }} />;
 
 /** Open on a range, two months at a time, with the days outside it disabled. */
