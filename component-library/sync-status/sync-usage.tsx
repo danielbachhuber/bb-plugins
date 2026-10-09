@@ -28,7 +28,8 @@ export interface SyncUsage {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-const CHART_WIDTH = 368;
+/** The chart's width in a summary 400 pixels wide, less its padding and border. */
+export const CHART_WIDTH = 366;
 const CHART_HEIGHT = 80;
 /** Room left of the chart for its axis labels, and above and below it. */
 const AXIS_WIDTH = 34;
@@ -99,12 +100,14 @@ function byService(services: Record<string, number>, order: readonly string[], p
 function SyncBars({
   usage,
   now,
+  width,
   colors,
   hovered,
   onHover,
 }: {
   usage: SyncUsage;
   now: number;
+  width: number;
   /** Service to color; null draws points. */
   colors: Map<string, string> | null;
   hovered: number | null;
@@ -114,15 +117,15 @@ function SyncBars({
   const top = roundUp(Math.max(0, ...usage.syncs.map(value)));
   const plot = CHART_HEIGHT - 2 * AXIS_PAD;
   const start = now - HOUR;
-  const x = (time: number) => AXIS_WIDTH + ((time - start) / HOUR) * (CHART_WIDTH - AXIS_WIDTH - BAR_WIDTH);
+  const x = (time: number) => AXIS_WIDTH + ((time - start) / HOUR) * (width - AXIS_WIDTH - BAR_WIDTH);
   const y = (amount: number) => AXIS_PAD + plot - (amount / top) * plot;
   return (
-    <svg width={CHART_WIDTH} height={CHART_HEIGHT} aria-hidden onMouseLeave={() => onHover(null)}>
+    <svg width={width} height={CHART_HEIGHT} aria-hidden onMouseLeave={() => onHover(null)}>
       {[0, top / 2, top].map((tick) => (
         <g key={tick}>
           <line
             x1={AXIS_WIDTH}
-            x2={CHART_WIDTH}
+            x2={width}
             y1={Math.round(y(tick)) - 0.5}
             y2={Math.round(y(tick)) - 0.5}
             stroke="currentColor"
@@ -196,9 +199,12 @@ export function SyncUsageSummary({
   usage,
   now,
   initialHovered = null,
+  chartWidth = CHART_WIDTH,
 }: {
   usage: SyncUsage;
   now: number;
+  /** The chart's width, narrower when the summary has less room than usual. */
+  chartWidth?: number;
   /** For stories, so the readout under the chart can be drawn filled in. */
   initialHovered?: number | null;
 }) {
@@ -242,7 +248,7 @@ export function SyncUsageSummary({
         <div className="space-y-1.5">
           <p className="text-xs font-medium">{colors === null ? "Points per sync" : "Calls per sync"}</p>
           <div className="text-foreground/70">
-            <SyncBars usage={usage} now={now} colors={colors} hovered={hovered} onHover={setHovered} />
+            <SyncBars usage={usage} now={now} width={chartWidth} colors={colors} hovered={hovered} onHover={setHovered} />
           </div>
           <p className="flex pl-[34px] text-[11px] text-muted-foreground">
             <span className="flex-1">{clock(now - HOUR)}</span>

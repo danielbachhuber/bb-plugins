@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 
 import { cn } from "../lib/cn";
-import { SyncUsageSummary, type SyncUsage } from "./sync-usage";
+import { CHART_WIDTH, SyncUsageSummary, type SyncUsage } from "./sync-usage";
 
 export type { SyncUsage } from "./sync-usage";
 
@@ -29,6 +29,23 @@ export function syncedAgo(syncedAt: number, now: number): string {
 /** The summary's width, and the least room it keeps from the window's edge. */
 const SUMMARY_WIDTH = 400;
 const EDGE = 8;
+
+/**
+ * The part of the window an element can draw in: the window, narrowed by
+ * every ancestor that clips its overflow.
+ */
+function visibleBounds(element: HTMLElement): { left: number; right: number } {
+  let left = 0;
+  let right = window.innerWidth;
+  for (let node = element.parentElement; node !== null; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.overflowX === "visible" && !style.contain.includes("paint")) continue;
+    const rect = node.getBoundingClientRect();
+    left = Math.max(left, rect.left);
+    right = Math.min(right, rect.right);
+  }
+  return { left, right };
+}
 
 /** How often the label re-reads the clock. See the comment in SyncStatus. */
 const TICK_MS = 30_000;
@@ -82,18 +99,20 @@ export function SyncStatus({
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  // Where the summary sits while open, kept inside the window. Fixed rather
-  // than absolute, because a narrow page clips what overflows it: Now's page
-  // with its side panel open cut off the summary's left half.
-  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  // Where the summary sits while open, relative to the label, kept inside
+  // the page bb draws the plugin in. That page clips what overflows it, and
+  // can be much narrower than the window: with Now's side panel open the
+  // summary lost its left half, and with another panel beside the page, its
+  // right. Measured once, on the click that opens it.
+  const [place, setPlace] = useState<{ left: number; width: number } | null>(null);
   const toggle = () => {
+    const box = root.current;
     const rect = trigger.current?.getBoundingClientRect();
-    if (!open && rect !== undefined) {
-      const width = Math.min(SUMMARY_WIDTH, window.innerWidth - 2 * EDGE);
-      setPlace({
-        top: rect.bottom + 4,
-        left: Math.min(Math.max(EDGE, rect.right - width), window.innerWidth - width - EDGE),
-      });
+    if (!open && box !== null && rect !== undefined) {
+      const bounds = visibleBounds(box);
+      const width = Math.min(SUMMARY_WIDTH, bounds.right - bounds.left - 2 * EDGE);
+      const left = Math.min(Math.max(bounds.left + EDGE, rect.right - width), bounds.right - width - EDGE);
+      setPlace({ left: left - box.getBoundingClientRect().left, width });
     }
     setOpen(!open);
   };
@@ -123,7 +142,7 @@ export function SyncStatus({
             type="button"
             aria-expanded={open}
             aria-label={`${label}. Show what the syncs cost on GitHub.`}
-            className="cursor-pointer whitespace-nowrap rounded px-1 py-0.5 text-xs text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 aria-expanded:bg-state-hover aria-expanded:text-foreground"
+            className="inline-flex h-8 cursor-pointer items-center whitespace-nowrap rounded-md px-2 text-xs text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 aria-expanded:bg-state-hover aria-expanded:text-foreground"
             ref={trigger}
             onClick={toggle}
           >
@@ -133,12 +152,18 @@ export function SyncStatus({
             <div
               data-slot="popover-content"
               className={cn(
-                "z-50 max-w-[calc(100vw-16px)] overflow-x-auto rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md",
-                place === null ? "absolute right-0 top-full mt-1" : "fixed",
+                "absolute top-full z-50 mt-1 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md",
+                place === null && "right-0",
               )}
-              style={place === null ? { width: SUMMARY_WIDTH } : { width: SUMMARY_WIDTH, top: place.top, left: place.left }}
+              style={place === null ? { width: SUMMARY_WIDTH } : { width: place.width, left: place.left }}
             >
-              <SyncUsageSummary usage={usage} now={now} initialHovered={initialHovered} />
+              <SyncUsageSummary
+                usage={usage}
+                now={now}
+                initialHovered={initialHovered}
+                // Less the summary's padding and border.
+                chartWidth={Math.min(CHART_WIDTH, (place?.width ?? SUMMARY_WIDTH) - 34)}
+              />
             </div>
           ) : null}
         </div>
