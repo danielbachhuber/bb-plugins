@@ -169,6 +169,11 @@ export function showsResult(item: Item, record: ItemRecord | undefined, publishe
   return item.status === undefined || result.at >= publishedAt;
 }
 
+/** The draft an item shows once it is no longer open: the user's edit when they sent one, or the agent's. */
+export function sentDraft(item: Item, record: ItemRecord | undefined): string {
+  return record?.result?.draft ?? item.draft;
+}
+
 /** The time a history entry names, or its label as written. */
 function historyTime(at: string): string {
   const date = new Date(at);
@@ -688,14 +693,14 @@ function ItemCard({
       {item.changes.length === 0 ? null : (
         <ChangesBlock
           item={item}
-          draft={state === "open" ? draft : (record?.result?.draft ?? item.draft)}
+          draft={state === "open" ? draft : sentDraft(item, record)}
           onDraftChange={state === "open" ? setDraft : undefined}
           initialMode={initialChangesMode}
         />
       )}
       {/* Under the changes it footnotes, before the details. */}
       {item.evidence.length === 0 ? null : (
-        <EvidenceCard text={evidenceText(item, state === "open" ? draft : (record?.result?.draft ?? item.draft))} evidence={item.evidence} />
+        <EvidenceCard text={evidenceText(item, state === "open" ? draft : sentDraft(item, record))} evidence={item.evidence} />
       )}
       {item.details === "" ? null : (
         <>
@@ -726,7 +731,7 @@ function ItemCard({
       {item.draft === "" || textDraft || item.changes.some(usesDraftAsAfter) ? null : (
         <DraftEditor
           label={item.draftLabel}
-          value={state === "open" ? draft : item.draft}
+          value={state === "open" ? draft : sentDraft(item, record)}
           original={item.draft}
           onChange={state === "open" ? setDraft : undefined}
           initialMode={initialDraftMode}
@@ -761,7 +766,7 @@ function ItemCard({
       ) : item.actions.length === 0 || state === "dismissed" ? null : textDraft ? (
         <TextDraftActions
           item={item}
-          draft={state === "open" ? draft : (record?.result?.draft ?? item.draft)}
+          draft={state === "open" ? draft : sentDraft(item, record)}
           onChange={state === "open" ? setDraft : undefined}
           button={button}
           busy={busy}

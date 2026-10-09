@@ -10,7 +10,7 @@ import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTarge
 import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { draftKey, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, showsResult } from "./view-panel.js";
+import { draftKey, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -348,6 +348,14 @@ describe("item drafts", () => {
     const command = { type: "command", label: "Comment", command: "gh issue comment 7 --body '{draft}'" };
     expect(() => parseView(viewWith({ draft: "x", actions: [command] }))).toThrow(/command can use \{draft\} only in the "list" layout/);
     expect(() => parseView(viewWith({ actions: [post] }))).toThrow(/uses \{draft\} but the item has no draft/);
+  });
+
+  it("shows a sent item's draft as the user edited it, or the original when unchanged", () => {
+    const item = parseView(viewWith({ draft: "Done in #9.", actions: [post] })).sections[0]!.items[0]!;
+    const edited = { state: "done" as const, result: { label: "Post and close", at: "t", edited: true, draft: "Done in #9 and #10." } };
+    expect(sentDraft(item, edited)).toBe("Done in #9 and #10.");
+    expect(sentDraft(item, { state: "done", result: { label: "Post and close", at: "t" } })).toBe("Done in #9.");
+    expect(sentDraft(item, undefined)).toBe("Done in #9.");
   });
 });
 
