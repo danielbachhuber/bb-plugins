@@ -798,7 +798,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review list",
     "  bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]",
     "  bb weekly-review digest <monday>",
-    "  bb weekly-review meetings <monday>",
+    "  bb weekly-review meetings <monday> [--notes]",
     "  bb weekly-review notes <monday> --file <path-to-json>",
     "  bb weekly-review slack <monday> --file <path-to-json>",
     "  bb weekly-review entry <monday>",
@@ -890,8 +890,8 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "meetings",
-        summary: "List the week's named time entries, flagging those with no notes",
-        usage: "bb weekly-review meetings <monday>",
+        summary: "List the week's named time entries, flagging those with no notes, and with --notes print the notes matched to each",
+        usage: "bb weekly-review meetings <monday> [--notes]",
       },
       {
         name: "notes",
@@ -1064,11 +1064,11 @@ export default async function plugin(bb: BbPluginApi) {
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
-          const matched = new Set(
-            meetingNotesFor(monday, week).map(
-              (note) => `${note.day}\u0000${note.entryNote}`,
-            ),
-          );
+          const notes = meetingNotesFor(monday, week);
+          const matched = new Set(notes.map((note) => `${note.day}\u0000${note.entryNote}`));
+          // --notes prints each meeting's matched notes under it, which is how
+          // an agent drafting the journal entry reads what was discussed.
+          const withText = args.includes("--notes");
           const pending = entriesWithoutNotes(
             week.harvest.data,
             (entry) => matched.has(`${entry.day}\u0000${entry.notes}`),
@@ -1078,7 +1078,16 @@ export default async function plugin(bb: BbPluginApi) {
             .sort((a, b) => a.day.localeCompare(b.day) || b.hours - a.hours)
             .map((entry) => {
               const needs = pending.includes(entry) ? "  needs notes" : "";
-              return `${entry.day}  ${entry.hours.toFixed(2)}h  ${entry.task.padEnd(12)}  ${entry.notes}${needs}`;
+              const line = `${entry.day}  ${entry.hours.toFixed(2)}h  ${entry.task.padEnd(12)}  ${entry.notes}${needs}`;
+              if (!withText) return line;
+              const texts = notes
+                .filter((note) => note.day === entry.day && note.entryNote === entry.notes)
+                .map((note) => {
+                  const source = [note.label, note.heading].filter((part) => part !== "").join(", ");
+                  const body = note.text.trim().split("\n").map((row) => `    ${row}`).join("\n");
+                  return `  From ${source}${note.url === "" ? "" : ` (${note.url})`}:\n${body}`;
+                });
+              return [line, ...texts].join("\n");
             });
           return {
             exitCode: 0,

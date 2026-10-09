@@ -3,7 +3,8 @@
 A BB nav panel that puts one week of work on one page, so the weekly journal
 entry can be written from evidence rather than from memory.
 
-It does not write the entry. It gathers what happened and gets out of the way.
+It never writes to the journal doc. It gathers what happened, and its
+`weekly-journal-entry` skill drafts the entry from that for you to paste in.
 
 The week is gathered at 7am and 1pm on weekdays, so the page is already current
 when you open it. **Sync** gathers it now rather than at the next run.
@@ -146,6 +147,7 @@ sees that itself. When the two records disagree entirely — logged as
 `meeting` to the time entry verbatim, and that wins over any rule.
 `bb weekly-review meetings <monday>` prints the week's entries and flags the
 ones nothing has matched, which is the list the agent is sent to resolve.
+With `--notes` it also prints the notes matched to each entry.
 
 The reference docs are mostly running 1:1 documents — one per person, newest
 entry first, each under a `## August 31st` heading. A time entry reading
@@ -295,6 +297,27 @@ bb weekly-review entry <monday>                          # what the agent will r
 bb weekly-review feedback <monday> --file <path-to-json>  # how it records the result
 ```
 
+## Drafting the entry
+
+The `weekly-journal-entry` skill, in `skills/`, drafts the week's entry. Ask
+an agent to "draft this week's journal entry". It reads the previous entry for
+the format, this week's entry if you have started one, and the week's
+`digest`, `priorities`, and `table`, all through the CLI below, so it makes no
+requests of its own beyond one fresh read of the journal doc per `entry` call.
+
+The format is the one the doc already uses: the Friday's date as the heading,
+then `Done:`, `Wins/Highlights:`, `Reflections/Learnings:`, and `Next:` as
+plain labels. Done bullets start with a past-tense verb, link the words that
+name the work, and say who was involved, why, and how it came out, with
+sub-bullets for a group of related items, a verbatim quote, or an
+`AI-Native SDLC:` note. Next ends with `People:`, nested by name.
+
+Bullets you have already written are kept word for word. The skill leaves
+Reflections/Learnings to you, and asks rather than guessing when the evidence
+does not say how something went. It writes the draft to
+`/tmp/weekly-journal-<monday>.md`; paste it into the doc with
+Edit > Paste from Markdown.
+
 ## Coming up
 
 The calendar is read through `gws` on the primary calendar, with `singleEvents`
@@ -344,7 +367,7 @@ worse than a gap.
 bb weekly-review list
 bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]
 bb weekly-review digest <monday>
-bb weekly-review meetings <monday>
+bb weekly-review meetings <monday> [--notes]
 bb weekly-review notes <monday> --file <path-to-json>
 bb weekly-review slack <monday> --file <path-to-json>
 bb weekly-review entry <monday>
