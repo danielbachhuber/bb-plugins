@@ -208,7 +208,8 @@ releases themselves and nothing else: a published release is all this
 section claims, not a deploy.
 
 The newest minor release is drawn in full, and the other minors in the period
-sit under it as rows; clicking one draws it in full instead. A release in full
+sit under it as rows. Clicking a row opens the same detail under it, and
+clicking again closes it; several can be open at once. A release in full
 says:
 
 - **How many pull requests it lists.** A release says what it holds only in

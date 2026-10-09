@@ -1,5 +1,5 @@
-// The Releases section: one release in full, newest first by default, and
-// the period's other minors as rows that open in its place. A release in full
+// The Releases section: the newest release in full, and the period's other
+// minors as rows that open in place to the same detail. A release in full
 // says how many pull requests its notes list, what kind they are, which
 // patches followed it, and who merged and reviewed them.
 import { useState } from "react";
@@ -124,9 +124,17 @@ function Patched({ release }: { release: MinorRelease }) {
   );
 }
 
-function InFull({ release, onOpenPerson }: { release: MinorRelease; onOpenPerson: (login: string) => void }) {
+function InFull({
+  release,
+  onOpenPerson,
+  className = "mt-4",
+}: {
+  release: MinorRelease;
+  onOpenPerson: (login: string) => void;
+  className?: string;
+}) {
   return (
-    <div className="mt-4 rounded-lg border border-border bg-card p-4">
+    <div className={`${className} rounded-lg border border-border bg-card p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-3">
           <a href={release.url} target="_blank" rel="noreferrer" className="text-base font-semibold hover:underline">
@@ -195,8 +203,17 @@ export function ReleasesSection({
   onOpenPerson: (login: string) => void;
 }) {
   const { minors } = releases;
-  const [openTag, setOpenTag] = useState<string | null>(null);
-  const open = minors.find((release) => release.tag === openTag) ?? minors[0];
+  // Opened under their own rows rather than in the card above, which is
+  // usually scrolled out of view by the time someone reaches the rows.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (tag: string) =>
+    setOpened((current) => {
+      const next = new Set(current);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  const [newest, ...others] = minors;
   const longest = Math.max(1, ...minors.map((release) => release.total));
 
   return (
@@ -212,28 +229,30 @@ export function ReleasesSection({
         </span>
       </div>
 
-      {open === undefined ? (
+      {newest === undefined ? (
         <p className="mt-4 text-sm text-muted-foreground">No releases published in this period.</p>
       ) : (
         <>
-          <InFull release={open} onOpenPerson={onOpenPerson} />
+          <InFull release={newest} onOpenPerson={onOpenPerson} />
 
-          {minors.length < 2 ? null : (
+          {others.length === 0 ? null : (
             <>
               <h3 className="mt-5 text-sm font-medium">
                 Other releases
                 <span className="ml-2 font-normal text-muted-foreground">click one to see it in full</span>
               </h3>
               <div className="mt-2">
-                {minors
-                  .filter((release) => release !== open)
-                  .map((release) => (
+                {others.map((release) => (
+                  <div key={release.tag} className="border-b border-border">
                     <button
-                      key={release.tag}
                       type="button"
-                      onClick={() => setOpenTag(release.tag)}
-                      className="flex w-full cursor-pointer items-center gap-3 border-b border-border py-1.5 text-left text-xs hover:bg-muted"
+                      aria-expanded={opened.has(release.tag)}
+                      onClick={() => toggle(release.tag)}
+                      className="flex w-full cursor-pointer items-center gap-3 py-1.5 text-left text-xs hover:bg-muted"
                     >
+                      <span className="w-3 shrink-0 text-muted-foreground" aria-hidden>
+                        {opened.has(release.tag) ? "▾" : "▸"}
+                      </span>
                       <span className="w-20 shrink-0 font-medium">{release.tag}</span>
                       <span className="w-28 shrink-0 text-muted-foreground">{day(release.publishedAt)}</span>
                       <span className="w-8 shrink-0 text-right tabular-nums">{release.total}</span>
@@ -247,7 +266,11 @@ export function ReleasesSection({
                         <Patched release={release} />
                       </span>
                     </button>
-                  ))}
+                    {opened.has(release.tag) ? (
+                      <InFull release={release} onOpenPerson={onOpenPerson} className="mb-3 mt-1" />
+                    ) : null}
+                  </div>
+                ))}
               </div>
             </>
           )}
