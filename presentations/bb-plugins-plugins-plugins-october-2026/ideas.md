@@ -4,3 +4,5 @@
 - See something wonky, immediately open a thread to fix it.
   - Pro: it gets fixed right away.
   - Con: you lose your chain of thought as you switch context.
+- A design library for common components and patterns.
+- An anonymized screenshots repo.
