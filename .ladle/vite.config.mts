@@ -1,7 +1,7 @@
 // bb's Ladle Vite config, plus what it takes to render this checkout's files.
 // scripts/ladle.mjs sets BB_SOURCE_DIR and BB_PLUGINS_DIR and links
 // ./bb-source to the bb checkout before Ladle loads this.
-import { existsSync, lstatSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Plugin, UserConfig } from "vite";
 import bbConfig from "./bb-source/apps/app/.ladle/vite.config";
@@ -52,6 +52,51 @@ function pluginAtImports(): Plugin {
       if (file.startsWith(`${bbSourceDir}/`)) return null;
       const base = packageRoot(file);
       return base ? existingFile(path.join(base, id.slice(bbAppSrc.length))) : null;
+    },
+  };
+}
+
+/** Above zero when the package in directory a is newer than the one in b. */
+function compareVersions(a: string, b: string): number {
+  const parts = (dir: string) =>
+    String(JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")).version)
+      .split(".")
+      .map((part) => Number.parseInt(part, 10) || 0);
+  const [left, right] = [parts(a), parts(b)];
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    if ((left[i] ?? 0) !== (right[i] ?? 0)) return (left[i] ?? 0) - (right[i] ?? 0);
+  }
+  return 0;
+}
+
+/**
+ * Every package here installs its own copy of the Hugeicons barrel, about
+ * 6,000 files, and a build loads all of them for each copy a story reaches.
+ * With a dozen copies they were 72,000 of the build's 81,000 modules, and
+ * Node's default 4 GB heap ran out. This sends every import of it from this
+ * checkout to the newest copy installed, so the build loads the icons once.
+ * bb's own components keep bb's copy.
+ */
+function oneIconSet(): Plugin {
+  const name = "@hugeicons/core-free-icons";
+  let newest: string | null = null;
+  let importer: string | null = null;
+  for (const entry of readdirSync(pluginsDir!, { withFileTypes: true })) {
+    const dir = path.join(pluginsDir!, entry.name, "node_modules", name);
+    if (!entry.isDirectory() || !existsSync(path.join(dir, "package.json"))) continue;
+    if (newest && compareVersions(dir, newest) <= 0) continue;
+    newest = dir;
+    // Resolved as if imported from the package that installed this copy, so
+    // the copy's own exports still decide which file a build gets.
+    importer = path.join(pluginsDir!, entry.name, "package.json");
+  }
+  return {
+    name: "bb-plugins:one-icon-set",
+    enforce: "pre",
+    resolveId(id, from, options) {
+      if (!importer || (id !== name && !id.startsWith(`${name}/`)) || !from) return null;
+      if (!from.startsWith(`${pluginsDir}/`)) return null;
+      return this.resolve(id, importer, { ...options, skipSelf: true });
     },
   };
 }
@@ -110,7 +155,7 @@ const bbAppViaLink = path.join(pluginsDir, ".ladle/bb-source/apps/app");
 
 const config: UserConfig = {
   ...bbConfig,
-  plugins: [pluginAtImports(), newStoryFiles(), moduleGraph(), ...(bbConfig.plugins ?? [])],
+  plugins: [pluginAtImports(), oneIconSet(), newStoryFiles(), moduleGraph(), ...(bbConfig.plugins ?? [])],
   // Kept apart from bb's own Ladle cache so the two can run side by side.
   cacheDir: "node_modules/.vite/bb-plugins-ladle",
   resolve: {
