@@ -211,6 +211,7 @@ toolbar still counts every file.
 | `viewed/engine.ts` | The sync loop: passes, observers, click handling, cleanup |
 | `server.ts` | RPC contract, kv storage for marks and the filter, settings, and the GitHub cache |
 | `app.tsx` | Wiring only: real fetch, real scheduler, real document |
+| `diff-viewed.stories.tsx` | bb's changes panel with the engine running over it, one story per state, which the README's screenshots are taken from |
 
 ## Development
 
@@ -226,6 +227,12 @@ with a stand-in for React that flips `aria-expanded` on click. The engine is
 split out of `app.tsx` precisely so it can be tested: every bug this plugin has
 shipped lived in that loop and survived a green run, because only the pure
 functions had tests.
+
+`diff-viewed.stories.tsx` renders bb's own toolbar and diff cards with the
+engine decorating them, and a stand-in RPC answering from each story's
+fixture marks and pull request. `npm run storybook` at the root shows them,
+and `docs/viewed.png` and `docs/local.png` are captures of the Viewed and
+Local stories in the light theme.
 
 `viewed/dom.test.ts` holds a fixture of the card header DOM as bb renders it.
 After a bb upgrade, those are the tests that fail first; re-read
