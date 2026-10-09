@@ -301,7 +301,7 @@ function flowsFor(started: number[], finished: number[], backlog: number, askedS
   const fromEarlier = finished.map(() => 0);
   finished.forEach((total, j) => {
     let need = total;
-    for (const [back, share] of [[0, 0.78], [1, 0.6], [2, 1]] as const) {
+    for (const [back, share] of [[1, 0.25], [0, 0.85], [2, 1]] as const) {
       const i = j - back;
       if (i < 0 || need === 0) continue;
       const take = Math.min(need, left[i], Math.round(left[i] * share));
