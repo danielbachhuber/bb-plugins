@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "PR Sweep",
-    "description": "Open pull requests you authored in one list, newest first with the overdue and in-progress ones pinned on top, with local notes, new comment counts, review comments a click away, a Dismiss for failing checks you cannot fix, and where a stacked pull request sits in its stack. Needs gh-context.",
+    "description": "Open pull requests you authored in one list, newest first with the overdue and in-progress ones pinned on top, with local notes, new comment counts, review comments a click away, a Dismiss for failing checks you cannot fix, and where a stacked pull request sits in its stack. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Needs gh-context.",
     "branding": {
       "icon": "GitPullRequest"
     },

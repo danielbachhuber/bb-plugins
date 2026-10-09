@@ -1,4 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { createSyncUsage } from "@danielb/gh-shared/gh";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { isAdoptable } from "./issues/adopt.js";
 import {
@@ -217,6 +218,8 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
+  // The past hour of sweeps and what each cost on GitHub, for the sync status.
+  const syncUsage = createSyncUsage();
   // gh-context is the one record of which threads belong to which issues;
   // this sweep reads and writes its own links through it.
   const threadLinks = createThreadLinksBridge(bb);
@@ -281,26 +284,28 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function sweepNow(): Promise<{ ok: boolean; error: string | null }> {
     const { ghPath, projectBoard } = await settings.get();
-    const gh = createGhRunner(ghPath);
     try {
-      const result = await runSweep(
-        gh,
-        () => Date.now(),
-        projectBoard,
-        await repoFilter(),
-      );
-      store.replaceAll(result);
-      // Every row's count on first sight, so a row is never "N new" just
-      // because this is the first sweep to list it.
-      store.recordFirstSeen(result.rows, result.sweptAt);
-      await absorbOwnComments(gh, result.rows);
-      // Before the publish, so the panel's reload finds the options already
-      // there and renders pickers on its first paint rather than its second.
-      await warmBoards(result.rows);
-      // Also before the publish. The rows it works from are the ones just
-      // stored, so a promotion patches the stored row too and the moved cards
-      // show their new status on this sweep rather than the next one.
-      await promoteIssuesInReview(result.rows);
+      const scope = await repoFilter();
+      // Measured as one sync through to the board moves, since every step
+      // here can call GitHub. Only runSweep and absorbOwnComments go through
+      // the counting runner, so the call count leaves out the board's calls,
+      // but the points include them.
+      const result = await syncUsage.measure(createGhRunner(ghPath), async (gh) => {
+        const swept = await runSweep(gh, () => Date.now(), projectBoard, scope);
+        store.replaceAll(swept);
+        // Every row's count on first sight, so a row is never "N new" just
+        // because this is the first sweep to list it.
+        store.recordFirstSeen(swept.rows, swept.sweptAt);
+        await absorbOwnComments(gh, swept.rows);
+        // Before the publish, so the panel's reload finds the options already
+        // there and renders pickers on its first paint rather than its second.
+        await warmBoards(swept.rows);
+        // Also before the publish. The rows it works from are the ones just
+        // stored, so a promotion patches the stored row too and the moved cards
+        // show their new status on this sweep rather than the next one.
+        await promoteIssuesInReview(swept.rows);
+        return swept;
+      });
       // Last, and inside the try: a failure there must not lose the sweep that
       // succeeded.
       if (await linksAvailable()) {
@@ -696,6 +701,7 @@ export default async function plugin(bb: BbPluginApi) {
           };
         }),
         sweptAt: meta.sweptAt,
+        usage: syncUsage.snapshot(),
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
         lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,

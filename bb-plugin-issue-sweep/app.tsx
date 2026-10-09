@@ -93,6 +93,7 @@ function SyncHeader() {
   return (
     <SyncStatus
       syncedAt={listing?.sweptAt ?? null}
+      usage={listing?.usage}
       busy={busy}
       onRefresh={() => void onRefresh()}
     />

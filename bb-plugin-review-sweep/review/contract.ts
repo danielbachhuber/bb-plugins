@@ -154,6 +154,15 @@ export const rpcContract = defineRpcContract({
     output: z.object({
       rows: z.array(rowSchema),
       sweptAt: z.number().nullable(),
+      /** The past hour of sweeps and what each cost on GitHub's GraphQL budget. */
+      usage: z
+        .object({
+          syncs: z.array(
+            z.object({ at: z.number(), points: z.number().nullable(), calls: z.number(), ms: z.number() }),
+          ),
+          budget: z.object({ used: z.number(), limit: z.number(), resetAt: z.number() }).nullable(),
+        })
+        .optional(),
       /** Dropped by the project filter, so the panel can explain an empty list. */
       skippedRepos: z.array(z.string()),
       truncated: z.boolean(),

@@ -1,3 +1,4 @@
+import type { SyncUsage } from "component-library/sync-status";
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
@@ -55,6 +56,8 @@ export type Listing = {
   lastError: string | null;
   staleAfterDays: number;
   harvest: { available: boolean; running: RunningReference };
+  /** The past hour of sweeps and what each cost on GitHub. */
+  usage?: SyncUsage;
 };
 
 export type RunningReference =

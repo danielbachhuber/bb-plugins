@@ -161,6 +161,15 @@ export const rpcContract = defineRpcContract({
       /** Days a pull request can await review untouched before it is stale. */
       staleAfterDays: z.number(),
       sweptAt: z.number().nullable(),
+      /** The past hour of sweeps and what each cost on GitHub's GraphQL budget. */
+      usage: z
+        .object({
+          syncs: z.array(
+            z.object({ at: z.number(), points: z.number().nullable(), calls: z.number(), ms: z.number() }),
+          ),
+          budget: z.object({ used: z.number(), limit: z.number(), resetAt: z.number() }).nullable(),
+        })
+        .optional(),
       failedRepos: z.array(z.string()),
       /** Discovered but not swept: no project here matches their remote. */
       skippedRepos: z.array(z.string()),

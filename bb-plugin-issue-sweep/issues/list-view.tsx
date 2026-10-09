@@ -1,3 +1,4 @@
+import type { SyncUsage } from "component-library/sync-status";
 import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
@@ -51,6 +52,8 @@ export type Listing = {
   truncated: boolean;
   lastError: string | null;
   harvest: { available: boolean; running: RunningReference };
+  /** The past hour of sweeps and what each cost on GitHub. */
+  usage?: SyncUsage;
 };
 
 const DAY = 24 * 60 * 60_000;

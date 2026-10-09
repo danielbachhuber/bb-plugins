@@ -124,6 +124,15 @@ export const rpcContract = defineRpcContract({
       /** Named so the panel can say which board it is offering to add to. */
       boardName: z.string(),
       sweptAt: z.number().nullable(),
+      /** The past hour of sweeps and what each cost on GitHub's GraphQL budget. */
+      usage: z
+        .object({
+          syncs: z.array(
+            z.object({ at: z.number(), points: z.number().nullable(), calls: z.number(), ms: z.number() }),
+          ),
+          budget: z.object({ used: z.number(), limit: z.number(), resetAt: z.number() }).nullable(),
+        })
+        .optional(),
       /** Not swept: no project here matches them. Explains an empty list. */
       skippedRepos: z.array(z.string()),
       truncated: z.boolean(),

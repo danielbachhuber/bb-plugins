@@ -1,5 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { REPO_SLUG_PATTERN, fetchFeedback } from "@danielb/gh-shared/gh";
+import { REPO_SLUG_PATTERN, createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./review/gh.js";
@@ -107,6 +107,8 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
+  // The past hour of sweeps and what each cost on GitHub, for the sync status.
+  const syncUsage = createSyncUsage();
   // gh-context is the one record of which threads belong to which pull
   // requests; this sweep reads and writes its own links through it.
   const threadLinks = createThreadLinksBridge(bb);
@@ -268,7 +270,10 @@ export default async function plugin(bb: BbPluginApi) {
   async function fetchAndStore(): Promise<{ ok: boolean; error: string | null }> {
     const { ghPath } = await settings.get();
     try {
-      const result = await runSweep(createGhRunner(ghPath), () => Date.now(), await repoFilter());
+      const scope = await repoFilter();
+      const result = await syncUsage.measure(createGhRunner(ghPath), (gh) =>
+        runSweep(gh, () => Date.now(), scope),
+      );
       store.replaceAll(result);
       // Every row's count on first sight, so a row is never "N new" just
       // because this is the first sweep to list it.
@@ -511,6 +516,7 @@ export default async function plugin(bb: BbPluginApi) {
           };
         }),
         sweptAt: meta.sweptAt,
+        usage: syncUsage.snapshot(),
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
         lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,

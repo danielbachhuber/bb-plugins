@@ -191,6 +191,25 @@ the editor is open; pressing it again
 closes the editor. Save or Enter saves the note, Cancel or Escape cancels, and
 saving an empty note deletes it.
 
+## What a sweep costs on GitHub
+
+GitHub limits GraphQL to 5,000 points an hour per account, shared by every
+plugin and every `gh` command an agent runs, and charges each query by how
+many nodes it could return rather than how many calls it takes. Clicking the
+sync time in the title bar shows the past hour of sweeps: the total, one bar per sweep with its
+points, calls and time, and how many points the account has left before the
+hour resets.
+
+Each sweep is measured by reading the account's budget twice before it and up
+to three times after, through `createSyncUsage` in `gh-shared`. The readings
+are `gh api graphql` calls for `rateLimit`, which cost no points; the extra
+readings are there because GitHub answers from two counters with different
+windows and only two readings from the same one can be subtracted. A sweep
+whose readings never match shows as unmeasured. The difference counts
+everything the account spent during the sweep, so a sweep that ran while an
+agent was using `gh` reads high. The hour is kept in memory, so a reload
+starts it over.
+
 ## Settings
 
 - **Sync interval** — how often the background sweep runs. Default 5 minutes.
