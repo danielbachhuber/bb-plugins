@@ -270,11 +270,21 @@ each gather that fetches the reference docs, which adds one Google request to
 the day's first gather. **Check my entry** and `bb weekly-review entry` read
 the doc fresh, since the agent should see what the entry says now.
 
-**Check my entry** sends an agent the entry as written and the week's digest,
-and asks two questions: what happened that the entry does not mention, and
-where does the entry say something the evidence says more about. The second is
-where the value is — a line reading "worked on feature toggles" is true, and
-the digest knows it took 3.3 hours across three days and closed four issues.
+**Check my entry** sends an agent to read the week for itself and say what the
+entry missed. The prompt carries no evidence, only where to find it: the entry
+(`entry`), the gathered week (`digest`), the 1:1 and meeting notes matched to
+each meeting (`meetings --notes`), a Slack search of the week's messages from
+and mentioning you, the GitHub issues and pull requests in the configured repo
+where the configured author commented or was mentioned, and the daily notes
+when Reflect is reachable. The two GitHub searches are one `gh search` call
+each, plus one call per conversation the agent decides to read.
+
+It returns at most three things missing that you would regret leaving out,
+and places where the entry, or an empty section such as People or Next, says
+less than the sources do. It is told the entry is a team lead's record rather
+than a changelog, so a merged pull request counts only when it carries a
+decision, a risk, or a change of direction, and hours count only when the
+number says something.
 
 It opens the thread it started, and the page keeps a link back. The assessment
 is a conversation to have while the entry is being rewritten, not a report to

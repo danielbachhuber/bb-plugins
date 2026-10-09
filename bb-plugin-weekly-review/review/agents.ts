@@ -210,49 +210,103 @@ export type MissingItem = z.infer<typeof missingItemSchema>;
 export type ExpandItem = z.infer<typeof expandItemSchema>;
 export type Feedback = z.infer<typeof feedbackSchema>;
 
-export const DEFAULT_FEEDBACK_PROMPT = `Someone has written this week's review entry by hand and wants to know what
-they missed. You are checking their draft against the week's evidence.
+export const DEFAULT_FEEDBACK_PROMPT = `Someone has written this week's journal entry by hand and wants to know what
+they missed. Check their draft against what actually happened, which you will
+go and read for yourself.
+
+The week runs {{FROM}} through {{TO}}.
 
 You are not rewriting the entry, and you are not writing to the document. The
 entry is theirs and stays in their words. Propose no replacement prose.
 
-Your one advantage is that you have read all of the evidence at once, which
-they have not. Use it for exactly that.
+## Whose journal this is
 
-Return three things.
+The author leads a team. The entry is their record of the week: what they
+decided, who they helped, what is at risk, and how the people they manage are
+doing. They read it again months later, for performance reviews and to recall
+why something was decided. It is not a changelog. A merged pull request
+belongs in it only when it carries a decision, a risk, a change of direction,
+or something they will want credit for.
 
-**assessment** — a sentence or two. What does the entry cover well, and what is
-it light on? Be specific and be willing to say it is already good.
+The entry has sections: Done, Wins/Highlights, Reflections/Learnings, Next,
+and People. Read all of them, including the ones that are empty.
 
-**missing** — things that happened this week and are absent from the entry.
-Rank them by whether the person would regret leaving them out. A quiet
-architectural decision they will need to remember in six months beats a
-recurring standup. Give the issue and pull request numbers as refs. Leave out
-anything they plausibly left out on purpose: routine maintenance, dependency
-bumps, and meetings with nothing in them do not belong in a weekly entry.
+## Where to look
 
-**expand** — places the entry says something the evidence says more about.
-Quote the words from the entry so they can be found, then say what the evidence
-adds. This is where the value is: a line reading "worked on feature toggles" is
-true, and the digest knows it took 3.3 hours across three days and closed four
-issues.
+Read each of these before you write anything. Your one advantage over the
+author is having read all of it; skip a source and you lose that.
 
-Say nothing you cannot support from the evidence below. If the entry is
-complete, say so and return empty lists rather than inventing gaps.
+1. **The entry as it stands:**
 
----
+   bb weekly-review entry {{MONDAY}}
 
-## The entry as written
+2. **The gathered week:** hours, pull requests, issues, tasks, and the
+   calendar for the next two weeks. Use it as an index of what to look into,
+   not as the findings.
 
-{{ENTRY}}
+   bb weekly-review digest {{MONDAY}}
 
----
+3. **1:1 and meeting notes:** the section of each 1:1 and meeting document
+   written on the day of that meeting, printed under the meeting it belongs
+   to. This is where most of what matters to a lead is: what each person
+   raised, what was agreed, what is worrying someone.
 
-## The week
+   bb weekly-review meetings {{MONDAY}} --notes
 
-{{DIGEST}}
+4. **Slack:** search it yourself, scoped to the week, across public and
+   private channels and DMs:
 
----
+   - messages you sent, \`from:@me after:{{SEARCH_AFTER}} before:{{SEARCH_BEFORE}}\`
+   - messages that mention you, with the same date bounds
+
+   Open the threads that look like more than logistics and read them whole.
+   A decision is often made in a thread nobody wrote down anywhere else.
+
+5. **GitHub conversations** in {{REPO}}, where {{AUTHOR}} commented, reviewed,
+   or was mentioned this week:
+
+   gh search issues --repo {{REPO}} --commenter {{AUTHOR}} --updated {{FROM}}..{{TO}} --include-prs --json number,title,url --limit 100
+   gh search issues --repo {{REPO}} --mentions {{AUTHOR}} --updated {{FROM}}..{{TO}} --include-prs --json number,title,url --limit 100
+
+   Then read the ones that matter with \`gh pr view <n> --repo {{REPO}} --comments\`
+   or \`gh issue view <n> --repo {{REPO}} --comments\`, and a pull request's
+   review comments with \`gh api repos/{{REPO}}/pulls/<n>/comments\`. Look for
+   a direction set, a disagreement settled, a person coached.
+
+6. **Daily notes,** if you can reach Reflect: the daily note for each day of
+   the week.
+
+If a source cannot be reached, say which one at the top of your reply, and
+do not present the feedback as complete without it.
+
+## What to return
+
+**assessment**: two or three sentences. What does the entry cover well, and
+what is it light on? Be specific, and be willing to say it is already good.
+
+**missing**: at most three things from the week that are absent from the
+entry and that the author would regret leaving out. A quiet decision they will
+need to remember in six months beats ten merged pull requests. Leave out what
+they plausibly left out on purpose: routine fixes, docs tidying, dependency
+bumps, the weekly deploy, standups. An empty list is a good answer.
+
+**expand**: places where the entry says something the sources say more about,
+and empty sections the sources could fill. Quote the words from the entry so
+they can be found; for an empty section, quote its heading or name, such as
+"Rob:". Say what the sources add in outcomes: what was decided, who was
+unblocked, what came of a conversation, what is still at risk. Mention hours
+only when the number itself says something, such as review taking a third of
+the week. For People and Reflections/Learnings, point to what was said in the
+1:1s and threads; do not write the reflection for them.
+
+Also compare Next with the calendar and the tasks due in the next two weeks,
+and put anything worth adding under expand, quoting "Next:".
+
+Every claim cites where it came from: an issue or pull request number in refs,
+or the meeting, Slack thread, or document by name in the text. Say nothing you
+cannot point to.
+
+## Recording it
 
 Write the result as JSON matching this shape:
 
@@ -270,10 +324,13 @@ That command validates the JSON and puts it on the page. If it reports a
 validation error, fix the file and run it again.
 
 Then lay the same findings out here, in the thread, so they can be read without
-opening the page: the assessment, then what is missing, then what deserves more
-detail. This is a conversation, not a hand-off. Expect to be asked which of
-these matter, to be pushed back on, and to be asked for the underlying evidence
-behind a particular line.
+opening the page: which sources you read, the assessment, then what is
+missing, then what deserves more detail. Link every issue and pull request
+number to https://github.com/{{REPO}}/issues/<n>.
+
+This is a conversation, not a hand-off. Expect to be asked which findings
+matter, to be pushed back on, and to be asked for the evidence behind a line;
+go back to the source and quote it.
 
 The entry is being rewritten in the document while you talk. Re-read it with
 \`bb weekly-review entry {{MONDAY}}\` before answering anything that depends on

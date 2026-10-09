@@ -35,9 +35,13 @@ const CALLERS = {
   feedback: {
     prompt: DEFAULT_FEEDBACK_PROMPT,
     values: {
-      ENTRY: "### September 11th\n\nWrote some things.",
-      DIGEST: "# Week of 2026-09-07 through 2026-09-11",
+      FROM: "2026-09-07",
+      TO: "2026-09-11",
       MONDAY: "2026-09-07",
+      SEARCH_AFTER: "2026-09-06",
+      SEARCH_BEFORE: "2026-09-12",
+      REPO: "acme/widgets",
+      AUTHOR: "octocat",
       COMMAND: "bb weekly-review feedback 2026-09-07 --file <path>",
     },
   },
@@ -56,6 +60,13 @@ describe("the agent prompts", () => {
     // Slack's after: and before: are exclusive. Passing the week's own dates
     // would silently drop the Monday and the Friday.
     expect(rendered).toContain("after:2026-09-06 before:2026-09-12");
+  });
+
+  it("sends the feedback step to read its sources rather than carrying them", () => {
+    const rendered = renderPrompt(DEFAULT_FEEDBACK_PROMPT, CALLERS.feedback.values);
+    expect(rendered).toContain("bb weekly-review meetings 2026-09-07 --notes");
+    expect(rendered).toContain("after:2026-09-06 before:2026-09-12");
+    expect(rendered).toContain("--commenter octocat");
   });
 
   it("asks the Slack step to record one entry per thread, not per message", () => {

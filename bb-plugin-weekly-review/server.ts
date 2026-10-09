@@ -481,6 +481,11 @@ export default async function plugin(bb: BbPluginApi) {
    *
    * The entry stays hand-written. This reports what the evidence says the
    * entry missed; it proposes no prose and writes nothing to the document.
+   *
+   * The prompt names where to look rather than carrying the week in it: the
+   * entry, digest, and meeting notes are a CLI call away, and Slack and the
+   * GitHub conversations are only reachable by the agent anyway. The entry is
+   * read here only to refuse a week with nothing written.
    */
   async function reviewEntry(monday: string): Promise<{ threadId: string }> {
     const week = requireWeek(monday);
@@ -501,9 +506,14 @@ export default async function plugin(bb: BbPluginApi) {
       "feedback",
       providerId,
       renderPrompt(describePrompt("feedback").prompt, {
-        ENTRY: `### ${entry.heading}\n\n${entry.text}`,
-        DIGEST: digestFor(monday, week),
+        FROM: week.from,
+        TO: week.to,
         MONDAY: monday,
+        // Exclusive bounds, as in the Slack step.
+        SEARCH_AFTER: addDays(week.from, -1),
+        SEARCH_BEFORE: addDays(week.to, 1),
+        REPO: sources.read().repo,
+        AUTHOR: sources.read().author,
         COMMAND: `bb weekly-review feedback ${monday} --file <path-to-your-json>`,
       }),
       `Weekly review feedback — ${monday}`,
