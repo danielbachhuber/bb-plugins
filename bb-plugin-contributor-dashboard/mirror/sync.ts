@@ -11,11 +11,13 @@ import {
   MORE_REVIEWS_QUERY,
   MORE_TIMELINE_QUERY,
   PULL_REQUESTS_QUERY,
+  RELEASES_QUERY,
   type Connection,
   type IssueNode,
   type IssueTimelineItem,
   type PullRequestNode,
   type PullRequestReview,
+  type Release,
   type TimelineItem,
 } from "./github.js";
 import { BACKFILL_MS } from "../dashboard/period.js";
@@ -41,12 +43,18 @@ export interface SyncResult {
   pullRequests: number;
   /** Issues stored in this run. */
   issues: number;
+  /** Releases stored in this run, new or changed. */
+  releases: number;
   /** GraphQL calls made. */
   calls: number;
 }
 
 interface PullRequestsPage {
   repository: { pullRequests: Connection<PullRequestNode> } | null;
+}
+
+interface ReleasesPage {
+  repository: { releases: Connection<Release> } | null;
 }
 
 interface IssuesPage {
@@ -66,7 +74,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const pageSize = options.pageSize ?? 50;
   const [owner, name] = repository.split("/");
   const state: SyncState = store.syncState(repository);
-  const result: SyncResult = { pullRequests: 0, issues: 0, calls: 0 };
+  const result: SyncResult = { pullRequests: 0, issues: 0, releases: 0, calls: 0 };
 
   async function call(text: string, variables: Record<string, string | number | null>) {
     signal?.throwIfAborted();
@@ -131,6 +139,27 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     options.onPage?.(result.pullRequests);
   }
 
+  /**
+   * Releases have no update order to page by, and there are few of them, so
+   * each sync reads the newest page again and keeps it whole. A release
+   * edited after it fell off that page keeps its older notes. The first sync
+   * reads on down to the horizon.
+   */
+  async function syncReleases() {
+    const first = store.releaseCount(repository) === 0;
+    const horizon = new Date(now() - BACKFILL_MS).toISOString();
+    for (let after: string | null = null; ; ) {
+      const data = (await call(RELEASES_QUERY, { owner, name, first: 100, after })) as ReleasesPage;
+      if (data.repository === null) throw new Error(`GitHub has no repository ${repository}, or this login cannot see it.`);
+      const { nodes, pageInfo } = data.repository.releases;
+      const inRange = nodes.filter((release) => release.createdAt >= horizon);
+      store.upsertReleases(repository, inRange);
+      result.releases += inRange.length;
+      if (!first || inRange.length < nodes.length || !pageInfo.hasNextPage) break;
+      after = pageInfo.endCursor;
+    }
+  }
+
   const newest = <T extends { updatedAt: string }>(nodes: readonly T[], floor: string | null) =>
     nodes.reduce<string | null>((max, node) => (max === null || node.updatedAt > max ? node.updatedAt : max), floor);
 
@@ -174,6 +203,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
 
   await run<PullRequestNode>({ state, page, keep });
   await run<IssueNode>({ state: state.issues, page: issuePage, keep: keepIssues });
+  await syncReleases();
 
   state.syncedAt = now();
   store.saveSyncState(repository, state);

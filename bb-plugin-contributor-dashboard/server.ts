@@ -8,6 +8,7 @@ import { ghGraphql } from "./mirror/gh.js";
 import { authorActivity } from "./review/authors.js";
 import { peopleActivity } from "./review/people.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
+import { releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
@@ -80,7 +81,8 @@ export default async function plugin(bb: BbPluginApi) {
       .then((result) => {
         lastError = null;
         bb.log.info(
-          `synced ${repository}: ${result.pullRequests} pull requests and ${result.issues} issues in ` +
+          `synced ${repository}: ${result.pullRequests} pull requests, ${result.issues} issues and ` +
+            `${result.releases} releases in ` +
             `${result.calls} calls, ${Date.now() - started} ms`,
         );
       })
@@ -104,7 +106,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     people_activity: ({ range }) => {
       if (!configured) {
-        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), authors: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [] }, authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -119,6 +121,7 @@ export default async function plugin(bb: BbPluginApi) {
         buckets,
         stages: stageSummaries({ pullRequests: prs, issues }, buckets, now),
         flow: flowOf({ pullRequests: prs, issues }, buckets[0].start, buckets.at(-1)!.end),
+        releases: releaseSummaries(store.readReleases(repository), prs, repository, buckets[0].start, buckets.at(-1)!.end),
         // A pull request opened before the period can still merge inside it,
         // so authoring reads them all rather than only the recently updated.
         authors: authorActivity(prs, buckets),

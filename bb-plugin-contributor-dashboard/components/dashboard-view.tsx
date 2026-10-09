@@ -1,6 +1,6 @@
 // The Contributor Dashboard page: the repository, period picker, and sync line
 // every section shares, then the overview's flow diagram and a section each for
-// issues and pull requests. Display only; app.tsx loads the data.
+// issues, pull requests, and releases. Display only; app.tsx loads the data.
 import type { ReactNode } from "react";
 
 import type { PeopleActivityResult, StageKey, StageSummary, SyncStatus } from "@/dashboard/contract";
@@ -11,6 +11,7 @@ import { authorRow, reviewerRow } from "@/review/velocity";
 import { FlowDiagram } from "./flow-diagram";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
+import { ReleasesSection } from "./releases-section";
 import { StageTable } from "./stage-flow";
 import { VelocitySection } from "./velocity-section";
 
@@ -180,6 +181,12 @@ export function DashboardView({
                 onOpenPerson={onOpenPerson}
               />
             </Section>
+
+            <ReleasesSection
+              releases={data.releases}
+              periodLabel={selectionWords(selection)}
+              onOpenPerson={onOpenPerson}
+            />
           </>
         )}
       </div>

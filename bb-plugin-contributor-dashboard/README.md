@@ -20,8 +20,8 @@ month or less is drawn by day, up to half a year by week starting on Monday,
 and anything longer by month. A bucket is always whole, so a range starting
 midweek is charted from that week's Monday.
 
-Under the header the page has three sections: an **Overview**, then
-**Issues**, then **Pull requests**.
+Under the header the page has four sections: an **Overview**, then
+**Issues**, **Pull requests**, and **Releases**.
 
 ### Overview
 
@@ -201,6 +201,47 @@ What counts in Review velocity:
   so a burst of replies to comments is one review. Pending reviews, reviews by
   the pull request's author, and bots are left out.
 
+### Releases
+
+The repository's GitHub releases published in the period, read from the
+releases themselves and nothing else: a published release is all this
+section claims, not a deploy.
+
+The newest minor release is drawn in full, and the other minors in the period
+sit under it as rows; clicking one draws it in full instead. A release in full
+says:
+
+- **How many pull requests it lists.** A release says what it holds only in
+  its notes, so the pull requests are the links there. Notes with a
+  "## Merged Pull Requests" heading are read from it down, since the prose
+  above it links some of the same ones again; notes without it are read whole.
+  A listed pull request the mirror does not hold, such as one older than its
+  two years, is counted apart and said under the bar.
+- **What kind they are**, from the conventional-commit type on each title:
+
+  | Kind | Title starts with |
+  | --- | --- |
+  | Features | `feat` |
+  | Fixes | `fix`, `bugfix`, `hotfix`, `revert` |
+  | Refactors | `refactor`, `perf` |
+  | Chores | `chore`, `docs`, `test`, `ci`, `build`, `style`, `lint` |
+  | Dependencies | anything a bot opened, whatever its title |
+  | No type | anything else |
+
+  Bot pull requests get their own kind because on a real repository they are
+  nearly a third of everything released, which would bury the chores.
+- **Which patches followed it.** A tag such as `v1.4.2` is a patch on
+  `v1.4.0`, and is listed with it even when published after the period ends,
+  with the first item in its notes to say what it did. The notes rather than
+  the titles of the pull requests it links, because a patch that reverts links
+  the very pull requests it backs out.
+- **Who**: for each person, the listed pull requests they opened and the ones
+  they reviewed, each as a count and as a share of the release's whole. A
+  person's reviews on one pull request count once. Pull requests a bot opened
+  are left out of the shares and counted on a line of their own.
+
+A tag that is not a version stands as a minor of its own.
+
 ### A person's page
 
 Clicking a name, on a chart or in a folded row, opens that person's page, at
@@ -243,7 +284,7 @@ Settings are read when the plugin loads, so reload it after changing one.
 
 ## Syncing with GitHub
 
-The plugin keeps a mirror of the repository's pull requests, their reviews,
+The plugin keeps a mirror of the repository's releases, its pull requests, their reviews,
 their review-request and ready-for-review events, and whoever each is assigned
 to, and of its issues with the events that milestone, add to a project, and
 assign them, in its own SQLite database. The assignees are one more field on a
@@ -263,7 +304,8 @@ mark and backfill cursor, so finishing one does not affect the other.
   50 per call, and stops at the first one the last sync already saw, then does
   the same for issues. Any review
   or review request bumps a pull request's update time, so this picks up every
-  change. A sync after a quiet half hour is usually one call.
+  change. A sync after a quiet half hour is usually three calls: one each for
+  pull requests, issues, and releases.
 - **The first sync** reaches back two years, so a year can be compared with the
   year before. That is one call per 50 pull requests updated in those two
   years: about 100 calls, and about five minutes, for a repository with 5,000,
@@ -273,13 +315,17 @@ mark and backfill cursor, so finishing one does not affect the other.
   and the page fills in as it goes.
 - A pull request with more than 100 reviews or events costs one more call per
   extra 100.
+- **Releases** have no update order to page by, and a repository publishes a
+  few a week at most, so every sync reads the newest 100 again in one call.
+  The first sync reads on back two years, one more call per 100. A release
+  edited after a hundred newer ones were published keeps its older notes.
 
-Each call of 50 costs one point of GitHub's GraphQL rate limit of 5,000 an
+Each call of 50 pull requests or issues, or of 100 releases, costs one point of GitHub's GraphQL rate limit of 5,000 an
 hour.
 
 The tables follow GitHub's own objects: `pull_requests`,
-`pull_request_reviews`, `pull_request_timeline_items`, `issues`, and
-`issue_timeline_items`, keyed by GitHub's node id. Each row holds the object as GitHub returned it, with GitHub's field
+`pull_request_reviews`, `pull_request_timeline_items`, `issues`,
+`issue_timeline_items`, and `releases`, keyed by GitHub's node id. Each row holds the object as GitHub returned it, with GitHub's field
 names, plus the few fields queries filter on as columns. The counts above are
 computed when the page reads, never stored, so a change to how one is defined
 needs no new sync.
@@ -302,6 +348,7 @@ needs no new sync.
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
 | `review/flow.ts` | The pure count of where everything opened in the period went, by path, for the overview's lines |
+| `review/releases.ts` | The pure read of each release: the pull requests its notes list, their kinds, who merged and reviewed them, and its patches |
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
@@ -314,6 +361,7 @@ needs no new sync.
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
 | `components/flow-diagram.tsx` | The overview: the flow diagram across the six stages |
+| `components/releases-section.tsx` | The Releases section: one release in full and the rest as rows |
 | `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |

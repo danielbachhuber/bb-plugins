@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
-import type { FlowCounts, PeopleActivityResult, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { FlowCounts, MinorRelease, PeopleActivityResult, Releases, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 
@@ -176,6 +176,90 @@ function scaledFlow(factor: number): FlowCounts {
   return { issues: scale(FLOW.issues), pullRequests: scale(FLOW.pullRequests) };
 }
 
+/** What a release's notes might list, in rotation: sizes and mixes like a real repository's. */
+const RELEASE_MIXES: Array<MinorRelease["kinds"]> = [
+  { feat: 7, fix: 6, refactor: 5, chore: 6, deps: 13, none: 4 },
+  { feat: 4, fix: 6, refactor: 4, chore: 3, deps: 8, none: 3 },
+  { feat: 9, fix: 12, refactor: 10, chore: 8, deps: 18, none: 6 },
+  { feat: 11, fix: 14, refactor: 12, chore: 13, deps: 19, none: 8 },
+  { feat: 6, fix: 9, refactor: 11, chore: 8, deps: 14, none: 4 },
+  { feat: 14, fix: 22, refactor: 21, chore: 17, deps: 41, none: 13 },
+];
+
+/** Each person's share of a release's merges and reviews. */
+const RELEASE_SHARES: Array<[string, number, number]> = [
+  ["octocat", 0.27, 0.14],
+  ["hubber", 0.18, 0.43],
+  ["mona", 0.15, 0.16],
+  ["monalisa", 0.12, 0.11],
+  ["spacecat", 0.1, 0.06],
+  ["webcat", 0.07, 0.05],
+  ["yeti", 0.05, 0.03],
+  ["dinotocat", 0.04, 0.02],
+  ["wavetocat", 0.02, 0],
+];
+
+const sumOf = (kinds: MinorRelease["kinds"]) => Object.values(kinds).reduce((a, b) => a + b, 0);
+
+function releaseOf(tag: string, publishedAt: number, kinds: MinorRelease["kinds"], seed: number) {
+  const humans = sumOf(kinds) - kinds.deps;
+  return {
+    tag,
+    url: `https://github.com/acme/widgets/releases/tag/${tag}`,
+    publishedAt: new Date(publishedAt).toISOString(),
+    total: sumOf(kinds),
+    kinds,
+    people: RELEASE_SHARES.map(([login, merged, reviews], i) => ({
+      login,
+      merged: Math.max(0, Math.round(humans * merged * (1 + 0.25 * Math.sin(seed + i)))),
+      reviews: Math.max(0, Math.round(humans * 1.3 * reviews * (1 + 0.3 * Math.cos(seed * 2 + i)))),
+    }))
+      .filter((person) => person.merged + person.reviews > 0)
+      .sort((a, b) => b.merged - a.merged || b.reviews - a.reviews),
+    bot: kinds.deps,
+    missing: 0,
+  };
+}
+
+const PATCH_KINDS = { feat: 0, fix: 0, refactor: 0, chore: 0, deps: 0, none: 0 };
+
+/**
+ * A minor every Wednesday of the span, newest first. Every third has a
+ * patch the next day, and the newest has two, the second of them a revert.
+ */
+function releasesFor(from: number, to: number): Releases {
+  const minors: MinorRelease[] = [];
+  const day = 86_400_000;
+  const first = new Date(from);
+  first.setDate(first.getDate() + ((3 - first.getDay() + 7) % 7));
+  first.setHours(15, 0, 0, 0);
+  let index = 0;
+  for (let at = first.getTime(); at < to; at += 7 * day, index += 1) {
+    const tag = `v2.${30 + index}.0`;
+    const minor = releaseOf(tag, at, RELEASE_MIXES[index % RELEASE_MIXES.length], index);
+    const patches = [];
+    if (index % 3 === 0 && at + day < to) {
+      patches.push({
+        ...releaseOf(`v2.${30 + index}.1`, at + day, { ...PATCH_KINDS, fix: 2 }, index + 9),
+        firstLine: "fix(export): keep gadget names when exporting",
+      });
+    }
+    minors.push({ ...minor, patches });
+  }
+  const newest = minors.at(-1);
+  if (newest !== undefined && Date.parse(newest.publishedAt) + 1.5 * day < to) {
+    const at = Date.parse(newest.publishedAt);
+    const series = newest.tag.replace(/\.0$/, "");
+    newest.patches = [
+      { ...releaseOf(`${series}.1`, at + 0.8 * day, { ...PATCH_KINDS, fix: 3, feat: 1 }, 20), firstLine: "fix(search): match sprockets by name" },
+      { ...releaseOf(`${series}.2`, at + 1.3 * day, { ...PATCH_KINDS, fix: 1 }, 21), firstLine: "revert: sprocket search ranking, which backs out #1890" },
+    ];
+  }
+  minors.reverse();
+  const patches = minors.reduce((sum, minor) => sum + minor.patches.length, 0);
+  return { published: minors.length + patches, patches, minors };
+}
+
 function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(rangeOf(selection, NOW));
   // A longer span holds more of everything, so the totals scale with it.
@@ -217,6 +301,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
       weekly: buckets.map((_, index) => stage.weekly[index % stage.weekly.length]),
     })),
     flow: scaledFlow(factor),
+    releases: releasesFor(buckets[0].start, Math.min(buckets.at(-1)!.end, NOW)),
     authors,
     people,
     sync,
@@ -274,7 +359,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [] }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}

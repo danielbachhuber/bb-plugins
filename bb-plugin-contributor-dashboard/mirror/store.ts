@@ -17,6 +17,7 @@ import type {
   PullRequestNode,
   PullRequestReview,
   PullRequestWithActivity,
+  Release,
   TimelineItem,
 } from "./github.js";
 
@@ -82,6 +83,13 @@ export const MIGRATIONS = [
      started_at INTEGER NOT NULL,
      PRIMARY KEY (repository, kind, number)
    )`,
+  `CREATE TABLE IF NOT EXISTS releases (
+     id TEXT PRIMARY KEY,
+     repository TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     data TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS releases_repository_created_idx ON releases (repository, created_at)`,
 ];
 
 /** One object type's progress through the repository. */
@@ -180,6 +188,12 @@ export function createStore(db: Database) {
      WHERE i.repository = ? AND i.updated_at >= ?`,
   );
   const countIssues = db.prepare(`SELECT COUNT(*) AS n FROM issues WHERE repository = ?`);
+  const upsertRelease = db.prepare(
+    `INSERT INTO releases (id, repository, created_at, data) VALUES (?, ?, ?, ?)
+     ON CONFLICT (id) DO UPDATE SET created_at = excluded.created_at, data = excluded.data`,
+  );
+  const selectReleases = db.prepare(`SELECT data FROM releases WHERE repository = ? ORDER BY created_at DESC`);
+  const countReleases = db.prepare(`SELECT COUNT(*) AS n FROM releases WHERE repository = ?`);
 
   const writeIssueItems = (issueId: string, items: readonly IssueTimelineItem[]) => {
     for (const item of items) upsertIssueItem.run(item.id, issueId, JSON.stringify(item));
@@ -260,6 +274,21 @@ export function createStore(db: Database) {
         issue.timelineItems.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       }
       return [...issues.values()];
+    },
+
+    upsertReleases: db.transaction((repository: string, releases: readonly Release[]) => {
+      for (const release of releases) {
+        upsertRelease.run(release.id, repository, release.createdAt, JSON.stringify(release));
+      }
+    }),
+
+    /** Every stored release, newest first. */
+    readReleases(repository: string): Release[] {
+      return (selectReleases.all(repository) as Array<{ data: string }>).map((row) => JSON.parse(row.data) as Release);
+    },
+
+    releaseCount(repository: string): number {
+      return (countReleases.get(repository) as { n: number }).n;
     },
 
     issueCount(repository: string): number {

@@ -5,8 +5,10 @@ import {
   ISSUES_QUERY,
   MORE_REVIEWS_QUERY,
   PULL_REQUESTS_QUERY,
+  RELEASES_QUERY,
   type IssueNode,
   type PullRequestNode,
+  type Release,
 } from "./github";
 import { BACKFILL_MS } from "../dashboard/period";
 import { createStore, MIGRATIONS } from "./store";
@@ -62,7 +64,7 @@ function issue(number: number, updatedAt: string, extra: Partial<IssueNode> = {}
  * `pageSize`, counting calls. `prCalls` leaves out the issues pass, which
  * makes one call of its own even when there are no issues.
  */
-function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[] = []) {
+function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[] = [], releases: Release[] = []) {
   const calls: Array<{ query: string; after: unknown }> = [];
   const query: GraphqlQuery = async (text, variables) => {
     calls.push({ query: text, after: variables.after });
@@ -89,6 +91,17 @@ function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[
             pageInfo: { hasNextPage: next < issues.length, endCursor: String(next) },
             nodes,
           },
+        },
+      };
+    }
+    if (text === RELEASES_QUERY) {
+      const start = variables.after === null ? 0 : Number(variables.after);
+      const size = Number(variables.first);
+      const nodes = releases.slice(start, start + size);
+      const next = start + size;
+      return {
+        repository: {
+          releases: { pageInfo: { hasNextPage: next < releases.length, endCursor: String(next) }, nodes },
         },
       };
     }
@@ -226,5 +239,32 @@ describe("runSync, issues", () => {
     await runSync({ store, query: github.query, repository: "acme/widgets", now: () => NOW });
 
     expect(store.readIssues("acme/widgets", 0)[0].timelineItems).toEqual([milestoned]);
+  });
+
+  it("reads every release back to the horizon the first time, and only the newest page after", async () => {
+    const store = openStore();
+    const release = (n: number, createdAt: string): Release => ({
+      id: `RE_${n}`,
+      tagName: `v1.${n}.0`,
+      name: null,
+      url: `https://github.com/acme/widgets/releases/tag/v1.${n}.0`,
+      isDraft: false,
+      isPrerelease: false,
+      createdAt,
+      publishedAt: createdAt,
+      description: null,
+    });
+    const releases = Array.from({ length: 150 }, (_, i) => release(150 - i, recent(i * 2)));
+    const github = fakeGithub([], 2, [], releases);
+    const first = await runSync({ store, query: github.query, repository: "acme/widgets", now: () => NOW });
+    // Two pages of 100 reach back 300 days; the horizon is further, so all 150.
+    expect(first.releases).toBe(150);
+    expect(github.calls.filter((call) => call.query === RELEASES_QUERY)).toHaveLength(2);
+
+    const again = fakeGithub([], 2, [], releases);
+    const second = await runSync({ store, query: again.query, repository: "acme/widgets", now: () => NOW });
+    expect(again.calls.filter((call) => call.query === RELEASES_QUERY)).toHaveLength(1);
+    expect(second.releases).toBe(100);
+    expect(store.readReleases("acme/widgets")[0].tagName).toBe("v1.150.0");
   });
 });

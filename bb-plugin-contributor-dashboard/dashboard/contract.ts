@@ -110,6 +110,36 @@ export const flowCountsSchema = z.object({
   }),
 });
 
+const releaseSummaryShape = {
+  tag: z.string(),
+  url: z.string(),
+  publishedAt: z.string(),
+  total: z.number(),
+  kinds: z.object({
+    feat: z.number(),
+    fix: z.number(),
+    refactor: z.number(),
+    chore: z.number(),
+    deps: z.number(),
+    none: z.number(),
+  }),
+  people: z.array(z.object({ login: z.string(), merged: z.number(), reviews: z.number() })),
+  bot: z.number(),
+  missing: z.number(),
+};
+
+/** The releases published in the period. See review/releases.ts. */
+export const releasesSchema = z.object({
+  published: z.number(),
+  patches: z.number(),
+  minors: z.array(
+    z.object({
+      ...releaseSummaryShape,
+      patches: z.array(z.object({ ...releaseSummaryShape, firstLine: z.string().nullable() })),
+    }),
+  ),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -133,6 +163,7 @@ export const rpcContract = defineRpcContract({
       buckets: z.array(bucketSchema),
       stages: z.array(stageSummarySchema),
       flow: flowCountsSchema,
+      releases: releasesSchema,
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       sync: syncStatusSchema,
@@ -221,6 +252,8 @@ export const rpcContract = defineRpcContract({
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
+export type Releases = z.infer<typeof releasesSchema>;
+export type MinorRelease = Releases["minors"][number];
 export type FlowCounts = z.infer<typeof flowCountsSchema>;
 export type StageSummary = z.infer<typeof stageSummarySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;

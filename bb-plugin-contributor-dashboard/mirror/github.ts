@@ -233,3 +233,30 @@ query($id: ID!, $after: String) {
     }
   }
 }`;
+
+/** A published release, its notes in `description` as GitHub's markdown. */
+export interface Release {
+  id: string;
+  tagName: string;
+  name: string | null;
+  url: string;
+  isDraft: boolean;
+  isPrerelease: boolean;
+  createdAt: string;
+  publishedAt: string | null;
+  description: string | null;
+}
+
+/**
+ * One page of releases, newest first. A repository publishes a few a week at
+ * most, so a page of 100 covers months and costs one point of the rate limit.
+ */
+export const RELEASES_QUERY = `
+query($owner: String!, $name: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    releases(first: $first, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes { id tagName name url isDraft isPrerelease createdAt publishedAt description }
+    }
+  }
+}`;
