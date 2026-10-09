@@ -17,7 +17,8 @@
     "./sidebar-count": "./sidebar-count/sidebar-count.tsx",
     "./segmented": "./segmented/segmented.tsx",
     "./calendar": "./calendar/calendar.tsx",
-    "./date-range": "./date-range/date-range.tsx"
+    "./date-range": "./date-range/date-range.tsx",
+    "./copy-link": "./copy-link/copy-link.ts"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",
