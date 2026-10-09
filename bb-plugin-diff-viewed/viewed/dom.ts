@@ -167,6 +167,8 @@ export function createControl(
   text.textContent = "Viewed";
 
   // Shown whenever the mark stays in bb rather than on GitHub's Viewed box.
+  // It goes before the checkbox so the checkboxes line up down the panel
+  // whether a file is Local or not.
   const local = document.createElement("span");
   local.setAttribute(LOCAL_TAG_ATTR, "");
   local.setAttribute("role", "img");
@@ -175,7 +177,7 @@ export function createControl(
   local.className = "shrink-0 text-muted-foreground";
   local.innerHTML = LOCAL_SVG;
 
-  label.append(input, text, local);
+  label.append(local, input, text);
   return label;
 }
 

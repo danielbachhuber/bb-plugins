@@ -42,10 +42,10 @@ GitHub and bb shows the change the next time the window regains focus.
 That holds only for a file whose diff in bb is the one on GitHub, judged by
 the same `+N -M` counts that key a mark. When they differ, for example because
 you have edits that are not pushed yet, or you are looking at Uncommitted
-changes, the checkbox shows a cloud with a slash through it, meaning
-**Local**. So does every file in a thread with no open pull request. You can
-still check it, which is how you review your own diff before pushing, and the
-mark stays in bb. Hover the checkbox to see which kind of mark it is.
+changes, a cloud with a slash through it, meaning **Local**, shows before
+the checkbox. So does every file in a thread with no open pull request. You
+can still check it, which is how you review your own diff before pushing, and
+the mark stays in bb. Hover the checkbox to see which kind of mark it is.
 
 A Local mark does not stay local for good. Once you push, or open the pull
 request, and that file's counts on GitHub match the diff you marked, the
