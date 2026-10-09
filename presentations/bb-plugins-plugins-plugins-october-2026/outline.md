@@ -1,4 +1,6 @@
-# Ideas
+# Outline
+
+## Ideas
 
 - Just try it. Some things you create might be super useful, and others might be duds.
 - See something wonky, immediately open a thread to fix it.
