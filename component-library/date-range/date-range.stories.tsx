@@ -12,7 +12,7 @@ const day = (month: number, date: number) => new Date(2026, month, date).getTime
 function Picker({ initial = null, defaultOpen }: { initial?: DayRange | null; defaultOpen?: boolean }) {
   const [value, setValue] = useState<DayRange | null>(initial);
   return (
-    <div className="flex min-h-[26rem] justify-end p-4">
+    <div className="flex min-h-[26rem] items-start justify-end p-4">
       <DateRange
         value={value}
         onChange={setValue}
