@@ -84,15 +84,19 @@ The label is lowercase because it sits mid-header. It re-reads the clock
 every 30 seconds, so it ages between syncs instead of sitting on "just now"
 until the next one.
 
-**What the syncs cost.** Given `usage`, the label becomes a button that
-opens a summary under it: the GitHub points the past hour of syncs used, one
-bar per sync placed at the time it ran (hover one for its points, calls, and
-time), and how many points the account has left before the hour resets. A
-sync that could not be measured draws as a faint stub and is left out of the
-total, which says how many it left out. Without `usage`, the label stays plain
-text. The shape is what `createSyncUsage` in `gh-shared` reports, repeated
-here as `SyncUsage` because this package cannot depend on gh-shared. PR Sweep,
-Issue Sweep, and Review Sweep pass it.
+**What the syncs cost.** Given `usage`, the label becomes a button that opens
+a summary under it, kept inside the window: the GitHub points the past hour of
+syncs used, one bar per sync placed at the time it ran (hover one for its
+points, calls, and time), and how many points the account has left before the
+hour resets. A sync that could not be measured draws as a faint stub and is
+left out of the total, which says how many it left out. A plugin calling
+several services, as Now does, gives each sync its calls by service and lists
+the calls made between syncs; the summary then counts calls rather than
+points, stacks each bar by service with a legend of the hour's totals, and
+keeps GitHub's points beside GitHub's calls. Without `usage`, the label stays
+plain text. The shape is what `createSyncUsage` in `gh-shared` reports,
+repeated here as `SyncUsage` because this package cannot depend on gh-shared.
+PR Sweep, Issue Sweep, Review Sweep, and Now pass it.
 
 **Props.** `syncedAt` is the last sync's time in milliseconds, or null.
 `busy` disables the button. `onRefresh` starts a refresh. `usage` is the past

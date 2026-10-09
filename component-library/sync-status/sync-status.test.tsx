@@ -100,3 +100,22 @@ describe("SyncStatus with usage", () => {
     expect(screen.queryByText(/points an hour for your account/)).toBeNull();
   });
 });
+
+describe("SyncStatus with usage by service", () => {
+  const usage: SyncUsage = {
+    syncs: [
+      { at: NOW - 13 * MINUTE, points: 1, calls: 14, ms: 3_600, services: { Todoist: 3, Gmail: 10, GitHub: 1 } },
+      { at: NOW - 3 * MINUTE, points: 1, calls: 15, ms: 3_400, services: { Todoist: 3, Gmail: 11, GitHub: 1 } },
+    ],
+    budget: { used: 2_472, limit: 5_000, resetAt: NOW + 20 * MINUTE },
+    otherCalls: { Todoist: 4 },
+  };
+
+  it("counts calls by service, and the calls between syncs", () => {
+    render(<SyncStatus syncedAt={NOW} busy={false} onRefresh={() => {}} usage={usage} now={NOW} defaultOpen />);
+    expect(screen.getByText(/calls over 2 syncs in the past hour/).parentElement).toHaveTextContent(/^29calls/);
+    expect(screen.getByText("Calls per sync")).toBeInTheDocument();
+    expect(screen.getByText("Plus 4 calls outside syncs, from buttons on the page: Todoist 4.")).toBeInTheDocument();
+    expect(screen.getByText(/This hour's GitHub calls cost 2 points/)).toBeInTheDocument();
+  });
+});

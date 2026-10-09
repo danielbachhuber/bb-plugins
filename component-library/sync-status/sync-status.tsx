@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
 
+import { cn } from "../lib/cn";
 import { SyncUsageSummary, type SyncUsage } from "./sync-usage";
 
 export type { SyncUsage } from "./sync-usage";
@@ -24,6 +25,10 @@ export function syncedAgo(syncedAt: number, now: number): string {
   if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
   return `${Math.floor(elapsed / DAY)}d ago`;
 }
+
+/** The summary's width, and the least room it keeps from the window's edge. */
+const SUMMARY_WIDTH = 400;
+const EDGE = 8;
 
 /** How often the label re-reads the clock. See the comment in SyncStatus. */
 const TICK_MS = 30_000;
@@ -76,6 +81,22 @@ export function SyncStatus({
 
   const [open, setOpen] = useState(defaultOpen);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // Where the summary sits while open, kept inside the window. Fixed rather
+  // than absolute, because a narrow page clips what overflows it: Now's page
+  // with its side panel open cut off the summary's left half.
+  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  const toggle = () => {
+    const rect = trigger.current?.getBoundingClientRect();
+    if (!open && rect !== undefined) {
+      const width = Math.min(SUMMARY_WIDTH, window.innerWidth - 2 * EDGE);
+      setPlace({
+        top: rect.bottom + 4,
+        left: Math.min(Math.max(EDGE, rect.right - width), window.innerWidth - width - EDGE),
+      });
+    }
+    setOpen(!open);
+  };
   useEffect(() => {
     if (!open) return;
     const onDown = (event: MouseEvent) => {
@@ -103,14 +124,19 @@ export function SyncStatus({
             aria-expanded={open}
             aria-label={`${label}. Show what the syncs cost on GitHub.`}
             className="cursor-pointer whitespace-nowrap rounded px-1 py-0.5 text-xs text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 aria-expanded:bg-state-hover aria-expanded:text-foreground"
-            onClick={() => setOpen(!open)}
+            ref={trigger}
+            onClick={toggle}
           >
             {label}
           </button>
           {open ? (
             <div
               data-slot="popover-content"
-              className="absolute right-0 top-full z-50 mt-1 w-[400px] rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md"
+              className={cn(
+                "z-50 max-w-[calc(100vw-16px)] overflow-x-auto rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md",
+                place === null ? "absolute right-0 top-full mt-1" : "fixed",
+              )}
+              style={place === null ? { width: SUMMARY_WIDTH } : { width: SUMMARY_WIDTH, top: place.top, left: place.left }}
             >
               <SyncUsageSummary usage={usage} now={now} initialHovered={initialHovered} />
             </div>

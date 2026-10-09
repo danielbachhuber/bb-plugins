@@ -127,3 +127,47 @@ export const UsageStates = () => (
     ))}
   </StoryCard>
 );
+
+/** Now's hour: a sync every 15 minutes, others on opening the page or after a postpone, with Gmail the most calls. */
+const BY_SERVICE: SyncUsage = {
+  syncs: [
+    { minutes: 57, gmail: 10, calendar: 0 },
+    { minutes: 42, gmail: 11, calendar: 1 },
+    { minutes: 35, gmail: 10, calendar: 0 },
+    { minutes: 27, gmail: 12, calendar: 1 },
+    { minutes: 26, gmail: 12, calendar: 0 },
+    { minutes: 12, gmail: 9, calendar: 0 },
+    { minutes: 3, gmail: 10, calendar: 0 },
+  ].map(({ minutes, gmail, calendar }) => ({
+    at: NOW - minutes * MINUTE,
+    points: 1,
+    calls: 3 + gmail + calendar + 1,
+    ms: 3_600,
+    services: { Todoist: 3, Gmail: gmail, ...(calendar ? { Calendar: calendar } : {}), GitHub: 1 },
+  })),
+  budget: BUDGET,
+  otherCalls: { Todoist: 6, Gmail: 2 },
+};
+
+/**
+ * A plugin that calls several services, as Now does, counts calls rather
+ * than GitHub points: each sync's bar stacks its calls by service, the
+ * legend gives the hour's total for each, and the calls the page's buttons
+ * made between syncs are listed under the chart.
+ */
+export const UsageByService = () => (
+  <div className="m-6 flex h-[34rem] w-[36rem] flex-col rounded-lg border border-border bg-background">
+    <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+      <span className="text-sm font-medium">Now</span>
+      <SyncStatus
+        syncedAt={NOW - 3 * MINUTE}
+        busy={false}
+        onRefresh={noop}
+        usage={BY_SERVICE}
+        now={NOW}
+        defaultOpen
+        initialHovered={1}
+      />
+    </div>
+  </div>
+);
