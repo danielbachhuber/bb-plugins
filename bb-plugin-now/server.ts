@@ -14,6 +14,7 @@ import { readable } from "./now/items.js";
 import { keepFailedSources, loadSources, type Source } from "./now/sources.js";
 import { createStore, MIGRATIONS } from "./now/store.js";
 import { createTodoistApi } from "./todoist/api.js";
+import { createCallLog, gwsService } from "./now/usage.js";
 import { hasChanges, taskChanges } from "./todoist/edit.js";
 import { normalizeTask, projectMap, projectTree } from "./todoist/normalize.js";
 import { canPostponeTo, movedDate, postponeTarget } from "./todoist/postpone.js";
@@ -122,6 +123,10 @@ export function createPlugin(deps: PluginDeps = {}) {
     const store = createStore(db as never);
     const priorities = createPriorityStore(db as never);
 
+    // Every call to Todoist, Gmail, Calendar, and GitHub, for the sync status.
+    const callLog = createCallLog(() => now().getTime());
+    const todoistFetch = callLog.countFetch(deps.fetch ?? fetch, "Todoist");
+
     // Read here only to decide the load-time status: with no source switched
     // on, the page has nothing to show. The handler re-reads, so a changed
     // setting takes effect on the next refresh.
@@ -132,7 +137,7 @@ export function createPlugin(deps: PluginDeps = {}) {
     let gws: { path: string; run: GwsRunner; account: () => Promise<string | null> } | null = null;
     function gwsFor(path: string) {
       if (gws === null || gws.path !== path) {
-        const run = makeRunner(path);
+        const run = callLog.countRunner(makeRunner(path), gwsService);
         gws = { path, run, account: rememberedAccount(run) };
       }
       return gws;
@@ -140,13 +145,13 @@ export function createPlugin(deps: PluginDeps = {}) {
 
     async function gh(): Promise<GhRunner> {
       const { ghPath } = await settings.get();
-      return makeGh(ghPath.trim() || "gh");
+      return callLog.countRunner(makeGh(ghPath.trim() || "gh"), () => "GitHub");
     }
 
     async function sources(): Promise<Source[]> {
       const values = await settings.get();
       const list = [
-        todoistSource({ token: values.todoistApiToken, filter: values.todoistFilter, fetch: deps.fetch }),
+        todoistSource({ token: values.todoistApiToken, filter: values.todoistFilter, fetch: todoistFetch }),
       ];
       if (values.gmailEnabled) {
         const { run, account } = gwsFor(values.gwsPath.trim() || "gws");
@@ -200,6 +205,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         bb.realtime.publish(SYNC_CHANNEL, { syncing: true });
         const changes: Change[] = [];
         changesDuringSync = changes;
+        const synced = callLog.startSync();
         try {
           const loaded = await loadSources(await sources(), now(), (source, message) => {
             bb.log.warn(`Could not load ${source.name}: ${message}`);
@@ -213,6 +219,7 @@ export function createPlugin(deps: PluginDeps = {}) {
             } else if (store.positionOf(change.restored.id) === -1) store.restoreItem(change.restored, change.position);
           }
         } finally {
+          synced();
           changesDuringSync = null;
           running = null;
           bb.realtime.publish(SYNC_CHANNEL, { syncing: false });
@@ -246,7 +253,7 @@ export function createPlugin(deps: PluginDeps = {}) {
 
     async function todoist() {
       const { todoistApiToken } = await settings.get();
-      return todoistApiToken ? createTodoistApi({ token: todoistApiToken, fetch: deps.fetch }) : null;
+      return todoistApiToken ? createTodoistApi({ token: todoistApiToken, fetch: todoistFetch }) : null;
     }
 
     async function modifyThreads(threadIds: readonly string[], labels: { addLabelIds: string[] } | { removeLabelIds: string[] }) {
@@ -342,7 +349,7 @@ export function createPlugin(deps: PluginDeps = {}) {
         const threads = Object.fromEntries(store.threads());
         const { threadProjectId } = await settings.get();
         const project = threadProjectId?.trim() || null;
-        return { list: stored, threads, threadProjectId: project, syncing: running !== null };
+        return { list: stored, threads, threadProjectId: project, syncing: running !== null, usage: callLog.snapshot() };
       },
       items_archive: async ({ id }) => {
         const item = findItem(id);

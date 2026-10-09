@@ -50,6 +50,22 @@ export const listingSchema = z.object({
   /** The project a new thread starts in unless the composer picks another. */
   threadProjectId: z.string().nullable(),
   syncing: z.boolean(),
+  /** The past hour's calls to each service, by sync and outside syncs, and GitHub's budget. */
+  usage: z
+    .object({
+      syncs: z.array(
+        z.object({
+          at: z.number(),
+          points: z.number().nullable(),
+          calls: z.number(),
+          ms: z.number(),
+          services: z.record(z.string(), z.number()).optional(),
+        }),
+      ),
+      budget: z.object({ used: z.number(), limit: z.number(), resetAt: z.number() }).nullable(),
+      otherCalls: z.record(z.string(), z.number()).optional(),
+    })
+    .optional(),
 });
 export type Listing = z.infer<typeof listingSchema>;
 

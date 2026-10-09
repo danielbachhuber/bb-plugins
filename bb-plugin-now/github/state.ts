@@ -94,7 +94,11 @@ export function buildStateQuery(refs: readonly GitHubRef[]): { query: string; al
     );
   });
 
-  return { query: fields.length === 0 ? "" : `query { ${fields.join(" ")} }`, aliases };
+  // rateLimit reports this query's own cost, for the sync status.
+  return {
+    query: fields.length === 0 ? "" : `query { rateLimit { cost used limit resetAt } ${fields.join(" ")} }`,
+    aliases,
+  };
 }
 
 function review(value: unknown): ReviewDecision | null {

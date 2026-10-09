@@ -452,6 +452,22 @@ error instead. Either way the Todoist tasks still load.
 bb plugin config now set syncIntervalMinutes 30   # 5, 15 (the default), 30, or 60
 ```
 
+### What a sync costs
+
+Clicking the sync time in the title bar shows the past hour's calls: the
+total, one bar per sync stacked by service (Todoist, Gmail, Calendar, and
+GitHub), each service's total for the hour, the calls the page's buttons made
+between syncs, such as Complete, Postpone, or Archive, and what the GitHub
+account has left of its 5,000 points an hour. A typical sync makes about 15
+calls: three or four to Todoist, one Gmail search and one read per email
+thread, a Calendar read per invitation, and one GitHub query.
+
+The count costs no calls of its own. `now/usage.ts` wraps the Todoist `fetch`
+and the `gws` and `gh` runners, so every call is recorded with its service
+and time, and a call made while a sync runs counts as the sync's. The GitHub
+query asks for its own `rateLimit`, so its points are GitHub's figure. The
+hour is kept in memory, so a reload starts it over.
+
 ## Adding a source
 
 A source is a `Source` from `now/sources.ts`: an id, a name, the query it
@@ -510,6 +526,7 @@ list `server.ts` passes to `loadSources`.
 | `calendar/proposal.ts` | The time a proposal's invite.ics names, whether the event is at it, and how the row writes both |
 | `calendar/api.ts` | The only module that asks Google Calendar: each event's reply and time, replying, and moving an event to a proposed time |
 | `gdocs/notifications.ts` | Reading a Google Docs, Slides, or Sheets comment email's HTML: the document, its discussions, who wrote what, and the summary |
+| `now/usage.ts` | Counting every call to Todoist, Gmail, Calendar, and GitHub by service, split into syncs and the calls between them, for the sync status |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |
 | `priorities.stories.tsx` | The Priorities column and its wide, narrow, and empty layouts, for `npm run storybook` at the root |

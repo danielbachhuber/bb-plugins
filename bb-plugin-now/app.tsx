@@ -133,6 +133,7 @@ function SyncHeader() {
       syncedAt={fetchedAt === undefined ? null : Date.parse(fetchedAt)}
       busy={busy || listing?.syncing === true}
       onRefresh={() => void onRefresh()}
+      usage={listing?.usage}
     />
   );
 }

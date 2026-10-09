@@ -525,8 +525,23 @@ describe("stored list", () => {
       threads: {},
       threadProjectId: null,
       syncing: false,
+      usage: { syncs: [], budget: null, otherCalls: {} },
     });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test("counts a sync's Todoist calls in the listing's usage", async () => {
+    const { bb, harness, plugin } = host(ROUTES);
+    await plugin(bb);
+    await harness.behavior.callRpc("items_sync", null);
+
+    const listing = (await harness.behavior.callRpc("items_list", null)) as {
+      usage: { syncs: { calls: number; services: Record<string, number> }[]; otherCalls: Record<string, number> };
+    };
+    expect(listing.usage.syncs).toHaveLength(1);
+    expect(listing.usage.syncs[0]!.services).toEqual({ Todoist: 3 });
+    expect(listing.usage.syncs[0]!.calls).toBe(3);
+    expect(listing.usage.otherCalls).toEqual({});
   });
 
   test("keeps the synced list across a reload, so the page opens with it", async () => {
