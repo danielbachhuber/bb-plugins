@@ -6,19 +6,41 @@ import { Icon } from "./icons";
  * The local next-step note, in the grey drawer under the action line where its
  * editor opens.
  */
-export function NoteBox({ note, onHold = false }: { note: string | null; onHold?: boolean }) {
+export function NoteBox({
+  note,
+  onHold = false,
+  onClear,
+}: {
+  note: string | null;
+  onHold?: boolean;
+  /** Draws an X at the right end that deletes the note and its hold. Left out, there is none. */
+  onClear?: () => void;
+}) {
   if (note === null && !onHold) return null;
   return (
-    <p className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
-      {onHold ? (
-        <span className="font-medium text-muted-foreground">
-          <Icon name="Pause" className="mr-1 inline size-3 align-[-2px]" />
-          On hold
-        </span>
+    <div className="mt-2 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
+      <p className="min-w-0 flex-1">
+        {onHold ? (
+          <span className="font-medium text-muted-foreground">
+            <Icon name="Pause" className="mr-1 inline size-3 align-[-2px]" />
+            On hold
+          </span>
+        ) : null}
+        {onHold && note !== null ? <span className="text-muted-foreground"> · </span> : null}
+        {note}
+      </p>
+      {onClear ? (
+        <button
+          type="button"
+          aria-label="Clear note"
+          title="Clear"
+          onClick={onClear}
+          className="-m-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Icon name="X" className="size-3" />
+        </button>
       ) : null}
-      {onHold && note !== null ? <span className="text-muted-foreground"> · </span> : null}
-      {note}
-    </p>
+    </div>
   );
 }
 

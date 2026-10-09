@@ -518,6 +518,20 @@ describe("notes", () => {
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Waiting on #31", onHold: true });
   });
 
+  it("clears the note and the hold from the note's clear button", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow({ note: "Waiting on #31", onHold: true })] }), {
+      setNote: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Clear note" }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "", onHold: false });
+  });
+
   it("says On hold before the note of a held issue", async () => {
     const slot = render(listing({ rows: [nowRow({ note: "Waiting on #31", onHold: true })] }));
     expect(await slot.findByText("On hold")).toBeInTheDocument();

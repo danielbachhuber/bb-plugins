@@ -80,6 +80,18 @@ describe("NoteBox", () => {
     expect(screen.getByRole("paragraph").textContent).toBe("On hold · Waiting on #31");
   });
 
+  it("draws no clear button unless asked", () => {
+    render(<NoteBox note="Waiting on #31" />);
+    expect(screen.queryByRole("button", { name: "Clear note" })).toBeNull();
+  });
+
+  it("calls onClear from its clear button", () => {
+    const onClear = vi.fn();
+    render(<NoteBox note="Waiting on #31" onHold onClear={onClear} />);
+    fireEvent.click(screen.getByRole("button", { name: "Clear note" }));
+    expect(onClear).toHaveBeenCalled();
+  });
+
   it("says On hold alone for a held row with no note", () => {
     render(<NoteBox note={null} onHold />);
     expect(screen.getByRole("paragraph").textContent).toBe("On hold");

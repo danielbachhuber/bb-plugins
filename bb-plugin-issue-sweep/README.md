@@ -132,7 +132,8 @@ GitHub. It shows in a grey drawer under the action line, and Add note or Edit
 note opens its editor in the same place. The editor's On hold box puts the
 issue on hold, with or without text: it moves to the bottom of Needs you, and
 its drawer starts with "On hold". The hold is stored with the note, on this
-machine only, and clearing the box takes the issue off hold. The button stays put, pressed, while
+machine only, and clearing the box takes the issue off hold. The X at the
+right end of the drawer deletes the note and the hold together. The button stays put, pressed, while
 the editor is open; pressing it again
 closes the editor. Save or Enter saves the note, Cancel or Escape cancels, and
 saving an empty note with the box clear deletes it.

@@ -168,7 +168,7 @@ export interface SweepRowProps {
   /** `onHold` is the editor's On hold box, which is drawn only when `holdable` is set. */
   onNoteSave: (body: string, onHold: boolean) => Promise<boolean>;
   onNoteCancel: () => void;
-  /** Gives the note editor an On hold checkbox. */
+  /** Gives the note editor an On hold checkbox, and the note an X that clears it and the hold. */
   holdable?: boolean;
   /** Dimmed while a request for this row runs. */
   busy?: boolean;
@@ -366,7 +366,11 @@ export function SweepRow({
                 initialOnHold={holdable ? item.onHold === true : undefined}
               />
             ) : (
-              <NoteBox note={item.note} onHold={item.onHold === true} />
+              <NoteBox
+                note={item.note}
+                onHold={item.onHold === true}
+                onClear={holdable ? () => void onNoteSave("", false) : undefined}
+              />
             )}
             {commentsOpen && commentsDrawer ? <div className="mt-2">{commentsDrawer}</div> : null}
           </>
