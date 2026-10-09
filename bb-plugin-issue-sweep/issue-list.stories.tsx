@@ -320,13 +320,13 @@ export function Rows() {
         label="Every run"
         hint="Each run, a stale row, a parent, a Stalled status, issues with no board status, and a blocked issue."
       >
-        <Frame listing={everything} height="h-[56rem]" />
+        <Frame listing={everything} height="h-[60rem]" />
       </StoryRow>
       <StoryRow
         label="Two repositories"
         hint="The repository joins the number line once it varies."
       >
-        <Frame listing={multiRepo} height="h-[56rem]" />
+        <Frame listing={multiRepo} height="h-[60rem]" />
       </StoryRow>
       <StoryRow
         label="Starting, saving, and timing"
