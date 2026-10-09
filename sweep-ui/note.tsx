@@ -18,7 +18,7 @@ export function NoteBox({
 }) {
   if (note === null && !onHold) return null;
   return (
-    <div className="mt-2 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
+    <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
       <p className="min-w-0 flex-1">
         {onHold ? (
           <span className="font-medium text-muted-foreground">
