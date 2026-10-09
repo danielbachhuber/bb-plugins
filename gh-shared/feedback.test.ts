@@ -78,17 +78,30 @@ describe("parseFeedback", () => {
     expect(entries[0]).toMatchObject({ kind: "review", state: "changes_requested", body: "" });
   });
 
-  it("leaves out your own comments, bots, pending and dismissed reviews", () => {
+  it("leaves out your own comments, pending and dismissed reviews", () => {
     const entries = parseFeedback(
       response({
         reviews: { nodes: [review("octocat", "COMMENTED", "Self note"), review("hubber", "PENDING", "Draft"), review("hubber", "DISMISSED", "Old")] },
         reviewThreads: { nodes: [thread("octocat", "octocat")] },
-        comments: {
-          nodes: [comment("octocat", "Rebased"), comment("github-actions", "Coverage 91%"), comment("acme-ci", "Deployed", "Bot")],
-        },
+        comments: { nodes: [comment("octocat", "Rebased")] },
       }),
     );
     expect(entries).toEqual([]);
+  });
+
+  it("keeps bots' comments and marks them", () => {
+    const entries = parseFeedback(
+      response({
+        comments: {
+          nodes: [comment("hubber", "Any update?"), comment("github-actions", "Coverage 91%"), comment("acme-ci", "Deployed", "Bot")],
+        },
+      }),
+    );
+    expect(entries.map((entry) => [entry.author, entry.bot ?? false])).toEqual([
+      ["hubber", false],
+      ["github-actions", true],
+      ["acme-ci", true],
+    ]);
   });
 
   it("keeps your own when asked, and says which threads still wait on someone else", () => {
@@ -102,7 +115,7 @@ describe("parseFeedback", () => {
             thread("octocat", "octocat", { total: 3, createdAt: "2026-01-04T00:00:00Z" }),
           ],
         },
-        comments: { nodes: [comment("octocat", "Rebased"), comment("github-actions", "Coverage 91%")] },
+        comments: { nodes: [comment("octocat", "Rebased")] },
       }),
       { includeViewer: true },
     );

@@ -4,9 +4,10 @@ import type { GhRunner } from "./gh.js";
 /**
  * What people left on one pull request, for the drawer under its row: the
  * reviews with something to say, every inline thread, and the general
- * comments. Bots' are always left out. Your own are left out too unless
- * `includeViewer` is set: on your own pull request they are not feedback for
- * you, but on one you are reviewing they are half the conversation.
+ * comments. Bots' are kept and marked, since the comment count includes them.
+ * Your own are left out unless `includeViewer` is set: on your own pull
+ * request they are not feedback for you, but on one you are reviewing they are
+ * half the conversation.
  */
 
 export type FeedbackEntry =
@@ -14,6 +15,8 @@ export type FeedbackEntry =
       kind: "review";
       author: string;
       avatarUrl: string;
+      /** Written by a bot, such as a CI or deploy report. */
+      bot?: boolean;
       state: "changes_requested" | "approved" | "commented";
       body: string;
       url: string;
@@ -23,6 +26,8 @@ export type FeedbackEntry =
       kind: "thread";
       author: string;
       avatarUrl: string;
+      /** Written by a bot, such as a CI or deploy report. */
+      bot?: boolean;
       path: string;
       /** The line on the current diff, or where it was before the code changed. */
       line: number | null;
@@ -42,6 +47,8 @@ export type FeedbackEntry =
       kind: "comment";
       author: string;
       avatarUrl: string;
+      /** Written by a bot, such as a CI or deploy report. */
+      bot?: boolean;
       body: string;
       url: string;
       at: number;
@@ -113,16 +120,16 @@ export interface FeedbackOptions {
   includeViewer?: boolean;
 }
 
-/** Not a bot, and not you unless asked for, with a login to show. */
+/** Not you unless asked for, with a login to show, and whether it is a bot. */
 function person(
   author: RawAuthor | null | undefined,
   viewer: string | undefined,
   includeViewer: boolean,
-): { login: string; avatarUrl: string } | null {
+): { login: string; avatarUrl: string; bot?: true } | null {
   const login = author?.login;
   if (!login || (login === viewer && !includeViewer)) return null;
-  if (author?.__typename === "Bot" || isBotLogin(login)) return null;
-  return { login, avatarUrl: author?.avatarUrl ?? "" };
+  const bot = author?.__typename === "Bot" || isBotLogin(login);
+  return { login, avatarUrl: author?.avatarUrl ?? "", ...(bot ? { bot: true } : {}) };
 }
 
 function time(iso: string | undefined): number {
@@ -158,6 +165,7 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
       kind: "review",
       author: who.login,
       avatarUrl: who.avatarUrl,
+      ...(who.bot ? { bot: true } : {}),
       state,
       body,
       url: review!.url ?? "",
@@ -183,6 +191,7 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
       kind: "thread",
       author: who.login,
       avatarUrl: who.avatarUrl,
+      ...(who.bot ? { bot: true } : {}),
       path: thread.path ?? "",
       line: thread.line ?? thread.originalLine ?? null,
       status,
@@ -200,7 +209,15 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
     const who = comment && person(comment.author, viewer, includeViewer);
     const body = comment?.bodyText?.trim();
     if (!who || !body) continue;
-    comments.push({ kind: "comment", author: who.login, avatarUrl: who.avatarUrl, body, url: comment!.url ?? "", at: time(comment!.createdAt) });
+    comments.push({
+      kind: "comment",
+      author: who.login,
+      avatarUrl: who.avatarUrl,
+      ...(who.bot ? { bot: true } : {}),
+      body,
+      url: comment!.url ?? "",
+      at: time(comment!.createdAt),
+    });
   }
   comments.sort((a, b) => a.at - b.at);
 

@@ -442,6 +442,15 @@ const FEEDBACK: FeedbackEntry[] = [
     at: now - 20 * HOUR,
   },
   {
+    kind: "comment",
+    author: "acme-ci",
+    avatarUrl: "",
+    bot: true,
+    body: "Preview deployed for 4f2c9e1.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 19 * HOUR,
+  },
+  {
     kind: "thread",
     author: "octocat",
     avatarUrl: avatarFor("octocat"),

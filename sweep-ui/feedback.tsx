@@ -6,8 +6,9 @@ import type { SweepLinkProps } from "./row";
 
 /**
  * The drawer a row's comment count opens: what people left on the pull
- * request, each entry a link to it on GitHub. The reviews and the threads
- * still open come first; resolved threads wait behind a toggle at the end.
+ * request, each entry a link to it on GitHub. Reviews, inline comments, and
+ * top-level comments each sit under their own heading. Resolved threads wait
+ * behind a toggle at the end, and bots' comments are marked and dimmed.
  */
 
 /** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. */
@@ -16,6 +17,7 @@ export type FeedbackEntry =
       kind: "review";
       author: string;
       avatarUrl: string;
+      bot?: boolean;
       state: "changes_requested" | "approved" | "commented";
       body: string;
       url: string;
@@ -25,6 +27,7 @@ export type FeedbackEntry =
       kind: "thread";
       author: string;
       avatarUrl: string;
+      bot?: boolean;
       path: string;
       line: number | null;
       status: "unanswered" | "replied" | "waiting" | "resolved";
@@ -38,6 +41,7 @@ export type FeedbackEntry =
       kind: "comment";
       author: string;
       avatarUrl: string;
+      bot?: boolean;
       body: string;
       url: string;
       at: number;
@@ -53,6 +57,7 @@ function Who({ entry }: { entry: FeedbackEntry }) {
         <img src={entry.avatarUrl} alt="" loading="lazy" onError={() => setFailed(true)} className="size-3.5 rounded-full bg-surface-selected" />
       ) : null}
       {entry.author}
+      {entry.bot ? <span className="rounded bg-surface-selected px-1 text-[10px] font-normal text-muted-foreground">bot</span> : null}
     </span>
   );
 }
@@ -98,7 +103,7 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
 }
 
 function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) => string; Link: ComponentType<SweepLinkProps> }) {
-  const quiet = entry.kind === "thread" && entry.status !== "unanswered";
+  const quiet = entry.bot || (entry.kind === "thread" && entry.status !== "unanswered");
   return (
     <li>
       <Link href={entry.url} className={cn("block rounded px-2 py-1.5 hover:bg-accent", quiet && "opacity-70")}>
@@ -123,19 +128,35 @@ export interface FeedbackListProps {
   Link: ComponentType<SweepLinkProps>;
 }
 
-/** The entries as they come, with resolved threads folded behind a toggle. */
+const SECTIONS = [
+  { kind: "review", title: "Reviews" },
+  { kind: "thread", title: "Inline comments" },
+  { kind: "comment", title: "Top-level comments" },
+] as const;
+
+/** The entries under a heading per kind, with resolved threads folded behind a toggle. */
 export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
   const [showResolved, setShowResolved] = useState(false);
   const resolved = entries.filter((entry) => entry.kind === "thread" && entry.status === "resolved");
   const shown = showResolved ? entries : entries.filter((entry) => !resolved.includes(entry));
+  const sections = SECTIONS.map((section) => ({ ...section, entries: shown.filter((entry) => entry.kind === section.kind) })).filter(
+    (section) => section.entries.length > 0,
+  );
   return (
     <>
-      {shown.length > 0 ? (
-        <ul className="-mx-2 space-y-0.5">
-          {shown.map((entry, index) => (
-            <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
+      {sections.length > 0 ? (
+        <div className="space-y-2">
+          {sections.map((section) => (
+            <section key={section.kind}>
+              <h4 className="text-[11px] font-medium text-muted-foreground">{section.title}</h4>
+              <ul className="-mx-2 space-y-0.5">
+                {section.entries.map((entry, index) => (
+                  <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       ) : (
         <p className="py-1 text-xs text-muted-foreground">Nothing open.</p>
       )}

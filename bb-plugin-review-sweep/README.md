@@ -172,16 +172,17 @@ comments count toward "N new". The Harvest clock, when the Harvest plugin is
 installed, sits at the right end of that line.
 
 Clicking the comment count opens what is on the pull request in a drawer under
-the action line, drawn the same way as PR Sweep's: reviews that requested
-changes first, then other reviews with something to say, then the inline
-threads still open, each with its file and line, then general comments.
+the action line, drawn the same way as PR Sweep's, under three headings:
+reviews, those that requested changes first; inline comments, the threads
+still open, each with its file and line; then top-level comments, the ones in
+the pull request's conversation.
 Resolved threads wait behind "N resolved" at the bottom. Unlike PR Sweep's,
 the drawer keeps your own reviews, threads, and comments, since on a pull
 request you are reviewing the author's answers to your threads are what you
 came back to read. A thread is "unanswered" when someone else spoke last,
 including the author answering one of yours; "waiting on a reply" when you
 started it and nobody has answered; and "you replied" when you spoke last.
-Bots' comments are left out. Each entry opens on GitHub, and its text is cut to
+Bots' comments are kept, dimmed with a "bot" label. Each entry opens on GitHub, and its text is cut to
 three lines. Opening the drawer makes one GitHub GraphQL request for that pull
 request, and none is made until you click; once it has read the comments, the
 row's "N new" clears. Clicking the count again closes it.

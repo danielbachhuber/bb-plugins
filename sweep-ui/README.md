@@ -70,7 +70,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `sweep-ui/pull-request` | What a pull request row draws: `PullRequestIcon` (green when open, muted for a draft), `ReviewerStack` (avatars with a badge per review state, and an optional `Tooltip`), `Avatar`, `ChecksBadge` (a tick, clock, or cross with a count, and every count on hover), and `DiffCount` ("+128 −12"). Also the `Reviewer`, `ReviewState`, and `ChecksSummary` types, and the pure `githubAvatar`, `checksGlyph`, and `checksLabel` |
 | `sweep-ui/stack-chip` | `StackChip`, a pull request's place in a stack of pull requests built on each other's branches: "3 of 4 · on #612", with the number linking to the one below, or "1 of 4 · base" |
 | `sweep-ui/actions` | `LINE_ACTION`, the class a row action is drawn with, and `CopyLinkAction`, which copies through the writer the plugin passes as `write` |
-| `sweep-ui/feedback` | `FeedbackDrawer`, which reads a pull request's comments when it mounts and draws them, a spinner while it reads, or the error; `FeedbackList`, the entries with resolved threads behind "N resolved"; and the `FeedbackEntry` type that `fetchFeedback` in `@danielb/gh-shared/gh` returns. Pass one from `renderComments` |
+| `sweep-ui/feedback` | `FeedbackDrawer`, which reads a pull request's comments when it mounts and draws them, a spinner while it reads, or the error; `FeedbackList`, the entries under Reviews, Inline comments, and Top-level comments headings, with resolved threads behind "N resolved" and bots' entries dimmed and labelled; and the `FeedbackEntry` type that `fetchFeedback` in `@danielb/gh-shared/gh` returns. Pass one from `renderComments` |
 | `sweep-ui/types` | `Tier`, `RunTone`, `Flag`, `Run`, `SweepItem`, and `Stage` |
 
 ## SweepList's props
