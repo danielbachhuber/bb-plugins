@@ -31,7 +31,8 @@ export function StartThreadDialog({
 }: {
   /** Null closes the dialog. */
   seed: ThreadSeed | null;
-  projectId: string;
+  /** Seeds the composer's project picker; null leaves the composer to choose. */
+  projectId: string | null;
   onClose: () => void;
   onSubmit: (seed: ThreadSeed, request: NewThreadRequest) => void;
 }) {
@@ -49,7 +50,7 @@ export function StartThreadDialog({
               </DialogDescription>
             </DialogHeader>
             <NewThreadComposer
-              defaultProjectId={projectId}
+              defaultProjectId={projectId ?? undefined}
               initialPrompt={promptFor(seed)}
               draftKey={`contributor-dashboard:${seed.kind}:${seed.number}`}
               onSubmit={(request) => onSubmit(seed, request)}

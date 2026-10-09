@@ -171,11 +171,12 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
-  // One dialog for the page, whichever list the row came from.
-  const dialog =
-    projectId === null ? null : (
-      <StartThreadDialog seed={seed} projectId={projectId} onClose={() => setSeed(null)} onSubmit={startThread} />
-    );
+  // One dialog for the page, whichever list the row came from. It opens with
+  // no project too: the composer has its own picker, and bb's panel reports no
+  // project when the page was opened from outside one.
+  const dialog = (
+    <StartThreadDialog seed={seed} projectId={projectId} onClose={() => setSeed(null)} onSubmit={startThread} />
+  );
   if (stage !== null) {
     return (
       <>
