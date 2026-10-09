@@ -1,36 +1,64 @@
-// The periods the page offers, and the weeks or months each is drawn in.
-// Times are local: a week starts at Monday midnight where the server runs.
+// What span the page is reading, and the days, weeks, or months it is drawn
+// in. Times are local: a week starts at Monday midnight where the server runs.
 
-export type PeriodId = "1w" | "3w" | "6w" | "12w" | "6m" | "1y";
+export type PresetId = "2w" | "6w" | "3m";
 
-export const PERIODS: ReadonlyArray<{ id: PeriodId; label: string }> = [
-  { id: "1w", label: "1 week" },
-  { id: "3w", label: "3 weeks" },
+export const PRESETS: ReadonlyArray<{ id: PresetId; label: string }> = [
+  { id: "2w", label: "2 weeks" },
   { id: "6w", label: "6 weeks" },
-  { id: "12w", label: "12 weeks" },
-  { id: "6m", label: "6 months" },
-  { id: "1y", label: "1 year" },
+  { id: "3m", label: "3 months" },
 ];
 
-export const DEFAULT_PERIOD: PeriodId = "6w";
+export const DEFAULT_PRESET: PresetId = "6w";
 
-/** The period's length as a sentence reads it: "over six weeks". */
-export const PERIOD_LENGTHS: Record<PeriodId, string> = {
-  "1w": "a week",
-  "3w": "three weeks",
-  "6w": "six weeks",
-  "12w": "twelve weeks",
-  "6m": "six months",
-  "1y": "a year",
+// A preset is a number of whole buckets ending with the one in progress, so
+// six weeks is six points rather than however many weeks forty-two days
+// happens to touch.
+const PRESET_SPANS: Record<PresetId, { unit: "day" | "week"; count: number; words: string }> = {
+  "2w": { unit: "day", count: 14, words: "two weeks" },
+  "6w": { unit: "week", count: 6, words: "six weeks" },
+  "3m": { unit: "week", count: 13, words: "three months" },
 };
 
-/** How far back the first sync reaches: the longest period and the one before it. */
+/** Either one of the buttons, or two dates someone picked. */
+export type Selection = { kind: "preset"; id: PresetId } | { kind: "custom"; from: number; to: number };
+
+export const DEFAULT_SELECTION: Selection = { kind: "preset", id: DEFAULT_PRESET };
+
+/** Inclusive start, exclusive end, epoch ms. */
+export interface Range {
+  from: number;
+  to: number;
+}
+
+/** How far back the first sync reaches: long enough for a year-long range and the one before it. */
 export const BACKFILL_MS = 2 * 366 * 24 * 3_600_000;
+
+const DAY_MS = 24 * 3_600_000;
+
+/** The span a selection asks for, with a preset measured back from now. */
+export function rangeOf(selection: Selection, now: number): Range {
+  if (selection.kind === "custom") return { from: selection.from, to: selection.to };
+  const { unit, count } = PRESET_SPANS[selection.id];
+  const from = unit === "day" ? startOfDay(now) : mondayOf(now);
+  if (unit === "day") from.setDate(from.getDate() - (count - 1));
+  else from.setDate(from.getDate() - (count - 1) * 7);
+  return { from: from.getTime(), to: now };
+}
+
+/** How a sentence names the span: "over six weeks", "over Sep 19 to Oct 9". */
+export function selectionWords(selection: Selection): string {
+  if (selection.kind === "preset") return PRESET_SPANS[selection.id].words;
+  const day = (at: number) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // The end is exclusive, so the last day a sentence should name is the one
+  // before it, which is also what the picker's own button says.
+  return `${day(selection.from)} to ${day(selection.to - 1)}`;
+}
 
 export interface Bucket {
   /** Inclusive, epoch ms. */
   start: number;
-  /** Exclusive, epoch ms. The last bucket ends now. */
+  /** Exclusive, epoch ms. The last bucket ends where the range does. */
   end: number;
   label: string;
 }
@@ -38,56 +66,57 @@ export interface Bucket {
 /** What one point on a chart counts. */
 export type BucketUnit = "day" | "week" | "month";
 
-// The short periods are drawn by day: a week split into weeks is a single
-// point, which no line can be drawn through.
-const SHAPE: Record<PeriodId, { unit: BucketUnit; count: number }> = {
-  "1w": { unit: "day", count: 7 },
-  "3w": { unit: "day", count: 21 },
-  "6w": { unit: "week", count: 6 },
-  "12w": { unit: "week", count: 12 },
-  "6m": { unit: "month", count: 6 },
-  "1y": { unit: "month", count: 12 },
-};
+// A chart wants somewhere between a handful and a few dozen points, so the
+// unit follows the span: about a month of days, about half a year of weeks,
+// months beyond that.
+const WEEKS_ABOVE_DAYS = 31;
+const MONTHS_ABOVE_WEEKS = 183;
 
-/** Whether the period's points are days, weeks, or months. */
-export const bucketUnitOf = (period: PeriodId): BucketUnit => SHAPE[period].unit;
+/** Whether the range's points are days, weeks, or months. */
+export function bucketUnitFor({ from, to }: Range): BucketUnit {
+  const days = Math.max(1, Math.round((to - from) / DAY_MS));
+  if (days <= WEEKS_ABOVE_DAYS) return "day";
+  if (days <= MONTHS_ABOVE_WEEKS) return "week";
+  return "month";
+}
 
-function startOfDay(now: number): Date {
-  const day = new Date(now);
+function startOfDay(at: number): Date {
+  const day = new Date(at);
   day.setHours(0, 0, 0, 0);
   return day;
 }
 
-function mondayOf(now: number): Date {
-  const day = new Date(now);
-  day.setHours(0, 0, 0, 0);
+function mondayOf(at: number): Date {
+  const day = startOfDay(at);
   // getDay(): Sunday is 0, so Sunday belongs to the week that began six days earlier.
   day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
   return day;
 }
 
-function firstOfMonth(now: number): Date {
-  const day = new Date(now);
-  day.setHours(0, 0, 0, 0);
+function firstOfMonth(at: number): Date {
+  const day = startOfDay(at);
   day.setDate(1);
   return day;
 }
 
-/** The period's buckets, oldest first, the last one running up to `now`. */
-export function bucketsFor(period: PeriodId, now: number): Bucket[] {
-  const { unit, count } = SHAPE[period];
+/**
+ * The range's buckets, oldest first, the last one ending where the range
+ * does. A bucket is a whole day, week, or month, so a range starting midweek
+ * is charted from that week's Monday rather than as a short first point.
+ */
+export function bucketsFor(range: Range, unit: BucketUnit = bucketUnitFor(range)): Bucket[] {
   const starts: Date[] = [];
-  const current = unit === "day" ? startOfDay(now) : unit === "week" ? mondayOf(now) : firstOfMonth(now);
-  for (let back = count - 1; back >= 0; back--) {
-    const start = new Date(current);
-    if (unit === "day") start.setDate(start.getDate() - back);
-    else if (unit === "week") start.setDate(start.getDate() - back * 7);
-    else start.setMonth(start.getMonth() - back);
-    starts.push(start);
+  const cursor = unit === "day" ? startOfDay(range.from) : unit === "week" ? mondayOf(range.from) : firstOfMonth(range.from);
+  while (cursor.getTime() < range.to) {
+    starts.push(new Date(cursor));
+    if (unit === "day") cursor.setDate(cursor.getDate() + 1);
+    else if (unit === "week") cursor.setDate(cursor.getDate() + 7);
+    else cursor.setMonth(cursor.getMonth() + 1);
   }
+  if (starts.length === 0) starts.push(startOfDay(range.from));
   return starts.map((start, index) => ({
     start: start.getTime(),
-    end: index + 1 < starts.length ? starts[index + 1].getTime() : now,
+    end: index + 1 < starts.length ? starts[index + 1].getTime() : range.to,
     label:
       unit === "month"
         ? start.toLocaleDateString("en-US", { month: "short" })
@@ -95,7 +124,18 @@ export function bucketsFor(period: PeriodId, now: number): Bucket[] {
   }));
 }
 
-/** The bucket `at` falls in, or -1 when it is outside the period. */
+/** The bucket `at` falls in, or -1 when it is outside the range. */
 export function bucketIndex(buckets: readonly Bucket[], at: number): number {
   return buckets.findIndex((bucket) => at >= bucket.start && at < bucket.end);
+}
+
+/**
+ * What the buckets a server sent are counting, read back from their own
+ * length so a page does not have to recompute the range to find out.
+ */
+export function unitOfBuckets(buckets: readonly Bucket[]): BucketUnit {
+  const first = buckets[0];
+  if (first === undefined) return "day";
+  const days = (first.end - first.start) / DAY_MS;
+  return days > 20 ? "month" : days > 3 ? "week" : "day";
 }

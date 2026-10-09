@@ -1,11 +1,11 @@
 // One person's page: their review lines full width, the pull requests waiting
 // on their review, and how their own pull requests fared. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
-import { bucketUnitOf, PERIODS, type PeriodId } from "@/dashboard/period";
+import { unitOfBuckets, type Selection } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
+import { PeriodPicker } from "./period-picker";
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
-import { Segmented } from "component-library/segmented";
 
 /**
  * A review that landed in 50 minutes is not "0.0d", so anything under a
@@ -52,8 +52,8 @@ function PullRequestLink({ number, title, url }: { number: number; title: string
 
 export function PersonView({
   login,
-  period,
-  onPeriod,
+  selection,
+  onSelect,
   data,
   error,
   onBack,
@@ -61,8 +61,8 @@ export function PersonView({
   now = Date.now(),
 }: {
   login: string;
-  period: PeriodId;
-  onPeriod: (period: PeriodId) => void;
+  selection: Selection;
+  onSelect: (selection: Selection) => void;
   data: PersonActivityResult | null;
   error: string | null;
   onBack: () => void;
@@ -96,7 +96,7 @@ export function PersonView({
             </h1>
             {data?.repository ? <span className="text-xs text-muted-foreground">{data.repository}</span> : null}
           </div>
-          <Segmented label="Period" options={PERIODS} value={period} onChange={onPeriod} />
+          <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>
 
         {message === null ? null : (
@@ -123,7 +123,7 @@ export function PersonView({
                     series={REVIEW_SERIES}
                     buckets={data.buckets}
                     max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
-                    unit={bucketUnitOf(period)}
+                    unit={unitOfBuckets(data.buckets)}
                   />
                 </div>
               )}

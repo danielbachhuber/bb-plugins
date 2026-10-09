@@ -1,5 +1,5 @@
 // bb-plugin-contributor-dashboard — the Contributor Dashboard page.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { definePluginApp, useBbNavigate, useRpc, useRealtime, type PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 
 import { SyncStatus as SyncStatusBar } from "component-library/sync-status";
@@ -18,7 +18,8 @@ import {
   type StageKey,
   type SyncStatus,
 } from "./dashboard/contract.js";
-import { DEFAULT_PERIOD, PERIOD_LENGTHS, type PeriodId } from "./dashboard/period.js";
+import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
+import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
 
 const PANEL_PATH = "contributor-dashboard";
 
@@ -88,30 +89,34 @@ function SyncHeader() {
 function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
-  const [period, setPeriod] = useState<PeriodId>(DEFAULT_PERIOD);
+  const [selection, setSelection] = useState<Selection>(rememberedSelection);
   const [authoredPage, setAuthoredPage] = useState(0);
   const [waitingPage, setWaitingPage] = useState(0);
-  // A shorter period has fewer pages; the server clamps, and this follows it
+  // A shorter span has fewer pages; the server clamps, and this follows it
   // back to the first page rather than leaving a stale number in hand.
-  const choosePeriod = useCallback((next: PeriodId) => {
+  const choose = useCallback((next: Selection) => {
     setAuthoredPage(0);
     setWaitingPage(0);
-    setPeriod(next);
+    setSelection(next);
+    rememberSelection(next);
   }, []);
+  // A preset is measured from now, so it is resolved once per choice rather
+  // than on every render, which would reload the page on every render too.
+  const range = useMemo(() => rangeOf(selection, Date.now()), [selection]);
   const login = personFrom(subPath);
   const stage = stageFrom(subPath);
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
-    () => (login === null && stage === null ? rpc.call("people_activity", { period }) : Promise.resolve(null)),
-    [rpc, period, login, stage],
+    () => (login === null && stage === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
+    [rpc, range, login, stage],
   );
   const stageDetail = useDashboardData<StageDetailResult | null>(
-    () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, period, waitingPage })),
-    [rpc, period, stage, waitingPage],
+    () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage })),
+    [rpc, range, stage, waitingPage],
   );
   const person = useDashboardData<PersonActivityResult | null>(
-    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, period, authoredPage })),
-    [rpc, period, login, authoredPage],
+    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, range, authoredPage })),
+    [rpc, range, login, authoredPage],
   );
 
   const openPerson = useCallback(
@@ -132,13 +137,13 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   if (stage !== null) {
     return (
       <StageView
-        period={period}
-        onPeriod={choosePeriod}
+        selection={selection}
+        onSelect={choose}
         data={stageDetail.data}
         error={stageDetail.error}
         onBack={back}
         onWaitingPage={setWaitingPage}
-        periodLabel={PERIOD_LENGTHS[period]}
+        periodLabel={selectionWords(selection)}
       />
     );
   }
@@ -146,8 +151,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     return (
       <PersonView
         login={login}
-        period={period}
-        onPeriod={choosePeriod}
+        selection={selection}
+        onSelect={choose}
         data={person.data}
         error={person.error}
         onBack={back}
@@ -157,8 +162,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   }
   return (
     <DashboardView
-      period={period}
-      onPeriod={choosePeriod}
+      selection={selection}
+      onSelect={choose}
       data={dashboard.data}
       error={dashboard.error}
       onOpenPerson={openPerson}

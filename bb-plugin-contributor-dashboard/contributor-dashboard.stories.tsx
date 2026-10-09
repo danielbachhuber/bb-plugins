@@ -5,7 +5,7 @@ import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import type { PeopleActivityResult, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
-import { bucketsFor, PERIOD_LENGTHS, type PeriodId } from "./dashboard/period";
+import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 
 export default {
   title: "contributor-dashboard/Page",
@@ -141,16 +141,16 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   },
 ];
 
-function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityResult {
-  const buckets = bucketsFor(period, NOW);
-  // A longer period holds more of everything, so the totals scale with it.
-  const scale: Record<PeriodId, number> = { "1w": 1 / 6, "3w": 0.5, "6w": 1, "12w": 2, "6m": 4.3, "1y": 8.7 };
+function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivityResult {
+  const buckets = bucketsFor(rangeOf(selection, NOW));
+  // A longer span holds more of everything, so the totals scale with it.
+  const scale: Record<PresetId, number> = { "2w": 1 / 3, "6w": 1, "3m": 2.2 };
   const totals = PEOPLE.map((person, p) => ({
     ...person,
-    opened: Math.round(person.opened * scale[period]),
-    merged: Math.round(person.merged * scale[period]),
-    requested: Math.round(person.requested * scale[period]),
-    given: Math.round(person.given * scale[period]),
+    opened: Math.round(person.opened * scale[selection.kind === "preset" ? selection.id : "6w"]),
+    merged: Math.round(person.merged * scale[selection.kind === "preset" ? selection.id : "6w"]),
+    requested: Math.round(person.requested * scale[selection.kind === "preset" ? selection.id : "6w"]),
+    given: Math.round(person.given * scale[selection.kind === "preset" ? selection.id : "6w"]),
     seed: p,
   }));
   const people = totals.map(({ login, requested, given, seed }) => {
@@ -186,13 +186,21 @@ function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityRes
   };
 }
 
-function Page({ initial = "6w", sync, initialHovered }: { initial?: PeriodId; sync?: SyncStatus; initialHovered?: number }) {
-  const [period, setPeriod] = useState<PeriodId>(initial);
+function Page({
+  initial = { kind: "preset", id: "6w" },
+  sync,
+  initialHovered,
+}: {
+  initial?: Selection;
+  sync?: SyncStatus;
+  initialHovered?: number;
+}) {
+  const [selection, setSelection] = useState<Selection>(initial);
   return (
     <DashboardView
-      period={period}
-      onPeriod={setPeriod}
-      data={fixture(period, sync)}
+      selection={selection}
+      onSelect={setSelection}
+      data={fixture(selection, sync)}
       error={null}
       onOpenPerson={() => undefined}
       onOpenStage={() => undefined}
@@ -208,11 +216,16 @@ export const SixWeeks = () => <Page />;
 /** Hovering a week shows that week's counts for the person hovered. */
 export const SixWeeksHovered = () => <Page initialHovered={3} />;
 
-/** A year, drawn by month. */
-export const OneYear = () => <Page initial="1y" />;
+/** Three months, the longest preset, drawn by week. */
+export const ThreeMonths = () => <Page initial={{ kind: "preset", id: "3m" }} />;
 
-/** One week, drawn by day: the shortest period the picker offers. */
-export const OneWeek = () => <Page initial="1w" />;
+/** Two weeks, drawn by day: the shortest preset. */
+export const TwoWeeks = () => <Page initial={{ kind: "preset", id: "2w" }} />;
+
+/** A range someone picked, which no preset covers: a quarter drawn by week, with the dates on the button. */
+export const CustomRange = () => (
+  <Page initial={{ kind: "custom", from: new Date(2026, 5, 1).getTime(), to: new Date(2026, 8, 1).getTime() }} />
+);
 
 /** The first sync, still reaching back two years; the charts fill in as pages arrive. */
 export const FirstSync = () => (
@@ -222,8 +235,8 @@ export const FirstSync = () => (
 /** Before a repository is set. */
 export const NoRepository = () => (
   <DashboardView
-    period="6w"
-    onPeriod={() => undefined}
+    selection={{ kind: "preset", id: "6w" }}
+    onSelect={() => undefined}
     data={{ repository: null, buckets: [], stages: [], authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
@@ -260,25 +273,25 @@ function manyAuthored(total: number) {
 }
 
 function Person({
-  initial = "6w",
+  initial = { kind: "preset", id: "6w" },
   awaiting = AWAITING,
   authored = AUTHORED,
   login = "octocat",
 }: {
-  initial?: PeriodId;
+  initial?: Selection;
   awaiting?: typeof AWAITING;
   authored?: typeof AUTHORED;
   login?: string;
 }) {
-  const [period, setPeriod] = useState<PeriodId>(initial);
+  const [selection, setSelection] = useState<Selection>(initial);
   const [authoredPage, setAuthoredPage] = useState(0);
-  const page = fixture(period);
+  const page = fixture(selection);
   const paging = pageOf(authored.length, authoredPage);
   return (
     <PersonView
       login={login}
-      period={period}
-      onPeriod={setPeriod}
+      selection={selection}
+      onSelect={setSelection}
       data={{
         repository: "acme/widgets",
         login,
@@ -355,7 +368,7 @@ const WAITING_NOW = [
 ];
 
 function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): StageDetailResult {
-  const buckets = bucketsFor("6w", NOW);
+  const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW));
   const counts = [34, 92, 51, 84, 97, 128];
   const medians = [0.7, 0.9, 0.9, 0.3, 0.1, 0.4];
   const p90s = [2.8, 4.4, 3.1, 1.8, 1.7, 2.3];
@@ -396,16 +409,16 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
 }
 
 function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
-  const [period, setPeriod] = useState<PeriodId>("6w");
+  const [selection, setSelection] = useState<Selection>({ kind: "preset", id: "6w" });
   return (
     <StageView
-      period={period}
-      onPeriod={setPeriod}
+      selection={selection}
+      onSelect={setSelection}
       data={data}
       error={null}
       onBack={() => undefined}
       onWaitingPage={() => undefined}
-      periodLabel={PERIOD_LENGTHS[period]}
+      periodLabel={selectionWords(selection)}
       now={NOW}
     />
   );

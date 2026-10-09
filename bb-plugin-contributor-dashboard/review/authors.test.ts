@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { PullRequestWithActivity } from "../mirror/github";
-import { bucketsFor } from "../dashboard/period";
+import { bucketsFor, rangeOf } from "../dashboard/period";
 import { authorActivity } from "./authors";
 
 const NOW = Date.parse("2026-10-07T15:00:00Z"); // a Wednesday
-const buckets = bucketsFor("6w", NOW); // weeks starting Aug 31 … Oct 5
+const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW)); // weeks starting Aug 31 … Oct 5
 
 function pr(fields: Partial<PullRequestWithActivity> & { createdAt: string }): PullRequestWithActivity {
   return {

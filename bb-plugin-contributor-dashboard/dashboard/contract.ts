@@ -5,7 +5,8 @@ import { z } from "zod";
 /** Published while a sync stores pages and when it finishes; the open dashboard re-reads. */
 export const DASHBOARD_CHANNEL = "dashboard-changed";
 
-export const periodSchema = z.enum(["1w", "3w", "6w", "12w", "6m", "1y"]);
+/** The span a page is reading: inclusive start, exclusive end, epoch ms. */
+export const rangeSchema = z.object({ from: z.number(), to: z.number() });
 
 export const bucketSchema = z.object({ start: z.number(), end: z.number(), label: z.string() });
 
@@ -91,7 +92,7 @@ export const syncStatusSchema = z.object({
 
 export const rpcContract = defineRpcContract({
   people_activity: {
-    input: z.object({ period: periodSchema }),
+    input: z.object({ range: rangeSchema }),
     output: z.object({
       /** The configured repository, or null when it has not been set. */
       repository: z.string().nullable(),
@@ -106,7 +107,7 @@ export const rpcContract = defineRpcContract({
     // A login is GitHub's own, so it is bounded and has no path separators.
     input: z.object({
       login: z.string().min(1).max(100),
-      period: periodSchema,
+      range: rangeSchema,
       /** Which page of their pull requests; clamped into range by the server. */
       authoredPage: z.number().int().min(0).max(10_000).default(0),
     }),
@@ -133,7 +134,7 @@ export const rpcContract = defineRpcContract({
   stage_detail: {
     input: z.object({
       stage: stageKeySchema,
-      period: periodSchema,
+      range: rangeSchema,
       /** Which page of what is waiting; clamped into range by the server. */
       waitingPage: z.number().int().min(0).max(10_000).default(0),
     }),

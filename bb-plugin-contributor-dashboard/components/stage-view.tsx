@@ -1,10 +1,10 @@
 // One stage's page: what it measures, how long it took and how long the queue
 // has waited, what is in it now, and how the two move across the period.
 import type { StageDetailResult } from "@/dashboard/contract";
-import { bucketUnitOf, PERIODS, type PeriodId } from "@/dashboard/period";
+import { unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
-import { Segmented } from "component-library/segmented";
+import { PeriodPicker } from "./period-picker";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const DONE = "bg-[#1baf7a] dark:bg-[#199e70]";
@@ -133,8 +133,8 @@ function ago(iso: string, now: number): string {
 }
 
 export function StageView({
-  period,
-  onPeriod,
+  selection,
+  onSelect,
   data,
   error,
   onBack,
@@ -142,8 +142,8 @@ export function StageView({
   periodLabel,
   now = Date.now(),
 }: {
-  period: PeriodId;
-  onPeriod: (period: PeriodId) => void;
+  selection: Selection;
+  onSelect: (selection: Selection) => void;
   data: StageDetailResult | null;
   error: string | null;
   onBack: () => void;
@@ -152,7 +152,7 @@ export function StageView({
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
-  const unit = bucketUnitOf(period);
+  const unit = unitOfBuckets(data?.buckets ?? []);
   const stage = data === null ? null : data.stage;
   const paging = data === null ? null : data.waitingPaging;
 
@@ -171,7 +171,7 @@ export function StageView({
             <h1 className="text-sm font-medium">{stage?.label ?? ""}</h1>
             {data?.repository ? <span className="text-xs text-muted-foreground">{data.repository}</span> : null}
           </div>
-          <Segmented label="Period" options={PERIODS} value={period} onChange={onPeriod} />
+          <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>
 
         {message === null ? null : (
@@ -183,7 +183,7 @@ export function StageView({
         {stage === null || data === null || paging === null ? null : (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
-              {sentence(stage.measures)}. <span className="tabular-nums text-foreground">{stage.left}</span> left this stage in{" "}
+              {sentence(stage.measures)}. <span className="tabular-nums text-foreground">{stage.left}</span> left this stage over{" "}
               {periodLabel}, <span className="tabular-nums text-foreground">{stage.waiting}</span> still in it. Half
               within {days(stage.median)}; 1 in 4 over {days(stage.p75)}, 1 in 10 over {days(stage.p90)}.
             </p>

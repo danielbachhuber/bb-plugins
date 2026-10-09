@@ -95,14 +95,14 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
-    people_activity: ({ period }) => {
+    people_activity: ({ range }) => {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
       const now = Date.now();
-      const buckets = bucketsFor(period, now);
+      const buckets = bucketsFor(range);
       // A stage's queue is what is in it now, whatever the period, so the
       // stages read every stored pull request rather than only the period's.
       const prs = store.readActivity(repository, 0);
@@ -117,7 +117,7 @@ export default async function plugin(bb: BbPluginApi) {
         sync: status(),
       };
     },
-    person_activity: ({ login, period, authoredPage }) => {
+    person_activity: ({ login, range, authoredPage }) => {
       const noPaging = { page: 0, pages: 1, from: 0, to: 0, total: 0 };
       if (!configured) {
         return {
@@ -134,7 +134,7 @@ export default async function plugin(bb: BbPluginApi) {
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
       const now = Date.now();
-      const buckets = bucketsFor(period, now);
+      const buckets = bucketsFor(range);
       const prs = store.readActivity(repository, buckets[0].start);
       const authored = authoredPullRequests(prs, login, buckets[0].start, now);
       const paging = pageOf(authored.length, authoredPage);
@@ -151,9 +151,9 @@ export default async function plugin(bb: BbPluginApi) {
         sync: status(),
       };
     },
-    stage_detail: ({ stage, period, waitingPage }) => {
+    stage_detail: ({ stage, range, waitingPage }) => {
       const now = Date.now();
-      const buckets = configured ? bucketsFor(period, now) : [];
+      const buckets = configured ? bucketsFor(range) : [];
       const detail = stageDetail(
         stage,
         configured

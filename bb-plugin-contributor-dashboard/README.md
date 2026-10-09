@@ -8,12 +8,16 @@ repository's pull requests, reviews, and issues.
 
 The panel's title bar says when the mirror last synced and has the **Sync**
 button, where bb's other plugins put theirs. The top of the page itself names
-the repository and has the period picker, which every section follows: 1 week,
-3 weeks, 6 weeks (the default), 12 weeks, 6 months, and 1 year. While the
-first sync is still reaching back two years, the page says how far it has got.
-A chart has one point per bucket, and how long a bucket is follows the period:
-1 week and 3 weeks are drawn by day, 6 weeks and 12 weeks by week starting on
-Monday, and 6 months and a year by month.
+the repository and has the span picker, which every section follows: 2 weeks,
+6 weeks (the default), 3 months, and a date range for the question the presets
+do not answer. The range offers the two years the mirror reaches back and
+nothing later than today, and whatever is chosen is remembered for next time.
+While the first sync is still reaching back, the page says how far it has got.
+
+A chart has one point per bucket, and how long a bucket is follows the span: a
+month or less is drawn by day, up to half a year by week starting on Monday,
+and anything longer by month. A bucket is always whole, so a range starting
+midweek is charted from that week's Monday.
 
 ### Identify → Define → Execute → Verify → Release
 
@@ -213,7 +217,7 @@ needs no new sync.
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
 | `review/business-time.ts` | Elapsed time with weekends left out |
-| `dashboard/period.ts` | The periods, and the days, weeks or months each is drawn in |
+| `dashboard/period.ts` | The presets, the range each resolves to, and the days, weeks or months it is drawn in |
 | `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
@@ -222,10 +226,12 @@ needs no new sync.
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
+| `components/period-picker.tsx` | The presets and the date range, which every page shares |
+| `dashboard/remember.ts` | The chosen span, kept across opens |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, one week drawn by day, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
 
 ## Working on it
 

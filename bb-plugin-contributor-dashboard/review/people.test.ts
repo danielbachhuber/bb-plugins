@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "../mirror/github";
-import { bucketsFor } from "../dashboard/period";
+import { bucketsFor, rangeOf } from "../dashboard/period";
 import { peopleActivity } from "./people";
 
 const NOW = Date.parse("2026-10-07T15:00:00Z"); // a Wednesday
-const buckets = bucketsFor("6w", NOW); // weeks starting Aug 31 … Oct 5
+const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW)); // weeks starting Aug 31 … Oct 5
 
 function review(login: string, submittedAt: string, state: PullRequestReview["state"] = "APPROVED", typename = "User"): PullRequestReview {
   return { id: `R_${login}_${submittedAt}`, state, submittedAt, createdAt: submittedAt, author: { __typename: typename, login } };

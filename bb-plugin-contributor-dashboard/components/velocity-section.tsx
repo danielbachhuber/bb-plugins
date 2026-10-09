@@ -2,7 +2,7 @@
 // quiet tail as rows of names and counts until Show all opens them.
 import { useState } from "react";
 
-import { bucketUnitOf, type Bucket, type PeriodId } from "@/dashboard/period";
+import type { Bucket, BucketUnit } from "@/dashboard/period";
 import { foldRows, type VelocityRow } from "@/review/velocity";
 
 import { PersonChart, SeriesLegend, type SeriesPair } from "./person-chart";
@@ -15,7 +15,7 @@ export function VelocitySection({
   rows,
   series,
   buckets,
-  period,
+  unit,
   emptyNote,
   initialHovered,
   showAll: initialShowAll = false,
@@ -28,7 +28,8 @@ export function VelocitySection({
   rows: readonly VelocityRow[];
   series: SeriesPair;
   buckets: readonly Bucket[];
-  period: PeriodId;
+  /** What one point counts, which names the peak and the fold. */
+  unit: BucketUnit;
   /** What to say when nobody did anything in the period. */
   emptyNote: string;
   initialHovered?: number;
@@ -38,7 +39,6 @@ export function VelocitySection({
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
   const { charted, folded, max } = foldRows(rows);
-  const unit = bucketUnitOf(period);
   const cards = showAll ? [...charted, ...folded] : charted;
 
   return (

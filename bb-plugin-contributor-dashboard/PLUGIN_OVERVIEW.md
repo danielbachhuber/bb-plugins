@@ -1,11 +1,11 @@
 ## What you get
 
 A **Contributor Dashboard** page in the sidebar about how people contribute to
-one GitHub repository, over 1 week, 3 weeks, 6 weeks, 12 weeks, 6 months, or a
-year. **PR velocity** charts for each person the pull requests they opened and
-the ones that merged, and **Review velocity** charts the reviews requested of
-them and the reviews they gave. The short periods are drawn by day, 6 and 12
-weeks by week, and the long ones by month. Clicking a name opens that
+one GitHub repository, over 2 weeks, 6 weeks, 3 months, or any range of dates
+you pick. **PR velocity** charts for each person the pull requests they opened
+and the ones that merged, and **Review velocity** charts the reviews requested
+of them and the reviews they gave. A short span is drawn by day, a medium one
+by week, and a long one by month. Clicking a name opens that
 person's page: their review lines, the pull requests waiting on their review,
 and how their own pull requests fared in review.
 

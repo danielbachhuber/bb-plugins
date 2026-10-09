@@ -1,6 +1,6 @@
 import { VelocitySection } from "./components/velocity-section";
 import { AUTHOR_SERIES } from "./components/person-chart";
-import { bucketsFor } from "./dashboard/period";
+import { bucketsFor, rangeOf, unitOfBuckets } from "./dashboard/period";
 import type { VelocityRow } from "./review/velocity";
 
 export default {
@@ -8,7 +8,7 @@ export default {
 };
 
 const NOW = new Date(2026, 9, 7, 14, 20).getTime();
-const buckets = bucketsFor("6w", NOW);
+const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW));
 
 /** Invented, with a real repository's skew: three people and a long tail. */
 const TOTALS: Array<[string, number, number]> = [
@@ -58,7 +58,7 @@ function Section({ showAll }: { showAll?: boolean }) {
         rows={ROWS}
         series={AUTHOR_SERIES}
         buckets={buckets}
-        period="6w"
+        unit={unitOfBuckets(buckets)}
         emptyNote="No pull requests opened or merged in this period."
         showAll={showAll}
         onOpenPerson={() => undefined}
@@ -84,7 +84,7 @@ export const Empty = () => (
       rows={[]}
       series={AUTHOR_SERIES}
       buckets={buckets}
-      period="6w"
+      unit={unitOfBuckets(buckets)}
       emptyNote="No pull requests opened or merged in this period."
       onOpenPerson={() => undefined}
     />

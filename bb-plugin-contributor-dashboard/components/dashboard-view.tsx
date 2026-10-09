@@ -1,13 +1,13 @@
 // The Contributor Dashboard page: the repository, period picker, and sync line
 // every section shares, then each section. Display only; app.tsx loads the data.
 import type { PeopleActivityResult, StageKey, SyncStatus } from "@/dashboard/contract";
-import { bucketUnitOf, PERIODS, PERIOD_LENGTHS, type PeriodId } from "@/dashboard/period";
+import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
+import { PeriodPicker } from "./period-picker";
 import { StageFlowSection } from "./stage-flow";
-import { Segmented } from "component-library/segmented";
 import { VelocitySection } from "./velocity-section";
 
 /**
@@ -23,8 +23,8 @@ function backfillLine(sync: SyncStatus): string | null {
 }
 
 export function DashboardView({
-  period,
-  onPeriod,
+  selection,
+  onSelect,
   data,
   error,
   onOpenPerson,
@@ -32,8 +32,8 @@ export function DashboardView({
   now = Date.now(),
   initialHovered,
 }: {
-  period: PeriodId;
-  onPeriod: (period: PeriodId) => void;
+  selection: Selection;
+  onSelect: (selection: Selection) => void;
   data: PeopleActivityResult | null;
   /** Loading the page failed. */
   error: string | null;
@@ -54,7 +54,7 @@ export function DashboardView({
             {data?.repository ? <span className="text-sm font-medium text-foreground">{data.repository}</span> : null}
             {backfill === null ? null : <span role="status">{backfill}</span>}
           </div>
-          <Segmented label="Period" options={PERIODS} value={period} onChange={onPeriod} />
+          <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>
 
         {data !== null && data.repository === null ? (
@@ -77,8 +77,8 @@ export function DashboardView({
         {data === null || data.repository === null ? null : (
           <StageFlowSection
             stages={data.stages}
-            periodLabel={PERIOD_LENGTHS[period]}
-            unit={bucketUnitOf(period)}
+            periodLabel={selectionWords(selection)}
+            unit={unitOfBuckets(data.buckets)}
             onOpenStage={onOpenStage}
           />
         )}
@@ -93,7 +93,7 @@ export function DashboardView({
               rows={data.authors.map(authorRow)}
               series={AUTHOR_SERIES}
               buckets={data.buckets}
-              period={period}
+              unit={unitOfBuckets(data.buckets)}
               emptyNote={
                 data.sync.running
                   ? "Nothing in this period yet. The sync is still running."
@@ -110,7 +110,7 @@ export function DashboardView({
               rows={data.people.map(reviewerRow)}
               series={REVIEW_SERIES}
               buckets={data.buckets}
-              period={period}
+              unit={unitOfBuckets(data.buckets)}
               emptyNote={
                 data.sync.running
                   ? "Nothing in this period yet. The sync is still running."
