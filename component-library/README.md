@@ -14,6 +14,8 @@ what not to do with it.
 | [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
 | [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
+| [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
+| [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -159,6 +161,53 @@ Now, Tokenomics, and Contributor Dashboard use it.
 
 **Don't** use it for more than about five options, or for options whose
 labels need more than a word or two. A select fits those better.
+
+## Calendar
+
+```tsx
+import { Calendar } from "component-library/calendar";
+
+<Calendar mode="range" numberOfMonths={2} selected={range} onSelect={setRange} />
+```
+
+A month grid over `react-day-picker`, with bb's own class names so it looks
+like the calendar in bb rather than like a plugin's own. bb's copy lives in
+`packages/shared-ui` in the bb repository, which is private to it, and the
+plugin SDK exports no calendar, so this is the nearest a plugin can get.
+
+**Props** are react-day-picker's: `mode`, `selected`, `onSelect`,
+`numberOfMonths`, `disabled`, `defaultMonth`. It takes the component's whole
+API rather than wrapping a smaller one, because what a page needs from a
+calendar varies more than a wrapper could guess.
+
+**Don't** reach for it directly to pick a span of days: [Date
+range](#date-range) already draws the button, the panel, and Apply around it.
+
+## Date range
+
+```tsx
+import { DateRange, type DayRange } from "component-library/date-range";
+
+<DateRange value={range} onChange={setRange} earliest={twoYearsAgo} latest={Date.now()} />
+```
+
+A button that reads `Sep 19 to Oct 9`, or a placeholder when nothing is
+picked, opening two months of calendar with Cancel and Apply. It closes on
+Escape, on a click outside, and on Apply. `earliest` and `latest` grey out the
+days there is nothing to show for.
+
+**Whole days.** `value` and `onChange` use `{ from, to }` in epoch
+milliseconds, where `from` is midnight on the first day and `to` is midnight
+on the day after the last. A caller can hand `to` straight to a range query
+without adding a day to it, and the button still names the last day someone
+actually chose. `dayRangeLabel` is exported for a caller that wants the same
+wording elsewhere.
+
+Contributor Dashboard uses it, beside the presets rather than instead of them.
+
+**Don't** use it as the only way to choose a span. Picking two dates is slower
+than pressing a button, so offer the spans people ask for most as presets and
+keep this for the rest.
 
 ## Working on it
 
