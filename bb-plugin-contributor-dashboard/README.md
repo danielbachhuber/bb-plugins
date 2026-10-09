@@ -11,7 +11,8 @@ button, where bb's other plugins put theirs. The top of the page itself names
 the repository and has the span picker, which every section follows: 2 weeks,
 6 weeks (the default), 3 months, and a date range for the question the presets
 do not answer. The range offers the two years the mirror reaches back and
-nothing later than today, and whatever is chosen is remembered for next time.
+nothing later than today, the cross beside the dates drops it back to 6 weeks,
+and whatever is chosen is remembered for next time.
 While the first sync is still reaching back, the page says how far it has got.
 
 A chart has one point per bucket, and how long a bucket is follows the span: a
