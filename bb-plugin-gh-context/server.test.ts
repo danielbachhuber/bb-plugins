@@ -35,7 +35,6 @@ async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived
         },
         list: async () => [],
         archive: async () => makeThreadResponse({ id: "thr_one" }),
-        unarchive: async () => makeThreadResponse({ id: "thr_one" }),
       },
       environments: {
         get: async () => ({ id: "env_one", path: null, defaultBranch: "main", mergeBaseBranch: null }),
@@ -229,12 +228,6 @@ describe("actions", () => {
     const { harness } = await setup({ pullRequest: true });
     await harness.behavior.callRpc("archiveThread", { threadId: "thr_one" });
     expect(harness.inspection.sdk.callsTo("threads.archive")[0]![0]).toEqual({ threadId: "thr_one" });
-  });
-
-  it("unarchives through bb", async () => {
-    const { harness } = await setup({ archived: true });
-    await harness.behavior.callRpc("unarchiveThread", { threadId: "thr_one" });
-    expect(harness.inspection.sdk.callsTo("threads.unarchive")[0]![0]).toEqual({ threadId: "thr_one" });
   });
 });
 

@@ -104,6 +104,14 @@ describe("banner", () => {
     );
     expect(slot.container.querySelector(".rounded-lg")).toBeNull();
   });
+
+  it("draws nothing for an archived thread, leaving bb's archived row", async () => {
+    const slot = render(context({ archived: true, pullRequest: null }));
+    await waitFor(() => expect(slot.inspection.rpcCalls.length).toBeGreaterThan(0));
+    await waitFor(() => expect(slot.queryByRole("status", { name: "Loading thread context" })).toBeNull());
+    expect(slot.container.querySelector(".rounded-lg")).toBeNull();
+    expect(slot.queryByText("Thread is archived")).toBeNull();
+  });
 });
 
 describe("loading", () => {

@@ -172,7 +172,6 @@ function Banner() {
       }
       onMarkReady={() => void act("Mark ready", () => rpc.call("markPullRequestReady", { threadId }))}
       onArchive={() => void act("Archive", () => rpc.call("archiveThread", { threadId }))}
-      onUnarchive={() => void act("Unarchive", () => rpc.call("unarchiveThread", { threadId }))}
     />
   );
 }

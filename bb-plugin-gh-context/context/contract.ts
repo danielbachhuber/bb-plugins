@@ -149,7 +149,6 @@ export const rpcContract = defineRpcContract({
   },
   markPullRequestReady: { input: threadInput, output: z.null() },
   archiveThread: { input: threadInput, output: z.null() },
-  unarchiveThread: { input: threadInput, output: z.null() },
 
   /**
    * The links bridge's methods (`bb-plugin-gh-context/links`), for the sweeps.

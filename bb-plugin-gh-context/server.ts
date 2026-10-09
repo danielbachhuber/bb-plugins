@@ -403,11 +403,6 @@ export default async function plugin(bb: BbPluginApi) {
       return null;
     },
 
-    async unarchiveThread({ threadId }) {
-      await bb.sdk.threads.unarchive({ threadId });
-      publish(threadId);
-      return null;
-    },
 
     linkThread({ threadId, repo, kind, number, source }) {
       store.link({ threadId, repo, kind, number, source, createdAt: Date.now() });

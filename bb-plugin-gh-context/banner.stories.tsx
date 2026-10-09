@@ -255,7 +255,6 @@ function OurBanner({
         onMerge={noop}
         onMarkReady={noop}
         onArchive={noop}
-        onUnarchive={noop}
         onOpenChanges={noop}
       />
     </PromptStage>
@@ -335,9 +334,6 @@ export function States() {
       </StoryRow>
       <StoryRow label="uncommitted changes" hint="Before the first commit.">
         <Pair value={context({ changes: { label: "Uncommitted", files: 3, insertions: 42, deletions: 7 } })} harvest={false} />
-      </StoryRow>
-      <StoryRow label="archived" hint="Replaces everything else, with Unarchive.">
-        <Pair value={context({ archived: true })} />
       </StoryRow>
       <StoryRow label="nothing to show" hint="Renders nothing, not an empty card. bb's banner still hides.">
         <Pair value={context()} harvest={false} />

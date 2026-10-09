@@ -51,7 +51,7 @@ before its banner has been drawn.
 
 Once the pull request has merged, the banner suggests **Archive thread** in
 place of the merge button, since the thread's work is done. An archived thread
-shows Unarchive instead.
+shows only bb's own archived row.
 
 When you are a reviewer, the pull request's label says where your review
 stands: "Review requested" before your first review, whether the request named

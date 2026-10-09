@@ -293,7 +293,6 @@ export interface ContextBannerProps {
    * your review is in and nobody has asked for another.
    */
   onArchive?: () => void;
-  onUnarchive?: () => void;
   onOpenChanges?: () => void;
   /**
    * A hidden element inside the banner's root, for a caller that measures the
@@ -311,7 +310,6 @@ export function ContextBanner({
   onMerge,
   onMarkReady,
   onArchive,
-  onUnarchive,
   onOpenChanges,
   measureRef,
 }: ContextBannerProps) {
@@ -330,21 +328,8 @@ export function ContextBanner({
   if (context === null) {
     body = <LoadingRow compact={compact} />;
   } else if (context.archived) {
-    body = (
-      <div className={ROW_CLASS}>
-        <div className={cn(SEGMENT_CLASS, "hover:bg-transparent")} role="status">
-          <Icon name="Archive" className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="truncate">Thread is archived</span>
-        </div>
-        {onUnarchive ? (
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 pr-1">
-            <ActionButton disabled={pending} onClick={onUnarchive}>
-              {pending ? "Unarchiving…" : "Unarchive"}
-            </ActionButton>
-          </div>
-        ) : null}
-      </div>
-    );
+    // bb draws its own "Thread is archived" row with Unarchive.
+    body = null;
   } else if (pullRequest || issues.length > 0 || changes || harvestSlot) {
     body = (
       <div className={ROW_CLASS}>
