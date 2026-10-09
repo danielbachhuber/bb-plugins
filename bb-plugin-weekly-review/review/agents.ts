@@ -293,7 +293,7 @@ bumps, the weekly deploy, standups. An empty list is a good answer.
 **expand**: places where the entry says something the sources say more about,
 and empty sections the sources could fill. Quote the words from the entry so
 they can be found; for an empty section, quote its heading or name, such as
-"Rob:". Say what the sources add in outcomes: what was decided, who was
+"Hubber:". Say what the sources add in outcomes: what was decided, who was
 unblocked, what came of a conversation, what is still at risk. Mention hours
 only when the number itself says something, such as review taking a third of
 the week. For People and Reflections/Learnings, point to what was said in the
