@@ -171,7 +171,7 @@ When each item is a piece of work that goes back and forth, such as sections of 
 - `label` is what shows, `tone` colors it, and `complete` defaults to false. Once any item has a status, the header counts what is complete ("1 of 4 complete") instead of what is open.
 - `history` is the back and forth, oldest first, shown under the summary. Add an entry for each round you propose and each push-back the user gives (`"who": "user"`). `at` is an ISO time, shown as a time of day, or a short label shown as written.
 - For the user's push-back, give the item `"note": { "placeholder": "What to change for the next round" }` and put `{note}` in the Revise button's `text`. A one-line field shows beside the buttons; Enter presses the button that sends it. An empty note sends nothing where `{note}` is, and `state` reads a sent note back.
-- Each round, publish the item again under the same `id` with the new `draft`: the card starts over with it. The banner saying which button the user pressed stays only until you publish again.
+- Each round, publish the item again under the same `id` with the new `draft`: the card starts over with it, replacing any edit the user sent with the last round. The banner saying which button the user pressed stays only until you publish again.
 
 ### An item in its own thread
 

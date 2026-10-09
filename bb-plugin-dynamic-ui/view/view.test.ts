@@ -10,7 +10,7 @@ import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTarge
 import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
 import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
-import { draftKey, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
+import { draftKey, editorDraft, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
 
@@ -356,6 +356,18 @@ describe("item drafts", () => {
     expect(sentDraft(item, edited)).toBe("Done in #9 and #10.");
     expect(sentDraft(item, { state: "done", result: { label: "Post and close", at: "t" } })).toBe("Done in #9.");
     expect(sentDraft(item, undefined)).toBe("Done in #9.");
+  });
+
+  it("starts an open item's editor from the user's send until the agent publishes again", () => {
+    const item = parseView(viewWith({ draft: "Round 2.", actions: [post] })).sections[0]!.items[0]!;
+    const sent = (at: string) => ({ state: "open" as const, result: { label: "Revise", at, edited: true, draft: "Round 1, edited." } });
+    // Sent after the publish the card shows, such as a send that failed: keep what was typed.
+    expect(editorDraft(item, sent("2026-01-01T10:05:00Z"), "2026-01-01T10:00:00Z")).toBe("Round 1, edited.");
+    // The agent published round 2 after the send: start from its draft.
+    expect(editorDraft(item, sent("2026-01-01T10:05:00Z"), "2026-01-01T10:10:00Z")).toBe("Round 2.");
+    expect(editorDraft(item, undefined, "2026-01-01T10:10:00Z")).toBe("Round 2.");
+    // A sent, done item still shows the copy the user sent.
+    expect(sentDraft(item, { ...sent("2026-01-01T10:05:00Z"), state: "done" })).toBe("Round 1, edited.");
   });
 });
 

@@ -174,6 +174,16 @@ export function sentDraft(item: Item, record: ItemRecord | undefined): string {
   return record?.result?.draft ?? item.draft;
 }
 
+/**
+ * The draft an open item's editor starts from. A send the agent has not
+ * answered yet keeps what the user typed, so a failed send loses nothing;
+ * once the agent publishes again, its new draft replaces the copy the user sent.
+ */
+export function editorDraft(item: Item, record: ItemRecord | undefined, publishedAt: string): string {
+  const result = record?.result;
+  return result?.draft !== undefined && result.at >= publishedAt ? result.draft : item.draft;
+}
+
 /** The time a history entry names, or its label as written. */
 function historyTime(at: string): string {
   const date = new Date(at);
@@ -576,8 +586,7 @@ function ItemCard({
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
-  // A failed send keeps what the user typed in a one-line field.
-  const [draft, setDraft] = useState(record?.result?.draft ?? item.draft);
+  const [draft, setDraft] = useState(editorDraft(item, record, publishedAt));
   const draftChanged = draft.trim() !== item.draft.trim();
   const [note, setNote] = useState("");
   const run = (index: number) => {

@@ -207,6 +207,30 @@ export function StatusJustRevised() {
   );
 }
 
+/** The next round published after an edited Revise: the card starts from the agent's new text, not the copy the user sent with Revise. */
+export function StatusRepublished() {
+  return (
+    <Panel
+      stored={{
+        ...grant,
+        items: applyStatus(grantView, {
+          need: {
+            state: "open",
+            result: {
+              label: "Revise",
+              at: "2026-03-12T09:48:00Z",
+              edited: true,
+              note: "Lead with who maintains it, not downloads.",
+              draft: "acme/widgets is downloaded 90,000 times a week, and two volunteers keep it running.",
+            },
+          },
+        }),
+      }}
+      focusItemId="need"
+    />
+  );
+}
+
 const sectionThreads: StoredView = { ...grant, threadId: "thr_grant01", view: grantSectionThreadsView, items: applyStatus(grantSectionThreadsView, {}) };
 
 /** A section drafted in a thread of its own, opened in the thread that published the view: Open, named for the section's thread, takes the place of Start thread. */
