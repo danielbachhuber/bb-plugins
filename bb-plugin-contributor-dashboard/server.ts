@@ -8,7 +8,7 @@ import { ghGraphql } from "./mirror/gh.js";
 import { authorActivity } from "./review/authors.js";
 import { peopleActivity } from "./review/people.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
-import { releaseSummaries } from "./review/releases.js";
+import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
@@ -106,7 +106,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     people_activity: ({ range }) => {
       if (!configured) {
-        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [] }, authors: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 }, authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -162,6 +162,10 @@ export default async function plugin(bb: BbPluginApi) {
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: status(),
       };
+    },
+    older_releases: ({ before, count }) => {
+      if (!configured) return { minors: [], more: false };
+      return olderReleases(store.readReleases(repository), store.readActivity(repository, 0), repository, before, count);
     },
     stage_detail: ({ stage, range, waitingPage }) => {
       const now = Date.now();

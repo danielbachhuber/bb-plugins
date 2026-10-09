@@ -219,6 +219,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       error={dashboard.error}
       onOpenPerson={openPerson}
       onOpenStage={openStage}
+      onLoadOlderReleases={(before, count) => rpc.call("older_releases", { before, count })}
     />
   );
 }

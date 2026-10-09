@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PullRequestWithActivity, Release } from "../mirror/github";
 
-import { firstLineOf, kindOf, listedPullRequests, releaseSummaries } from "./releases";
+import { firstLineOf, kindOf, listedPullRequests, olderReleases, releaseSummaries } from "./releases";
 
 const REPO = "acme/widgets";
 const link = (n: number) => `[#${n}](https://github.com/${REPO}/pull/${n})`;
@@ -103,6 +103,7 @@ describe("releaseSummaries", () => {
   it("counts what each minor lists, and who", () => {
     expect(result.published).toBe(2);
     expect(result.patches).toBe(1);
+    expect(result.older).toBe(1);
     expect(result.minors.map((m) => m.tag)).toEqual(["v2.1.0"]);
     const [minor] = result.minors;
     expect(minor.total).toBe(3);
@@ -121,5 +122,24 @@ describe("releaseSummaries", () => {
     expect(patch.tag).toBe("v2.1.1");
     expect(patch.total).toBe(1);
     expect(patch.firstLine).toBe("#4");
+  });
+});
+
+describe("olderReleases", () => {
+  const releases = [
+    release("v3.2.0", "2026-09-20T10:00:00Z", ""),
+    release("v3.1.1", "2026-09-14T10:00:00Z", ""),
+    release("v3.1.0", "2026-09-13T10:00:00Z", ""),
+    release("v3.0.0", "2026-09-06T10:00:00Z", ""),
+  ];
+
+  it("reads the minors before a date in batches, each with its patches", () => {
+    const first = olderReleases(releases, [], REPO, Date.parse("2026-09-20T00:00:00Z"), 1);
+    expect(first.minors.map((m) => m.tag)).toEqual(["v3.1.0"]);
+    expect(first.minors[0].patches.map((p) => p.tag)).toEqual(["v3.1.1"]);
+    expect(first.more).toBe(true);
+    const next = olderReleases(releases, [], REPO, Date.parse(first.minors[0].publishedAt), 1);
+    expect(next.minors.map((m) => m.tag)).toEqual(["v3.0.0"]);
+    expect(next.more).toBe(false);
   });
 });

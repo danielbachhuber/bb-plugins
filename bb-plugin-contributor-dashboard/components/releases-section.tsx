@@ -2,9 +2,9 @@
 // minors as rows that open in place to the same detail. A release in full
 // says how many pull requests its notes list, what kind they are, which
 // patches followed it, and who merged and reviewed them.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { MinorRelease, Releases } from "@/dashboard/contract";
+import type { MinorRelease, OlderReleases, Releases } from "@/dashboard/contract";
 
 type Kinds = MinorRelease["kinds"];
 type Person = MinorRelease["people"][number];
@@ -192,15 +192,24 @@ function InFull({
   );
 }
 
+/** How many older minors one press of See more reads. */
+const OLDER_BATCH = 10;
+
 export function ReleasesSection({
   releases,
   periodLabel,
+  periodStart,
   onOpenPerson,
+  onLoadOlder,
 }: {
   releases: Releases;
   /** How long the period is, such as "six weeks". */
   periodLabel: string;
+  /** Where the period starts, epoch ms: See more reads from there back when the period has no release. */
+  periodStart: number;
   onOpenPerson: (login: string) => void;
+  /** The next batch of minors published before `before`, epoch ms. */
+  onLoadOlder: (before: number, count: number) => Promise<OlderReleases>;
 }) {
   const { minors } = releases;
   // Opened under their own rows rather than in the card above, which is
@@ -213,8 +222,34 @@ export function ReleasesSection({
       else next.add(tag);
       return next;
     });
+
+  // Releases from before the period, read a batch at a time. A new period
+  // starts the list over.
+  const [older, setOlder] = useState<{ minors: MinorRelease[]; more: boolean }>({ minors: [], more: releases.older > 0 });
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    setOlder({ minors: [], more: releases.older > 0 });
+    setLoadError(null);
+  }, [releases]);
+
   const [newest, ...others] = minors;
-  const longest = Math.max(1, ...minors.map((release) => release.total));
+  const rows = [...others, ...older.minors];
+  const longest = Math.max(1, ...minors.map((release) => release.total), ...older.minors.map((release) => release.total));
+  // Before the oldest drawn release, or before the period when it has none.
+  const oldestDrawn = rows.at(-1) ?? newest;
+
+  const seeMore = () => {
+    const before = oldestDrawn === undefined ? periodStart : Date.parse(oldestDrawn.publishedAt);
+    setLoading(true);
+    setLoadError(null);
+    onLoadOlder(before, OLDER_BATCH)
+      .then(
+        (page) => setOlder((current) => ({ minors: [...current.minors, ...page.minors], more: page.more })),
+        (error: unknown) => setLoadError(error instanceof Error ? error.message : String(error)),
+      )
+      .finally(() => setLoading(false));
+  };
 
   return (
     <section className="mt-8 border-t border-border pt-4" aria-labelledby="releases">
@@ -232,49 +267,70 @@ export function ReleasesSection({
       {newest === undefined ? (
         <p className="mt-4 text-sm text-muted-foreground">No releases published in this period.</p>
       ) : (
-        <>
-          <InFull release={newest} onOpenPerson={onOpenPerson} />
+        <InFull release={newest} onOpenPerson={onOpenPerson} />
+      )}
 
-          {others.length === 0 ? null : (
-            <>
-              <h3 className="mt-5 text-sm font-medium">
-                Other releases
-                <span className="ml-2 font-normal text-muted-foreground">click one to see it in full</span>
-              </h3>
-              <div className="mt-2">
-                {others.map((release) => (
-                  <div key={release.tag} className="border-b border-border">
-                    <button
-                      type="button"
-                      aria-expanded={opened.has(release.tag)}
-                      onClick={() => toggle(release.tag)}
-                      className="flex w-full cursor-pointer items-center gap-3 py-1.5 text-left text-xs hover:bg-muted"
-                    >
-                      <span className="w-3 shrink-0 text-muted-foreground" aria-hidden>
-                        {opened.has(release.tag) ? "▾" : "▸"}
-                      </span>
-                      <span className="w-20 shrink-0 font-medium">{release.tag}</span>
-                      <span className="w-28 shrink-0 text-muted-foreground">{day(release.publishedAt)}</span>
-                      <span className="w-8 shrink-0 text-right tabular-nums">{release.total}</span>
-                      <span className="min-w-0 flex-1">
-                        <KindBar kinds={release.kinds} total={release.total} scale={longest} height={10} />
-                      </span>
-                      <span className="w-20 shrink-0 text-right text-muted-foreground">
-                        {plural(release.people.length, "person", "people")}
-                      </span>
-                      <span className="w-52 shrink-0 truncate">
-                        <Patched release={release} />
-                      </span>
-                    </button>
-                    {opened.has(release.tag) ? (
-                      <InFull release={release} onOpenPerson={onOpenPerson} className="mb-3 mt-1" />
-                    ) : null}
-                  </div>
-                ))}
+      {rows.length === 0 ? null : (
+        <>
+          <h3 className="mt-5 text-sm font-medium">
+            {newest === undefined ? "Earlier releases" : "Other releases"}
+            <span className="ml-2 font-normal text-muted-foreground">click one to see it in full</span>
+          </h3>
+          <div className="mt-2">
+            {rows.map((release) => (
+              <div key={release.tag} className="border-b border-border">
+                <button
+                  type="button"
+                  aria-expanded={opened.has(release.tag)}
+                  onClick={() => toggle(release.tag)}
+                  className="flex w-full cursor-pointer items-center gap-3 py-1.5 text-left text-xs hover:bg-muted"
+                >
+                  <span className="w-3 shrink-0 text-muted-foreground" aria-hidden>
+                    {opened.has(release.tag) ? "▾" : "▸"}
+                  </span>
+                  <span className="w-20 shrink-0 font-medium">{release.tag}</span>
+                  <span className="w-28 shrink-0 text-muted-foreground">{day(release.publishedAt)}</span>
+                  <span className="w-8 shrink-0 text-right tabular-nums">{release.total}</span>
+                  <span className="min-w-0 flex-1">
+                    <KindBar kinds={release.kinds} total={release.total} scale={longest} height={10} />
+                  </span>
+                  <span className="w-20 shrink-0 text-right text-muted-foreground">
+                    {plural(release.people.length, "person", "people")}
+                  </span>
+                  <span className="w-52 shrink-0 truncate">
+                    <Patched release={release} />
+                  </span>
+                </button>
+                {opened.has(release.tag) ? (
+                  <InFull release={release} onOpenPerson={onOpenPerson} className="mb-3 mt-1" />
+                ) : null}
               </div>
-            </>
-          )}
+            ))}
+          </div>
         </>
+      )}
+
+      {!older.more ? null : (
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={seeMore}
+            disabled={loading}
+            className="cursor-pointer rounded-md border border-border px-3 py-1 text-xs hover:bg-muted disabled:cursor-default disabled:opacity-60"
+          >
+            {loading ? "Loading…" : "See more"}
+          </button>
+          {older.minors.length === 0 ? (
+            <span className="text-[11px] text-muted-foreground">
+              {plural(releases.older, "earlier minor release", "earlier minor releases")}, {OLDER_BATCH} at a time
+            </span>
+          ) : null}
+          {loadError === null ? null : (
+            <span role="alert" className="text-[11px] text-destructive">
+              {loadError}
+            </span>
+          )}
+        </div>
       )}
     </section>
   );

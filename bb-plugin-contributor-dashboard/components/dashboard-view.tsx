@@ -3,7 +3,7 @@
 // issues, pull requests, and releases. Display only; app.tsx loads the data.
 import type { ReactNode } from "react";
 
-import type { PeopleActivityResult, StageKey, StageSummary, SyncStatus } from "@/dashboard/contract";
+import type { OlderReleases, PeopleActivityResult, StageKey, StageSummary, SyncStatus } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { authorRow, reviewerRow } from "@/review/velocity";
@@ -56,6 +56,7 @@ export function DashboardView({
   error,
   onOpenPerson,
   onOpenStage,
+  onLoadOlderReleases,
   now = Date.now(),
   initialHovered,
 }: {
@@ -66,6 +67,8 @@ export function DashboardView({
   error: string | null;
   onOpenPerson: (login: string) => void;
   onOpenStage: (stage: StageKey) => void;
+  /** The next batch of releases published before `before`, for See more. */
+  onLoadOlderReleases: (before: number, count: number) => Promise<OlderReleases>;
   now?: number;
   /** A bucket to show hovered on the first person's chart, for stories. */
   initialHovered?: number;
@@ -185,7 +188,9 @@ export function DashboardView({
             <ReleasesSection
               releases={data.releases}
               periodLabel={selectionWords(selection)}
+              periodStart={data.buckets[0]?.start ?? 0}
               onOpenPerson={onOpenPerson}
+              onLoadOlder={onLoadOlderReleases}
             />
           </>
         )}

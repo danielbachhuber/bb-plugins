@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
-import type { FlowCounts, MinorRelease, PeopleActivityResult, Releases, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 
@@ -223,41 +223,67 @@ function releaseOf(tag: string, publishedAt: number, kinds: MinorRelease["kinds"
 
 const PATCH_KINDS = { feat: 0, fix: 0, refactor: 0, chore: 0, deps: 0, none: 0 };
 
+const DAY = 86_400_000;
+
+/** The Wednesday the fixture numbers its minors from: v2.30.0. A minor before it has a lower number. */
+const FIRST_MINOR = new Date(2026, 8, 2, 15).getTime();
+
+/** The first release afternoon, a Wednesday, at or after `from`. */
+function wednesdayFrom(from: number): number {
+  const first = new Date(from);
+  first.setDate(first.getDate() + ((3 - first.getDay() + 7) % 7));
+  first.setHours(15, 0, 0, 0);
+  return first.getTime();
+}
+
+/** One Wednesday's minor, numbered by its week, with a patch every third week. */
+function minorAt(at: number, to: number): MinorRelease {
+  const week = Math.round((at - FIRST_MINOR) / (7 * DAY));
+  const index = ((week % 6) + 6) % 6;
+  const minor = releaseOf(`v2.${30 + week}.0`, at, RELEASE_MIXES[index], week);
+  const patches =
+    week % 3 === 0 && at + DAY < to
+      ? [
+          {
+            ...releaseOf(`v2.${30 + week}.1`, at + DAY, { ...PATCH_KINDS, fix: 2 }, week + 9),
+            firstLine: "fix(export): keep gadget names when exporting",
+          },
+        ]
+      : [];
+  return { ...minor, patches };
+}
+
+/** The fixture repository's first minor: See more stops here. */
+const OLDEST_MINOR = FIRST_MINOR - 20 * 7 * DAY;
+
 /**
  * A minor every Wednesday of the span, newest first. Every third has a
  * patch the next day, and the newest has two, the second of them a revert.
  */
 function releasesFor(from: number, to: number): Releases {
   const minors: MinorRelease[] = [];
-  const day = 86_400_000;
-  const first = new Date(from);
-  first.setDate(first.getDate() + ((3 - first.getDay() + 7) % 7));
-  first.setHours(15, 0, 0, 0);
-  let index = 0;
-  for (let at = first.getTime(); at < to; at += 7 * day, index += 1) {
-    const tag = `v2.${30 + index}.0`;
-    const minor = releaseOf(tag, at, RELEASE_MIXES[index % RELEASE_MIXES.length], index);
-    const patches = [];
-    if (index % 3 === 0 && at + day < to) {
-      patches.push({
-        ...releaseOf(`v2.${30 + index}.1`, at + day, { ...PATCH_KINDS, fix: 2 }, index + 9),
-        firstLine: "fix(export): keep gadget names when exporting",
-      });
-    }
-    minors.push({ ...minor, patches });
-  }
+  for (let at = wednesdayFrom(from); at < to; at += 7 * DAY) minors.push(minorAt(at, to));
   const newest = minors.at(-1);
-  if (newest !== undefined && Date.parse(newest.publishedAt) + 1.5 * day < to) {
+  if (newest !== undefined && Date.parse(newest.publishedAt) + 1.5 * DAY < to) {
     const at = Date.parse(newest.publishedAt);
     const series = newest.tag.replace(/\.0$/, "");
     newest.patches = [
-      { ...releaseOf(`${series}.1`, at + 0.8 * day, { ...PATCH_KINDS, fix: 3, feat: 1 }, 20), firstLine: "fix(search): match sprockets by name" },
-      { ...releaseOf(`${series}.2`, at + 1.3 * day, { ...PATCH_KINDS, fix: 1 }, 21), firstLine: "revert: sprocket search ranking, which backs out #1890" },
+      { ...releaseOf(`${series}.1`, at + 0.8 * DAY, { ...PATCH_KINDS, fix: 3, feat: 1 }, 20), firstLine: "fix(search): match sprockets by name" },
+      { ...releaseOf(`${series}.2`, at + 1.3 * DAY, { ...PATCH_KINDS, fix: 1 }, 21), firstLine: "revert: sprocket search ranking, which backs out #1890" },
     ];
   }
   minors.reverse();
   const patches = minors.reduce((sum, minor) => sum + minor.patches.length, 0);
-  return { published: minors.length + patches, patches, minors };
+  const older = Math.max(0, Math.round((wednesdayFrom(from) - OLDEST_MINOR) / (7 * DAY)));
+  return { published: minors.length + patches, patches, minors, older };
+}
+
+/** See more, as the server answers it: the `count` minors before `before`. */
+async function olderReleasesFor(before: number, count: number): Promise<OlderReleases> {
+  const minors: MinorRelease[] = [];
+  let at = wednesdayFrom(before) - 7 * DAY;
+  for (; minors.length < count && at >= OLDEST_MINOR; at -= 7 * DAY) minors.push(minorAt(at, before));
+  return { minors, more: at >= OLDEST_MINOR };
 }
 
 function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivityResult {
@@ -326,6 +352,7 @@ function Page({
       error={null}
       onOpenPerson={() => undefined}
       onOpenStage={() => undefined}
+      onLoadOlderReleases={olderReleasesFor}
       now={NOW}
       initialHovered={initialHovered}
     />
@@ -359,10 +386,11 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [] }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
+    onLoadOlderReleases={olderReleasesFor}
     now={NOW}
   />
 );

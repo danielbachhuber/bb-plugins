@@ -129,15 +129,17 @@ const releaseSummaryShape = {
 };
 
 /** The releases published in the period. See review/releases.ts. */
+export const minorReleaseSchema = z.object({
+  ...releaseSummaryShape,
+  patches: z.array(z.object({ ...releaseSummaryShape, firstLine: z.string().nullable() })),
+});
+
 export const releasesSchema = z.object({
   published: z.number(),
   patches: z.number(),
-  minors: z.array(
-    z.object({
-      ...releaseSummaryShape,
-      patches: z.array(z.object({ ...releaseSummaryShape, firstLine: z.string().nullable() })),
-    }),
-  ),
+  minors: z.array(minorReleaseSchema),
+  /** Minors published before the period, which See more reads in batches. */
+  older: z.number(),
 });
 
 export const syncStatusSchema = z.object({
@@ -226,6 +228,11 @@ export const rpcContract = defineRpcContract({
       sync: syncStatusSchema,
     }),
   },
+  /** The next batch of minors published before `before`, epoch ms, for See more. */
+  older_releases: {
+    input: z.object({ before: z.number(), count: z.number().int().min(1).max(50).default(10) }),
+    output: z.object({ minors: z.array(minorReleaseSchema), more: z.boolean() }),
+  },
   /**
    * Starts a thread for one issue or pull request and remembers it, so the
    * row offers to open that thread rather than start a second one. The
@@ -253,7 +260,8 @@ export const rpcContract = defineRpcContract({
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
 export type Releases = z.infer<typeof releasesSchema>;
-export type MinorRelease = Releases["minors"][number];
+export type MinorRelease = z.infer<typeof minorReleaseSchema>;
+export type OlderReleases = z.infer<(typeof rpcContract)["older_releases"]["output"]>;
 export type FlowCounts = z.infer<typeof flowCountsSchema>;
 export type StageSummary = z.infer<typeof stageSummarySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;

@@ -209,7 +209,10 @@ section claims, not a deploy.
 
 The newest minor release is drawn in full, and the other minors in the period
 sit under it as rows. Clicking a row opens the same detail under it, and
-clicking again closes it; several can be open at once. A release in full
+clicking again closes it; several can be open at once. **See more**, at the
+bottom, adds the next ten minors from before the oldest one drawn, as rows that
+open the same way, until it reaches the oldest release the mirror holds. It
+reads the mirror only, so it makes no request to GitHub. A release in full
 says:
 
 - **How many pull requests it lists.** A release says what it holds only in

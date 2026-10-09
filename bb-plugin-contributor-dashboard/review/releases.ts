@@ -117,6 +117,8 @@ export interface ReleasesResult {
   minors: MinorSummary[];
   /** Patches published in the period. */
   patches: number;
+  /** Minors published before the period, which See more reads in batches. */
+  older: number;
 }
 
 function summarise(
@@ -159,6 +161,41 @@ function summarise(
   };
 }
 
+/** Whether a release is a patch: a version whose last number is not 0. */
+const isPatch = (release: Release) => (versionOf(release.tagName)?.patch ?? 0) > 0;
+
+const publishedOf = (releases: readonly Release[]) =>
+  releases.filter((release) => !release.isDraft && release.publishedAt !== null);
+
+/** Each minor that `keep` accepts, newest first, with the patches of its series. */
+function minorSummaries(
+  published: readonly Release[],
+  byNumber: ReadonlyMap<number, PullRequestWithActivity>,
+  repository: string,
+  keep: (release: Release) => boolean,
+): MinorSummary[] {
+  const minors: MinorSummary[] = [];
+  for (const release of published) {
+    if (isPatch(release) || !keep(release)) continue;
+    const version = versionOf(release.tagName);
+    const { listed: _listed, ...summary } = summarise(release, byNumber, repository);
+    const patches =
+      version === null
+        ? []
+        : published.filter((other) => isPatch(other) && versionOf(other.tagName)?.series === version.series);
+    minors.push({
+      ...summary,
+      patches: patches
+        .map((patch) => {
+          const { listed: _patchListed, ...rest } = summarise(patch, byNumber, repository);
+          return { ...rest, firstLine: firstLineOf(patch.description) };
+        })
+        .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt)),
+    });
+  }
+  return minors.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+}
+
 /**
  * The releases published in the period. A patch is grouped under the minor
  * of its series, so a patch published after the period's minor still shows
@@ -173,35 +210,30 @@ export function releaseSummaries(
   to: number,
 ): ReleasesResult {
   const byNumber = new Map(pullRequests.map((pr) => [pr.number, pr]));
-  const published = releases.filter((release) => !release.isDraft && release.publishedAt !== null);
-  const inPeriod = (release: Release) => {
-    const at = Date.parse(release.publishedAt!);
-    return at >= from && at < to;
-  };
-  const minors: MinorSummary[] = [];
-  for (const release of published) {
-    const version = versionOf(release.tagName);
-    if (version !== null && version.patch > 0) continue;
-    if (!inPeriod(release)) continue;
-    const { listed: _listed, ...summary } = summarise(release, byNumber, repository);
-    const patches = version === null ? [] : published.filter((other) => {
-      const v = versionOf(other.tagName);
-      return v !== null && v.series === version.series && v.patch > 0;
-    });
-    minors.push({
-      ...summary,
-      patches: patches
-        .map((patch) => {
-          const { listed: _listed, ...rest } = summarise(patch, byNumber, repository);
-          return { ...rest, firstLine: firstLineOf(patch.description) };
-        })
-        .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt)),
-    });
-  }
-  minors.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const published = publishedOf(releases);
+  const at = (release: Release) => Date.parse(release.publishedAt!);
+  const inPeriod = (release: Release) => at(release) >= from && at(release) < to;
   return {
     published: published.filter(inPeriod).length,
-    minors,
-    patches: published.filter((release) => inPeriod(release) && (versionOf(release.tagName)?.patch ?? 0) > 0).length,
+    minors: minorSummaries(published, byNumber, repository, inPeriod),
+    patches: published.filter((release) => inPeriod(release) && isPatch(release)).length,
+    older: published.filter((release) => !isPatch(release) && at(release) < from).length,
   };
+}
+
+/** The `count` minors published before `before`, newest first, and whether there are more. */
+export function olderReleases(
+  releases: readonly Release[],
+  pullRequests: readonly PullRequestWithActivity[],
+  repository: string,
+  before: number,
+  count: number,
+): { minors: MinorSummary[]; more: boolean } {
+  const byNumber = new Map(pullRequests.map((pr) => [pr.number, pr]));
+  const published = publishedOf(releases);
+  const earlier = published
+    .filter((release) => !isPatch(release) && Date.parse(release.publishedAt!) < before)
+    .sort((a, b) => b.publishedAt!.localeCompare(a.publishedAt!));
+  const page = new Set(earlier.slice(0, count));
+  return { minors: minorSummaries(published, byNumber, repository, (release) => page.has(release)), more: earlier.length > count };
 }
