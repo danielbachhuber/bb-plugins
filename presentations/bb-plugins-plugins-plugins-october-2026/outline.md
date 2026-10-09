@@ -7,6 +7,7 @@
     - The problem: when I load a thread, I want to see what it is, what it is trying to accomplish, and which stage it is at, out of three to seven milestones.
     - First try: thread tasks, in a panel. I never looked at it.
     - Second try: a drawer under the thread header. I still never look at it or interact with it.
+  - Not quite there: Diff Comments.
 - See something wonky, immediately open a thread to fix it.
   - Pro: it gets fixed right away.
   - Con: you lose your chain of thought as you switch context.
