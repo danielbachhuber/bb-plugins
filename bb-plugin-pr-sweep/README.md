@@ -100,7 +100,10 @@ Under the title, a banner says where the pull request stands.
   review or a review note stops counting once you have replied after it, in
   a comment or a review thread, so a pull request whose every comment you
   answered carries no feedback banner. Requested changes count until the
-  reviewer reviews again.
+  reviewer reviews again. The thread counts come from one GraphQL call per
+  sweep for every hundred swept pull requests, which asks for those pull
+  requests by id and costs about one rate-limit point each; a failure there
+  drops the counts, not the sweep.
 - **Green** "Ready to merge", followed by who approved, or by who has not
   reviewed yet when someone else was asked. Feedback left alongside the
   approval takes that place instead: "Ready to merge · hubber approved with

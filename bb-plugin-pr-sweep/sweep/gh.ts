@@ -27,6 +27,8 @@ export const PR_LIST_FIELDS = [
   "additions", "deletions", "baseRefName",
   // The commit a dismissal of failing checks is recorded against.
   "headRefOid",
+  // The node id the review-thread query looks the pull request up by.
+  "id",
 ].join(",");
 
 const SEARCH_LIMIT = 100;
@@ -125,11 +127,14 @@ export async function runSweep(
   }
   const rows: ClassifiedRow[] = [];
   const failedRepos: string[] = [];
+  const ids: string[] = [];
 
   for (const repo of repos) {
     try {
+      const prs = await fetchRepoPullRequests(gh, repo);
+      for (const pr of prs) if (pr.id) ids.push(pr.id);
       rows.push(
-        ...classify(await fetchRepoPullRequests(gh, repo), repo, {
+        ...classify(prs, repo, {
           reviewerOptional: reviewerOptional?.(repo) ?? false,
         }),
       );
@@ -139,10 +144,10 @@ export async function runSweep(
     }
   }
 
-  // One extra call for the whole sweep. A failure here loses a hint, not the
-  // sweep, so the rows are returned either way.
+  // One extra call for every hundred rows. A failure here loses a hint, not
+  // the sweep, so the rows are returned either way.
   try {
-    const counts = await fetchThreadCounts(gh);
+    const counts = await fetchThreadCounts(gh, ids);
     for (const row of rows) {
       const found = counts.get(threadKey(row.repo, row.number));
       if (!found) continue;

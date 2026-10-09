@@ -117,6 +117,8 @@ export interface ClassifiedRow {
 
 /** The subset of `gh pr list --json` output this plugin reads. */
 export interface RawPullRequest {
+  /** The GraphQL node id. */
+  id?: string;
   number: number;
   title: string;
   url: string;

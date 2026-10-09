@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fetchThreadCounts, parseThreadCounts, threadKey } from "./threads.js";
 import type { GhRunner } from "@danielb/gh-shared/gh";
 
-const response = (nodes: unknown[]) => JSON.stringify({ data: { viewer: { login: "octocat" }, search: { nodes } } });
+const response = (nodes: unknown[]) => JSON.stringify({ data: { viewer: { login: "octocat" }, nodes } });
 
 /** A thread whose last comment is by `login`. */
 const lastBy = (login: string) => ({ comments: { nodes: [{ author: { login } }] } });
@@ -90,8 +90,12 @@ describe("parseThreadCounts", () => {
     expect(counts.size).toBe(0);
   });
 
-  it("tolerates an empty search result", () => {
-    expect(parseThreadCounts(JSON.stringify({ data: { search: { nodes: [] } } })).size).toBe(0);
+  it("skips a null node, which nodes returns for an id it cannot see", () => {
+    expect(parseThreadCounts(response([null, node(7, [])])).size).toBe(1);
+  });
+
+  it("tolerates an empty result", () => {
+    expect(parseThreadCounts(JSON.stringify({ data: { nodes: [] } })).size).toBe(0);
     expect(parseThreadCounts(JSON.stringify({})).size).toBe(0);
   });
 });
@@ -105,8 +109,28 @@ describe("fetchThreadCounts", () => {
         return response([node(42, [{ isResolved: false }])]);
       },
     };
-    const counts = await fetchThreadCounts(gh);
+    const counts = await fetchThreadCounts(gh, ["PR_42"]);
     expect(calls[0]!.slice(0, 2)).toEqual(["api", "graphql"]);
+    expect(calls[0]).toContain("ids[]=PR_42");
     expect(counts.get(threadKey("acme/widgets", 42))!.unresolved).toBe(1);
+  });
+
+  it("makes no call when there are no pull requests", async () => {
+    const gh: GhRunner = { async run() { throw new Error("should not be called"); } };
+    expect((await fetchThreadCounts(gh, [])).size).toBe(0);
+  });
+
+  it("asks for at most a hundred pull requests per call, which nodes caps", async () => {
+    const calls: string[][] = [];
+    const gh: GhRunner = {
+      async run(args) {
+        calls.push(args);
+        return response([node(calls.length, [{ isResolved: false }])]);
+      },
+    };
+    const ids = Array.from({ length: 150 }, (_, i) => `PR_${i}`);
+    const counts = await fetchThreadCounts(gh, ids);
+    expect(calls.map((args) => args.filter((arg) => arg.startsWith("ids[]=")).length)).toEqual([100, 50]);
+    expect(counts.size).toBe(2);
   });
 });

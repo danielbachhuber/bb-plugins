@@ -165,8 +165,8 @@ describe("runSweep repository filter", () => {
             { repository: { nameWithOwner: "acme/gadgets" }, number: 2 },
           ]);
         }
-        // Only the per-repository fan-out; the sweep also makes one
-        // repository-agnostic GraphQL call for thread counts.
+        // Only the per-repository fan-out; the sweep also makes a GraphQL
+        // call for thread counts.
         if (args[0] === "pr" && args[1] === "list") {
           fetched.push(args[args.indexOf("--repo") + 1]!);
           return JSON.stringify([makePr({ number: 1 })]);
@@ -199,6 +199,29 @@ describe("runSweep repository filter", () => {
       result.rows.find((row) => row.repo === repo)?.flags ?? [];
     expect(flagsFor("acme/widgets")).not.toContain("no-reviewer");
     expect(flagsFor("acme/gadgets")).toContain("no-reviewer");
+  });
+
+  it("asks for review threads on the swept pull requests only", async () => {
+    const threadCalls: string[][] = [];
+    const gh: GhRunner = {
+      async run(args) {
+        if (args[0] === "search") {
+          return JSON.stringify([
+            { repository: { nameWithOwner: "acme/widgets" }, number: 1 },
+            { repository: { nameWithOwner: "acme/gadgets" }, number: 2 },
+          ]);
+        }
+        if (args[0] === "pr" && args[1] === "list") {
+          const repo = args[args.indexOf("--repo") + 1]!;
+          return JSON.stringify([makePr({ number: 1, id: `PR_${repo}` })]);
+        }
+        if (args.some((arg) => arg.startsWith("ids[]="))) threadCalls.push(args);
+        return JSON.stringify({ data: {} });
+      },
+    };
+    await runSweep(gh, () => 1, { allows: (repo) => repo === "acme/widgets" });
+    expect(threadCalls).toHaveLength(1);
+    expect(threadCalls[0]!.filter((arg) => arg.startsWith("ids[]="))).toEqual(["ids[]=PR_acme/widgets"]);
   });
 
   it("sweeps everything and skips nothing without a filter", async () => {

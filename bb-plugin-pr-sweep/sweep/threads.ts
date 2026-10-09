@@ -22,27 +22,34 @@ export interface ThreadCounts {
   inlineComments: number;
 }
 
+/**
+ * The swept pull requests by node id, rather than a search for every open pull
+ * request you authored. GitHub charges a query for the most nodes it could
+ * return, so a `search(first: 100)` around `reviewThreads(first: 100)` costs
+ * about 100 points however few pull requests there are. Asking for the rows
+ * themselves costs about one point each, and leaves out the repositories the
+ * filter skipped.
+ */
 export const THREADS_QUERY = `
-query($q: String!) {
+query($ids: [ID!]!) {
   viewer { login }
-  search(query: $q, type: ISSUE, first: 100) {
-    nodes {
-      ... on PullRequest {
-        number
-        repository { nameWithOwner }
-        reviewThreads(first: 100) {
-          nodes {
-            isResolved
-            isOutdated
-            comments(last: 1) { totalCount nodes { author { login } } }
-          }
+  nodes(ids: $ids) {
+    ... on PullRequest {
+      number
+      repository { nameWithOwner }
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          isOutdated
+          comments(last: 1) { totalCount nodes { author { login } } }
         }
       }
     }
   }
 }`;
 
-export const THREADS_SEARCH = "is:pr is:open author:@me archived:false";
+/** The most ids `nodes` accepts in one call. */
+export const THREADS_BATCH = 100;
 
 /** `repo#number`, the key rows are already stored under. */
 export function threadKey(repo: string, number: number): string {
@@ -63,12 +70,12 @@ interface RawNode {
 
 export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
   const counts = new Map<string, ThreadCounts>();
-  const parsed = JSON.parse(raw) as { data?: { viewer?: { login?: string }; search?: { nodes?: RawNode[] } } };
-  // The search is your own pull requests, so the viewer is the author.
+  const parsed = JSON.parse(raw) as { data?: { viewer?: { login?: string }; nodes?: Array<RawNode | null> } };
+  // The swept pull requests are your own, so the viewer is the author.
   const viewer = parsed.data?.viewer?.login;
 
-  for (const node of parsed.data?.search?.nodes ?? []) {
-    const repo = node.repository?.nameWithOwner;
+  for (const node of parsed.data?.nodes ?? []) {
+    const repo = node?.repository?.nameWithOwner;
     if (!repo || typeof node.number !== "number") continue;
 
     let unresolved = 0;
@@ -96,9 +103,9 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
 }
 
 /**
- * Unresolved review threads for every open pull request the user authored.
+ * Unresolved review threads for the swept pull requests, by node id.
  *
- * One GraphQL call for the whole sweep, not one per repository: `gh pr list
+ * One GraphQL call per hundred pull requests, not one per repository: `gh pr list
  * --json` cannot return reviewThreads at all, and an inline comment is
  * invisible to every field it can return. #5801 read "ready to merge,
  * approved" while carrying three unresolved threads.
@@ -106,11 +113,12 @@ export function parseThreadCounts(raw: string): Map<string, ThreadCounts> {
  * A failure here is not a failed sweep — the rows are still correct, they just
  * lose this one hint — so the caller treats an empty map as "unknown".
  */
-export async function fetchThreadCounts(gh: GhRunner): Promise<Map<string, ThreadCounts>> {
-  const raw = await gh.run([
-    "api", "graphql",
-    "-f", `query=${THREADS_QUERY}`,
-    "-f", `q=${THREADS_SEARCH}`,
-  ]);
-  return parseThreadCounts(raw);
+export async function fetchThreadCounts(gh: GhRunner, ids: string[]): Promise<Map<string, ThreadCounts>> {
+  const counts = new Map<string, ThreadCounts>();
+  for (let start = 0; start < ids.length; start += THREADS_BATCH) {
+    const args = ["api", "graphql", "-f", `query=${THREADS_QUERY}`];
+    for (const id of ids.slice(start, start + THREADS_BATCH)) args.push("-f", `ids[]=${id}`);
+    for (const [key, found] of parseThreadCounts(await gh.run(args))) counts.set(key, found);
+  }
+  return counts;
 }
