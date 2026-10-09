@@ -3,7 +3,8 @@
 A BB nav panel that puts one week of work on one page, so the weekly journal
 entry can be written from evidence rather than from memory.
 
-It does not write the entry. It gathers what happened and gets out of the way.
+It gathers what happened, and its `weekly-journal-entry` skill writes entries
+into the journal doc one at a time, once you accept each one.
 
 The week is gathered at 7am and 1pm on weekdays, so the page is already current
 when you open it. **Sync** gathers it now rather than at the next run.
@@ -146,6 +147,7 @@ sees that itself. When the two records disagree entirely — logged as
 `meeting` to the time entry verbatim, and that wins over any rule.
 `bb weekly-review meetings <monday>` prints the week's entries and flags the
 ones nothing has matched, which is the list the agent is sent to resolve.
+With `--notes` it also prints the notes matched to each entry.
 
 The reference docs are mostly running 1:1 documents — one per person, newest
 entry first, each under a `## August 31st` heading. A time entry reading
@@ -255,9 +257,9 @@ settings. The calendar needs no configuration beyond the path: it reads
 
 ## The entry, and feedback on it
 
-The weekly entry is written by hand, in a Google Doc, and stays that way. This
-plugin reads that document and never writes to it. The whole point of the
-feedback step is that it does not have to.
+The weekly entry is written in a Google Doc. This plugin reads that document,
+and writes to it only to add an entry you have accepted (see Capturing an
+entry, below). The feedback step never writes to it.
 
 Set the doc with `bb weekly-review source set journalDocId <id>`. The entry for
 a week is the last dated section falling inside it — the doc uses the same
@@ -304,6 +306,41 @@ rather than quietly wrong.
 bb weekly-review entry <monday>                          # what the agent will read
 bb weekly-review feedback <monday> --file <path-to-json>  # how it records the result
 ```
+
+## Capturing an entry
+
+The `weekly-journal-entry` skill, in `skills/`, writes one journal bullet
+about one piece of work. Ask for it at the end of a thread ("add this to my
+journal"), or in a thread started to document something, such as from a
+priority on the Now page.
+
+It drafts from the thread and from the week Weekly Review has gathered:
+`entry`, `meetings --notes`, `digest`, `priorities`, and `source list`, all
+through the CLI below. Those read the database, apart from `entry`, which
+reads the journal doc once.
+
+The bullet follows the doc's own format. A Done bullet starts with a
+past-tense verb, links the words that name the work, and says who was
+involved, why, and how it came out, with sub-bullets for a group of related
+items, a verbatim quote, or an `AI-Native SDLC:` note. It leaves
+Reflections/Learnings to you, and asks rather than guessing when the
+evidence does not say how something went.
+
+The draft appears as a card above the composer, with the source of each
+claim. Edit it there, or send a note on what to change, and it comes back
+revised.
+
+Accept adds it to the doc with `bb weekly-review entry add`, at the end of its
+section in the week's entry, with its links and bullet levels. When the week
+has no entry yet, one is added first above the newest entry, headed with the
+week's Friday and with that entry's section labels. That is one Docs read and
+one write, or two of each when the entry is new. The write names the revision
+it read, so Google refuses it if the doc changed in between, and it is tried
+once more from a fresh read.
+
+The new bullets form a list of their own, with the same bullets and indents
+as the one above. The Docs API counts a new bullet's level from the list item
+above it, so joining that list would put a top-level entry under a sub-bullet.
 
 ## Coming up
 
@@ -354,10 +391,11 @@ worse than a gap.
 bb weekly-review list
 bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]
 bb weekly-review digest <monday>
-bb weekly-review meetings <monday>
+bb weekly-review meetings <monday> [--notes]
 bb weekly-review notes <monday> --file <path-to-json>
 bb weekly-review slack <monday> --file <path-to-json>
 bb weekly-review entry <monday>
+bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>
 bb weekly-review feedback <monday> --file <path-to-json>
 bb weekly-review prompt [notes|slack|feedback|rules] [reset]
 bb weekly-review table [<monday>]
@@ -420,8 +458,8 @@ bb plugin build . && bb plugin reload weekly-review
 The suites cover the parts that need no network: the calendar parser against
 the shapes a live payload actually contains, the coming-up grouping, each agent
 prompt against the placeholders its caller substitutes, and the week store,
-gather, and file import against an in-memory database, and the workstream
-rules and table.
+gather, and file import against an in-memory database, the workstream
+rules and table, and the requests that add an entry to the journal doc.
 
 `review/` holds the logic and is deliberately free of BB: pure date and
 bucketing functions, one fetcher per source that shells out to a CLI, the

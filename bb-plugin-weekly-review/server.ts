@@ -37,7 +37,8 @@ import {
   SCALAR_KEYS,
   type SourceStore,
 } from "./review/sources.js";
-import { run } from "./review/fetch/shell.js";
+import { run, runJson } from "./review/fetch/shell.js";
+import { parseEntry, planInsert, type BatchBody, type DocsDocument } from "./review/journal-insert.js";
 import { buildDigest } from "./review/digest.js";
 import {
   DEFAULT_FEEDBACK_PROMPT,
@@ -351,8 +352,8 @@ export default async function plugin(bb: BbPluginApi) {
   /**
    * The journal doc's text, read fresh. A good read is stored, which is where
    * the week's priorities come from; a failed one falls back to that copy, so
-   * a slow Google does not empty the page. Read only — nothing in this plugin
-   * writes to the doc.
+   * a slow Google does not empty the page. The one write to the doc is
+   * `addEntry`, below.
    */
   async function readJournal(): Promise<string | null> {
     const { journalDocId } = sources.read();
@@ -410,6 +411,48 @@ export default async function plugin(bb: BbPluginApi) {
       text: section.body,
       url: `https://docs.google.com/document/d/${journalDocId}/edit`,
     };
+  }
+
+  /**
+   * Adds one entry, written as markdown bullets, to the end of a section of
+   * the week's entry in the journal doc, creating the week's entry first when
+   * there is none. Two Docs requests, a read and a write, or four when the
+   * entry is created. Google refuses the write if the doc changed since the
+   * read, and it is tried once more from a fresh read.
+   */
+  async function addEntry(monday: string, section: string, markdown: string) {
+    const { journalDocId } = sources.read();
+    if (journalDocId === "") throw new Error("No journal doc is set. Set one with `bb weekly-review source set journalDocId <id>`.");
+    const lines = parseEntry(markdown);
+    const week = { from: monday, to: addDays(monday, 6) };
+    const { gws } = await tools();
+    const params = JSON.stringify({ documentId: journalDocId });
+    const read = () => runJson<DocsDocument>(gws, ["docs", "documents", "get", "--params", params]);
+    const write = (body: BatchBody) =>
+      run(gws, ["docs", "documents", "batchUpdate", "--params", params, "--json", JSON.stringify(body)]);
+
+    let created = false;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        let plan = planInsert(await read(), week, section, lines);
+        if (plan.kind === "create") {
+          await write(plan.body);
+          created = true;
+          plan = planInsert(await read(), week, section, lines);
+          if (plan.kind === "create") throw new Error(`Added an entry headed "${plan.heading}", but could not find it again.`);
+        }
+        await write(plan.body);
+        await readJournal();
+        const anchor = plan.headingId === undefined ? "" : `#heading=${plan.headingId}`;
+        return {
+          heading: plan.heading,
+          created,
+          url: `https://docs.google.com/document/d/${journalDocId}/edit${anchor}`,
+        };
+      } catch (error) {
+        if (attempt > 0 || !/revision/i.test(String(error))) throw error;
+      }
+    }
   }
 
   function describePrompt(kind: PromptKind) {
@@ -808,10 +851,11 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review list",
     "  bb weekly-review sync [<monday>|--from YYYY-MM-DD --to YYYY-MM-DD]",
     "  bb weekly-review digest <monday>",
-    "  bb weekly-review meetings <monday>",
+    "  bb weekly-review meetings <monday> [--notes]",
     "  bb weekly-review notes <monday> --file <path-to-json>",
     "  bb weekly-review slack <monday> --file <path-to-json>",
     "  bb weekly-review entry <monday>",
+    "  bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>",
     "  bb weekly-review feedback <monday> --file <path-to-json>",
     "  bb weekly-review prompt [notes|slack|feedback|rules] [reset]",
     "  bb weekly-review table [<monday>]",
@@ -900,8 +944,8 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "meetings",
-        summary: "List the week's named time entries, flagging those with no notes",
-        usage: "bb weekly-review meetings <monday>",
+        summary: "List the week's named time entries, flagging those with no notes, and with --notes print the notes matched to each",
+        usage: "bb weekly-review meetings <monday> [--notes]",
       },
       {
         name: "notes",
@@ -915,8 +959,8 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "entry",
-        summary: "Print the week's hand-written entry as it stands in the doc",
-        usage: "bb weekly-review entry <monday>",
+        summary: "Print the week's hand-written entry as it stands in the doc, or add a bullet to one of its sections",
+        usage: "bb weekly-review entry <monday> | entry add <monday> --section <label> --file <path-to-markdown>",
       },
       {
         name: "feedback",
@@ -1019,6 +1063,24 @@ export default async function plugin(bb: BbPluginApi) {
           return { exitCode: 0, stdout: digestFor(monday, week) };
         }
         case "entry": {
+          if (positional[0] === "add") {
+            const monday = positional[1];
+            const section = flag("section");
+            const file = flag("file");
+            if (monday === undefined || section === undefined || file === undefined) {
+              return {
+                exitCode: 1,
+                stderr: "Usage: bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>",
+              };
+            }
+            try {
+              const added = await addEntry(monday, section, await readFile(file, "utf8"));
+              const where = added.created ? `a new entry, ${added.heading}` : added.heading;
+              return { exitCode: 0, stdout: `Added to ${section.replace(/:$/, "")} under ${where}.\n${added.url}` };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
           const monday = positional[0] ?? resolveRange().from;
           const week = weeks.readWeek(monday);
           if (week === null) {
@@ -1074,11 +1136,11 @@ export default async function plugin(bb: BbPluginApi) {
           if (week === null) {
             return { exitCode: 1, stderr: `No week gathered for ${monday}.` };
           }
-          const matched = new Set(
-            meetingNotesFor(monday, week).map(
-              (note) => `${note.day}\u0000${note.entryNote}`,
-            ),
-          );
+          const notes = meetingNotesFor(monday, week);
+          const matched = new Set(notes.map((note) => `${note.day}\u0000${note.entryNote}`));
+          // --notes prints each meeting's matched notes under it, which is how
+          // an agent drafting the journal entry reads what was discussed.
+          const withText = args.includes("--notes");
           const pending = entriesWithoutNotes(
             week.harvest.data,
             (entry) => matched.has(`${entry.day}\u0000${entry.notes}`),
@@ -1088,7 +1150,16 @@ export default async function plugin(bb: BbPluginApi) {
             .sort((a, b) => a.day.localeCompare(b.day) || b.hours - a.hours)
             .map((entry) => {
               const needs = pending.includes(entry) ? "  needs notes" : "";
-              return `${entry.day}  ${entry.hours.toFixed(2)}h  ${entry.task.padEnd(12)}  ${entry.notes}${needs}`;
+              const line = `${entry.day}  ${entry.hours.toFixed(2)}h  ${entry.task.padEnd(12)}  ${entry.notes}${needs}`;
+              if (!withText) return line;
+              const texts = notes
+                .filter((note) => note.day === entry.day && note.entryNote === entry.notes)
+                .map((note) => {
+                  const source = [note.label, note.heading].filter((part) => part !== "").join(", ");
+                  const body = note.text.trim().split("\n").map((row) => `    ${row}`).join("\n");
+                  return `  From ${source}${note.url === "" ? "" : ` (${note.url})`}:\n${body}`;
+                });
+              return [line, ...texts].join("\n");
             });
           return {
             exitCode: 0,
