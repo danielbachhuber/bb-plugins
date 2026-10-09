@@ -124,3 +124,5 @@ export * from "./stacks.js";
 // The same, for the bot logins and one pull request's comments.
 export * from "./bots.js";
 export * from "./feedback.js";
+// And what a sync costs against the GraphQL rate limit.
+export * from "./usage.js";

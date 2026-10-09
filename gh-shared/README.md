@@ -31,6 +31,11 @@ and nothing else:
   each other's branches. PR Sweep and Review Sweep both draw the result as a
   chip. It is re-exported from `gh` rather than given a subpath of its own
   because bb caches a package's exports map for as long as its server runs.
+- **`usage`**, served from the `gh` path — `createSyncUsage`, which runs a
+  sweep through a counting runner and reads the account's GraphQL budget
+  before and after it, so the sweep's points can be shown in the sync status.
+  `pointsBetween` matches the readings, since GitHub answers from two counters
+  with different windows. The three sweeps use it.
 - **`projects`** — matching a repository to a bb project by its git remotes,
   and `buildRepoFilter`, which turns that matching into the sweep scope.
   `toProjectCandidates` reads every remote out of a project's checkout rather
