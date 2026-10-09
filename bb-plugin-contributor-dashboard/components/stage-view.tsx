@@ -1,7 +1,7 @@
 // One stage's page: what it measures, how long it took and how long the queue
-// has waited, what is in it now, and how the two move week by week.
+// has waited, what is in it now, and how the two move across the period.
 import type { StageDetailResult } from "@/dashboard/contract";
-import { PERIODS, type PeriodId } from "@/dashboard/period";
+import { bucketUnitOf, PERIODS, type PeriodId } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
 import { Segmented } from "component-library/segmented";
@@ -48,7 +48,7 @@ function Bars({ bars }: { bars: ReadonlyArray<{ label: string; count: number; la
 }
 
 /** How many left the stage each bucket, with the median and p90 drawn over them. */
-function Weekly({ series }: { series: StageDetailResult["stage"]["series"] }) {
+function PerBucket({ series }: { series: StageDetailResult["stage"]["series"] }) {
   const height = 96;
   const highCount = Math.max(1, ...series.map((bucket) => bucket.count));
   const highDays = Math.max(0.5, ...series.map((bucket) => bucket.p90));
@@ -152,6 +152,7 @@ export function StageView({
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
+  const unit = bucketUnitOf(period);
   const stage = data === null ? null : data.stage;
   const paging = data === null ? null : data.waitingPaging;
 
@@ -240,12 +241,12 @@ export function StageView({
               </div>
             )}
 
-            <h2 className="mt-6 text-base font-semibold">Each week</h2>
+            <h2 className="mt-6 text-base font-semibold">Each {unit}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Bars are how many left the stage. The blue line is that week's median, the red line its p90.
+              Bars are how many left the stage. The blue line is that {unit}'s median, the red line its p90.
             </p>
             <div className="mt-2 rounded-lg border border-border bg-card p-3">
-              <Weekly series={stage.series} />
+              <PerBucket series={stage.series} />
             </div>
           </>
         )}

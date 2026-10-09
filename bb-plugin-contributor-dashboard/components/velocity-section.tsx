@@ -2,7 +2,7 @@
 // quiet tail as rows of names and counts until Show all opens them.
 import { useState } from "react";
 
-import type { Bucket, PeriodId } from "@/dashboard/period";
+import { bucketUnitOf, type Bucket, type PeriodId } from "@/dashboard/period";
 import { foldRows, type VelocityRow } from "@/review/velocity";
 
 import { PersonChart, SeriesLegend, type SeriesPair } from "./person-chart";
@@ -38,8 +38,7 @@ export function VelocitySection({
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
   const { charted, folded, max } = foldRows(rows);
-  const weekly = period === "6w" || period === "12w";
-  const unit = weekly ? "Week of" : "";
+  const unit = bucketUnitOf(period);
   const cards = showAll ? [...charted, ...folded] : charted;
 
   return (
@@ -68,7 +67,6 @@ export function VelocitySection({
                 buckets={buckets}
                 max={max}
                 unit={unit}
-                per={weekly ? "wk" : "mo"}
                 peak
                 initialHovered={index === 0 ? initialHovered : undefined}
                 onOpenPerson={onOpenPerson}
@@ -80,7 +78,7 @@ export function VelocitySection({
             <>
               <div className="mt-3 flex items-baseline justify-between gap-2">
                 <h4 className="text-xs font-medium text-muted-foreground">
-                  {folded.length} more {folded.length === 1 ? "person" : "people"}, whose busiest {weekly ? "week" : "month"} is under a
+                  {folded.length} more {folded.length === 1 ? "person" : "people"}, whose busiest {unit} is under a
                   tenth of the scale
                 </h4>
                 <button

@@ -1,6 +1,7 @@
 // The flow of stages at the top of the dashboard: one row per stage, how many
 // are in it now, how long it takes, and which way that is moving.
 import type { StageKey, StageSummary } from "@/dashboard/contract";
+import type { BucketUnit } from "@/dashboard/period";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const NUMBER = "text-[#2a78d6] dark:text-[#3987e5]";
@@ -13,7 +14,7 @@ export function days(value: number): string {
   return value === 0 ? "—" : `${Math.max(1, Math.round(hours * 60))}m`;
 }
 
-/** The weekly median, drawn small. Rising is worse, so it is the warning colour. */
+/** The median in each of the period's buckets, drawn small. Rising is worse, so it is the warning colour. */
 function Trend({ points }: { points: readonly number[] }) {
   const usable = points.filter((point) => point > 0);
   if (usable.length < 2) return <span className="text-[11px] text-muted-foreground">—</span>;
@@ -57,14 +58,20 @@ function scaleOf(stages: readonly StageSummary[]): number {
   return Math.max(0.5, ...stages.map((stage) => stage.p90));
 }
 
+/** What the trend column counts, one point per bucket. */
+const TREND: Record<BucketUnit, string> = { day: "daily", week: "weekly", month: "monthly" };
+
 export function StageFlowSection({
   stages,
   periodLabel,
+  unit,
   onOpenStage,
 }: {
   stages: readonly StageSummary[];
   /** How long the period is, for the heading, such as "six weeks". */
   periodLabel: string;
+  /** What one point of the trend counts. */
+  unit: BucketUnit;
   onOpenStage: (stage: StageKey) => void;
 }) {
   const groups = GROUPS.map((group) => ({
@@ -95,7 +102,7 @@ export function StageFlowSection({
         <span className="w-14 shrink-0 text-right">median</span>
         <span className="w-12 shrink-0 text-right">p75</span>
         <span className="w-12 shrink-0 text-right">p90</span>
-        <span className="w-14 shrink-0">weekly</span>
+        <span className="w-14 shrink-0">{TREND[unit]}</span>
       </div>
 
       {groups.map((group) => {

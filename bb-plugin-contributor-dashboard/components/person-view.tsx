@@ -1,7 +1,7 @@
 // One person's page: their review lines full width, the pull requests waiting
 // on their review, and how their own pull requests fared. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
-import { PERIODS, type PeriodId } from "@/dashboard/period";
+import { bucketUnitOf, PERIODS, type PeriodId } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
@@ -123,7 +123,7 @@ export function PersonView({
                     series={REVIEW_SERIES}
                     buckets={data.buckets}
                     max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
-                    unit={period === "6w" || period === "12w" ? "Week of" : ""}
+                    unit={bucketUnitOf(period)}
                   />
                 </div>
               )}

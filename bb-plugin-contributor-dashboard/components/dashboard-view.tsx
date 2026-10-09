@@ -1,7 +1,7 @@
 // The Contributor Dashboard page: the repository, period picker, and sync line
 // every section shares, then each section. Display only; app.tsx loads the data.
 import type { PeopleActivityResult, StageKey, SyncStatus } from "@/dashboard/contract";
-import { PERIODS, PERIOD_LENGTHS, type PeriodId } from "@/dashboard/period";
+import { bucketUnitOf, PERIODS, PERIOD_LENGTHS, type PeriodId } from "@/dashboard/period";
 
 import { authorRow, reviewerRow } from "@/review/velocity";
 
@@ -75,7 +75,12 @@ export function DashboardView({
         )}
 
         {data === null || data.repository === null ? null : (
-          <StageFlowSection stages={data.stages} periodLabel={PERIOD_LENGTHS[period]} onOpenStage={onOpenStage} />
+          <StageFlowSection
+            stages={data.stages}
+            periodLabel={PERIOD_LENGTHS[period]}
+            unit={bucketUnitOf(period)}
+            onOpenStage={onOpenStage}
+          />
         )}
 
         {data === null || data.repository === null ? null : (

@@ -1,4 +1,4 @@
-// What the two velocity sections have in common: a person, two weekly lines,
+// What the two velocity sections have in common: a person, two lines,
 // and the rule for which people keep a chart. Pure, so the rule has a test.
 
 export interface VelocityRow {

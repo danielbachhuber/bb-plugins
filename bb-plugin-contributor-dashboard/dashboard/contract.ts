@@ -5,7 +5,7 @@ import { z } from "zod";
 /** Published while a sync stores pages and when it finishes; the open dashboard re-reads. */
 export const DASHBOARD_CHANNEL = "dashboard-changed";
 
-export const periodSchema = z.enum(["6w", "12w", "6m", "1y"]);
+export const periodSchema = z.enum(["1w", "3w", "6w", "12w", "6m", "1y"]);
 
 export const bucketSchema = z.object({ start: z.number(), end: z.number(), label: z.string() });
 

@@ -144,13 +144,13 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
 function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(period, NOW);
   // A longer period holds more of everything, so the totals scale with it.
-  const scale = period === "6w" ? 1 : period === "12w" ? 2 : period === "6m" ? 4.3 : 8.7;
+  const scale: Record<PeriodId, number> = { "1w": 1 / 6, "3w": 0.5, "6w": 1, "12w": 2, "6m": 4.3, "1y": 8.7 };
   const totals = PEOPLE.map((person, p) => ({
     ...person,
-    opened: Math.round(person.opened * scale),
-    merged: Math.round(person.merged * scale),
-    requested: Math.round(person.requested * scale),
-    given: Math.round(person.given * scale),
+    opened: Math.round(person.opened * scale[period]),
+    merged: Math.round(person.merged * scale[period]),
+    requested: Math.round(person.requested * scale[period]),
+    given: Math.round(person.given * scale[period]),
     seed: p,
   }));
   const people = totals.map(({ login, requested, given, seed }) => {
@@ -176,7 +176,10 @@ function fixture(period: PeriodId, sync: SyncStatus = SYNCED): PeopleActivityRes
   return {
     repository: "acme/widgets",
     buckets,
-    stages: STAGES.map((stage) => ({ ...stage, weekly: stage.weekly.slice(0, buckets.length) })),
+    stages: STAGES.map((stage) => ({
+      ...stage,
+      weekly: buckets.map((_, index) => stage.weekly[index % stage.weekly.length]),
+    })),
     authors,
     people,
     sync,
@@ -207,6 +210,9 @@ export const SixWeeksHovered = () => <Page initialHovered={3} />;
 
 /** A year, drawn by month. */
 export const OneYear = () => <Page initial="1y" />;
+
+/** One week, drawn by day: the shortest period the picker offers. */
+export const OneWeek = () => <Page initial="1w" />;
 
 /** The first sync, still reaching back two years; the charts fill in as pages arrive. */
 export const FirstSync = () => (

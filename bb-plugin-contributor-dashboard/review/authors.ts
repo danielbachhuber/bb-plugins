@@ -14,8 +14,8 @@ export interface AuthorActivity {
 }
 
 /**
- * A pull request counts for whoever opened it. A merge counts in the week it
- * merged, which may be a later bucket than the one it was opened in, so the
+ * A pull request counts for whoever opened it. A merge counts in the bucket it
+ * merged in, which may be a later bucket than the one it was opened in, so the
  * two lines are not a fraction of one another.
  */
 export function authorActivity(

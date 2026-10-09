@@ -1,10 +1,10 @@
-// One person's small multiple: two weekly lines, named by the section that
-// draws it. Every card in a section shares one y scale, so people compare
-// honestly, and the card's own peak is written beside the name for the
-// people whose line sits close to the axis on that scale.
+// One person's small multiple: two lines, a point per day, week, or month,
+// named by the section that draws it. Every card in a section shares one y
+// scale, so people compare honestly, and the card's own peak is written beside
+// the name for the people whose line sits close to the axis on that scale.
 import { useState } from "react";
 
-import type { Bucket } from "@/dashboard/period";
+import type { Bucket, BucketUnit } from "@/dashboard/period";
 import { peakOf, type VelocityRow } from "@/review/velocity";
 
 export interface SeriesPair {
@@ -23,6 +23,12 @@ export const AUTHOR_SERIES: SeriesPair = {
   first: { label: "Opened", color: "#3987e5" },
   second: { label: "Merged", color: "#9b6cbf" },
 };
+
+/** What a card's peak calls one bucket: "peak 4/day". */
+const PER: Record<BucketUnit, string> = { day: "day", week: "wk", month: "mo" };
+
+/** Days and months are labelled by their own date; a week is named by its Monday. */
+const TOOLTIP_PREFIX: Record<BucketUnit, string> = { day: "", week: "Week of", month: "" };
 
 const WIDTH = 240;
 const HEIGHT = 72;
@@ -48,7 +54,6 @@ export function PersonChart({
   max,
   unit,
   peak = false,
-  per = "wk",
   initialHovered,
   onOpenPerson,
 }: {
@@ -57,11 +62,10 @@ export function PersonChart({
   buckets: readonly Bucket[];
   /** The largest count on any card, so every card shares one scale. */
   max: number;
-  unit: "Week of" | "";
+  /** What one point counts, which names the peak and heads the tooltip. */
+  unit: BucketUnit;
   /** Says what this card's busiest bucket was, for a card that reads flat. */
   peak?: boolean;
-  /** What one bucket is called in the peak: a week, or a month. */
-  per?: "wk" | "mo";
   initialHovered?: number;
   /** Opens their page. Left out on their own page, where the name is a heading. */
   onOpenPerson?: (login: string) => void;
@@ -92,7 +96,7 @@ export function PersonChart({
           </button>
         )}
         {peak ? (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">peak {peakOf(person)}/{per}</span>
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">peak {peakOf(person)}/{PER[unit]}</span>
         ) : null}
       </div>
       {/*
@@ -144,7 +148,7 @@ export function PersonChart({
             style={{ left: `${(x(hovered) / WIDTH) * 100}%` }}
           >
             <div className="text-muted-foreground">
-              {unit} {buckets[hovered].label}
+              {TOOLTIP_PREFIX[unit]} {buckets[hovered].label}
             </div>
             <div className="tabular-nums">
               {lines.map((line) => `${line.values[hovered]} ${line.label.toLowerCase()}`).join(" · ")}

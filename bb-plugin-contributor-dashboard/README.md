@@ -8,10 +8,12 @@ repository's pull requests, reviews, and issues.
 
 The panel's title bar says when the mirror last synced and has the **Sync**
 button, where bb's other plugins put theirs. The top of the page itself names
-the repository and has the period picker, which every section follows: 6 weeks
-(the default), 12 weeks, 6 months, and 1 year. While the first sync is still
-reaching back two years, the page says how far it has got. The weeks start on Monday; 6 months and a year are
-drawn by month.
+the repository and has the period picker, which every section follows: 1 week,
+3 weeks, 6 weeks (the default), 12 weeks, 6 months, and 1 year. While the
+first sync is still reaching back two years, the page says how far it has got.
+A chart has one point per bucket, and how long a bucket is follows the period:
+1 week and 3 weeks are drawn by day, 6 weeks and 12 weeks by week starting on
+Monday, and 6 months and a year by month.
 
 ### Identify → Define → Execute → Verify → Release
 
@@ -46,8 +48,8 @@ counts neither as a duration nor as waiting. Each row shows how many are in the 
 the period: half pass the stage within the median, a quarter take longer than
 the p75, and a tenth longer than the p90. The bar runs to the median and the
 two ticks mark p75 and p90, on that group's scale. The small line on the
-right is the median week by week, green where it is falling and red where it is
-rising.
+right is the median in each bucket, green where it is falling and red where it
+is rising.
 
 Three numbers rather than one, because an average is the wrong summary here: on
 a real repository the mean time to a first review is three times the median,
@@ -62,9 +64,9 @@ took**, every pull request that left the stage in the period counted into
 bands, and **how long the queue has waited**, the ones in the stage now, with
 the bands past three days in red. Under them is the list of what is in the
 stage, longest wait first, twenty-five to a page, each linking to GitHub. Under
-that, **each week**: bars for how many left the stage that week, with that
-week's median and p90 drawn over them, so a slow week can be read against a
-busy one.
+that, **each day, week, or month**, whichever the period is drawn in: bars for
+how many left the stage in each one, with its median and p90 drawn over them,
+so a slow one can be read against a busy one.
 
 The queue is what is in the stage now, whatever the period, since a pull
 request waiting three months is waiting today.
@@ -75,13 +77,14 @@ Two sections of small multiples, one card per person, busiest first. **PR
 velocity** draws the pull requests each person **opened** and the ones that
 **merged**; **Review velocity** draws the reviews **requested** of them and the
 ones they **gave**. Both totals for the period sit beneath the name, and the
-card's busiest week is written beside it as its peak. Hovering a week shows
-that week's counts.
+card's busiest bucket is written beside it as its peak. Hovering a point shows
+its counts.
 
 Neither pair of totals is a share of the other. A person can review a pull
 request nobody asked them to, so reviews given often outnumber reviews
-requested, and a pull request merges in the week it merged rather than the week
-it was opened, so a week can merge more than it opened.
+requested, and a pull request counts as merged in the bucket it merged in
+rather than the one it was opened in, so a bucket can merge more than it
+opened.
 
 Every card in a section shares one scale, so a busy person's lines sit higher
 than a quiet one's. That leaves a problem on a repository where three people do
@@ -91,22 +94,22 @@ the cards, still clickable, and **Show all** draws everyone.
 
 What counts in PR velocity:
 
-- **Opened:** each pull request, counted for whoever opened it, in the week it
-  was opened. Bots are left out.
-- **Merged:** each of their pull requests that merged, counted in the week it
-  merged, which may be later than the week it was opened and may be outside
-  the period even when the opening was not.
+- **Opened:** each pull request, counted for whoever opened it, in the bucket
+  it was opened in. Bots are left out.
+- **Merged:** each of their pull requests that merged, counted in the bucket it
+  merged in, which may be later than the one it was opened in and may be
+  outside the period even when the opening was not.
 
 What counts in Review velocity:
 
-- **Requested:** each review request naming the person, counted in the week it
-  was made. A re-request counts again, because it asks for another review. A
-  request made of a team counts for the first person who reviews after it,
-  unless they were also asked directly in the meantime or the team request was
-  withdrawn first. A team request nobody picked up counts for no one.
-- **Given:** each review the person submitted, counted in the week it was
-  submitted. A person's reviews on one pull request on one day count once, so
-  a burst of replies to comments is one review. Pending reviews, reviews by
+- **Requested:** each review request naming the person, counted in the bucket
+  it was made in. A re-request counts again, because it asks for another
+  review. A request made of a team counts for the first person who reviews
+  after it, unless they were also asked directly in the meantime or the team
+  request was withdrawn first. A team request nobody picked up counts for no one.
+- **Given:** each review the person submitted, counted in the bucket it was
+  submitted in. A person's reviews on one pull request on one day count once,
+  so a burst of replies to comments is one review. Pending reviews, reviews by
   the pull request's author, and bots are left out.
 
 ### A person's page
@@ -204,25 +207,25 @@ needs no new sync.
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
-| `review/people.ts` | The pure count of reviews requested and given per person per week or month |
+| `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
 | `review/business-time.ts` | Elapsed time with weekends left out |
-| `dashboard/period.ts` | The periods, and the weeks or months each is drawn in |
+| `dashboard/period.ts` | The periods, and the days, weeks or months each is drawn in |
 | `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
 | `components/stage-flow.tsx` | The Execute → Verify → Release flow at the top of the page |
-| `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each week |
+| `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, a year, one week drawn by day, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
 
 ## Working on it
 

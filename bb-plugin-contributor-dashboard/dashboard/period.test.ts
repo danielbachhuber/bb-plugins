@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bucketIndex, bucketsFor, PERIODS } from "./period";
+import { bucketIndex, bucketsFor, bucketUnitOf, DEFAULT_PERIOD, PERIODS } from "./period";
 
 // vitest.config.ts pins TZ to UTC, so local-time week starts are predictable.
 const WED_OCT_7 = Date.parse("2026-10-07T15:00:00Z");
@@ -37,13 +37,42 @@ describe("bucketsFor", () => {
     expect(new Date(buckets[0].start).toISOString().slice(0, 7)).toBe("2025-11");
   });
 
-  it("labels weeks by their Monday and months by name", () => {
+  it("splits a week into seven days ending today", () => {
+    const buckets = bucketsFor("1w", WED_OCT_7);
+    expect(buckets).toHaveLength(7);
+    expect(new Date(buckets[0].start).toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(new Date(buckets[6].start).toISOString()).toBe("2026-10-07T00:00:00.000Z");
+    expect(buckets[6].end).toBe(WED_OCT_7);
+  });
+
+  it("splits three weeks into twenty-one days", () => {
+    const buckets = bucketsFor("3w", WED_OCT_7);
+    expect(buckets).toHaveLength(21);
+    expect(new Date(buckets[0].start).toISOString()).toBe("2026-09-17T00:00:00.000Z");
+  });
+
+  it("labels days and weeks by their date and months by name", () => {
+    expect(bucketsFor("1w", WED_OCT_7)[6].label).toBe("Oct 7");
     expect(bucketsFor("6w", WED_OCT_7)[5].label).toBe("Oct 5");
     expect(bucketsFor("6m", WED_OCT_7)[5].label).toBe("Oct");
   });
 
-  it("offers six weeks first, as the default", () => {
-    expect(PERIODS[0].id).toBe("6w");
+  it("offers the shortest period first and starts on six weeks", () => {
+    expect(PERIODS[0].id).toBe("1w");
+    expect(DEFAULT_PERIOD).toBe("6w");
+  });
+});
+
+describe("bucketUnitOf", () => {
+  it("counts the short periods by day and the long ones by week or month", () => {
+    expect(PERIODS.map((period) => bucketUnitOf(period.id))).toEqual([
+      "day",
+      "day",
+      "week",
+      "week",
+      "month",
+      "month",
+    ]);
   });
 });
 

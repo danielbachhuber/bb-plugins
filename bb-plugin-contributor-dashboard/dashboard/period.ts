@@ -1,9 +1,11 @@
 // The periods the page offers, and the weeks or months each is drawn in.
 // Times are local: a week starts at Monday midnight where the server runs.
 
-export type PeriodId = "6w" | "12w" | "6m" | "1y";
+export type PeriodId = "1w" | "3w" | "6w" | "12w" | "6m" | "1y";
 
 export const PERIODS: ReadonlyArray<{ id: PeriodId; label: string }> = [
+  { id: "1w", label: "1 week" },
+  { id: "3w", label: "3 weeks" },
   { id: "6w", label: "6 weeks" },
   { id: "12w", label: "12 weeks" },
   { id: "6m", label: "6 months" },
@@ -14,6 +16,8 @@ export const DEFAULT_PERIOD: PeriodId = "6w";
 
 /** The period's length as a sentence reads it: "over six weeks". */
 export const PERIOD_LENGTHS: Record<PeriodId, string> = {
+  "1w": "a week",
+  "3w": "three weeks",
   "6w": "six weeks",
   "12w": "twelve weeks",
   "6m": "six months",
@@ -31,12 +35,28 @@ export interface Bucket {
   label: string;
 }
 
-const SHAPE: Record<PeriodId, { unit: "week" | "month"; count: number }> = {
+/** What one point on a chart counts. */
+export type BucketUnit = "day" | "week" | "month";
+
+// The short periods are drawn by day: a week split into weeks is a single
+// point, which no line can be drawn through.
+const SHAPE: Record<PeriodId, { unit: BucketUnit; count: number }> = {
+  "1w": { unit: "day", count: 7 },
+  "3w": { unit: "day", count: 21 },
   "6w": { unit: "week", count: 6 },
   "12w": { unit: "week", count: 12 },
   "6m": { unit: "month", count: 6 },
   "1y": { unit: "month", count: 12 },
 };
+
+/** Whether the period's points are days, weeks, or months. */
+export const bucketUnitOf = (period: PeriodId): BucketUnit => SHAPE[period].unit;
+
+function startOfDay(now: number): Date {
+  const day = new Date(now);
+  day.setHours(0, 0, 0, 0);
+  return day;
+}
 
 function mondayOf(now: number): Date {
   const day = new Date(now);
@@ -57,10 +77,11 @@ function firstOfMonth(now: number): Date {
 export function bucketsFor(period: PeriodId, now: number): Bucket[] {
   const { unit, count } = SHAPE[period];
   const starts: Date[] = [];
-  const current = unit === "week" ? mondayOf(now) : firstOfMonth(now);
+  const current = unit === "day" ? startOfDay(now) : unit === "week" ? mondayOf(now) : firstOfMonth(now);
   for (let back = count - 1; back >= 0; back--) {
     const start = new Date(current);
-    if (unit === "week") start.setDate(start.getDate() - back * 7);
+    if (unit === "day") start.setDate(start.getDate() - back);
+    else if (unit === "week") start.setDate(start.getDate() - back * 7);
     else start.setMonth(start.getMonth() - back);
     starts.push(start);
   }
@@ -68,9 +89,9 @@ export function bucketsFor(period: PeriodId, now: number): Bucket[] {
     start: start.getTime(),
     end: index + 1 < starts.length ? starts[index + 1].getTime() : now,
     label:
-      unit === "week"
-        ? start.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        : start.toLocaleDateString("en-US", { month: "short" }),
+      unit === "month"
+        ? start.toLocaleDateString("en-US", { month: "short" })
+        : start.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
   }));
 }
 
