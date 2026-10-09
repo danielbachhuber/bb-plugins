@@ -19,3 +19,8 @@
   - `bb plugin build . && bb plugin reload <id>` and it's live, no restart.
   - The SDK exports bb's own components, so a plugin looks and works like the rest of bb.
   - Stories render with bb's real stylesheet, so you can see a change without reloading bb.
+- Interactive: show a few of the mockups an agent made for one plugin, which I then picked from in Dynamic UI. Ask the audience which they would pick, and why.
+  - Review Sweep, stacked pull requests: five options (rail, group card, chip only, folded stack, indented tree). I picked the chip, the simplest one.
+  - Tokenomics, the context size warning: I turned down every option, then asked for the orange warning style the Now page already uses.
+  - Super Diff, showing that every change is there: several rounds, where the mockups got the details wrong (files instead of hunks) and I had to ask how the pick would scale to 100+ files.
+- Building plugins in bb, you can work against live data, and you can also ask bb to consider many different permutations of data.
