@@ -190,9 +190,17 @@ const LOCAL_SVG =
   '<path d="M18.796 18.81A4.5 4.5 0 0 1 17.5 19H9A7 7 0 0 1 5.79 5.78"/>' +
   '<path d="m2 2 20 20"/></svg>';
 
+/**
+ * Where a control's mark lives, or `pending` while the thread's pull request
+ * and GitHub's Viewed state are still being fetched.
+ */
+export type ControlMode = SyncMode | { kind: "pending" };
+
 /** The control's tooltip: where a click on it records the mark. */
-export function syncTitle(mode: SyncMode): string {
+export function syncTitle(mode: ControlMode): string {
   switch (mode.kind) {
+    case "pending":
+      return "Checking GitHub for this file's Viewed state";
     case "none":
       return (
         "Local: the mark is kept in bb. Once the thread has an open pull request " +
@@ -213,7 +221,7 @@ export function syncTitle(mode: SyncMode): string {
 export function paintCard(
   card: DiffCard,
   viewed: boolean,
-  mode: SyncMode = { kind: "none" },
+  mode: ControlMode = { kind: "none" },
 ): void {
   const control = existingControl(card);
   const input = control?.querySelector("input");
@@ -224,7 +232,9 @@ export function paintCard(
     const title = syncTitle(mode);
     if (control.title !== title) control.title = title;
     const local = control.querySelector(`[${LOCAL_TAG_ATTR}]`);
-    const hidden = mode.kind === "synced";
+    // Hidden until GitHub has answered, so a file that turns out to sync
+    // does not flash Local while the page loads.
+    const hidden = mode.kind === "synced" || mode.kind === "pending";
     if (local instanceof HTMLElement && local.hidden !== hidden) local.hidden = hidden;
   }
   if (viewed) {
@@ -312,7 +322,13 @@ const DETAILS_SELECTOR = '[data-testid="git-diff-toolbar-details"]';
 
 /** What the progress line shows. */
 export type ProgressView =
-  | { kind: "progress"; viewed: number; total: number }
+  | {
+      kind: "progress";
+      viewed: number;
+      total: number;
+      /** GitHub has not answered yet, so the count is bb's marks alone. */
+      pending?: boolean;
+    }
   | { kind: "unavailable"; reason: string };
 
 const RING_RADIUS = 6;
@@ -343,16 +359,20 @@ function progressMarkup(view: ProgressView): { html: string; title: string } {
         "A bb update probably changed the changes panel; see the plugin's README.",
     };
   }
-  const { viewed, total } = view;
+  const { viewed, total, pending = false } = view;
+  // While GitHub is still answering, the whole line stays muted, so a count
+  // that may still change does not read as final.
+  const number = pending ? "text-muted-foreground" : "text-foreground";
+  const counted = `${viewed} of ${total} file${total === 1 ? "" : "s"} viewed`;
   return {
     html:
       ringSvg(viewed, total) +
-      '<span class="truncate">' +
-      `<span class="text-foreground">${viewed}</span>` +
+      `<span class="truncate${pending ? " animate-pulse" : ""}">` +
+      `<span class="${number}">${viewed}</span>` +
       '<span class="text-muted-foreground">/</span>' +
-      `<span class="text-foreground">${total}</span>` +
+      `<span class="${number}">${total}</span>` +
       '<span class="text-muted-foreground"> viewed</span></span>',
-    title: `${viewed} of ${total} file${total === 1 ? "" : "s"} viewed`,
+    title: pending ? `${counted} in bb. Checking GitHub` : counted,
   };
 }
 

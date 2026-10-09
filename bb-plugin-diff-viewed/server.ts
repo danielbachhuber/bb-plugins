@@ -49,6 +49,11 @@ const threadIdSchema = z.string().trim().min(1).max(200);
 const pathSchema = z.string().trim().min(1).max(2000);
 
 export const rpcContract = defineRpcContract({
+  /** The thread's marks alone, from storage, without waiting on GitHub. */
+  viewed_marks: {
+    input: z.object({ threadId: threadIdSchema }).strict(),
+    output: z.object({ record: recordSchema }),
+  },
   viewed_list: {
     input: z.object({ threadId: threadIdSchema }).strict(),
     output: marksSchema,
@@ -274,6 +279,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.rpc.register(rpcContract, {
+    viewed_marks: async ({ threadId }) => ({ record: await read(threadId) }),
     viewed_list: async ({ threadId }) => {
       const [record, pull] = await Promise.all([read(threadId), github(threadId)]);
       if (pull === null) return { record, github: null };

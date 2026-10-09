@@ -154,6 +154,8 @@ function start(
     github?: GithubState;
     /** Collect warnings instead of failing the test on the first one. */
     warnings?: unknown[];
+    /** Hold viewed_list until this settles, as a slow GitHub query does. */
+    listGate?: Promise<void>;
   } = {},
 ): Harness {
   const calls: { method: string; input: unknown }[] = [];
@@ -187,7 +189,10 @@ function start(
         };
       }
     }
-    if (method === "viewed_prune") return { record: { ...record } } as Result;
+    if (method === "viewed_prune" || method === "viewed_marks") {
+      return { record: { ...record } } as Result;
+    }
+    if (method === "viewed_list" && options.listGate !== undefined) await options.listGate;
     return { record: { ...record }, github } as Result;
   };
 
@@ -797,5 +802,69 @@ describe("syncing with GitHub", () => {
     harness.engine.refresh();
     await harness.settle();
     expect(harness.calls.filter((call) => call.method === "viewed_list")).toHaveLength(before + 1);
+  });
+});
+
+describe("while GitHub is still answering", () => {
+  const pull = (files: GithubState["files"]): GithubState => ({
+    number: 42,
+    url: "https://github.com/acme/widgets/pull/42",
+    files,
+  });
+
+  function localIcon(toggle: HTMLButtonElement): HTMLElement {
+    return toggle.parentElement!.parentElement!.querySelector("[data-diff-viewed-local]")!;
+  }
+
+  function gate(): { promise: Promise<void>; open: () => void } {
+    let open = () => {};
+    const promise = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    return { promise, open };
+  }
+
+  it("shows bb's marks at once and no Local icon until GitHub answers", async () => {
+    renderToolbar();
+    const synced = renderCard("a.ts", "+8 -4");
+    const local = renderCard("b.ts", "+1 -1");
+    const list = gate();
+    const harness = start({
+      record: { "b.ts": "+1 -1" },
+      github: pull([{ path: "a.ts", additions: 8, deletions: 4, viewed: true }]),
+      listGate: list.promise,
+    });
+    await harness.settle();
+
+    expect(checkboxFor(local)!.checked).toBe(true);
+    expect(localIcon(synced).hidden).toBe(true);
+    expect(localIcon(local).hidden).toBe(true);
+    expect(localIcon(local).closest("label")!.title).toMatch(/^Checking GitHub/);
+    const progress = document.querySelector("[data-diff-viewed-progress]") as HTMLElement;
+    expect(progress.textContent).toContain("1/2 viewed");
+    expect(progress.title).toMatch(/Checking GitHub$/);
+
+    list.open();
+    await harness.settle();
+    await harness.settle();
+    expect(checkboxFor(synced)!.checked).toBe(true);
+    expect(localIcon(synced).hidden).toBe(true);
+    expect(localIcon(local).hidden).toBe(false);
+    expect(progress.textContent).toContain("2/2 viewed");
+    expect(progress.title).toBe("2 of 2 files viewed");
+  });
+
+  it("shows the Local icon once the server says nothing syncs", async () => {
+    renderToolbar();
+    const toggle = renderCard("a.ts");
+    const list = gate();
+    const harness = start({ listGate: list.promise });
+    await harness.settle();
+    expect(localIcon(toggle).hidden).toBe(true);
+
+    list.open();
+    await harness.settle();
+    await harness.settle();
+    expect(localIcon(toggle).hidden).toBe(false);
   });
 });

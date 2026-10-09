@@ -21,6 +21,7 @@ import {
   paintFilterItem,
   renderProgress,
   undecorate,
+  type ControlMode,
   type DiffCard,
 } from "./dom";
 import { readDiffFiles, rowOf, type DiffFilesRead } from "./files";
@@ -69,6 +70,11 @@ interface SyncState {
   /** The thread's pull request files, or null when nothing syncs. */
   github: GithubState | null;
   /**
+   * Whether the server has said if anything syncs. Until it has, `github`
+   * is a guess, so no control claims to be Local.
+   */
+  githubKnown: boolean;
+  /**
    * Files this engine has already collapsed for you, keyed by path and
    * fingerprint. It is why a viewed file can be reopened and stay open: each
    * one is collapsed at most once per diff, not on every pass.
@@ -89,6 +95,7 @@ export function startEngine(deps: EngineDeps): Engine {
     threadId: null,
     record: {},
     github: null,
+    githubKnown: false,
     autoCollapsed: new Set(),
     pruned: false,
     onlyUnviewed: false,
@@ -126,13 +133,42 @@ export function startEngine(deps: EngineDeps): Engine {
       accept(result);
     } catch (cause) {
       warn(cause);
+      // Without an answer, show the marks as bb's own rather than waiting
+      // on GitHub forever.
+      if (!signal.aborted && state.threadId === threadId && !state.githubKnown) {
+        state.githubKnown = true;
+        schedule();
+      }
+    }
+  }
+
+  /**
+   * Paint bb's own marks straight from storage while viewed_list waits on
+   * GitHub, which takes up to a few seconds on a thread's first load.
+   */
+  async function loadMarks(threadId: string): Promise<void> {
+    try {
+      const { record } = await rpc<{ record: ViewedRecord }>("viewed_marks", { threadId });
+      if (signal.aborted || state.threadId !== threadId || state.githubKnown) return;
+      state.record = record;
+      schedule();
+    } catch (cause) {
+      warn(cause);
     }
   }
 
   function accept(result: RecordResult): void {
     state.record = result.record;
-    if (result.github !== undefined) state.github = result.github;
+    if (result.github !== undefined) {
+      state.github = result.github;
+      state.githubKnown = true;
+    }
     schedule();
+  }
+
+  /** Where a card's mark lives, as far as is known yet. */
+  function modeOf(card: DiffCard): ControlMode {
+    return state.githubKnown ? syncMode(state.github, card) : { kind: "pending" };
   }
 
   /**
@@ -161,7 +197,7 @@ export function startEngine(deps: EngineDeps): Engine {
     const key = collapseKey(card.path, card.fingerprint);
     writing = true;
     try {
-      paintCard(card, viewed, syncMode(state.github, card));
+      paintCard(card, viewed, modeOf(card));
       if (viewed) {
         state.autoCollapsed.add(key);
         if (!card.isCollapsed) card.toggle.click();
@@ -274,6 +310,7 @@ export function startEngine(deps: EngineDeps): Engine {
     renderProgress(doc, {
       kind: "progress",
       ...syncedProgress(state.record, state.github, read.files),
+      ...(state.githubKnown ? {} : { pending: true }),
     });
 
     // Prune once per thread, against the full range only: a narrower range
@@ -306,7 +343,7 @@ export function startEngine(deps: EngineDeps): Engine {
           card.actions.append(control);
         }
         const viewed = isMarked(state.record, state.github, card);
-        paintCard(card, viewed, syncMode(state.github, card));
+        paintCard(card, viewed, modeOf(card));
         const key = collapseKey(card.path, card.fingerprint);
         if (viewed && !card.isCollapsed && !state.autoCollapsed.has(key)) {
           state.autoCollapsed.add(key);
@@ -325,9 +362,13 @@ export function startEngine(deps: EngineDeps): Engine {
       state.threadId = threadId;
       state.record = {};
       state.github = null;
+      state.githubKnown = false;
       state.autoCollapsed.clear();
       state.pruned = false;
-      if (threadId !== null) loading = reload();
+      if (threadId !== null) {
+        void loadMarks(threadId);
+        loading = reload();
+      }
     }
     // The toolbar's presence is the signal that the changes panel is open. The
     // card list below it has no container attribute, so there is nothing else
