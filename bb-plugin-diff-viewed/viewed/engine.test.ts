@@ -816,6 +816,10 @@ describe("while GitHub is still answering", () => {
     return toggle.parentElement!.parentElement!.querySelector("[data-diff-viewed-local]")!;
   }
 
+  function spinner(toggle: HTMLButtonElement): HTMLElement {
+    return toggle.parentElement!.parentElement!.querySelector("[data-diff-viewed-pending]")!;
+  }
+
   function gate(): { promise: Promise<void>; open: () => void } {
     let open = () => {};
     const promise = new Promise<void>((resolve) => {
@@ -839,7 +843,8 @@ describe("while GitHub is still answering", () => {
     expect(checkboxFor(local)!.checked).toBe(true);
     expect(localIcon(synced).hidden).toBe(true);
     expect(localIcon(local).hidden).toBe(true);
-    expect(localIcon(local).closest("label")!.title).toMatch(/^Checking GitHub/);
+    expect(spinner(local).hidden).toBe(false);
+    expect(spinner(synced).hidden).toBe(false);
     const progress = document.querySelector("[data-diff-viewed-progress]") as HTMLElement;
     expect(progress.textContent).toContain("1/2 viewed");
     expect(progress.title).toMatch(/Checking GitHub$/);
@@ -850,6 +855,8 @@ describe("while GitHub is still answering", () => {
     expect(checkboxFor(synced)!.checked).toBe(true);
     expect(localIcon(synced).hidden).toBe(true);
     expect(localIcon(local).hidden).toBe(false);
+    expect(spinner(local).hidden).toBe(true);
+    expect(spinner(synced).hidden).toBe(true);
     expect(progress.textContent).toContain("2/2 viewed");
     expect(progress.title).toBe("2 of 2 files viewed");
   });

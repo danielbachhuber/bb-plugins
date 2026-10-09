@@ -34,6 +34,8 @@ const PROGRESS_HOST_ATTR = "data-diff-viewed-progress-host";
 const PROGRESS_ATTR = "data-diff-viewed-progress";
 /** Marks the Local icon on a control whose mark does not reach GitHub. */
 const LOCAL_TAG_ATTR = "data-diff-viewed-local";
+/** Marks the spinner a control shows until GitHub has answered. */
+const PENDING_ATTR = "data-diff-viewed-pending";
 /** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
 const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
 /** Timeline diffs, which are deliberately out of scope: the same path recurs
@@ -177,7 +179,17 @@ export function createControl(
   local.className = "shrink-0 text-muted-foreground";
   local.innerHTML = LOCAL_SVG;
 
-  label.append(local, input, text);
+  // Holds the same spot until GitHub has answered and it is known whether
+  // the file is Local.
+  const pending = document.createElement("span");
+  pending.setAttribute(PENDING_ATTR, "");
+  pending.setAttribute("role", "img");
+  pending.setAttribute("aria-label", "Loading");
+  pending.hidden = true;
+  pending.className = "shrink-0 text-muted-foreground";
+  pending.innerHTML = PENDING_SVG;
+
+  label.append(pending, local, input, text);
   return label;
 }
 
@@ -190,6 +202,13 @@ const LOCAL_SVG =
   '<path d="M18.796 18.81A4.5 4.5 0 0 1 17.5 19H9A7 7 0 0 1 5.79 5.78"/>' +
   '<path d="m2 2 20 20"/></svg>';
 
+/** Lucide's `loader-circle`, spinning. */
+const PENDING_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+  'stroke-linejoin="round" class="block h-3.5 w-3.5 animate-spin" aria-hidden="true">' +
+  '<path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>';
+
 /**
  * Where a control's mark lives, or `pending` while the thread's pull request
  * and GitHub's Viewed state are still being fetched.
@@ -200,7 +219,7 @@ export type ControlMode = SyncMode | { kind: "pending" };
 export function syncTitle(mode: ControlMode): string {
   switch (mode.kind) {
     case "pending":
-      return "Checking GitHub for this file's Viewed state";
+      return "";
     case "none":
       return (
         "Local: the mark is kept in bb. Once the thread has an open pull request " +
@@ -232,10 +251,13 @@ export function paintCard(
     const title = syncTitle(mode);
     if (control.title !== title) control.title = title;
     const local = control.querySelector(`[${LOCAL_TAG_ATTR}]`);
-    // Hidden until GitHub has answered, so a file that turns out to sync
-    // does not flash Local while the page loads.
+    // The spinner stands in until GitHub has answered, so a file that turns
+    // out to sync does not flash Local while the page loads.
     const hidden = mode.kind === "synced" || mode.kind === "pending";
     if (local instanceof HTMLElement && local.hidden !== hidden) local.hidden = hidden;
+    const pending = control.querySelector(`[${PENDING_ATTR}]`);
+    const waiting = mode.kind === "pending";
+    if (pending instanceof HTMLElement && pending.hidden === waiting) pending.hidden = !waiting;
   }
   if (viewed) {
     card.headerRow.setAttribute(VIEWED_ATTR, "true");

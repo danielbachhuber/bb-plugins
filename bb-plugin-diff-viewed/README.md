@@ -48,10 +48,10 @@ can still check it, which is how you review your own diff before pushing, and
 the mark stays in bb. Hover the checkbox to see which kind of mark it is.
 
 When you open a thread, its marks in bb show at once, and GitHub's Viewed
-state takes up to a few seconds to arrive. Until it does, no file shows the
-Local cloud, since the plugin does not yet know which files sync, and the
-"viewed" count in the toolbar stays muted and pulses, counting bb's marks
-alone. Both settle once GitHub answers.
+state takes up to a few seconds to arrive. Until it does, each file shows a
+spinner where the Local cloud would go, since the plugin does not yet know
+which files sync, and the "viewed" count in the toolbar stays muted and
+pulses, counting bb's marks alone. Both settle once GitHub answers.
 
 A Local mark does not stay local for good. Once you push, or open the pull
 request, and that file's counts on GitHub match the diff you marked, the
