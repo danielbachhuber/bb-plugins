@@ -742,7 +742,7 @@ describe("syncing with GitHub", () => {
     expect(checkboxFor(toggle)!.checked).toBe(false);
   });
 
-  it("tags a file whose diff differs from GitHub's as local, and keeps it checkable", async () => {
+  it("shows the Local icon on a file whose diff differs from GitHub's, and keeps it checkable", async () => {
     renderToolbar();
     const toggle = renderCard("a.ts", "+9 -4");
     const harness = start({
@@ -752,7 +752,9 @@ describe("syncing with GitHub", () => {
 
     expect(checkboxFor(toggle)!.checked).toBe(false);
     expect(localTag(toggle)!.hidden).toBe(false);
-    expect(localTag(toggle)!.closest("label")!.title).toMatch(/^Local only/);
+    expect(localTag(toggle)!.getAttribute("aria-label")).toBe("Local");
+    expect(localTag(toggle)!.querySelector("svg")).not.toBeNull();
+    expect(localTag(toggle)!.closest("label")!.title).toMatch(/^Local: .*differs from pull request #42/);
 
     checkboxFor(toggle)!.click();
     await harness.settle();
@@ -760,14 +762,14 @@ describe("syncing with GitHub", () => {
     expect(harness.record).toEqual({ "a.ts": "+9 -4" });
   });
 
-  it("shows no local tag without a pull request", async () => {
+  it("shows the Local icon without a pull request", async () => {
     renderToolbar();
     const toggle = renderCard("a.ts");
     const harness = start();
     await harness.settle();
 
-    expect(localTag(toggle)!.hidden).toBe(true);
-    expect(localTag(toggle)!.closest("label")!.title).toBe("");
+    expect(localTag(toggle)!.hidden).toBe(false);
+    expect(localTag(toggle)!.closest("label")!.title).toMatch(/^Local: .*open pull request/);
   });
 
   it("counts GitHub's marks in the progress", async () => {

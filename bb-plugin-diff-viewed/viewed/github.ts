@@ -123,3 +123,52 @@ export function withGithubViewed(
     ),
   };
 }
+
+/** Storage key for one thread's marks that have yet to reach GitHub. */
+export function pendingKey(threadId: string): string {
+  return `pending:${threadId}`;
+}
+
+/**
+ * Add or drop a path in the list of marks waiting for GitHub. Returns the
+ * input when nothing changed, so the caller can skip the write.
+ */
+export function withPending(
+  pending: readonly string[],
+  path: string,
+  waiting: boolean,
+): readonly string[] {
+  const has = pending.includes(path);
+  if (has === waiting) return pending;
+  return waiting ? [...pending, path] : pending.filter((entry) => entry !== path);
+}
+
+/**
+ * Which marks made in bb to send to GitHub now. `pending` lists the files
+ * marked while their mark could not reach GitHub: before the thread had a pull
+ * request, or while the diff differed from the pull request's. Once a file's
+ * marked diff is the one on GitHub, it leaves the list, and goes in `push`
+ * when GitHub does not already show it viewed. A file whose mark has since
+ * been cleared leaves the list too. The rest wait for a later push.
+ *
+ * Each file is sent once, so unmarking it on GitHub afterwards sticks.
+ */
+export function pendingPushes(
+  record: ViewedRecord,
+  pending: readonly string[],
+  github: GithubState,
+): { push: string[]; remaining: string[] } {
+  const push: string[] = [];
+  const remaining: string[] = [];
+  for (const path of pending) {
+    const fingerprint = record[path];
+    if (fingerprint === undefined) continue;
+    const mode = syncMode(github, { path, fingerprint });
+    if (mode.kind !== "synced") {
+      remaining.push(path);
+    } else if (!mode.file.viewed) {
+      push.push(mode.file.path);
+    }
+  }
+  return { push, remaining };
+}

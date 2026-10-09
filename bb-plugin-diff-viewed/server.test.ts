@@ -1,7 +1,7 @@
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import plugin, { VIEWED_CHANGED } from "./server";
 
@@ -138,23 +138,32 @@ describe("problem_report", () => {
   });
 });
 
+type FakeFile = { path: string; additions: number; deletions: number; viewerViewedState: string };
+
 /**
  * A stand-in for `gh`: a script that appends its argv to a log and answers
  * the files query with `files`, or a mutation with an empty payload.
+ * `setFiles` changes the answer, as a push does.
  */
-function fakeGh(files: { path: string; additions: number; deletions: number; viewerViewedState: string }[]) {
+function fakeGh(files: FakeFile[]) {
   const dir = mkdtempSync(join(tmpdir(), "diff-viewed-gh-"));
   const log = join(dir, "calls.jsonl");
-  const answer = JSON.stringify({
-    data: {
-      repository: {
-        pullRequest: {
-          id: "PR_node",
-          files: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: files },
+  const answerFile = join(dir, "answer.json");
+  const setFiles = (next: FakeFile[]) =>
+    writeFileSync(
+      answerFile,
+      JSON.stringify({
+        data: {
+          repository: {
+            pullRequest: {
+              id: "PR_node",
+              files: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: next },
+            },
+          },
         },
-      },
-    },
-  });
+      }),
+    );
+  setFiles(files);
   const script = join(dir, "gh");
   writeFileSync(
     script,
@@ -163,7 +172,7 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + "\\n");
 const query = args.find((arg) => arg.startsWith("query=")) ?? "";
-process.stdout.write(query.includes("mutation") ? "{}" : ${JSON.stringify(answer)});
+process.stdout.write(query.includes("mutation") ? "{}" : fs.readFileSync(${JSON.stringify(answerFile)}, "utf8"));
 `,
   );
   chmodSync(script, 0o755);
@@ -174,10 +183,11 @@ process.stdout.write(query.includes("mutation") ? "{}" : ${JSON.stringify(answer
       return [];
     }
   };
-  return { path: script, calls };
+  return { path: script, calls, setFiles };
 }
 
-async function startSynced(gh: { path: string }, pullRequest = true) {
+async function startSynced(gh: { path: string }, pullRequest: boolean | { open: boolean } = true) {
+  const pr = typeof pullRequest === "boolean" ? { open: pullRequest } : pullRequest;
   const host = createFakePluginHost({
     pluginId: "diff-viewed",
     settings: { syncGithub: "on", ghPath: gh.path },
@@ -187,7 +197,7 @@ async function startSynced(gh: { path: string }, pullRequest = true) {
       },
       environments: {
         pullRequest: async () =>
-          pullRequest
+          pr.open
             ? {
                 outcome: "available",
                 pullRequest: {
@@ -301,5 +311,100 @@ describe("GitHub sync", () => {
 
     const set = await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
     expect(set).toEqual({ record: { "src/a.ts": "+8 -4" }, github: null });
+  });
+});
+
+describe("sending marks made in bb to GitHub", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Let the 30 second GitHub cache go stale, as it does between focuses. */
+  const later = () => vi.setSystemTime(Date.now() + 31_000);
+
+  it("marks a file viewed on GitHub once the push makes the diffs match", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 5, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const { harness } = await startSynced(gh);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+    expect(mutations(gh.calls())).toHaveLength(0);
+
+    gh.setFiles([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    later();
+    const listed = await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(listed.github?.files[0]?.viewed).toBe(true);
+    const [mutation] = mutations(gh.calls());
+    expect(mutation?.join(" ")).toContain("markFileAsViewed");
+    expect(mutation).toContain("path=src/a.ts");
+  });
+
+  it("marks a file viewed on GitHub once the pull request is opened", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const pr = { open: false };
+    const { harness } = await startSynced(gh, pr);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+
+    pr.open = true;
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(mutations(gh.calls())).toHaveLength(1);
+  });
+
+  it("sends each mark once, so unmarking it on GitHub afterwards sticks", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const pr = { open: false };
+    const { harness } = await startSynced(gh, pr);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+    pr.open = true;
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+
+    // Unmarked on GitHub's Files changed tab.
+    later();
+    const listed = await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(listed.github?.files[0]?.viewed).toBe(false);
+    expect(mutations(gh.calls())).toHaveLength(1);
+  });
+
+  it("keeps waiting while the diff still differs", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 5, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const { harness } = await startSynced(gh);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(mutations(gh.calls())).toHaveLength(0);
+
+    gh.setFiles([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(mutations(gh.calls())).toHaveLength(1);
+  });
+
+  it("sends nothing for a mark cleared before the push", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 5, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const { harness } = await startSynced(gh);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: false });
+
+    gh.setFiles([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(mutations(gh.calls())).toHaveLength(0);
+  });
+
+  it("makes no call for a file GitHub already shows viewed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const gh = fakeGh([{ path: "src/a.ts", additions: 5, deletions: 4, viewerViewedState: "UNVIEWED" }]);
+    const { harness } = await startSynced(gh);
+    await harness.behavior.callRpc("viewed_set", { ...A, viewed: true });
+
+    gh.setFiles([{ path: "src/a.ts", additions: 8, deletions: 4, viewerViewedState: "VIEWED" }]);
+    later();
+    await harness.behavior.callRpc("viewed_list", { threadId: "thr_a" });
+    expect(mutations(gh.calls())).toHaveLength(0);
   });
 });

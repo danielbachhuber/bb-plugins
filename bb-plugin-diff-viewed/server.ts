@@ -10,7 +10,15 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
 import { z } from "zod";
-import { syncMode, withGithubViewed, githubPath, type GithubState } from "./viewed/github";
+import {
+  githubPath,
+  pendingKey,
+  pendingPushes,
+  syncMode,
+  withGithubViewed,
+  withPending,
+  type GithubState,
+} from "./viewed/github";
 import { prune, recordKey, withMark, type ViewedRecord } from "./viewed/marks";
 import { fetchPullRequest, setFileViewed, type FetchedPullRequest } from "./viewed/pull-request";
 
@@ -188,6 +196,66 @@ export default async function plugin(bb: BbPluginApi) {
     return (await bb.storage.kv.get<ViewedRecord>(recordKey(threadId))) ?? {};
   }
 
+  async function readPending(threadId: string): Promise<readonly string[]> {
+    return (await bb.storage.kv.get<string[]>(pendingKey(threadId))) ?? [];
+  }
+
+  async function writePending(
+    threadId: string,
+    before: readonly string[],
+    after: readonly string[],
+  ): Promise<void> {
+    if (after !== before) await bb.storage.kv.set(pendingKey(threadId), after);
+  }
+
+  /** Remember the cache's new Viewed state without resetting its age. */
+  function cacheGithub(threadId: string, value: FetchedPullRequest): void {
+    const cached = githubCache.get(threadId);
+    githubCache.set(threadId, { value, fetchedAt: cached?.fetchedAt ?? Date.now() });
+  }
+
+  const flushing = new Map<string, Promise<FetchedPullRequest>>();
+
+  /**
+   * Send GitHub the marks made in bb before they could reach it, once their
+   * diff is the pull request's: after the branch is pushed, or the pull
+   * request opened. A mark that fails to send stays waiting for the next try.
+   * Overlapping calls share one run, so a focus burst sends each mark once.
+   */
+  function flushPending(
+    threadId: string,
+    record: ViewedRecord,
+    pull: FetchedPullRequest,
+  ): Promise<FetchedPullRequest> {
+    const running = flushing.get(threadId);
+    if (running) return running;
+    const run = (async () => {
+      const before = await readPending(threadId);
+      if (before.length === 0) return pull;
+      const { push, remaining } = pendingPushes(record, before, pull);
+      const { ghPath } = await settings.get();
+      let updated = pull;
+      const failed: string[] = [];
+      for (const path of push) {
+        try {
+          await setFileViewed(ghFor(ghPath), pull.id, path, true);
+          updated = { ...updated, ...withGithubViewed(updated, path, true) };
+        } catch (error) {
+          bb.log.warn(`Could not mark ${path} viewed on GitHub: ${String(error)}`);
+          failed.push(path);
+        }
+      }
+      const kept = before.filter(
+        (path) => remaining.includes(path) || failed.includes(githubPath(path)),
+      );
+      await writePending(threadId, before, kept.length === before.length ? before : kept);
+      if (updated !== pull) cacheGithub(threadId, updated);
+      return updated;
+    })().finally(() => flushing.delete(threadId));
+    flushing.set(threadId, run);
+    return run;
+  }
+
   /**
    * Persist only when the pure layer actually produced a different record.
    * Identity is the signal: `withMark` and `prune` return their input when
@@ -208,7 +276,8 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     viewed_list: async ({ threadId }) => {
       const [record, pull] = await Promise.all([read(threadId), github(threadId)]);
-      return { record, github: wire(pull) };
+      if (pull === null) return { record, github: null };
+      return { record, github: wire(await flushPending(threadId, record, pull)) };
     },
     viewed_set: async ({ threadId, path, fingerprint, viewed }) => {
       const before = await read(threadId);
@@ -217,11 +286,16 @@ export default async function plugin(bb: BbPluginApi) {
 
       // The local mark is kept either way, so the file stays marked if the
       // diff later stops matching GitHub's. It reaches GitHub only when the
-      // diff being marked is the one GitHub has.
+      // diff being marked is the one GitHub has; until then it waits in the
+      // pending list, and viewed_list sends it once the diffs match.
       const pull = await github(threadId);
-      if (pull === null || syncMode(pull, { path, fingerprint }).kind !== "synced") {
-        return { record, github: wire(pull) };
+      const synced = pull !== null && syncMode(pull, { path, fingerprint }).kind === "synced";
+      const { syncGithub } = await settings.get();
+      if (syncGithub === "on") {
+        const pending = await readPending(threadId);
+        await writePending(threadId, pending, withPending(pending, path, viewed && !synced));
       }
+      if (!synced) return { record, github: wire(pull) };
       const { ghPath } = await settings.get();
       const remotePath = githubPath(path);
       try {
@@ -231,13 +305,16 @@ export default async function plugin(bb: BbPluginApi) {
         throw error;
       }
       const updated = { ...pull, ...withGithubViewed(pull, remotePath, viewed) };
-      const cached = githubCache.get(threadId);
-      githubCache.set(threadId, { value: updated, fetchedAt: cached?.fetchedAt ?? Date.now() });
+      cacheGithub(threadId, updated);
       return { record, github: wire(updated) };
     },
     viewed_prune: async ({ threadId, presentPaths }) => {
       const before = await read(threadId);
       const after = prune(before, presentPaths);
+      const pending = await readPending(threadId);
+      const present = new Set(presentPaths);
+      const keptPending = pending.filter((path) => present.has(path));
+      await writePending(threadId, pending, keptPending.length === pending.length ? pending : keptPending);
       return { record: await commit(threadId, before, after) };
     },
     filter_get: async () => ({

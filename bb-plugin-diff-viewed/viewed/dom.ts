@@ -32,7 +32,7 @@ export const FILTER_ATTR = "data-diff-viewed-only-unviewed";
 const PROGRESS_HOST_ATTR = "data-diff-viewed-progress-host";
 /** Marks the progress line this plugin adds above bb's line counts. */
 const PROGRESS_ATTR = "data-diff-viewed-progress";
-/** Marks the "local" tag on a control whose mark does not reach GitHub. */
+/** Marks the Local icon on a control whose mark does not reach GitHub. */
 const LOCAL_TAG_ATTR = "data-diff-viewed-local";
 /** Marks the Only unviewed item this plugin adds to bb's range dropdown. */
 const FILTER_ITEM_ATTR = "data-diff-viewed-filter";
@@ -166,30 +166,42 @@ export function createControl(
   const text = document.createElement("span");
   text.textContent = "Viewed";
 
-  // Shown only when the thread has a pull request and this file's diff is
-  // not the one on GitHub, so the mark stays in bb.
+  // Shown whenever the mark stays in bb rather than on GitHub's Viewed box.
   const local = document.createElement("span");
   local.setAttribute(LOCAL_TAG_ATTR, "");
+  local.setAttribute("role", "img");
+  local.setAttribute("aria-label", "Local");
   local.hidden = true;
-  local.className =
-    "rounded border border-border px-1 text-[0.625rem] leading-3.5 text-muted-foreground";
-  local.textContent = "local";
+  local.className = "shrink-0 text-muted-foreground";
+  local.innerHTML = LOCAL_SVG;
 
   label.append(input, text, local);
   return label;
 }
 
+/** Lucide's `laptop`, the Local icon. */
+const LOCAL_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+  'stroke-linejoin="round" class="block h-3.5 w-3.5" aria-hidden="true">' +
+  '<path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/>' +
+  '<path d="M20.054 15.987H3.946"/></svg>';
+
 /** The control's tooltip: where a click on it records the mark. */
 export function syncTitle(mode: SyncMode): string {
   switch (mode.kind) {
     case "none":
-      return "";
+      return (
+        "Local: the mark is kept in bb. Once the thread has an open pull request " +
+        "with this same diff, it is marked viewed on GitHub too"
+      );
     case "synced":
       return `Synced with the Viewed box on pull request #${mode.number}`;
     case "local":
       return (
-        `Local only: this file's diff here differs from pull request #${mode.number} ` +
-        "on GitHub, so the mark is kept in bb and GitHub is left alone"
+        `Local: this file's diff here differs from pull request #${mode.number} ` +
+        "on GitHub, so the mark is kept in bb. Once you push and the diffs match, " +
+        "it is marked viewed on GitHub too"
       );
   }
 }
@@ -209,9 +221,8 @@ export function paintCard(
     const title = syncTitle(mode);
     if (control.title !== title) control.title = title;
     const local = control.querySelector(`[${LOCAL_TAG_ATTR}]`);
-    if (local instanceof HTMLElement && local.hidden !== (mode.kind !== "local")) {
-      local.hidden = mode.kind !== "local";
-    }
+    const hidden = mode.kind === "synced";
+    if (local instanceof HTMLElement && local.hidden !== hidden) local.hidden = hidden;
   }
   if (viewed) {
     card.headerRow.setAttribute(VIEWED_ATTR, "true");

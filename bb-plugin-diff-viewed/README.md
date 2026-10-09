@@ -42,13 +42,20 @@ GitHub and bb shows the change the next time the window regains focus.
 That holds only for a file whose diff in bb is the one on GitHub, judged by
 the same `+N -M` counts that key a mark. When they differ, for example because
 you have edits that are not pushed yet, or you are looking at Uncommitted
-changes, the checkbox shows a small **local** tag. You can still check it,
-which is how you review your own diff before pushing, but the mark stays in
-bb and GitHub is left alone. Hover the checkbox to see which kind of mark it
-is. Once you push and the counts line up, GitHub's state takes over for that
-file.
+changes, the checkbox shows a laptop icon for **Local**. So does every file in
+a thread with no open pull request. You can still check it, which is how you
+review your own diff before pushing, and the mark stays in bb. Hover the
+checkbox to see which kind of mark it is.
 
-![src/pricing.ts checked as viewed with a local tag, because its diff in bb differs from the pull request's](docs/local.png)
+A Local mark does not stay local for good. Once you push, or open the pull
+request, and that file's counts on GitHub match the diff you marked, the
+plugin marks it viewed on GitHub too, the next time the panel loads or the
+window regains focus. It sends each mark once: unmark the file on GitHub
+afterwards and it stays unmarked. A mark you cleared before pushing is not
+sent, and a file whose diff changed after you marked it keeps waiting, since
+the counts no longer match what you read.
+
+![src/pricing.ts checked as viewed and marked Local, because its diff in bb differs from the pull request's](docs/local.png)
 
 A file GitHub reports as changed since you viewed it shows unchecked, as it
 does on GitHub.
@@ -69,8 +76,11 @@ GitHub calls:
   for each further 100 files. The answer is reused for 30 seconds, and
   requests that overlap share one call, so switching windows back and forth
   does not query again each time.
-- Each click on a file that syncs is one mutation. A click on a local file
+- Each click on a file that syncs is one mutation. A click on a Local file
   makes no GitHub call.
+- Each Local mark that has come to match GitHub's diff is one mutation, sent
+  once, on the first load after the push. A file GitHub already shows viewed
+  makes no call.
 - The thread's pull request is found through bb's own lookup for the
   environment, the one its pull request banner uses.
 
@@ -186,7 +196,7 @@ toolbar still counts every file.
 | Path | Holds |
 | --- | --- |
 | `viewed/marks.ts` | Pure logic: keying, fingerprinting, record changes |
-| `viewed/github.ts` | Pure logic: whether a file's mark is GitHub's or local, and progress across both |
+| `viewed/github.ts` | Pure logic: whether a file's mark is GitHub's or local, progress across both, and which Local marks to send once a push makes them match |
 | `viewed/pull-request.ts` | Every GitHub call: reading the pull request's files, marking one viewed |
 | `viewed/dom.ts` | Reading and decorating bb's card headers, toolbar, and range dropdown |
 | `viewed/files.ts` | Reading the panel's full file list from React props |
