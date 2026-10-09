@@ -193,7 +193,8 @@ through the `priorities_set` and `priorities_get` RPC methods.
   each, which open when clicked. Scripts in an email do not run, and its links
   open the way bb opens other links. **Archive**, **Start thread**, and
   **Close** stay at the top of the tab, with **Open in Gmail** beside them.
-  **Close** hides the side panel and leaves the email in the inbox. The email is
+  **Archive** archives the email and hides the side panel; **Close** hides the
+  side panel and leaves the email in the inbox. The email is
   fetched from Gmail each time it is opened and is not stored.
 - **Open and archive** (first in the details line of a Google Docs, Slides,
   or Sheets comment row that mentions or assigns you) opens the newest
@@ -490,7 +491,7 @@ list `server.ts` passes to `loadSources`.
 | `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
 | `now/email-text.ts` | A plain email's latest message as the text Show more puts in place of its snippet |
 | `now/email-reader.tsx` | The Email tab's display: the thread's messages, each in a frame that runs no scripts |
-| `now/side-panel.ts` | Close's way of hiding the side panel, by pressing bb's own hide button |
+| `now/side-panel.ts` | Archive's and Close's way of hiding the side panel, by pressing bb's own hide button |
 | `todoist/api.ts` | The only module that calls Todoist: auth, pagination, and error messages |
 | `todoist/normalize.ts` | Turning Todoist task payloads into items, and projects into the picker's tree |
 | `todoist/edit.ts` | What one Save asks of Todoist: only the fields the strip changed |

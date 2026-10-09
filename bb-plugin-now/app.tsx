@@ -521,8 +521,8 @@ function usePriorities(rpc: ReturnType<typeof useRpc<typeof rpcContract>>) {
 
 /**
  * The Email tab: the email row last opened, in full. It fetches the email
- * each time the target changes, and empties itself once the row is archived.
- * Close empties it too and hides the side panel.
+ * each time the target changes. Archive and Close both empty it and hide the
+ * side panel.
  */
 function EmailTab() {
   const { listing, rpc } = useListing();
@@ -560,6 +560,7 @@ function EmailTab() {
       if (result.error !== null) toast.error(result.error);
       else {
         toast.success("Archived", { action: undoAction("Restoring…", () => rpc.call("items_undo", { id })) });
+        hideSidePanel(root.current);
         target?.clear();
       }
     } catch (cause) {
