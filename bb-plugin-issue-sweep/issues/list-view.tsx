@@ -516,8 +516,8 @@ export interface IssueListViewProps {
   onPick: (row: Row, status: string) => void;
   onStart: (row: Row) => void;
   onOpen: (row: Row) => void;
-  /** Saves the row's note; "" deletes it. Resolves true once saved. */
-  onNoteSave: (row: Row, body: string) => Promise<boolean>;
+  /** Saves the row's note and its On hold box; "" with the box clear deletes it. Resolves true once saved. */
+  onNoteSave: (row: Row, body: string, onHold: boolean) => Promise<boolean>;
   /** The title was clicked, and the issue is about to open. */
   onOpenLink: (row: Row) => void;
   /**
@@ -575,6 +575,7 @@ export function IssueListView({
       comments: row.commentsCount,
       parent: row.parent,
       note: row.note,
+      onHold: row.onHold === true,
       stage,
       progress:
         row.subtasks && row.subtasks.total > 0
@@ -648,9 +649,9 @@ export function IssueListView({
                 onPick={(status) => onPick(row, status)}
               />
             )}
-            onNoteSave={(item, body) => {
+            onNoteSave={(item, body, onHold) => {
               const row = rowsByKey.get(item.key);
-              return row ? onNoteSave(row, body) : Promise.resolve(false);
+              return row ? onNoteSave(row, body, onHold) : Promise.resolve(false);
             }}
             onOpenLink={(item) => {
               const row = rowsByKey.get(item.key);
@@ -729,7 +730,7 @@ interface SplitListProps {
   renderTrailing: (item: SweepItem) => ReactNode;
   /** The drawer the comment count opens, drawn only while it is open. */
   renderComments: (item: SweepItem) => ReactNode;
-  onNoteSave: (item: SweepItem, body: string) => Promise<boolean>;
+  onNoteSave: (item: SweepItem, body: string, onHold: boolean) => Promise<boolean>;
   onOpenLink: (item: SweepItem) => void;
 }
 
@@ -830,8 +831,9 @@ function SplitList({
         commentsDrawer={commentsOpen.has(item.key) ? renderComments(item) : undefined}
         editing={editing === item.key}
         onEditNote={() => setEditing(item.key)}
-        onNoteSave={async (body) => {
-          const saved = await onNoteSave(item, body);
+        holdable
+        onNoteSave={async (body, onHold) => {
+          const saved = await onNoteSave(item, body, onHold);
           if (saved) setEditing((current) => (current === item.key ? null : current));
           return saved;
         }}

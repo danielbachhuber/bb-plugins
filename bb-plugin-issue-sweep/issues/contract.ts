@@ -87,6 +87,8 @@ const rowSchema = z.object({
   parent: z.object({ number: z.number(), title: z.string(), url: z.string() }).nullish(),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
+  /** Put on hold from the note editor: drawn at the bottom of Needs you. Local only. */
+  onHold: z.boolean(),
   /** Comments since the issue was last opened from the panel. */
   newComments: z.number(),
   /** When this plugin last moved the issue's board status, or null. */
@@ -274,9 +276,11 @@ export const rpcContract = defineRpcContract({
         .nullable(),
     }),
   },
-  /** Saves the row's local note. An empty body deletes it. */
+  /** Saves the row's local note and On hold box. An empty body with the box clear deletes it. */
   setNote: {
-    input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),
+    input: z
+      .object({ repo: z.string(), number: z.number(), body: z.string(), onHold: z.boolean().optional() })
+      .strict(),
     output: z.object({ ok: z.boolean() }),
   },
   /**

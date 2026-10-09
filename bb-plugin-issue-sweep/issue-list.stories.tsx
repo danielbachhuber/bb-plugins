@@ -169,6 +169,23 @@ const everything: Listing = {
       boardStatus: "Stalled",
       updatedAt: now - 2 * 30 * DAY,
     }),
+    row({
+      number: 271,
+      title: "Simplify widget permissions",
+      boardStatus: "In Progress",
+      updatedAt: now - 3 * DAY,
+      commentsCount: 7,
+      subtasks: { completed: 3, total: 7, source: "tasks" },
+      note: "Waiting on review of #312",
+      onHold: true,
+    }),
+    row({
+      number: 233,
+      title: "Rename gadget slots",
+      boardStatus: "In Progress",
+      updatedAt: now - 9 * DAY,
+      onHold: true,
+    }),
   ],
 };
 
@@ -288,7 +305,8 @@ export function Baseline() {
 
 /**
  * Every run the list can draw: new comments, stale, working, and to start
- * under Needs you; waiting on review, later, and blocked grouped by status
+ * under Needs you, then two issues on hold at its bottom, one with a note
+ * and one without; waiting on review, later, and blocked grouped by status
  * beside them. Rows show a parent chip, sub-issue and task counts, a status
  * the stages do not name,
  * issues off the board, and "No project here" where nothing is checked out.

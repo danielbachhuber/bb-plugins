@@ -251,6 +251,19 @@ describe("notes", () => {
     expect(store.notes().has("acme/widgets#12")).toBe(false);
   });
 
+  it("keeps an issue on hold with no text, and reads no note for it", () => {
+    store.setNote("acme/widgets", 12, "", 1, true);
+    expect(store.holds().has("acme/widgets#12")).toBe(true);
+    expect(store.notes().has("acme/widgets#12")).toBe(false);
+  });
+
+  it("keeps the note's text when the hold is cleared", () => {
+    store.setNote("acme/widgets", 12, "Waiting on #31", 1, true);
+    store.setNote("acme/widgets", 12, "Waiting on #31", 2, false);
+    expect(store.holds().size).toBe(0);
+    expect(store.notes().get("acme/widgets#12")).toBe("Waiting on #31");
+  });
+
   it("keys by repository as well as number", () => {
     store.setNote("acme/widgets", 12, "Widgets", 1);
     store.setNote("acme/gadgets", 12, "Gadgets", 1);

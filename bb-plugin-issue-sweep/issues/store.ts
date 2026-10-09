@@ -83,6 +83,9 @@ export const MIGRATIONS = [
   // The automatic moves made before the table existed.
   `INSERT OR IGNORE INTO status_moves (repo, number, moved_at)
      SELECT repo, number, applied_at FROM board_auto`,
+  // The note editor's On hold box. A held issue keeps its row here even with
+  // no text, so `body` can be empty.
+  `ALTER TABLE notes ADD COLUMN on_hold INTEGER NOT NULL DEFAULT 0`,
 ];
 
 export interface SweepMeta {
@@ -140,10 +143,15 @@ export interface Store {
    * learns the patch went nowhere.
    */
   setRowStatus(repo: string, number: number, status: string): boolean;
-  /** Every note, keyed `repo#number`. */
+  /** Every note with text, keyed `repo#number`. */
   notes(): Map<string, string>;
-  /** Saves a note. Empty or blank text deletes it instead. */
-  setNote(repo: string, number: number, body: string, now: number): void;
+  /** The issues put on hold from the note editor, keyed `repo#number`. */
+  holds(): Set<string>;
+  /**
+   * Saves a note and its On hold box. Empty or blank text with the box clear
+   * deletes it instead.
+   */
+  setNote(repo: string, number: number, body: string, now: number, onHold?: boolean): void;
   /** The comment count each issue was last seen at, keyed `repo#number`. */
   seenCounts(): Map<string, number>;
   /**
@@ -196,10 +204,12 @@ export function createStore(db: DatabaseLike): Store {
      ON CONFLICT(id) DO UPDATE SET last_error = excluded.last_error`,
   );
 
-  const selectNotes = db.prepare(`SELECT repo, number, body FROM notes`);
+  const selectNotes = db.prepare(`SELECT repo, number, body FROM notes WHERE body != ''`);
+  const selectHolds = db.prepare(`SELECT repo, number FROM notes WHERE on_hold = 1`);
   const upsertNote = db.prepare(
-    `INSERT INTO notes (repo, number, body, updated_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(repo, number) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+    `INSERT INTO notes (repo, number, body, updated_at, on_hold) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET
+       body = excluded.body, updated_at = excluded.updated_at, on_hold = excluded.on_hold`,
   );
   const deleteNote = db.prepare(`DELETE FROM notes WHERE repo = ? AND number = ?`);
   const selectSeen = db.prepare(`SELECT repo, number, comments FROM seen`);
@@ -314,10 +324,15 @@ export function createStore(db: DatabaseLike): Store {
       return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.body]));
     },
 
-    setNote(repo, number, body, now) {
+    holds() {
+      const rows = selectHolds.all() as Array<{ repo: string; number: number }>;
+      return new Set(rows.map((row) => `${row.repo}#${row.number}`));
+    },
+
+    setNote(repo, number, body, now, onHold = false) {
       const trimmed = body.trim();
-      if (trimmed === "") deleteNote.run(repo, number);
-      else upsertNote.run(repo, number, trimmed, now);
+      if (trimmed === "" && !onHold) deleteNote.run(repo, number);
+      else upsertNote.run(repo, number, trimmed, now, onHold ? 1 : 0);
     },
 
     seenCounts() {

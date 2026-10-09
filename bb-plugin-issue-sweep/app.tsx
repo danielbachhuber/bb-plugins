@@ -137,8 +137,8 @@ function Panel() {
   );
 
   const onNoteSave = useCallback(
-    async (row: Row, body: string) => {
-      const result = await rpc.call("setNote", { repo: row.repo, number: row.number, body });
+    async (row: Row, body: string, onHold: boolean) => {
+      const result = await rpc.call("setNote", { repo: row.repo, number: row.number, body, onHold });
       if (!result.ok) {
         toast.error("Could not save the note.");
         return false;

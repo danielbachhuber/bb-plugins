@@ -495,9 +495,33 @@ describe("notes", () => {
     fireEvent.keyDown(field, { key: "Enter" });
 
     await waitFor(() => expect(calls).toHaveLength(1));
-    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Reply to octocat" });
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Reply to octocat", onHold: false });
     await waitFor(() => expect(loads).toBe(2));
     await waitFor(() => expect(slot.queryByRole("textbox", { name: "Note" })).toBeNull());
+  });
+
+  it("puts the issue on hold from the note editor's checkbox", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [nowRow()] }), {
+      setNote: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+
+    fireEvent.click(await slot.findByRole("button", { name: "Add note" }));
+    fireEvent.change(slot.getByRole("textbox", { name: "Note" }), { target: { value: "Waiting on #31" } });
+    fireEvent.click(slot.getByRole("checkbox", { name: "On hold" }));
+    fireEvent.click(slot.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "Waiting on #31", onHold: true });
+  });
+
+  it("says On hold before the note of a held issue", async () => {
+    const slot = render(listing({ rows: [nowRow({ note: "Waiting on #31", onHold: true })] }));
+    expect(await slot.findByText("On hold")).toBeInTheDocument();
+    expect(slot.getByText("Waiting on #31")).toBeInTheDocument();
   });
 });
 

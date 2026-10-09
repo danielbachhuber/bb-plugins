@@ -644,6 +644,7 @@ export default async function plugin(bb: BbPluginApi) {
         await settings.get();
       const rows = store.readRows();
       const notes = store.notes();
+      const holds = store.holds();
       const seen = store.seenCounts();
       const moves = store.moves();
 
@@ -687,6 +688,7 @@ export default async function plugin(bb: BbPluginApi) {
             ...row,
             parent: row.parent ?? null,
             note: notes.get(key) ?? null,
+            onHold: holds.has(key),
             newComments: seenCount === undefined ? 0 : Math.max(0, row.commentsCount - seenCount),
             movedAt: moves.get(key) ?? null,
             canSpawn: threadMap !== null && spawnable.has(row.repo),
@@ -843,8 +845,8 @@ export default async function plugin(bb: BbPluginApi) {
       }
     },
 
-    setNote({ repo, number, body }) {
-      store.setNote(repo, number, body, Date.now());
+    setNote({ repo, number, body, onHold }) {
+      store.setNote(repo, number, body, Date.now(), onHold ?? false);
       return { ok: true };
     },
 

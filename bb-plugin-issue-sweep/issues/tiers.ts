@@ -25,6 +25,8 @@ export interface ListedIssue {
   commentsCount: number;
   /** The local next-step note, never sent to GitHub. */
   note: string | null;
+  /** Put on hold from the note editor, which sinks it to the bottom of Needs you. Local only. */
+  onHold?: boolean;
   /** Comments since the issue was last opened from here. */
   newComments: number;
   parent: { number: number; title: string; url: string } | null;
@@ -57,6 +59,7 @@ export const ISSUE_RUNS: Run[] = [
   { id: "working", label: "working", labelOne: "working", tone: "underway", tier: "now" },
   { id: "in-progress", label: "in progress", labelOne: "in progress", tone: "next", tier: "now", color: "bg-sky-500" },
   { id: "to-start", label: "to start", labelOne: "to start", tone: "next", tier: "next" },
+  { id: "on-hold", label: "on hold", labelOne: "on hold", tone: "later", tier: "next" },
   { id: "waiting", label: "waiting on review", labelOne: "waiting on review", tone: "later", tier: "later" },
   { id: "later", label: "later", labelOne: "later", tone: "later", tier: "later" },
   { id: "blocked", label: "blocked", labelOne: "blocked", tone: "later", tier: "later" },
@@ -125,6 +128,7 @@ export function lastActivity(row: ListedIssue): number {
  */
 export function isStale(row: ListedIssue, inputs: TierInputs): boolean {
   return (
+    !row.onHold &&
     isCounted(row, inputs) &&
     row.blockedBy === 0 &&
     !isParent(row) &&
@@ -132,8 +136,18 @@ export function isStale(row: ListedIssue, inputs: TierInputs): boolean {
   );
 }
 
+/** The runs an issue on hold leaves for "on hold". */
+const HELD_FROM = new Set(["stale", "working", "in-progress", "to-start"]);
+
 export function runOf(row: ListedIssue, inputs: TierInputs): string {
   if (row.newComments > 0) return "new-comments";
+  const run = unheldRunOf(row, inputs);
+  // A hold only sinks an issue that would otherwise need you. One in review,
+  // blocked, or later is already out of the way.
+  return row.onHold && HELD_FROM.has(run) ? "on-hold" : run;
+}
+
+function unheldRunOf(row: ListedIssue, inputs: TierInputs): string {
   if (isStale(row, inputs)) return "stale";
   if (row.threadId) return "working";
   if (isUnderway(row, inputs)) return "in-progress";
@@ -194,7 +208,7 @@ export function sortIssues(rows: ListedIssue[], inputs: TierInputs): ListedIssue
 }
 
 /** The runs drawn in the "Needs you" column. Every other run goes beside it. */
-export const NEEDS_YOU_RUNS = new Set(["new-comments", "stale", "working", "in-progress", "to-start"]);
+export const NEEDS_YOU_RUNS = new Set(["new-comments", "stale", "working", "in-progress", "to-start", "on-hold"]);
 
 export function needsYou(row: ListedIssue, inputs: TierInputs): boolean {
   return NEEDS_YOU_RUNS.has(runOf(row, inputs));

@@ -46,7 +46,7 @@ them all.
 
 | Column | Runs, in order | Rows |
 | --- | --- | --- |
-| Needs you | new comments, stale, working, in progress, to start | Open: title, number line, note, actions, and why the issue is there |
+| Needs you | new comments, stale, working, in progress, to start, on hold | Open: title, number line, note, actions, and why the issue is there |
 | Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
 - **New comments**: comments others posted since you last opened the issue,
@@ -69,6 +69,10 @@ them all.
   sky blue.
 - **To start**: on the board in a counted status, not blocked, and without
   sub-issues.
+- **On hold**: ticked On hold in its note editor, and would otherwise be in
+  stale, working, in progress, or to start. Its board status does not change.
+  A held issue is never stale, and it still moves up to new comments when
+  someone comments. An issue already in review, blocked, or later stays there.
 - **Waiting on review**: in the "Board status when a closing pull request
   opens" status.
 - **Later**: everything else that is not blocked, including issues with
@@ -125,10 +129,13 @@ row's "N new" clears. Clicking the count again closes it.
 
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. It shows in a grey drawer under the action line, and Add note or Edit
-note opens its editor in the same place. The button stays put, pressed, while
+note opens its editor in the same place. The editor's On hold box puts the
+issue on hold, with or without text: it moves to the bottom of Needs you, and
+its drawer starts with "On hold". The hold is stored with the note, on this
+machine only, and clearing the box takes the issue off hold. The button stays put, pressed, while
 the editor is open; pressing it again
 closes the editor. Save or Enter saves the note, Cancel or Escape cancels, and
-saving an empty note deletes it.
+saving an empty note with the box clear deletes it.
 
 ## Settings
 

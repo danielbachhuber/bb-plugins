@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ISSUE_RUNS,
   isStale,
+  needsYou,
   lastActivity,
   parseStaleAfterDays,
   runOf,
@@ -162,6 +163,36 @@ describe("runOf, Later", () => {
   });
 });
 
+describe("runOf, on hold", () => {
+  it("sinks an issue that would need you to on hold, whatever run it was in", () => {
+    expect(runOf(issue({ onHold: true, boardStatus: "In Progress" }), inputs)).toBe("on-hold");
+    expect(runOf(issue({ onHold: true, threadId: "thr_1" }), inputs)).toBe("on-hold");
+    expect(runOf(issue({ onHold: true }), inputs)).toBe("on-hold");
+    expect(runOf(issue({ onHold: true, boardStatus: "In Progress", updatedAt: NOW - 30 * DAY }), inputs)).toBe("on-hold");
+  });
+
+  it("keeps it in Needs you, after every other run there", () => {
+    const held = issue({ onHold: true, boardStatus: "In Progress" });
+    const toStart = issue();
+    expect(needsYou(held, inputs)).toBe(true);
+    expect(sortIssues([held, toStart], inputs)).toEqual([toStart, held]);
+  });
+
+  it("still surfaces new comments on a held issue", () => {
+    expect(runOf(issue({ onHold: true, newComments: 2 }), inputs)).toBe("new-comments");
+  });
+
+  it("does not call a held issue stale", () => {
+    expect(isStale(issue({ onHold: true, boardStatus: "In Progress", updatedAt: NOW - 30 * DAY }), inputs)).toBe(false);
+  });
+
+  it("leaves an issue already out of the way where it is", () => {
+    expect(runOf(issue({ onHold: true, boardStatus: "In Review" }), inputs)).toBe("waiting");
+    expect(runOf(issue({ onHold: true, blockedBy: 1 }), inputs)).toBe("blocked");
+    expect(runOf(issue({ onHold: true, boardStatus: "Backlog" }), inputs)).toBe("later");
+  });
+});
+
 describe("sortIssues", () => {
   it("orders Later as waiting, other statuses in board order, off the board, parents, blocked", () => {
     const blocked = issue({ title: "blocked", blockedBy: 1, updatedAt: NOW - HOUR });
@@ -193,6 +224,7 @@ describe("sortIssues", () => {
       issue({ newComments: 1, boardStatus: "Backlog" }),
       issue({ boardStatus: "Stalled" }),
       issue({ onBoard: false, boardStatus: null }),
+      issue({ onHold: true }),
     ];
     const order = ISSUE_RUNS.map((run) => run.id);
     const runs = sortIssues(rows, inputs).map((row) => order.indexOf(runOf(row, inputs)));
