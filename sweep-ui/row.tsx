@@ -165,8 +165,11 @@ export interface SweepRowProps {
   commentsDrawer?: ReactNode;
   editing: boolean;
   onEditNote: () => void;
-  onNoteSave: (body: string) => Promise<boolean>;
+  /** `onHold` is the editor's On hold box, which is drawn only when `holdable` is set. */
+  onNoteSave: (body: string, onHold: boolean) => Promise<boolean>;
   onNoteCancel: () => void;
+  /** Gives the note editor an On hold checkbox. */
+  holdable?: boolean;
   /** Dimmed while a request for this row runs. */
   busy?: boolean;
   /**
@@ -207,6 +210,7 @@ export function SweepRow({
   onEditNote,
   onNoteSave,
   onNoteCancel,
+  holdable = false,
   busy = false,
   renderBody,
   renderTrack,
@@ -327,7 +331,7 @@ export function SweepRow({
                 )}
               >
                 <Icon name="Edit" className="size-3" />
-                {item.note === null ? "Add note" : "Edit note"}
+                {item.note === null && !item.onHold ? "Add note" : "Edit note"}
               </button>
               {item.progress ? <Progress {...item.progress} /> : null}
               {item.comments && onToggleComments ? (
@@ -355,9 +359,14 @@ export function SweepRow({
             </div>
             {/* The note and its editor share one place under the action line, the editor replacing the note while open. */}
             {editing ? (
-              <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} />
+              <NoteField
+                initial={item.note ?? ""}
+                onSave={onNoteSave}
+                onCancel={onNoteCancel}
+                initialOnHold={holdable ? item.onHold === true : undefined}
+              />
             ) : (
-              <NoteBox note={item.note} />
+              <NoteBox note={item.note} onHold={item.onHold === true} />
             )}
             {commentsOpen && commentsDrawer ? <div className="mt-2">{commentsDrawer}</div> : null}
           </>

@@ -20,6 +20,7 @@ import {
   InformationCircleIcon,
   Layers01Icon,
   LockIcon,
+  PauseCircleIcon,
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 
@@ -41,6 +42,7 @@ const ICONS = {
   Info: InformationCircleIcon,
   Layers: Layers01Icon,
   Lock: LockIcon,
+  Pause: PauseCircleIcon,
   Spinner: DashedLineCircleIcon,
   X: Cancel01Icon,
 } satisfies Record<string, IconSvgElement>;

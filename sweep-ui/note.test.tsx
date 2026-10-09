@@ -14,7 +14,7 @@ describe("NoteField", () => {
     const field = screen.getByRole("textbox", { name: "Note" });
     fireEvent.change(field, { target: { value: "  Check the hinge  " } });
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(onSave).toHaveBeenCalledWith("Check the hinge");
+    expect(onSave).toHaveBeenCalledWith("Check the hinge", false);
   });
 
   it("cancels on Escape", () => {
@@ -32,7 +32,7 @@ describe("NoteField", () => {
     render(<NoteField initial="Old" onSave={onSave} onCancel={onCancel} />);
     fireEvent.change(screen.getByRole("textbox", { name: "Note" }), { target: { value: "New" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onSave).toHaveBeenCalledWith("New");
+    expect(onSave).toHaveBeenCalledWith("New", false);
     // Cancel waits out the save it would otherwise race.
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -45,11 +45,46 @@ describe("NoteField", () => {
     const field = screen.getByRole("textbox", { name: "Note" });
     fireEvent.change(field, { target: { value: "   " } });
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(onSave).toHaveBeenCalledWith("");
+    expect(onSave).toHaveBeenCalledWith("", false);
+  });
+});
+
+describe("NoteField's On hold box", () => {
+  it("draws no checkbox unless asked", () => {
+    render(<NoteField initial="" onSave={async () => true} onCancel={() => {}} />);
+    expect(screen.queryByRole("checkbox", { name: "On hold" })).toBeNull();
+  });
+
+  it("starts as given and saves what it was changed to", () => {
+    const onSave = vi.fn(async () => true);
+    render(<NoteField initial="Waiting on #31" initialOnHold={false} onSave={onSave} onCancel={() => {}} />);
+    const box = screen.getByRole("checkbox", { name: "On hold" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("Waiting on #31", true);
+  });
+
+  it("can be cleared to take an issue off hold", () => {
+    const onSave = vi.fn(async () => true);
+    render(<NoteField initial="" initialOnHold onSave={onSave} onCancel={() => {}} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "On hold" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("", false);
   });
 });
 
 describe("NoteBox", () => {
+  it("says On hold before the note of a held row", () => {
+    render(<NoteBox note="Waiting on #31" onHold />);
+    expect(screen.getByRole("paragraph").textContent).toBe("On hold · Waiting on #31");
+  });
+
+  it("says On hold alone for a held row with no note", () => {
+    render(<NoteBox note={null} onHold />);
+    expect(screen.getByRole("paragraph").textContent).toBe("On hold");
+  });
+
   it("draws nothing without a note", () => {
     const { container } = render(<NoteBox note={null} />);
     expect(container).toBeEmptyDOMElement();

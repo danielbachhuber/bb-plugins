@@ -6,10 +6,17 @@ import { Icon } from "./icons";
  * The local next-step note, in the grey drawer under the action line where its
  * editor opens.
  */
-export function NoteBox({ note }: { note: string | null }) {
-  if (note === null) return null;
+export function NoteBox({ note, onHold = false }: { note: string | null; onHold?: boolean }) {
+  if (note === null && !onHold) return null;
   return (
     <p className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs text-foreground/90">
+      {onHold ? (
+        <span className="font-medium text-muted-foreground">
+          <Icon name="Pause" className="mr-1 inline size-3 align-[-2px]" />
+          On hold
+        </span>
+      ) : null}
+      {onHold && note !== null ? <span className="text-muted-foreground"> · </span> : null}
       {note}
     </p>
   );
@@ -17,9 +24,14 @@ export function NoteBox({ note }: { note: string | null }) {
 
 export interface NoteFieldProps {
   initial: string;
-  /** Called with the trimmed text; "" deletes the note. Resolves true once saved. */
-  onSave: (body: string) => Promise<boolean>;
+  /**
+   * Called with the trimmed text and the On hold box; "" with the box clear
+   * deletes the note. Resolves true once saved.
+   */
+  onSave: (body: string, onHold: boolean) => Promise<boolean>;
   onCancel: () => void;
+  /** Draws an On hold checkbox beside the buttons, starting as this. Left out, there is none. */
+  initialOnHold?: boolean;
 }
 
 /**
@@ -27,13 +39,14 @@ export interface NoteFieldProps {
  * the note's one line across the top and Cancel and Save below it on the
  * right. Enter saves and Escape cancels too.
  */
-export function NoteField({ initial, onSave, onCancel }: NoteFieldProps) {
+export function NoteField({ initial, onSave, onCancel, initialOnHold }: NoteFieldProps) {
   const [value, setValue] = useState(initial);
+  const [onHold, setOnHold] = useState(initialOnHold ?? false);
   const [saving, setSaving] = useState(false);
   const save = () => {
     setSaving(true);
     // A failed save leaves the field open with the text still in it.
-    void onSave(value.trim()).then(
+    void onSave(value.trim(), onHold).then(
       () => setSaving(false),
       () => setSaving(false),
     );
@@ -69,6 +82,18 @@ export function NoteField({ initial, onSave, onCancel }: NoteFieldProps) {
           className="block h-7 w-full min-w-0 rounded-md border border-input bg-background pl-7 pr-2 text-xs text-foreground outline-none focus:border-ring disabled:opacity-60"
         />
       </div>
+      {initialOnHold !== undefined ? (
+        <label className="inline-flex items-center gap-1.5 pl-1 text-xs text-foreground">
+          <input
+            type="checkbox"
+            checked={onHold}
+            disabled={saving}
+            onChange={(event) => setOnHold(event.target.checked)}
+            className="size-3.5 accent-primary"
+          />
+          On hold
+        </label>
+      ) : null}
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"

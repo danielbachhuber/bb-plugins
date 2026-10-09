@@ -37,6 +37,11 @@ export interface SweepItem {
   facts: string[];
   parent: { number: number; title: string; url: string } | null;
   note: string | null;
+  /**
+   * Set aside with the On hold box in the note editor, drawn as "On hold" at
+   * the start of the note. Left out or false when not.
+   */
+  onHold?: boolean;
   /** Index into the tab's stages, or null for off the track. */
   stage: number | null;
   /** Shown in place of the track when stage is null: "Add to board", "Stalled". */
