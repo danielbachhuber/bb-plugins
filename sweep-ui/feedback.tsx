@@ -1,14 +1,14 @@
 import { useEffect, useState, type ComponentType } from "react";
 
 import { Icon } from "./icons";
-import { cn } from "./lib/cn";
 import type { SweepLinkProps } from "./row";
 
 /**
  * The drawer a row's comment count opens: what people left on the pull
- * request, each entry a link to it on GitHub. Reviews, inline comments, and
- * top-level comments each sit under their own heading. Resolved threads wait
- * behind a toggle at the end, and bots' comments are marked and dimmed.
+ * request, each entry a link to it on GitHub, oldest first. An inline comment
+ * sits in a card headed by its file and line; reviews and top-level comments
+ * do not. Yours and bots' carry a "you" or "bot" label. Resolved threads wait
+ * behind a toggle at the end.
  */
 
 /** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. */
@@ -18,6 +18,7 @@ export type FeedbackEntry =
       author: string;
       avatarUrl: string;
       bot?: boolean;
+      you?: boolean;
       state: "changes_requested" | "approved" | "commented";
       body: string;
       url: string;
@@ -28,6 +29,7 @@ export type FeedbackEntry =
       author: string;
       avatarUrl: string;
       bot?: boolean;
+      you?: boolean;
       path: string;
       line: number | null;
       status: "unanswered" | "replied" | "waiting" | "resolved";
@@ -42,12 +44,17 @@ export type FeedbackEntry =
       author: string;
       avatarUrl: string;
       bot?: boolean;
+      you?: boolean;
       body: string;
       url: string;
       at: number;
     };
 
 export type FeedbackResult = { entries: FeedbackEntry[]; error: string | null };
+
+function Label({ children }: { children: string }) {
+  return <span className="rounded bg-surface-selected px-1 text-[10px] font-normal text-muted-foreground">{children}</span>;
+}
 
 function Who({ entry }: { entry: FeedbackEntry }) {
   const [failed, setFailed] = useState(false);
@@ -57,7 +64,8 @@ function Who({ entry }: { entry: FeedbackEntry }) {
         <img src={entry.avatarUrl} alt="" loading="lazy" onError={() => setFailed(true)} className="size-3.5 rounded-full bg-surface-selected" />
       ) : null}
       {entry.author}
-      {entry.bot ? <span className="rounded bg-surface-selected px-1 text-[10px] font-normal text-muted-foreground">bot</span> : null}
+      {entry.bot ? <Label>bot</Label> : null}
+      {entry.you ? <Label>you</Label> : null}
     </span>
   );
 }
@@ -70,7 +78,7 @@ const REVIEW_TEXT = {
 
 const THREAD_TEXT = { replied: "you replied", waiting: "waiting on a reply", resolved: "resolved" } as const;
 
-/** Where the entry sits and where it stands: "export/csv.ts:42 · unanswered". */
+/** What the entry did or where it stands, and when: "unanswered · 1 reply · 2d ago". */
 function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => string }) {
   const parts =
     entry.kind === "review"
@@ -78,10 +86,6 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
       : entry.kind === "comment"
         ? [<span>commented</span>, <span>{age(entry.at)}</span>]
         : [
-            <span className="font-mono text-[11px]">
-              {entry.path}
-              {entry.line !== null ? `:${entry.line}` : ""}
-            </span>,
             entry.status === "unanswered" ? (
               <span className="font-medium text-destructive-text">unanswered</span>
             ) : (
@@ -89,6 +93,7 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
             ),
             ...(entry.outdated ? [<span>outdated</span>] : []),
             ...(entry.replies > 0 ? [<span>{entry.replies === 1 ? "1 reply" : `${entry.replies} replies`}</span>] : []),
+            <span>{age(entry.at)}</span>,
           ];
   return (
     <>
@@ -102,18 +107,34 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
   );
 }
 
+/** An inline comment in a card headed by its file and line; anything else as a plain row. */
 function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) => string; Link: ComponentType<SweepLinkProps> }) {
-  const quiet = entry.bot || (entry.kind === "thread" && entry.status !== "unanswered");
+  const content = (
+    <>
+      <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+        <Who entry={entry} />
+        <Context entry={entry} age={age} />
+      </span>
+      {entry.body ? <span className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-foreground">{entry.body}</span> : null}
+    </>
+  );
+  if (entry.kind !== "thread") {
+    return (
+      <li>
+        <Link href={entry.url} className="block rounded px-2 py-1.5 hover:bg-accent">
+          {content}
+        </Link>
+      </li>
+    );
+  }
   return (
-    <li>
-      <Link href={entry.url} className={cn("block rounded px-2 py-1.5 hover:bg-accent", quiet && "opacity-70")}>
-        <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-          <Who entry={entry} />
-          <Context entry={entry} age={age} />
+    <li className="py-0.5">
+      <Link href={entry.url} className="block overflow-hidden rounded border border-border bg-background hover:bg-accent">
+        <span className="block border-b border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+          {entry.path}
+          {entry.line !== null ? `:${entry.line}` : ""}
         </span>
-        {entry.body ? (
-          <span className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-foreground">{entry.body}</span>
-        ) : null}
+        <span className="block px-2 py-1.5">{content}</span>
       </Link>
     </li>
   );
@@ -128,35 +149,19 @@ export interface FeedbackListProps {
   Link: ComponentType<SweepLinkProps>;
 }
 
-const SECTIONS = [
-  { kind: "review", title: "Reviews" },
-  { kind: "thread", title: "Inline comments" },
-  { kind: "comment", title: "Top-level comments" },
-] as const;
-
-/** The entries under a heading per kind, with resolved threads folded behind a toggle. */
+/** The entries as they come, with resolved threads folded behind a toggle. */
 export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
   const [showResolved, setShowResolved] = useState(false);
   const resolved = entries.filter((entry) => entry.kind === "thread" && entry.status === "resolved");
   const shown = showResolved ? entries : entries.filter((entry) => !resolved.includes(entry));
-  const sections = SECTIONS.map((section) => ({ ...section, entries: shown.filter((entry) => entry.kind === section.kind) })).filter(
-    (section) => section.entries.length > 0,
-  );
   return (
     <>
-      {sections.length > 0 ? (
-        <div className="space-y-2">
-          {sections.map((section) => (
-            <section key={section.kind}>
-              <h4 className="text-[11px] font-medium text-muted-foreground">{section.title}</h4>
-              <ul className="-mx-2 space-y-0.5">
-                {section.entries.map((entry, index) => (
-                  <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
-                ))}
-              </ul>
-            </section>
+      {shown.length > 0 ? (
+        <ul className="-mx-2 space-y-0.5">
+          {shown.map((entry, index) => (
+            <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
           ))}
-        </div>
+        </ul>
       ) : (
         <p className="py-1 text-xs text-muted-foreground">Nothing open.</p>
       )}

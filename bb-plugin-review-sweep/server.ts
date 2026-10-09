@@ -532,10 +532,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!REPO_SLUG_PATTERN.test(repo)) return { entries: [], error: "Not a repository." };
       const { ghPath } = await settings.get();
       try {
-        // Your own threads are kept: on a pull request you are reviewing, the
-        // author's answers to them are what you came back to read.
-        const entries = await fetchFeedback(createGhRunner(ghPath), repo, number, { includeViewer: true });
-        return { entries, error: null };
+        return { entries: await fetchFeedback(createGhRunner(ghPath), repo, number), error: null };
       } catch (error) {
         bb.log.warn(`could not read feedback on ${repo}#${number}: ${String(error)}`);
         return { entries: [], error: "Could not read the comments from GitHub." };

@@ -4,10 +4,8 @@ import type { GhRunner } from "./gh.js";
 /**
  * What people left on one pull request, for the drawer under its row: the
  * reviews with something to say, every inline thread, and the general
- * comments. Bots' are kept and marked, since the comment count includes them.
- * Your own are left out unless `includeViewer` is set: on your own pull
- * request they are not feedback for you, but on one you are reviewing they are
- * half the conversation.
+ * comments, yours and bots' included and marked, since the comment count
+ * includes them too.
  */
 
 export type FeedbackEntry =
@@ -17,6 +15,8 @@ export type FeedbackEntry =
       avatarUrl: string;
       /** Written by a bot, such as a CI or deploy report. */
       bot?: boolean;
+      /** Written by you. */
+      you?: boolean;
       state: "changes_requested" | "approved" | "commented";
       body: string;
       url: string;
@@ -28,6 +28,8 @@ export type FeedbackEntry =
       avatarUrl: string;
       /** Written by a bot, such as a CI or deploy report. */
       bot?: boolean;
+      /** Written by you. */
+      you?: boolean;
       path: string;
       /** The line on the current diff, or where it was before the code changed. */
       line: number | null;
@@ -49,6 +51,8 @@ export type FeedbackEntry =
       avatarUrl: string;
       /** Written by a bot, such as a CI or deploy report. */
       bot?: boolean;
+      /** Written by you. */
+      you?: boolean;
       body: string;
       url: string;
       at: number;
@@ -115,21 +119,15 @@ const REVIEW_STATE: Record<string, "changes_requested" | "approved" | "commented
   COMMENTED: "commented",
 };
 
-export interface FeedbackOptions {
-  /** Keeps your own reviews, threads, and comments. */
-  includeViewer?: boolean;
-}
-
-/** Not you unless asked for, with a login to show, and whether it is a bot. */
+/** The author's login to show, and whether it is a bot or you. Null without a login. */
 function person(
   author: RawAuthor | null | undefined,
   viewer: string | undefined,
-  includeViewer: boolean,
-): { login: string; avatarUrl: string; bot?: true } | null {
+): { author: string; avatarUrl: string; bot?: true; you?: true } | null {
   const login = author?.login;
-  if (!login || (login === viewer && !includeViewer)) return null;
+  if (!login) return null;
   const bot = author?.__typename === "Bot" || isBotLogin(login);
-  return { login, avatarUrl: author?.avatarUrl ?? "", ...(bot ? { bot: true } : {}) };
+  return { author: login, avatarUrl: author?.avatarUrl ?? "", ...(bot ? { bot: true } : {}), ...(login === viewer ? { you: true } : {}) };
 }
 
 function time(iso: string | undefined): number {
@@ -137,15 +135,8 @@ function time(iso: string | undefined): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-const THREAD_ORDER = { unanswered: 0, waiting: 1, replied: 2, resolved: 3 } as const;
-
-/**
- * The feedback in reading order: reviews that requested changes, then the
- * other reviews with a body, then unanswered threads, threads you started
- * that nobody has answered, threads you replied to, and general comments, then
- * resolved threads last. Oldest first within each.
- */
-export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOptions = {}): FeedbackEntry[] {
+/** Reviews, threads, and comments together, oldest first, as they were posted. */
+export function parseFeedback(raw: string): FeedbackEntry[] {
   const parsed = JSON.parse(raw) as {
     data?: { viewer?: { login?: string }; repository?: { pullRequest?: RawPull | null } | null };
   };
@@ -153,32 +144,28 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
   const pr = parsed.data?.repository?.pullRequest;
   if (!pr) return [];
 
-  const reviews: Array<Extract<FeedbackEntry, { kind: "review" }>> = [];
+  const entries: FeedbackEntry[] = [];
   for (const review of pr.reviews?.nodes ?? []) {
-    const who = review && person(review.author, viewer, includeViewer);
+    const who = review && person(review.author, viewer);
     const state = review?.state ? REVIEW_STATE[review.state] : undefined;
     if (!who || !state) continue;
     const body = review!.bodyText?.trim() ?? "";
     // An approval or a comment with no words says nothing the reviewer avatars do not.
     if (!body && state !== "changes_requested") continue;
-    reviews.push({
+    entries.push({
       kind: "review",
-      author: who.login,
-      avatarUrl: who.avatarUrl,
-      ...(who.bot ? { bot: true } : {}),
+      ...who,
       state,
       body,
       url: review!.url ?? "",
       at: time(review!.submittedAt),
     });
   }
-  reviews.sort((a, b) => Number(b.state === "changes_requested") - Number(a.state === "changes_requested") || a.at - b.at);
 
-  const threads: Array<Extract<FeedbackEntry, { kind: "thread" }>> = [];
   for (const thread of pr.reviewThreads?.nodes ?? []) {
     const first = thread?.first?.nodes?.[0];
     if (!thread || !first) continue;
-    const who = person(first.author, viewer, includeViewer);
+    const who = person(first.author, viewer);
     if (!who) continue;
     const last = thread.last?.nodes?.[0]?.author?.login;
     const replies = Math.max(0, (thread.last?.totalCount ?? 1) - 1);
@@ -187,11 +174,9 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
       : viewer && last === viewer
         ? replies === 0 ? "waiting" : "replied"
         : "unanswered";
-    threads.push({
+    entries.push({
       kind: "thread",
-      author: who.login,
-      avatarUrl: who.avatarUrl,
-      ...(who.bot ? { bot: true } : {}),
+      ...who,
       path: thread.path ?? "",
       line: thread.line ?? thread.originalLine ?? null,
       status,
@@ -202,28 +187,20 @@ export function parseFeedback(raw: string, { includeViewer = false }: FeedbackOp
       at: time(first.createdAt),
     });
   }
-  threads.sort((a, b) => THREAD_ORDER[a.status] - THREAD_ORDER[b.status] || a.at - b.at);
 
-  const comments: Array<Extract<FeedbackEntry, { kind: "comment" }>> = [];
   for (const comment of pr.comments?.nodes ?? []) {
-    const who = comment && person(comment.author, viewer, includeViewer);
+    const who = comment && person(comment.author, viewer);
     const body = comment?.bodyText?.trim();
     if (!who || !body) continue;
-    comments.push({
+    entries.push({
       kind: "comment",
-      author: who.login,
-      avatarUrl: who.avatarUrl,
-      ...(who.bot ? { bot: true } : {}),
+      ...who,
       body,
       url: comment!.url ?? "",
       at: time(comment!.createdAt),
     });
   }
-  comments.sort((a, b) => a.at - b.at);
-
-  const open = threads.filter((thread) => thread.status !== "resolved");
-  const resolved = threads.filter((thread) => thread.status === "resolved");
-  return [...reviews, ...open, ...comments, ...resolved];
+  return entries.sort((a, b) => a.at - b.at);
 }
 
 /**
@@ -234,7 +211,6 @@ export async function fetchFeedback(
   gh: GhRunner,
   repo: string,
   number: number,
-  options: FeedbackOptions = {},
 ): Promise<FeedbackEntry[]> {
   const [owner, name] = repo.split("/");
   const raw = await gh.run([
@@ -244,5 +220,5 @@ export async function fetchFeedback(
     "-f", `name=${name}`,
     "-F", `number=${number}`,
   ]);
-  return parseFeedback(raw, options);
+  return parseFeedback(raw);
 }

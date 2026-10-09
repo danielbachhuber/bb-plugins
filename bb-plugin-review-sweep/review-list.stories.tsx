@@ -206,12 +206,26 @@ function harvestFor(listing: Listing): HarvestPanelState {
   };
 }
 
-/** What is on #437 for you as its reviewer, your own threads included. */
+/** What is on #437 for you (mona) as its reviewer, oldest first, your own threads included. */
 const FEEDBACK: FeedbackEntry[] = [
+  {
+    kind: "thread",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    path: "gadgets/rename.ts",
+    line: 3,
+    status: "resolved",
+    outdated: true,
+    replies: 1,
+    body: "Unused import.",
+    url: "https://github.com/acme/widgets/pull/437",
+    at: now - 32 * HOUR,
+  },
   {
     kind: "review",
     author: "mona",
     avatarUrl: avatarFor("mona"),
+    you: true,
     state: "commented",
     body: "Looks right overall. Two questions inline before I approve.",
     url: "https://github.com/acme/widgets/pull/437",
@@ -221,6 +235,7 @@ const FEEDBACK: FeedbackEntry[] = [
     kind: "thread",
     author: "mona",
     avatarUrl: avatarFor("mona"),
+    you: true,
     path: "gadgets/rename.ts",
     line: 27,
     status: "unanswered",
@@ -234,6 +249,7 @@ const FEEDBACK: FeedbackEntry[] = [
     kind: "thread",
     author: "mona",
     avatarUrl: avatarFor("mona"),
+    you: true,
     path: "gadgets/sort.ts",
     line: 9,
     status: "waiting",
@@ -250,19 +266,6 @@ const FEEDBACK: FeedbackEntry[] = [
     body: "Pushed a fix for the duplicate-name case. Mind another look?",
     url: "https://github.com/acme/widgets/pull/437",
     at: now - 4 * HOUR,
-  },
-  {
-    kind: "thread",
-    author: "octocat",
-    avatarUrl: avatarFor("octocat"),
-    path: "gadgets/rename.ts",
-    line: 3,
-    status: "resolved",
-    outdated: true,
-    replies: 1,
-    body: "Unused import.",
-    url: "https://github.com/acme/widgets/pull/437",
-    at: now - 32 * HOUR,
   },
 ];
 

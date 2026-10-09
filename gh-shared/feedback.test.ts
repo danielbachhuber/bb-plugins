@@ -46,27 +46,30 @@ const comment = (login: string, bodyText: string, typename = "User") => ({
 });
 
 describe("parseFeedback", () => {
-  it("puts requested changes first, then open threads, comments, and resolved threads", () => {
+  it("puts reviews, threads, and comments in one list, oldest first", () => {
     const entries = parseFeedback(
       response({
-        reviews: { nodes: [review("hubber", "APPROVED", "Looks good."), review("hubber", "CHANGES_REQUESTED", "Drops rows.")] },
+        reviews: {
+          nodes: [
+            review("hubber", "APPROVED", "Looks good.", "2026-01-06T00:00:00Z"),
+            review("hubber", "CHANGES_REQUESTED", "Drops rows.", "2026-01-02T00:00:00Z"),
+          ],
+        },
         reviewThreads: {
           nodes: [
-            thread("hubber", "hubber", { isResolved: true }),
-            thread("hubber", "octocat", { total: 2 }),
-            thread("hubber", "hubber"),
+            thread("hubber", "hubber", { isResolved: true, createdAt: "2026-01-01T00:00:00Z" }),
+            thread("hubber", "octocat", { total: 2, createdAt: "2026-01-03T00:00:00Z" }),
           ],
         },
         comments: { nodes: [comment("hubber", "Any update?")] },
       }),
     );
     expect(entries.map((entry) => [entry.kind, "state" in entry ? entry.state : "status" in entry ? entry.status : ""])).toEqual([
+      ["thread", "resolved"],
       ["review", "changes_requested"],
-      ["review", "approved"],
-      ["thread", "unanswered"],
       ["thread", "replied"],
       ["comment", ""],
-      ["thread", "resolved"],
+      ["review", "approved"],
     ]);
   });
 
@@ -78,54 +81,43 @@ describe("parseFeedback", () => {
     expect(entries[0]).toMatchObject({ kind: "review", state: "changes_requested", body: "" });
   });
 
-  it("leaves out your own comments, pending and dismissed reviews", () => {
+  it("leaves out pending and dismissed reviews", () => {
     const entries = parseFeedback(
-      response({
-        reviews: { nodes: [review("octocat", "COMMENTED", "Self note"), review("hubber", "PENDING", "Draft"), review("hubber", "DISMISSED", "Old")] },
-        reviewThreads: { nodes: [thread("octocat", "octocat")] },
-        comments: { nodes: [comment("octocat", "Rebased")] },
-      }),
+      response({ reviews: { nodes: [review("hubber", "PENDING", "Draft"), review("hubber", "DISMISSED", "Old")] } }),
     );
     expect(entries).toEqual([]);
   });
 
-  it("keeps bots' comments and marks them", () => {
+  it("keeps your own and bots' entries, and marks them", () => {
     const entries = parseFeedback(
       response({
+        reviews: { nodes: [review("octocat", "COMMENTED", "A few notes inline.")] },
         comments: {
           nodes: [comment("hubber", "Any update?"), comment("github-actions", "Coverage 91%"), comment("acme-ci", "Deployed", "Bot")],
         },
       }),
     );
-    expect(entries.map((entry) => [entry.author, entry.bot ?? false])).toEqual([
-      ["hubber", false],
-      ["github-actions", true],
-      ["acme-ci", true],
+    expect(entries.map((entry) => [entry.author, entry.you ?? false, entry.bot ?? false])).toEqual([
+      ["octocat", true, false],
+      ["hubber", false, false],
+      ["github-actions", false, true],
+      ["acme-ci", false, true],
     ]);
   });
 
-  it("keeps your own when asked, and says which threads still wait on someone else", () => {
+  it("says which threads still wait on someone else", () => {
     const entries = parseFeedback(
       response({
-        reviews: { nodes: [review("octocat", "COMMENTED", "A few notes inline.")] },
         reviewThreads: {
           nodes: [
-            thread("octocat", "octocat"),
+            thread("octocat", "octocat", { createdAt: "2026-01-02T00:00:00Z" }),
             thread("octocat", "hubber", { total: 2, createdAt: "2026-01-03T00:00:00Z" }),
             thread("octocat", "octocat", { total: 3, createdAt: "2026-01-04T00:00:00Z" }),
           ],
         },
-        comments: { nodes: [comment("octocat", "Rebased")] },
       }),
-      { includeViewer: true },
     );
-    expect(entries.map((entry) => [entry.kind, entry.author, entry.kind === "thread" ? entry.status : null])).toEqual([
-      ["review", "octocat", null],
-      ["thread", "octocat", "unanswered"],
-      ["thread", "octocat", "waiting"],
-      ["thread", "octocat", "replied"],
-      ["comment", "octocat", null],
-    ]);
+    expect(entries.map((entry) => (entry.kind === "thread" ? entry.status : null))).toEqual(["waiting", "unanswered", "replied"]);
   });
 
   it("reads a thread's line, falling back to where it was before the code moved", () => {

@@ -383,8 +383,21 @@ function harvestFor(listing: Listing | null): HarvestPanelState {
   };
 }
 
-/** What reviewers left on #487, as the comments drawer reads it. */
+/** What is on #487, your own pull request, oldest first, as the comments drawer reads it. */
 const FEEDBACK: FeedbackEntry[] = [
+  {
+    kind: "thread",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    path: "export/csv.ts",
+    line: 12,
+    status: "resolved",
+    outdated: true,
+    replies: 2,
+    body: "Import order.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 30 * HOUR,
+  },
   {
     kind: "review",
     author: "hubber",
@@ -435,6 +448,15 @@ const FEEDBACK: FeedbackEntry[] = [
   },
   {
     kind: "comment",
+    author: "mona",
+    avatarUrl: avatarFor("mona"),
+    you: true,
+    body: "Fixed the null owners. Streaming can wait for a follow-up.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 22 * HOUR,
+  },
+  {
+    kind: "comment",
     author: "octocat",
     avatarUrl: avatarFor("octocat"),
     body: "Approved once hubber's notes land.",
@@ -449,19 +471,6 @@ const FEEDBACK: FeedbackEntry[] = [
     body: "Preview deployed for 4f2c9e1.",
     url: "https://github.com/acme/widgets/pull/487",
     at: now - 19 * HOUR,
-  },
-  {
-    kind: "thread",
-    author: "octocat",
-    avatarUrl: avatarFor("octocat"),
-    path: "export/csv.ts",
-    line: 12,
-    status: "resolved",
-    outdated: true,
-    replies: 2,
-    body: "Import order.",
-    url: "https://github.com/acme/widgets/pull/487",
-    at: now - 30 * HOUR,
   },
 ];
 
@@ -610,7 +619,7 @@ export function CommentsDrawer() {
         />
       </StoryRow>
       <StoryRow label="Nothing open" hint="Every thread resolved.">
-        {box(<FeedbackList entries={FEEDBACK.slice(-1)} age={age} url={url} Link={PlainLink} />)}
+        {box(<FeedbackList entries={FEEDBACK.slice(0, 1)} age={age} url={url} Link={PlainLink} />)}
       </StoryRow>
     </StoryCard>
   );

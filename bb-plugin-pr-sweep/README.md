@@ -133,14 +133,13 @@ threads were all answered still shows it was discussed. The Harvest clock, when 
 plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
-Clicking the comment count opens what reviewers left in a drawer under the
-action line, under three headings. Reviews come first, those that requested
-changes ahead of others with something to say. Inline comments follow, the
-threads still open, each with its file and line and whether it is unanswered
-or you replied. Top-level comments, the ones in the pull request's
-conversation, come last. Resolved threads wait behind "N resolved" at the
-bottom. Your own comments are left out. Bots' comments are kept, since the
-count includes them, and are dimmed with a "bot" label. Each entry opens on GitHub, and its text is cut to three
+Clicking the comment count opens everything on the pull request in a drawer
+under the action line, in one list, oldest first: reviews with something to
+say, inline comments, and top-level comments from the pull request's
+conversation. Each inline comment sits in a small card headed by its file and
+line, with whether it is unanswered or you replied. Your own comments carry a
+"you" label and bots' a "bot" label, since the count includes both. Resolved
+threads wait behind "N resolved" at the bottom. Each entry opens on GitHub, and its text is cut to three
 lines. Opening the drawer makes one GitHub GraphQL request for that pull
 request, and none is made until you click; once it has read the comments, the
 row's "N new" clears. Clicking the count again closes it.
