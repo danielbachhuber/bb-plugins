@@ -75,3 +75,20 @@ export const authorRow = (person: {
   firstTotal: person.openedTotal,
   secondTotal: person.mergedTotal,
 });
+
+/**
+ * Everyone's lines added together, bucket by bucket: the section's own total,
+ * drawn above the per-person cards. A request naming two people is two
+ * requests, as each of their cards counts it.
+ */
+export function totalRow(rows: readonly VelocityRow[], login: string, buckets: number): VelocityRow {
+  const sum = (pick: (row: VelocityRow) => readonly number[]) =>
+    Array.from({ length: buckets }, (_, index) => rows.reduce((total, row) => total + (pick(row)[index] ?? 0), 0));
+  return {
+    login,
+    first: sum((row) => row.first),
+    second: sum((row) => row.second),
+    firstTotal: rows.reduce((total, row) => total + row.firstTotal, 0),
+    secondTotal: rows.reduce((total, row) => total + row.secondTotal, 0),
+  };
+}

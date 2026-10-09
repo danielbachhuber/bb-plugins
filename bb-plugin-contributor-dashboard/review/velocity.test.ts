@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { foldRows, peakOf, type VelocityRow } from "./velocity";
+import { foldRows, peakOf, totalRow, type VelocityRow } from "./velocity";
 
 const row = (login: string, first: number[], second: number[]): VelocityRow => ({
   login,
@@ -55,5 +55,15 @@ describe("foldRows", () => {
 describe("peakOf", () => {
   it("takes the busiest bucket on either line", () => {
     expect(peakOf(row("octocat", [1, 4], [6, 2]))).toBe(6);
+  });
+});
+
+describe("totalRow", () => {
+  it("adds everyone's lines bucket by bucket", () => {
+    const rows = [
+      { login: "octocat", first: [1, 2], second: [0, 1], firstTotal: 3, secondTotal: 1 },
+      { login: "hubber", first: [4, 0], second: [2, 2], firstTotal: 4, secondTotal: 4 },
+    ];
+    expect(totalRow(rows, "Everyone", 2)).toEqual({ login: "Everyone", first: [5, 2], second: [2, 3], firstTotal: 7, secondTotal: 5 });
   });
 });

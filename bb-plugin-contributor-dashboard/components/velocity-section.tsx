@@ -1,6 +1,6 @@
 // A section of small multiples: a card per person, busiest first, and the
 // quiet tail as rows of names and counts until Show all opens them.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { Bucket, BucketUnit } from "@/dashboard/period";
 import { foldRows, type VelocityRow } from "@/review/velocity";
@@ -20,6 +20,7 @@ export function VelocitySection({
   initialHovered,
   showAll: initialShowAll = false,
   onOpenPerson,
+  overview,
 }: {
   id: string;
   heading: string;
@@ -36,6 +37,8 @@ export function VelocitySection({
   /** Starts with the tail opened, for a story. */
   showAll?: boolean;
   onOpenPerson: (login: string) => void;
+  /** Charts for everyone together, drawn under the heading before the per-person cards. */
+  overview?: ReactNode;
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
   const { charted, folded, max } = foldRows(rows);
@@ -43,15 +46,20 @@ export function VelocitySection({
 
   return (
     <section className="mt-6" aria-labelledby={id}>
-      <h2 id={id} className="text-base font-semibold">
-        {heading}
-      </h2>
-      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
+      {/* With charts for everyone above the cards, the legend covers both, so it sits by the heading. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id={id} className="text-base font-semibold">
+          {heading}
+        </h2>
+        {overview === undefined ? null : <SeriesLegend series={series} />}
+      </div>
+      {overview}
+      <div className={`${overview === undefined ? "mt-2" : "mt-4"} flex flex-wrap items-baseline justify-between gap-2`}>
         <h3 className="text-sm font-medium">
           {title}
           <span className="ml-2 font-normal text-muted-foreground">{note}</span>
         </h3>
-        <SeriesLegend series={series} />
+        {overview === undefined ? <SeriesLegend series={series} /> : null}
       </div>
 
       {rows.length === 0 ? (

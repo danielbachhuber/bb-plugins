@@ -10,6 +10,7 @@ import { peopleActivity } from "./review/people.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
+import { mergeTimes, reviewTimes } from "./review/turnaround.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
@@ -103,10 +104,14 @@ export default async function plugin(bb: BbPluginApi) {
     return rows.map((row) => ({ ...row, threadId: threads.get(row.number) ?? null }));
   }
 
+  const NO_TURNAROUND = { count: 0, median: 0, p75: 0, p90: 0, buckets: [] };
+
   bb.rpc.register(rpcContract, {
     people_activity: ({ range }) => {
       if (!configured) {
-        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 }, authors: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
+          turnaround: { merge: NO_TURNAROUND, review: NO_TURNAROUND },
+          authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -121,6 +126,7 @@ export default async function plugin(bb: BbPluginApi) {
         buckets,
         stages: stageSummaries({ pullRequests: prs, issues }, buckets, now),
         flow: flowOf({ pullRequests: prs, issues }, buckets[0].start, buckets.at(-1)!.end),
+        turnaround: { merge: mergeTimes(prs, buckets), review: reviewTimes(prs, buckets, now) },
         releases: releaseSummaries(store.readReleases(repository), prs, repository, buckets[0].start, buckets.at(-1)!.end),
         // A pull request opened before the period can still merge inside it,
         // so authoring reads them all rather than only the recently updated.

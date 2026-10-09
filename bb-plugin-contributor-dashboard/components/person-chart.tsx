@@ -56,6 +56,7 @@ export function PersonChart({
   peak = false,
   initialHovered,
   onOpenPerson,
+  chartHeight = HEIGHT,
 }: {
   person: VelocityRow;
   series: SeriesPair;
@@ -69,6 +70,8 @@ export function PersonChart({
   initialHovered?: number;
   /** Opens their page. Left out on their own page, where the name is a heading. */
   onOpenPerson?: (login: string) => void;
+  /** How tall the chart is drawn, in pixels; the section's own total is drawn taller. */
+  chartHeight?: number;
 }) {
   const [hovered, setHovered] = useState<number | null>(initialHovered ?? null);
   const step = buckets.length > 1 ? WIDTH / (buckets.length - 1) : 0;
@@ -108,7 +111,8 @@ export function PersonChart({
       <div className="relative mt-1.5">
         <svg
           viewBox={`-3 0 ${WIDTH + 6} ${HEIGHT}`}
-          className="block h-[72px] w-full overflow-visible"
+          className="block w-full overflow-visible"
+          style={{ height: chartHeight }}
           preserveAspectRatio="none"
           role="img"
           aria-label={`${person.login}: ${counts}`}

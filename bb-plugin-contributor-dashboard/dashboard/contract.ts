@@ -142,6 +142,15 @@ export const releasesSchema = z.object({
   older: z.number(),
 });
 
+/** How long something took, per bucket. See review/turnaround.ts. */
+export const turnaroundSchema = z.object({
+  count: z.number(),
+  median: z.number(),
+  p75: z.number(),
+  p90: z.number(),
+  buckets: z.array(z.object({ count: z.number(), median: z.number(), p90: z.number() })),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -166,6 +175,8 @@ export const rpcContract = defineRpcContract({
       stages: z.array(stageSummarySchema),
       flow: flowCountsSchema,
       releases: releasesSchema,
+      /** Ready to merged, and asked to reviewed, for the velocity sections' time charts. */
+      turnaround: z.object({ merge: turnaroundSchema, review: turnaroundSchema }),
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       sync: syncStatusSchema,
@@ -259,6 +270,7 @@ export const rpcContract = defineRpcContract({
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
+export type Turnaround = z.infer<typeof turnaroundSchema>;
 export type Releases = z.infer<typeof releasesSchema>;
 export type MinorRelease = z.infer<typeof minorReleaseSchema>;
 export type OlderReleases = z.infer<(typeof rpcContract)["older_releases"]["output"]>;
