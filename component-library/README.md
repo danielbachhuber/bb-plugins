@@ -11,7 +11,7 @@ what not to do with it.
 
 | Entry | Import | What it is |
 | --- | --- | --- |
-| [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar |
+| [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar, with what the past hour of syncs cost on GitHub behind the label |
 | [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 | [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
@@ -84,10 +84,21 @@ The label is lowercase because it sits mid-header. It re-reads the clock
 every 30 seconds, so it ages between syncs instead of sitting on "just now"
 until the next one.
 
+**What the syncs cost.** Given `usage`, the label becomes a button that
+opens a summary under it: the GitHub points the past hour of syncs used, one
+bar per sync placed at the time it ran (hover one for its points, calls, and
+time), and how many points the account has left before the hour resets. A
+sync that could not be measured draws as a faint stub and is left out of the
+total, which says how many it left out. Without `usage`, the label stays plain
+text. The shape is what `createSyncUsage` in `gh-shared` reports, repeated
+here as `SyncUsage` because this package cannot depend on gh-shared. PR Sweep,
+Issue Sweep, and Review Sweep pass it.
+
 **Props.** `syncedAt` is the last sync's time in milliseconds, or null.
-`busy` disables the button. `onRefresh` starts a refresh. `now` pins the
-clock and is for stories and tests only. `syncedAgo(syncedAt, now)` is
-exported too.
+`busy` disables the button. `onRefresh` starts a refresh. `usage` is the past
+hour's syncs and the account's budget. `now` pins the clock, and
+`defaultOpen` and `initialHovered` draw the summary open; all three are for
+stories and tests only. `syncedAgo(syncedAt, now)` is exported too.
 
 **Don't** show an absolute time, put the control in the page body, call the
 button anything but Refresh, or write another formatter for the same label.

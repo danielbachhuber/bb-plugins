@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SyncStatus, syncedAgo } from "./sync-status";
+import { SyncStatus, syncedAgo, type SyncUsage } from "./sync-status";
 
 const NOW = Date.UTC(2026, 9, 8, 12, 0, 0);
 const MINUTE = 60_000;
@@ -51,5 +51,52 @@ describe("SyncStatus", () => {
     expect(screen.getByText("synced just now")).toBeInTheDocument();
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     expect(screen.getByText("synced 2m ago")).toBeInTheDocument();
+  });
+});
+
+describe("SyncStatus with usage", () => {
+  const usage: SyncUsage = {
+    syncs: [
+      { at: NOW - 13 * MINUTE, points: 102, calls: 5, ms: 6_800 },
+      { at: NOW - 8 * MINUTE, points: null, calls: 5, ms: 6_100 },
+      { at: NOW - 3 * MINUTE, points: 98, calls: 5, ms: 6_400 },
+    ],
+    budget: { used: 2_602, limit: 5_000, resetAt: NOW + 9 * MINUTE },
+  };
+
+  it("keeps the plain label without usage", () => {
+    render(<SyncStatus syncedAt={NOW - 3 * MINUTE} busy={false} onRefresh={() => {}} now={NOW} />);
+    expect(screen.queryByRole("button", { name: /synced 3m ago/ })).toBeNull();
+  });
+
+  it("opens the hour's points from the label", () => {
+    render(<SyncStatus syncedAt={NOW - 3 * MINUTE} busy={false} onRefresh={() => {}} usage={usage} now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: /synced 3m ago/ }));
+    expect(screen.getByText(/GitHub points over/).parentElement).toHaveTextContent(/^200GitHub points/);
+    expect(screen.getByText(/over 3 syncs in the past hour/)).toBeInTheDocument();
+    expect(screen.getByText(/not counting 1 sync that couldn't be measured/)).toBeInTheDocument();
+    expect(screen.getByText("2,398")).toBeInTheDocument();
+    expect(screen.getByText(/resets in 9 min/)).toBeInTheDocument();
+  });
+
+  it("closes on Escape", () => {
+    render(<SyncStatus syncedAt={NOW} busy={false} onRefresh={() => {}} usage={usage} now={NOW} defaultOpen />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText(/in the past hour/)).toBeNull();
+  });
+
+  it("says so when nothing synced in the hour, and drops a budget past its reset", () => {
+    render(
+      <SyncStatus
+        syncedAt={null}
+        busy={false}
+        onRefresh={() => {}}
+        usage={{ syncs: [], budget: { used: 10, limit: 5_000, resetAt: NOW - MINUTE } }}
+        now={NOW}
+        defaultOpen
+      />,
+    );
+    expect(screen.getByText("No syncs in the past hour.")).toBeInTheDocument();
+    expect(screen.queryByText(/points an hour for your account/)).toBeNull();
   });
 });

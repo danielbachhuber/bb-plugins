@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowReloadHorizontalIcon } from "@hugeicons/core-free-icons";
+
+import { SyncUsageSummary, type SyncUsage } from "./sync-usage";
+
+export type { SyncUsage } from "./sync-usage";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -41,13 +45,22 @@ export function SyncStatus({
   syncedAt,
   busy,
   onRefresh,
+  usage,
   now: fixedNow,
+  defaultOpen = false,
+  initialHovered,
 }: {
   syncedAt: number | null;
   busy: boolean;
   onRefresh: () => void;
+  /** The past hour's GitHub cost. With it, the label opens a summary of it. */
+  usage?: SyncUsage;
   /** Pins the clock, for stories and tests. Omit it in a plugin. */
   now?: number;
+  /** Starts with the summary open, for a story. */
+  defaultOpen?: boolean;
+  /** A bar to show hovered, for a story. */
+  initialHovered?: number;
 }) {
   // The label ages on its own, so it has to re-read the clock rather than wait
   // for the next sync. Without this it would sit on "just now" for the whole
@@ -59,12 +72,51 @@ export function SyncStatus({
     return () => clearInterval(timer);
   }, [fixedNow]);
   const now = fixedNow ?? tickedNow;
+  const label = syncedAt === null ? "not synced yet" : `synced ${syncedAgo(syncedAt, now)}`;
+
+  const [open, setOpen] = useState(defaultOpen);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
     <div className="flex items-center gap-2">
-      <span className="whitespace-nowrap text-xs text-muted-foreground">
-        {syncedAt === null ? "not synced yet" : `synced ${syncedAgo(syncedAt, now)}`}
-      </span>
+      {usage === undefined ? (
+        <span className="whitespace-nowrap text-xs text-muted-foreground">{label}</span>
+      ) : (
+        <div ref={root} className="relative">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={`${label}. Show what the syncs cost on GitHub.`}
+            className="cursor-pointer whitespace-nowrap rounded px-1 py-0.5 text-xs text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 aria-expanded:bg-state-hover aria-expanded:text-foreground"
+            onClick={() => setOpen(!open)}
+          >
+            {label}
+          </button>
+          {open ? (
+            <div
+              data-slot="popover-content"
+              className="absolute right-0 top-full z-50 mt-1 w-[400px] rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md"
+            >
+              <SyncUsageSummary usage={usage} now={now} initialHovered={initialHovered} />
+            </div>
+          ) : null}
+        </div>
+      )}
       <button type="button" className={OUTLINE_SM_BUTTON} disabled={busy} onClick={onRefresh}>
         <HugeiconsIcon icon={ArrowReloadHorizontalIcon} aria-hidden="true" data-icon="ArrowReloadHorizontal" />
         {busy ? "Refreshing…" : "Refresh"}
