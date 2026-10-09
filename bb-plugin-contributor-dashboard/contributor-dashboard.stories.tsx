@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
-import type { PeopleActivityResult, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { FlowCounts, PeopleActivityResult, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 
@@ -141,10 +141,46 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
   },
 ];
 
+/**
+ * Six weeks of where everything opened went, shaped like a real repository:
+ * most pull requests have a reviewer asked and a handful skip review, while a
+ * seventh of issues are assigned without ever reaching a plan.
+ */
+const FLOW: FlowCounts = {
+  issues: {
+    opened: 141,
+    planned: 83,
+    assignedFromPlan: 60,
+    assignedWithoutPlan: 19,
+    closedAssigned: 47,
+    closedPlanned: 0,
+    closedUntriaged: 5,
+  },
+  pullRequests: {
+    opened: 419,
+    drafted: 172,
+    asked: 347,
+    reviewedUnasked: 20,
+    changesRequested: 46,
+    approved: 312,
+    merged: 309,
+    mergedUnreviewed: 10,
+    closed: 36,
+  },
+};
+
+/** Every count in the flow multiplied by the same factor, for a longer or shorter span. */
+function scaledFlow(factor: number): FlowCounts {
+  const scale = <T extends Record<string, number>>(counts: T): T =>
+    Object.fromEntries(Object.entries(counts).map(([key, value]) => [key, Math.round(value * factor)])) as T;
+  return { issues: scale(FLOW.issues), pullRequests: scale(FLOW.pullRequests) };
+}
+
 function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(rangeOf(selection, NOW));
   // A longer span holds more of everything, so the totals scale with it.
   const scale: Record<PresetId, number> = { "2w": 1 / 3, "6w": 1, "3m": 2.2 };
+  const factor = scale[selection.kind === "preset" ? selection.id : "6w"];
   const totals = PEOPLE.map((person, p) => ({
     ...person,
     opened: Math.round(person.opened * scale[selection.kind === "preset" ? selection.id : "6w"]),
@@ -180,6 +216,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
       ...stage,
       weekly: buckets.map((_, index) => stage.weekly[index % stage.weekly.length]),
     })),
+    flow: scaledFlow(factor),
     authors,
     people,
     sync,
@@ -237,7 +274,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}

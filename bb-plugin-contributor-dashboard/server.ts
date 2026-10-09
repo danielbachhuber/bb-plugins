@@ -7,6 +7,7 @@ import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/con
 import { ghGraphql } from "./mirror/gh.js";
 import { authorActivity } from "./review/authors.js";
 import { peopleActivity } from "./review/people.js";
+import { flowOf, emptyFlow } from "./review/flow.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
@@ -103,7 +104,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     people_activity: ({ range }) => {
       if (!configured) {
-        return { repository: null, buckets: [], stages: [], authors: [], people: [], sync: status() };
+        return { repository: null, buckets: [], stages: [], flow: emptyFlow(), authors: [], people: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -112,10 +113,12 @@ export default async function plugin(bb: BbPluginApi) {
       // A stage's queue is what is in it now, whatever the period, so the
       // stages read every stored pull request rather than only the period's.
       const prs = store.readActivity(repository, 0);
+      const issues = store.readIssues(repository, 0);
       return {
         repository,
         buckets,
-        stages: stageSummaries({ pullRequests: prs, issues: store.readIssues(repository, 0) }, buckets, now),
+        stages: stageSummaries({ pullRequests: prs, issues }, buckets, now),
+        flow: flowOf({ pullRequests: prs, issues }, buckets[0].start, buckets.at(-1)!.end),
         // A pull request opened before the period can still merge inside it,
         // so authoring reads them all rather than only the recently updated.
         authors: authorActivity(prs, buckets),

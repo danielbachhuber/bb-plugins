@@ -20,9 +20,59 @@ month or less is drawn by day, up to half a year by week starting on Monday,
 and anything longer by month. A bucket is always whole, so a range starting
 midweek is charted from that week's Monday.
 
-### Identify → Define → Execute → Verify → Release
+Under the header the page has three sections: an **Overview**, then
+**Issues**, then **Pull requests**.
 
-The flow at the top is one row per stage, named for the node in the delivery
+### Overview
+
+A flow diagram across the delivery model's six stages, Identify, Define,
+Execute, Verify, Release and Learn, with each step the mirror can see placed
+in the stage the model puts it in. Define and Learn happen outside GitHub,
+and Release ends at the merge, so those columns say so rather than drawing
+nothing.
+
+Two things are drawn, and they answer different questions:
+
+- **A box is a step's queue now:** how many are waiting in it, and how long
+  half of those that left it in the period took. Clicking a box opens the
+  step's page.
+- **A line is what moved in the period:** every issue and pull request opened
+  in it, and where each one has got to, the line thicker for more. Both rows
+  share one scale, so a line's width compares across them.
+
+Neither issues nor pull requests walk a straight line, so the paths that skip
+a step or go back are drawn too, as amber dashed lines: issues assigned
+without ever reaching a milestone or project, and pull requests merged with
+no review or sent back with changes requested. Pull requests reviewed though
+nobody was asked are written under the line into Code review, and those
+closed unmerged leave the row on a grey line. A path nothing took in the
+period is left out.
+
+The mirror does not hold which pull request is for which issue, so the
+diagram joins the two rows with a dotted line that says so.
+
+What counts on the lines, for everything opened in the period, bots left out:
+
+| Line | Counts |
+| --- | --- |
+| into a plan | issues that reached a milestone or project |
+| assigned without a plan | issues assigned that never reached one |
+| closed after someone took them | closed issues that had been assigned |
+| closed untriaged | closed issues that reached neither |
+| spent time as drafts | pull requests that were ever a draft |
+| reviewer asked | pull requests with at least one review request |
+| reviewed unasked | pull requests reviewed with no request |
+| approved | pull requests approved by someone other than the author |
+| sent back with changes requested | pull requests with at least one request for changes |
+| merged with no review | merged pull requests nobody but the author reviewed |
+| closed unmerged | pull requests closed without merging |
+
+The counts come from the rows the stages already read, so the diagram makes
+no request to GitHub of its own.
+
+### Issues and Pull requests
+
+Each section opens with a row per step, named for the node in the delivery
 model it comes from, each saying in a line what its clock measures:
 
 | Stage | Reads | From | To |
@@ -34,14 +84,18 @@ model it comes from, each saying in a line what its clock measures:
 | Code review | pull requests | a reviewer asked | they leave a review |
 | Merge decision | pull requests | approved | merged |
 
+The mirror also times Implement change, from a draft to ready for review, but
+the page leaves it out: most pull requests never open as drafts, so it
+measures only a fraction of them. Its page is still at its address.
+
 Within each object type the stages divide one timeline, so a pull request is in
 at most one pull request stage at a time, and an issue in at most one issue
 stage.
 
-The two groups are drawn separately because they work on different time scales:
+The two sections time their steps separately because they work on different time scales:
 issue stages run in weeks and pull request stages often in minutes, so one
 shared scale would flatten every pull request row into its first pixel. Each
-group's scale is named beside its heading, and a bar in one group cannot be
+section's scale is named in its header row, and a bar in one cannot be
 compared with a bar in the other.
 
 What the issue stages can and cannot say: they measure the milestone and
@@ -108,7 +162,7 @@ more than the words around the buttons.
 
 ### PR velocity and Review velocity
 
-Two sections of small multiples, one card per person, busiest first. **PR
+At the end of the Pull requests section, two sets of small multiples, one card per person, busiest first. **PR
 velocity** draws the pull requests each person **opened** and the ones that
 **merged**; **Review velocity** draws the reviews **requested** of them and the
 ones they **gave**. Both totals for the period sit beneath the name, and the
@@ -247,6 +301,7 @@ needs no new sync.
 | `mirror/sync.ts` | The sync: one pass per object type, each catching up to its high-water mark and backfilling two years, and fetching past 100 reviews or events |
 | `mirror/gh.ts` | The only module that reaches GitHub, through `gh api graphql` |
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
+| `review/flow.ts` | The pure count of where everything opened in the period went, by path, for the overview's lines |
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
@@ -258,7 +313,8 @@ needs no new sync.
 | `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
 | `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
-| `components/stage-flow.tsx` | The Execute → Verify → Release flow at the top of the page |
+| `components/flow-diagram.tsx` | The overview: the flow diagram across the six stages |
+| `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |

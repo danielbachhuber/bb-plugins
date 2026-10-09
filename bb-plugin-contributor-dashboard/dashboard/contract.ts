@@ -86,6 +86,30 @@ export const stageSpanSchema = z.object({
   days: z.number(),
 });
 
+/** Where everything opened in the period has got to, by path. See review/flow.ts. */
+export const flowCountsSchema = z.object({
+  issues: z.object({
+    opened: z.number(),
+    planned: z.number(),
+    assignedFromPlan: z.number(),
+    assignedWithoutPlan: z.number(),
+    closedAssigned: z.number(),
+    closedPlanned: z.number(),
+    closedUntriaged: z.number(),
+  }),
+  pullRequests: z.object({
+    opened: z.number(),
+    drafted: z.number(),
+    asked: z.number(),
+    reviewedUnasked: z.number(),
+    changesRequested: z.number(),
+    approved: z.number(),
+    merged: z.number(),
+    mergedUnreviewed: z.number(),
+    closed: z.number(),
+  }),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -108,6 +132,7 @@ export const rpcContract = defineRpcContract({
       repository: z.string().nullable(),
       buckets: z.array(bucketSchema),
       stages: z.array(stageSummarySchema),
+      flow: flowCountsSchema,
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       sync: syncStatusSchema,
@@ -196,6 +221,7 @@ export const rpcContract = defineRpcContract({
 
 export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export type PeopleActivityResult = z.infer<(typeof rpcContract)["people_activity"]["output"]>;
+export type FlowCounts = z.infer<typeof flowCountsSchema>;
 export type StageSummary = z.infer<typeof stageSummarySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;

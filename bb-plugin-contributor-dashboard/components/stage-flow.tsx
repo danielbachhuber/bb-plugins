@@ -61,33 +61,24 @@ function scaleOf(stages: readonly StageSummary[]): number {
 /** What the trend column counts, one point per bucket. */
 const TREND: Record<BucketUnit, string> = { day: "daily", week: "weekly", month: "monthly" };
 
-export function StageFlowSection({
+/**
+ * One group's stages as rows: how many are in each now, how long it takes,
+ * and which way that is moving. The group shares one scale, named in the
+ * header, because issue stages run in weeks and pull request stages in hours.
+ */
+export function StageTable({
   stages,
-  periodLabel,
   unit,
   onOpenStage,
 }: {
   stages: readonly StageSummary[];
-  /** How long the period is, for the heading, such as "six weeks". */
-  periodLabel: string;
   /** What one point of the trend counts. */
   unit: BucketUnit;
   onOpenStage: (stage: StageKey) => void;
 }) {
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    stages: stages.filter((stage) => stage.source === group.source),
-  })).filter((group) => group.stages.length > 0);
-
+  const scale = scaleOf(stages);
   return (
-    <section className="mt-6" aria-labelledby="stage-flow">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="stage-flow" className="text-base font-semibold">
-          Identify → Define → Execute → Verify → Release
-        </h2>
-        <span className="text-xs text-muted-foreground">Business days, over {periodLabel}</span>
-      </div>
-
+    <div>
       <div className="mt-3 flex items-end gap-3 border-b border-border pb-1 text-[11px] text-muted-foreground">
         <span className="w-44 shrink-0" />
         <span className="w-16 shrink-0 text-right">Now</span>
@@ -98,70 +89,82 @@ export function StageFlowSection({
           p75
           <span className="ml-2 inline-block bg-destructive" style={{ width: 2, height: 10 }} />
           p90
+          <span className="ml-auto">scale to {days(scale)}</span>
         </span>
         <span className="w-14 shrink-0 text-right">median</span>
         <span className="w-12 shrink-0 text-right">p75</span>
         <span className="w-12 shrink-0 text-right">p90</span>
         <span className="w-14 shrink-0">{TREND[unit]}</span>
       </div>
+      <div className="mt-1.5 space-y-2">
+        {stages.map((stage) => (
+          <div key={stage.key} className="flex items-center gap-3 text-xs">
+            <span className="w-44 shrink-0">
+              <button
+                type="button"
+                onClick={() => onOpenStage(stage.key)}
+                className="block cursor-pointer text-left font-medium hover:underline"
+              >
+                {stage.label}
+              </button>
+              <span className="block text-[11px] leading-tight text-muted-foreground">{stage.measures}</span>
+            </span>
+            <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{stage.waiting}</span>
+            <span className="relative flex h-5 min-w-0 flex-1 items-center">
+              <span className="absolute inset-x-0 h-px bg-border" />
+              <span
+                className={`absolute rounded-sm ${BAR}`}
+                style={{ width: `${(stage.median / scale) * 100}%`, height: 8 }}
+              />
+              <Mark at={stage.p75 / scale} className="text-muted-foreground" />
+              <Mark at={stage.p90 / scale} className="text-destructive" />
+            </span>
+            <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>{days(stage.median)}</span>
+            <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">{days(stage.p75)}</span>
+            <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(stage.p90)}</span>
+            <span className="w-14 shrink-0">
+              <Trend points={stage.weekly} />
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      {groups.map((group) => {
-        // Issue stages run in weeks and pull request stages in hours, so a
-        // shared scale would flatten the second group into its first pixel.
-        const scale = scaleOf(group.stages);
+/** Both groups under one heading, as the page drew them before it had sections. Explore stories still use it. */
+export function StageFlowSection({
+  stages,
+  periodLabel,
+  unit,
+  onOpenStage,
+}: {
+  stages: readonly StageSummary[];
+  /** How long the period is, for the heading, such as "six weeks". */
+  periodLabel: string;
+  unit: BucketUnit;
+  onOpenStage: (stage: StageKey) => void;
+}) {
+  return (
+    <section className="mt-6" aria-labelledby="stage-flow">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="stage-flow" className="text-base font-semibold">
+          Identify → Define → Execute → Verify → Release
+        </h2>
+        <span className="text-xs text-muted-foreground">Business days, over {periodLabel}</span>
+      </div>
+      {GROUPS.map((group) => {
+        const inGroup = stages.filter((stage) => stage.source === group.source);
+        if (inGroup.length === 0) return null;
         return (
           <div key={group.source}>
-            <div className="mt-3 flex items-baseline gap-2">
-              <h3 className="text-xs font-semibold">{group.title}</h3>
-              <span className="text-[11px] text-muted-foreground">
-                {group.covers} · scale to {days(scale)}
-              </span>
-            </div>
-            <div className="mt-1.5 space-y-2">
-              {group.stages.map((stage) => (
-                <div key={stage.key} className="flex items-center gap-3 text-xs">
-                  <span className="w-44 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onOpenStage(stage.key)}
-                      className="block cursor-pointer text-left font-medium hover:underline"
-                    >
-                      {stage.label}
-                    </button>
-                    <span className="block text-[11px] leading-tight text-muted-foreground">{stage.measures}</span>
-                  </span>
-                  <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{stage.waiting}</span>
-                  <span className="relative flex h-5 min-w-0 flex-1 items-center">
-                    <span className="absolute inset-x-0 h-px bg-border" />
-                    <span
-                      className={`absolute rounded-sm ${BAR}`}
-                      style={{ width: `${(stage.median / scale) * 100}%`, height: 8 }}
-                    />
-                    <Mark at={stage.p75 / scale} className="text-muted-foreground" />
-                    <Mark at={stage.p90 / scale} className="text-destructive" />
-                  </span>
-                  <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>
-                    {days(stage.median)}
-                  </span>
-                  <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">
-                    {days(stage.p75)}
-                  </span>
-                  <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(stage.p90)}</span>
-                  <span className="w-14 shrink-0">
-                    <Trend points={stage.weekly} />
-                  </span>
-                </div>
-              ))}
-            </div>
+            <h3 className="mt-3 text-xs font-semibold">
+              {group.title} <span className="font-normal text-muted-foreground">{group.covers}</span>
+            </h3>
+            <StageTable stages={inGroup} unit={unit} onOpenStage={onOpenStage} />
           </div>
         );
       })}
-
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Half pass a stage within its median; a quarter take longer than its p75, a tenth longer than its p90. Each
-        group has its own scale, so a bar in one is not comparable with a bar in the other. Open a stage to see what
-        is in it.
-      </p>
     </section>
   );
 }
