@@ -15,9 +15,9 @@ export interface PersonActivity {
   givenTotal: number;
 }
 
-type RequestEvent = Extract<TimelineItem, { __typename: "ReviewRequestedEvent" | "ReviewRequestRemovedEvent" }>;
+export type RequestEvent = Extract<TimelineItem, { __typename: "ReviewRequestedEvent" | "ReviewRequestRemovedEvent" }>;
 
-const isRequestEvent = (item: TimelineItem): item is RequestEvent =>
+export const isRequestEvent = (item: TimelineItem): item is RequestEvent =>
   item.__typename === "ReviewRequestedEvent" || item.__typename === "ReviewRequestRemovedEvent";
 
 /**
@@ -25,7 +25,7 @@ const isRequestEvent = (item: TimelineItem): item is RequestEvent =>
  * who had not also been asked directly in the meantime. Nobody, when the team
  * request was withdrawn first or no one reviewed.
  */
-function teamRequestWinner(
+export function teamRequestWinner(
   request: RequestEvent,
   events: readonly RequestEvent[],
   reviews: readonly PullRequestReview[],

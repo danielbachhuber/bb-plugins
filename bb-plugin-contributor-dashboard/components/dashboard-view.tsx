@@ -3,17 +3,17 @@
 // issues, pull requests, and releases. Display only; app.tsx loads the data.
 import type { ReactNode } from "react";
 
-import type { OlderReleases, PeopleActivityResult, StageKey, StageSummary, SyncStatus, Turnaround } from "@/dashboard/contract";
-import { selectionWords, unitOfBuckets, type Bucket, type BucketUnit, type Selection } from "@/dashboard/period";
+import type { OlderReleases, PeopleActivityResult, StageKey, StageSummary, SyncStatus } from "@/dashboard/contract";
+import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
-import { authorRow, peakOf, reviewerRow, totalRow, type VelocityRow } from "@/review/velocity";
+import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { FlowDiagram } from "./flow-diagram";
-import { AUTHOR_SERIES, PersonChart, REVIEW_SERIES, type SeriesPair } from "./person-chart";
+import { FlowChart } from "./flow-chart";
+import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
 import { ReleasesSection } from "./releases-section";
 import { StageTable } from "./stage-flow";
-import { TimeChart } from "./time-chart";
 import { VelocitySection } from "./velocity-section";
 
 /**
@@ -34,35 +34,6 @@ function backfillLine(sync: SyncStatus): string | null {
  * a measure that covers the rest.
  */
 const DRAWN = (stage: StageSummary) => stage.key !== "implement";
-
-/**
- * A velocity section's charts for everyone together: the two counts on one
- * chart, beside how long the step took. Drawn taller than a person's card.
- */
-function TeamCharts({
-  total,
-  series,
-  time,
-  timeTitle,
-  ended,
-  buckets,
-  unit,
-}: {
-  total: VelocityRow;
-  series: SeriesPair;
-  time: Turnaround;
-  timeTitle: string;
-  ended: string;
-  buckets: Bucket[];
-  unit: BucketUnit;
-}) {
-  return (
-    <div className="mt-3 grid gap-3 md:grid-cols-2">
-      <PersonChart person={total} series={series} buckets={buckets} max={peakOf(total)} unit={unit} peak chartHeight={120} />
-      <TimeChart title={timeTitle} ended={ended} time={time} buckets={buckets} unit={unit} />
-    </div>
-  );
-}
 
 /** A top-level section: a heading over everything the section holds. */
 function Section({ id, title, note, children }: { id: string; title: string; note: string; children: ReactNode }) {
@@ -182,14 +153,23 @@ export function DashboardView({
               </p>
               <VelocitySection
                 overview={
-                  <TeamCharts
-                    total={totalRow(data.authors.map(authorRow), "All pull requests", data.buckets.length)}
-                    series={AUTHOR_SERIES}
-                    time={data.turnaround.merge}
-                    timeTitle="Time to merge"
-                    ended="merged"
+                  <FlowChart
+                    title="All pull requests"
+                    flows={data.velocity.merge}
                     buckets={data.buckets}
                     unit={unitOfBuckets(data.buckets)}
+                    arrived="opened"
+                    finished="merged"
+                    finishedColor={AUTHOR_SERIES.second.color}
+                    // An open pull request is only waiting on someone once a reviewer is asked.
+                    openLines={(i) => [
+                      <>
+                        <tspan fontWeight={600}>{data.velocity.merge.open[i]}</tspan> open at its end
+                      </>,
+                      <>
+                        <tspan fontWeight={600}>{data.velocity.merge.asked?.[i] ?? 0}</tspan> with a reviewer asked
+                      </>,
+                    ]}
                   />
                 }
                 id="pr-velocity"
@@ -210,14 +190,19 @@ export function DashboardView({
               />
               <VelocitySection
                 overview={
-                  <TeamCharts
-                    total={totalRow(data.people.map(reviewerRow), "All reviews", data.buckets.length)}
-                    series={REVIEW_SERIES}
-                    time={data.turnaround.review}
-                    timeTitle="Time to review"
-                    ended="reviews"
+                  <FlowChart
+                    title="All review requests"
+                    flows={data.velocity.review}
                     buckets={data.buckets}
                     unit={unitOfBuckets(data.buckets)}
+                    arrived="requested"
+                    finished="reviewed"
+                    finishedColor={REVIEW_SERIES.second.color}
+                    openLines={(i) => [
+                      <>
+                        <tspan fontWeight={600}>{data.velocity.review.open[i]}</tspan> still waiting at its end
+                      </>,
+                    ]}
                   />
                 }
                 id="review-velocity"

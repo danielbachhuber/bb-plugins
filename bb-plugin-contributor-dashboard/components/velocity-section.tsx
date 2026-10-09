@@ -37,7 +37,7 @@ export function VelocitySection({
   /** Starts with the tail opened, for a story. */
   showAll?: boolean;
   onOpenPerson: (login: string) => void;
-  /** Charts for everyone together, drawn under the heading before the per-person cards. */
+  /** A chart for everyone together, drawn under the heading before the per-person cards. */
   overview?: ReactNode;
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
@@ -46,20 +46,16 @@ export function VelocitySection({
 
   return (
     <section className="mt-6" aria-labelledby={id}>
-      {/* With charts for everyone above the cards, the legend covers both, so it sits by the heading. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={id} className="text-base font-semibold">
-          {heading}
-        </h2>
-        {overview === undefined ? null : <SeriesLegend series={series} />}
-      </div>
+      <h2 id={id} className="text-base font-semibold">
+        {heading}
+      </h2>
       {overview}
-      <div className={`${overview === undefined ? "mt-2" : "mt-4"} flex flex-wrap items-baseline justify-between gap-2`}>
+      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-medium">
           {title}
           <span className="ml-2 font-normal text-muted-foreground">{note}</span>
         </h3>
-        {overview === undefined ? <SeriesLegend series={series} /> : null}
+        <SeriesLegend series={series} />
       </div>
 
       {rows.length === 0 ? (

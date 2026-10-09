@@ -169,26 +169,37 @@ ones they **gave**. Both totals for the period sit beneath the name, and the
 card's busiest bucket is written beside it as its peak. Hovering a point shows
 its counts.
 
-Each section opens with two charts for everyone together, drawn taller than
-a person's card:
+Each section opens with one chart for everyone together. Time runs left to
+right, and each day, week, or month has two bars, as tall as their counts:
+what arrived, then what finished. In **PR velocity** that is pull requests
+opened, then merged; in **Review velocity**, review requests, then the reviews
+that answered them.
 
-- **The section's two lines summed across everyone**: all pull requests opened
-  and merged, or all reviews requested and given, with the busiest bucket as
-  its peak. A request naming two people counts twice, as it does on each of
-  their cards.
-- **How long the step took**, as the median and the p90 for each day, week, or
-  month. **Time to merge** runs from ready for review to merged, for people's
-  pull requests that merged in the period, bots left out. **Time to review** is
-  the Code review step, from a reviewer being asked to their review. Both are
-  business days, counted in the bucket they ended in, and a bucket where
-  nothing ended leaves a gap in the line.
-  The scale is logarithmic, with gridlines at an hour, four hours, a day, three
-  days, and ten: on a real repository the weekly p90 for a merge reaches ten
-  business days while the median stays under one, and a straight scale would
-  press the median flat against the axis.
+Bands join the two. Work that finished in the bucket it arrived in moves from
+one bar to the next in grey. Work that took longer bleeds into a later bucket
+as an amber band, landing on the bar of the bucket it finished in, so a wide
+amber band is a slow week. Finishes whose arrival came before the period enter
+their bar as a short amber stub. The line above the chart gives the totals and
+how long it took: half merged within this, one in ten after that, in business
+days from ready for review to merged, or from a request to its review.
 
-The legend for the two lines sits beside the section's heading, since it
-covers both the charts for everyone and the cards.
+Under each bucket is what was still unfinished when it ended, which is how to
+read capacity: if it keeps growing, finishing is not keeping up with arriving.
+
+- **Pull requests:** how many were open at the bucket's end, and how many of
+  those had a reviewer asked. An open pull request with nobody asked is not
+  waiting on anyone, so the two are given apart.
+- **Review requests:** how many were still waiting at the bucket's end. A
+  request stops waiting when it is answered, withdrawn, or its pull request
+  closes.
+
+A request is paired with its review the way the per-person counts pair them: a
+request made of a person is answered by their next review, and one made of a
+team counts for whoever picked it up; a team request nobody picked up counts
+for no one. The bucket under way says "so far". With more than ten buckets,
+such as two weeks drawn by day, the lines under the buckets are left out.
+
+The legend for each person's two lines sits beside the per-person heading.
 
 Neither pair of totals is a share of the other. A person can review a pull
 request nobody asked them to, so reviews given often outnumber reviews
@@ -374,7 +385,7 @@ needs no new sync.
 | `mirror/store.ts` | The only module that touches SQLite: the GitHub-shaped tables and each repository's sync progress |
 | `review/flow.ts` | The pure count of where everything opened in the period went, by path, for the overview's lines |
 | `review/releases.ts` | The pure read of each release: the pull requests its notes list, their kinds, who merged and reviewed them, and its patches |
-| `review/turnaround.ts` | The pure timing of merges and reviews per bucket, for the velocity sections' time charts |
+| `review/flows.ts` | The pure count of what arrived and finished in each bucket and where each bucket's arrivals finished, for the charts that open the velocity sections |
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
@@ -392,7 +403,7 @@ needs no new sync.
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
-| `components/time-chart.tsx` | A median and a p90 per bucket, on a logarithmic scale |
+| `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
 | `components/start-thread-dialog.tsx` | bb's composer in a dialog, seeded with the row |

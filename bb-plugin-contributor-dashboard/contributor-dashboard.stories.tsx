@@ -3,7 +3,7 @@ import { useState } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
-import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, Turnaround, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 
@@ -225,7 +225,7 @@ const PATCH_KINDS = { feat: 0, fix: 0, refactor: 0, chore: 0, deps: 0, none: 0 }
 
 const DAY = 86_400_000;
 
-const NO_TIME: Turnaround = { count: 0, median: 0, p75: 0, p90: 0, buckets: [] };
+const NO_FLOWS: BucketFlows = { started: [], finished: [], flows: [], fromEarlier: [], open: [], asked: null, median: 0, p90: 0 };
 
 /** The Wednesday the fixture numbers its minors from: v2.30.0. A minor before it has a lower number. */
 const FIRST_MINOR = new Date(2026, 8, 2, 15).getTime();
@@ -289,42 +289,48 @@ async function olderReleasesFor(before: number, count: number): Promise<OlderRel
 }
 
 /**
- * How long merges and reviews took, bucket by bucket, shaped like a real
- * repository: the median a day or less, the p90 several days to two weeks,
- * and one slow week. Nothing ends on a weekend, so a day bucket on Saturday
- * or Sunday is empty.
+ * A velocity chart's flows, built from the same per-bucket totals the cards
+ * draw so the two agree: each bucket's finishes come mostly from that bucket's
+ * arrivals, some from the one before, a few from two before, and the rest from
+ * before the period. What is left unfinished piles onto a steady backlog.
  */
-const MERGE_WEEKS: Array<[number, number, number]> = [
-  [62, 1.1, 9.9],
-  [33, 1.8, 3.7],
-  [40, 3.2, 9.0],
-  [57, 0.9, 10.8],
-  [59, 0.8, 3.9],
-  [77, 0.75, 4.6],
-];
-const REVIEW_WEEKS: Array<[number, number, number]> = [
-  [57, 0.36, 3.3],
-  [34, 0.48, 2.7],
-  [40, 2.7, 4.5],
-  [43, 0.14, 1.5],
-  [48, 0.15, 1.8],
-  [74, 0.21, 1.8],
-];
-
-function turnaroundFor(buckets: readonly { start: number }[], weeks: Array<[number, number, number]>): Turnaround {
-  const daily = buckets.length > 1 && buckets[1].start - buckets[0].start < 2 * DAY;
-  const per = buckets.map((bucket, index) => {
-    const [count, median, p90] = weeks[index % weeks.length];
-    const weekday = new Date(bucket.start).getDay();
-    if (daily && (weekday === 0 || weekday === 6)) return { count: 0, median: 0, p90: 0 };
-    return { count: Math.max(1, Math.round(daily ? count / 5 : count)), median, p90 };
+function flowsFor(started: number[], finished: number[], backlog: number, askedShare: number | null, median: number, p90: number): BucketFlows {
+  const n = started.length;
+  const flows = started.map(() => started.map(() => 0));
+  const left = [...started];
+  const fromEarlier = finished.map(() => 0);
+  finished.forEach((total, j) => {
+    let need = total;
+    for (const [back, share] of [[0, 0.78], [1, 0.6], [2, 1]] as const) {
+      const i = j - back;
+      if (i < 0 || need === 0) continue;
+      const take = Math.min(need, left[i], Math.round(left[i] * share));
+      flows[i][j] += take;
+      left[i] -= take;
+      need -= take;
+    }
+    fromEarlier[j] = need;
   });
-  const count = per.reduce((sum, bucket) => sum + bucket.count, 0);
-  const sorted = (pick: (week: [number, number, number]) => number) => weeks.map(pick).sort((a, b) => a - b);
-  const middle = (values: number[]) => values[Math.floor(values.length / 2)];
-  // The period's own marks sit near the middle week's, a little under the slowest.
-  return { count, median: middle(sorted((week) => week[1])), p75: middle(sorted((week) => week[2])) / 1.5, p90: middle(sorted((week) => week[2])), buckets: per };
+  const open: number[] = [];
+  let carried = backlog;
+  for (let i = 0; i < n; i += 1) {
+    carried += started[i] - finished[i];
+    open.push(Math.max(0, carried));
+  }
+  return {
+    started,
+    finished,
+    flows,
+    fromEarlier,
+    open,
+    asked: askedShare === null ? null : open.map((count) => Math.round(count * askedShare)),
+    median,
+    p90,
+  };
 }
+
+const bucketSums = (rows: Array<{ [key: string]: unknown }>, key: string, n: number) =>
+  Array.from({ length: n }, (_, i) => rows.reduce((sum, row) => sum + ((row[key] as number[])[i] ?? 0), 0));
 
 function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivityResult {
   const buckets = bucketsFor(rangeOf(selection, NOW));
@@ -368,7 +374,10 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
     })),
     flow: scaledFlow(factor),
     releases: releasesFor(buckets[0].start, Math.min(buckets.at(-1)!.end, NOW)),
-    turnaround: { merge: turnaroundFor(buckets, MERGE_WEEKS), review: turnaroundFor(buckets, REVIEW_WEEKS) },
+    velocity: {
+      merge: flowsFor(bucketSums(authors, "opened", buckets.length), bucketSums(authors, "merged", buckets.length), 90, 0.6, 0.92, 4.9),
+      review: flowsFor(bucketSums(people, "requested", buckets.length), bucketSums(people, "given", buckets.length), 40, null, 0.3, 2.9),
+    },
     authors,
     people,
     sync,
@@ -427,7 +436,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, turnaround: { merge: NO_TIME, review: NO_TIME }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
