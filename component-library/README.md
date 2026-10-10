@@ -30,10 +30,10 @@ second React in the plugin. React, `react-dom`, the Hugeicons packages,
 `clsx`, and `tailwind-merge` are peer dependencies for the same reason: the
 copy uses the plugin's.
 
-`react-day-picker` is a peer too, for the calendar. A plugin that imports
-neither [Calendar](#calendar) nor [Date range](#date-range) does not need it
-installed; it appears in that plugin's lockfile as an unmet peer and nothing
-more, since the bundle only pulls in what it imports.
+`react-day-picker` is an optional peer, for the calendar. npm does not install
+an optional peer, so a plugin that imports neither [Calendar](#calendar) nor
+[Date range](#date-range) leaves it out of its lockfile. A plugin that imports
+either one lists `react-day-picker` in its own dependencies.
 
 The package uses relative imports only, since `@/` means the plugin's own
 directory once it is installed there. For the same reason it cannot use a
