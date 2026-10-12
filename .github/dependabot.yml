@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # Every package directory at the top level: the plugins, the shared
+  # libraries, and the root's Playwright.
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/*"
+    schedule:
+      # Monday and Thursday.
+      interval: cron
+      cronjob: "0 9 * * 1,4"
+    assignees:
+      - danielbachhuber
+    groups:
+      # One pull request per directory for minor and patch updates, instead of
+      # one per dependency. Major updates still arrive one at a time.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      # Monday and Thursday.
+      interval: cron
+      cronjob: "0 9 * * 1,4"
+    assignees:
+      - danielbachhuber
