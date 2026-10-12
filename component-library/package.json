@@ -18,7 +18,8 @@
     "./segmented": "./segmented/segmented.tsx",
     "./calendar": "./calendar/calendar.tsx",
     "./date-range": "./date-range/date-range.tsx",
-    "./copy-link": "./copy-link/copy-link.ts"
+    "./copy-link": "./copy-link/copy-link.ts",
+    "./top-bar": "./top-bar/top-bar.tsx"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

@@ -16,6 +16,7 @@ what not to do with it.
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 | [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
 | [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
+| [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, beside the right-panel toggle |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -228,6 +229,50 @@ Contributor Dashboard uses it, beside the presets rather than instead of them.
 **Don't** use it as the only way to choose a span. Picking two dates is slower
 than pressing a button, so offer the spans people ask for most as presets and
 keep this for the rest.
+
+## Top bar
+
+```tsx
+import { TopBarCount, TopBarSlot } from "component-library/top-bar";
+
+<TopBarSlot pluginId="now" activeOn={["/plugins/now/now"]}>
+  <TopBarCount icon={<Icon name="Target" />} label="Open Now" onClick={open}
+    urgent={2} soon={3} total={9} urgentLabel="2 urgent" soonLabel="3 due today" totalLabel="9 in Now" />
+</TopBarSlot>
+```
+
+It answers "how much is on me there?" from whatever page is open, and gets
+you to that page in one click. Mount it from a component registered with
+`experimental_appOverlay`, which reads the same listing as the page's
+sidebar count.
+
+**What it draws.** `TopBarCount` is a borderless button, like bb's other
+header buttons, holding the page's icon and then exactly what [Sidebar
+count](#sidebar-count) draws: urgent in red, due soon in amber, joined into
+one pill when both show, then the total.
+At a total of zero only the icon shows, so the way to the page stays. On
+the page it opens, the button is shaded and marked `aria-current="page"`,
+the way bb marks the open page in its own navigation.
+
+**Where it goes.** bb has no plugin slot in its top bar, so `TopBarSlot`
+finds a place in the page instead: just before the right-panel toggle, found
+by its "Show right panel" or "Hide right panel" label, or at the start of
+the header's buttons (`[data-app-page-header-actions]`) on a page without
+the toggle. A split thread has two toggles; it takes the last, the rightmost
+pane's. It watches the document so it follows bb from page to page, and
+tells the button it is current under a path in `activeOn`. If a bb
+update changes both, it draws nothing rather than throwing.
+
+`pluginId` matters beyond naming the element: bb scopes a plugin's
+stylesheet to elements under `data-bb-plugin="<id>"`, and the slot sits in
+bb's own header, outside the plugin's root. Without it the pill's colors are
+missing.
+
+Now uses it.
+
+**Don't** put more than one button in the slot, or anything wider than the
+counts. The top bar holds a thread's own controls, and every plugin that
+adds a chip takes room from them.
 
 ## Working on it
 
