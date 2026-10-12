@@ -13,11 +13,13 @@ import {
   StartThreadDialog,
   type StartThreadSeed,
 } from "@/components/start-thread-dialog";
+import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection } from "./review/actions.js";
 import { runOf, sortReviews } from "./review/tiers.js";
 import { BatchDialog, type BatchStart } from "./review/batch-dialog.js";
 import { SidebarCount } from "component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 import {
   ReviewListView,
   canBatch,
@@ -340,6 +342,12 @@ function Panel() {
  * nothing is waiting.
  */
 function NeedsReviewCount() {
+  const counts = useCounts();
+  return counts && <SidebarCount {...counts} />;
+}
+
+/** The requests waiting too long and every request still to review, or null until the list loads. */
+function useCounts() {
   const { listing } = useListing();
   const rows =
     listing?.rows.filter(
@@ -349,17 +357,27 @@ function NeedsReviewCount() {
   if (!listing) return null;
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };
   const overdue = rows.filter((row) => runOf(row, inputs) === "overdue").length;
+  return {
+    urgent: overdue,
+    total: rows.length,
+    urgentLabel: `${overdue} waiting too long`,
+    totalLabel: `${rows.length} to review`,
+  };
+}
+
+/** The same counts in bb's top bar on every page, as a button that opens Reviews. */
+function ReviewsTopBar() {
+  const navigate = useBbNavigate();
+  const counts = useCounts() ?? { urgent: 0, total: 0, urgentLabel: "", totalLabel: "" };
   return (
-    <SidebarCount
-      urgent={overdue}
-      total={rows.length}
-      urgentLabel={`${overdue} waiting too long`}
-      totalLabel={`${rows.length} to review`}
-    />
+    <TopBarSlot pluginId="review-sweep" order={2} activeOn={["/plugins/review-sweep/reviews"]}>
+      <TopBarCount icon={<Icon name="Eye" />} label="Open Reviews" onClick={() => navigate.toPluginPanel("reviews")} {...counts} />
+    </TopBarSlot>
   );
 }
 
 export default definePluginApp((app) => {
+  app.slots.experimental_appOverlay({ id: "reviews-top-bar", component: ReviewsTopBar });
   app.slots.navPanel({
     id: "reviews",
     title: "Reviews",

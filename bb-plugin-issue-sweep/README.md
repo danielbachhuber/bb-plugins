@@ -4,6 +4,12 @@ A bb sidebar panel listing every open GitHub issue assigned to you, across all
 repositories, in two columns: what needs you, and everything else grouped by
 board status.
 
+The sidebar entry counts the issues in the "Statuses counted in the
+sidebar". The same count sits in bb's top bar on every page, after the Issues
+icon, beside the right-panel toggle. Clicking it opens the list, and it is
+shaded while the list is open. It reads the stored list the sidebar reads, so
+it adds no GitHub calls. With nothing counted, only the icon shows.
+
 The sweep is deterministic: it runs `gh`, parses the result with pure functions,
 and spends no model tokens. No agent is involved at any point.
 

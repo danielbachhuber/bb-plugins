@@ -15,9 +15,11 @@ import {
   StartThreadDialog,
   type StartThreadSeed,
 } from "@/components/start-thread-dialog";
+import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sectionForRow } from "./sweep/actions.js";
 import { SidebarCount } from "component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 import {
   PrListView,
   type HarvestPanelState,
@@ -294,17 +296,30 @@ function Panel() {
   );
 }
 
+/** The pull requests that need you, and every open pull request you authored. */
+function useCounts() {
+  const { listing } = useListing();
+  const sections = listing?.rows.map((row) => sectionForRow(row)) ?? [];
+  const needYou = sections.filter((section) => section === "needs-action").length;
+  const total = sections.length;
+  return { urgent: needYou, total, urgentLabel: `${needYou} need you`, totalLabel: `${total} open` };
+}
+
 /**
  * Beside Pull requests in the sidebar: the rows that need you in a red circle,
  * then every open pull request you authored.
  */
 function NeedsActionCount() {
-  const { listing } = useListing();
-  const sections = listing?.rows.map((row) => sectionForRow(row)) ?? [];
-  const needYou = sections.filter((section) => section === "needs-action").length;
-  const total = sections.length;
+  return <SidebarCount {...useCounts()} />;
+}
+
+/** The same counts in bb's top bar on every page, as a button that opens Pull requests. */
+function PrsTopBar() {
+  const navigate = useBbNavigate();
   return (
-    <SidebarCount urgent={needYou} total={total} urgentLabel={`${needYou} need you`} totalLabel={`${total} open`} />
+    <TopBarSlot pluginId="pr-sweep" order={3} activeOn={["/plugins/pr-sweep/prs"]}>
+      <TopBarCount icon={<Icon name="GitPullRequest" />} label="Open Pull requests" onClick={() => navigate.toPluginPanel("prs")} {...useCounts()} />
+    </TopBarSlot>
   );
 }
 
@@ -324,6 +339,8 @@ export default definePluginApp((app) => {
       return remove;
     },
   });
+
+  app.slots.experimental_appOverlay({ id: "prs-top-bar", component: PrsTopBar });
 
   app.slots.navPanel({
     id: "open-pr",

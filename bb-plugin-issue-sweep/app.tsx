@@ -8,7 +8,9 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import { SidebarCount } from "component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 import { SyncStatus } from "component-library/sync-status";
+import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   StartThreadDialog,
@@ -300,7 +302,7 @@ function Panel() {
   );
 }
 
-function AssignedCount() {
+function useCounts() {
   const { listing } = useListing();
   // Not every assigned issue: the badge is a "how much is on me right now"
   // number, and a Backlog item three months out is not on you today.
@@ -309,10 +311,25 @@ function AssignedCount() {
     : 0;
   // Nothing here is urgent enough for the red circle, but drawing the total
   // through SidebarCount keeps it lined up with the counts on other rows.
-  return <SidebarCount urgent={0} total={count} urgentLabel="" totalLabel={`${count} assigned`} />;
+  return { urgent: 0, total: count, urgentLabel: "", totalLabel: `${count} assigned` };
+}
+
+function AssignedCount() {
+  return <SidebarCount {...useCounts()} />;
+}
+
+/** The same count in bb's top bar on every page, as a button that opens Issues. */
+function IssuesTopBar() {
+  const navigate = useBbNavigate();
+  return (
+    <TopBarSlot pluginId="issue-sweep" order={1} activeOn={["/plugins/issue-sweep/issues"]}>
+      <TopBarCount icon={<Icon name="ListTodo" />} label="Open Issues" onClick={() => navigate.toPluginPanel("issues")} {...useCounts()} />
+    </TopBarSlot>
+  );
 }
 
 export default definePluginApp((app) => {
+  app.slots.experimental_appOverlay({ id: "issues-top-bar", component: IssuesTopBar });
   app.slots.navPanel({
     id: "issues",
     title: "Issues",
