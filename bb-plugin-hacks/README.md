@@ -123,6 +123,12 @@ one bb's own "Open in" menu calls, with project paths read from bb's
 origin, which is where a content script runs. A window that cannot reach a
 daemon, such as bb opened in a browser on another machine, shows no buttons.
 
+The daemon and the project list are looked up once when the window loads.
+bb's window can load before its daemon is listening, as it does when bb
+starts, so a failed lookup is tried again after 1 second, then 2, 4, 8, and
+16, then every 30 seconds, and the buttons appear once it succeeds. After ten
+minutes without a daemon it stops trying.
+
 ### Diff code blocks start wrapped
 
 A fenced `diff` block in a chat message starts with long lines wrapped,

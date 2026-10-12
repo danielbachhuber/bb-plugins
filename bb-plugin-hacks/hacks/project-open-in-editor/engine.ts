@@ -28,6 +28,8 @@ export interface EngineDeps {
   doc: Document;
   /** Defer a pass. Returns a cancel function. `requestAnimationFrame` in bb. */
   defer: (run: () => void) => () => void;
+  /** Run after `ms` milliseconds. Returns a cancel function. `setTimeout` in bb. */
+  wait: (run: () => void, ms: number) => () => void;
   /** This machine's host id and editors, or null when no daemon is reachable. */
   loadMachine: () => Promise<Machine | null>;
   loadProjects: () => Promise<Project[]>;
@@ -46,11 +48,20 @@ export interface Engine {
   dispose: () => void;
 }
 
+// bb's window can load before its host daemon is listening, as it does when bb
+// starts, so a failed first lookup is retried rather than taken as "no daemon
+// on this machine". The retries stop after ten minutes, which also bounds the
+// requests a browser on another machine makes to a daemon it can never reach.
+const FIRST_RETRY_MS = 1_000;
+const MAX_RETRY_MS = 30_000;
+const GIVE_UP_AFTER_MS = 10 * 60_000;
+
 export function startEngine(deps: EngineDeps): Engine {
   const { signal, doc, defer } = deps;
 
   let machine: Machine | null = null;
   let projects = new Map<string, Project>();
+  let projectsLoaded = false;
   // The project rows with no matching header on the first pass after projects
   // were loaded, or null until that pass runs. A row for a project added or
   // renamed since then changes this, and is what triggers a reload; a row that
@@ -60,6 +71,7 @@ export function startEngine(deps: EngineDeps): Engine {
   let loading: Promise<void> | null = null;
   let writing = false;
   let cancel: (() => void) | null = null;
+  let cancelRetry: (() => void) | null = null;
 
   function schedule(): void {
     if (signal.aborted || cancel !== null) return;
@@ -161,13 +173,48 @@ export function startEngine(deps: EngineDeps): Engine {
       .catch((error) => deps.warn(`could not open ${path}`, error));
   }
 
-  const ready = Promise.all([deps.loadMachine(), deps.loadProjects()])
-    .then(([loadedMachine, list]) => {
-      machine = loadedMachine;
+  // Loads whichever of the machine and the project list is still missing, and
+  // tries again later while either is.
+  async function load(): Promise<boolean> {
+    const [loadedMachine, list] = await Promise.all([
+      machine ??
+        deps.loadMachine().catch((error) => {
+          deps.warn("could not reach the host daemon", error);
+          return null;
+        }),
+      projectsLoaded
+        ? null
+        : deps.loadProjects().catch((error) => {
+            deps.warn("could not list projects", error);
+            return null;
+          }),
+    ]);
+    if (signal.aborted) return true;
+    machine = loadedMachine;
+    if (list !== null) {
       projects = new Map(list.map((project) => [project.id, project]));
-    })
-    .catch((error) => deps.warn("could not load projects or editors", error))
-    .finally(schedule);
+      projectsLoaded = true;
+    }
+    unmatchedAtLoad = null;
+    schedule();
+    return machine !== null && projectsLoaded;
+  }
+
+  function retry(delay: number, waited: number): void {
+    if (signal.aborted || waited + delay > GIVE_UP_AFTER_MS) return;
+    cancelRetry = deps.wait(() => {
+      cancelRetry = null;
+      void load().then((done) => {
+        if (!done) {
+          retry(Math.min(delay * 2, MAX_RETRY_MS), waited + delay);
+        }
+      });
+    }, delay);
+  }
+
+  const ready = load().then((done) => {
+    if (!done) retry(FIRST_RETRY_MS, 0);
+  });
 
   const observer = new doc.defaultView!.MutationObserver(() => {
     if (writing) return;
@@ -187,6 +234,8 @@ export function startEngine(deps: EngineDeps): Engine {
       observer.disconnect();
       if (cancel !== null) cancel();
       cancel = null;
+      if (cancelRetry !== null) cancelRetry();
+      cancelRetry = null;
       for (const button of doc.querySelectorAll(`button[${BUTTON_ATTR}]`)) {
         button.remove();
       }

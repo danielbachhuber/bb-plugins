@@ -23,6 +23,10 @@ export function mount(signal: AbortSignal): () => void {
       const frame = window.requestAnimationFrame(run);
       return () => window.cancelAnimationFrame(frame);
     },
+    wait: (run, ms) => {
+      const timer = window.setTimeout(run, ms);
+      return () => window.clearTimeout(timer);
+    },
     async loadMachine() {
       daemon = await findDaemon(fetchFn, origin);
       if (daemon === null) return null;

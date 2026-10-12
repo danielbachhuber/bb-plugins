@@ -74,6 +74,7 @@ const buttonsIn = (row: HTMLElement) =>
 let controller: AbortController;
 let started: Engine[] = [];
 let pending: (() => void)[] = [];
+let timers: { run: () => void; ms: number }[] = [];
 let preferred: string | null;
 let projects: Project[];
 let open: ReturnType<typeof vi.fn<EngineDeps["open"]>>;
@@ -89,7 +90,16 @@ async function settle(): Promise<void> {
   }
 }
 
-async function start(machine: Machine | null = MACHINE): Promise<Engine> {
+async function fireTimers(): Promise<void> {
+  const due = timers;
+  timers = [];
+  for (const timer of due) timer.run();
+  await settle();
+}
+
+async function start(
+  machine: Machine | null | EngineDeps["loadMachine"] = MACHINE,
+): Promise<Engine> {
   const engine = startEngine({
     signal: controller.signal,
     doc: document,
@@ -99,7 +109,15 @@ async function start(machine: Machine | null = MACHINE): Promise<Engine> {
         pending = pending.filter((queued) => queued !== run);
       };
     },
-    loadMachine: async () => machine,
+    wait: (run, ms) => {
+      const timer = { run, ms };
+      timers.push(timer);
+      return () => {
+        timers = timers.filter((queued) => queued !== timer);
+      };
+    },
+    loadMachine:
+      typeof machine === "function" ? machine : async () => machine,
     loadProjects,
     readPreferredTarget: () => preferred,
     open,
@@ -115,6 +133,7 @@ beforeEach(() => {
   controller = new AbortController();
   started = [];
   pending = [];
+  timers = [];
   preferred = null;
   projects = [
     project("proj_widgets", "widgets", "/src/widgets"),
@@ -206,6 +225,79 @@ describe("placing the button", () => {
     engine.dispose();
 
     expect(buttonsIn(row)).toHaveLength(0);
+  });
+});
+
+describe("starting before the host daemon", () => {
+  it("adds the button once the daemon answers a retry", async () => {
+    const row = renderProject("proj_widgets", "widgets");
+    const loadMachine = vi
+      .fn<EngineDeps["loadMachine"]>()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(MACHINE);
+    await start(loadMachine);
+    expect(buttonsIn(row)).toHaveLength(0);
+
+    await fireTimers();
+
+    expect(buttonsIn(row)).toHaveLength(1);
+  });
+
+  it("retries after the daemon lookup throws", async () => {
+    const row = renderProject("proj_widgets", "widgets");
+    const loadMachine = vi
+      .fn<EngineDeps["loadMachine"]>()
+      .mockRejectedValueOnce(new Error("connection refused"))
+      .mockResolvedValue(MACHINE);
+    await start(loadMachine);
+    await fireTimers();
+
+    expect(buttonsIn(row)).toHaveLength(1);
+  });
+
+  it("retries the project list when it fails", async () => {
+    const row = renderProject("proj_widgets", "widgets");
+    loadProjects.mockRejectedValueOnce(new Error("HTTP 502"));
+    await start();
+    expect(buttonsIn(row)).toHaveLength(0);
+
+    await fireTimers();
+
+    expect(buttonsIn(row)).toHaveLength(1);
+  });
+
+  it("waits longer between each retry, up to a cap", async () => {
+    await start(async () => null);
+    const delays: number[] = [];
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      delays.push(timers[0]!.ms);
+      await fireTimers();
+    }
+
+    expect(delays).toEqual([1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000]);
+  });
+
+  it("gives up after ten minutes of retries", async () => {
+    const loadMachine = vi.fn<EngineDeps["loadMachine"]>(async () => null);
+    await start(loadMachine);
+    while (timers.length > 0) await fireTimers();
+    const total = loadMachine.mock.calls.length;
+
+    expect(total).toBeGreaterThan(5);
+    expect(total).toBeLessThan(30);
+  });
+
+  it("does not look again once both have loaded", async () => {
+    await start();
+
+    expect(timers).toHaveLength(0);
+  });
+
+  it("cancels a pending retry when disposed", async () => {
+    const engine = await start(async () => null);
+    engine.dispose();
+
+    expect(timers).toHaveLength(0);
   });
 });
 
