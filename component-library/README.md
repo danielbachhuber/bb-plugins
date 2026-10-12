@@ -235,7 +235,7 @@ keep this for the rest.
 ```tsx
 import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 
-<TopBarSlot pluginId="now" activeOn={["/plugins/now/now"]}>
+<TopBarSlot pluginId="now" order={0} activeOn={["/plugins/now/now"]}>
   <TopBarCount icon={<Icon name="Target" />} label="Open Now" onClick={open}
     urgent={2} soon={3} total={9} urgentLabel="2 urgent" soonLabel="3 due today" totalLabel="9 in Now" />
 </TopBarSlot>
@@ -244,7 +244,7 @@ import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 It answers "how much is on me there?" from whatever page is open, and gets
 you to that page in one click. Mount it from a component registered with
 `experimental_appOverlay`, which reads the same listing as the page's
-sidebar count.
+sidebar count. That slot needs `@get-bb/plugin-sdk` 0.5.9 or later.
 
 **What it draws.** `TopBarCount` is a borderless button, like bb's other
 header buttons, holding the page's icon and then exactly what [Sidebar
@@ -259,8 +259,11 @@ finds a place in the page instead: just before the right-panel toggle, found
 by its "Show right panel" or "Hide right panel" label, or at the start of
 the header's buttons (`[data-app-page-header-actions]`) on a page without
 the toggle. A split thread has two toggles; it takes the last, the rightmost
-pane's. It watches the document so it follows bb from page to page, and
-tells the button it is current under a path in `activeOn`. If a bb
+pane's. Several plugins' slots line up side by side, lowest `order` on the
+left and plugin id breaking a tie; each works the order out the same way, so
+they settle rather than moving past each other. It watches the document so
+it follows bb from page to page, and tells the button it is current under a
+path in `activeOn`. If a bb
 update changes both, it draws nothing rather than throwing.
 
 `pluginId` matters beyond naming the element: bb scopes a plugin's
@@ -268,7 +271,8 @@ stylesheet to elements under `data-bb-plugin="<id>"`, and the slot sits in
 bb's own header, outside the plugin's root. Without it the pill's colors are
 missing.
 
-Now uses it.
+Now, Issue Sweep, Review Sweep, and PR Sweep use it, with `order` 0 to 3 in
+that order.
 
 **Don't** put more than one button in the slot, or anything wider than the
 counts. The top bar holds a thread's own controls, and every plugin that

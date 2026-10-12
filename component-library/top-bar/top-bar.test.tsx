@@ -98,6 +98,42 @@ describe("TopBarSlot", () => {
     expect(await screen.findByRole("button", { name: "Open Now" })).not.toHaveAttribute("aria-current");
   });
 
+  it("lines several plugins' slots up by order, and they stay put", async () => {
+    const { toggle } = topBar();
+    render(
+      <>
+        <TopBarSlot pluginId="review-sweep" order={2}><span>reviews</span></TopBarSlot>
+        <TopBarSlot pluginId="now" order={0}><span>now</span></TopBarSlot>
+        <TopBarSlot pluginId="issue-sweep" order={1}><span>issues</span></TopBarSlot>
+      </>,
+    );
+    const order = () => [...toggle.parentElement!.children].map((child) => child.textContent || child.getAttribute("aria-label"));
+    await waitFor(() => expect(order()).toEqual(["Project settings", "now", "issues", "reviews", "Show right panel (⌘ J)"]));
+    // Once settled, no slot moves again; two slots that disagreed would swap places every frame.
+    const moves: MutationRecord[] = [];
+    const watch = new MutationObserver((records) => moves.push(...records));
+    watch.observe(toggle.parentElement!, { childList: true });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    watch.disconnect();
+    expect(moves).toEqual([]);
+  });
+
+  it("goes before the header's own buttons, after other slots, on a page without a toggle", async () => {
+    const row = document.createElement("div");
+    row.setAttribute("data-app-page-header-actions", "");
+    const refresh = document.createElement("button");
+    refresh.textContent = "Refresh";
+    row.append(refresh);
+    document.body.append(row);
+    render(
+      <>
+        <TopBarSlot pluginId="b"><span>b</span></TopBarSlot>
+        <TopBarSlot pluginId="a"><span>a</span></TopBarSlot>
+      </>,
+    );
+    await waitFor(() => expect([...row.children].map((child) => child.textContent)).toEqual(["a", "b", "Refresh"]));
+  });
+
   it("takes its element out when it unmounts", async () => {
     topBar();
     const { unmount } = render(<TopBarSlot pluginId="test"><span>chip</span></TopBarSlot>);

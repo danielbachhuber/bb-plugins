@@ -620,7 +620,7 @@ function NowTopBar() {
   const navigate = useBbNavigate();
   const { urgent, today, now } = sidebarCounts(listing?.list?.items ?? [], new Date());
   return (
-    <TopBarSlot pluginId="now" activeOn={["/plugins/now/now"]}>
+    <TopBarSlot pluginId="now" order={0} activeOn={["/plugins/now/now"]}>
       <TopBarCount
         icon={<Icon name="Target" />}
         label="Open Now"
