@@ -9,6 +9,10 @@ updates:
       # Monday and Thursday.
       interval: cron
       cronjob: "0 9 * * 1,4"
+    cooldown:
+      # Wait three days after a release before proposing it, so a broken or
+      # compromised version has time to be noticed and pulled first.
+      default-days: 3
     ignore:
       # Each plugin pins the SDK of the bb it was last typed against, alongside
       # its engines.bbPluginSdk minimum. `bb plugin types` moves the two
@@ -27,3 +31,7 @@ updates:
       # Monday and Thursday.
       interval: cron
       cronjob: "0 9 * * 1,4"
+    cooldown:
+      # Wait three days after a release before proposing it, so a broken or
+      # compromised version has time to be noticed and pulled first.
+      default-days: 3
