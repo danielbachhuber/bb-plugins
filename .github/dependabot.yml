@@ -10,8 +10,6 @@ updates:
       # Monday and Thursday.
       interval: cron
       cronjob: "0 9 * * 1,4"
-    assignees:
-      - danielbachhuber
     groups:
       # One pull request per directory for minor and patch updates, instead of
       # one per dependency. Major updates still arrive one at a time.
@@ -24,5 +22,3 @@ updates:
       # Monday and Thursday.
       interval: cron
       cronjob: "0 9 * * 1,4"
-    assignees:
-      - danielbachhuber
