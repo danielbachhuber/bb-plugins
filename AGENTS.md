@@ -12,6 +12,10 @@ They share one `package-lock.json` and one `node_modules` at the root, and
 `file:../<dir>` dependencies, and npm links them in place rather than copying
 them.
 
+- The root lists the workspaces by name, because Dependabot does not expand a
+  glob such as `bb-plugin-*`. Add a new plugin's directory to that list and
+  run `npm install` at the root, rather than keeping the lockfile
+  `bb plugin new` gives it. CI fails while a package is missing from the list.
 - Keep a dependency that several packages share at one version range across
   all of them, so npm installs it once. Dependabot updates them together.
 - Leave `@get-bb/plugin-sdk` and the Radix, `sonner`, `vaul`, `clsx`,

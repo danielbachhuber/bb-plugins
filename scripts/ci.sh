@@ -15,6 +15,17 @@ set -euo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 if [ "${1:-}" = "--list" ]; then
+  # The root lists its workspaces by name, because Dependabot does not expand
+  # a glob such as `bb-plugin-*` and would write a lockfile without them. So a
+  # package directory missing from that list fails here, before every job.
+  missing="$(for pkg in "$DIR"/*/package.json; do
+    name="$(basename "$(dirname "$pkg")")"
+    jq -e --arg name "$name" '.workspaces | index($name)' "$DIR/package.json" >/dev/null || echo "$name"
+  done)"
+  if [ -n "$missing" ]; then
+    echo "Add to \"workspaces\" in the root package.json: $(echo $missing)" >&2
+    exit 1
+  fi
   for pkg in "$DIR"/*/package.json; do
     jq -e '.scripts.test' "$pkg" >/dev/null 2>&1 || continue
     basename "$(dirname "$pkg")"
