@@ -10,6 +10,6 @@
     "screenshots:isolated": "node scripts/screenshots.mjs --isolated"
   },
   "devDependencies": {
-    "playwright": "^1.55.0"
+    "playwright": "^1.64.0"
   }
 }
