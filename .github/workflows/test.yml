@@ -18,7 +18,7 @@ jobs:
     outputs:
       packages: ${{ steps.list.outputs.packages }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: list
         run: echo "packages=$(scripts/ci.sh --list)" >> "$GITHUB_OUTPUT"
 
@@ -31,7 +31,7 @@ jobs:
         package: ${{ fromJSON(needs.list.outputs.packages) }}
     name: ${{ matrix.package }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
