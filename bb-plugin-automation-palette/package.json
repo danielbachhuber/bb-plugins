@@ -28,7 +28,7 @@
     "cron-parser": "^5.5.0",
     "hono": "^4.11.9",
     "jsdom": "^30.0.1",
-    "typescript": "^5.7.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },
   "scripts": {
