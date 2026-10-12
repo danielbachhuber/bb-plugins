@@ -3,6 +3,29 @@
 Plugins for [bb](https://getbb.app). Each top-level directory is its own npm
 package; `.bb/plugins.json` indexes the ones that are plugins.
 
+## Dependencies are npm workspaces
+
+Every plugin and shared library is a workspace of the root `package.json`.
+They share one `package-lock.json` and one `node_modules` at the root, and
+`npm install` anywhere in the checkout installs all of them. Shared libraries
+(`component-library`, `gh-shared`, `sweep-ui`, `bb-plugin-harvest`) stay
+`file:../<dir>` dependencies, and npm links them in place rather than copying
+them.
+
+- Keep a dependency that several packages share at one version range across
+  all of them, so npm installs it once. Dependabot updates them together.
+- Leave `@get-bb/plugin-sdk` and the Radix, `sonner`, `vaul`, `clsx`,
+  `tailwind-merge`, `class-variance-authority`, and `@pierre/diffs` pins as
+  `bb plugin types` sets them. The SDK pin goes with the plugin's
+  `engines.bbPluginSdk`, and the others match what bb provides at runtime, so
+  each plugin keeps its own and npm nests a copy where they differ.
+- Put `allowScripts` in the root `package.json`. npm ignores it in a
+  workspace.
+- The root's postinstall links each `file:` dependency into the workspace's own
+  `node_modules` too, because bb's build reads a library's
+  `bb.pluginTailwindContent` only from there. Without it a plugin builds, but
+  the shared library's Tailwind classes are missing from its panel.
+
 ## This repository is public
 
 `danielbachhuber/bb-plugins` is public. Before you write a line of it, this is
@@ -98,8 +121,7 @@ Run it after every commit, not only visual ones: a change to a shared
 component alters stories that its commit never touched. The capture finds
 those itself. It photographs only the stories that import a file changed
 since the bb-plugins commit the screenshots repository last captured,
-following imports through shared packages and their copies in each plugin's
-`node_modules`, and leaves the other images as they are. A change to the
+following imports through the shared packages each plugin links, and leaves the other images as they are. A change to the
 capture's own setup (`.ladle/`, `scripts/ladle.mjs`, `scripts/screenshots.mjs`,
 the root `package.json` or lockfile, `.nvmrc`) photographs every story, and so
 does `npm run screenshots:isolated -- --all`. Use `--all` after updating the
@@ -166,17 +188,14 @@ the list of similar plugins changes too.
 
 ```sh
 cd bb-plugin-<name>
-npm install && npm run harvest:sync   # harvest:sync only where the script exists
+npm install                           # installs every workspace, from the root
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload <id>
 ```
 
-The order is not interchangeable. `npm install` refreshes the `gh-shared` copy
-but replaces the harvest copy with a symlink, which puts a second React in the
-tree and breaks every clock test; `harvest:sync` reinstates the copy with
-`--install-links`. `tsc --noEmit` is what catches a `file:` dependency that is
-still stale, a failure that otherwise reaches the panel as a runtime
+`tsc --noEmit` is what catches a plugin that no longer fits a shared library it
+links, a failure that otherwise reaches the panel as a runtime
 "is not a function".
 
 `./sync.sh --check` reports which plugins have drifted from this checkout;
@@ -188,7 +207,7 @@ stylesheet and components, and an edit to a component shows up without a
 reload. The Stories section below covers what a story needs.
 
 Run npm with the Node version in `.nvmrc` (`nvm use`). Another npm version
-rewrites every `package-lock.json`. A scheduled automation keeps each machine's
+rewrites `package-lock.json`. A scheduled automation keeps each machine's
 checkout current by pulling `main` and running `sync.sh`, and it skips a
 checkout that has uncommitted changes. So a lockfile left modified on `main`
 stops that machine from updating until someone notices.

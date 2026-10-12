@@ -22,9 +22,13 @@ fi
 use_pinned_node || exit 1
 
 # bb runs scripts with NODE_ENV=production, under which npm leaves out
-# devDependencies, TypeScript among them. Including them here
-# covers every install below, harvest:sync's too.
+# devDependencies, TypeScript among them.
 export npm_config_include=dev
+
+# Every plugin and shared library is a workspace of the root, so one install
+# here covers all of them, the shared libraries' own tests and typecheck too.
+echo "==> npm install"
+( cd "$DIR" && npm install --silent --no-audit --no-fund )
 
 installed="$(bb plugin list --json 2>/dev/null || echo '[]')"
 
@@ -32,20 +36,14 @@ for package in "$DIR"/*/; do
   package="${package%/}"
   [ -f "$package/package.json" ] || continue
 
-  name="$(basename "$package")"
-
   # This repository also holds shared libraries the plugins depend on. A bb
   # plugin is the thing with a "bb" manifest block that names it; anything else,
-  # such as a shared package that only lists files for Tailwind to scan, is bundled in
-  # as a `file:` dependency rather than installed. Those still get an npm
-  # install, so their own test and typecheck scripts work in a fresh clone.
-  if ! jq -e '.bb.name | type == "string"' "$package/package.json" >/dev/null 2>&1; then
-    echo "==> $name (shared library)"
-    ( cd "$package" && npm install --silent )
-    continue
-  fi
+  # such as a shared package that only lists files for Tailwind to scan, is
+  # bundled in as a `file:` dependency rather than installed.
+  jq -e '.bb.name | type == "string"' "$package/package.json" >/dev/null 2>&1 || continue
 
-  id="${name#bb-plugin-}"
+  id="$(basename "$package")"
+  id="${id#bb-plugin-}"
 
   if printf '%s' "$installed" | grep -q "\"$id\""; then
     echo "==> $id (already installed, skipping)"
@@ -53,15 +51,5 @@ for package in "$DIR"/*/; do
   fi
 
   echo "==> $id"
-  (
-    cd "$package"
-    npm install --silent
-    # npm resolves a `file:` dependency to a symlink, which puts a second React
-    # in the tree and breaks every clock test. harvest:sync reinstates the copy
-    # with --install-links. See sync.sh for the longer version.
-    if jq -e '.scripts["harvest:sync"]' package.json >/dev/null 2>&1; then
-      npm run --silent harvest:sync
-    fi
-    bb plugin install . --yes
-  )
+  bb plugin install "$package" --yes
 done

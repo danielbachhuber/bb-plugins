@@ -1,8 +1,15 @@
 {
   "name": "bb-plugins",
   "private": true,
-  "description": "Scripts for the whole checkout. Each plugin is its own package with its own dependencies; this one has only Playwright, for the story screenshots.",
+  "description": "Workspace root for the whole checkout. Every plugin and shared library is a workspace with its own package.json; they share one lockfile and one node_modules here. Playwright, for the story screenshots, is the root's own dependency.",
+  "workspaces": [
+    "bb-plugin-*",
+    "component-library",
+    "gh-shared",
+    "sweep-ui"
+  ],
   "scripts": {
+    "postinstall": "node scripts/link-workspace-deps.mjs",
     "storybook": "node scripts/ladle.mjs serve",
     "storybook:build": "node scripts/ladle.mjs build",
     "screenshots": "node scripts/screenshots.mjs",
@@ -11,5 +18,9 @@
   },
   "devDependencies": {
     "playwright": "^1.55.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.2": true
   }
 }

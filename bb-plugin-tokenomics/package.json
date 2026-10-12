@@ -24,7 +24,7 @@
     "@radix-ui/react-checkbox": "^1.3.7",
     "@radix-ui/react-slot": "^1.3.0",
     "component-library": "file:../component-library",
-    "zod": "^4.3.6"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.5.9",
@@ -41,26 +41,25 @@
     "@radix-ui/react-tooltip": "^1.2.12",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "better-sqlite3": "^12.0.0",
+    "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cron-parser": "^5.5.0",
-    "hono": "^4.11.9",
-    "jsdom": "^30.1.1",
+    "cron-parser": "^5.10.1",
+    "hono": "^4.13.8",
+    "jsdom": "^30.1.2",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.4.0",
-    "typescript": "^5.7.0",
+    "typescript": "^5.9.3",
     "vaul": "^1.1.2",
     "vitest": "^4.1.11"
   },
   "scripts": {
     "build": "bb plugin build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "harvest:sync": "rm -rf node_modules/component-library && npm install --install-links file:../component-library"
+    "test": "vitest run"
   }
 }

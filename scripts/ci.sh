@@ -6,11 +6,9 @@
 #   scripts/ci.sh <package-dir>    e.g. scripts/ci.sh bb-plugin-pr-sweep
 #   scripts/ci.sh --list           print every package with a test script, as JSON
 #
-# A package's `file:../<dir>` dependencies are linked, not copied, so their own
-# imports resolve from their own node_modules. Those have to be installed first,
-# and theirs before them, which is why this walks the `file:` graph rather than
-# installing only the package under test. The order of the steps after that
-# follows AGENTS.md: install, harvest:sync where it exists, tsc, then tests.
+# Every package is an npm workspace of the root, so one `npm ci` there installs
+# all of them, the shared libraries linked in place. The steps after that
+# follow AGENTS.md: tsc, then tests.
 
 set -euo pipefail
 
@@ -29,35 +27,10 @@ fi
   exit 2
 }
 
-file_dep_dirs() {
-  jq -r '[(.dependencies // {}), (.devDependencies // {})]
-         | add | values | .[]
-         | select(type == "string" and startswith("file:../"))
-         | sub("^file:\\.\\./"; "")' "$DIR/$1/package.json"
-}
-
-installed=" "
-install_with_deps() {
-  local dep
-  case "$installed" in *" $1 "*) return 0 ;; esac
-  installed="$installed$1 "
-  for dep in $(file_dep_dirs "$1"); do
-    install_with_deps "$dep"
-  done
-  # npm install, not npm ci: harvest:sync records `file:` dependencies in the
-  # lockfile as packed copies, which npm ci rejects as out of sync.
-  echo "::group::npm install ($1)"
-  (cd "$DIR/$1" && npm install --no-audit --no-fund)
-  echo "::endgroup::"
-}
-
-install_with_deps "$1"
+echo "::group::npm ci"
+(cd "$DIR" && npm ci --no-audit --no-fund)
+echo "::endgroup::"
 
 cd "$DIR/$1"
-if jq -e '.scripts["harvest:sync"]' package.json >/dev/null; then
-  echo "::group::harvest:sync"
-  npm run --silent harvest:sync
-  echo "::endgroup::"
-fi
 npx --no -- tsc --noEmit -p tsconfig.json
 npm test

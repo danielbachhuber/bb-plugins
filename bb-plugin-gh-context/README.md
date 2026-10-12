@@ -13,7 +13,7 @@ thread links through it.
 
 ```bash
 cd ~/projects/bb-plugins/bb-plugin-gh-context
-npm install && npm run harvest:sync
+npm install
 bb plugin install . --yes
 ```
 
@@ -155,7 +155,7 @@ display-only.
 ## Working on it
 
 ```sh
-npm install && npm run harvest:sync
+npm install
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload gh-context

@@ -244,7 +244,7 @@ describe("tiers", () => {
     const rest = slot.getByRole("region", { name: "Everything else" });
     expect(within(mine).getByText("Ready item")).toBeInTheDocument();
     expect(within(rest).getByText("Backlog item")).toBeInTheDocument();
-    expect(within(rest).getByRole("heading", { name: "Backlog 1" })).toBeInTheDocument();
+    expect(within(rest).getByRole("heading", { name: "Backlog1" })).toBeInTheDocument();
     expect(within(rest).getByRole("button", { name: "1 backlog" })).toBeInTheDocument();
   });
 

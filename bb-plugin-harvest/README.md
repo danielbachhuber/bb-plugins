@@ -138,7 +138,7 @@ over RPC.
 ### Add the dependency
 
 ```sh
-npm install --save-exact zod@4.5.4
+npm install --save-exact zod@4.6.7
 npm install github:danielbachhuber/harvest-bb-plugin
 ```
 

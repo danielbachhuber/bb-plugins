@@ -11,8 +11,9 @@ const fromBbApp = relative(process.cwd(), repoRoot);
 export default {
   stories: [
     `${fromBbApp}/{bb-plugin-*,gh-shared,sweep-ui,component-library}/**/*.stories.tsx`,
-    // A plugin that depends on another installs a copy of it, stories and
-    // all, and two copies of one story is an error that blanks every story.
+    // Keeps the glob out of each plugin's own node_modules, where a nested
+    // package could carry stories, and two copies of one story is an error
+    // that blanks every story.
     `!${fromBbApp}/**/node_modules/**`,
   ],
   defaultStory: "",

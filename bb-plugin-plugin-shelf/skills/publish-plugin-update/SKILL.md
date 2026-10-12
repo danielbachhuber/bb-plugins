@@ -69,8 +69,7 @@ minor as the alternative with that cost, and **wait for the user to choose.**
 Use the repository's Node version before any npm command. Another npm
 version rewrites the whole lockfile, and that rewrite would ship in the release
 commit. If the repository's AGENTS.md or CLAUDE.md gives a build sequence for a
-plugin (for example `npm install && npm run harvest:sync`), use it in place of
-the `npm install` below.
+plugin, use it in place of the `npm install` below.
 
 ```sh
 nvm use                       # when the repository has an .nvmrc
@@ -78,8 +77,8 @@ cd <dir>
 npm install && npx tsc --noEmit -p tsconfig.json && npm test && bb plugin build .
 npm version <version> --no-git-tag-version
 cd ..
-git diff --stat -- <dir>      # only package.json and package-lock.json, a few lines each
-git add <dir>/package.json <dir>/package-lock.json
+git diff --stat               # only package.json and the lockfile, a few lines each
+git add <dir>/package.json <lockfile>   # <dir>/package-lock.json, or the root one in an npm workspace
 git commit -m "Release <id> v<version>"
 git tag -a <tagPrefix>v<version> -m "Release <id> v<version>"
 ```

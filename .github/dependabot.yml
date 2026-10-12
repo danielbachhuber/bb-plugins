@@ -1,18 +1,23 @@
 version: 2
 updates:
-  # Every package directory at the top level: the plugins, the shared
-  # libraries, and the root's Playwright.
+  # The root only. Every plugin and shared library is an npm workspace of it,
+  # so Dependabot reads each workspace's package.json from here and updates
+  # them together with the one lockfile.
   - package-ecosystem: npm
-    directories:
-      - "/"
-      - "/*"
+    directory: "/"
     schedule:
       # Monday and Thursday.
       interval: cron
       cronjob: "0 9 * * 1,4"
+    ignore:
+      # Each plugin pins the SDK of the bb it was last typed against, alongside
+      # its engines.bbPluginSdk minimum. `bb plugin types` moves the two
+      # together; a bump to the pin alone would leave them disagreeing.
+      - dependency-name: "@get-bb/plugin-sdk"
     groups:
-      # One pull request per directory for minor and patch updates, instead of
-      # one per dependency. Major updates still arrive one at a time.
+      # One pull request for every minor and patch update across the
+      # workspaces, instead of one per dependency. Major updates still arrive
+      # one at a time.
       minor-and-patch:
         update-types: [minor, patch]
 

@@ -46,6 +46,8 @@ fi
 # time rather than resolved at runtime: an edit to gh-shared has to rebuild
 # every plugin that carries it, and reading the dependency out of package.json
 # derives that fan-out instead of hardcoding a list that will go out of date.
+# It also includes the root package-lock.json, which every workspace installs
+# from: a dependency update there changes what each build bundles.
 
 stale_plugins=""   # directory \t plugin id \t what changed
 
@@ -84,7 +86,8 @@ file_dep_dirs() {
 }
 
 detect_plugins() {
-  local plugin id dist_mtime src_mtime reason dep dep_dir dep_mtime
+  local plugin id dist_mtime src_mtime reason dep dep_dir dep_mtime lock_mtime
+  lock_mtime="$(stat -f '%m' "$DIR/package-lock.json" 2>/dev/null || true)"
   for plugin in "$DIR"/*/; do
     plugin="${plugin%/}"
     [ -f "$plugin/package.json" ] || continue
@@ -109,6 +112,10 @@ detect_plugins() {
     src_mtime="$(newest_source_mtime "$plugin")"
     if [ -n "$src_mtime" ] && [ "$src_mtime" -gt "$dist_mtime" ]; then
       reason="source changed"
+    fi
+
+    if [ -n "$lock_mtime" ] && [ "$lock_mtime" -gt "$dist_mtime" ]; then
+      if [ -z "$reason" ]; then reason="dependencies changed"; else reason="$reason, dependencies changed"; fi
     fi
 
     while read -r dep; do
@@ -172,13 +179,12 @@ fi
 
 # --- Apply -------------------------------------------------------------------
 #
-# The order matters and is not interchangeable. `npm install` refreshes the
-# gh-shared copy but replaces the harvest copy with a symlink, which puts a
-# second React in the tree; `harvest:sync` reinstates the copy with
-# --install-links. `tsc --noEmit` then catches a `file:` dependency that is
-# still stale, which is the failure that otherwise reaches the panel as a
-# runtime "is not a function". A plugin that does not typecheck is not built
-# and not reloaded, so a broken pull cannot take a working panel down with it.
+# One `npm install` at the root installs every workspace, so it runs once,
+# before any plugin is built. `tsc --noEmit` then catches a plugin that no
+# longer fits a shared library it links, which is the failure that otherwise
+# reaches the panel as a runtime "is not a function". A plugin that does not
+# typecheck is not built and not reloaded, so a broken pull cannot take a
+# working panel down with it.
 
 # Build with the Node that .nvmrc pins; use-pinned-node.sh says why.
 # shellcheck source=use-pinned-node.sh
@@ -186,9 +192,23 @@ fi
 use_pinned_node || exit 1
 
 # bb runs scripts with NODE_ENV=production, under which npm leaves out
-# devDependencies, TypeScript among them. Including them here
-# covers every install below, harvest:sync's too.
+# devDependencies, TypeScript among them.
 export npm_config_include=dev
+
+# npm rewrites package-lock.json on every install, even when nothing in it
+# changes, and the lockfile counts as a source of every plugin. Keeping its
+# timestamp when its contents are the same stops a plugin this run did not
+# rebuild from looking stale on the next check.
+echo "==> npm install"
+lock_before="$(mktemp)"
+cp -p "$DIR/package-lock.json" "$lock_before"
+( cd "$DIR" && npm install --silent --no-audit --no-fund ) || {
+  rm -f "$lock_before"
+  echo "    failed; no plugin was rebuilt" >&2
+  exit 1
+}
+cmp -s "$lock_before" "$DIR/package-lock.json" && touch -r "$lock_before" "$DIR/package-lock.json"
+rm -f "$lock_before"
 
 # A plugin bb has not seen yet is one that arrived in a pull, so it is installed
 # rather than reloaded. One that bb has but is disabled stays as it is: disabling
@@ -201,19 +221,15 @@ apply_plugin() {
   # or typecheck to build and reload anyway.
   (
     cd "$plugin" || exit 1
-    npm install --silent || exit 1
-    if jq -e '.scripts["harvest:sync"]' package.json >/dev/null 2>&1; then
-      npm run --silent harvest:sync || exit 1
-    fi
     # --no: a missing TypeScript fails here rather than fetching the unrelated
     # `tsc` package from the registry.
     npx --no -- tsc --noEmit -p tsconfig.json || exit 1
     bb plugin build >/dev/null || exit 1
-    # Staleness is "is dist older than what it was built from", and npm rewrites
-    # package-lock.json as part of the install above, which can land after the
-    # build it preceded. Stamping the artifacts this build just produced makes
-    # dist unambiguously newer than its own inputs, so one run converges instead
-    # of leaving the next check reporting work it already did.
+    # Staleness is "is dist older than what it was built from". Stamping the
+    # artifacts this build just produced makes dist unambiguously newer than
+    # its own inputs, the lockfile the install above may have rewritten among
+    # them, so one run converges instead of leaving the next check reporting
+    # work it already did.
     find dist -type f -print0 | xargs -0 touch
   ) || return 1
   if [ "$install" = yes ]; then

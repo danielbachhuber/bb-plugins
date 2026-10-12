@@ -81,7 +81,7 @@ drifted:
 
 `sync.sh` builds with the Node version in `.nvmrc`, loading it through nvm, and
 stops if that version is not installed. Different npm versions write
-`package-lock.json` differently, so building with another Node leaves every
+`package-lock.json` differently, so building with another Node leaves the
 lockfile modified. It installs a plugin that bb has not seen yet, so one that
 arrives in a pull is enabled on the next run. To keep one off a machine, run
 `bb plugin disable <id>`: `sync.sh` leaves a disabled plugin disabled. It also
@@ -99,17 +99,14 @@ alone.
 
 ```sh
 cd bb-plugin-<name>
-npm install && npm run harvest:sync   # harvest:sync only where the script exists
+npm install                           # installs every workspace, from the root
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload <id>
 ```
 
-The order is not interchangeable. `npm install` refreshes the `gh-shared` copy
-but replaces the harvest copy with a symlink, which puts a second React in the
-tree and breaks every clock test; `harvest:sync` reinstates the copy with
-`--install-links`. `tsc --noEmit` is what catches a `file:` dependency that is
-still stale, a failure that otherwise reaches the panel as a runtime
+`tsc --noEmit` is what catches a plugin that no longer fits a shared library it
+links, a failure that otherwise reaches the panel as a runtime
 "is not a function".
 
 ## Stories
@@ -151,5 +148,5 @@ options; those images are not meant to be committed. A run captures only the
 stories that import a file changed since the bb-plugins commit that checkout
 last captured, and keeps the other images as they are; add `-- --all` to
 capture every story. It
-needs `npm install` at the root, for Playwright, and that checkout at
+needs `npm install`, which installs Playwright with everything else, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.

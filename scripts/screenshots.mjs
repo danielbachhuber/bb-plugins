@@ -222,8 +222,9 @@ function storySource(id) {
 /** Every module that imports one of `changed`, directly or through others, by absolute path. */
 function modulesImporting(changed) {
   const importers = JSON.parse(readFileSync(graphPath, "utf8"));
-  // A shared package is installed as a copy in each plugin's node_modules, so
-  // a module in that copy stands for the same file in the package's directory.
+  // A shared package is linked into each plugin's node_modules. Vite usually
+  // reports a linked module by its real path, but one reached through the link
+  // stands for the same file in the package's directory.
   const localPackages = new Map();
   for (const entry of readdirSync(repoRoot, { withFileTypes: true })) {
     const pkg = join(repoRoot, entry.name, "package.json");

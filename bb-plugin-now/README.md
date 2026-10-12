@@ -543,7 +543,6 @@ list `server.ts` passes to `loadSources`.
 
 ```sh
 npm install
-npm run harvest:sync   # installs component-library as a copy, not a link
 npx tsc --noEmit -p tsconfig.json
 npm test
 bb plugin build . && bb plugin reload now

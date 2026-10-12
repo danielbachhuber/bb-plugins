@@ -1093,9 +1093,15 @@ describe("postponing a recurring task", () => {
 
   test("sends the new day with the rule's words, keeping the time, and the row takes what Todoist saved", async () => {
     vi.spyOn(crypto, "randomUUID").mockReturnValue(UUID);
-    const { bb, harness, plugin, fetchImpl } = host(routes("ok"));
+    const given = routes("ok");
+    const { bb, harness, plugin, fetchImpl } = host(given);
     await plugin(bb);
     await syncAndRead(harness);
+    // Once Todoist has saved the new day it lists the task there too, so the
+    // sync a postpone starts afterwards reads the same date back.
+    (given[filterPath(DEFAULT_FILTER)] as { results: unknown[] }).results[0] = rawTask("a", {
+      due: { ...RECURRING, date: "2026-09-29T09:00:00" },
+    });
 
     await expect(harness.behavior.callRpc("items_postpone", { id: "todoist:a", day: "2026-09-29" })).resolves.toEqual({
       postponed: true,
@@ -1107,6 +1113,7 @@ describe("postponing a recurring task", () => {
     expect(commands).toEqual([
       { type: "item_update", uuid: UUID, args: { id: "a", due: { date: "2026-09-29T09:00:00", string: "every mon 9am" } } },
     ]);
+    expect(fetchImpl.mock.calls.some(([url]) => new URL(url).pathname === "/api/v1/tasks/a")).toBe(true);
     const listing = (await harness.behavior.callRpc("items_list", null)) as Listing;
     expect(listing.list?.items.find((item) => item.id === "todoist:a")?.due).toEqual({
       date: "2026-09-29T09:00:00",

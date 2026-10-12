@@ -18,13 +18,13 @@ describe("Segmented", () => {
     render(<Segmented label="Period" options={OPTIONS} value="day" onChange={onChange} />);
     expect(screen.getByRole("radiogroup", { name: "Period" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Day" })).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByRole("radio", { name: "Week 12" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Week12" }));
     expect(onChange).toHaveBeenCalledWith("week");
   });
 
   it("shows an option's count and title", () => {
     render(<Segmented label="Period" options={OPTIONS} value="day" onChange={() => {}} />);
-    expect(screen.getByRole("radio", { name: "Week 12" })).toHaveAttribute("title", "The last seven days");
+    expect(screen.getByRole("radio", { name: "Week12" })).toHaveAttribute("title", "The last seven days");
   });
 });
 
