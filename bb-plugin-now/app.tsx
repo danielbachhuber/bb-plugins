@@ -26,6 +26,8 @@ import { ReadingContext, type PendingAction, type RowActions } from "./now/item-
 import { sidebarCounts } from "./now/sections.js";
 import { hideSidePanel } from "./now/side-panel.js";
 import { SidebarCount } from "component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "component-library/top-bar";
+import { Icon } from "@/components/ui/icon";
 import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
@@ -612,7 +614,30 @@ function NowSidebarCounts() {
   );
 }
 
+/** Now's counts in bb's top bar on every page, as a button that opens Now. */
+function NowTopBar() {
+  const { listing } = useListing();
+  const navigate = useBbNavigate();
+  const { urgent, today, now } = sidebarCounts(listing?.list?.items ?? [], new Date());
+  return (
+    <TopBarSlot pluginId="now" activeOn={["/plugins/now/now"]}>
+      <TopBarCount
+        icon={<Icon name="Target" />}
+        label="Open Now"
+        onClick={() => navigate.toPluginPanel("now")}
+        urgent={urgent}
+        soon={today}
+        total={now}
+        urgentLabel={`${urgent} urgent`}
+        soonLabel={`${today} due today`}
+        totalLabel={`${now} in Now`}
+      />
+    </TopBarSlot>
+  );
+}
+
 export default definePluginApp((app) => {
+  app.slots.experimental_appOverlay({ id: "now-top-bar", component: NowTopBar });
   app.slots.navPanel({
     id: "now",
     title: "Now",
