@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { scopeDeckStyle } from "./style";
 import {
   baseName,
   directChildName,
@@ -171,5 +172,11 @@ describe("keys", () => {
     expect(applyMove(0, 5, "previous")).toBe(0);
     expect(applyMove(2, 5, "last")).toBe(4);
     expect(applyMove(0, 0, "next")).toBe(0);
+  });
+});
+
+describe("scopeDeckStyle", () => {
+  it("keeps a deck's rules to its slides", () => {
+    expect(scopeDeckStyle(".bbp-slide { color: red; }")).toBe("@scope (.bbp-deck) {\n.bbp-slide { color: red; }\n}");
   });
 });

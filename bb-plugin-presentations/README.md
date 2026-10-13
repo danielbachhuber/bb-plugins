@@ -40,6 +40,14 @@ bb presentations            # which folder this thread presents
 - Images use paths relative to the deck folder, such as
   `![Diagram](images/diagram.png)`. png, jpg, gif, webp, avif, and svg work.
   A path that leaves the folder is not served.
+- A `style.css` in the folder restyles that deck's slides. Each slide is a
+  `.bbp-slide` element, so `.bbp-slide { background: #2f5940 !important; }`
+  changes its background and `.bbp-slide h1` its headings, and a selector
+  such as `.bbp-slide:not(:has(img))` picks out the slides with no image. The
+  plugin wraps the file in `@scope`, so its rules reach the slides and
+  nothing else in bb. Rules usually need `!important` to win over bb's own
+  slide styles. Saving the file restyles the deck, the same way an edited
+  slide reloads.
 
 ## Presenting
 
@@ -89,6 +97,7 @@ thread to the folder you typed. There is no list of past decks.
 | --- | --- |
 | `deck/slides.ts` | Which files are slides, their order and titles, resolving the deck folder, and the containment check for paths inside it |
 | `deck/images.ts` | Finding a slide's image references and pointing them at the asset route |
+| `deck/style.ts` | The deck's own `style.css`, scoped to its slides |
 | `deck/keys.ts` | Which key moves which way |
 | `deck/view.tsx` | The panel, the window, the stage, and the slide list, as display components |
 | `deck/deck.stories.tsx` | Stories for the panel and the window |

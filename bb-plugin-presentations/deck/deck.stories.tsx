@@ -11,6 +11,7 @@ const deck: Deck = {
   name: "widgets-launch",
   path: "presentations/widgets-launch",
   problem: null,
+  style: null,
   fileRoot: { kind: "workspace", environmentId: "env_story", dir: "presentations/widgets-launch" },
   slides: [
     {
@@ -80,6 +81,13 @@ export const PanelNarrow = () => <Panel width={480} />;
 
 /** A slide with an image from the deck folder. */
 export const PanelImage = () => <Panel initial={2} />;
+
+// A chalkboard for the deck's own style.css, as a talk might use.
+const CHALKBOARD = `.bbp-slide { background: #2f5940 !important; color: #f4f1e8 !important; box-shadow: inset 0 0 0 24px #8b5a2b !important; }
+.bbp-slide :is(h1, h2, p, li) { color: #f4f1e8 !important; font-family: "Chalkboard SE", "Comic Sans MS", cursive !important; }`;
+
+/** A deck with a style.css in its folder: its rules restyle the slides, and nothing else on the page. */
+export const PanelStyled = () => <Panel value={{ ...deck, style: CHALKBOARD }} />;
 
 /** A deck whose folder has no numbered slides yet. */
 export const PanelEmpty = () => <Panel value={{ ...deck, slides: [] }} />;

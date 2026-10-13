@@ -9,6 +9,7 @@ import {
 import type { Deck, FileRoot } from "../server";
 import { rewriteSlideImages } from "./images";
 import { applyMove, keyToMove } from "./keys";
+import { DECK_SCOPE_CLASS, scopeDeckStyle } from "./style";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -35,14 +36,17 @@ const SLIDE_CSS = `
 `;
 
 /** The slide, drawn on the fixed canvas at full size. */
-export function SlideContent({ content }: { content: string }) {
+export function SlideContent({ content, deckStyle = null }: { content: string; deckStyle?: string | null }) {
   return (
-    <div
-      className="bbp-slide flex h-full w-full flex-col justify-center overflow-hidden bg-background p-[56px] text-foreground"
-      style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT }}
-    >
-      <style>{SLIDE_CSS}</style>
-      <Markdown content={content} />
+    <div className={DECK_SCOPE_CLASS} style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT }}>
+      <div
+        className="bbp-slide flex h-full w-full flex-col justify-center overflow-hidden bg-background p-[56px] text-foreground"
+        style={{ width: SLIDE_WIDTH, height: SLIDE_HEIGHT }}
+      >
+        <style>{SLIDE_CSS}</style>
+        {deckStyle === null ? null : <style>{scopeDeckStyle(deckStyle)}</style>}
+        <Markdown content={content} />
+      </div>
     </div>
   );
 }
@@ -57,6 +61,7 @@ export function SlideContent({ content }: { content: string }) {
  */
 export function SlideStage({
   content,
+  deckStyle = null,
   slideKey,
   onMove,
   stageRef,
@@ -64,6 +69,8 @@ export function SlideStage({
   children,
 }: {
   content: string | null;
+  /** The deck's `style.css`, or null for the default look. */
+  deckStyle?: string | null;
   /** Changes with the slide, so its images never reuse the last slide's elements. */
   slideKey?: string | number;
   onMove: (move: "next" | "previous" | "first" | "last") => void;
@@ -117,7 +124,7 @@ export function SlideStage({
           style={{ width: SLIDE_WIDTH * scale, height: SLIDE_HEIGHT * scale }}
         >
           <div style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
-            <SlideContent content={content} />
+            <SlideContent content={content} deckStyle={deckStyle} />
           </div>
         </div>
       ) : null}
@@ -278,6 +285,7 @@ export function DeckPanelView({
         <SlideList deck={deck} index={index} onIndexChange={onIndexChange} />
         <SlideStage
           content={message === null ? (slides[index] ?? null) : null}
+          deckStyle={deck?.style ?? null}
           slideKey={index}
           onMove={move}
           stageRef={stageRef}
@@ -365,6 +373,7 @@ export function DeckWindowView({ deck, error, index, onIndexChange, imageUrl }: 
     <div className="flex h-full min-h-0 flex-col bg-neutral-950">
       <SlideStage
         content={message === null ? (slides[index] ?? null) : null}
+        deckStyle={deck?.style ?? null}
         slideKey={index}
         onMove={move}
         stageRef={stageRef}

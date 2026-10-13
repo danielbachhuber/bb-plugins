@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Presentations",
-    "description": "Give a talk from a bb thread. Start a presentation from the Presentations page, and the thread writes its slides as numbered markdown files in one folder. A Present button in the thread header shows them in a panel beside the chat, with each slide file listed for editing, a full-screen mode, and a separate window for the projector. Slides reload as the agent edits them.",
+    "description": "Give a talk from a bb thread. Start a presentation from the Presentations page, and the thread writes its slides as numbered markdown files in one folder. A Present button in the thread header shows them in a panel beside the chat, with each slide file listed for editing, a full-screen mode, and a separate window for the projector. Slides reload as the agent edits them, and a style.css in the folder restyles the deck.",
     "branding": {
       "icon": "Play"
     },

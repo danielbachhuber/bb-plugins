@@ -9,6 +9,7 @@ import { homedir } from "node:os";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { imageMimeType } from "./deck/images";
+import { STYLE_FILE } from "./deck/style";
 import {
   baseName,
   directChildName,
@@ -23,6 +24,7 @@ const MAX_SLIDE_BYTES = 200_000;
 const MAX_IMAGE_BYTES = 10_000_000;
 /** How many entries one listing may return, subfolders included. */
 const LIST_LIMIT = 1000;
+const MAX_STYLE_BYTES = 100_000;
 
 const threadIdSchema = z.string().trim().min(1).max(200);
 
@@ -53,6 +55,8 @@ const deckSchema = z.object({
   fileRoot: fileRootSchema,
   /** Why the folder could not be read, or null when it was. */
   problem: z.string().nullable(),
+  /** The deck's own `style.css`, applied to its slides, or null when it has none. */
+  style: z.string().nullable(),
 });
 
 export type Deck = z.infer<typeof deckSchema>;
@@ -146,6 +150,7 @@ export default async function plugin(bb: BbPluginApi) {
         slides: [],
         fileRoot: where.fileRoot,
         problem: null,
+        style: null,
       };
 
       let names: string[];
@@ -177,7 +182,12 @@ export default async function plugin(bb: BbPluginApi) {
           return { file, title: slideTitle(content, file), content, sha256: read.sha256 };
         }),
       );
-      return { ...empty, slides };
+      let style: string | null = null;
+      if (names.includes(STYLE_FILE)) {
+        const read = await bb.sdk.files.read({ hostId: where.hostId, path: `${where.dir}/${STYLE_FILE}` });
+        if (read.contentEncoding === "utf8" && read.sizeBytes <= MAX_STYLE_BYTES) style = read.content;
+      }
+      return { ...empty, slides, style };
     },
 
     deck_thread_create: async ({ request, deckPath }) => {

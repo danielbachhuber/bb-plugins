@@ -19,6 +19,7 @@ const deck: Deck = {
   name: "widgets-launch",
   path: "presentations/widgets-launch",
   problem: null,
+  style: null,
   fileRoot: { kind: "workspace", environmentId: "env_acme", dir: "presentations/widgets-launch" },
   slides: [
     { file: "01-title.md", title: "Widgets 2.0", content: "# Widgets 2.0", sha256: "a" },
