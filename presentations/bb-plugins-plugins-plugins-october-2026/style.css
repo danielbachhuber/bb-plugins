@@ -1,0 +1,59 @@
+/* Springfield: a cloudy sky behind every slide with a screenshot, and
+   Bart's chalkboard behind every slide that is only text. The Presentations
+   plugin applies this file to this deck's slides and nothing else. */
+
+.bbp-slide {
+  background:
+    radial-gradient(ellipse 90px 46px at 12% 18%, #fff 98%, transparent),
+    radial-gradient(ellipse 70px 40px at 17% 14%, #fff 98%, transparent),
+    radial-gradient(ellipse 110px 50px at 82% 12%, #fff 98%, transparent),
+    radial-gradient(ellipse 80px 42px at 88% 8%, #fff 98%, transparent),
+    radial-gradient(ellipse 100px 44px at 70% 92%, #fff 98%, transparent),
+    radial-gradient(ellipse 70px 36px at 76% 88%, #fff 98%, transparent),
+    linear-gradient(#5fb8ea, #9fd8f5) !important;
+  color: #14213d !important;
+}
+
+.bbp-slide h1 {
+  font-family: "Chalkboard SE", "Marker Felt", cursive !important;
+  font-weight: 700 !important;
+  letter-spacing: 0;
+  color: #ffd90f !important;
+  -webkit-text-stroke: 3px #1a1a1a;
+  paint-order: stroke fill;
+  text-shadow: 4px 5px 0 #1a1a1a;
+}
+
+.bbp-slide :is(p, li) {
+  color: #14213d !important;
+  font-family: "Chalkboard SE", sans-serif !important;
+}
+
+.bbp-slide img {
+  background: #fff;
+  border: 5px solid #1a1a1a;
+  border-radius: 18px !important;
+  box-shadow: 8px 8px 0 #1a1a1a;
+}
+
+/* The chalkboard, in its wooden frame. */
+.bbp-slide:not(:has(img)) {
+  background: radial-gradient(ellipse at 30% 20%, #3d6b4f, #2a4d38 70%) !important;
+  box-shadow: inset 0 0 0 26px #8b5a2b, inset 0 0 0 30px #5e3b1c !important;
+  color: #f4f1e8 !important;
+}
+
+.bbp-slide:not(:has(img)) h1 {
+  color: #f4f1e8 !important;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+  font-weight: 400 !important;
+}
+
+.bbp-slide:not(:has(img)) :is(p, li) {
+  color: #e9e5d8 !important;
+}
+
+.bbp-slide:not(:has(img)) p {
+  margin: 0.1em 0 !important;
+}
