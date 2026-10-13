@@ -9,16 +9,17 @@ words. ✓ means the slide exists.
 
 ### Opening (01-06)
 
-- 01 ✓ PLUGINS PLUGINS PLUGINS. Subtitle: All I do is bb. October 15, 2026.
-- 02 Who am I: I'm Daniel. I used to be a prolific WordPress plugin author.
-  Then I lost interest, and didn't write a plugin for years.
-- 03 Now I'm a prolific bb plugin author: 21 plugins since my first bb thread
-  on August 26, 2026. I love bb.
-- 04 Wait, what is bb? A screenshot of bb with a thread, its chat, and a
-  plugin panel open, and one sentence on what it is.
+- 01 ✓ PLUGINS PLUGINS PLUGINS, on Bart's chalkboard: "I will not write
+  another bb plugin." four times, then All I do is bb · October 15, 2026.
+- 02 ✓ Hi, I'm Daniel Bachhuber: avatar beside a chart of commits by year,
+  844 to WordPress.org plugins (2009 to 2023), then 682 to 21 bb plugins in
+  seven weeks of 2026. Regenerate the chart the day before the talk.
+- 04 ✓ Wait, what is bb?: the getbb.app hero, "The IDE that builds itself",
+  with a stock bb window.
 - 05 ✓ **Roundtable:** what do you use to work with your LLM? Have you changed
   it to fit how you work?
-- 06 Let me talk you through some of the plugins I've created.
+- 06 ✓ Let me talk you through some of the plugins I've created: a numbered
+  table of contents of the six plugin sections.
 
 ### Impromptu UI (10-15)
 
