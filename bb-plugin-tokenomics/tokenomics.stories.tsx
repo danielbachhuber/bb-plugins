@@ -1,5 +1,13 @@
 import { useState } from "react";
+import type { PermissionMode, PromptTextMention } from "@bb/domain";
+import { Markdown } from "@get-bb/plugin-sdk/app";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
+import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
+import { AppPageHeader } from "@bb-app/components/layout/AppPageHeader";
+import { SidebarProvider } from "@bb-app/components/ui/sidebar";
+import { FollowUpPromptBox } from "@bb-app/components/promptbox/FollowUpPromptBox";
+import { INERT_TYPEAHEAD_COMMAND_CONFIG } from "@bb-app/components/promptbox/PromptBoxInternal";
+import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 
 import { ContextMeter, type ContextMeterProps } from "./components/context-meter";
 import {
@@ -432,3 +440,102 @@ export const ContextMeterStates = () => (
     </StoryRow>
   </StoryCard>
 );
+
+const noop = () => {};
+// bb's own empty mention list. Bare @bb/* packages do not resolve from a
+// plugin's stories, only the @bb-app and @bb-ladle aliases do.
+const EMPTY_ORDERED_MENTION_SUGGESTIONS = { groups: [], suggestions: [] };
+const PERMISSION_OPTIONS: readonly PickerOption<PermissionMode>[] = [
+  { value: "accept-edits", label: "Accept Edits" },
+  { value: "auto", label: "Approve for me" },
+  { value: "full", label: "Full Access", tone: "warning" },
+];
+const BASE_EXECUTION = makeExecutionControlsProps();
+const EXECUTION = makeExecutionControlsProps({
+  provider: { ...BASE_EXECUTION.provider, options: STORY_PROVIDER_OPTIONS, selectedId: "claude-code" },
+  model: { ...BASE_EXECUTION.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
+});
+
+const CONVERSATION: { from: "user" | "agent"; text: string }[] = [
+  { from: "user", text: "Add a CSV export to the widgets report, with the same columns as the table." },
+  {
+    from: "agent",
+    text: "Added an **Export CSV** button to the report toolbar. It streams rows from the same query the table uses, so filters carry over, and quotes any field with a comma. Tests cover an empty report and a 10,000-row one.",
+  },
+  { from: "user", text: "Can the export include the archived widgets too, behind a checkbox?" },
+  {
+    from: "agent",
+    text: "Done. **Include archived** sits beside the button and is off by default. The export reads the checkbox when you click, and the file name ends in `-with-archived` when it is on.",
+  },
+];
+
+// The Store's second screenshot. A whole thread, in bb's own header and
+// composer, with both of the plugin's thread surfaces showing.
+/**
+ * A thread whose context has grown past the error setting: the header's
+ * sparkline and total, and the meter above the composer with Compact.
+ */
+export const ThreadWithMeter = () => {
+  const [draft, setDraft] = useState("");
+  const [mentions, setMentions] = useState<PromptTextMention[]>([]);
+  return (
+    <SidebarProvider>
+    <div className="flex h-[600px] w-[1100px] flex-col overflow-hidden border border-border bg-background">
+      <AppPageHeader
+        ownsWindowTopLeft={false}
+        center={<p className="bb-thread-title relative min-w-0 text-sm font-normal">Add a CSV export to the widgets report</p>}
+        actions={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} />}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6">
+          {CONVERSATION.map((turn, index) =>
+            turn.from === "user" ? (
+              <div key={index} className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
+                {turn.text}
+              </div>
+            ) : (
+              <div key={index} className="text-sm leading-relaxed text-foreground">
+                <Markdown content={turn.text} />
+              </div>
+            ),
+          )}
+        </div>
+      </div>
+      <div className="chat-prompt-box mx-auto w-full max-w-[760px] px-6 pb-4">
+        <FollowUpPromptBox
+          attachments={{ items: [], projectId: "proj_demo", isAttaching: false, error: null, onAttachFiles: noop, onRemove: noop }}
+          stack={<ContextMeter {...METER} usedTokens={620_000} level="error" />}
+          composer={{
+            history: { currentDraft: { text: draft, mentions, attachments: [] }, entries: [], onSelectEntry: noop },
+            isFollowUpSubmitting: false,
+            message: draft,
+            mentionRanges: mentions,
+            onChangeMessage: (text: string, next: PromptTextMention[]) => {
+              setDraft(text);
+              setMentions(next);
+            },
+            onModifierSubmit: noop,
+            onSubmit: () => setDraft(""),
+            compactPromptPlaceholder: "Ask for a follow-up",
+            promptPlaceholder: "Ask for a follow-up. @ to mention files, folders, sections, or threads",
+            canModifierSubmit: false,
+            steerActiveThreadOnEnter: false,
+            submitMode: { kind: "ready" },
+            threadRuntimeDisplayStatus: "idle",
+          }}
+          environmentSummary={null}
+          contextWindowUsage={null}
+          execution={EXECUTION}
+          permission={{ value: "full", options: PERMISSION_OPTIONS, onChange: noop, supported: true }}
+          promptActions={[]}
+          typeahead={{
+            mention: { results: EMPTY_ORDERED_MENTION_SUGGESTIONS, isLoading: false, isError: false, onQueryChange: noop },
+            command: INERT_TYPEAHEAD_COMMAND_CONFIG,
+          }}
+          collapseResetKey="thr_story"
+        />
+      </div>
+    </div>
+    </SidebarProvider>
+  );
+};
