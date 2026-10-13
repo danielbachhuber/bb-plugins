@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { PermissionMode, PromptTextMention } from "@bb/domain";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
@@ -376,13 +376,25 @@ export const HeaderSummary = () => (
  * summary open on the busiest stretch.
  */
 export const HeaderOpen = () => (
-  <div className="h-[760px] w-full">
-    <div className="flex h-12 items-center gap-3 border-b border-border px-4">
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">Add a CSV export to the widgets report</span>
-      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} defaultOpen initialHovered="largest" />
-    </div>
-  </div>
+  <ThreadFrame
+    headerAction={
+      <AfterComposerFocus>
+        <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} defaultOpen initialHovered="largest" />
+      </AfterComposerFocus>
+    }
+  />
 );
+
+// bb's composer takes focus as it mounts, and focus leaving an open popover
+// closes it. Mounting the popover a moment later keeps it open.
+function AfterComposerFocus({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+  return ready ? children : null;
+}
 
 const METER: ContextMeterProps = {
   usedTokens: 510_000,
@@ -456,34 +468,28 @@ const EXECUTION = makeExecutionControlsProps({
   model: { ...BASE_EXECUTION.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
 });
 
+// The messages match the summary's PROMPTS, so the popover names turns that are
+// on screen behind it.
 const CONVERSATION: { from: "user" | "agent" | "work"; text: string }[] = [
-  { from: "user", text: "Add a CSV export to the widgets report, with the same columns as the table." },
-  { from: "work", text: "Read 31 files, ran 18 commands" },
+  { from: "user", text: "Run the whole test suite and fix whatever fails" },
+  { from: "work", text: "Read 31 files, edited 6, ran 18 commands" },
   {
     from: "agent",
-    text: "Added an **Export CSV** button to the report toolbar. It streams rows from the same query the table uses, so filters carry over, and quotes any field with a comma. Tests cover an empty report and a 10,000-row one.",
+    text: "Three tests failed. Two expected the old column order in the widgets report, and one timed out waiting on a fixture server that never started. All 412 pass now.",
   },
-  { from: "user", text: "Can the export include the archived widgets too, behind a checkbox?" },
-  { from: "work", text: "Read 12 files, edited 4, ran 9 commands" },
-  {
-    from: "agent",
-    text: "Done. **Include archived** sits beside the button and is off by default. The export reads the checkbox when you click, and the file name ends in `-with-archived` when it is on.",
-  },
-  { from: "user", text: "The 10,000-row test takes four minutes now. Can you find out why?" },
+  { from: "user", text: "Why is the export slow on big reports?" },
   { from: "work", text: "Read 22 files, ran 41 commands" },
   {
     from: "agent",
-    text: "The test seeds each row with its own insert. Seeding them in one batch brings it to 9 seconds, and the export itself was never the slow part.",
+    text: "It runs one query per row to look up each widget's owner. Joining owners into the main query takes a 10,000-row export from **4 minutes to 9 seconds**.",
   },
+  { from: "user", text: "Rename exportRows to buildExportRows everywhere" },
+  { from: "work", text: "Edited 9 files, ran 4 commands" },
+  { from: "agent", text: "Renamed in 9 files, including two tests and the report docs. Type checks and tests pass." },
 ];
 
-// The Store's second screenshot. A whole thread, in bb's own header and
-// composer, with both of the plugin's thread surfaces showing.
-/**
- * A thread whose context has grown past the error setting: the header's
- * sparkline and total, and the meter above the composer with Compact.
- */
-export const ThreadWithMeter = () => {
+/** A thread in bb's own header and composer, with the plugin's surfaces in place. */
+function ThreadFrame({ headerAction, stack }: { headerAction: ReactNode; stack?: ReactNode }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
   return (
@@ -492,7 +498,7 @@ export const ThreadWithMeter = () => {
       <AppPageHeader
         ownsWindowTopLeft={false}
         center={<p className="bb-thread-title relative min-w-0 text-sm font-normal">Add a CSV export to the widgets report</p>}
-        actions={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} />}
+        actions={headerAction}
       />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6">
@@ -516,7 +522,7 @@ export const ThreadWithMeter = () => {
       <div className="chat-prompt-box mx-auto w-full max-w-[760px] px-6 pb-4">
         <FollowUpPromptBox
           attachments={{ items: [], projectId: "proj_demo", isAttaching: false, error: null, onAttachFiles: noop, onRemove: noop }}
-          stack={<ContextMeter {...METER} usedTokens={620_000} level="error" />}
+          stack={stack}
           composer={{
             history: { currentDraft: { text: draft, mentions, attachments: [] }, entries: [], onSelectEntry: noop },
             isFollowUpSubmitting: false,
@@ -550,4 +556,17 @@ export const ThreadWithMeter = () => {
     </div>
     </SidebarProvider>
   );
-};
+}
+
+// The Store's first screenshot and the README's lead image. Both of the
+// plugin's thread surfaces in one thread.
+/**
+ * A thread whose context has grown past the error setting: the header's
+ * sparkline and total, and the meter above the composer with Compact.
+ */
+export const ThreadWithMeter = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} />}
+    stack={<ContextMeter {...METER} usedTokens={620_000} level="error" />}
+  />
+);
