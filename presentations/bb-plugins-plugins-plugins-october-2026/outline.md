@@ -72,7 +72,7 @@ The doc audit is set aside in `unused/`.
   merge button under each GitHub row.
 - 54 Smart contextual filters: pressing a group of squares filters the list
   to it.
-- 55 Grade: A
+- 55 Grade: A. Works really well, and it's a delight to use.
 
 ### Tokenomics (60-65)
 
