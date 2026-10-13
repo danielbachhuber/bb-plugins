@@ -32,6 +32,7 @@ const SLIDE_CSS = `
 .bbp-slide li + li { margin-top: 0.3em; }
 .bbp-slide :is(code, pre) { font-size: 0.8em !important; }
 .bbp-slide p:has(> img) { margin: 0.4em 0 0 !important; }
+.bbp-slide p > img:only-child { margin-left: auto !important; margin-right: auto !important; }
 .bbp-slide img { max-width: 100%; max-height: 470px; object-fit: contain; border-radius: 12px; }
 `;
 

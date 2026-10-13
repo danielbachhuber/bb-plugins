@@ -40,6 +40,7 @@ bb presentations            # which folder this thread presents
 - Images use paths relative to the deck folder, such as
   `![Diagram](images/diagram.png)`. png, jpg, gif, webp, avif, and svg work.
   A path that leaves the folder is not served.
+  An image alone in its paragraph is centered on the slide.
 - A `style.css` in the folder restyles that deck's slides. Each slide is a
   `.bbp-slide` element, so `.bbp-slide { background: #2f5940 !important; }`
   changes its background and `.bbp-slide h1` its headings, and a selector
