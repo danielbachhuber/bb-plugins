@@ -27,7 +27,9 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
-import { StartThreadDialog, type ThreadSeed } from "./components/start-thread-dialog.js";
+import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import * as dialogParts from "@/components/ui/dialog";
+import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
 
 const PANEL_PATH = "contributor-dashboard";
@@ -138,7 +140,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
         title: `${started.title} (#${started.number})`,
         request: request as unknown as Record<string, unknown>,
       });
-      navigate.toThread(threadId);
+      announceStartedThread(navigate, threadId, `Started a thread for #${started.number}`);
     },
     [navigate, rpc],
   );
@@ -175,7 +177,22 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   // no project too: the composer has its own picker, and bb's panel reports no
   // project when the page was opened from outside one.
   const dialog = (
-    <StartThreadDialog seed={seed} projectId={projectId} onClose={() => setSeed(null)} onSubmit={startThread} />
+    <StartThreadDialog
+      dialog={dialogParts}
+      heading={`Start a thread on #${seed?.number ?? ""}`}
+      draftKey={seed ? `contributor-dashboard:${seed.kind}:${seed.number}` : ""}
+      seed={
+        seed
+          ? {
+              projectId: projectId ?? null,
+              prompt: promptFor(seed),
+              preview: { title: seed.title, number: seed.number, url: seed.url, meta: seed.meta },
+            }
+          : null
+      }
+      onClose={() => setSeed(null)}
+      onSubmit={(request) => (seed ? startThread(seed, request) : Promise.resolve())}
+    />
   );
   if (stage !== null) {
     return (

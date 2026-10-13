@@ -25,7 +25,8 @@ import { threadElsewhere, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { firstOpenItem, nextOpenItem, ViewPanel, type LinkedThread } from "./view/view-panel.js";
 import { ListPanel } from "./view/list-panel.js";
-import { StartThreadDialog, type ThreadSeed } from "./view/start-thread-dialog.js";
+import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "component-library/start-thread";
+import * as dialogParts from "@/components/ui/dialog";
 import { viewFor } from "./view/store.js";
 
 const PANEL_ACTION = "view";
@@ -160,7 +161,7 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
   const imageUrl = useReviewImages(stored, shownItem);
   const threads = useLinkedThreads(stored);
   // The item whose new-thread composer is open, with what it starts with.
-  const [starting, setStarting] = useState<{ item: Item; seed: ThreadSeed } | null>(null);
+  const [starting, setStarting] = useState<{ item: Item; seed: StartThreadSeed } | null>(null);
 
   if (stored === undefined) return null;
   if (stored === null) {
@@ -243,7 +244,8 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
         }}
       />
       <StartThreadDialog
-        title={starting?.item.title ?? ""}
+        dialog={dialogParts}
+        heading={`Start a thread: ${starting?.item.title ?? ""}`}
         draftKey={starting ? `impromptu-ui:${stored.id}:${stored.publishedAt}:${starting.item.id}` : ""}
         seed={starting?.seed ?? null}
         onClose={() => setStarting(null)}
@@ -256,7 +258,7 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
               request: request as never,
             });
             setStarting(null);
-            toast.success("Started a thread", { action: { label: "Go to thread", onClick: () => navigate.toThread(started) } });
+            announceStartedThread(navigate, started);
           } catch (error) {
             fail(error);
             // Thrown so the composer keeps the draft rather than clearing it.

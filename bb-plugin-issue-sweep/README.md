@@ -210,6 +210,10 @@ issue titles, repository names, or URLs into a test.
 
 ## Threads
 
+Start thread opens bb's composer in a dialog, so you can read and edit the
+prompt first. Starting it leaves you on the page, with a toast whose **Go to
+thread** button opens the new thread.
+
 A thread started from a row is linked to its issue in gh-context, and the row
 then opens that thread rather than starting another.
 

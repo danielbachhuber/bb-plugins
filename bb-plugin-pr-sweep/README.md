@@ -174,7 +174,8 @@ banner above the composer shows the pull request on every thread, so this
 plugin adds nothing to the thread itself.
 
 A row's Start thread opens bb's composer in a dialog, so you can read and edit the
-prompt first. The thread runs in a worktree on the pull request's own branch,
+prompt first. Starting it leaves you on the page, with a toast whose **Go to
+thread** button opens the new thread. The thread runs in a worktree on the pull request's own branch,
 beside the checkout as `<checkout>-pr-<number>`, so its commits land on the
 pull request and bb shows the pull request's checks and merge state on the
 thread. bb's own worktrees always start a new branch, so the dialog hides the

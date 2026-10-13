@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftKeyFor } from "./start-thread-dialog.js";
+import { draftKeyFor } from "./keys";
 
 describe("draftKeyFor", () => {
   it("keeps one row's draft away from the next row's", () => {

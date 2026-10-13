@@ -147,7 +147,8 @@ assignee on a list of someone's own work says nothing.
 
 **Start a thread** opens bb's composer with the issue or pull request already
 written into the prompt, and the project, provider, environment and branch
-pickers the composer always has. Once a thread exists for that row, the glyph
+pickers the composer always has. Starting it leaves you on the page, with a
+toast whose **Go to thread** button opens the new thread. Once a thread exists for that row, the glyph
 changes and the button opens it rather than starting a second one; the plugin
 remembers which thread belongs to which number in its own table, which is the
 only thing in its database that does not come from GitHub.
@@ -406,7 +407,7 @@ needs no new sync.
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
-| `components/start-thread-dialog.tsx` | bb's composer in a dialog, seeded with the row |
+| `components/thread-seed.ts` | The row a thread starts from, and the prompt it is seeded with |
 | `components/period-picker.tsx` | The presets and the date range, which every page shares |
 | `dashboard/remember.ts` | The chosen span, kept across opens |
 | `server.ts` | Settings, starting syncs, and the RPCs |

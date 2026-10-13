@@ -5,7 +5,7 @@ import { unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
 import { ItemRow } from "./item-row";
-import type { ThreadSeed } from "./start-thread-dialog";
+import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";

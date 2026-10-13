@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { rpcContract } from "../shelf/contract";
 import { ShelfTable } from "./ShelfTable";
-import { StartThreadDialog } from "./StartThreadDialog";
+import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import * as dialogParts from "@/components/ui/dialog";
 import { shelfStore } from "./shelf-store";
 
 function useShelf() {
@@ -49,7 +50,7 @@ export function ShelfPage() {
       setPublishing(pluginId);
       try {
         const { threadId } = await rpc.call("shelf_publish", { pluginId });
-        navigate.toThread(threadId);
+        announceStartedThread(navigate, threadId, "Started a thread to publish the update");
       } catch (cause) {
         toast.error(cause instanceof Error ? cause.message : "Could not start the thread.");
       } finally {
@@ -68,7 +69,7 @@ export function ShelfPage() {
           request: request as never,
         });
         setThreadFor(null);
-        navigate.toThread(threadId);
+        announceStartedThread(navigate, threadId);
       } catch (cause) {
         toast.error(cause instanceof Error ? cause.message : "Could not start the thread.");
         // Rethrow so the composer keeps the draft rather than clearing it.
@@ -77,6 +78,8 @@ export function ShelfPage() {
     },
     [navigate, rpc, threadFor],
   );
+
+  const threadPlugin = state.list?.rows.find((row) => row.id === threadFor) ?? null;
 
   const body =
     state.list === null ? (
@@ -103,8 +106,21 @@ export function ShelfPage() {
         {body}
       </div>
       <StartThreadDialog
-        plugin={state.list?.rows.find((row) => row.id === threadFor) ?? null}
-        projectId={projectId}
+        dialog={dialogParts}
+        heading={`Start a thread on ${threadPlugin?.name ?? ""}`}
+        description="Describe what the thread should do with this plugin."
+        // One saved draft per plugin, so a half-written thread for one
+        // plugin does not appear in another's dialog.
+        draftKey={`plugin-shelf:${threadFor ?? ""}`}
+        seed={
+          threadPlugin
+            ? {
+                projectId,
+                placeholder: `What should this thread do with ${threadPlugin.name}?`,
+                preview: { title: threadPlugin.name, tag: `${threadPlugin.dir}/`, meta: threadPlugin.description },
+              }
+            : null
+        }
         onClose={() => setThreadFor(null)}
         onSubmit={startThread}
       />

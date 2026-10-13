@@ -1,0 +1,49 @@
+import { StoryCard, StoryRow } from "@bb-ladle/story-card";
+
+import { PreviewCard, WorkspaceBanner } from "./start-thread";
+
+export default {
+  title: "component-library/Start thread",
+};
+
+/**
+ * The card above the composer in every start-thread dialog, saying which row
+ * the thread is for. bb's composer itself sits below it.
+ */
+export const Preview = () => (
+  <StoryCard>
+    <StoryRow label="Pull request" hint="Linked, with its number">
+      <PreviewCard
+        preview={{
+          title: "Cache the widget index between syncs",
+          number: 42,
+          url: "https://github.com/acme/widgets/pull/42",
+          meta: "acme/widgets · octocat · 2 failing checks",
+        }}
+      />
+    </StoryRow>
+    <StoryRow label="No page of its own" hint="Such as a priority">
+      <PreviewCard preview={{ title: "Ship the gadget importer", meta: "Priority this week" }} />
+    </StoryRow>
+    <StoryRow label="With a tag" hint="Such as a plugin's directory">
+      <PreviewCard
+        preview={{ title: "Acme Board", tag: "bb-plugin-acme-board/", meta: "Shows the Acme Board in a panel." }}
+      />
+    </StoryRow>
+  </StoryCard>
+);
+
+/**
+ * Where the thread runs, when the plugin decides that itself and hides the
+ * composer's project, environment and branch pickers.
+ */
+export const Workspace = () => (
+  <StoryCard>
+    <StoryRow label="On the pull request's branch">
+      <WorkspaceBanner branch="octocat/cache-widget-index" note={null} />
+    </StoryRow>
+    <StoryRow label="On a new branch" hint="The plugin could not use the pull request's own">
+      <WorkspaceBanner branch={null} note="it comes from a fork." />
+    </StoryRow>
+  </StoryCard>
+);

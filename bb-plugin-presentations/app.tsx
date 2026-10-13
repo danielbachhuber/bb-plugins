@@ -16,6 +16,7 @@ import {
   useRpc,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { announceStartedThread } from "component-library/start-thread";
 import type { Deck, rpcContract } from "./server";
 import { DeckPanelView, DeckWindowView } from "./deck/view";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ function NewPresentationPage() {
           request: request as never,
           deckPath: deckPath.trim(),
         });
-        navigate.toThread(threadId);
+        announceStartedThread(navigate, threadId, "Started a thread to write the deck");
       } catch (cause) {
         toast.error(cause instanceof Error ? cause.message : "Could not start the thread.");
         throw cause;

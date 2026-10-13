@@ -14,8 +14,10 @@ import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   StartThreadDialog,
+  announceStartedThread,
   type StartThreadSeed,
-} from "@/components/start-thread-dialog";
+} from "component-library/start-thread";
+import * as dialog from "@/components/ui/dialog";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import type { rpcContract } from "./server.js";
 import { countedRows } from "./issues/board.js";
@@ -219,10 +221,10 @@ function Panel() {
         throw new Error(result.reason ?? "Could not start a thread.");
       }
       setDraft(null);
-      if (!result.existing) toast.success(`Started a thread for ${key}`);
+      if (!result.existing) announceStartedThread(navigate, result.threadId, `Started a thread for ${key}`);
       await reload();
     },
-    [draft, reload, rpc],
+    [draft, navigate, reload, rpc],
   );
 
   const onPick = useCallback(
@@ -286,14 +288,11 @@ function Panel() {
       />
 
       <StartThreadDialog
-        open={draft !== null}
-        onOpenChange={(next) => {
-          if (!next) setDraft(null);
-        }}
+        dialog={dialog}
+        onClose={() => setDraft(null)}
         heading={
           draft ? `Start a thread for #${draft.row.number}` : "Start a thread"
         }
-        description="Edit what this thread should do, then start it."
         draftKey={draft ? `issue-sweep:${draft.row.repo}#${draft.row.number}` : ""}
         seed={draft?.seed ?? null}
         onSubmit={onSubmitDraft}

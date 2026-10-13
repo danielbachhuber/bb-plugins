@@ -15,6 +15,7 @@ import {
   useRpc,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { announceStartedThread } from "component-library/start-thread";
 import type { rpcContract } from "./server";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -36,7 +37,7 @@ function NewIssuePage() {
         const { threadId } = await rpc.call("issue_thread_create", {
           request: request as never,
         });
-        navigate.toThread(threadId);
+        announceStartedThread(navigate, threadId, "Started a thread to draft the issue");
       } catch (cause) {
         toast.error(
           cause instanceof Error ? cause.message : "Could not start the thread.",

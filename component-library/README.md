@@ -17,6 +17,7 @@ what not to do with it.
 | [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
 | [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
 | [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, beside the right-panel toggle |
+| [Start thread](#start-thread) | `component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -35,6 +36,9 @@ copy uses the plugin's.
 an optional peer, so a plugin that imports neither [Calendar](#calendar) nor
 [Date range](#date-range) leaves it out of its lockfile. A plugin that imports
 either one lists `react-day-picker` in its own dependencies.
+
+`@get-bb/plugin-sdk` and `sonner` are optional peers too, for
+[Start thread](#start-thread). bb provides both at runtime.
 
 The package uses relative imports only, since `@/` means the plugin's own
 directory once it is installed there. For the same reason it cannot use a
@@ -277,6 +281,58 @@ that order.
 **Don't** put more than one button in the slot, or anything wider than the
 counts. The top bar holds a thread's own controls, and every plugin that
 adds a chip takes room from them.
+
+## Start thread
+
+```tsx
+import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import * as dialogParts from "@/components/ui/dialog";
+
+<StartThreadDialog
+  dialog={dialogParts}
+  heading={`Start a thread for #${row.number}`}
+  draftKey={`pr-sweep:${row.repo}#${row.number}`}
+  seed={draft?.seed ?? null}
+  onClose={() => setDraft(null)}
+  onSubmit={async (request) => {
+    const { threadId } = await rpc.call("start", { request });
+    setDraft(null);
+    announceStartedThread(navigate, threadId, `Started a thread for ${key}`);
+  }}
+/>
+```
+
+It is how a plugin starts a thread about one row: a pull request, an issue, a
+task, a plugin. The dialog holds bb's own `experimental_NewThreadComposer`, so
+@-mentions, attachments, and the provider, project, environment, branch and
+permission pickers are bb's. The plugin supplies a seed and passes the
+resolved `NewThreadRequest` on to `threads.spawn`.
+
+**What it draws.** A card naming the row (`seed.preview`), linked when it has
+a URL, then the composer, seeded with `seed.prompt` and whichever of
+`projectId`, `providerId`, `model`, `permissionMode` and `environment` the
+plugin has an opinion on. With `seed.workspace.branch`, a banner names the
+branch the thread runs on and the composer's project, environment and branch
+pickers are hidden, which needs `FIXED_ENVIRONMENT_CSS` on the page from a
+content script. The draft is saved per row and per seeded prompt, so an edit
+survives reopening the same row and is dropped once the plugin seeds
+something different. `StartThreadForm` is the same without the dialog.
+
+**After it starts.** Call `announceStartedThread` rather than
+`navigate.toThread`. Every plugin leaves you on the page you started the
+thread from, with a toast whose **Go to thread** button opens it. Opening a
+thread that already exists, from a row's Open thread, still navigates.
+
+**The dialog parts.** The library cannot import a plugin's vendored
+`components/ui/dialog.tsx`, since `@/` means the plugin's directory, so the
+plugin passes its own in as `dialog`.
+
+The three sweeps, Now, Impromptu UI, Plugin Shelf, and Contributor Dashboard
+use the dialog. New issue, Presentations, and Weekly Review use only the
+toast.
+
+**Don't** put the row's identity in the editable prompt instead of the card.
+Editing it could only break the link between the thread and its row.
 
 ## Working on it
 

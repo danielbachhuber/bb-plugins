@@ -241,7 +241,8 @@ Every row also has **Start thread** in its details line, which opens bb's
 new-thread composer in a dialog, with the row's facts already in the prompt
 (its title, link, dates, description, and latest comment) and room for what
 the thread should do. The composer's project defaults to the
-`threadProjectId` setting when it is set. Once a thread is started, the row
+`threadProjectId` setting when it is set. Starting it leaves you on the page,
+with a toast whose **Go to thread** button opens the new thread. Once a thread is started, the row
 offers **Open thread** instead, until that thread is archived or deleted.
 
 A GitHub row also has **Reply** in its details line, which opens a box under
@@ -508,7 +509,6 @@ list `server.ts` passes to `loadSources`.
 | `now/sections.ts` | Which section a row goes in, which run of the Now section and why a row can be archived, the short date each row shows, and the sidebar's counts |
 | `now/now-summary.tsx` | The squares under the header, one per row in Now, shrunk to fit one line, that filter the list to one run |
 | `now/thread-prompt.ts` | What Start thread's composer opens with |
-| `now/start-thread-dialog.tsx` | bb's new-thread composer in a dialog, adapted from the sweeps' |
 | `now/item-list.tsx` | The page's display component, which loads nothing itself |
 | `now/find-command.ts` | Finding `gws` and `gh` in the usual install directories when bb's PATH does not include them |
 | `now/email-text.ts` | A plain email's latest message as the text Show more puts in place of its snippet |

@@ -16,6 +16,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
+import { announceStartedThread } from "component-library/start-thread";
 import type { rpcContract } from "./server";
 import type { CalendarEvent, SlackThread, SourceResult, Task, WeekData } from "./review/types.js";
 import { buildDaySlices, comingUp, weekTotals } from "./review/week.js";
@@ -933,7 +934,7 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
         rpc.call("week_suggest_rules", { monday }).then(
           ({ threadId }) => {
             setThreads((current) => ({ ...current, rules: threadId }));
-            navigate.toThread(threadId);
+            announceStartedThread(navigate, threadId, "Started a thread to suggest rules");
           },
           report,
         ).finally(() => setSuggestingRules(false));
@@ -967,7 +968,7 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
     try {
       const { threadId } = await rpc.call("week_gather_notes", { monday: selected });
       setThreads((current) => ({ ...current, notes: threadId }));
-      navigate.toThread(threadId);
+      announceStartedThread(navigate, threadId, "Started a thread to gather notes");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -981,7 +982,7 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
     try {
       const { threadId } = await rpc.call("week_gather_slack", { monday: selected });
       setThreads((current) => ({ ...current, slack: threadId }));
-      navigate.toThread(threadId);
+      announceStartedThread(navigate, threadId, "Started a thread to gather Slack");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -995,12 +996,10 @@ function WeeklyReviewPage({ subPath }: PluginNavPanelProps) {
     try {
       const { threadId } = await rpc.call("week_feedback", { monday: selected });
       setThreads((current) => ({ ...current, feedback: threadId }));
-      // Straight into the thread. The assessment is a conversation to have
-      // while the entry is being rewritten, not a report to receive, and this
-      // page is where it started rather than where it belongs.
-      navigate.toThread(threadId);
+      announceStartedThread(navigate, threadId, "Started a thread to review the week");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
       setReviewing(false);
     }
   };

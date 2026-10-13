@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { BB_PICKER_SELECTORS, FIXED_ENVIRONMENT_ATTRIBUTE, FIXED_ENVIRONMENT_CSS } from "./start-thread-dialog.js";
+import { BB_PICKER_SELECTORS, FIXED_ENVIRONMENT_ATTRIBUTE, FIXED_ENVIRONMENT_CSS } from "./keys";
 
 afterEach(() => {
   document.body.innerHTML = "";

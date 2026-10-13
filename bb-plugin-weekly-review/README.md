@@ -288,7 +288,8 @@ than a changelog, so a merged pull request counts only when it carries a
 decision, a risk, or a change of direction, and hours count only when the
 number says something.
 
-It opens the thread it started, and the page keeps a link back. The assessment
+It starts the thread without leaving the page: a toast with **Go to thread**
+links to it, and so does **Open the thread** beside the button. The assessment
 is a conversation to have while the entry is being rewritten, not a report to
 receive: ask which findings matter, push back, ask for the evidence behind a
 line. The agent re-reads the document before answering anything that turns on

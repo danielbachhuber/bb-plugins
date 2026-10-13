@@ -11,6 +11,8 @@ bb's own new-thread composer. Name the folder, say what the talk is about, and
 submit. The plugin starts a thread titled "Presentation: <folder>" and puts a
 short paragraph ahead of your prompt telling the agent where the slides go and
 how they are named. The agent creates the folder if it does not exist.
+You stay on the page, and a toast with **Go to thread** links to the new
+thread.
 
 The folder can be:
 

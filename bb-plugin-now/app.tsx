@@ -28,7 +28,8 @@ import { hideSidePanel } from "./now/side-panel.js";
 import { SidebarCount } from "component-library/sidebar-count";
 import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 import { Icon } from "@/components/ui/icon";
-import { StartThreadDialog, type StartThreadSeed } from "./now/start-thread-dialog.js";
+import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "component-library/start-thread";
+import * as dialogParts from "@/components/ui/dialog";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
 
@@ -375,18 +376,19 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
         throw new Error(result.error ?? "Could not start a thread.");
       }
       setDraft(null);
-      if (result.existing) navigate.toThread(result.threadId);
-      else toast.success(`Started a thread for "${draft.title}"`);
+      announceStartedThread(
+        navigate,
+        result.threadId,
+        result.existing ? `Already started a thread for "${draft.title}"` : `Started a thread for "${draft.title}"`,
+      );
     },
     [draft, navigate, rpc],
   );
 
   const dialog = (
     <StartThreadDialog
-      open={draft !== null}
-      onOpenChange={(open) => {
-        if (!open) setDraft(null);
-      }}
+      dialog={dialogParts}
+      onClose={() => setDraft(null)}
       heading="Start a thread"
       description="Write what this thread should do, then start it."
       draftKey={draft === null ? "" : `now:${draft.id}`}

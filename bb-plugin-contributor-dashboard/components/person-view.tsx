@@ -5,7 +5,7 @@ import { unitOfBuckets, type Selection } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
 import { ItemRow } from "./item-row";
-import type { ThreadSeed } from "./start-thread-dialog";
+import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 

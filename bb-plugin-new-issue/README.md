@@ -3,7 +3,8 @@
 Adds a **New issue** row to the BB sidebar. The page it opens asks for a
 project and a few lines about what the issue should cover, then spawns a
 thread that runs the `draft-issue-description` skill against that project's
-repo and opens it.
+repo. You stay on the page, and a toast with **Go to thread** links to the
+new thread.
 
 The plugin only writes the brief. The skill owns the rest: gathering the
 triggering comment, pinning code references to permalinks, drafting to

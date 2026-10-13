@@ -268,7 +268,8 @@ before trusting it unattended.
 ## Threads
 
 "Start review" opens bb's composer in a dialog, so you can read and edit the
-prompt first. A thread started from a row is linked to its pull request in gh-context, and
+prompt first. Starting it leaves you on the page, with a toast whose **Go to
+thread** button opens the new thread. A thread started from a row is linked to its pull request in gh-context, and
 the row then opens that thread rather than starting another. A review thread
 is not on the pull request's branch, so bb itself finds no pull request for it;
 gh-context's banner above the composer shows the one this plugin linked.
