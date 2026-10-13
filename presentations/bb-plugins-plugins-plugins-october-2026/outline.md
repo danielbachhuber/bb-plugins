@@ -62,15 +62,16 @@ The doc audit is set aside in `unused/`.
 - 42 Behold: Super Diff.
 - 43 Grade: C.
 
-### Now (50-53)
+### Now (50-55)
 
-- 50 Problem: I spend all day in bb, and forget to look at Todoist and
-  Gmail.
-- 51 New plugin: Now. One list of what needs doing now, from all of them,
-  with the actions to deal with each row in place.
-- 52 Behold: the Now page, with the squares above the list and the week's
-  priorities beside it.
-- 53 Grade: A
+- 50 Problem: I spend all day in bb, and forget to look at Todoist and Gmail.
+- 51 New plugin: Now. The Now page; I talk through what it does.
+- 52 Knows what's done on GitHub: Archive says "it's merged" or "it's closed".
+- 53 The pull request on every row: the pull request's state, reviewers, and a
+  merge button under each GitHub row.
+- 54 Smart contextual filters: pressing a group of squares filters the list
+  to it.
+- 55 Grade: A
 
 ### Tokenomics (60-65)
 
@@ -84,41 +85,24 @@ The doc audit is set aside in `unused/`.
 - 65 Grade: C-. It shows me the outliers in token use well, but I haven't
   solved tying threads to business value, or the time-spent part.
 
-### Tips and tricks (70-77)
+### Three tips for working with bb plugins (70-73)
 
-- 70 Tips and tricks. **Interactive:** before each tip, "who already does
-  this?"
-- 71-76 One tip per slide, six from the list below.
+- 70 Three tips for working with bb plugins. **Interactive:** before each tip,
+  "who already does this?"
+- 71 ✓ Tip 1: iterate on live data. Every real bug here passed its tests; four
+  bugs found on the live page.
+- 72 ✓ Tip 2: ask for mockups, from live data or every permutation of it. 249
+  options across 9 plugins.
+- 73 ✓ Tip 3: a component library. 7 components shared by 11 plugins.
+
+The other tips (fix it right away, cards, the 8.5-second page, settings) are
+set aside in `unused/`.
 
 ### Closing (90)
 
 - 90 Check out my plugins, and how each one looks:
   - https://github.com/danielbachhuber/bb-plugins
   - https://github.com/danielbachhuber/bb-plugins-screenshots
-
-## Tips and tricks
-
-Candidates, from how this repository works. Pick four to six.
-
-- See something wonky, open a thread to fix it right away. (Con: you lose your
-  train of thought.)
-- Ask the agent for several mockups and pick one, instead of describing the
-  design up front.
-- Have the agent show results as cards, not paragraphs (Impromptu UI).
-- Render stories with bb's real stylesheet, so you see a change without
-  reloading bb.
-- Use bb's own components before building your own. A hand-built copy looks
-  different and gets replaced.
-- Verify against live data, not just tests. Every real bug passed its tests.
-- Time the real page with real data. A story with three fixture rows hides
-  the 8.5-second page.
-- Keep a shared component library, so two plugins don't each grow a copy.
-- Photograph every story into a separate, anonymized screenshots repo.
-- Anything personal is a setting, never a constant.
-- Several agents in one checkout: stage files by name, never `git add -A`.
-- Build and reload after every commit; bb runs the plugin's `dist/`, not its
-  source.
-
 
 ## Plugin sections
 
