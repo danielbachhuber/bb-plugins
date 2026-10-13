@@ -13,7 +13,7 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -155,8 +155,11 @@ function ThreadStage({
   currentThreadId,
   threads,
   others = [],
+  chatOnly = false,
 }: {
   turns: Turn[];
+  /** Only the chat and composer, as the thread looked before it published the view. */
+  chatOnly?: boolean;
   view: StoredView;
   /** Views published under other keys, shown under the first. */
   others?: StoredView[];
@@ -172,7 +175,7 @@ function ThreadStage({
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
   const [focus, setFocus] = useState<string | null>(initialFocus);
   const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(initialCollapsed ?? null);
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(chatOnly);
   // A list view's buttons work here without a server: they mark rows done or skipped.
   const [items, setItems] = useState(published.items);
   const view = { ...published, items };
@@ -246,6 +249,7 @@ function ThreadStage({
         />
       </div>
     </div>
+    {chatOnly ? null : (
     <aside className="w-[440px] shrink-0 border-l border-border">
       {view.view.layout === "list" ? (
         <ListPanel
@@ -275,6 +279,7 @@ function ThreadStage({
         />
       )}
     </aside>
+    )}
     </div>
   );
 }
@@ -432,6 +437,39 @@ const dependabotTurns: Turn[] = [
   },
 ];
 
+const dependabotAssessment = `## Assessment
+
+**Scope:** \`devDependency\` only, in \`package.json\`. Prettier is not imported anywhere in the code. It runs from \`npm run format\` and the lint job, so it has no reach into what ships.
+
+**Version jump:** patch, 3.6.1 to 3.6.2. Per the changelog, the only change is a fix for formatting decorators in class expressions.
+
+**What changed:** acme/widgets has no decorators in class expressions, so the fix doesn't apply here.
+
+**Blast radius:** formatting only. No build artifact depends on prettier.
+
+**Verification performed locally:**
+- \`npm run format -- --check\` is clean on the branch, so no files would be reformatted.
+- \`npm run lint\` passes.
+
+**CI:** 12 of 12 checks passing.
+
+**Diff cleanliness:** clean, two files (\`package.json\`, \`package-lock.json\`), no unrelated changes.
+
+**Verdict:** safe to merge.
+
+Do you want me to post this on #412, approve it, and merge it? Or post it only?`;
+
+const dependabotInChatTurns: Turn[] = [
+  { kind: "user", text: "acme/widgets#412 is a Dependabot pull request. Assess it and draft a comment." },
+  { kind: "work", text: "Read the PR, its changelog, and 3 files that use prettier" },
+  { kind: "assistant", text: dependabotAssessment },
+];
+
+/** Before: the assessment written out in chat, ending in a question to answer by typing. */
+export function DependabotInChat() {
+  return <ThreadStage turns={dependabotInChatTurns} view={stored(dependabotView)} chatOnly />;
+}
+
 /** One pull request above the composer, with its main button. */
 export function Dependabot() {
   return <ThreadStage turns={dependabotTurns} view={stored(dependabotView)} />;
@@ -572,6 +610,129 @@ export function GrantSectionOwnThread() {
       view={viewFor(stored(grantSectionThreadsView), "thr_need01")}
       currentThreadId="thr_need01"
       threads={grantSectionThreads}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Configuration audit                                                        */
+/* -------------------------------------------------------------------------- */
+
+const auditFindings = `I checked the Widgets Configuration Audit doc against current \`main\`. It has drifted: about 90 commits have landed since it was written. I haven't edited the doc.
+
+## Must fix
+
+1. **Delete the "Gadget previews" row.** The feature is gone. \`client/modules/gadget-preview/\` no longer exists. Removed in Remove gadget previews (#412). The Modules count drops from 9 to 8.
+2. **Add Widget Home as a feature.** It is a public landing page for a team, listing its open and closed widgets.
+   - Turned on by the \`widgetHomeEnabled\` team setting, which defaults to off.
+   - Code: \`client/screens/widget-home.tsx\`. Added in Add Widget Home (#388).
+3. **\`REPORTS_CAPABILITY\` no longer exists.** It was split into \`REPORTS_VIEW_CAPABILITY\` and \`REPORTS_MANAGE_CAPABILITY\` in #401. Two rows need updating:
+   - The Admin page now uses VIEW.
+   - The Reports page uses VIEW for the screen and MANAGE for changes.
+4. **Setting defaults have moved.** Every "settings-map.ts stores X, defaulting to Y" claim now points to the wrong place. That covers about 8 rows.
+   - The default values themselves are unchanged.
+   - Defaults now live in \`server/settings.ts\`.
+   - Moved in Serve settings from the database layer (#395).
+5. **Environment variables:**
+   - \`LOCAL_DEV\`, \`EMULATOR_HOST\` and \`CLOUD_PROJECT\` are no longer declared. Remove those rows.
+   - Add \`WIDGETS_CONFIG_FILE\`, which names a JSON settings file. Added in #379.
+
+## Should fix (inaccurate details)
+
+- **sorterKey:** the row says it picks "which sorter a team uses", but nothing reads it. Sorting uses a hardcoded \`ACTIVE_SORTER\`. Worth an open question: wire it up or remove it?
+- **Dashboard:** the tabs are Widgets, Gadgets, Reports and Settings. The per-user page is a subscreen, not a tab.
+- **Environment variable wording:**
+   - \`MAIL_PROVIDER\` and \`MAIL_PORT\` each state their default twice.
+   - \`BASE_URL\` is optional, even though it sits under "Required".
+
+## Worth adding
+
+- A link from the Environment Variables section to \`docs/configuration.md\`, which has a stale line of its own: it lists \`MAIL_SENDER_ID\`, which doesn't exist.
+
+Do you want me to make these edits in the doc directly, or would you rather apply them yourself?`;
+
+const auditTurns: Turn[] = [
+  { kind: "user", text: "Review the Widgets Configuration Audit doc for anything that's out of date." },
+  { kind: "work", text: "Ran 3 subagents, explored 41 files" },
+  { kind: "assistant", text: auditFindings },
+];
+
+const auditViewTurns: Turn[] = [
+  { kind: "user", text: "use dynamic ui for the suggestions" },
+  { kind: "work", text: "Ran 1 tool, ran 2 commands" },
+  {
+    kind: "assistant",
+    text: "The 9 suggestions are above the composer, in three groups: 5 must fix, 3 should fix and 1 worth adding. Most show the doc's current text next to the proposed text, which you can edit before you press **Apply to doc**.",
+  },
+];
+
+/** Before: the audit's findings written out in chat, to be answered by typing. */
+export function ConfigAuditInChat() {
+  return <ThreadStage turns={auditTurns} view={stored(configAuditView)} chatOnly />;
+}
+
+/** After: the same findings as rows above the composer, one open in the side panel with the doc's text next to the edit. */
+export function ConfigAuditItemOpen() {
+  return <ThreadStage turns={auditViewTurns} view={stored(configAuditView)} initialFocus="reports-capability" />;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Milestone triage                                                           */
+/* -------------------------------------------------------------------------- */
+
+const milestoneDrafts = `I've triaged all 13 open issues in the Gadget Embed milestone. Here is a draft comment for each. Nothing has been posted yet.
+
+**#313 Translate gadget titles in the embed** (close, completed)
+
+> This is fixed. The embed no longer reads the old metadata endpoint, and the v2 gadget read (#518) returns the title's translations, which the embed picks from by the reader's locale.
+> - Seeded and real gadget titles translate: done in #518
+> - The old endpoint returning translations: no longer needed, since nothing calls it
+
+**#429 Share one stylesheet between the embed and the app** (close, completed)
+
+> This is done. #540 moved the embed and the app onto the same theme tokens, so a color change in the theme now reaches both.
+> - Shared colors: done in #540
+> - Shared spacing: done in #540
+> - The embed's own copy of the palette: deleted in #540
+
+**#310 Decide which embed styles we support** (close, duplicate of #320)
+
+> Closing as a duplicate of #320, where the design discussion on which embed styles to keep is happening. The list of styles from this issue is copied there.
+
+**#311 Decide how partner colors are managed** (close, duplicate of #619)
+
+> Closing as a duplicate of #619, which handles partner colors as part of the theme work.
+
+**#308 Serve the new embed at the existing /embed URL** (keep open, question)
+
+> Status: still open, and it's the last step before partners switch. In May we said we'd choose between a redirect and serving the new embed directly at the end of the project. Which do we want?
+
+**#320 Design the default embed** (keep open, question)
+
+> Status: the embed ships one style today. Before we build more, we need a direction for the default.
+
+…and 7 more. Which should I post, and which should I close?`;
+
+const milestoneTurns: Turn[] = [
+  { kind: "user", text: "Triage each of the open issues" },
+  { kind: "work", text: "Ran 4 subagents, explored 1 list, ran 2 commands" },
+];
+
+/** Before: thirteen draft comments written out in chat, one after another. */
+export function MilestoneTriageInChat() {
+  return <ThreadStage turns={[...milestoneTurns, { kind: "assistant", text: milestoneDrafts }]} view={stored(milestoneTriageView)} chatOnly />;
+}
+
+/** After: the same thirteen issues grouped by outcome above the composer, one open with its comment and buttons. */
+export function MilestoneTriageItemOpen() {
+  return (
+    <ThreadStage
+      turns={[
+        ...milestoneTurns,
+        { kind: "assistant", text: "I've triaged all 13 open issues in the Gadget Embed milestone. Each one is above the composer with its draft comment, grouped by outcome. Nothing has been posted yet." },
+      ]}
+      view={stored(milestoneTriageView)}
+      initialFocus="issue-434"
     />
   );
 }

@@ -803,3 +803,180 @@ export const grantQuestionView: View = viewSchema.parse({
     },
   ],
 });
+
+/* A documentation audit: findings checked against the code, each a doc edit to apply. */
+
+const auditDoc = "the Widgets Configuration Audit doc";
+
+function applyToDoc(row: string) {
+  return [{ type: "message", label: "Apply to doc", primary: true, text: `In ${auditDoc}, update the "${row}" row as below:\n\n{draft}` }];
+}
+
+export const configAuditView: View = viewSchema.parse({
+  title: "Configuration audit: suggested updates",
+  summary: "Checked the Widgets Configuration Audit doc against `main`. **Apply to doc** asks me to make that edit in the doc.",
+  sections: [
+    {
+      title: "Must fix",
+      items: [
+        {
+          id: "gadget-previews",
+          title: 'Remove the "Gadget previews" row',
+          badges: [{ label: "Obsolete", tone: "danger" }],
+          summary: "The feature was deleted in Remove gadget previews (#412). `client/modules/gadget-preview/` no longer exists.",
+          draft: 'Delete the "Gadget previews" row from Modules, and change the header count from (9) to (8).',
+          draftLabel: "Edit",
+          actions: [{ type: "message", label: "Apply to doc", primary: true, text: `In ${auditDoc}:\n\n{draft}` }],
+        },
+        {
+          id: "widget-home",
+          title: "Add Widget Home as a feature",
+          badges: [{ label: "Missing", tone: "warning" }],
+          summary: "A public landing page listing a team's open and closed widgets, added in Add Widget Home (#388). Off by default.",
+          draft: "Widget Home: a public landing page for a team, listing its open and closed widgets. Turned on by the `widgetHomeEnabled` team setting, which defaults to off. Code: `client/screens/widget-home.tsx`.",
+          draftLabel: "New row",
+          actions: [{ type: "message", label: "Apply to doc", primary: true, text: `In ${auditDoc}, add this row to Features:\n\n{draft}` }],
+        },
+        {
+          id: "reports-capability",
+          title: "REPORTS_CAPABILITY was split into VIEW and MANAGE",
+          badges: [{ label: "Stale", tone: "warning" }],
+          summary: "Split in Separate viewing reports from changing them (#401). Two rows name the old constant.",
+          changesLabel: "Change against the doc",
+          changes: [
+            {
+              label: "Admin page, Reports page",
+              before: "Admin page: ...gated on REPORTS_CAPABILITY.\nReports page: ...gates the screen on REPORTS_CAPABILITY.",
+            },
+          ],
+          draft: "Admin page: ...gated on REPORTS_VIEW_CAPABILITY.\nReports page: ...gates the screen on REPORTS_VIEW_CAPABILITY, and changes to reports on REPORTS_MANAGE_CAPABILITY.",
+          actions: applyToDoc("Admin page, Reports page"),
+        },
+        {
+          id: "settings-defaults",
+          title: "Setting defaults moved to server/settings.ts",
+          badges: [{ label: "Stale", tone: "warning" }],
+          summary: "Moved in Serve settings from the database layer (#395). The values are unchanged; eight rows point at the old file.",
+          changesLabel: "Change against the doc",
+          changes: [{ label: "Settings", before: "settings-map.ts stores colorScheme, defaulting to light." }],
+          draft: "server/settings.ts defaults colorScheme to light.",
+          actions: applyToDoc("Settings"),
+        },
+        {
+          id: "env-config-file",
+          title: "Environment: remove 3 rows and add WIDGETS_CONFIG_FILE",
+          badges: [{ label: "Stale", tone: "warning" }],
+          summary: "Three variables are no longer declared, and Load settings from a file (#379) added one.",
+          draft: "Remove LOCAL_DEV, EMULATOR_HOST and CLOUD_PROJECT. Add WIDGETS_CONFIG_FILE: names a JSON settings file; environment variables override it.",
+          draftLabel: "Edit",
+          actions: [{ type: "message", label: "Apply to doc", primary: true, text: `In ${auditDoc}:\n\n{draft}` }],
+        },
+      ],
+    },
+    {
+      title: "Should fix",
+      items: [
+        {
+          id: "sorter-key",
+          title: "sorterKey is stored but nothing reads it",
+          badges: [{ label: "Open question", tone: "info" }],
+          summary: 'The row says it picks "which sorter a team uses", but sorting uses a hardcoded `ACTIVE_SORTER = "newest"`.',
+          draft: "sorterKey is stored and defaulted, but nothing reads it: sorting uses a hardcoded ACTIVE_SORTER. Open question: wire sorterKey up, or remove the setting?",
+          draftLabel: "Note for the sorterKey row",
+          actions: [
+            { type: "message", label: "Add as open question", primary: true, text: `In ${auditDoc}, add this to the "sorterKey" row:\n\n{draft}` },
+            { type: "message", label: "Create issue", text: "Draft an acme/widgets issue about this:\n\n{draft}" },
+          ],
+        },
+        {
+          id: "dashboard-tabs",
+          title: "Dashboard: correct the tab list",
+          badges: [{ label: "Inaccurate", tone: "warning" }],
+          summary: "The tabs are Widgets, Gadgets, Reports and Settings. The per-user page is a subscreen, not a tab.",
+          changesLabel: "Change against the doc",
+          changes: [{ label: "Dashboard", before: "Tabs: Widgets, Gadgets, Users and Settings." }],
+          draft: "Tabs: Widgets, Gadgets, Reports and Settings. Each user's page opens from the Widgets tab.",
+          actions: applyToDoc("Dashboard"),
+        },
+        {
+          id: "env-duplicate-defaults",
+          title: "Environment: defaults stated twice",
+          badges: [{ label: "Typo", tone: "neutral" }],
+          summary: "`MAIL_PROVIDER` and `MAIL_PORT` each state their default twice.",
+          changesLabel: "Change against the doc",
+          changes: [{ label: "MAIL_PORT", before: "Port for outgoing mail. Defaults to 587. Default: 587." }],
+          draft: "Port for outgoing mail. Defaults to 587.",
+          actions: applyToDoc("MAIL_PORT"),
+        },
+      ],
+    },
+    {
+      title: "Worth adding",
+      items: [
+        {
+          id: "repo-docs",
+          title: "Fix the stale environment docs in the repo",
+          badges: [{ label: "Repo", tone: "neutral" }],
+          summary: "`docs/configuration.md` lists a variable that no longer exists.",
+          draft: "Remove MAIL_SENDER_ID from docs/configuration.md, and describe WIDGETS_CONFIG_FILE.",
+          draftLabel: "What the PR changes",
+          actions: [{ type: "thread", label: "Fix in a PR", primary: true, project: "widgets", title: "Fix the stale environment docs", prompt: "In acme/widgets, open a pull request that does this:\n\n{draft}" }],
+        },
+      ],
+    },
+  ],
+});
+
+/* A whole milestone triaged at once: thirteen issues, each with a status comment to post. */
+
+type TriageRow = [number, string, string, string, string];
+
+function triageItem([number, title, badge, summary, draft]: TriageRow, close: string | null, tone: "success" | "warning" | "info" | "neutral") {
+  const post = { type: "message", label: "Post", text: `Post this triage comment on #${number}:\n\n{draft}` };
+  return {
+    id: `issue-${number}`,
+    title: `#${number} ${title}`,
+    url: `https://github.com/acme/widgets/issues/${number}`,
+    badges: [{ label: badge, tone }],
+    summary,
+    draft,
+    draftLabel: "Comment to post",
+    actions:
+      close === null
+        ? [{ ...post, primary: true }]
+        : [{ type: "message", label: close, text: `Post this triage comment on #${number}, then close it:\n\n{draft}`, primary: true }, post],
+  };
+}
+
+const closeRows: TriageRow[] = [
+  [313, "Translate gadget titles in the embed", "Close: completed", "Fixed when the embed moved to the v2 gadget read (#518), which returns each title's translations.", "This is fixed. The embed no longer reads the old metadata endpoint, and the v2 gadget read (#518) returns the title's translations, which the embed picks from by the reader's locale.\n\n- Seeded and real gadget titles translate: done in #518\n- The old endpoint returning translations: no longer needed, since nothing calls it"],
+  [429, "Share one stylesheet between the embed and the app", "Close: completed", "Both now take their colors and spacing from the shared theme tokens added in #540.", "This is done. #540 moved the embed and the app onto the same theme tokens, so a color change in the theme now reaches both.\n\n- Shared colors: done in #540\n- Shared spacing: done in #540\n- The embed's own copy of the palette: deleted in #540"],
+  [310, "Decide which embed styles we support", "Close: duplicate of #320", "The same decision is being made in #320, which has the design discussion.", "Closing as a duplicate of #320, where the design discussion on which embed styles to keep is happening. The list of styles from this issue is copied there."],
+  [311, "Decide how partner colors are managed", "Close: duplicate of #619", "#619 covers partner colors as part of the theme work.", "Closing as a duplicate of #619, which handles partner colors as part of the theme work."],
+];
+const questionRows: TriageRow[] = [
+  [308, "Serve the new embed at the existing /embed URL", "Keep open: question", "Still the last step. The approach was left to decide at the end of the project.", "Status: still open, and it's the last step before partners switch. In May we said we'd choose between a redirect and serving the new embed directly at the end of the project. Which do we want?"],
+  [320, "Design the default embed", "Keep open: question", "Waiting on a design direction for the default style.", "Status: the embed ships one style today. Before we build more, we need a direction for the default. Is the current single style the default, or does design want a new one?"],
+  [434, "Embed shows the system font instead of the brand font", "Keep open: question", "Still happens in Chrome: the font import inside the embed's shadow root is ignored.", "Status: still a bug in Chrome. The font `@import` sits inside the embed's shadow root, where Chrome ignores it, so the embed falls back to the system font. Stories don't show it because they load the stylesheet into the main page. Should we load the font from the host page instead?"],
+  [375, "Stop the page jumping when the embed loads", "Keep open: question", "No fix yet. Reserving a fixed height is the simplest option.", "Status: no change yet. The simplest fix is to reserve a fixed height before the embed loads. Is a fixed height acceptable for partners whose questions run long?"],
+];
+const statusRows: TriageRow[] = [
+  [442, "Accessibility audit of the embed", "Keep open: status", "Keyboard navigation and screen reader labels are still missing.", "Status: still needed. The embed can't be reached by keyboard, and its buttons have no screen reader labels. Partners have asked about this."],
+  [307, "Move the embed out of the client directory", "Keep open: status", "Half done: the build moved in #532, the source has not.", "Status: half done. #532 moved the build, but the source still lives under `client/`."],
+  [361, "Build every embed URL the same way", "Keep open: status", "Two of five places still join strings by hand.", "Status: three of the five places now use `new URL(path, base)`. The other two still join strings by hand."],
+  [373, "Use the app's translation system in the embed", "Keep open: status", "The embed still has its own string table.", "Status: still open. The embed keeps its own table of 40 strings instead of the app's translation system."],
+];
+const moveRows: TriageRow[] = [
+  [344, "Cache the embed's data endpoint", "Keep open: move milestone", "Belongs with the database work. The endpoint now does more per view, so caching matters more.", "Status: still needed, and more than when this was filed: the endpoint now loads every comment on each request. Moving it to the Database Support milestone, where the caching work is planned."],
+];
+
+export const milestoneTriageView: View = viewSchema.parse({
+  title: "Triage: Gadget Embed milestone",
+  summary: "13 open issues checked against `main`. Nothing has been posted yet.",
+  sections: [
+    { title: "Close", items: closeRows.map((row) => triageItem(row, "Post and close", "success")) },
+    { title: "Keep open, with a question", items: questionRows.map((row) => triageItem(row, null, "warning")) },
+    { title: "Keep open, with a status comment", items: statusRows.map((row) => triageItem(row, null, "info")) },
+    { title: "Move milestone", items: moveRows.map((row) => triageItem(row, "Post and move", "neutral")) },
+  ],
+});
