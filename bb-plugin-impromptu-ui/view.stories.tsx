@@ -6,7 +6,7 @@ import { applyStatus, viewFor, type StoredView } from "./view/store";
 import { ViewPanel, type ViewPanelProps } from "./view/view-panel";
 
 export default {
-  title: "dynamic-ui/View",
+  title: "impromptu-ui/View",
 };
 
 const noop = () => {};

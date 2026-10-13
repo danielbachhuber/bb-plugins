@@ -99,8 +99,8 @@ each side) between a name and its status. No em dashes.
 
 ## Show the draft
 
-Publish it as a card above the composer with `bb dynamic-ui publish` (see the
-`dynamic-ui` skill), so the user can edit it in place or tell you what to
+Publish it as a card above the composer with `bb impromptu-ui publish` (see the
+`impromptu-ui` skill), so the user can edit it in place or tell you what to
 change. One item, worked in rounds:
 
 ```json
@@ -138,7 +138,7 @@ change. One item, worked in rounds:
   comment. A claim the user told you directly can cite them. Each entry needs
   `id`, `claim` copied exactly from the draft, `support` (`full`, `partial`,
   or `none`), and `sources`, each with `quote` and `source` and a `url` when
-  there is one. The `dynamic-ui` skill has the rest.
+  there is one. The `impromptu-ui` skill has the rest.
 - **changes**, when the doc already has a bullet about this: give
   `[{ "label": "Done", "before": "<the existing bullet>" }]`, so the card
   shows the draft against it.

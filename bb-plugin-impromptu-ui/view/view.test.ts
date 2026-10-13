@@ -110,10 +110,10 @@ describe("store", () => {
 
 describe("runCommand", () => {
   it("runs in the given directory and reports the exit code and output", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "dynamic-ui-"));
+    const dir = mkdtempSync(join(tmpdir(), "impromptu-ui-"));
     const result = await runCommand("pwd; echo oops >&2; exit 3", dir, "/bin/sh");
     expect(result.exitCode).toBe(3);
-    expect(result.output).toContain("dynamic-ui-");
+    expect(result.output).toContain("impromptu-ui-");
     expect(result.output).toContain("oops");
   });
 

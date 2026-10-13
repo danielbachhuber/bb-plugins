@@ -1,4 +1,4 @@
-// bb-plugin-dynamic-ui — a thread's view, above its composer and in its side
+// bb-plugin-impromptu-ui — a thread's view, above its composer and in its side
 // panel.
 //
 // Every view a thread published and has not hidden shows as a compact list
@@ -50,8 +50,8 @@ function useThreadSignal(threadId: string | null, refetch: () => void) {
     },
     [threadId, refetch],
   );
-  useRealtime("dynamic-ui-changed", onSignal);
-  useRealtime("dynamic-ui-published", onSignal);
+  useRealtime("impromptu-ui-changed", onSignal);
+  useRealtime("impromptu-ui-published", onSignal);
 }
 
 /** Runs one of an item's actions and reports a failure it records. */
@@ -244,7 +244,7 @@ function ViewTab({ threadId, params }: PluginThreadPanelProps) {
       />
       <StartThreadDialog
         title={starting?.item.title ?? ""}
-        draftKey={starting ? `dynamic-ui:${stored.id}:${stored.publishedAt}:${starting.item.id}` : ""}
+        draftKey={starting ? `impromptu-ui:${stored.id}:${stored.publishedAt}:${starting.item.id}` : ""}
         seed={starting?.seed ?? null}
         onClose={() => setStarting(null)}
         onSubmit={async (request) => {
@@ -323,7 +323,7 @@ function Banner() {
   useThreadSignal(threadId, refetch);
   // A newly published view opens expanded, even if it was collapsed before.
   useRealtime(
-    "dynamic-ui-published",
+    "impromptu-ui-published",
     useCallback((payload: unknown) => {
       const { threadId: published, viewId } = (payload ?? {}) as { threadId?: string; viewId?: number };
       if (published !== threadId || viewId === undefined) return;
@@ -376,7 +376,7 @@ function Banner() {
 export default definePluginApp((app) => {
   app.slots.threadPanelAction({
     id: PANEL_ACTION,
-    title: "Dynamic UI view",
+    title: "Impromptu UI view",
     layout: "flush",
     component: ViewTab,
   });

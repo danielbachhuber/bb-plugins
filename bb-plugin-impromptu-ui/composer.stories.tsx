@@ -21,7 +21,7 @@ import { firstOpenItem, ViewPanel, type LinkedThread } from "./view/view-panel";
 import { ListPanel } from "./view/list-panel";
 
 export default {
-  title: "dynamic-ui/Thread",
+  title: "impromptu-ui/Thread",
 };
 
 const noop = () => {};
@@ -193,7 +193,7 @@ function ThreadStage({
           stack={
             <>
               {hidden && others.length === 0 ? null : (
-              <PromptStackCard ariaLabel="dynamic-ui">
+              <PromptStackCard ariaLabel="impromptu-ui">
                 <div className="divide-y divide-border">
                 {hidden ? null : (
                 <ViewBanner
@@ -658,7 +658,7 @@ const auditTurns: Turn[] = [
 ];
 
 const auditViewTurns: Turn[] = [
-  { kind: "user", text: "use dynamic ui for the suggestions" },
+  { kind: "user", text: "use impromptu ui for the suggestions" },
   { kind: "work", text: "Ran 1 tool, ran 2 commands" },
   {
     kind: "assistant",

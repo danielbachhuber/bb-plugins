@@ -1,4 +1,4 @@
-# Dynamic UI
+# Impromptu UI
 
 Lets a skill show its results as a list right above the thread's composer,
 instead of as a numbered list in chat that the user answers by typing. Each
@@ -11,7 +11,7 @@ fix, pull requests to merge) writes a view file and publishes it from its
 thread:
 
 ```sh
-bb dynamic-ui publish --file view.json [--key <name>]
+bb impromptu-ui publish --file view.json [--key <name>]
 ```
 
 Each view the thread has published appears above its composer, newest first,
@@ -21,7 +21,7 @@ runs from the list: the button and the row both open the item. An item
 moves to the bottom of the list once it is done or dismissed. The
 list collapses to one line from its header, and does so by itself once every
 item is done or dismissed. The archive button on the header hides the view until the thread
-publishes again, and the agent can do the same with `bb dynamic-ui hide`. Clicking a row opens that item in
+publishes again, and the agent can do the same with `bb impromptu-ui hide`. Clicking a row opens that item in
 the side panel, with its full summary, its details, and every button; the panel
 keeps one tab per view and switches items as rows are clicked. Publishing again
 with the same key replaces the view and keeps what the user already did to
@@ -91,7 +91,7 @@ When each item is drafted with the user in a thread of its own, such as a sectio
 
 In the thread that published the view, such an item's row has **Open thread** in place of Review, and clicking the row goes to the item's thread rather than the side panel, where the page map stays. A block on the map opens the thread too. If the item is opened in the panel anyway, **Open**, named for its thread, takes the place of Start thread, since the thread already exists.
 
-A `message` button can name the thread it sends to, so Revise and its note can go to the section's thread while Accept goes to the thread that published the view. Sending wakes an idle thread and joins a running one, as typing into it would. A button sending to a thread other than the item's own gets a line above the buttons naming that thread. A thread archived since shows as archived, and a button sending to it fails with a note to unarchive it, keeping what was typed. `bb dynamic-ui state` says where each message went, and in the item's own thread it reads that item back.
+A `message` button can name the thread it sends to, so Revise and its note can go to the section's thread while Accept goes to the thread that published the view. Sending wakes an idle thread and joins a running one, as typing into it would. A button sending to a thread other than the item's own gets a line above the buttons naming that thread. A thread archived since shows as archived, and a button sending to it fails with a note to unarchive it, keeping what was typed. `bb impromptu-ui state` says where each message went, and in the item's own thread it reads that item back.
 
 ## Budgets, supporting notes, and a map
 
@@ -104,10 +104,10 @@ A view whose items fill pages, such as sections of a two-page document, can draw
 ## Visual review
 
 An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item shows them side by side, one at a time at the panel's width, with every image in the same place: flip between them with the arrow keys, the ‹ › buttons, or a swipe, and what changed is what moves. Clicking an image shows it full size. A filmstrip of thumbnails stays at the top of the panel: it shows how many variations there are, highlights the one showing, marks the pick and any variation with a note, and flips to a variation when you click it. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. Once feedback is sent, the row above the composer says which variation was picked. The agent reads back what the user
-did with `bb dynamic-ui state`.
+did with `bb impromptu-ui state`.
 
 The view file's shape, and when a skill should use it, are in
-`skills/dynamic-ui/SKILL.md`, which bb gives to every agent thread.
+`skills/impromptu-ui/SKILL.md`, which bb gives to every agent thread.
 
 ## Commands run as you
 
@@ -119,10 +119,10 @@ view marks `confirm: false` skips that step and runs on the first click.
 ## CLI
 
 ```
-bb dynamic-ui publish --file <view.json> [--key <name>]
-bb dynamic-ui state [--key <name>]
-bb dynamic-ui hide [--key <name>]
-bb dynamic-ui list
+bb impromptu-ui publish --file <view.json> [--key <name>]
+bb impromptu-ui state [--key <name>]
+bb impromptu-ui hide [--key <name>]
+bb impromptu-ui list
 ```
 
 Each works only from inside a bb thread, because a view belongs to the thread
@@ -144,11 +144,11 @@ this checkout.
 
 | Path | What |
 |---|---|
-| `server.ts` | The `bb dynamic-ui` command, RPC, and what each button does |
+| `server.ts` | The `bb impromptu-ui` command, RPC, and what each button does |
 | `app.tsx` | The list above the composer and the side-panel tab it opens |
 | `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the evidence behind its text, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
-| `skills/dynamic-ui/` | How an agent publishes a view |
+| `skills/impromptu-ui/` | How an agent publishes a view |
 
 ## Development
 
@@ -156,5 +156,5 @@ this checkout.
 npm install
 npx tsc --noEmit
 npm test
-bb plugin build . && bb plugin reload dynamic-ui
+bb plugin build . && bb plugin reload impromptu-ui
 ```

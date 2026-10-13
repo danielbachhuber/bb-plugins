@@ -1,5 +1,5 @@
 /**
- * The view file a skill publishes with `bb dynamic-ui publish`.
+ * The view file a skill publishes with `bb impromptu-ui publish`.
  *
  * A view is a title, an optional summary, and items grouped into sections.
  * Each item is a card: a title, badges, a markdown summary, markdown details

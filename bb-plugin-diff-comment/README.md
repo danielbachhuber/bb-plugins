@@ -54,7 +54,7 @@ through my diff comments" is enough of a prompt.
 ## Review points as comments
 
 When the agent reviews the thread's changes and raises points about specific
-lines, it also publishes them above the composer through Dynamic UI, one card
+lines, it also publishes them above the composer through Impromptu UI, one card
 per point. Each card shows the code, the comment as it would read, which you
 can edit, and **Add comment**. Pressing it has the agent put that text on the
 line as an open comment:
@@ -68,7 +68,7 @@ directory, which anchors the comment the same way one you write is anchored.
 From the diff, the comment is like any other: keep it, send it to the agent,
 or post it to the pull request. Points with no line, and points about a
 deleted line, stay in the chat. `skills/suggest-diff-comments/SKILL.md` tells
-the agent how to publish the cards. It needs the Dynamic UI plugin; without
+the agent how to publish the cards. It needs the Impromptu UI plugin; without
 it, the review stays in chat.
 
 ## Pull request review comments

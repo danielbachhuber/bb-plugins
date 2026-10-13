@@ -1,6 +1,6 @@
 ---
 name: suggest-diff-comments
-description: Offer the review points you raised as diff comments, one card each, through dynamic UI. Use after you review this thread's diff or pull request and raise points tied to specific lines, and when the user asks to turn review points into diff comments or inline review comments.
+description: Offer the review points you raised as diff comments, one card each, through Impromptu UI. Use after you review this thread's diff or pull request and raise points tied to specific lines, and when the user asks to turn review points into diff comments or inline review comments.
 ---
 
 # Suggest diff comments
@@ -14,7 +14,7 @@ comment; posting to GitHub is the user's choice, made on the diff.
 ## Check it is available
 
 ```bash
-bb dynamic-ui help >/dev/null 2>&1 && bb diff-comment help >/dev/null 2>&1 && echo available
+bb impromptu-ui help >/dev/null 2>&1 && bb diff-comment help >/dev/null 2>&1 && echo available
 ```
 
 If either is missing, leave the review in chat as it is.
@@ -69,7 +69,7 @@ from `git diff` so the card shows the code.
 - `id`s are `point-1`, `point-2`, … in review order.
 
 ```bash
-bb dynamic-ui publish --file /tmp/<thread>/review-points.json --key review-points
+bb impromptu-ui publish --file /tmp/<thread>/review-points.json --key review-points
 ```
 
 Then say in chat how many points are above the composer. Do not list them

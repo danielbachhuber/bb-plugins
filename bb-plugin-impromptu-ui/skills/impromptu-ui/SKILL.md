@@ -1,18 +1,18 @@
 ---
-name: dynamic-ui
-description: Use when `bb dynamic-ui` is available and either a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post), or you are proposing two or more visual directions for a UI, to show screenshots of each with the original first for the user to pick from and comment on. Shows either above the thread's composer instead of in chat.
+name: impromptu-ui
+description: Use when `bb impromptu-ui` is available and either a skill or task produces a list of results the user will act on one by one (findings, issues to triage, PRs to merge, drafts to post), or you are proposing two or more visual directions for a UI, to show screenshots of each with the original first for the user to pick from and comment on. Shows either above the thread's composer instead of in chat.
 ---
 
-# Dynamic UI
+# Impromptu UI
 
 ## Overview
 
-`bb dynamic-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. By default nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. By default nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
 
 ## Is it available?
 
 ```bash
-bb dynamic-ui help >/dev/null 2>&1 && echo available
+bb impromptu-ui help >/dev/null 2>&1 && echo available
 ```
 
 If it is not available, present the results in chat as you would have.
@@ -22,7 +22,7 @@ If it is not available, present the results in chat as you would have.
 Write the view to a file and publish it from this thread:
 
 ```bash
-bb dynamic-ui publish --file /tmp/<name>/view.json [--key <name>]
+bb impromptu-ui publish --file /tmp/<name>/view.json [--key <name>]
 ```
 
 The list appears above the composer by itself, and the side panel opens on the first open item, so put the item that most needs a decision first. Publishing again with the same key (default `default`) replaces the view and keeps what the user already did to each item, matched by item `id`. Keep an item in the file after the user has acted on it: its done state and result banner show only while the item is still in the view, and dropping it makes a handled item vanish instead of reading as done. Use a different key for a second, separate view in the same thread; both show above the composer, newest first. A validation error names the field to fix.
@@ -195,7 +195,7 @@ When you start a thread for each item to work on with the user, such as one per 
 - `{note}` goes wherever the button that uses it goes.
 - `publish` refuses an id that is not a bb thread. A button sending to a thread archived since fails on the card with a note to unarchive it.
 - Sending wakes that thread if it is idle, as `bb thread tell --mode auto` does.
-- Only you publish the view. The item's thread cannot, so when it finishes a round it must hand the new text back to you, such as with `bb thread tell <your thread id>`, and you publish the next round. Tell it so in its first prompt. From its own thread, `bb dynamic-ui state` reads the item back, with the note the user sent.
+- Only you publish the view. The item's thread cannot, so when it finishes a round it must hand the new text back to you, such as with `bb thread tell <your thread id>`, and you publish the next round. Tell it so in its first prompt. From its own thread, `bb impromptu-ui state` reads the item back, with the note the user sent.
 
 ## Budgets, supporting notes, and a map
 
@@ -295,7 +295,7 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 ## Read back what the user did
 
 ```bash
-bb dynamic-ui state [--key <name>]
+bb impromptu-ui state [--key <name>]
 ```
 
 Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{In progress}` if it has one, with the last action and its result (and `sent to <thread id>` when it went to another thread), or with the `dismissLabel` it was dismissed under, such as `(Skip)`. An item with no actions in a list view prints as `[listed]`. Check it before a follow-up that depends on the user's choices, like a summary at the end of a batch.
@@ -303,7 +303,7 @@ Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{I
 ## Take a view down
 
 ```bash
-bb dynamic-ui hide [--key <name>]
+bb impromptu-ui hide [--key <name>]
 ```
 
 Hides the view from above this thread's composer, as the archive button on its header does. Run it when a view's items are settled or a later round replaces it under a different key, rather than asking the user to dismiss it. The view and what the user did to it stay readable with `state`, and the next `publish` under the same key shows it again.

@@ -1,7 +1,7 @@
-// bb-plugin-dynamic-ui — lets a skill show its results as a list above the
+// bb-plugin-impromptu-ui — lets a skill show its results as a list above the
 // thread's composer, instead of as a list in chat.
 //
-// The skill writes a view file and runs `bb dynamic-ui publish --file`. The
+// The skill writes a view file and runs `bb impromptu-ui publish --file`. The
 // view belongs to the thread that published it and appears above that
 // thread's composer; each item opens in the side panel. Each button sends a
 // message back to that thread, opens a new thread, runs a shell command the
@@ -21,9 +21,9 @@ import { MIGRATIONS, createStore, describeItems, stateAfterAction, viewFor, type
 export { rpcContract };
 
 /** Published with `{ threadId, viewId, title }` whenever a view is published. */
-const PUBLISHED = "dynamic-ui-published";
+const PUBLISHED = "impromptu-ui-published";
 /** Published with `{ threadId, viewId }` whenever an item changes. */
-const CHANGED = "dynamic-ui-changed";
+const CHANGED = "impromptu-ui-changed";
 
 const KEY = /^[A-Za-z0-9._-]{1,60}$/;
 
@@ -320,17 +320,17 @@ export default async function plugin(bb: BbPluginApi) {
 
   const usage = [
     "Usage:",
-    "  bb dynamic-ui publish --file <view.json> [--key <name>]",
-    "  bb dynamic-ui state [--key <name>]",
-    "  bb dynamic-ui hide [--key <name>]",
-    "  bb dynamic-ui list",
+    "  bb impromptu-ui publish --file <view.json> [--key <name>]",
+    "  bb impromptu-ui state [--key <name>]",
+    "  bb impromptu-ui hide [--key <name>]",
+    "  bb impromptu-ui list",
     "",
     "Run these from the thread the view belongs to. `publish` shows the view above",
     "that thread's composer; publishing again with the same key replaces it and",
     "keeps what the user already did to each item. `state` prints each item's",
     "state and the result of the last button pressed on it. `hide` takes the view",
     "down from above the composer, as its archive button does, until the next",
-    "publish under its key. The view file's shape is in the dynamic-ui skill.",
+    "publish under its key. The view file's shape is in the impromptu-ui skill.",
   ].join("\n");
 
   function flag(args: string[], name: string): string | undefined {
@@ -339,25 +339,25 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   bb.cli.register({
-    name: "dynamic-ui",
+    name: "impromptu-ui",
     summary: "Show a skill's results above the thread's composer, with buttons",
     commands: [
       {
         name: "publish",
         summary: "Publish or replace this thread's view from a JSON file",
-        usage: "bb dynamic-ui publish --file <view.json> [--key <name>]",
+        usage: "bb impromptu-ui publish --file <view.json> [--key <name>]",
       },
       {
         name: "state",
         summary: "Print each item's state and the result of its last action",
-        usage: "bb dynamic-ui state [--key <name>]",
+        usage: "bb impromptu-ui state [--key <name>]",
       },
       {
         name: "hide",
         summary: "Take this thread's view down from above the composer until the next publish",
-        usage: "bb dynamic-ui hide [--key <name>]",
+        usage: "bb impromptu-ui hide [--key <name>]",
       },
-      { name: "list", summary: "List this thread's views", usage: "bb dynamic-ui list" },
+      { name: "list", summary: "List this thread's views", usage: "bb impromptu-ui list" },
     ],
     async run(argv, ctx) {
       const [command, ...args] = argv;

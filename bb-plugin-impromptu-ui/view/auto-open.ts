@@ -6,7 +6,7 @@
  * once it has opened, closing it keeps it closed until the view is published
  * again. Kept in localStorage so a reload does not count as a new visit.
  */
-const PREFIX = "dynamic-ui:auto-opened:";
+const PREFIX = "impromptu-ui:auto-opened:";
 
 export function publishStamp(viewId: number, publishedAt: string): string {
   return `${viewId}@${publishedAt}`;
