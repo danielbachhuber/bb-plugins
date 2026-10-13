@@ -74,17 +74,18 @@ The doc audit is set aside in `unused/`.
   to it.
 - 55 Grade: A. Works really well, and it's a delight to use.
 
-### Tokenomics (60-65)
+### Tokenomics (60-66)
 
-- 60 Problem: I accidentally blew through my tokens, and spent a lot of time
-  without knowing where it went.
-- 61 New plugin: Tokenomics. Token use over the day, three days, or week,
-  where turn time went, each thread's share, and a meter when a thread's
-  context passes a size I set.
-- 62 Behold: the Tokenomics page.
-- 63-64 ✓ **Pick one:** which icon. I picked B, Coin stack.
-- 65 Grade: C-. It shows me the outliers in token use well, but I haven't
-  solved tying threads to business value, or the time-spent part.
+- 60 Problem: I blew through my tokens. I accidentally blew through my
+  tokens, and spent a lot of time without knowing where it went.
+- 61 New plugin: Tokenomics. A thread with its token sparkline in the
+  header and the context meter above the composer.
+- 62 New plugin: Tokenomics. The whole page: tokens over the past day,
+  where turn time went, each thread's share.
+- 63 Behold: tokens per hour over the past day.
+- 64-65 ✓ **Pick one:** which icon. I picked B, Coin stack.
+- 66 Grade: C-. It shows me the outliers in token use well; I haven't
+  solved tying threads to business value, or the time I spend.
 
 ### Three tips for working with bb plugins (70-73)
 
