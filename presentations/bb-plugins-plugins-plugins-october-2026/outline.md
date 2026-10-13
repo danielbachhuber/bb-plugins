@@ -65,7 +65,8 @@ The doc audit is set aside in `unused/`.
 ### Now (50-55)
 
 - 50 Problem: I spend all day in bb, and forget to look at Todoist and Gmail.
-- 51 New plugin: Now. The Now page; I talk through what it does.
+- 51 New plugin: Now. The Now page with an email open beside the list; I talk
+  through what it does.
 - 52 Knows what's done on GitHub: Archive says "it's merged" or "it's closed".
 - 53 The pull request on every row: the pull request's state, reviewers, and a
   merge button under each GitHub row.
