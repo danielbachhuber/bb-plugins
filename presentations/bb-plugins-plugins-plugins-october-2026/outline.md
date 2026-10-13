@@ -23,8 +23,15 @@
      They're the same list on three screens: issues, pull requests, and
      reviews. **Pick one** (36-37): how a stack of pull requests shows in
      Review Sweep. I picked C, Chip only.
-   - Super Diff (40s). **Pick one** (43-44): how a fully reviewed concern
-     looks. I picked D, Progress ring.
+   - Super Diff (40-43), four slides:
+     - Problem: I want to understand and work through large pull requests.
+       bb's own diff panel on a real 45-file commit from this repository.
+     - Solution: Super Diff, a more readable version of the diff.
+     - Super Diff itself.
+     - Grade: C. It works, but I don't love reading a diff as a narrative.
+       Next time, group the files by what they do, and add a comment where a
+       change needs explaining.
+     Its pick-one round is set aside in `unused/`.
    - Now (50s)
    - Tokenomics (60s). **Pick one** (63-64): which icon. I picked B, Coin
      stack.
