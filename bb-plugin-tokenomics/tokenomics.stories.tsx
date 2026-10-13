@@ -456,16 +456,24 @@ const EXECUTION = makeExecutionControlsProps({
   model: { ...BASE_EXECUTION.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
 });
 
-const CONVERSATION: { from: "user" | "agent"; text: string }[] = [
+const CONVERSATION: { from: "user" | "agent" | "work"; text: string }[] = [
   { from: "user", text: "Add a CSV export to the widgets report, with the same columns as the table." },
+  { from: "work", text: "Read 31 files, ran 18 commands" },
   {
     from: "agent",
     text: "Added an **Export CSV** button to the report toolbar. It streams rows from the same query the table uses, so filters carry over, and quotes any field with a comma. Tests cover an empty report and a 10,000-row one.",
   },
   { from: "user", text: "Can the export include the archived widgets too, behind a checkbox?" },
+  { from: "work", text: "Read 12 files, edited 4, ran 9 commands" },
   {
     from: "agent",
     text: "Done. **Include archived** sits beside the button and is off by default. The export reads the checkbox when you click, and the file name ends in `-with-archived` when it is on.",
+  },
+  { from: "user", text: "The 10,000-row test takes four minutes now. Can you find out why?" },
+  { from: "work", text: "Read 22 files, ran 41 commands" },
+  {
+    from: "agent",
+    text: "The test seeds each row with its own insert. Seeding them in one batch brings it to 9 seconds, and the export itself was never the slow part.",
   },
 ];
 
@@ -480,7 +488,7 @@ export const ThreadWithMeter = () => {
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
   return (
     <SidebarProvider>
-    <div className="flex h-[600px] w-[1100px] flex-col overflow-hidden border border-border bg-background">
+    <div className="flex h-[900px] w-full flex-col overflow-hidden border border-border bg-background">
       <AppPageHeader
         ownsWindowTopLeft={false}
         center={<p className="bb-thread-title relative min-w-0 text-sm font-normal">Add a CSV export to the widgets report</p>}
@@ -489,7 +497,11 @@ export const ThreadWithMeter = () => {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6">
           {CONVERSATION.map((turn, index) =>
-            turn.from === "user" ? (
+            turn.from === "work" ? (
+              <div key={index} className="text-sm text-muted-foreground">
+                {turn.text}
+              </div>
+            ) : turn.from === "user" ? (
               <div key={index} className="ml-auto max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-foreground">
                 {turn.text}
               </div>
