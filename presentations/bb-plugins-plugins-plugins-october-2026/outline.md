@@ -2,47 +2,99 @@
 
 ## Structure
 
-1. Title: PLUGINS PLUGINS PLUGINS. Subtitle: All I do is bb. October 15, 2026.
-2. Who am I: I'm Daniel. I used to be a prolific WordPress plugin author. Then
-   I lost interest in writing plugins, and didn't work on any for years.
-3. Now I'm a prolific bb plugin author: 21 plugins and counting, since my first
-   bb thread on August 26, 2026. I love bb.
-4. Wait, what is bb? A visual and a short explanation.
-5. **Interactive, roundtable:** what do you use to work with your LLM, and have
-   you modified it? Anyone can weigh in.
-6. Section title: let me talk you through some of the plugins I've created.
-7. One section per plugin, with the three Sweeps as one section. Each section: problem, idea,
-   demo, **"Your grade?"** (interactive), my grade. Slides are numbered in
-   blocks of ten, one block per section.
-   - Impromptu UI (10-16), first, so the later sections can show it in use.
-     **Guess the fix** (interactive) after the problem slide, then the three
-     before-and-afters, then the film strip: the agent builds a few directions
-     and I pick one. Each later section with a **pick one** round reuses it.
-   - Thread Overview (20-23), the dud
-   - Sweeps (30s): Issue Sweep, PR Sweep, and Review Sweep, as one group.
-     They're the same list on three screens: issues, pull requests, and
-     reviews. **Pick one** (36-37): how a stack of pull requests shows in
-     Review Sweep. I picked C, Chip only.
-   - Super Diff (40-43), four slides:
-     - Problem: I want to understand and work through large pull requests.
-       bb's own diff panel on a real 45-file commit from this repository.
-     - Solution: Super Diff, a more readable version of the diff.
-     - Super Diff itself.
-     - Grade: C. It works, but I don't love reading a diff as a narrative.
-       Next time, group the files by what they do, and add a comment where a
-       change needs explaining.
-     Its pick-one round is set aside in `unused/`.
-   - Now (50s)
-   - Tokenomics (60s). **Pick one** (63-64): which icon. I picked B, Coin
-     stack.
+Every plugin section follows Super Diff's shape: **Problem** (one line, one
+screenshot), **New plugin** (what it is), **Behold** (the plugin itself, full
+width), **Grade**. Slides marked *draft* need the problem or grade in my own
+words. ✓ means the slide exists.
 
-   **Pick one** rounds: show the options, let people talk through which they'd
-   pick and why, then show mine.
-8. Tips and tricks (see below). **Interactive:** before each tip, ask "who
-   already does this?"
-9. Closing: check out my plugins, and how each one looks.
-   - Plugins: https://github.com/danielbachhuber/bb-plugins
-   - Screenshots of every story: https://github.com/danielbachhuber/bb-plugins-screenshots
+### Opening (01-06)
+
+- 01 ✓ PLUGINS PLUGINS PLUGINS. Subtitle: All I do is bb. October 15, 2026.
+- 02 Who am I: I'm Daniel. I used to be a prolific WordPress plugin author.
+  Then I lost interest, and didn't write a plugin for years.
+- 03 Now I'm a prolific bb plugin author: 21 plugins since my first bb thread
+  on August 26, 2026. I love bb.
+- 04 Wait, what is bb? A screenshot of bb with a thread, its chat, and a
+  plugin panel open, and one sentence on what it is.
+- 05 ✓ **Roundtable:** what do you use to work with your LLM? Have you changed
+  it to fit how you work?
+- 06 Let me talk you through some of the plugins I've created.
+
+### Impromptu UI (10-15)
+
+- 10 ✓ Problem: walls of text. The 13-issue triage, written
+  out in chat.
+- 11 ✓ New plugin: Impromptu UI. Results as rows above the composer, each
+  with its details, a draft I can edit, and buttons.
+- 12 ✓ Behold: a Dependabot assessment, before and after.
+- 13 ✓ Behold: triaging a 13-issue milestone, before and after.
+- 14 ✓ Behold: pick one. The film strip: the agent builds a few directions
+  and I pick. Sets up the pick-one rounds later in the talk.
+- 15 ✓ Grade: B-
+
+The doc audit is set aside in `unused/`.
+
+### Thread Overview (20-23)
+
+- 20 ✓ Problem: I can't tell what a thread is doing.
+- 21 ✓ New plugin: Thread Overview. The agent keeps a summary and steps up to
+  date, in a band under the thread header.
+- 22 ✓ Behold: the band, expanded.
+- 23 ✓ Grade: D. I never look at it.
+
+### Sweeps (30-36)
+
+- 30 ✓ Problem: GitHub is slow. Clicking a GitHub link or bookmark to see my
+  issues, pull requests, or reviews means waiting on every page. Text only.
+- 31 ✓ New plugin: Issue Sweep. Three plugins that act as one; first, the
+  issues assigned to me. Screenshot of the list.
+- 32 ✓ New plugin: Review Sweep. The pull requests waiting on my review.
+  Screenshot of the list.
+- 33 ✓ New plugin: PR Sweep. The pull requests I wrote. Screenshot of the list.
+- 34-35 ✓ **Pick one:** how a stack of pull requests shows in Review Sweep.
+  I picked C, Chip only.
+- 36 ✓ Grade: A-. Works really well; it's delightful to use.
+
+### Super Diff (40-43) ✓
+
+- 40 Problem: large diffs are hard to grok.
+- 41 New plugin: Super Diff.
+- 42 Behold: Super Diff.
+- 43 Grade: C.
+
+### Now (50-53)
+
+- 50 Problem: I spend all day in bb, and forget to look at Todoist and
+  Gmail.
+- 51 New plugin: Now. One list of what needs doing now, from all of them,
+  with the actions to deal with each row in place.
+- 52 Behold: the Now page, with the squares above the list and the week's
+  priorities beside it.
+- 53 Grade: A
+
+### Tokenomics (60-65)
+
+- 60 Problem: I accidentally blew through my tokens, and spent a lot of time
+  without knowing where it went.
+- 61 New plugin: Tokenomics. Token use over the day, three days, or week,
+  where turn time went, each thread's share, and a meter when a thread's
+  context passes a size I set.
+- 62 Behold: the Tokenomics page.
+- 63-64 ✓ **Pick one:** which icon. I picked B, Coin stack.
+- 65 Grade: C-. It shows me the outliers in token use well, but I haven't
+  solved tying threads to business value, or the time-spent part.
+
+### Tips and tricks (70-77)
+
+- 70 Tips and tricks. **Interactive:** before each tip, "who already does
+  this?"
+- 71-76 One tip per slide, six from the list below.
+
+### Closing (90)
+
+- 90 Check out my plugins, and how each one looks:
+  - https://github.com/danielbachhuber/bb-plugins
+  - https://github.com/danielbachhuber/bb-plugins-screenshots
 
 ## Tips and tricks
 
