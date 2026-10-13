@@ -1,165 +1,158 @@
 # Tokenomics
 
-Understand what your threads cost in tokens and time, so you can see where it
-goes and cut what isn't worth it. The aim is to read each thread's cost against
-the business value of the work it did. Tokenomics covers the cost side today:
-it does not yet record what a thread produced, so weighing the two is still up
-to you. It shows cost in four places:
+Understand what your threads cost in tokens and time, so you can cut what
+isn't worth it. The goal is to weigh each thread's cost against the business
+value of the work it did. Today Tokenomics covers the cost. It doesn't record
+what a thread produced, so the weighing is up to you.
 
-- **A sparkline in each thread's header** shows the thread's token use over
-  time and its total, and opens a summary of which of your messages used the
-  most tokens and time.
-- **A context meter above the composer** appears once a thread's context
-  passes a size you set, with a button that compacts it. The sidebar counts
-  those threads beside Tokenomics in amber and red.
-- **A Tokenomics page** in the sidebar graphs tokens by hour or day, shows
-  where turn time went, and lists the threads behind it, most first.
-- **`bb tokenomics`** prints the same numbers per thread for scripts and
-  agents.
+It shows cost in four places:
 
-It counts tokens, not money, and makes no cost estimates. bb deletes older
-usage events, so the plugin keeps its own copy from the moment it is
-installed.
+- **A sparkline in each thread's header**, with the thread's total. Click it
+  to see which of your messages used the most tokens and time.
+- **A context meter above the composer**, once a thread's context passes a
+  size you set, with a button that compacts it. The sidebar counts these
+  threads in amber and red.
+- **A Tokenomics page** in the sidebar, with tokens by hour or day, where turn
+  time went, and the threads that used the most.
+- **`bb tokenomics`**, which prints the same numbers for scripts and agents.
+
+Tokenomics counts tokens, not dollars. bb deletes old usage events, so the
+plugin keeps its own copy, starting when you install it.
 
 ![A thread with 28M tokens and a sparkline in its header, and a red meter above its composer: 620K context against a 1M window, with a Compact button](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--thread-with-meter.png)
 
 ## Install
 
-This repository holds several plugins, so the install names which one and where
-its release tags live:
+This repository holds several plugins, so the command names the plugin and its
+tag prefix:
 
 ```sh
 bb plugin install git:https://github.com/danielbachhuber/bb-plugins.git@^0.1.0 \
   --plugin tokenomics --tag-prefix tokenomics/
 ```
 
-Needs bb 0.43 or later. It works with any provider that reports token usage to
-bb, and needs no account or external service. Claude Code subagents' tokens
-are counted only for threads that ran on the machine bb runs on, because the
-plugin reads them from Claude Code's transcripts there (see
-[Subagents](#subagents)).
+Tokenomics needs bb 0.43 or later. It works with any provider that reports
+token usage to bb, and needs no account or outside service. It counts Claude
+Code subagents only for threads that ran on the same machine as bb, because it
+reads their transcripts from disk (see [Subagents](#subagents)).
 
 ## The header
 
 ![A thread header with a sparkline and "28M tokens", its summary open below: tokens per 15 minutes on a scale, with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
 
-A thread with recorded usage shows a button in the header's action row: a
-sparkline of its token use over time and its lifetime total, such as
-`39.5M tokens`. The sparkline splits the thread's recorded life into up to 20
-equal stretches of time, so a quiet stretch reads as a gap and a burst reads as
-a spike. In a narrow pane the sparkline drops out and the total stays. Click it
-for the thread's summary, which is there to answer which of your messages set
-off the tokens:
+Once a thread has recorded usage, its header shows a sparkline and a total,
+such as `39.5M tokens`. The sparkline splits the thread's life into up to 20
+equal stretches, so a quiet stretch is a gap and a burst is a spike. In a
+narrow pane only the total shows.
 
-- the total, the number of turns, and when the thread's turns ran
-- **Tokens per 15 minutes** (or per minute, hour, or day): the same chart,
-  larger, in up to 36 buckets of a round size (1, 5, 15, or 30 minutes, or 1
-  to 24 hours) that start on clock boundaries. The title names the size and a
-  scale on the left gives the tokens, so a bar's height reads as tokens in that
-  stretch of time. Hover a bucket for its time, its tokens, and the messages
-  whose turns used them, with when each started, how long it ran, and its
-  share of the thread.
-- **Minutes per turn**: one bar per turn, in the order they ran, stacked
-  into the model's time (thinking and writing), tools (shell commands, tool
-  calls, file reads), and waiting on you to answer a question. Overlapping
-  tools count once. The scale is in minutes, and the median turn is named
-  under it. Hover a bar for the message that started the turn. Turns from
-  before Tokenomics recorded times have no bar.
-- **Biggest turns**: the three turns that used the most, the same way, each
-  with a bar of its time split
-- the split into new input, cache reads, and output, with each part's share
-- how many of the total came from Claude Code subagents, when there are any
-- how many of the total came from turns bb deleted before Tokenomics could
-  record them, when there are any
-- "Open Tokenomics", which goes to the page
+Click it to see which of your messages set off the tokens. The summary shows:
+
+- the total, the number of turns, and when they ran
+- **Tokens per 15 minutes**, a larger version of the sparkline. Its buckets
+  are a round size, from 1 minute to 24 hours, chosen so there are at most 36,
+  and they start on the clock. The title names the size. Hover a bucket for its tokens and the messages
+  behind them, with when each started, how long it ran, and its share of the
+  thread.
+- **Minutes per turn**, one bar per turn, split into the model's time, tools,
+  and waiting on you to answer a question. Tools that overlap count once. The
+  median turn is named under the chart. Hover a bar for the message that
+  started the turn. Turns from before Tokenomics recorded times have no bar.
+- **Biggest turns**, the three that used the most tokens, each with its time
+  split
+- the split into new input, cache reads, and output
+- how much came from Claude Code subagents, if any
+- how much came from turns bb deleted before Tokenomics recorded them, if any
+- **Open Tokenomics**, which goes to the page
 
 A turn is one message of yours and everything the agent does in reply, so one
 turn can run for an hour and make dozens of model calls. A message with only
-attachments shows as "1 image" or "2 files". A turn you did not start, such as
+attachments shows as "1 image" or "2 files". A turn you didn't start, such as
 a retry after an error, shows as "Continued without a new message".
 
-The summary reads the messages from bb when it opens, not before, because that
-means reading the thread's turn events. Until they arrive the chart draws the
-recorded usage on its own.
+The summary loads the thread's messages when you open it, because that means
+reading the thread's turn events. Until they arrive, the chart shows usage
+alone.
 
-A thread with no usage yet shows nothing. Claude Code reports usage when a turn
-ends, so a thread still on its first turn has none.
+A thread with no usage shows nothing. Claude Code reports usage when a turn
+ends, so a thread on its first turn has none yet.
 
 ## The context meter
 
 ![The context meter in each of its states: past the setting, a turn running, compacting, no usable window, compaction refused, and a narrow composer](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--context-meter-states.png)
 
-A thread's context is everything the model reads on each call: the
-conversation so far, tool results included. Every model call in a turn reads
-all of it again from the prompt cache, so a turn's cache reads are roughly its
-number of calls times the context's size. At 500K tokens of context, a turn of
-40 calls reads 20M tokens. A thread that has grown that large keeps costing
-that much on every turn until it is compacted.
+A thread's context is everything the model reads on each call, including the
+conversation so far and tool results. Every call in a turn reads all of it
+again from the prompt cache. At 500K tokens of context, a turn of 40 calls
+reads 20M tokens, and every later turn costs about the same until the thread
+is compacted.
 
-Claude Code compacts on its own, but on a 1M-token model only once the context
-reaches about 967K. So once a thread's context passes the **Warn when a
-thread's context passes (tokens)** setting, 300K by default, a meter shows
-above its composer. Past the **Mark a thread's context as too large past
-(tokens)** setting, 550K by default, it turns from amber to red.
+Claude Code compacts on its own, but on a 1M-token model it waits until about
+967K. So Tokenomics shows a meter above the composer once the context passes
+the **Warn when a thread's context passes (tokens)** setting, 300K by default.
+Past **Mark a thread's context as too large past (tokens)**, 550K by default,
+the meter turns from amber to red. It shows:
 
-- the context size, in amber or red
+- the context size
 - a bar of the context against the model's window, with a tick at each
-  setting. When the provider reports a window smaller than the context,
-  which Claude Code sometimes does, the bar and the window are left out
+  setting. Claude Code sometimes reports a window smaller than the context.
+  When it does, the bar and window are left out.
 - how many tokens the latest turn used, and the window's size
-- **Compact**, which asks bb to compact the thread. bb runs `/compact` as a
-  turn, which replaces the conversation so far with a summary. bb compacts
-  only an idle thread, so the button is disabled while a turn runs. Once the
-  smaller context is reported, the meter goes away.
+- **Compact**, which asks bb to run `/compact`. That replaces the conversation
+  so far with a summary. bb compacts only an idle thread, so the button is
+  disabled while a turn runs. The meter goes away once the smaller context is
+  reported.
 
-The meter sits above the other plugins' banners, including the GitHub context
-one. It does not show on archived threads. In a narrow composer the bar and
-the latest turn drop out. Set the thresholds with
-`bb plugin config tokenomics set contextWarningAt 300K` and
-`bb plugin config tokenomics set contextErrorAt 550K`. An empty warning turns
-the meter off below the error; an empty error leaves only the warning.
+The meter sits above other plugins' banners. It doesn't show on archived
+threads, and in a narrow composer the bar and latest turn drop out. To change
+the thresholds:
 
-bb reports the context size many times a turn. The plugin reads those events
-in the same request it already makes for each thread's usage, so recording
-them adds no requests to bb. The meter reads from the plugin's copy, and only
-the first time it opens on a thread recorded before this copy existed does it
-read bb's latest context event, one request. Each load's backfill does the
-same, once, for every active thread with no context recorded, so the page can
-mark large-context threads that have not run a turn since. Compact makes one
-request.
+```sh
+bb plugin config tokenomics set contextWarningAt 300K
+bb plugin config tokenomics set contextErrorAt 550K
+```
+
+Clear the warning and the meter shows only past the error. Clear the error and
+it shows only the warning.
+
+bb reports the context size many times a turn. Tokenomics reads those events
+in the request it already makes for usage, so recording them costs no extra
+requests. The meter reads from the plugin's copy. The first time it opens on a
+thread recorded before that copy existed, it reads bb's latest context event,
+one request. Each load does the same once for every active thread with no
+context recorded, so the page can flag large threads that haven't run a turn
+since. Compact makes one request.
 
 ## The page
 
 ![The Tokenomics page for the past day: 110M tokens, an hourly stacked bar chart with one hour hovered, and five threads listed by tokens used](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--past-day-hovered.png)
 
-- **The headline** is the period's total, with its three parts beneath it:
-  new input, cache reads, and output.
-- **The chart** has one bar per hour for "Past day" (the default, 24 bars)
-  and "Past 3 days" (72 bars), and one bar per day for "Past week" (today and
-  the six days before it). Each bar stacks new input, cache reads, and output.
-  Hover a bar for its numbers. Click a legend entry to hide that part and
-  rescale the chart. Cache reads are usually most of the total, so hiding them
-  shows the other two.
+The headline is the period's total, with new input, cache reads, and output
+beneath it.
 
-The page re-reads when new usage is recorded and once a minute, so the newest
+The chart has one bar per hour for **Past day** (the default) and **Past 3
+days**, and one bar per day for **Past week**. Each bar stacks the three
+parts. Hover a bar for its numbers. Click a legend entry to hide that part and
+rescale. Cache reads are usually most of the total, so hiding them shows the
+other two.
+
+The page reloads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
 
 ### Where turn time goes
 
 Under the chart, the period's finished turns are split into the model's time,
-tools, and waiting on you to answer a question.
+tools, and waiting on you.
 
 - **By kind** ranks them, with tools broken into shell commands, tool calls,
-  file reads, subagents, and the rest. Kinds under 1% of the time are folded
-  into Other tools. Tools of different kinds can run at once, so the kinds can
-  add up to a little more than the tools total. Under Shell commands are the
-  three commands that took the most time, with how many times each ran.
-- **By turn length** groups the turns into under 1 minute, 1 to 5, 5 to 15,
-  and longer. Each bar is as long as those turns' total time and split the
-  same way, which shows whether the time is in many short turns or a few long
-  ones.
+  file reads, subagents, and the rest. Kinds under 1% fold into Other tools.
+  Tools of different kinds can run at once, so the kinds can add up to a bit
+  more than the tools total. Under Shell commands are the three that took the
+  most time, with how many times each ran.
+- **By turn length** groups turns into under 1 minute, 1 to 5, 5 to 15, and
+  longer. Each bar's length is those turns' total time, so you can see whether
+  the time went to many short turns or a few long ones.
 
-Hover a kind or a command for its count. On a narrow window the two halves
+Hover a kind or command for its count. In a narrow window the two halves
 stack.
 
 ### The thread list
@@ -167,93 +160,86 @@ stack.
 The list has the threads that used tokens in the period, most first. Each row
 shows:
 
-- the thread's project, provider, number of turns, latest context size, and
-  total. A thread archived before the plugin recorded context has no context
-  size to show.
-- a sparkline of when the thread used its tokens, on the same hours or days as
-  the chart and scaled to the thread's own busiest one, so a thread still
-  running when you expected it to stop shows bars at the right end.
-- how long the thread's turns in the period took: one dot per turn on a log
-  scale from 10 seconds to an hour, with a bar at the median, then the turns'
-  total time with the median under it. Most turns take under a minute and a
-  few take far longer, so a linear scale would pile the short ones at zero. A
-  turn longer than an hour sits at the right end.
+- the thread's project, provider, turns, latest context size, and total. A
+  thread archived before Tokenomics recorded context has no context size.
+- a sparkline of when the thread used its tokens, on the chart's hours or
+  days and scaled to the thread's busiest one. A thread still running when you
+  expected it to stop has bars at the right end.
+- how long its turns took, as one dot per turn on a log scale from 10 seconds
+  to an hour, with a bar at the median. Most turns take under a minute and a
+  few take far longer, so a linear scale would pile the short ones at zero.
+  Turns over an hour sit at the right end. Then comes the total, with the
+  median under it.
 
-Hover a bar in the sparkline for its tokens and when, a dot for how long that
-turn took and when it started, and the total for the longest turn. Click a row
-to open the thread. On a narrow window the dots and time drop out.
+Hover a sparkline bar, a dot, or the total for its details. Click a row to
+open the thread. In a narrow window the dots and time drop out.
 
-Above the list, "Active | Recent | Older" picks which threads it lists, with a
-count on each; it starts on Active. Recent lists the threads archived in the
-past three days, and Older the ones archived before that. Archived threads,
-and deleted ones, are dimmed and labeled "Archived".
+**Active**, **Recent**, and **Older** above the list choose which threads it
+shows, each with a count. Recent is threads archived in the past three days,
+and Older is those archived before that. Archived and deleted threads are
+dimmed and labeled "Archived".
 
 ### Large-context threads
 
-A large-context thread is an active one whose latest context is past one of
-the context meter's settings (see [The context meter](#the-context-meter)).
-Past the warning, 300K by default, its row gets an amber bar down its left
-edge over an amber tint, and its context size is bold amber. Past the error,
-550K by default, the bar, tint, and context size are red. A few of these
+An active thread whose latest context passes the meter's warning setting gets
+an amber bar down the left edge of its row, an amber tint, and its context
+size in bold amber. Past the error setting, all three are red. A few of these
 threads usually account for most of a period's tokens.
 
 Beside Tokenomics in the sidebar, an amber circle counts the active threads
-past the warning and a red one those past the error, whether or not they used
-tokens in the period on the page. Each thread counts once, at the higher
-setting it passes, and a circle at zero is left out. The count makes one
-request to the plugin's own database when the sidebar loads, again when a
-context size is recorded or a thread is archived, and once a minute so a
-changed setting shows.
+past the warning and a red one counts those past the error, whether or not
+they used tokens in the page's period. Each thread counts once, at the higher
+setting it passes, and a circle at zero is hidden. The count reads the
+plugin's own database when the sidebar loads, when a context size is recorded
+or a thread is archived, and once a minute so a changed setting shows.
 
 ## The command
 
-`bb tokenomics` prints what the page and header show, for scripts and agents
-that would otherwise read whole thread logs to find the expensive threads.
+`bb tokenomics` prints what the header and page show, so scripts and agents
+can find expensive threads without reading whole thread logs.
 
 ```sh
 bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]
 bb tokenomics commands [--days N] [--limit N] [--json]
 ```
 
-- `threads` lists each thread that used tokens in the past N days (default 7,
-  at most 30), most first, 20 by default. For each: tokens split into new
-  input, cache reads, and output, with Claude Code subagents included and
-  counted; turns; peak and latest context; turn times (count, total, median,
-  90th percentile, longest); how long the agent waited on your answers; and
-  its three slowest shell commands. `--sort time` and `--sort context` rank by
-  turn time or peak context instead, and `--active` leaves out archived
-  threads.
+- `threads` lists the threads that used tokens in the past N days (default 7,
+  at most 30), most first, 20 by default. For each, it gives tokens split
+  three ways with Claude Code subagents included, turns, peak and latest
+  context, turn times (count, total, median, 90th percentile, longest), time
+  spent waiting on your answers, and the three slowest shell commands. `--sort
+  time` or `--sort context` ranks by turn time or peak context, and `--active`
+  leaves out archived threads.
 - `commands` lists the shell commands that took the most time across all
-  threads, with runs, total, median, and longest. Runs of one command are
-  grouped by a short key, such as `npm test` or `git status`: a chained
-  command line counts as its last step after `cd`, `source`, and the like,
-  without pipes, redirections, or arguments.
+  threads, with runs, total, median, and longest. It groups runs by a short
+  key such as `npm test` or `git status`. A chained command line counts as its
+  last step after `cd`, `source`, and similar, without pipes, redirections, or
+  arguments.
 
 Both read only the plugin's own database. Context sizes, turn times, and
-command times go back only to when Tokenomics began recording them.
+command times go back only to when Tokenomics started recording them.
 
-To go from these numbers to changes in how you work, consider the
+To turn these numbers into changes in how you work, try the
 [self-improve](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve)
-Claude Code skill. It reviews the past week of bb threads for where they
-needed too much correction, took too many steps, used too many tokens, or
-would have gone faster with a UI other than chat, and proposes fixes to the
-skills and plugins involved. Reading every thread's transcript makes a run
-expensive, so it uses `bb tokenomics threads` to choose which threads to read.
+Claude Code skill. It reviews the past week of bb threads for ones that needed
+too much correction, took too many steps, used too many tokens, or would have
+gone faster with a UI other than chat, and proposes fixes to the skills and
+plugins involved. Reading every transcript is expensive, so it uses `bb
+tokenomics threads` to pick which ones to read.
 
 ## Related plugins
 
 - **Usage Meter** (`usage-meter`) shows Claude subscription limits and reads
-  local Claude Code transcripts to explain where the limits went. Tokenomics
-  reads bb's own usage events instead of transcripts, so it covers any provider
-  that reports usage to bb, and it counts tokens rather than subscription
-  limits.
+  Claude Code transcripts to explain where they went. Tokenomics reads bb's
+  usage events instead, so it covers any provider that reports usage to bb,
+  and it counts tokens rather than subscription limits.
 - **Usage** (`usage-page`) and **Usage** (`usage`) track coding-agent token use
   with estimated API costs, on a dashboard and across enrolled machines.
-  Tokenomics estimates no costs; it counts tokens per bb thread, by hour, and
+  Tokenomics estimates no costs. It counts tokens per thread and by hour, and
   puts each thread's count in its header.
 - **Receipts** (`receipts`) breaks token use and estimated cost down by model,
   project, and day. Tokenomics breaks it down by thread and by hour.
-- **Usage Bar** (`usage-bar`) keeps provider quotas and reset times above the
+- **Usage Bar** (`usage-bar`) shows provider quotas and reset times above the
   sidebar footer, with daily and monthly token totals. Tokenomics has no quota
   view.
 - **Auto Compact** (`auto-compact`) compacts a thread on its own once its
@@ -262,102 +248,99 @@ expensive, so it uses `bb tokenomics threads` to choose which threads to read.
   you.
 - **Context Health** (`context-health`) shows what makes up one thread's
   context, such as messages, tool output, and skills. Tokenomics shows how
-  large each thread's context is and how many tokens it used over time,
-  across all threads.
+  large each thread's context is and how many tokens it used over time, across
+  all threads.
 
 ## What counts
 
-bb records a token usage event after each model turn. Each event carries that
-turn's usage and the provider's running total for the thread. The plugin
-records the per-turn figure and splits it three ways:
+bb records a usage event after each model turn, with that turn's usage and the
+provider's running total for the thread. Tokenomics records the per-turn
+figure and splits it three ways:
 
-- **New input**: input the model read fresh, including tokens written to the
+- **New input** is input the model read fresh, including tokens written to the
   prompt cache.
-- **Cache reads**: input served from the prompt cache.
-- **Output**: tokens the model wrote, reasoning included.
+- **Cache reads** is input served from the prompt cache.
+- **Output** is tokens the model wrote, reasoning included.
 
-The three parts add up to the provider's `totalTokens`. Claude Code and Codex
-report cached input differently: Claude Code's input count leaves cached tokens
-out, and Codex's includes them. The plugin computes new input as the total minus
-output minus cache reads, which gives the same meaning for both.
+The three add up to the provider's `totalTokens`. Claude Code's input count
+leaves out cached tokens and Codex's includes them, so Tokenomics computes new
+input as the total minus output minus cache reads. That gives the same meaning
+for both.
 
 ## Why it keeps its own copy
 
-bb does not keep token usage history. Once a thread has a few hundred newer
-events, bb deletes its older usage events and keeps only the latest one. So the
-plugin copies every usage event into its own database as it arrives, and the
-page and header read from that copy.
+bb doesn't keep usage history. Once a thread has a few hundred newer events,
+bb deletes its older usage events and keeps only the latest. So Tokenomics
+copies each usage event into its own database as it arrives, and the header
+and page read from that copy.
 
-On each load it also reads every thread, archived and hidden ones included, to
-pick up turns bb still has from before the plugin was installed or that ran
-while it was not loaded, and to refresh which threads are archived. Archiving,
-unarchiving, or deleting a thread between loads updates it straight away. It reads only events newer than the last one it saw
-for each thread.
+On each load it also reads every thread, including archived and hidden ones.
+That picks up turns bb still has from before the plugin was installed or from
+while it wasn't loaded, and refreshes which threads are archived. It reads
+only events newer than the last one it saw for each thread. Archiving,
+unarchiving, or deleting a thread between loads updates it right away.
 
-Turns bb had already deleted before the plugin first loaded cannot be
-recovered. When a period starts before the plugin began recording, the page
-says so under the chart, because those earlier bars can read low. The header
-total uses the larger of two figures: the sum of recorded turns, and the
-provider's latest running total. The sum misses turns bb deleted before they
-were recorded. The running total misses turns from before the provider's last
-restart, because Claude Code starts its count over when its session restarts.
+Turns bb deleted before the plugin first loaded are gone. When a period starts
+before recording began, the page says so under the chart, because those bars
+can read low. The header total is the larger of two figures: the sum of
+recorded turns, which misses turns bb deleted first, and the provider's latest
+running total, which misses turns from before Claude Code last restarted its
+session.
 
 ## Subagents
 
-bb reports only a thread's own usage. When a Claude Code thread runs
-subagents, their tokens never reach bb, though they can be most of what the
-thread cost: one review run used 4.6M tokens of its own and 55.7M in its 15
-subagents. Claude Code writes each subagent's calls to a transcript under
-`~/.claude/projects/<working directory>/<session>/subagents/`, so the plugin
-reads those transcripts and adds their tokens to the page, the thread list,
-and the header. A subagent's calls count toward the hours they ran in and the
-turn that was running then, but not as turns of their own. The header summary
-says how much of the total came from subagents.
+bb reports only a thread's own usage. A Claude Code thread's subagents never
+reach bb, though they can be most of what the thread cost. One review run used
+4.6M tokens of its own and 55.7M in its 15 subagents. Claude Code writes each
+subagent's calls to a transcript under
+`~/.claude/projects/<working directory>/<session>/subagents/`, so Tokenomics
+reads those and adds their tokens to the header, the page, and the thread
+list. A subagent's calls count toward the hours they ran in and the turn
+running then, but not as turns of their own.
 
-The plugin reads a thread's transcripts when its turn ends, and on each load
-reads every transcript that has grown since. Each thread's Claude Code session
-id comes from its usage events, one request per thread the first time and
-none after. Finding the transcripts lists the session folders on this machine
-once, and again at most once a minute when a session is not among them. Only
-threads that ran on this machine have transcripts here.
+Tokenomics reads a thread's transcripts when its turn ends, and on each load
+reads any that have grown since. It gets each thread's Claude Code session id
+from its usage events, one request per thread the first time. Finding the
+transcripts lists the session folders on this machine once, and again at most
+once a minute when a session isn't among them. Only threads that ran on this
+machine have transcripts here.
 
 ## Time
 
-Alongside usage, the plugin records when each turn started and finished,
-each tool the turn waited on (a shell command with its command line, a tool
-call with the tool's name, a file read), and each question the agent asked
-you, from asking to your answer. Reasoning and replies are the model's own
-time, and background tasks and subagents run beside the turn rather than
-holding it up, so neither is recorded as a tool. These come from the same
-event request as usage, so they add no requests to bb. The first load with
-this recording reads the past nine days of each thread again to fill them in. The page's
-Where turn time goes section and the header summary's minutes-per-turn chart
-draw them. The section is worked out from the plugin's own copy each time the
-page loads, with no requests to bb.
+Alongside usage, Tokenomics records when each turn started and finished, each
+tool the turn waited on (a shell command with its command line, a tool call
+with its name, a file read), and each question the agent asked you, from asking
+to your answer. Reasoning and replies count as the model's time. Background
+tasks and subagents run beside the turn without holding it up, so neither
+counts as a tool.
+
+These come from the same request as usage, so they cost no extra requests. The
+first load with this recording reads the past nine days of each thread again
+to fill them in. The page works out Where turn time goes from the plugin's own
+copy each time it loads.
 
 ## Matching usage to messages
 
-The plugin's copy of each usage row has no turn id, and bb deletes the usage
-events that had one. bb keeps every turn's start and end events, though, and
-its conversation outline lists each of your messages followed by the turn it
-started. So the summary gives each row to the latest turn that started at or
-before the row was recorded, and gives each turn the message listed just
-before it.
+The plugin's usage rows have no turn id, and bb deletes the usage events that
+had one. bb does keep every turn's start and end events, and its conversation
+outline lists each of your messages followed by the turn it started. So the
+summary gives each usage row to the latest turn that started at or before it,
+and each turn to the message listed just before it.
 
 ## Layout
 
 | Path | What it holds |
 | --- | --- |
-| `usage/context.ts` | The pure reading of bb's context window events and of the warning setting |
-| `usage/subagents.ts` | The pure reading of a subagent transcript's lines into model calls |
+| `usage/context.ts` | Reads bb's context window events and the warning setting |
+| `usage/subagents.ts` | Turns a subagent transcript's lines into model calls |
 | `usage/subagent-files.ts` | The only module that touches `~/.claude`: finding a session's subagent transcripts and reading what is new in them |
-| `usage/report.ts` | The pure reports `bb tokenomics` prints: per-thread summaries, command keys, and the slowest commands |
-| `usage/timing.ts` | The pure reading of turn, tool, and question events into start and end times, and each turn's split and the period's breakdown from them |
-| `usage/breakdown.ts` | The pure split of a provider's usage into new input, cache reads, and output |
+| `usage/report.ts` | The reports `bb tokenomics` prints: per-thread summaries, command keys, and the slowest commands |
+| `usage/timing.ts` | Turns turn, tool, and question events into start and end times, each turn's split, and the period's breakdown |
+| `usage/breakdown.ts` | Splits a provider's usage into new input, cache reads, and output |
 | `usage/store.ts` | The only module that touches SQLite: the ledger, each thread's context sizes, turn, tool, and question times, and subagent calls, per-thread cursors and archive state, and the hourly and per-thread sums |
 | `usage/sync.ts` | The only module that reads from bb: copying new usage, context, and timing events into the ledger, one thread at a time, and reading a thread's turn events and outline |
 | `usage/series.ts` | The page's ranges, bars in the viewer's time zone, a thread's time buckets, and number formatting |
-| `usage/turns.ts` | The pure match of usage rows to turns, and of turns to the messages that began them |
+| `usage/turns.ts` | Matches usage rows to turns, and turns to the messages that began them |
 | `usage/contract.ts` | The RPC contract and the realtime channels |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
@@ -370,7 +353,7 @@ before it.
 | `icons/tokenomics.svg` | The plugin's icon, a stack of coins from Hugeicons, used for the plugin and its sidebar entry |
 | `server.ts` | Listens for thread events, runs the backfill, serves the RPCs |
 | `app.tsx` | Loads the data for the page, the header, and the context meter |
-| `tokenomics.stories.tsx` | Each range, every thread listed, the empty page, the header button, its summary, and the context meter's states, including the hovered and open states the README shows |
+| `tokenomics.stories.tsx` | Each range, each thread filter, the empty page, the header button and its summary, the context meter's states, and the example thread the README leads with |
 
 ## Working on it
 
@@ -381,12 +364,11 @@ npm test
 bb plugin build . && bb plugin reload tokenomics
 ```
 
-`npm run storybook` at the root of this repository renders the page and the
-header button and its summary with invented data.
+`npm run storybook` at the root of this repository renders every story with
+invented data.
 
 The README's images are the `ThreadWithMeter`, `HeaderOpen`,
-`ContextMeterStates`, and `PastDayHovered` stories, as the screenshot capture writes them into
-`bb-plugins-screenshots`. They render with a bar hovered and the summary open
-from the start, because the capture
-takes each story as it first renders. Change those stories and the README's
-images follow on the next capture.
+`ContextMeterStates`, and `PastDayHovered` stories, as the screenshot capture
+writes them into `bb-plugins-screenshots`. They render with a bar hovered and
+the summary open from the start, because the capture takes each story as it
+first renders. Change those stories and the images follow on the next capture.
