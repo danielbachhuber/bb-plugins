@@ -246,6 +246,9 @@ tokenomics threads` to pick which ones to read.
   context reaches a percentage of the window. Tokenomics warns at a token
   count you set, counts those threads in the sidebar, and leaves compacting to
   you.
+- **Context Meter** (`context-meter`) tracks a thread's context against a
+  limit you set. Tokenomics does the same with two settings, and adds token
+  use over time for each thread and across all of them.
 - **Context Health** (`context-health`) shows what makes up one thread's
   context, such as messages, tool output, and skills. Tokenomics shows how
   large each thread's context is and how many tokens it used over time, across
