@@ -92,8 +92,7 @@ words. ✓ means the slide exists.
 - 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
 - 66 ✓ **Roundtable:** how do you know whether a session with your agent was
-  worth it? What's one change you'd make to your LLM tool tomorrow if it took
-  ten minutes?
+  worth it?
 
 ### Three tips for working with bb plugins (70-73)
 
@@ -111,6 +110,7 @@ set aside in `unused/`.
 ### Closing (90)
 
 - 89 ✓ **Roundtable:** how do you decide whether or not to build custom tools?
+  What's one change you'd make to your LLM tool tomorrow if it took ten minutes?
 
 - 90 Check out my plugins, and how each one looks:
   - https://github.com/danielbachhuber/bb-plugins
