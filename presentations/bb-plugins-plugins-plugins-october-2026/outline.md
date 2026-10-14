@@ -40,6 +40,7 @@ words. ✓ means the slide exists.
 - 15 ✓ Grade: B-. Moments of delight, like the Dependabot workflow; other
   times cluttered, too complex, incomplete, and hard to work with; found by
   trial and error.
+- 16 ✓ **Roundtable:** how do you handle the output provided by your LLM?
 
 ### Thread Overview (20-23)
 
@@ -79,6 +80,7 @@ words. ✓ means the slide exists.
 - 54 Smart contextual filters: pressing a group of squares filters the list
   to it.
 - 55 Grade: A. Works really well, and it's a delight to use.
+- 56 ✓ **Roundtable:** what would you want consolidated onto one page?
 
 ### Tokenomics (60-65)
 
@@ -91,11 +93,14 @@ words. ✓ means the slide exists.
 - 63-64 ✓ **Pick one:** which icon. I picked B, Coin stack.
 - 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
+- 66 ✓ **Roundtable:** how do you know whether a session with your agent was
+  worth it?
+- 69 ✓ **Roundtable:** what's one change you'd make to your LLM tool tomorrow
+  if it took ten minutes?
 
 ### Three tips for working with bb plugins (70-73)
 
-- 70 Three tips for working with bb plugins. **Interactive:** before each tip,
-  "who already does this?"
+- 70 Tips and tricks.
 - 71 ✓ Tip 1: just try it. Some plugins will be super useful, some duds;
   you can't tell which in advance. The Why Greatness Cannot Be Planned quote
   beside this talk's six grades.
@@ -107,6 +112,8 @@ The other tips (iterate on live data, fix it right away, cards, the 8.5-second p
 set aside in `unused/`.
 
 ### Closing (90)
+
+- 89 ✓ **Roundtable:** how do you decide whether or not to build custom tools?
 
 - 90 Check out my plugins, and how each one looks:
   - https://github.com/danielbachhuber/bb-plugins
