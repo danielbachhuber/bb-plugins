@@ -3,7 +3,7 @@
 ## Structure
 
 Every roundtable uses a `###` heading with its questions as a list, which
-`style.css` draws as sticky notes on a corkboard. Every problem slide uses a
+`style.css` draws as sticky notes on a corkboard. Every problem slide is numbered (Problem #1 to #6) and uses a
 `##` heading, which `style.css` frames as a
 picture on the Simpsons' living-room wall. `scripts/` rebuilds the slide 02
 chart and the slide 06 table of contents; rerun the chart the day before the
@@ -25,7 +25,7 @@ words. ✓ means the slide exists.
   with a stock bb window.
 - 05 ✓ **Roundtable:** what do you use to work with your LLM? What sort of
   modifications have you made to your LLM experience?
-- 06 ✓ Let me talk you through some of the bb plugins I've created. On the
+- 06 ✓ Let me talk you through six of the 21 bb plugins I've created. On the
   chalkboard, with no pictures, so the plugins stay a surprise.
 
 ### Impromptu UI (10-15)
