@@ -2,7 +2,9 @@
 
 ## Structure
 
-Every problem slide uses a `##` heading, which `style.css` frames as a
+Every roundtable uses a `###` heading with its questions as a list, which
+`style.css` draws as sticky notes on a corkboard. Every problem slide uses a
+`##` heading, which `style.css` frames as a
 picture on the Simpsons' living-room wall. `scripts/` rebuilds the slide 02
 chart and the slide 06 table of contents; rerun the chart the day before the
 talk.
@@ -15,14 +17,14 @@ words. ✓ means the slide exists.
 ### Opening (01-06)
 
 - 01 ✓ PLUGINS PLUGINS PLUGINS, on Bart's chalkboard: "I will not write
-  another bb plugin." four times, then All I do is bb · October 15, 2026.
+  another bb plugin." four times, then October 15, 2026.
 - 02 ✓ Hi, I'm Daniel Bachhuber: avatar beside a chart of commits by year,
   844 to WordPress.org plugins (2009 to 2023), then 682 to 21 bb plugins in
   seven weeks of 2026. Regenerate the chart the day before the talk.
 - 04 ✓ Wait, what is bb?: the getbb.app hero, "The IDE that builds itself",
   with a stock bb window.
-- 05 ✓ **Roundtable:** what do you use to work with your LLM? Have you changed
-  it to fit how you work?
+- 05 ✓ **Roundtable:** what do you use to work with your LLM? What sort of
+  modifications have you made to your LLM experience?
 - 06 ✓ Let me talk you through some of the plugins I've created: a numbered
   table of contents of the six plugin sections.
 
