@@ -56,11 +56,10 @@ words. ✓ means the slide exists.
 
 - 30 ✓ Problem: GitHub is slow. Clicking a GitHub link or bookmark to see my
   issues, pull requests, or reviews means waiting on every page. Text only.
-- 31 ✓ New plugin: Issue Sweep. Three plugins that act as one; first, the
-  issues assigned to me. Screenshot of the list.
-- 32 ✓ New plugin: Review Sweep. The pull requests waiting on my review.
-  Screenshot of the list.
-- 33 ✓ New plugin: PR Sweep. The pull requests I wrote. Screenshot of the list.
+- 31 ✓ New plugin: Issue Sweep. Screenshot of the list.
+- 32 ✓ New plugin: Review Sweep. Screenshot of the list.
+- 33 ✓ New plugin: PR Sweep. Screenshot of the list. I talk through how the
+  three act as one.
 - 34-35 ✓ **Pick one:** how a stack of pull requests shows in Review Sweep.
   I picked C, Chip only.
 - 36 ✓ Grade: A-. Works really well; it's delightful to use.
