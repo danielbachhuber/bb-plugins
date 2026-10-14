@@ -25,8 +25,8 @@ words. ✓ means the slide exists.
   with a stock bb window.
 - 05 ✓ **Roundtable:** what do you use to work with your LLM? What sort of
   modifications have you made to your LLM experience?
-- 06 ✓ Let me talk you through some of the plugins I've created: a numbered
-  table of contents of the six plugin sections.
+- 06 ✓ Let me talk you through some of the bb plugins I've created. On the
+  chalkboard, with no pictures, so the plugins stay a surprise.
 
 ### Impromptu UI (10-15)
 
