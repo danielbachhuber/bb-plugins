@@ -36,7 +36,6 @@ words. ✓ means the slide exists.
   or act on. The same window, with the triage as rows above the composer and
   #434 open in the side panel.
 - 12 ✓ Behold: Dependabot, before and after.
-- 13 ✓ Behold: milestone triage, the thirteen issues as rows with one opened.
 - 14 ✓ Behold: pick one. A real round from Now, four directions for a summary
   above the list; I picked D, one square per row.
 - 15 ✓ Grade: B-. Moments of delight, like the Dependabot workflow; other
