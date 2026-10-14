@@ -30,9 +30,9 @@ words. ✓ means the slide exists.
 
 ### Impromptu UI (10-15)
 
-- 10 Problem: walls of text. The 13-issue triage written out in chat.
-- 11 ✓ New plugin: Impromptu UI. Generate dynamic interfaces for what you need
-  to process or act on; rows above the composer.
+- 10 ✓ Problem: walls of text. The 13-issue triage written out in chat.
+- 11 ✓ New plugin: Impromptu UI. Generate dynamic interfaces for me to process
+  or act on. The same triage, as rows above the composer.
 - 12 ✓ Behold: Dependabot, before and after.
 - 13 ✓ Behold: milestone triage, the thirteen issues as rows with one opened.
 - 14 ✓ Behold: pick one. A real round from Now, four directions for a summary
