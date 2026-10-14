@@ -18,6 +18,11 @@ updates:
       # its engines.bbPluginSdk minimum. `bb plugin types` moves the two
       # together; a bump to the pin alone would leave them disagreeing.
       - dependency-name: "@get-bb/plugin-sdk"
+      # @testing-library/jest-dom's matcher types do not merge with Vitest 5's,
+      # which fails bb-plugin-super-diff's typecheck. Lift this once jest-dom
+      # ships a fix: https://github.com/danielbachhuber/bb-plugins/issues/74
+      - dependency-name: "vitest"
+        versions: [">=5.0.0"]
     groups:
       # One pull request for every minor and patch update across the
       # workspaces, instead of one per dependency. Major updates still arrive
