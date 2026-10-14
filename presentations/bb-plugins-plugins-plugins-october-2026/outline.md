@@ -48,6 +48,7 @@ words. ✓ means the slide exists.
 - 21 ✓ New plugin: Thread Overview. One line, then the band above the
   transcript.
 - 23 ✓ Grade: D. I never look at it.
+- 24 ✓ **Roundtable:** what's a need you have that no tool solves yet?
 
 ### Sweeps (30-36)
 
