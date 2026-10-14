@@ -23,6 +23,11 @@ updates:
       # ships a fix: https://github.com/danielbachhuber/bb-plugins/issues/74
       - dependency-name: "vitest"
         versions: [">=5.0.0"]
+      # TypeScript 7 drops the JavaScript compiler API that bb-plugin-super-diff
+      # uses at runtime to parse test files. Lift this once Super Diff no longer
+      # needs it: https://github.com/danielbachhuber/bb-plugins/issues/78
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
     groups:
       # One pull request for every minor and patch update across the
       # workspaces, instead of one per dependency. Major updates still arrive
