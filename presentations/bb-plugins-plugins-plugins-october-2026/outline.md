@@ -25,7 +25,7 @@ words. ✓ means the slide exists.
   with a stock bb window.
 - 05 ✓ **Roundtable:** what do you use to work with your LLM? What sort of
   modifications have you made to your LLM experience?
-- 06 ✓ Let me talk you through six of the 21 bb plugins I've created. On the
+- 06 ✓ Let me talk you through several of the bb plugins I've created. On the
   chalkboard, with no pictures, so the plugins stay a surprise.
 
 ### Impromptu UI (10-15)
@@ -60,7 +60,8 @@ words. ✓ means the slide exists.
 - 32 ✓ New plugin: Review Sweep. Screenshot of the list.
 - 33 ✓ New plugin: PR Sweep. Screenshot of the list. I talk through how the
   three act as one.
-- 36 ✓ Grade: A-. Works really well; it's delightful to use.
+- 36 ✓ Grade: A-. Works really well; delightfully incorporated into my
+  workflow.
 
 ### Super Diff (40-43) ✓
 
@@ -78,7 +79,8 @@ words. ✓ means the slide exists.
   merge button under each GitHub row.
 - 54 Smart contextual filters: pressing a group of squares filters the list
   to it.
-- 55 Grade: A. Works really well, and it's a delight to use.
+- 55 Grade: A. Works really well, and I actually look at Todoist and Gmail on a
+  regular basis.
 - 56 ✓ **Roundtable:** what would you want consolidated onto one page?
 
 ### Tokenomics (60-65)
@@ -87,8 +89,8 @@ words. ✓ means the slide exists.
   tokens, and spent a lot of time without knowing where it went.
 - 61 New plugin: Tokenomics. A thread with its token sparkline in the
   header and the context meter above the composer.
-- 62 New plugin: Tokenomics. The whole page: tokens over the past day,
-  where turn time went, each thread's share.
+- 62 Behold: Tokenomics. The whole page: tokens over the past day, where turn
+  time went, each thread's share.
 - 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
 - 66 ✓ **Roundtable:** how do you know whether a session with your agent was
@@ -96,7 +98,7 @@ words. ✓ means the slide exists.
 
 ### Three tips for working with bb plugins (70-73)
 
-- 70 Tips and tricks.
+- 70 Three tips.
 - 71 ✓ Tip 1: just try it. Some plugins will be super useful, some duds;
   you can't tell which in advance. The Why Greatness Cannot Be Planned quote
   beside this talk's six grades.

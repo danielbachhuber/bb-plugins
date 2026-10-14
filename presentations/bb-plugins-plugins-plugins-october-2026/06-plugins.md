@@ -1,1 +1,1 @@
-# Let me talk you through six of the 21 bb plugins I've created
+# Let me talk you through several of the bb plugins I've created

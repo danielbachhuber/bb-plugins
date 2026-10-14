@@ -1,1 +1,1 @@
-# Tips and tricks
+# Three tips
