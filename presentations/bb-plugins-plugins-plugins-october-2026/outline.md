@@ -2,6 +2,11 @@
 
 ## Structure
 
+Every problem slide uses a `##` heading, which `style.css` frames as a
+picture on the Simpsons' living-room wall. `scripts/` rebuilds the slide 02
+chart and the slide 06 table of contents; rerun the chart the day before the
+talk.
+
 Every plugin section follows Super Diff's shape: **Problem** (one line, one
 screenshot), **New plugin** (what it is), **Behold** (the plugin itself, full
 width), **Grade**. Slides marked *draft* need the problem or grade in my own
@@ -23,24 +28,19 @@ words. ✓ means the slide exists.
 
 ### Impromptu UI (10-15)
 
-- 10 ✓ Problem: walls of text. The 13-issue triage, written
-  out in chat.
-- 11 ✓ New plugin: Impromptu UI. Results as rows above the composer, each
-  with its details, a draft I can edit, and buttons.
-- 12 ✓ Behold: a Dependabot assessment, before and after.
-- 13 ✓ Behold: triaging a 13-issue milestone, before and after.
-- 14 ✓ Behold: pick one. The film strip: the agent builds a few directions
-  and I pick. Sets up the pick-one rounds later in the talk.
-- 15 ✓ Grade: B-
-
-The doc audit is set aside in `unused/`.
+- 10 Problem: walls of text. The 13-issue triage written out in chat.
+- 11 ✓ New plugin: Impromptu UI. Results as rows above the composer.
+- 12 ✓ Behold: Dependabot, before and after.
+- 13 ✓ Behold: milestone triage, the thirteen issues as rows with one opened.
+- 14 ✓ Behold: pick one. A real round from Now, four directions for a summary
+  above the list; I picked D, one square per row.
+- 15 Grade: B-
 
 ### Thread Overview (20-23)
 
-- 20 ✓ Problem: I can't tell what a thread is doing.
-- 21 ✓ New plugin: Thread Overview. The agent keeps a summary and steps up to
-  date, in a band under the thread header.
-- 22 ✓ Behold: the band, expanded.
+- 20 Problem: I can't tell what a thread is doing.
+- 21 ✓ New plugin: Thread Overview. One line, then the band above the
+  transcript.
 - 23 ✓ Grade: D. I never look at it.
 
 ### Sweeps (30-36)
@@ -75,7 +75,7 @@ The doc audit is set aside in `unused/`.
   to it.
 - 55 Grade: A. Works really well, and it's a delight to use.
 
-### Tokenomics (60-66)
+### Tokenomics (60-65)
 
 - 60 Problem: I blew through my tokens. I accidentally blew through my
   tokens, and spent a lot of time without knowing where it went.
@@ -83,9 +83,8 @@ The doc audit is set aside in `unused/`.
   header and the context meter above the composer.
 - 62 New plugin: Tokenomics. The whole page: tokens over the past day,
   where turn time went, each thread's share.
-- 63 Behold: tokens per hour over the past day.
-- 64-65 ✓ **Pick one:** which icon. I picked B, Coin stack.
-- 66 Grade: C-. It shows me the outliers in token use well; I haven't
+- 63-64 ✓ **Pick one:** which icon. I picked B, Coin stack.
+- 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
 
 ### Three tips for working with bb plugins (70-73)

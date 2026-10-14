@@ -57,3 +57,14 @@
 .bbp-slide:not(:has(img)) p {
   margin: 0.1em 0 !important;
 }
+
+/* Problem slides use a ## heading, so they get their own look: a framed
+   picture on the Simpsons' living-room wall, with or without a screenshot. */
+.bbp-slide:has(h2) h2 { font-family: 'Chalkboard SE','Marker Felt',cursive !important; font-weight:700 !important; }
+.bbp-slide:has(h2) img { max-height: 360px !important; }
+
+.bbp-slide:has(h2) { background: repeating-linear-gradient(90deg,#d995b3 0 46px,#cd85a6 46px 92px) !important; box-shadow:none !important; }
+.bbp-slide:has(h2) > div { background:#fffaf0; border:22px solid #b8862b; outline:4px solid #7a5718; border-radius:4px; padding:30px 44px 36px; box-shadow:12px 14px 0 rgba(60,20,40,.35); }
+.bbp-slide:has(h2) h2 { color:#3a2a1a !important; }
+.bbp-slide:has(h2) :is(p,li) { color:#3a2a1a !important; }
+.bbp-slide:has(h2) img { box-shadow:none !important; border:3px solid #3a2a1a !important; }

@@ -1,0 +1,844 @@
+Mon, 29 Jun 2009 21:19:13 GMT	http://plugins.trac.wordpress.org/changeset/130575	Changeset [130575]: Committing the first version
+Mon, 07 Sep 2009 20:37:57 GMT	http://plugins.trac.wordpress.org/changeset/152862	Changeset [152862]: Added user permission verification to QuickPitch
+Mon, 07 Sep 2009 19:37:43 GMT	http://plugins.trac.wordpress.org/changeset/152855	Changeset [152855]: Added data validation to QuickPitch
+Sat, 05 Sep 2009 05:55:28 GMT	http://plugins.trac.wordpress.org/changeset/152177	Changeset [152177]: Finished styling QuickPitch, moved the settings page, and a couple ...
+Mon, 31 Aug 2009 06:24:18 GMT	http://plugins.trac.wordpress.org/changeset/150681	Changeset [150681]: Minor display upate to QuickPitch
+Mon, 31 Aug 2009 06:16:12 GMT	http://plugins.trac.wordpress.org/changeset/150674	Changeset [150674]: More work on styling QuickPitch
+Mon, 31 Aug 2009 05:20:32 GMT	http://plugins.trac.wordpress.org/changeset/150669	Changeset [150669]: QuickPitch now saves a new pitch but no UI notification as such yet
+Wed, 26 Aug 2009 05:03:06 GMT	http://plugins.trac.wordpress.org/changeset/149177	Changeset [149177]: Committing version 0.1 to trunk and tagging as a release
+Fri, 21 Aug 2009 05:14:51 GMT	http://plugins.trac.wordpress.org/changeset/147729	Changeset [147729]: Added API for QuickPitch
+Mon, 17 Aug 2009 23:40:10 GMT	http://plugins.trac.wordpress.org/changeset/146808	Changeset [146808]: v1.4.1 is another tagged release
+Mon, 17 Aug 2009 23:18:18 GMT	http://plugins.trac.wordpress.org/changeset/146807	Changeset [146807]: v1.4.1b has another couple IE fixes
+Mon, 17 Aug 2009 20:49:31 GMT	http://plugins.trac.wordpress.org/changeset/146768	Changeset [146768]: v 1.4.1a is the release candidate for 1.4.1 and includes minor fixes
+Fri, 07 Aug 2009 02:01:06 GMT	http://plugins.trac.wordpress.org/changeset/143548	Changeset [143548]: Version 1.4 is in trunk and a tagged release
+Fri, 07 Aug 2009 01:19:12 GMT	http://plugins.trac.wordpress.org/changeset/143544	Changeset [143544]: Changes to the video embed style
+Fri, 07 Aug 2009 00:19:46 GMT	http://plugins.trac.wordpress.org/changeset/143541	Changeset [143541]: Version 1.3.9 is release candidate for Version 1.4
+Thu, 06 Aug 2009 05:50:44 GMT	http://plugins.trac.wordpress.org/changeset/143258	Changeset [143258]: Version 1.3.8 includes the ability to embed videos in the widget and ...
+Thu, 06 Aug 2009 03:51:05 GMT	http://plugins.trac.wordpress.org/changeset/143243	Changeset [143243]: Rudimentary support for YouTube videos with the widget
+Thu, 06 Aug 2009 02:19:47 GMT	http://plugins.trac.wordpress.org/changeset/143216	Changeset [143216]: Switching computers
+Tue, 04 Aug 2009 01:47:53 GMT	http://plugins.trac.wordpress.org/changeset/142607	Changeset [142607]: Version 1.3.6 includes changes to the styling of Link Assist
+Mon, 03 Aug 2009 21:47:05 GMT	http://plugins.trac.wordpress.org/changeset/142556	Changeset [142556]: Minor bug fix to link titles
+Mon, 03 Aug 2009 21:39:11 GMT	http://plugins.trac.wordpress.org/changeset/142553	Changeset [142553]: Checking in version 1.3.5 to the repository
+Tue, 28 Jul 2009 18:38:55 GMT	http://plugins.trac.wordpress.org/changeset/140173	Changeset [140173]: Adding v 1.2.9 to trunk; adds Social Journalism features released today
+Tue, 21 Jul 2009 07:02:47 GMT	http://plugins.trac.wordpress.org/changeset/137309	Changeset [137309]: v 0.1.6 includes post metadata and non-functional QuickPitch dashboard ...
+Mon, 20 Jul 2009 17:38:15 GMT	http://plugins.trac.wordpress.org/changeset/137073	Changeset [137073]: Changed a line on publish2.php
+Sun, 19 Jul 2009 18:06:55 GMT	http://plugins.trac.wordpress.org/changeset/136704	Changeset [136704]: Added a rudimentary quickpitch widget and css file
+Sat, 18 Jul 2009 16:57:19 GMT	http://plugins.trac.wordpress.org/changeset/136382	Changeset [136382]: Updating trunk to match the last version at github
+Sat, 18 Jul 2009 16:49:40 GMT	http://plugins.trac.wordpress.org/changeset/136380	Changeset [136380]: Rolling the old trunk into 0.1.5
+Tue, 14 Jul 2009 22:51:04 GMT	http://plugins.trac.wordpress.org/changeset/135161	Changeset [135161]: Update with p2ajax.php
+Tue, 14 Jul 2009 22:35:58 GMT	http://plugins.trac.wordpress.org/changeset/135160	Changeset [135160]: Emergency update to 1.1.1
+Tue, 14 Jul 2009 22:33:10 GMT	http://plugins.trac.wordpress.org/changeset/135159	Changeset [135159]: Updated the ajax call
+Tue, 14 Jul 2009 21:32:48 GMT	http://plugins.trac.wordpress.org/changeset/135140	Changeset [135140]: Minor text change on readme
+Tue, 14 Jul 2009 21:22:23 GMT	http://plugins.trac.wordpress.org/changeset/135139	Changeset [135139]: tagging version 1.1
+Tue, 14 Jul 2009 21:20:52 GMT	http://plugins.trac.wordpress.org/changeset/135138	Changeset [135138]: Adding 1.1 to trunk
+Tue, 07 Jul 2009 22:51:48 GMT	http://plugins.trac.wordpress.org/changeset/132858	Changeset [132858]: Tagging v 1.0
+Tue, 07 Jul 2009 22:49:26 GMT	http://plugins.trac.wordpress.org/changeset/132857	Changeset [132857]: Adding the first version
+Mon, 30 Nov 2009 16:42:57 GMT	http://plugins.trac.wordpress.org/changeset/178112	Changeset [178112]: v1.4.5 is now a tagged release
+Mon, 30 Nov 2009 16:28:35 GMT	http://plugins.trac.wordpress.org/changeset/178111	Changeset [178111]: v1.4.5a is on trunk and includes a small bug fix
+Thu, 05 Nov 2009 18:48:13 GMT	http://plugins.trac.wordpress.org/changeset/170717	Changeset [170717]: v 1.4.4 is a tagged release
+Thu, 05 Nov 2009 18:22:15 GMT	http://plugins.trac.wordpress.org/changeset/170715	Changeset [170715]: v1.4.4b is now on trunk
+Sun, 11 Oct 2009 04:36:23 GMT	http://plugins.trac.wordpress.org/changeset/162228	Changeset [162228]: Minor bug fix and up version to 0.1.1
+Thu, 08 Oct 2009 03:02:54 GMT	http://plugins.trac.wordpress.org/changeset/161481	Changeset [161481]: v1.4.3 is now a tagged release
+Thu, 08 Oct 2009 02:27:09 GMT	http://plugins.trac.wordpress.org/changeset/161466	Changeset [161466]: v1.4.3a includes support for quotes, tokens for Link Assist, and minor ...
+Mon, 28 Jun 2010 02:31:27 GMT	http://plugins.trac.wordpress.org/changeset/258045	Changeset [258045]: UI fix
+Mon, 28 Jun 2010 02:28:38 GMT	http://plugins.trac.wordpress.org/changeset/258044	Changeset [258044]: Finishing UI touches on calendar
+Mon, 28 Jun 2010 00:31:39 GMT	http://plugins.trac.wordpress.org/changeset/258010	Changeset [258010]: Fixed calendar columns
+Mon, 28 Jun 2010 00:05:41 GMT	http://plugins.trac.wordpress.org/changeset/258002	Changeset [258002]: Added left and right arrow navigation
+Sun, 27 Jun 2010 23:10:12 GMT	http://plugins.trac.wordpress.org/changeset/257990	Changeset [257990]: More calendar UI work
+Sun, 27 Jun 2010 22:19:35 GMT	http://plugins.trac.wordpress.org/changeset/257973	Changeset [257973]: Updated calendar UI to better match standard WP styles; posts also ...
+Sun, 27 Jun 2010 20:52:33 GMT	http://plugins.trac.wordpress.org/changeset/257943	Changeset [257943]: Hide auto-draft posts from calendar
+Sun, 27 Jun 2010 19:46:20 GMT	http://plugins.trac.wordpress.org/changeset/257922	Changeset [257922]: Fixed issue with drag/drop and paging
+Thu, 24 Jun 2010 21:16:07 GMT	http://plugins.trac.wordpress.org/changeset/256995	Changeset [256995]: Fixed issue with calendar JS
+Wed, 23 Jun 2010 04:32:11 GMT	http://plugins.trac.wordpress.org/changeset/256224	Changeset [256224]: Text changes
+Wed, 23 Jun 2010 04:26:48 GMT	http://plugins.trac.wordpress.org/changeset/256221	Changeset [256221]: More calendar styling changes
+Wed, 23 Jun 2010 03:54:45 GMT	http://plugins.trac.wordpress.org/changeset/256211	Changeset [256211]: Various changes
+Wed, 23 Jun 2010 03:35:40 GMT	http://plugins.trac.wordpress.org/changeset/256210	Changeset [256210]: Styling changes
+Wed, 23 Jun 2010 01:52:26 GMT	http://plugins.trac.wordpress.org/changeset/256202	Changeset [256202]: Moved calendar page to under dashboard
+Wed, 21 Apr 2010 16:37:38 GMT	http://plugins.trac.wordpress.org/changeset/231663	Changeset [231663]: Initial commit
+Tue, 28 Sep 2010 03:26:33 GMT	http://plugins.trac.wordpress.org/changeset/294359	Changeset [294359]: Tagging v0.7. I&#39;d like to thank the lord jesus for getting us through ...
+Tue, 28 Sep 2010 03:21:25 GMT	http://plugins.trac.wordpress.org/changeset/294358	Changeset [294358]: Updating v0.7 from GitHub
+Mon, 27 Sep 2010 02:48:19 GMT	http://plugins.trac.wordpress.org/changeset/293885	Changeset [293885]: Merge remote branch &#39;github/master&#39;
+Sun, 22 Aug 2010 17:04:59 GMT	http://plugins.trac.wordpress.org/changeset/279331	Changeset [279331]: Added support for user as a metadata type again
+Sun, 22 Aug 2010 16:49:34 GMT	http://plugins.trac.wordpress.org/changeset/279328	Changeset [279328]: Rename editorial metadata file
+Sun, 22 Aug 2010 16:48:40 GMT	http://plugins.trac.wordpress.org/changeset/279327	Changeset [279327]: Refactor editorial metadata and rename class
+Fri, 20 Aug 2010 03:44:35 GMT	http://plugins.trac.wordpress.org/changeset/278545	Changeset [278545]: Filtering by author and status from the item
+Fri, 20 Aug 2010 03:12:18 GMT	http://plugins.trac.wordpress.org/changeset/278541	Changeset [278541]: Enabled filtering by status
+Fri, 20 Aug 2010 02:40:29 GMT	http://plugins.trac.wordpress.org/changeset/278538	Changeset [278538]: Moral of the story: use Sequel Pro to diagnose your SQL syntax
+Fri, 20 Aug 2010 02:31:09 GMT	http://plugins.trac.wordpress.org/changeset/278536	Changeset [278536]: Fixed issue with method reference
+Fri, 20 Aug 2010 02:26:43 GMT	http://plugins.trac.wordpress.org/changeset/278535	Changeset [278535]: Renamed class and started work on filtering method
+Tue, 17 Aug 2010 02:31:50 GMT	http://plugins.trac.wordpress.org/changeset/277051	Changeset [277051]: Tagging v0.3 release
+Tue, 17 Aug 2010 01:55:16 GMT	http://plugins.trac.wordpress.org/changeset/277034	Changeset [277034]: Removed unnecessary settings fields
+Wed, 11 Aug 2010 01:10:34 GMT	http://plugins.trac.wordpress.org/changeset/274233	Changeset [274233]: New settings for displaying elements on a public pitch
+Wed, 11 Aug 2010 00:47:40 GMT	http://plugins.trac.wordpress.org/changeset/274225	Changeset [274225]: Setting for email notification template
+Wed, 11 Aug 2010 00:40:34 GMT	http://plugins.trac.wordpress.org/changeset/274223	Changeset [274223]: Setting for email notification option
+Wed, 11 Aug 2010 00:34:46 GMT	http://plugins.trac.wordpress.org/changeset/274218	Changeset [274218]: First part of displaying pitches functionality
+Tue, 10 Aug 2010 23:24:29 GMT	http://plugins.trac.wordpress.org/changeset/274194	Changeset [274194]: Request to create assignment statuses if none exist
+Tue, 10 Aug 2010 01:35:54 GMT	http://plugins.trac.wordpress.org/changeset/273726	Changeset [273726]: Missed removing a function, tagging v0.2.1
+Tue, 10 Aug 2010 01:09:22 GMT	http://plugins.trac.wordpress.org/changeset/273718	Changeset [273718]: Tagging v0.2 release
+Tue, 10 Aug 2010 01:02:35 GMT	http://plugins.trac.wordpress.org/changeset/273717	Changeset [273717]: Cleaned unnecessary prior code out of the plugin
+Sun, 08 Aug 2010 23:16:42 GMT	http://plugins.trac.wordpress.org/changeset/273253	Changeset [273253]: Refactored functionality to add participants to a post
+Sun, 08 Aug 2010 20:12:02 GMT	http://plugins.trac.wordpress.org/changeset/273217	Changeset [273217]: Mostly functional pitch form that can be dropped into any post
+Sun, 08 Aug 2010 15:48:44 GMT	http://plugins.trac.wordpress.org/changeset/273159	Changeset [273159]: Show assignment statuses in manage posts column
+Sun, 08 Aug 2010 15:43:28 GMT	http://plugins.trac.wordpress.org/changeset/273158	Changeset [273158]: Save assignment status if contributor can&#39;t edit
+Sun, 08 Aug 2010 15:25:50 GMT	http://plugins.trac.wordpress.org/changeset/273153	Changeset [273153]: Permissions check and sexy JS for assignment status
+Sun, 08 Aug 2010 15:00:27 GMT	http://plugins.trac.wordpress.org/changeset/273149	Changeset [273149]: Permissions check on settings pages
+Sun, 08 Aug 2010 14:52:42 GMT	http://plugins.trac.wordpress.org/changeset/273148	Changeset [273148]: Permissions check for participant types
+Sun, 08 Aug 2010 14:19:38 GMT	http://plugins.trac.wordpress.org/changeset/273140	Changeset [273140]: Finished JS for participant type options
+Sun, 08 Aug 2010 13:37:34 GMT	http://plugins.trac.wordpress.org/changeset/273128	Changeset [273128]: Corrected contributor types on manage_posts
+Sun, 08 Aug 2010 13:35:31 GMT	http://plugins.trac.wordpress.org/changeset/273127	Changeset [273127]: No contributor types should be listed as &#39;none&#39;
+Sun, 08 Aug 2010 03:21:00 GMT	http://plugins.trac.wordpress.org/changeset/273016	Changeset [273016]: Partial fix for adding participant
+Sun, 08 Aug 2010 03:10:17 GMT	http://plugins.trac.wordpress.org/changeset/273015	Changeset [273015]: Updated Contributor Types on manage posts view
+Sun, 08 Aug 2010 03:02:41 GMT	http://plugins.trac.wordpress.org/changeset/273014	Changeset [273014]: Participant types save appropriately. @todo finish Javascript
+Sun, 08 Aug 2010 02:23:19 GMT	http://plugins.trac.wordpress.org/changeset/273009	Changeset [273009]: part of the way through participant types
+Sun, 08 Aug 2010 01:03:49 GMT	http://plugins.trac.wordpress.org/changeset/273002	Changeset [273002]: Mad refactor of the post_meta_box but saving Users is broken at the moment
+Sat, 07 Aug 2010 23:48:26 GMT	http://plugins.trac.wordpress.org/changeset/272987	Changeset [272987]: Moved Post functionality into one class, renamed pitch_status to ...
+Sat, 07 Aug 2010 23:13:23 GMT	http://plugins.trac.wordpress.org/changeset/272974	Changeset [272974]: Removed two unnecessary views
+Sat, 07 Aug 2010 22:03:44 GMT	http://plugins.trac.wordpress.org/changeset/272952	Changeset [272952]: Added _ef_location post metadata as column
+Sat, 07 Aug 2010 22:01:45 GMT	http://plugins.trac.wordpress.org/changeset/272950	Changeset [272950]: Hide due date column if Edit Flow doesn&#39;t exist
+Sat, 07 Aug 2010 21:36:26 GMT	http://plugins.trac.wordpress.org/changeset/272947	Changeset [272947]: Rudimentary pitch form
+Sat, 07 Aug 2010 20:41:13 GMT	http://plugins.trac.wordpress.org/changeset/272931	Changeset [272931]: Started abstracting options view to Settings API
+Sat, 07 Aug 2010 17:20:46 GMT	http://plugins.trac.wordpress.org/changeset/272906	Changeset [272906]: Renamed public-controller to public_views
+Tue, 03 Aug 2010 23:16:36 GMT	http://plugins.trac.wordpress.org/changeset/271379	Changeset [271379]: Tagging v0.5.2: True WP 2.9.x compatibility
+Tue, 03 Aug 2010 23:12:30 GMT	http://plugins.trac.wordpress.org/changeset/271378	Changeset [271378]: Better fix for 2.9.x compatibility
+Tue, 03 Aug 2010 22:13:05 GMT	http://plugins.trac.wordpress.org/changeset/271374	Changeset [271374]: Check for term_exists so we&#39;re 2.9.x compatible
+Tue, 03 Aug 2010 02:56:19 GMT	http://plugins.trac.wordpress.org/changeset/270947	Changeset [270947]: New column on Manage Users view that shows User Type
+Tue, 03 Aug 2010 02:40:45 GMT	http://plugins.trac.wordpress.org/changeset/270942	Changeset [270942]: New column on manage posts for Assignment Desk User Type
+Tue, 03 Aug 2010 02:21:38 GMT	http://plugins.trac.wordpress.org/changeset/270940	Changeset [270940]: Not removing columns because those can simply be hidden in the admin
+Tue, 03 Aug 2010 02:18:40 GMT	http://plugins.trac.wordpress.org/changeset/270939	Changeset [270939]: Ability to assign a type to a user using custom taxonomy (but taxonomy ...
+Wed, 17 Nov 2010 20:31:51 GMT	http://plugins.trac.wordpress.org/changeset/312676	Changeset [312676]: Creating v0.9.2 tag
+Wed, 17 Nov 2010 20:29:01 GMT	http://plugins.trac.wordpress.org/changeset/312675	Changeset [312675]: Updating v0.9.2 from GitHub
+Fri, 12 Nov 2010 02:57:42 GMT	http://plugins.trac.wordpress.org/changeset/310600	Changeset [310600]: Updating v0.1 from GitHub
+Tue, 09 Nov 2010 23:11:15 GMT	http://plugins.trac.wordpress.org/changeset/309857	Changeset [309857]: Creating v0.6 tag
+Tue, 09 Nov 2010 23:08:02 GMT	http://plugins.trac.wordpress.org/changeset/309855	Changeset [309855]: Updating v0.6 from GitHub
+Tue, 09 Nov 2010 15:39:17 GMT	http://plugins.trac.wordpress.org/changeset/309674	Changeset [309674]: Create a tag version for 0.9.1
+Tue, 09 Nov 2010 15:31:22 GMT	http://plugins.trac.wordpress.org/changeset/309671	Changeset [309671]: Updating v0.9.1 from GitHub
+Mon, 01 Nov 2010 11:34:03 GMT	http://plugins.trac.wordpress.org/changeset/306485	Changeset [306485]: Change the proper version number and tag 0.9
+Mon, 01 Nov 2010 04:09:36 GMT	http://plugins.trac.wordpress.org/changeset/306362	Changeset [306362]: Updating v0.9 from GitHub
+Thu, 28 Oct 2010 14:06:15 GMT	http://plugins.trac.wordpress.org/changeset/305323	Changeset [305323]: Updating v0.2.1 from GitHub. Fixes option logic and adds missing CSS file
+Wed, 27 Oct 2010 15:01:47 GMT	http://plugins.trac.wordpress.org/changeset/304995	Changeset [304995]: Updated v0.2 from GitHub
+Fri, 22 Oct 2010 12:59:26 GMT	http://plugins.trac.wordpress.org/changeset/303014	Changeset [303014]: Updating v0.1 from GitHub
+Thu, 14 Oct 2010 14:41:41 GMT	http://plugins.trac.wordpress.org/changeset/300038	Changeset [300038]: Tagging 0.8.1
+Tue, 12 Oct 2010 02:59:31 GMT	http://plugins.trac.wordpress.org/changeset/299169	Changeset [299169]: Moved v0.8 release to its own folder
+Tue, 12 Oct 2010 02:45:38 GMT	http://plugins.trac.wordpress.org/changeset/299167	Changeset [299167]: Attempt two at tagging v0.8 from GitHub
+Sat, 09 Oct 2010 13:51:28 GMT	http://plugins.trac.wordpress.org/changeset/298348	Changeset [298348]: Tagging v1.0.1 release
+Mon, 28 Mar 2011 22:14:21 GMT	http://plugins.trac.wordpress.org/changeset/366030	Changeset [366030]: Adding v0.9.5 tag
+Mon, 28 Mar 2011 22:11:18 GMT	http://plugins.trac.wordpress.org/changeset/366029	Changeset [366029]: Updating v0.9.5 from Github
+Mon, 21 Mar 2011 16:20:46 GMT	http://plugins.trac.wordpress.org/changeset/362935	Changeset [362935]: Tagging v0.6.3
+Mon, 21 Mar 2011 16:16:52 GMT	http://plugins.trac.wordpress.org/changeset/362933	Changeset [362933]: Updating Edit Flow v0.6.3 from GitHub
+Sun, 20 Mar 2011 20:46:24 GMT	http://plugins.trac.wordpress.org/changeset/362638	Changeset [362638]: Set the variable so there&#39;s no error
+Sun, 20 Mar 2011 20:45:19 GMT	http://plugins.trac.wordpress.org/changeset/362636	Changeset [362636]: Replace use of is_term with term_exists
+Sun, 20 Mar 2011 20:40:05 GMT	http://plugins.trac.wordpress.org/changeset/362634	Changeset [362634]: Getting my case right
+Sun, 20 Mar 2011 20:35:39 GMT	http://plugins.trac.wordpress.org/changeset/362633	Changeset [362633]: Check whether the post object is set instead of using get_the_id to ...
+Sun, 20 Mar 2011 20:22:06 GMT	http://plugins.trac.wordpress.org/changeset/362630	Changeset [362630]: Error notice removal
+Sun, 20 Mar 2011 20:15:56 GMT	http://plugins.trac.wordpress.org/changeset/362629	Changeset [362629]: Test commit
+Sun, 20 Mar 2011 20:01:57 GMT	http://plugins.trac.wordpress.org/changeset/362627	Changeset [362627]: Tagging v1.1 fo real this time
+Sun, 20 Mar 2011 20:01:26 GMT	http://plugins.trac.wordpress.org/changeset/362626	Changeset [362626]: Reset tag
+Sun, 20 Mar 2011 19:59:31 GMT	http://plugins.trac.wordpress.org/changeset/362625	Changeset [362625]: Tagging v1.1
+Sun, 20 Mar 2011 19:56:17 GMT	http://plugins.trac.wordpress.org/changeset/362622	Changeset [362622]: Updating v1.1 from GitHub
+Mon, 07 Feb 2011 20:17:17 GMT	http://plugins.trac.wordpress.org/changeset/342085	Changeset [342085]: Adding tag 0.9.4
+Mon, 07 Feb 2011 20:13:29 GMT	http://plugins.trac.wordpress.org/changeset/342083	Changeset [342083]: Updating v0.9.4 from GitHub
+Fri, 28 Jan 2011 03:30:15 GMT	http://plugins.trac.wordpress.org/changeset/338059	Changeset [338059]: Adding 0.6.2 tag release
+Thu, 27 Jan 2011 04:04:58 GMT	http://plugins.trac.wordpress.org/changeset/337691	Changeset [337691]: Updating v0.6.2 from GitHub
+Mon, 10 Jan 2011 22:24:23 GMT	http://plugins.trac.wordpress.org/changeset/331027	Changeset [331027]: Adding the v0.9.3 tag
+Mon, 10 Jan 2011 22:18:57 GMT	http://plugins.trac.wordpress.org/changeset/331022	Changeset [331022]: Updating Assignment Desk v0.9.3 from Github
+Mon, 10 Jan 2011 04:00:41 GMT	http://plugins.trac.wordpress.org/changeset/330560	Changeset [330560]: Adding 0.6.1 tag
+Mon, 10 Jan 2011 03:56:00 GMT	http://plugins.trac.wordpress.org/changeset/330559	Changeset [330559]: Updating v0.6.1 from Github
+Thu, 19 May 2011 15:41:20 GMT	http://plugins.trac.wordpress.org/changeset/386627	Changeset [386627]: Tagging v1.2
+Thu, 19 May 2011 15:38:52 GMT	http://plugins.trac.wordpress.org/changeset/386626	Changeset [386626]: Updating v1.2 from GitHub
+Tue, 20 Sep 2011 17:18:29 GMT	http://plugins.trac.wordpress.org/changeset/440909	Changeset [440909]: Tagging Edit Flow v0.6.5
+Tue, 20 Sep 2011 17:16:56 GMT	http://plugins.trac.wordpress.org/changeset/440908	Changeset [440908]: Update Edit Flow v0.6.5 from Github
+Wed, 31 Aug 2011 01:11:09 GMT	http://plugins.trac.wordpress.org/changeset/430971	Changeset [430971]: Add orphan notice to plugin readme
+Sun, 14 Aug 2011 20:11:38 GMT	http://plugins.trac.wordpress.org/changeset/423485	Changeset [423485]: Tag v2.5.3
+Sun, 14 Aug 2011 20:10:03 GMT	http://plugins.trac.wordpress.org/changeset/423484	Changeset [423484]: Tagging v2.5.3 with changelog message
+Sun, 14 Aug 2011 00:39:36 GMT	http://plugins.trac.wordpress.org/changeset/423092	Changeset [423092]: Remove any extra space
+Sun, 14 Aug 2011 00:36:49 GMT	http://plugins.trac.wordpress.org/changeset/423091	Changeset [423091]: Don&#39;t add a comma between items when there are only two authors
+Fri, 22 Jul 2011 22:01:50 GMT	http://plugins.trac.wordpress.org/changeset/413931	Changeset [413931]: Tagging v0.6.4
+Fri, 22 Jul 2011 21:59:31 GMT	http://plugins.trac.wordpress.org/changeset/413929	Changeset [413929]: Updating v0.6.4 from Github
+Fri, 23 Dec 2011 05:33:14 GMT	http://plugins.trac.wordpress.org/changeset/479676	Changeset [479676]: Co-Authors Plus: Plugin header image. props kingkool68 
+Fri, 23 Dec 2011 04:29:14 GMT	http://plugins.trac.wordpress.org/changeset/479660	Changeset [479660]: Tag the tag 
+Fri, 23 Dec 2011 04:26:08 GMT	http://plugins.trac.wordpress.org/changeset/479657	Changeset [479657]: Co-Authors Plus: Tagging v2.6 
+Fri, 23 Dec 2011 04:21:42 GMT	http://plugins.trac.wordpress.org/changeset/479655	Changeset [479655]: Text change 
+Fri, 23 Dec 2011 04:06:51 GMT	http://plugins.trac.wordpress.org/changeset/479650	Changeset [479650]: Co-Authors Plus: Readme improvements 
+Fri, 23 Dec 2011 03:52:38 GMT	http://plugins.trac.wordpress.org/changeset/479647	Changeset [479647]: Co-Authors Plus: We aren&#39;t actually using term_taxonomy_id for ...
+Fri, 23 Dec 2011 03:50:51 GMT	http://plugins.trac.wordpress.org/changeset/479645	Changeset [479645]: Co-Authors Plus: The dragging handle is now set to .coauthor-tag, ...
+Fri, 23 Dec 2011 03:36:58 GMT	http://plugins.trac.wordpress.org/changeset/479640	Changeset [479640]: Co-Authors Plus: When bulk editing, don&#39;t allow WordPress to blow away ...
+Fri, 23 Dec 2011 02:23:35 GMT	http://plugins.trac.wordpress.org/changeset/479620	Changeset [479620]: Co-Authors Plus: Properly update the number of posts for each user by ...
+Fri, 23 Dec 2011 01:21:46 GMT	http://plugins.trac.wordpress.org/changeset/479608	Changeset [479608]: Co-Authors Plus: Provide our own custom post count as ...
+Thu, 22 Dec 2011 23:24:56 GMT	http://plugins.trac.wordpress.org/changeset/479589	Changeset [479589]: Co-Authors Plus: Only modify count_user_posts() when the author exists ...
+Thu, 22 Dec 2011 23:13:15 GMT	http://plugins.trac.wordpress.org/changeset/479588	Changeset [479588]: Co-Authors Plus: Remove activation hook because nothing was running ...
+Thu, 22 Dec 2011 22:38:18 GMT	http://plugins.trac.wordpress.org/changeset/479580	Changeset [479580]: Co-Authors Plus: Remove backwards compat code and bump requirements to ...
+Thu, 22 Dec 2011 22:25:49 GMT	http://plugins.trac.wordpress.org/changeset/479574	Changeset [479574]: Co-Authors Plus: Modify get_users() SQL query so that we search ...
+Thu, 22 Dec 2011 19:32:59 GMT	http://plugins.trac.wordpress.org/changeset/479423	Changeset [479423]: Co-Authors Plus: s/delete/remove/  
+Thu, 22 Dec 2011 19:31:24 GMT	http://plugins.trac.wordpress.org/changeset/479420	Changeset [479420]: Co-Authors Plus: We don&#39;t need no stinkin&#39; options or settings  Closes ...
+Thu, 22 Dec 2011 19:21:30 GMT	http://plugins.trac.wordpress.org/changeset/479414	Changeset [479414]: Co-Authors Plus: Allow user to delete the first co-author on the post ...
+Thu, 22 Dec 2011 18:30:56 GMT	http://plugins.trac.wordpress.org/changeset/479385	Changeset [479385]: Co-Authors Plus: String change to reflect changing order  See #1438 
+Thu, 22 Dec 2011 18:21:57 GMT	http://plugins.trac.wordpress.org/changeset/479380	Changeset [479380]: Co-Authors Plus: First pass at sortable co-authors. props kingkool68  ...
+Thu, 22 Dec 2011 17:49:51 GMT	http://plugins.trac.wordpress.org/changeset/479365	Changeset [479365]: Co-Authors Plus: Deprecate get_profile_by_id() in favor of ...
+Mon, 19 Dec 2011 18:27:05 GMT	http://plugins.trac.wordpress.org/changeset/477640	Changeset [477640]: Co-Authors Plus: Better sanitization 
+Wed, 02 Nov 2011 20:56:02 GMT	http://plugins.trac.wordpress.org/changeset/458771	Changeset [458771]: Resolve deprecated function errors by using get_user_by() instead
+Sat, 24 Mar 2012 02:15:19 GMT	http://plugins.trac.wordpress.org/changeset/522907	Changeset [522907]: Initial commit of the plugin at v0.1 
+Wed, 07 Mar 2012 02:17:53 GMT	http://plugins.trac.wordpress.org/changeset/515658	Changeset [515658]: Tagging Co-Authors Plus v2.6.2 
+Wed, 07 Mar 2012 02:16:06 GMT	http://plugins.trac.wordpress.org/changeset/515655	Changeset [515655]: Update Co-Authors Plus v2.6.2 from Github. Improvements include:  * ...
+Tue, 14 Feb 2012 01:36:26 GMT	http://plugins.trac.wordpress.org/changeset/504581	Changeset [504581]: Tagging v0.1.3 
+Tue, 14 Feb 2012 01:35:54 GMT	http://plugins.trac.wordpress.org/changeset/504580	Changeset [504580]: Update v0.1.3 from Github 
+Fri, 10 Feb 2012 01:03:27 GMT	http://plugins.trac.wordpress.org/changeset/503004	Changeset [503004]: Initial commit of Ad Code Manager on WordPress.org at v0.1.2 
+Mon, 09 Jan 2012 21:43:44 GMT	http://plugins.trac.wordpress.org/changeset/487217	Changeset [487217]: Change the layout of the header image somewhat 
+Mon, 09 Jan 2012 21:39:40 GMT	http://plugins.trac.wordpress.org/changeset/487214	Changeset [487214]: New banner image for the plugin page. Props Andrew Witherspoon 
+Mon, 09 Jan 2012 21:33:03 GMT	http://plugins.trac.wordpress.org/changeset/487210	Changeset [487210]: Tagging v0.7 
+Mon, 09 Jan 2012 21:30:05 GMT	http://plugins.trac.wordpress.org/changeset/487207	Changeset [487207]: Tag v0.7 on trunk 
+Mon, 09 Jan 2012 21:19:51 GMT	http://plugins.trac.wordpress.org/changeset/487200	Changeset [487200]: Bring over Edit Flow v0.7-beta5 from Git in order to test one more time 
+Mon, 09 Jan 2012 21:17:27 GMT	http://plugins.trac.wordpress.org/changeset/487197	Changeset [487197]: Nuke trunk because it&#39;s much more easy to update from Git this way ...
+Tue, 05 Jun 2012 21:18:16 GMT	http://plugins.trac.wordpress.org/changeset/553571	Changeset [553571]: Ad Code Manager: Tag v0.2.2  Changes include: * New Google Ad Sense ...
+Tue, 15 May 2012 00:16:36 GMT	http://plugins.trac.wordpress.org/changeset/544303	Changeset [544303]: Ad Code Manager: Update to v0.2.1 from Github. Changes include: * ...
+Wed, 09 May 2012 21:28:20 GMT	http://plugins.trac.wordpress.org/changeset/542084	Changeset [542084]: A banner image for now 
+Wed, 09 May 2012 21:24:09 GMT	http://plugins.trac.wordpress.org/changeset/542083	Changeset [542083]: Tagging v1.0 from Github. This version includes: * Initial public ...
+Mon, 07 May 2012 22:18:24 GMT	http://plugins.trac.wordpress.org/changeset/541126	Changeset [541126]: Update Ad Code Manager v0.2 from Github. Changes include: * UI ...
+Mon, 07 May 2012 21:00:18 GMT	http://plugins.trac.wordpress.org/changeset/541098	Changeset [541098]: Update v2.6.4 from Github. Changes include: * Bug fix: Properly filter ...
+Mon, 30 Apr 2012 21:29:54 GMT	http://plugins.trac.wordpress.org/changeset/538338	Changeset [538338]: Update Co-Authors Plus v2.6.3 from Github. Changes include:  * AJAX ...
+Thu, 26 Apr 2012 16:25:04 GMT	http://plugins.trac.wordpress.org/changeset/536844	Changeset [536844]: Update Post Author Box v1.3 from Github 
+Thu, 26 Apr 2012 00:55:41 GMT	http://plugins.trac.wordpress.org/changeset/536463	Changeset [536463]: New banner for WP.org page. Props Jeff Merrick at Doejo 
+Wed, 11 Apr 2012 23:46:53 GMT	http://plugins.trac.wordpress.org/changeset/530099	Changeset [530099]: Update Edit Flow v0.7.1 from Github  Changes: * Show the year on the ...
+Wed, 26 Sep 2012 21:28:21 GMT	http://plugins.trac.wordpress.org/changeset/604366	Changeset [604366]: Bump version number, whoops 
+Tue, 25 Sep 2012 21:13:56 GMT	http://plugins.trac.wordpress.org/changeset/603859	Changeset [603859]: Rewrite Rules Inspector: Sync v1.1 from Github 
+Tue, 25 Sep 2012 19:18:10 GMT	http://plugins.trac.wordpress.org/changeset/603800	Changeset [603800]: Rewrite Rules Inspector: Ignore Git files 
+Mon, 06 Aug 2012 01:23:32 GMT	http://plugins.trac.wordpress.org/changeset/582136	Changeset [582136]: Tag v0.1 from Github 
+Mon, 30 Jul 2012 17:24:28 GMT	http://plugins.trac.wordpress.org/changeset/579352	Changeset [579352]: Ad Code Manager: Remove files no longer in use.  These files were left ...
+Thu, 19 Jul 2012 04:40:05 GMT	http://plugins.trac.wordpress.org/changeset/574392	Changeset [574392]: Tag v0.2 from Github 
+Thu, 19 Jul 2012 04:23:55 GMT	http://plugins.trac.wordpress.org/changeset/574390	Changeset [574390]: P2 Resolved Posts: Update to v0.2-working from Github so we can ...
+Tue, 03 Jul 2012 21:36:34 GMT	http://plugins.trac.wordpress.org/changeset/567098	Changeset [567098]: Edit Flow: Tag v0.7.3 from Github  * Bug fix: Support PHP 5.2.x by ...
+Tue, 03 Jul 2012 20:18:16 GMT	http://plugins.trac.wordpress.org/changeset/567064	Changeset [567064]: Tagging v0.7.2 from Github. Changes include:  * Users without the ...
+Fri, 28 Dec 2012 00:18:00 GMT	http://plugins.trac.wordpress.org/changeset/645178	Changeset [645178]: Tag v1.0 
+Fri, 28 Dec 2012 00:04:58 GMT	http://plugins.trac.wordpress.org/changeset/645176	Changeset [645176]: Initial commit 
+Fri, 28 Dec 2012 00:03:25 GMT	http://plugins.trac.wordpress.org/changeset/645175	Changeset [645175]: Allow the git integration 
+Tue, 11 Dec 2012 22:35:23 GMT	http://plugins.trac.wordpress.org/changeset/637323	Changeset [637323]: Tag 1.6 from master  ...
+Tue, 04 Dec 2012 02:09:42 GMT	http://plugins.trac.wordpress.org/changeset/633754	Changeset [633754]: Tag v3.0.3 from master 
+Fri, 30 Nov 2012 23:23:06 GMT	http://plugins.trac.wordpress.org/changeset/632487	Changeset [632487]: Tag v0.3.1 from master 
+Fri, 23 Nov 2012 23:25:56 GMT	http://plugins.trac.wordpress.org/changeset/629216	Changeset [629216]: Tag 3.0.2 from Github 
+Thu, 22 Nov 2012 01:54:14 GMT	http://plugins.trac.wordpress.org/changeset/628442	Changeset [628442]: Tag v0.3.1, again 
+Thu, 22 Nov 2012 01:53:00 GMT	http://plugins.trac.wordpress.org/changeset/628441	Changeset [628441]: Tag 0.3.1 from master 
+Wed, 21 Nov 2012 23:13:37 GMT	http://plugins.trac.wordpress.org/changeset/628363	Changeset [628363]: Tag v0.7.4, again 
+Wed, 21 Nov 2012 23:05:20 GMT	http://plugins.trac.wordpress.org/changeset/628360	Changeset [628360]: Tag 0.7.4 
+Wed, 21 Nov 2012 22:51:53 GMT	http://plugins.trac.wordpress.org/changeset/628354	Changeset [628354]: Screenshots aren&#39;t in use anymore 
+Wed, 21 Nov 2012 22:46:38 GMT	http://plugins.trac.wordpress.org/changeset/628347	Changeset [628347]: Sync v0.7.4-working from master 
+Wed, 21 Nov 2012 22:44:00 GMT	http://plugins.trac.wordpress.org/changeset/628345	Changeset [628345]: Allow the git integration 
+Wed, 21 Nov 2012 21:21:25 GMT	http://plugins.trac.wordpress.org/changeset/628287	Changeset [628287]: Tag 3.0.1 
+Wed, 21 Nov 2012 21:11:47 GMT	http://plugins.trac.wordpress.org/changeset/628282	Changeset [628282]: Sync 3.0.1 working from master 
+Tue, 20 Nov 2012 04:49:51 GMT	http://plugins.trac.wordpress.org/changeset/627521	Changeset [627521]: Tag 1.1 
+Tue, 20 Nov 2012 04:42:44 GMT	http://plugins.trac.wordpress.org/changeset/627520	Changeset [627520]: Sync v1.1 working from Github 
+Mon, 12 Nov 2012 19:27:42 GMT	http://plugins.trac.wordpress.org/changeset/624165	Changeset [624165]: Tag 3.0 from Github 
+Mon, 12 Nov 2012 19:26:02 GMT	http://plugins.trac.wordpress.org/changeset/624161	Changeset [624161]: Rm unused file 
+Mon, 12 Nov 2012 19:24:55 GMT	http://plugins.trac.wordpress.org/changeset/624160	Changeset [624160]: Rm unused file 
+Mon, 12 Nov 2012 05:13:57 GMT	http://plugins.trac.wordpress.org/changeset/623882	Changeset [623882]: Sync Co-Authors Plus v3.0-beta2 from Github 
+Mon, 12 Nov 2012 05:07:22 GMT	http://plugins.trac.wordpress.org/changeset/623881	Changeset [623881]: Allow the git integrations 
+Fri, 09 Nov 2012 00:45:26 GMT	http://plugins.trac.wordpress.org/changeset/622758	Changeset [622758]: Tag v1.4 from Github 
+Fri, 09 Nov 2012 00:40:59 GMT	http://plugins.trac.wordpress.org/changeset/622757	Changeset [622757]: Ignore the git 
+Thu, 08 Nov 2012 00:00:34 GMT	http://plugins.trac.wordpress.org/changeset/622347	Changeset [622347]: Tag v0.3 
+Wed, 07 Nov 2012 23:56:00 GMT	http://plugins.trac.wordpress.org/changeset/622344	Changeset [622344]: Update to v0.3-working from Github 
+Wed, 07 Nov 2012 23:51:51 GMT	http://plugins.trac.wordpress.org/changeset/622342	Changeset [622342]: Allow the Git integration 
+Tue, 06 Nov 2012 17:47:52 GMT	http://plugins.trac.wordpress.org/changeset/621762	Changeset [621762]: Create tag for 1.1 
+Tue, 06 Nov 2012 17:47:13 GMT	http://plugins.trac.wordpress.org/changeset/621761	Changeset [621761]: Tag v1.1 from github 
+Tue, 06 Nov 2012 17:46:29 GMT	http://plugins.trac.wordpress.org/changeset/621760	Changeset [621760]: Missing language dir. Derp 
+Fri, 26 Oct 2012 01:38:33 GMT	http://plugins.trac.wordpress.org/changeset/617601	Changeset [617601]: Create a tag for v0.3 
+Fri, 26 Oct 2012 01:37:38 GMT	http://plugins.trac.wordpress.org/changeset/617600	Changeset [617600]: Tag v0.3 
+Fri, 26 Oct 2012 01:28:20 GMT	http://plugins.trac.wordpress.org/changeset/617597	Changeset [617597]: Updated POT 
+Fri, 26 Oct 2012 01:26:22 GMT	http://plugins.trac.wordpress.org/changeset/617596	Changeset [617596]: First pass at localization support 
+Fri, 26 Oct 2012 01:20:02 GMT	http://plugins.trac.wordpress.org/changeset/617594	Changeset [617594]: Update working version from Github in preparation for release 
+Fri, 26 Oct 2012 01:15:33 GMT	http://plugins.trac.wordpress.org/changeset/617593	Changeset [617593]: Allow for our Git fu 
+Tue, 16 Oct 2012 23:39:28 GMT	http://plugins.trac.wordpress.org/changeset/613440	Changeset [613440]: Tag v0.3 
+Tue, 16 Oct 2012 23:38:22 GMT	http://plugins.trac.wordpress.org/changeset/613439	Changeset [613439]: Tag v0.3 
+Tue, 16 Oct 2012 23:37:32 GMT	http://plugins.trac.wordpress.org/changeset/613438	Changeset [613438]: Update POT file 
+Tue, 16 Oct 2012 23:23:38 GMT	http://plugins.trac.wordpress.org/changeset/613428	Changeset [613428]: Sync v0.3-working from Github 
+Tue, 16 Oct 2012 23:16:48 GMT	http://plugins.trac.wordpress.org/changeset/613425	Changeset [613425]: Support for Git in my Subversion 
+Tue, 09 Oct 2012 23:17:09 GMT	http://plugins.trac.wordpress.org/changeset/610199	Changeset [610199]: Tag v1.4 
+Tue, 09 Oct 2012 23:00:59 GMT	http://plugins.trac.wordpress.org/changeset/610197	Changeset [610197]: Sync v1.4-working from Github 
+Tue, 09 Oct 2012 23:00:13 GMT	http://plugins.trac.wordpress.org/changeset/610196	Changeset [610196]: Remove empty localization directory. To be replaced soon 
+Tue, 09 Oct 2012 19:16:43 GMT	http://plugins.trac.wordpress.org/changeset/610143	Changeset [610143]: Ignore .git files in this repo  ...
+Mon, 08 Oct 2012 22:16:35 GMT	http://plugins.trac.wordpress.org/changeset/609795	Changeset [609795]: Tag 1.0 
+Mon, 08 Oct 2012 22:15:40 GMT	http://plugins.trac.wordpress.org/changeset/609794	Changeset [609794]: Tag v1.0 from Github 
+Mon, 08 Oct 2012 22:06:28 GMT	http://plugins.trac.wordpress.org/changeset/609793	Changeset [609793]: Sync v1.0-working from Github 
+Fri, 05 Oct 2012 19:35:14 GMT	http://plugins.trac.wordpress.org/changeset/608661	Changeset [608661]: Create a tag for v0.9.1 
+Tue, 19 Mar 2013 22:29:42 GMT	http://plugins.trac.wordpress.org/changeset/684465	Changeset [684465]: Tag v0.4 from master 
+Thu, 07 Mar 2013 19:24:41 GMT	http://plugins.trac.wordpress.org/changeset/677636	Changeset [677636]: Tag v0.3.2 
+Mon, 18 Feb 2013 03:47:06 GMT	http://plugins.trac.wordpress.org/changeset/669546	Changeset [669546]: Sync v3.0.5 from master 
+Sun, 17 Feb 2013 22:38:53 GMT	http://plugins.trac.wordpress.org/changeset/669468	Changeset [669468]: Sync v1.3 from master 
+Thu, 31 Jan 2013 04:11:52 GMT	http://plugins.trac.wordpress.org/changeset/661496	Changeset [661496]: Rename JA files so they&#39;re properly loaded 
+Wed, 30 Jan 2013 17:24:25 GMT	http://plugins.trac.wordpress.org/changeset/661310	Changeset [661310]: Tag v0.7.6 from Github 
+Wed, 30 Jan 2013 04:53:45 GMT	http://plugins.trac.wordpress.org/changeset/661105	Changeset [661105]: Sync v0.7.5 from master 
+Tue, 29 Jan 2013 23:13:53 GMT	http://plugins.trac.wordpress.org/changeset/660970	Changeset [660970]: Tag 1.2 from Github 
+Tue, 29 Jan 2013 22:56:57 GMT	http://plugins.trac.wordpress.org/changeset/660956	Changeset [660956]: Bump the compat up to version 
+Tue, 29 Jan 2013 22:53:54 GMT	http://plugins.trac.wordpress.org/changeset/660953	Changeset [660953]: Bump compat up to version 
+Tue, 29 Jan 2013 22:51:30 GMT	http://plugins.trac.wordpress.org/changeset/660952	Changeset [660952]: Bump compat up to number 
+Tue, 29 Jan 2013 22:45:56 GMT	http://plugins.trac.wordpress.org/changeset/660949	Changeset [660949]: Bump compat up to versions 
+Tue, 29 Jan 2013 22:40:37 GMT	http://plugins.trac.wordpress.org/changeset/660946	Changeset [660946]: Tag v1.1.2 from Github 
+Tue, 29 Jan 2013 22:37:00 GMT	http://plugins.trac.wordpress.org/changeset/660945	Changeset [660945]: Allow the Git integration 
+Thu, 17 Jan 2013 00:39:57 GMT	http://plugins.trac.wordpress.org/changeset/653958	Changeset [653958]: Bump works up to 
+Wed, 16 Jan 2013 23:05:55 GMT	http://plugins.trac.wordpress.org/changeset/653935	Changeset [653935]: Bump works up to number 
+Wed, 16 Jan 2013 22:07:55 GMT	http://plugins.trac.wordpress.org/changeset/653912	Changeset [653912]: Sync v1.2 from Github 
+Tue, 08 Jan 2013 16:04:54 GMT	http://plugins.trac.wordpress.org/changeset/649771	Changeset [649771]: Tag v1.1 
+Sun, 06 Jan 2013 18:56:55 GMT	http://plugins.trac.wordpress.org/changeset/648846	Changeset [648846]: Tag 3.0.4 from master 
+Thu, 09 May 2013 00:24:18 GMT	http://plugins.trac.wordpress.org/changeset/710138	Changeset [710138]: Include missing what the email file 
+Wed, 08 May 2013 22:26:55 GMT	http://plugins.trac.wordpress.org/changeset/710103	Changeset [710103]: Fix code snippet formatting 
+Wed, 08 May 2013 21:40:26 GMT	http://plugins.trac.wordpress.org/changeset/710090	Changeset [710090]: Tag 1.0 
+Wed, 08 May 2013 21:32:16 GMT	http://plugins.trac.wordpress.org/changeset/710088	Changeset [710088]: Update readme 
+Wed, 08 May 2013 21:06:45 GMT	http://plugins.trac.wordpress.org/changeset/710086	Changeset [710086]: Initial commit from Github 
+Sat, 27 Apr 2013 22:07:12 GMT	http://plugins.trac.wordpress.org/changeset/704821	Changeset [704821]: Tag v0.4.1 from Github 
+Tue, 10 Sep 2013 16:03:37 GMT	http://plugins.trac.wordpress.org/changeset/769785	Changeset [769785]: Tag v2.6.3 from Github 
+Mon, 26 Aug 2013 23:06:57 GMT	http://plugins.trac.wordpress.org/changeset/762679	Changeset [762679]: Tag v2.6.1 
+Mon, 26 Aug 2013 23:05:14 GMT	http://plugins.trac.wordpress.org/changeset/762676	Changeset [762676]: Sync from Github 
+Mon, 23 Dec 2013 20:11:03 GMT	http://plugins.trac.wordpress.org/changeset/827638	Changeset [827638]: Tag 2.7.1 from Github 
+Mon, 09 Dec 2013 18:47:07 GMT	http://plugins.trac.wordpress.org/changeset/817630	Changeset [817630]: Sync 3.0.6 from Github 
+Wed, 20 Nov 2013 05:11:36 GMT	http://plugins.trac.wordpress.org/changeset/807256	Changeset [807256]: Tag 2.7.0 from Github 
+Mon, 28 Oct 2013 04:33:36 GMT	http://plugins.trac.wordpress.org/changeset/794622	Changeset [794622]: Bump for realz 
+Mon, 28 Oct 2013 04:31:36 GMT	http://plugins.trac.wordpress.org/changeset/794621	Changeset [794621]: Sync 2.6.7 from Github 
+Thu, 24 Oct 2013 02:34:14 GMT	http://plugins.trac.wordpress.org/changeset/792745	Changeset [792745]: Update 2.6.6 from Github 
+Wed, 23 Oct 2013 17:46:21 GMT	http://plugins.trac.wordpress.org/changeset/792488	Changeset [792488]: Tag 2.6.5 from Github 
+Fri, 18 Oct 2013 16:45:33 GMT	http://plugins.trac.wordpress.org/changeset/789970	Changeset [789970]: Update the WP Remote banner 
+Wed, 02 Oct 2013 21:59:01 GMT	http://plugins.trac.wordpress.org/changeset/781505	Changeset [781505]: Tag v2.6.4 
+Wed, 02 Oct 2013 21:57:08 GMT	http://plugins.trac.wordpress.org/changeset/781503	Changeset [781503]: Update v2.6.4 from Github 
+Thu, 20 Mar 2014 15:10:27 GMT	http://plugins.trac.wordpress.org/changeset/878835	Changeset [878835]: Tag 3.1.1 
+Mon, 17 Mar 2014 22:39:35 GMT	http://plugins.trac.wordpress.org/changeset/876853	Changeset [876853]: Tag 3.1 
+Mon, 17 Mar 2014 15:58:26 GMT	http://plugins.trac.wordpress.org/changeset/876628	Changeset [876628]: Update to 3.1-beta from Github 
+Wed, 26 Feb 2014 22:09:43 GMT	http://plugins.trac.wordpress.org/changeset/865745	Changeset [865745]: Tag 0.1 from Github 
+Wed, 26 Feb 2014 22:08:46 GMT	http://plugins.trac.wordpress.org/changeset/865744	Changeset [865744]: Ignore the Git 
+Wed, 26 Feb 2014 20:13:24 GMT	http://plugins.trac.wordpress.org/changeset/865670	Changeset [865670]: Tag 0.3.2 from Github 
+Mon, 10 Feb 2014 21:46:32 GMT	http://plugins.trac.wordpress.org/changeset/855102	Changeset [855102]: Tag 1.7.2 from Github 
+Wed, 05 Feb 2014 22:04:03 GMT	http://plugins.trac.wordpress.org/changeset/852264	Changeset [852264]: Tag 1.1.1 from Github 
+Mon, 27 Jan 2014 12:17:55 GMT	http://plugins.trac.wordpress.org/changeset/846204	Changeset [846204]: Sync 0.4 alpha with Github 
+Mon, 27 Jan 2014 11:49:39 GMT	http://plugins.trac.wordpress.org/changeset/846188	Changeset [846188]: Tag 3.0.7 from Github 
+Thu, 23 Jan 2014 01:31:57 GMT	http://plugins.trac.wordpress.org/changeset/843474	Changeset [843474]: Tag 2.7.2 from Github 
+Wed, 18 Mar 2015 20:40:51 GMT	http://plugins.trac.wordpress.org/changeset/1115536	Changeset [1115536]: Tag v0.2.1 from GH 
+Wed, 18 Mar 2015 17:06:00 GMT	http://plugins.trac.wordpress.org/changeset/1115398	Changeset [1115398]: Retina banners 
+Wed, 18 Mar 2015 16:56:43 GMT	http://plugins.trac.wordpress.org/changeset/1115389	Changeset [1115389]: Add a plugin directory banner 
+Wed, 18 Mar 2015 16:07:49 GMT	http://plugins.trac.wordpress.org/changeset/1115344	Changeset [1115344]: Tag v0.2.0 from GH 
+Wed, 18 Mar 2015 16:04:31 GMT	http://plugins.trac.wordpress.org/changeset/1115341	Changeset [1115341]: Ignore Git properties 
+Fri, 26 Jun 2015 19:54:13 GMT	http://plugins.trac.wordpress.org/changeset/1188323	Changeset [1188323]: Tag v0.1.0 from Github 
+Fri, 26 Jun 2015 12:23:24 GMT	http://plugins.trac.wordpress.org/changeset/1188123	Changeset [1188123]: Sync with Github 
+Fri, 26 Jun 2015 10:39:01 GMT	http://plugins.trac.wordpress.org/changeset/1188070	Changeset [1188070]: Ignore Git properties 
+Mon, 22 Jun 2015 20:25:07 GMT	http://plugins.trac.wordpress.org/changeset/1185765	Changeset [1185765]: Tag v0.4.0 from Github 
+Thu, 18 Jun 2015 16:54:07 GMT	http://plugins.trac.wordpress.org/changeset/1183639	Changeset [1183639]: Tag v0.1.0 from Github 
+Thu, 18 Jun 2015 16:34:14 GMT	http://plugins.trac.wordpress.org/changeset/1183634	Changeset [1183634]: Ignore Git junk 
+Wed, 03 Jun 2015 23:52:58 GMT	http://plugins.trac.wordpress.org/changeset/1174028	Changeset [1174028]: Tag v0.1.0 from Github 
+Wed, 20 May 2015 13:20:22 GMT	http://plugins.trac.wordpress.org/changeset/1164155	Changeset [1164155]: Ignore some Git componentry 
+Mon, 27 Apr 2015 20:11:54 GMT	http://plugins.trac.wordpress.org/changeset/1147526	Changeset [1147526]: Create v0.3.0 tag 
+Mon, 27 Apr 2015 20:10:42 GMT	http://plugins.trac.wordpress.org/changeset/1147525	Changeset [1147525]: Tag v0.3.0 from GH 
+Thu, 09 Apr 2015 20:34:16 GMT	http://plugins.trac.wordpress.org/changeset/1131468	Changeset [1131468]: Tag v0.8.2 from GH 
+Thu, 09 Apr 2015 20:31:08 GMT	http://plugins.trac.wordpress.org/changeset/1131465	Changeset [1131465]: Tag v0.9.2 from GH 
+Thu, 09 Apr 2015 20:25:53 GMT	http://plugins.trac.wordpress.org/changeset/1131459	Changeset [1131459]: Tag v1.0.2 from GH 
+Thu, 09 Apr 2015 20:21:07 GMT	http://plugins.trac.wordpress.org/changeset/1131452	Changeset [1131452]: Tag v1.1.3 from GH 
+Thu, 09 Apr 2015 19:19:31 GMT	http://plugins.trac.wordpress.org/changeset/1131414	Changeset [1131414]: Tag v0.8.1 from GH 
+Thu, 09 Apr 2015 19:13:20 GMT	http://plugins.trac.wordpress.org/changeset/1131409	Changeset [1131409]: Tag v0.9.1 from GH 
+Thu, 09 Apr 2015 19:07:13 GMT	http://plugins.trac.wordpress.org/changeset/1131404	Changeset [1131404]: Tag 1.0.1 from GH 
+Thu, 09 Apr 2015 19:00:10 GMT	http://plugins.trac.wordpress.org/changeset/1131400	Changeset [1131400]: Tag v1.1.2 
+Thu, 09 Apr 2015 18:51:08 GMT	http://plugins.trac.wordpress.org/changeset/1131394	Changeset [1131394]: Tag v1.2.1 from Github 
+Wed, 08 Apr 2015 17:02:36 GMT	http://plugins.trac.wordpress.org/changeset/1130575	Changeset [1130575]: Plugin icons for the repo 
+Wed, 08 Apr 2015 16:32:59 GMT	http://plugins.trac.wordpress.org/changeset/1130554	Changeset [1130554]: Tag v0.2.3 from Github 
+Mon, 06 Apr 2015 17:08:42 GMT	http://plugins.trac.wordpress.org/changeset/1128847	Changeset [1128847]: Tag v0.2.2 from GH 
+Thu, 27 Aug 2015 00:22:20 GMT	http://plugins.trac.wordpress.org/changeset/1231589	Changeset [1231589]: Bump compat version again 
+Thu, 27 Aug 2015 00:21:54 GMT	http://plugins.trac.wordpress.org/changeset/1231588	Changeset [1231588]: Bump compat version 
+Thu, 27 Aug 2015 00:20:58 GMT	http://plugins.trac.wordpress.org/changeset/1231587	Changeset [1231587]: Bump compat version 
+Thu, 27 Aug 2015 00:17:16 GMT	http://plugins.trac.wordpress.org/changeset/1231585	Changeset [1231585]: Bump compat version 
+Thu, 27 Aug 2015 00:10:43 GMT	http://plugins.trac.wordpress.org/changeset/1231577	Changeset [1231577]: Also bump compat version in tagged release 
+Thu, 27 Aug 2015 00:08:37 GMT	http://plugins.trac.wordpress.org/changeset/1231575	Changeset [1231575]: Bump compat version 
+Wed, 26 Aug 2015 22:46:57 GMT	http://plugins.trac.wordpress.org/changeset/1231560	Changeset [1231560]: Tag v0.5.0 from Github 
+Thu, 23 Jul 2015 14:16:23 GMT	http://plugins.trac.wordpress.org/changeset/1204895	Changeset [1204895]: Tag v0.1.0 from Github 
+Thu, 23 Jul 2015 14:14:04 GMT	http://plugins.trac.wordpress.org/changeset/1204888	Changeset [1204888]: Ignore Git files 
+Wed, 22 Jul 2015 13:03:16 GMT	http://plugins.trac.wordpress.org/changeset/1203941	Changeset [1203941]: Fix readme formatting 
+Wed, 22 Jul 2015 13:00:00 GMT	http://plugins.trac.wordpress.org/changeset/1203939	Changeset [1203939]: Optimized images 
+Wed, 22 Jul 2015 12:59:20 GMT	http://plugins.trac.wordpress.org/changeset/1203937	Changeset [1203937]: Revert r1203935 
+Wed, 22 Jul 2015 12:56:59 GMT	http://plugins.trac.wordpress.org/changeset/1203935	Changeset [1203935]: Remove README.md because I think it&#39;s breaking things 
+Fri, 17 Jul 2015 14:33:06 GMT	http://plugins.trac.wordpress.org/changeset/1201047	Changeset [1201047]: Tag v0.1.0 
+Fri, 17 Jul 2015 14:32:19 GMT	http://plugins.trac.wordpress.org/changeset/1201046	Changeset [1201046]: Initial commit from Github 
+Fri, 17 Jul 2015 14:16:33 GMT	http://plugins.trac.wordpress.org/changeset/1201041	Changeset [1201041]: Ignore Git fields 
+Mon, 21 Dec 2015 23:37:17 GMT	http://plugins.trac.wordpress.org/changeset/1313888	Changeset [1313888]: Include deprecation notice in v1 
+Fri, 11 Dec 2015 18:20:58 GMT	http://plugins.trac.wordpress.org/changeset/1306413	Changeset [1306413]: Tag 2.0 Beta 9 from Github 
+Wed, 02 Dec 2015 00:25:09 GMT	http://plugins.trac.wordpress.org/changeset/1298705	Changeset [1298705]: Tag 2.0beta8 from Github 
+Wed, 25 Nov 2015 01:14:57 GMT	http://plugins.trac.wordpress.org/changeset/1293893	Changeset [1293893]: Tag v0.2.2 from Github 
+Thu, 19 Nov 2015 00:29:26 GMT	http://plugins.trac.wordpress.org/changeset/1289133	Changeset [1289133]: Tag 2.0-beta7 from Github 
+Tue, 17 Nov 2015 21:01:26 GMT	http://plugins.trac.wordpress.org/changeset/1288252	Changeset [1288252]: Tag v0.2.1 from Github 
+Tue, 17 Nov 2015 19:53:51 GMT	http://plugins.trac.wordpress.org/changeset/1288221	Changeset [1288221]: Two more files that don&#39;t ever need to be commited to SVN 
+Tue, 17 Nov 2015 19:52:17 GMT	http://plugins.trac.wordpress.org/changeset/1288219	Changeset [1288219]: Tag v0.2.0 from Github 
+Tue, 17 Nov 2015 19:49:48 GMT	http://plugins.trac.wordpress.org/changeset/1288217	Changeset [1288217]: Ignore items we don&#39;t ever want to commit 
+Thu, 12 Nov 2015 21:44:22 GMT	http://plugins.trac.wordpress.org/changeset/1285166	Changeset [1285166]: Tag 2.0-beta6 from Github 
+Thu, 12 Nov 2015 17:07:03 GMT	http://plugins.trac.wordpress.org/changeset/1284972	Changeset [1284972]: Tag v0.6.2 
+Thu, 12 Nov 2015 00:42:01 GMT	http://plugins.trac.wordpress.org/changeset/1284522	Changeset [1284522]: Tag v1.2.4 
+Mon, 09 Nov 2015 16:12:38 GMT	http://plugins.trac.wordpress.org/changeset/1282644	Changeset [1282644]: Tag v0.6.1 from Github 
+Sat, 07 Nov 2015 14:49:41 GMT	http://plugins.trac.wordpress.org/changeset/1281670	Changeset [1281670]: Properly tag v0.6.0 from Github 
+Sat, 07 Nov 2015 14:46:43 GMT	http://plugins.trac.wordpress.org/changeset/1281667	Changeset [1281667]: Remove 0.6.0 tag, which is broken 
+Mon, 02 Nov 2015 21:02:14 GMT	http://plugins.trac.wordpress.org/changeset/1278066	Changeset [1278066]: Tag 0.6.0 from Github 
+Thu, 29 Oct 2015 17:40:01 GMT	http://plugins.trac.wordpress.org/changeset/1275663	Changeset [1275663]: Tag v2.0.3 to fix error notice 
+Fri, 23 Oct 2015 15:27:36 GMT	http://plugins.trac.wordpress.org/changeset/1271887	Changeset [1271887]: Tag 2.0-beta5 
+Wed, 30 Mar 2016 00:05:34 GMT	http://plugins.trac.wordpress.org/changeset/1381563	Changeset [1381563]: Tag Beta 13 
+Wed, 30 Mar 2016 00:03:25 GMT	http://plugins.trac.wordpress.org/changeset/1381561	Changeset [1381561]: Sync Beta 13 from Github 
+Wed, 23 Mar 2016 23:19:35 GMT	http://plugins.trac.wordpress.org/changeset/1377431	Changeset [1377431]: Tag 0.4.0 from Github 
+Wed, 16 Mar 2016 21:39:49 GMT	http://plugins.trac.wordpress.org/changeset/1372655	Changeset [1372655]: Tag 0.5 
+Wed, 16 Mar 2016 21:27:00 GMT	http://plugins.trac.wordpress.org/changeset/1372650	Changeset [1372650]: Sync readme with Github 
+Wed, 16 Mar 2016 21:24:00 GMT	http://plugins.trac.wordpress.org/changeset/1372649	Changeset [1372649]: Remove test files, which aren&#39;t necessarily in the distributed version 
+Wed, 16 Mar 2016 21:13:17 GMT	http://plugins.trac.wordpress.org/changeset/1372637	Changeset [1372637]: More files that should be ignored in the distribution 
+Thu, 25 Feb 2016 13:18:28 GMT	http://plugins.trac.wordpress.org/changeset/1358119	Changeset [1358119]: Add a notice about v1 + v2 to the readme 
+Mon, 15 Feb 2016 12:58:52 GMT	http://plugins.trac.wordpress.org/changeset/1350947	Changeset [1350947]: Remove `phpunit.xml` from distributed plugin 
+Thu, 11 Feb 2016 19:11:15 GMT	http://plugins.trac.wordpress.org/changeset/1348443	Changeset [1348443]: Bump tag in plugin too 
+Thu, 11 Feb 2016 17:27:46 GMT	http://plugins.trac.wordpress.org/changeset/1348401	Changeset [1348401]: Ignore more dev files we don&#39;t want included in the build 
+Thu, 11 Feb 2016 17:23:06 GMT	http://plugins.trac.wordpress.org/changeset/1348398	Changeset [1348398]: Tag v0.3.0 from Github 
+Tue, 09 Feb 2016 16:48:51 GMT	http://plugins.trac.wordpress.org/changeset/1346860	Changeset [1346860]: Tag 2.0 Beta 12 
+Tue, 09 Feb 2016 16:42:30 GMT	http://plugins.trac.wordpress.org/changeset/1346858	Changeset [1346858]: Update Beta 12 from Github 
+Tue, 09 Feb 2016 16:05:43 GMT	http://plugins.trac.wordpress.org/changeset/1346834	Changeset [1346834]: Ignore README.md from Github too 
+Tue, 09 Feb 2016 16:02:41 GMT	http://plugins.trac.wordpress.org/changeset/1346831	Changeset [1346831]: Initial version from Github 
+Tue, 09 Feb 2016 15:08:17 GMT	http://plugins.trac.wordpress.org/changeset/1346776	Changeset [1346776]: Ignore Git files 
+Mon, 08 Feb 2016 21:54:43 GMT	http://plugins.trac.wordpress.org/changeset/1346297	Changeset [1346297]: Use thicker strokes on icon text 
+Mon, 08 Feb 2016 21:19:00 GMT	http://plugins.trac.wordpress.org/changeset/1346276	Changeset [1346276]: First pass at thumbnails for the directory 
+Mon, 25 Jan 2016 23:55:23 GMT	http://plugins.trac.wordpress.org/changeset/1335940	Changeset [1335940]: Create beta 11 tag 
+Mon, 25 Jan 2016 23:53:36 GMT	http://plugins.trac.wordpress.org/changeset/1335939	Changeset [1335939]: Update beta 11 from Github 
+Mon, 25 Jan 2016 23:31:12 GMT	http://plugins.trac.wordpress.org/changeset/1335929	Changeset [1335929]: Ignore files only tracked in Git 
+Fri, 22 Jan 2016 18:44:42 GMT	http://plugins.trac.wordpress.org/changeset/1333936	Changeset [1333936]: Tag 0.1.0 
+Fri, 22 Jan 2016 18:36:24 GMT	http://plugins.trac.wordpress.org/changeset/1333927	Changeset [1333927]: Initial commit from Github 
+Fri, 22 Jan 2016 18:32:21 GMT	http://plugins.trac.wordpress.org/changeset/1333917	Changeset [1333917]: Ignore files we don&#39;t want tracked 
+Mon, 11 Jan 2016 20:56:14 GMT	http://plugins.trac.wordpress.org/changeset/1326052	Changeset [1326052]: Update readme links from Github 
+Mon, 11 Jan 2016 17:13:02 GMT	http://plugins.trac.wordpress.org/changeset/1325945	Changeset [1325945]: Tag 2.0 Beta 10 release 
+Mon, 11 Jan 2016 17:11:32 GMT	http://plugins.trac.wordpress.org/changeset/1325944	Changeset [1325944]: Tag 2.0 Beta 10 from Github 
+Mon, 11 Jan 2016 16:53:58 GMT	http://plugins.trac.wordpress.org/changeset/1325938	Changeset [1325938]: Tag 1.2.5 from Github 
+Mon, 11 Jan 2016 16:48:17 GMT	http://plugins.trac.wordpress.org/changeset/1325937	Changeset [1325937]: Tag 2.0 Beta 3.1 from Github 
+Mon, 11 Jan 2016 16:43:57 GMT	http://plugins.trac.wordpress.org/changeset/1325932	Changeset [1325932]: Tag 2.0 Beta 4.1 from Github 
+Mon, 11 Jan 2016 16:38:45 GMT	http://plugins.trac.wordpress.org/changeset/1325926	Changeset [1325926]: Tag 2.0 Beta 5.1 from Github 
+Mon, 11 Jan 2016 16:33:02 GMT	http://plugins.trac.wordpress.org/changeset/1325921	Changeset [1325921]: Tag 2.0 Beta 6.1 from Github 
+Mon, 11 Jan 2016 16:29:11 GMT	http://plugins.trac.wordpress.org/changeset/1325919	Changeset [1325919]: Tag 2.0 Beta 7.1 from Github 
+Mon, 11 Jan 2016 16:21:39 GMT	http://plugins.trac.wordpress.org/changeset/1325915	Changeset [1325915]: Tag 2.0 Beta 8.1 from Github 
+Mon, 11 Jan 2016 16:13:37 GMT	http://plugins.trac.wordpress.org/changeset/1325911	Changeset [1325911]: Tag 2.0-beta9.1 from Github 
+Fri, 08 Jan 2016 14:26:28 GMT	http://plugins.trac.wordpress.org/changeset/1324003	Changeset [1324003]: Sync improved readme from Github 
+Fri, 08 Jan 2016 13:28:56 GMT	http://plugins.trac.wordpress.org/changeset/1323987	Changeset [1323987]: As it turns out, images get stripped 
+Fri, 08 Jan 2016 13:25:48 GMT	http://plugins.trac.wordpress.org/changeset/1323985	Changeset [1323985]: See if direct HTML will render on WordPress.org 
+Fri, 08 Jan 2016 13:12:39 GMT	http://plugins.trac.wordpress.org/changeset/1323979	Changeset [1323979]: Move build status indicator, to see if we can get it to render 
+Thu, 30 Jun 2016 12:20:13 GMT	http://plugins.trac.wordpress.org/changeset/1446531	Changeset [1446531]: Ignore a few more files in svn:ignore 
+Thu, 30 Jun 2016 12:15:44 GMT	http://plugins.trac.wordpress.org/changeset/1446527	Changeset [1446527]: Bump &#34;Tested up to&#34; in readme.txt 
+Thu, 30 Jun 2016 12:02:54 GMT	http://plugins.trac.wordpress.org/changeset/1446519	Changeset [1446519]: Bump &#34;Tested Up To&#34; version 
+Thu, 30 Jun 2016 12:01:23 GMT	http://plugins.trac.wordpress.org/changeset/1446517	Changeset [1446517]: Bump &#34;Tested Up To&#34; version 
+Sat, 11 Jun 2016 23:47:37 GMT	http://plugins.trac.wordpress.org/changeset/1435119	Changeset [1435119]: Tag v0.1.2 
+Sat, 11 Jun 2016 23:46:39 GMT	http://plugins.trac.wordpress.org/changeset/1435118	Changeset [1435118]: Sync v0.1.2 from Github 
+Thu, 26 May 2016 16:20:46 GMT	http://plugins.trac.wordpress.org/changeset/1424866	Changeset [1424866]: Tag v0.1.1 
+Thu, 26 May 2016 16:20:03 GMT	http://plugins.trac.wordpress.org/changeset/1424865	Changeset [1424865]: Sync v0.1.1 from Github 
+Wed, 25 May 2016 12:39:20 GMT	http://plugins.trac.wordpress.org/changeset/1424002	Changeset [1424002]: Update trunk to 2.0 Beta 13.1 
+Wed, 25 May 2016 12:34:49 GMT	http://plugins.trac.wordpress.org/changeset/1424000	Changeset [1424000]: Tag 2.0 Beta 13.1 
+Wed, 25 May 2016 12:34:18 GMT	http://plugins.trac.wordpress.org/changeset/1423999	Changeset [1423999]: Tag 2.0 Beta 12.1 from Github 
+Thu, 28 Apr 2016 21:39:26 GMT	http://plugins.trac.wordpress.org/changeset/1406888	Changeset [1406888]: Tag v0.1.0 
+Thu, 28 Apr 2016 21:37:41 GMT	http://plugins.trac.wordpress.org/changeset/1406886	Changeset [1406886]: Sync v0.1.0 from Github 
+Thu, 28 Apr 2016 21:21:42 GMT	http://plugins.trac.wordpress.org/changeset/1406853	Changeset [1406853]: Ignore files we don&#39;t want 
+Wed, 27 Apr 2016 19:01:16 GMT	http://plugins.trac.wordpress.org/changeset/1405886	Changeset [1405886]: Tag v0.5.0 
+Wed, 27 Apr 2016 19:00:19 GMT	http://plugins.trac.wordpress.org/changeset/1405885	Changeset [1405885]: Sync v0.5.0 from Github 
+Mon, 18 Apr 2016 20:05:10 GMT	http://plugins.trac.wordpress.org/changeset/1398570	Changeset [1398570]: Tag v0.1.0 
+Mon, 18 Apr 2016 20:03:39 GMT	http://plugins.trac.wordpress.org/changeset/1398567	Changeset [1398567]: Ignore proper PHPUnit file 
+Mon, 18 Apr 2016 19:59:46 GMT	http://plugins.trac.wordpress.org/changeset/1398562	Changeset [1398562]: Sync v0.1.0 from Github 
+Mon, 18 Apr 2016 19:51:38 GMT	http://plugins.trac.wordpress.org/changeset/1398551	Changeset [1398551]: Ignore stuffs we don&#39;t want coming from Git 
+Thu, 22 Sep 2016 22:33:58 GMT	http://plugins.trac.wordpress.org/changeset/1500636	Changeset [1500636]: Tag v0.3.1 
+Thu, 22 Sep 2016 22:31:45 GMT	http://plugins.trac.wordpress.org/changeset/1500634	Changeset [1500634]: Sync v0.3.1 from Github 
+Wed, 21 Sep 2016 18:27:51 GMT	http://plugins.trac.wordpress.org/changeset/1499878	Changeset [1499878]: Remove LCache tests from the distribution artifact 
+Wed, 21 Sep 2016 18:24:53 GMT	http://plugins.trac.wordpress.org/changeset/1499877	Changeset [1499877]: Tag v0.3.0 
+Wed, 21 Sep 2016 18:24:09 GMT	http://plugins.trac.wordpress.org/changeset/1499876	Changeset [1499876]: Sync v0.3.0 from Github 
+Wed, 21 Sep 2016 17:03:44 GMT	http://plugins.trac.wordpress.org/changeset/1499830	Changeset [1499830]: Tag v0.6.0 
+Wed, 21 Sep 2016 17:02:06 GMT	http://plugins.trac.wordpress.org/changeset/1499829	Changeset [1499829]: Sync v0.6.0 from Github 
+Thu, 15 Sep 2016 00:15:00 GMT	http://plugins.trac.wordpress.org/changeset/1496026	Changeset [1496026]: Tag v0.2.2 
+Thu, 15 Sep 2016 00:14:10 GMT	http://plugins.trac.wordpress.org/changeset/1496025	Changeset [1496025]: Update stable version to v0.2.2 
+Wed, 14 Sep 2016 23:59:32 GMT	http://plugins.trac.wordpress.org/changeset/1496021	Changeset [1496021]: Remove bad v0.2.2 tag 
+Wed, 14 Sep 2016 23:58:30 GMT	http://plugins.trac.wordpress.org/changeset/1496020	Changeset [1496020]: Tag v0.2.2 
+Wed, 14 Sep 2016 23:57:43 GMT	http://plugins.trac.wordpress.org/changeset/1496019	Changeset [1496019]: Sync v0.2.2 from Github 
+Wed, 14 Sep 2016 22:00:45 GMT	http://plugins.trac.wordpress.org/changeset/1495997	Changeset [1495997]: Tag v0.2.1 
+Wed, 14 Sep 2016 21:57:10 GMT	http://plugins.trac.wordpress.org/changeset/1495992	Changeset [1495992]: Sync v0.2.1 from Github 
+Wed, 14 Sep 2016 18:20:38 GMT	http://plugins.trac.wordpress.org/changeset/1495899	Changeset [1495899]: Tag v0.2.0 
+Wed, 14 Sep 2016 18:19:53 GMT	http://plugins.trac.wordpress.org/changeset/1495897	Changeset [1495897]: Sync v0.2.0 from Github 
+Thu, 08 Sep 2016 00:37:47 GMT	http://plugins.trac.wordpress.org/changeset/1492132	Changeset [1492132]: Tag v0.1.0 for real 
+Thu, 08 Sep 2016 00:36:45 GMT	http://plugins.trac.wordpress.org/changeset/1492131	Changeset [1492131]: Update v0.1.0 
+Thu, 08 Sep 2016 00:36:20 GMT	http://plugins.trac.wordpress.org/changeset/1492130	Changeset [1492130]: Remove broken tag 
+Thu, 08 Sep 2016 00:34:45 GMT	http://plugins.trac.wordpress.org/changeset/1492127	Changeset [1492127]: Tag v0.1.0 
+Thu, 08 Sep 2016 00:34:13 GMT	http://plugins.trac.wordpress.org/changeset/1492126	Changeset [1492126]: Sync v0.1.0 from Github 
+Thu, 08 Sep 2016 00:16:11 GMT	http://plugins.trac.wordpress.org/changeset/1492110	Changeset [1492110]: Ignore a couple more files 
+Thu, 08 Sep 2016 00:14:03 GMT	http://plugins.trac.wordpress.org/changeset/1492097	Changeset [1492097]: Ignore development files 
+Mon, 22 Aug 2016 20:56:13 GMT	http://plugins.trac.wordpress.org/changeset/1481112	Changeset [1481112]: Bump last updated to version 
+Mon, 22 Aug 2016 20:49:17 GMT	http://plugins.trac.wordpress.org/changeset/1481102	Changeset [1481102]: Bump tested up to version 
+Mon, 22 Aug 2016 20:48:27 GMT	http://plugins.trac.wordpress.org/changeset/1481100	Changeset [1481100]: Bump tested up to version 
+Thu, 29 Dec 2016 18:56:45 GMT	http://plugins.trac.wordpress.org/changeset/1564581	Changeset [1564581]: Tag v0.2.0 
+Thu, 29 Dec 2016 18:52:07 GMT	http://plugins.trac.wordpress.org/changeset/1564577	Changeset [1564577]: Sync v0.2.0 from Github 
+Wed, 07 Dec 2016 14:27:15 GMT	http://plugins.trac.wordpress.org/changeset/1547438	Changeset [1547438]: Plugin has been tested up to 4.7 
+Wed, 07 Dec 2016 14:24:48 GMT	http://plugins.trac.wordpress.org/changeset/1547435	Changeset [1547435]: Plugin is tested up to WP 4.7 
+Wed, 07 Dec 2016 14:14:56 GMT	http://plugins.trac.wordpress.org/changeset/1547432	Changeset [1547432]: Plugin has been tested up to 4.7 
+Wed, 07 Dec 2016 00:59:48 GMT	http://plugins.trac.wordpress.org/changeset/1546866	Changeset [1546866]: Tag v0.1.2 
+Wed, 07 Dec 2016 00:58:44 GMT	http://plugins.trac.wordpress.org/changeset/1546863	Changeset [1546863]: Sync v0.1.2 from Github 
+Tue, 06 Dec 2016 21:52:53 GMT	http://plugins.trac.wordpress.org/changeset/1546756	Changeset [1546756]: Require WP 4.7 
+Wed, 30 Nov 2016 20:24:26 GMT	http://plugins.trac.wordpress.org/changeset/1543601	Changeset [1543601]: Tag v0.1.1 
+Wed, 30 Nov 2016 20:22:55 GMT	http://plugins.trac.wordpress.org/changeset/1543598	Changeset [1543598]: Sync v0.1.1 from Github 
+Thu, 24 Nov 2016 01:07:47 GMT	http://plugins.trac.wordpress.org/changeset/1539528	Changeset [1539528]: Tag v0.1.0 
+Thu, 24 Nov 2016 01:05:30 GMT	http://plugins.trac.wordpress.org/changeset/1539521	Changeset [1539521]: Sync v0.1.0 from Github 
+Thu, 24 Nov 2016 01:03:26 GMT	http://plugins.trac.wordpress.org/changeset/1539514	Changeset [1539514]: Add banner assets to the project 
+Thu, 24 Nov 2016 01:00:05 GMT	http://plugins.trac.wordpress.org/changeset/1539507	Changeset [1539507]: Ignore Git files 
+Wed, 23 Nov 2016 20:49:29 GMT	http://plugins.trac.wordpress.org/changeset/1539397	Changeset [1539397]: Tag v0.6.0 
+Wed, 23 Nov 2016 20:48:18 GMT	http://plugins.trac.wordpress.org/changeset/1539395	Changeset [1539395]: Sync v0.6.0 from Github 
+Wed, 02 Nov 2016 23:01:53 GMT	http://plugins.trac.wordpress.org/changeset/1527046	Changeset [1527046]: Tag 0.5.0 
+Wed, 02 Nov 2016 22:55:20 GMT	http://plugins.trac.wordpress.org/changeset/1527044	Changeset [1527044]: Sync v0.5.0 from Github 
+Fri, 07 Oct 2016 12:21:10 GMT	http://plugins.trac.wordpress.org/changeset/1509980	Changeset [1509980]: Clarify installation instructions 
+Wed, 05 Oct 2016 21:43:03 GMT	http://plugins.trac.wordpress.org/changeset/1508999	Changeset [1508999]: Try fixing formatting once more 
+Wed, 05 Oct 2016 21:38:33 GMT	http://plugins.trac.wordpress.org/changeset/1508995	Changeset [1508995]: Fix markup that WordPress.org doesn&#39;t support 
+Wed, 05 Oct 2016 21:36:27 GMT	http://plugins.trac.wordpress.org/changeset/1508992	Changeset [1508992]: Tag v0.4.0 
+Wed, 05 Oct 2016 21:35:28 GMT	http://plugins.trac.wordpress.org/changeset/1508990	Changeset [1508990]: Sync v0.4.0 from Github 
+Wed, 22 Mar 2017 22:37:10 GMT	http://plugins.trac.wordpress.org/changeset/1619765	Changeset [1619765]: Sync v0.2.1 from GitHub 
+Tue, 07 Mar 2017 21:40:24 GMT	http://plugins.trac.wordpress.org/changeset/1610145	Changeset [1610145]: Tag v0.2.0 
+Tue, 07 Mar 2017 21:20:42 GMT	http://plugins.trac.wordpress.org/changeset/1610137	Changeset [1610137]: Sync v0.2.0 from GitHub 
+Tue, 07 Mar 2017 20:48:45 GMT	http://plugins.trac.wordpress.org/changeset/1610114	Changeset [1610114]: Tag v0.1.4 
+Tue, 07 Mar 2017 20:47:31 GMT	http://plugins.trac.wordpress.org/changeset/1610111	Changeset [1610111]: Tag v0.1.4 
+Tue, 07 Mar 2017 20:45:40 GMT	http://plugins.trac.wordpress.org/changeset/1610109	Changeset [1610109]: Sync v0.1.4 from GitHub 
+Wed, 01 Mar 2017 13:19:26 GMT	http://plugins.trac.wordpress.org/changeset/1605958	Changeset [1605958]: Tag v0.1.3 
+Wed, 01 Mar 2017 13:12:26 GMT	http://plugins.trac.wordpress.org/changeset/1605952	Changeset [1605952]: Sync v0.1.3 from GitHub 
+Mon, 27 Feb 2017 15:56:21 GMT	http://plugins.trac.wordpress.org/changeset/1604624	Changeset [1604624]: Tag v0.1.1 
+Mon, 27 Feb 2017 15:55:36 GMT	http://plugins.trac.wordpress.org/changeset/1604623	Changeset [1604623]: Sync v0.1.1 from GitHub 
+Thu, 23 Feb 2017 16:54:47 GMT	http://plugins.trac.wordpress.org/changeset/1602245	Changeset [1602245]: Tag v0.6.1 
+Thu, 23 Feb 2017 16:52:51 GMT	http://plugins.trac.wordpress.org/changeset/1602243	Changeset [1602243]: Sync v0.6.1 from GitHub 
+Wed, 25 Jan 2017 13:25:02 GMT	http://plugins.trac.wordpress.org/changeset/1581892	Changeset [1581892]: Ignore `.distignore` 
+Tue, 24 Jan 2017 23:12:10 GMT	http://plugins.trac.wordpress.org/changeset/1581535	Changeset [1581535]: Bump tested up to 4.7.1 
+Thu, 29 Jun 2017 15:55:48 GMT	http://plugins.trac.wordpress.org/changeset/1687862	Changeset [1687862]: Tag v0.3.0 
+Thu, 29 Jun 2017 15:54:27 GMT	http://plugins.trac.wordpress.org/changeset/1687861	Changeset [1687861]: Sync v0.3.0 from GitHub 
+Thu, 08 Jun 2017 18:50:16 GMT	http://plugins.trac.wordpress.org/changeset/1673696	Changeset [1673696]: Tag v0.1.2 
+Thu, 08 Jun 2017 18:48:57 GMT	http://plugins.trac.wordpress.org/changeset/1673695	Changeset [1673695]: Sync v0.1.2 from GitHub 
+Tue, 06 Jun 2017 20:06:01 GMT	http://plugins.trac.wordpress.org/changeset/1672046	Changeset [1672046]: Tag v0.6.2 
+Tue, 06 Jun 2017 20:04:51 GMT	http://plugins.trac.wordpress.org/changeset/1672044	Changeset [1672044]: Sync v0.6.2 from GitHub 
+Mon, 05 Jun 2017 18:05:39 GMT	http://plugins.trac.wordpress.org/changeset/1671204	Changeset [1671204]: Tag v0.6.2 
+Mon, 05 Jun 2017 18:05:02 GMT	http://plugins.trac.wordpress.org/changeset/1671203	Changeset [1671203]: Sync v0.6.2 from GitHub 
+Wed, 31 May 2017 22:19:22 GMT	http://plugins.trac.wordpress.org/changeset/1668117	Changeset [1668117]: Bump tested to version 4.8 
+Thu, 25 May 2017 20:18:35 GMT	http://plugins.trac.wordpress.org/changeset/1664971	Changeset [1664971]: Tag v0.6.1 
+Thu, 25 May 2017 20:17:12 GMT	http://plugins.trac.wordpress.org/changeset/1664970	Changeset [1664970]: Sync v0.6.1 from GitHub 
+Wed, 24 May 2017 21:54:42 GMT	http://plugins.trac.wordpress.org/changeset/1664339	Changeset [1664339]: Tag v0.1.5 
+Wed, 24 May 2017 21:53:39 GMT	http://plugins.trac.wordpress.org/changeset/1664337	Changeset [1664337]: Sync v0.1.5 from GitHub 
+Wed, 24 May 2017 15:58:45 GMT	http://plugins.trac.wordpress.org/changeset/1664103	Changeset [1664103]: Tag v0.2.2 
+Wed, 24 May 2017 15:57:09 GMT	http://plugins.trac.wordpress.org/changeset/1664100	Changeset [1664100]: Sync v0.2.2 from GitHub 
+Wed, 03 May 2017 22:45:12 GMT	http://plugins.trac.wordpress.org/changeset/1650611	Changeset [1650611]: Tag v0.5.2 
+Wed, 03 May 2017 22:44:00 GMT	http://plugins.trac.wordpress.org/changeset/1650610	Changeset [1650610]: Sync v0.5.2 from GitHub 
+Tue, 25 Apr 2017 22:57:56 GMT	http://plugins.trac.wordpress.org/changeset/1645338	Changeset [1645338]: Tag v0.5.1 
+Tue, 25 Apr 2017 22:56:49 GMT	http://plugins.trac.wordpress.org/changeset/1645337	Changeset [1645337]: Sync WP LCache v0.5.1 from GitHub 
+Mon, 28 Aug 2017 18:22:46 GMT	http://plugins.trac.wordpress.org/changeset/1720781	Changeset [1720781]: Tag v0.6.0 
+Mon, 28 Aug 2017 18:21:07 GMT	http://plugins.trac.wordpress.org/changeset/1720780	Changeset [1720780]: Install LCache v0.4.0 
+Mon, 28 Aug 2017 18:17:27 GMT	http://plugins.trac.wordpress.org/changeset/1720779	Changeset [1720779]: Ignore a couple more unnecessary files 
+Mon, 28 Aug 2017 18:15:06 GMT	http://plugins.trac.wordpress.org/changeset/1720778	Changeset [1720778]: Sync v0.6.0 from GitHub 
+Tue, 22 Aug 2017 20:37:38 GMT	http://plugins.trac.wordpress.org/changeset/1717788	Changeset [1717788]: Tag v0.7.0 
+Tue, 22 Aug 2017 20:32:59 GMT	http://plugins.trac.wordpress.org/changeset/1717787	Changeset [1717787]: Sync v0.7.0 from GitHub 
+Thu, 10 Aug 2017 14:47:18 GMT	http://plugins.trac.wordpress.org/changeset/1711572	Changeset [1711572]: Tag v0.2.0 
+Thu, 10 Aug 2017 14:46:38 GMT	http://plugins.trac.wordpress.org/changeset/1711570	Changeset [1711570]: Sync v0.2.0 from GitHub 
+Wed, 12 Jul 2017 18:46:48 GMT	http://plugins.trac.wordpress.org/changeset/1695377	Changeset [1695377]: Tag v0.3.1 
+Wed, 12 Jul 2017 18:45:41 GMT	http://plugins.trac.wordpress.org/changeset/1695376	Changeset [1695376]: Sync v0.3.1 from GitHub 
+Fri, 22 Dec 2017 21:36:11 GMT	http://plugins.trac.wordpress.org/changeset/1791537	Changeset [1791537]: Tag v0.3.4 
+Fri, 22 Dec 2017 21:35:07 GMT	http://plugins.trac.wordpress.org/changeset/1791535	Changeset [1791535]: Sync v0.3.4 from GitHub 
+Wed, 29 Nov 2017 01:36:29 GMT	http://plugins.trac.wordpress.org/changeset/1777375	Changeset [1777375]: Tag v0.3.3 
+Wed, 29 Nov 2017 01:34:55 GMT	http://plugins.trac.wordpress.org/changeset/1777374	Changeset [1777374]: Sync v0.3.3 from GitHub 
+Mon, 27 Nov 2017 16:06:33 GMT	http://plugins.trac.wordpress.org/changeset/1776268	Changeset [1776268]: Tag v0.3.0 
+Mon, 27 Nov 2017 16:05:24 GMT	http://plugins.trac.wordpress.org/changeset/1776267	Changeset [1776267]: Sync v0.3.0 from GitHub 
+Thu, 09 Nov 2017 20:14:15 GMT	http://plugins.trac.wordpress.org/changeset/1762257	Changeset [1762257]: Tag v0.3.2 
+Thu, 09 Nov 2017 20:12:58 GMT	http://plugins.trac.wordpress.org/changeset/1762256	Changeset [1762256]: Sync v0.3.2 from GitHub 
+Thu, 09 Nov 2017 13:23:54 GMT	http://plugins.trac.wordpress.org/changeset/1761886	Changeset [1761886]: Bump tested up to WP 4.9 
+Thu, 09 Nov 2017 12:59:47 GMT	http://plugins.trac.wordpress.org/changeset/1761857	Changeset [1761857]: Bump tested up to WP 4.9 
+Thu, 09 Nov 2017 12:55:48 GMT	http://plugins.trac.wordpress.org/changeset/1761852	Changeset [1761852]: Bump tested up to 4.9 
+Wed, 08 Nov 2017 14:48:00 GMT	http://plugins.trac.wordpress.org/changeset/1760823	Changeset [1760823]: Bump tested up to WP 4.9 
+Tue, 07 Nov 2017 18:58:46 GMT	http://plugins.trac.wordpress.org/changeset/1760303	Changeset [1760303]: Bump tested up to 4.9 
+Wed, 25 Oct 2017 22:59:14 GMT	http://plugins.trac.wordpress.org/changeset/1752865	Changeset [1752865]: Tag v0.2.1 
+Wed, 25 Oct 2017 22:58:37 GMT	http://plugins.trac.wordpress.org/changeset/1752864	Changeset [1752864]: Sync v0.2.1 from GitHub 
+Tue, 10 Oct 2017 21:38:41 GMT	http://plugins.trac.wordpress.org/changeset/1744270	Changeset [1744270]: Tag v0.6.4 
+Tue, 10 Oct 2017 21:37:53 GMT	http://plugins.trac.wordpress.org/changeset/1744268	Changeset [1744268]: Sync v0.6.4 from GitHub 
+Tue, 03 Oct 2017 21:39:12 GMT	http://plugins.trac.wordpress.org/changeset/1740561	Changeset [1740561]: Tag v0.6.1 
+Tue, 03 Oct 2017 21:36:42 GMT	http://plugins.trac.wordpress.org/changeset/1740558	Changeset [1740558]: Sync v0.6.1 from GitHub 
+Tue, 03 Oct 2017 19:07:24 GMT	http://plugins.trac.wordpress.org/changeset/1740498	Changeset [1740498]: Tag v0.6.3 
+Tue, 03 Oct 2017 19:06:51 GMT	http://plugins.trac.wordpress.org/changeset/1740497	Changeset [1740497]: Sync v0.6.3 from GitHub 
+Thu, 29 Mar 2018 18:13:14 GMT	http://plugins.trac.wordpress.org/changeset/1849532	Changeset [1849532]: Tag v0.3.9 
+Thu, 29 Mar 2018 18:11:32 GMT	http://plugins.trac.wordpress.org/changeset/1849531	Changeset [1849531]: Sync v0.3.9 
+Thu, 22 Mar 2018 11:57:02 GMT	http://plugins.trac.wordpress.org/changeset/1844948	Changeset [1844948]: Tag v0.1.1 
+Thu, 22 Mar 2018 11:55:41 GMT	http://plugins.trac.wordpress.org/changeset/1844942	Changeset [1844942]: Sync v0.1.1 from GitHub 
+Tue, 13 Mar 2018 19:27:21 GMT	http://plugins.trac.wordpress.org/changeset/1839564	Changeset [1839564]: Add plugin assets 
+Thu, 08 Mar 2018 04:43:01 GMT	http://plugins.trac.wordpress.org/changeset/1835923	Changeset [1835923]: Update stable version 
+Thu, 08 Mar 2018 04:40:58 GMT	http://plugins.trac.wordpress.org/changeset/1835919	Changeset [1835919]: Tag v0.6.6 
+Thu, 08 Mar 2018 04:40:10 GMT	http://plugins.trac.wordpress.org/changeset/1835916	Changeset [1835916]: Sync v0.6.6 from GitHub 
+Wed, 07 Mar 2018 05:26:56 GMT	http://plugins.trac.wordpress.org/changeset/1835010	Changeset [1835010]: Tag v0.1.0 
+Wed, 07 Mar 2018 05:24:52 GMT	http://plugins.trac.wordpress.org/changeset/1835009	Changeset [1835009]: Update the author link 
+Wed, 07 Mar 2018 05:24:15 GMT	http://plugins.trac.wordpress.org/changeset/1835007	Changeset [1835007]: Fix Markdown link 
+Wed, 07 Mar 2018 05:22:31 GMT	http://plugins.trac.wordpress.org/changeset/1835004	Changeset [1835004]: Sync v0.1.0 from GitHub 
+Mon, 26 Feb 2018 15:06:29 GMT	http://plugins.trac.wordpress.org/changeset/1829385	Changeset [1829385]: Tag v0.3.8 
+Mon, 26 Feb 2018 15:03:31 GMT	http://plugins.trac.wordpress.org/changeset/1829381	Changeset [1829381]: Sync v0.3.8 from GitHub 
+Tue, 13 Feb 2018 23:49:29 GMT	http://plugins.trac.wordpress.org/changeset/1821710	Changeset [1821710]: Tag v0.3.7 
+Tue, 13 Feb 2018 23:47:51 GMT	http://plugins.trac.wordpress.org/changeset/1821709	Changeset [1821709]: Sync v0.3.7 from GitHub 
+Fri, 09 Feb 2018 16:38:01 GMT	http://plugins.trac.wordpress.org/changeset/1819203	Changeset [1819203]: Add plugin assets 
+Thu, 08 Feb 2018 01:10:37 GMT	http://plugins.trac.wordpress.org/changeset/1817788	Changeset [1817788]: Tag v0.3.6 
+Thu, 08 Feb 2018 01:09:41 GMT	http://plugins.trac.wordpress.org/changeset/1817787	Changeset [1817787]: Sync v0.3.6 from GitHub 
+Tue, 06 Feb 2018 22:36:00 GMT	http://plugins.trac.wordpress.org/changeset/1816839	Changeset [1816839]: Tag v0.6.5 
+Tue, 06 Feb 2018 22:35:26 GMT	http://plugins.trac.wordpress.org/changeset/1816838	Changeset [1816838]: Sync v0.6.5 from GitHub 
+Tue, 06 Feb 2018 00:17:24 GMT	http://plugins.trac.wordpress.org/changeset/1816026	Changeset [1816026]: Tag v0.1.0 
+Tue, 06 Feb 2018 00:16:51 GMT	http://plugins.trac.wordpress.org/changeset/1816025	Changeset [1816025]: Sync v0.1.0 from GitHub 
+Tue, 06 Feb 2018 00:16:00 GMT	http://plugins.trac.wordpress.org/changeset/1816024	Changeset [1816024]: Ignore a bunch of stuff we don&#39;t want 
+Fri, 19 Jan 2018 17:12:09 GMT	http://plugins.trac.wordpress.org/changeset/1805906	Changeset [1805906]: Tag v0.3.5 
+Fri, 19 Jan 2018 17:11:02 GMT	http://plugins.trac.wordpress.org/changeset/1805903	Changeset [1805903]: Sync v0.3.5 from GitHub 
+Thu, 28 Jun 2018 14:27:53 GMT	http://plugins.trac.wordpress.org/changeset/1900626	Changeset [1900626]: Fix the stable tag 
+Thu, 28 Jun 2018 14:26:09 GMT	http://plugins.trac.wordpress.org/changeset/1900624	Changeset [1900624]: Tag v0.3.10 
+Thu, 28 Jun 2018 14:22:54 GMT	http://plugins.trac.wordpress.org/changeset/1900620	Changeset [1900620]: Sync v0.3.10 from GitHub 
+Thu, 24 May 2018 16:17:29 GMT	http://plugins.trac.wordpress.org/changeset/1880936	Changeset [1880936]: Tag v0.3.0 
+Thu, 24 May 2018 16:16:34 GMT	http://plugins.trac.wordpress.org/changeset/1880935	Changeset [1880935]: Sync v0.3.0 from GitHub 
+Tue, 15 May 2018 12:47:12 GMT	http://plugins.trac.wordpress.org/changeset/1874681	Changeset [1874681]: Tag v0.6.9 
+Tue, 15 May 2018 12:46:34 GMT	http://plugins.trac.wordpress.org/changeset/1874680	Changeset [1874680]: Sync v0.6.9 from GitHub 
+Fri, 04 May 2018 21:21:04 GMT	http://plugins.trac.wordpress.org/changeset/1868927	Changeset [1868927]: Tag v0.6.8 
+Fri, 04 May 2018 21:20:12 GMT	http://plugins.trac.wordpress.org/changeset/1868926	Changeset [1868926]: Sync v0.6.8 from GitHub 
+Thu, 03 May 2018 22:41:52 GMT	http://plugins.trac.wordpress.org/changeset/1868388	Changeset [1868388]: Tag v0.2.0 
+Thu, 03 May 2018 22:39:47 GMT	http://plugins.trac.wordpress.org/changeset/1868385	Changeset [1868385]: Ignore package-lock.json too 
+Thu, 03 May 2018 22:38:04 GMT	http://plugins.trac.wordpress.org/changeset/1868383	Changeset [1868383]: Sync v0.2.0 from GitHub 
+Thu, 26 Apr 2018 20:35:51 GMT	http://plugins.trac.wordpress.org/changeset/1865038	Changeset [1865038]: Tag v0.6.7 
+Thu, 26 Apr 2018 20:34:35 GMT	http://plugins.trac.wordpress.org/changeset/1865035	Changeset [1865035]: Sync v0.6.7 from GitHub 
+Wed, 05 Sep 2018 18:58:00 GMT	http://plugins.trac.wordpress.org/changeset/1936423	Changeset [1936423]: Tag v0.4.0 
+Wed, 05 Sep 2018 18:51:56 GMT	http://plugins.trac.wordpress.org/changeset/1936421	Changeset [1936421]: Sync v0.4.0 from GitHub 
+Wed, 18 Jul 2018 12:18:28 GMT	http://plugins.trac.wordpress.org/changeset/1910965	Changeset [1910965]: Tag v0.3.11 from trunk 
+Wed, 18 Jul 2018 12:14:05 GMT	http://plugins.trac.wordpress.org/changeset/1910959	Changeset [1910959]: Sync v0.3.11 from GitHub 
+Wed, 18 Jul 2018 12:08:06 GMT	http://plugins.trac.wordpress.org/changeset/1910957	Changeset [1910957]: Tag v0.1.4 from trunk 
+Wed, 18 Jul 2018 12:06:48 GMT	http://plugins.trac.wordpress.org/changeset/1910954	Changeset [1910954]: Sync v0.1.4 from GitHub 
+Fri, 06 Jul 2018 18:31:39 GMT	http://plugins.trac.wordpress.org/changeset/1905445	Changeset [1905445]: Tag v0.1.3 
+Fri, 06 Jul 2018 18:30:20 GMT	http://plugins.trac.wordpress.org/changeset/1905444	Changeset [1905444]: Sync v0.1.3 from GitHub 
+Fri, 14 Dec 2018 18:33:49 GMT	http://plugins.trac.wordpress.org/changeset/1995053	Changeset [1995053]: Tag v0.7.1 
+Fri, 14 Dec 2018 18:31:53 GMT	http://plugins.trac.wordpress.org/changeset/1995052	Changeset [1995052]: Sync v0.7.1 from GitHub 
+Mon, 10 Dec 2018 23:23:11 GMT	http://plugins.trac.wordpress.org/changeset/1991295	Changeset [1991295]: Bump &#34;Tested up to&#34; to WP 5.0 
+Mon, 10 Dec 2018 20:37:21 GMT	http://plugins.trac.wordpress.org/changeset/1991198	Changeset [1991198]: Bump &#34;Tested up to&#34; to WP 5.0 
+Mon, 10 Dec 2018 20:08:25 GMT	http://plugins.trac.wordpress.org/changeset/1991181	Changeset [1991181]: Bump &#34;Tested up to&#34; to WP 5.0 
+Mon, 10 Dec 2018 20:08:07 GMT	http://plugins.trac.wordpress.org/changeset/1991180	Changeset [1991180]: Bump &#34;Tested up to&#34; to WP 5.0 
+Mon, 10 Dec 2018 20:07:20 GMT	http://plugins.trac.wordpress.org/changeset/1991179	Changeset [1991179]: Bump &#34;Tested up to&#34; to WP 5.0 
+Mon, 10 Dec 2018 19:38:22 GMT	http://plugins.trac.wordpress.org/changeset/1991153	Changeset [1991153]: Bump &#34;Tested up to&#34; to WP 5.0 
+Thu, 15 Nov 2018 22:46:40 GMT	http://plugins.trac.wordpress.org/changeset/1975165	Changeset [1975165]: Tag v0.5.1 
+Thu, 15 Nov 2018 22:45:26 GMT	http://plugins.trac.wordpress.org/changeset/1975164	Changeset [1975164]: Sync v0.5.1 from GitHub 
+Wed, 07 Nov 2018 19:29:35 GMT	http://plugins.trac.wordpress.org/changeset/1970543	Changeset [1970543]: Tag v0.5.0 
+Wed, 07 Nov 2018 19:26:20 GMT	http://plugins.trac.wordpress.org/changeset/1970539	Changeset [1970539]: Sync v0.5.0 from GitHub 
+Wed, 27 Feb 2019 00:47:16 GMT	http://plugins.trac.wordpress.org/changeset/2040224	Changeset [2040224]: Include some mention of where the snippet goes 
+Wed, 30 Jan 2019 23:50:55 GMT	http://plugins.trac.wordpress.org/changeset/2022282	Changeset [2022282]: Bump WP tested-up-to 
+Wed, 30 Jan 2019 23:49:32 GMT	http://plugins.trac.wordpress.org/changeset/2022281	Changeset [2022281]: Ignore .gitignore in Subversion 
+Wed, 30 Jan 2019 23:46:07 GMT	http://plugins.trac.wordpress.org/changeset/2022279	Changeset [2022279]: Bump WP tested-up-to version 
+Tue, 14 May 2019 17:13:30 GMT	http://plugins.trac.wordpress.org/changeset/2087765	Changeset [2087765]: Tag v0.6.0 
+Tue, 14 May 2019 17:08:27 GMT	http://plugins.trac.wordpress.org/changeset/2087763	Changeset [2087763]: Sync v0.6.0 from GitHub 
+Thu, 09 May 2019 16:25:15 GMT	http://plugins.trac.wordpress.org/changeset/2084753	Changeset [2084753]: Update &#39;Tested Up To&#39; to WP 5.2 
+Thu, 09 May 2019 16:14:34 GMT	http://plugins.trac.wordpress.org/changeset/2084749	Changeset [2084749]: Bump &#39;Tested Up To&#39; to WP 5.2 
+Thu, 09 May 2019 13:33:21 GMT	http://plugins.trac.wordpress.org/changeset/2084659	Changeset [2084659]: Bump &#39;Tested Up To&#39; to WP 5.0 
+Tue, 30 Apr 2019 23:56:33 GMT	http://plugins.trac.wordpress.org/changeset/2078229	Changeset [2078229]: Bump &#39;Tested Up To&#39; version 
+Tue, 30 Apr 2019 23:54:31 GMT	http://plugins.trac.wordpress.org/changeset/2078228	Changeset [2078228]: Update readme.txt to mention current project state 
+Tue, 16 Apr 2019 18:11:07 GMT	http://plugins.trac.wordpress.org/changeset/2069515	Changeset [2069515]: Add &#39;andrew.taylor&#39; as a contributor too 
+Tue, 16 Apr 2019 17:48:42 GMT	http://plugins.trac.wordpress.org/changeset/2069511	Changeset [2069511]: Drop &#39;Tested Up To&#39; down to the most recent release 
+Mon, 08 Apr 2019 15:11:50 GMT	http://plugins.trac.wordpress.org/changeset/2065121	Changeset [2065121]: Tag v0.5.2 
+Mon, 08 Apr 2019 15:09:21 GMT	http://plugins.trac.wordpress.org/changeset/2065120	Changeset [2065120]: Sync v0.5.2 from GitHub 
+Wed, 03 Apr 2019 19:09:55 GMT	http://plugins.trac.wordpress.org/changeset/2062486	Changeset [2062486]: Tag v0.7.0 
+Wed, 03 Apr 2019 19:08:34 GMT	http://plugins.trac.wordpress.org/changeset/2062484	Changeset [2062484]: Sync v0.7.0 from GitHub 
+Thu, 26 Sep 2019 11:42:36 GMT	http://plugins.trac.wordpress.org/changeset/2163653	Changeset [2163653]: Tag v0.7.1 
+Thu, 26 Sep 2019 11:41:15 GMT	http://plugins.trac.wordpress.org/changeset/2163647	Changeset [2163647]: Sync v0.7.1 from GitHub 
+Mon, 16 Sep 2019 22:40:53 GMT	http://plugins.trac.wordpress.org/changeset/2157548	Changeset [2157548]: Tag v0.7.0 
+Mon, 16 Sep 2019 22:39:27 GMT	http://plugins.trac.wordpress.org/changeset/2157547	Changeset [2157547]: Ignore a couple more files from svn 
+Mon, 16 Sep 2019 22:33:57 GMT	http://plugins.trac.wordpress.org/changeset/2157545	Changeset [2157545]: Sync v0.7.0 from GitHub 
+Mon, 09 Sep 2019 11:07:52 GMT	http://plugins.trac.wordpress.org/changeset/2153459	Changeset [2153459]: Tag v0.2.1 release 
+Mon, 09 Sep 2019 11:06:39 GMT	http://plugins.trac.wordpress.org/changeset/2153457	Changeset [2153457]: Sync v0.2.1 from GitHub 
+Wed, 28 Aug 2019 15:35:02 GMT	http://plugins.trac.wordpress.org/changeset/2147197	Changeset [2147197]: Tag v2.1.2 
+Wed, 28 Aug 2019 15:31:49 GMT	http://plugins.trac.wordpress.org/changeset/2147194	Changeset [2147194]: Sync v2.1.2 from GitHub 
+Mon, 19 Aug 2019 14:53:49 GMT	http://plugins.trac.wordpress.org/changeset/2141980	Changeset [2141980]: Tag v0.8.1 
+Mon, 19 Aug 2019 14:51:35 GMT	http://plugins.trac.wordpress.org/changeset/2141979	Changeset [2141979]: Sync v0.8.1 from GitHub 
+Wed, 14 Aug 2019 19:42:15 GMT	http://plugins.trac.wordpress.org/changeset/2139723	Changeset [2139723]: Tag v2.1.1 
+Wed, 14 Aug 2019 19:40:37 GMT	http://plugins.trac.wordpress.org/changeset/2139721	Changeset [2139721]: Ignore some development files from svn 
+Wed, 14 Aug 2019 19:34:33 GMT	http://plugins.trac.wordpress.org/changeset/2139719	Changeset [2139719]: Sync v2.1.1 from GitHub 
+Tue, 13 Aug 2019 16:28:36 GMT	http://plugins.trac.wordpress.org/changeset/2139013	Changeset [2139013]: Update ignored files for SVN 
+Tue, 13 Aug 2019 16:26:45 GMT	http://plugins.trac.wordpress.org/changeset/2139010	Changeset [2139010]: Tag v0.8.0 
+Tue, 13 Aug 2019 16:25:31 GMT	http://plugins.trac.wordpress.org/changeset/2139007	Changeset [2139007]: Sync v0.8.0 from GitHub 
+Mon, 08 Jul 2019 22:15:38 GMT	http://plugins.trac.wordpress.org/changeset/2119730	Changeset [2119730]: Tag v0.2.0 
+Mon, 08 Jul 2019 22:14:56 GMT	http://plugins.trac.wordpress.org/changeset/2119729	Changeset [2119729]: Ignore PHPCS ruleset 
+Mon, 08 Jul 2019 22:11:03 GMT	http://plugins.trac.wordpress.org/changeset/2119727	Changeset [2119727]: Sync v0.2.0 from GitHub 
+Mon, 25 Nov 2019 20:53:33 GMT	http://plugins.trac.wordpress.org/changeset/2200876	Changeset [2200876]: Tag v0.8.1 
+Mon, 25 Nov 2019 20:51:50 GMT	http://plugins.trac.wordpress.org/changeset/2200875	Changeset [2200875]: Sync v0.8.1 from GitHub 
+Thu, 21 Nov 2019 01:12:50 GMT	http://plugins.trac.wordpress.org/changeset/2197704	Changeset [2197704]: Tag v0.8.0 
+Thu, 21 Nov 2019 01:10:48 GMT	http://plugins.trac.wordpress.org/changeset/2197703	Changeset [2197703]: Sync v0.8.0 from GitHub 
+Sat, 16 Nov 2019 12:26:25 GMT	http://plugins.trac.wordpress.org/changeset/2194400	Changeset [2194400]: Tag v2.1.3 
+Sat, 16 Nov 2019 12:20:10 GMT	http://plugins.trac.wordpress.org/changeset/2194398	Changeset [2194398]: Sync v2.1.3 from GitHub 
+Mon, 11 Nov 2019 17:39:00 GMT	http://plugins.trac.wordpress.org/changeset/2189957	Changeset [2189957]: Add Nutrifox assets 
+Mon, 11 Nov 2019 17:33:54 GMT	http://plugins.trac.wordpress.org/changeset/2189954	Changeset [2189954]: Fix the plugin author name 
+Mon, 11 Nov 2019 17:32:44 GMT	http://plugins.trac.wordpress.org/changeset/2189953	Changeset [2189953]: Fix the &#39;Tested Up To&#39; version 
+Mon, 11 Nov 2019 17:28:28 GMT	http://plugins.trac.wordpress.org/changeset/2189951	Changeset [2189951]: Tag v0.2.0 release 
+Mon, 11 Nov 2019 17:26:47 GMT	http://plugins.trac.wordpress.org/changeset/2189949	Changeset [2189949]: Sync v0.2.0 from GitHub 
+Mon, 11 Nov 2019 17:17:06 GMT	http://plugins.trac.wordpress.org/changeset/2189943	Changeset [2189943]: Ignore distribution files 
+Thu, 07 Nov 2019 18:37:24 GMT	http://plugins.trac.wordpress.org/changeset/2187953	Changeset [2187953]: Tag v0.7.3 
+Thu, 07 Nov 2019 18:34:19 GMT	http://plugins.trac.wordpress.org/changeset/2187952	Changeset [2187952]: Sync v0.7.3 from GitHub 
+Wed, 30 Oct 2019 12:48:23 GMT	http://plugins.trac.wordpress.org/changeset/2183070	Changeset [2183070]: Fix the stable version in readme.txt 
+Wed, 30 Oct 2019 12:38:22 GMT	http://plugins.trac.wordpress.org/changeset/2183066	Changeset [2183066]: Tag v0.7.2 
+Wed, 30 Oct 2019 12:37:32 GMT	http://plugins.trac.wordpress.org/changeset/2183064	Changeset [2183064]: Sync v0.7.2 from GitHub 
+Mon, 28 Oct 2019 15:13:24 GMT	http://plugins.trac.wordpress.org/changeset/2181584	Changeset [2181584]: Tag v0.2.2 
+Mon, 28 Oct 2019 15:12:13 GMT	http://plugins.trac.wordpress.org/changeset/2181582	Changeset [2181582]: Sync v0.2.2 from GitHub 
+Sun, 27 Oct 2019 14:07:11 GMT	http://plugins.trac.wordpress.org/changeset/2180989	Changeset [2180989]: Tag v0.3.1 
+Sun, 27 Oct 2019 13:57:19 GMT	http://plugins.trac.wordpress.org/changeset/2180986	Changeset [2180986]: Sync v0.3.1 from GitHub 
+Sun, 27 Oct 2019 13:35:41 GMT	http://plugins.trac.wordpress.org/changeset/2180980	Changeset [2180980]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Sun, 27 Oct 2019 13:24:47 GMT	http://plugins.trac.wordpress.org/changeset/2180973	Changeset [2180973]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Sun, 27 Oct 2019 13:20:03 GMT	http://plugins.trac.wordpress.org/changeset/2180972	Changeset [2180972]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Sun, 27 Oct 2019 13:16:42 GMT	http://plugins.trac.wordpress.org/changeset/2180970	Changeset [2180970]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Sun, 27 Oct 2019 13:12:15 GMT	http://plugins.trac.wordpress.org/changeset/2180969	Changeset [2180969]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Sun, 27 Oct 2019 13:05:02 GMT	http://plugins.trac.wordpress.org/changeset/2180966	Changeset [2180966]: Bump &#39;Tested Up To&#39; to WP 5.3 
+Mon, 14 Oct 2019 16:41:48 GMT	http://plugins.trac.wordpress.org/changeset/2173062	Changeset [2173062]: Tag v0.9.0 
+Mon, 14 Oct 2019 16:40:46 GMT	http://plugins.trac.wordpress.org/changeset/2173060	Changeset [2173060]: Update v0.9.0 from GitHub 
+Tue, 08 Oct 2019 12:26:10 GMT	http://plugins.trac.wordpress.org/changeset/2170028	Changeset [2170028]: Sync v0.9.0-alpha1 from GitHub 
+Fri, 27 Mar 2020 19:22:10 GMT	http://plugins.trac.wordpress.org/changeset/2269402	Changeset [2269402]: Fix formatting of the code snippet on WordPress.org 
+Fri, 13 Mar 2020 10:49:40 GMT	http://plugins.trac.wordpress.org/changeset/2260429	Changeset [2260429]: Tag v0.3.1 
+Fri, 13 Mar 2020 10:48:37 GMT	http://plugins.trac.wordpress.org/changeset/2260427	Changeset [2260427]: Sync v0.3.1 from GitHub 
+Wed, 11 Mar 2020 17:41:37 GMT	http://plugins.trac.wordpress.org/changeset/2259306	Changeset [2259306]: Tag v0.3.0 
+Wed, 11 Mar 2020 17:40:46 GMT	http://plugins.trac.wordpress.org/changeset/2259305	Changeset [2259305]: Sync v0.3.0 from GitHub 
+Mon, 09 Mar 2020 19:03:58 GMT	http://plugins.trac.wordpress.org/changeset/2257714	Changeset [2257714]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:50:30 GMT	http://plugins.trac.wordpress.org/changeset/2257712	Changeset [2257712]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:49:25 GMT	http://plugins.trac.wordpress.org/changeset/2257710	Changeset [2257710]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:47:21 GMT	http://plugins.trac.wordpress.org/changeset/2257706	Changeset [2257706]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:43:16 GMT	http://plugins.trac.wordpress.org/changeset/2257703	Changeset [2257703]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:39:36 GMT	http://plugins.trac.wordpress.org/changeset/2257702	Changeset [2257702]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:36:17 GMT	http://plugins.trac.wordpress.org/changeset/2257698	Changeset [2257698]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 09 Mar 2020 18:34:11 GMT	http://plugins.trac.wordpress.org/changeset/2257696	Changeset [2257696]: Update &#39;Tested Up To&#39; to WP 5.4 
+Mon, 02 Mar 2020 13:57:18 GMT	http://plugins.trac.wordpress.org/changeset/2252996	Changeset [2252996]: Revert r2252957; incorrect assets 
+Mon, 02 Mar 2020 13:54:35 GMT	http://plugins.trac.wordpress.org/changeset/2252994	Changeset [2252994]: Update assets again 
+Mon, 02 Mar 2020 13:49:34 GMT	http://plugins.trac.wordpress.org/changeset/2252992	Changeset [2252992]: Tag v1.0.0 
+Mon, 02 Mar 2020 13:48:30 GMT	http://plugins.trac.wordpress.org/changeset/2252990	Changeset [2252990]: Sync v1.0.0 from GitHub 
+Mon, 02 Mar 2020 13:47:23 GMT	http://plugins.trac.wordpress.org/changeset/2252989	Changeset [2252989]: Tag v1.0.0 
+Mon, 02 Mar 2020 13:46:43 GMT	http://plugins.trac.wordpress.org/changeset/2252988	Changeset [2252988]: Sync v1.0.0 from GitHub 
+Mon, 02 Mar 2020 13:41:54 GMT	http://plugins.trac.wordpress.org/changeset/2252986	Changeset [2252986]: Tag v1.0.0 
+Mon, 02 Mar 2020 13:39:55 GMT	http://plugins.trac.wordpress.org/changeset/2252985	Changeset [2252985]: Sync v1.0.0 from GitHub 
+Mon, 02 Mar 2020 13:35:24 GMT	http://plugins.trac.wordpress.org/changeset/2252982	Changeset [2252982]: Tag v1.0.0 
+Mon, 02 Mar 2020 13:33:50 GMT	http://plugins.trac.wordpress.org/changeset/2252980	Changeset [2252980]: Sync v1.0.0 from GitHub 
+Mon, 02 Mar 2020 13:08:06 GMT	http://plugins.trac.wordpress.org/changeset/2252965	Changeset [2252965]: Update assets 
+Mon, 02 Mar 2020 13:03:41 GMT	http://plugins.trac.wordpress.org/changeset/2252963	Changeset [2252963]: Update assets 
+Mon, 02 Mar 2020 12:56:43 GMT	http://plugins.trac.wordpress.org/changeset/2252957	Changeset [2252957]: Update assets 
+Mon, 02 Mar 2020 12:45:58 GMT	http://plugins.trac.wordpress.org/changeset/2252946	Changeset [2252946]: Update assets 
+Tue, 25 Feb 2020 14:34:46 GMT	http://plugins.trac.wordpress.org/changeset/2249997	Changeset [2249997]: Artwork for WP SAML Auth 
+Mon, 24 Feb 2020 19:02:25 GMT	http://plugins.trac.wordpress.org/changeset/2249496	Changeset [2249496]: Tag v0.8.3 
+Mon, 24 Feb 2020 18:59:25 GMT	http://plugins.trac.wordpress.org/changeset/2249493	Changeset [2249493]: Sync v0.8.3 from GitHub 
+Mon, 03 Feb 2020 23:13:20 GMT	http://plugins.trac.wordpress.org/changeset/2238007	Changeset [2238007]: Tag v0.8.3 
+Mon, 03 Feb 2020 23:11:06 GMT	http://plugins.trac.wordpress.org/changeset/2238006	Changeset [2238006]: Sync v0.8.3 from GitHub 
+Wed, 22 Jan 2020 12:24:26 GMT	http://plugins.trac.wordpress.org/changeset/2231566	Changeset [2231566]: Tag v0.8.2 
+Wed, 22 Jan 2020 12:23:28 GMT	http://plugins.trac.wordpress.org/changeset/2231564	Changeset [2231564]: Sync v0.8.2 from GitHub 
+Wed, 15 Jan 2020 18:56:46 GMT	http://plugins.trac.wordpress.org/changeset/2227979	Changeset [2227979]: Tag v0.8.2 
+Wed, 15 Jan 2020 18:55:57 GMT	http://plugins.trac.wordpress.org/changeset/2227978	Changeset [2227978]: Sync v0.8.2 from GitHub 
+Fri, 10 Jan 2020 16:09:50 GMT	http://plugins.trac.wordpress.org/changeset/2225504	Changeset [2225504]: Tag v0.8.1 
+Fri, 10 Jan 2020 16:08:43 GMT	http://plugins.trac.wordpress.org/changeset/2225502	Changeset [2225502]: Sync v0.8.1 from GitHub 
+Mon, 06 Jan 2020 13:06:20 GMT	http://plugins.trac.wordpress.org/changeset/2222861	Changeset [2222861]: Tag v0.8.0 
+Mon, 06 Jan 2020 13:05:15 GMT	http://plugins.trac.wordpress.org/changeset/2222860	Changeset [2222860]: Sync a couple more pieces from GitHub 
+Mon, 06 Jan 2020 12:57:24 GMT	http://plugins.trac.wordpress.org/changeset/2222851	Changeset [2222851]: Sync v0.8.0 from GitHub 
+Wed, 27 May 2020 13:26:13 GMT	http://plugins.trac.wordpress.org/changeset/2313149	Changeset [2313149]: Tag v1.0.2 
+Wed, 27 May 2020 13:23:36 GMT	http://plugins.trac.wordpress.org/changeset/2313146	Changeset [2313146]: Sync v1.0.2 from GitHub 
+Tue, 26 May 2020 12:15:36 GMT	http://plugins.trac.wordpress.org/changeset/2312259	Changeset [2312259]: Tag v1.0.1 
+Tue, 26 May 2020 12:14:10 GMT	http://plugins.trac.wordpress.org/changeset/2312258	Changeset [2312258]: Sync v1.0.1 from GitHub 
+Tue, 19 May 2020 18:55:54 GMT	http://plugins.trac.wordpress.org/changeset/2308173	Changeset [2308173]: Bump Tested Up To to WP 5.4 
+Mon, 18 May 2020 13:57:19 GMT	http://plugins.trac.wordpress.org/changeset/2307216	Changeset [2307216]: Tag v1.2.0 
+Mon, 18 May 2020 13:56:03 GMT	http://plugins.trac.wordpress.org/changeset/2307214	Changeset [2307214]: Sync v1.2.0 from GitHub 
+Tue, 05 May 2020 14:55:38 GMT	http://plugins.trac.wordpress.org/changeset/2298581	Changeset [2298581]: Tag v2.2.0 
+Tue, 05 May 2020 14:54:12 GMT	http://plugins.trac.wordpress.org/changeset/2298580	Changeset [2298580]: Sync v2.2.0 from GitHub 
+Fri, 24 Apr 2020 12:08:04 GMT	http://plugins.trac.wordpress.org/changeset/2290963	Changeset [2290963]: Tag v2.1.4 
+Fri, 24 Apr 2020 12:06:55 GMT	http://plugins.trac.wordpress.org/changeset/2290962	Changeset [2290962]: Sync v2.1.4 from GitHub 
+Thu, 23 Apr 2020 22:13:49 GMT	http://plugins.trac.wordpress.org/changeset/2290558	Changeset [2290558]: Sync v1.1.0 from GitHub 
+Tue, 14 Apr 2020 21:29:55 GMT	http://plugins.trac.wordpress.org/changeset/2283531	Changeset [2283531]: Tag v1.0.1 
+Tue, 14 Apr 2020 21:28:48 GMT	http://plugins.trac.wordpress.org/changeset/2283530	Changeset [2283530]: Sync v1.0.1 from GitHub 
+Thu, 17 Sep 2020 13:13:17 GMT	http://plugins.trac.wordpress.org/changeset/2383679	Changeset [2383679]: Tag v1.2.1 
+Thu, 17 Sep 2020 13:12:22 GMT	http://plugins.trac.wordpress.org/changeset/2383677	Changeset [2383677]: Sync v1.2.1 from GitHub 
+Tue, 18 Aug 2020 16:51:55 GMT	http://plugins.trac.wordpress.org/changeset/2364140	Changeset [2364140]: Bump &#39;Tested Up To&#39; to WP 5.5 
+Mon, 17 Aug 2020 21:03:49 GMT	http://plugins.trac.wordpress.org/changeset/2363421	Changeset [2363421]: Tag v1.1.1 
+Mon, 17 Aug 2020 21:02:50 GMT	http://plugins.trac.wordpress.org/changeset/2363420	Changeset [2363420]: Sync v1.1.1 from GitHub 
+Mon, 03 Aug 2020 21:08:19 GMT	http://plugins.trac.wordpress.org/changeset/2351987	Changeset [2351987]: Bump &#39;Tested Up To&#39; to WP 5.5 
+Mon, 03 Aug 2020 21:03:50 GMT	http://plugins.trac.wordpress.org/changeset/2351986	Changeset [2351986]: Update &#39;Tested Up To&#39; to WP 5.5 
+Mon, 03 Aug 2020 20:45:26 GMT	http://plugins.trac.wordpress.org/changeset/2351975	Changeset [2351975]: Bump &#39;Tested Up To&#39; to WP 5.5 
+Mon, 03 Aug 2020 20:40:53 GMT	http://plugins.trac.wordpress.org/changeset/2351971	Changeset [2351971]: Update &#39;Tested Up To&#39; to WP 5.5 
+Mon, 13 Jul 2020 19:32:49 GMT	http://plugins.trac.wordpress.org/changeset/2339914	Changeset [2339914]: Tag v2.2.1 
+Mon, 13 Jul 2020 19:31:39 GMT	http://plugins.trac.wordpress.org/changeset/2339912	Changeset [2339912]: Tag v1.1.0 
+Mon, 13 Jul 2020 19:31:05 GMT	http://plugins.trac.wordpress.org/changeset/2339911	Changeset [2339911]: Sync v2.2.1 from GitHub 
+Mon, 13 Jul 2020 18:33:06 GMT	http://plugins.trac.wordpress.org/changeset/2339890	Changeset [2339890]: Sync v1.1.0 from GitHub 
+Thu, 03 Dec 2020 23:57:23 GMT	http://plugins.trac.wordpress.org/changeset/2431199	Changeset [2431199]: Update README for fixed WP-CLI docs 
+Tue, 01 Dec 2020 15:13:32 GMT	http://plugins.trac.wordpress.org/changeset/2429549	Changeset [2429549]: Update README and plugin version 
+Tue, 01 Dec 2020 15:11:25 GMT	http://plugins.trac.wordpress.org/changeset/2429546	Changeset [2429546]: Tag v2.2.2 
+Tue, 01 Dec 2020 15:08:54 GMT	http://plugins.trac.wordpress.org/changeset/2429537	Changeset [2429537]: Sync v2.2.2 from GitHub 
+Tue, 01 Dec 2020 13:16:12 GMT	http://plugins.trac.wordpress.org/changeset/2429415	Changeset [2429415]: Tag v1.1.0 
+Tue, 01 Dec 2020 13:14:36 GMT	http://plugins.trac.wordpress.org/changeset/2429414	Changeset [2429414]: Sync v1.1.0 from GitHub 
+Wed, 25 Nov 2020 19:06:47 GMT	http://plugins.trac.wordpress.org/changeset/2425952	Changeset [2425952]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Wed, 25 Nov 2020 19:03:44 GMT	http://plugins.trac.wordpress.org/changeset/2425935	Changeset [2425935]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Wed, 25 Nov 2020 18:51:47 GMT	http://plugins.trac.wordpress.org/changeset/2425932	Changeset [2425932]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Wed, 25 Nov 2020 18:47:45 GMT	http://plugins.trac.wordpress.org/changeset/2425928	Changeset [2425928]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Wed, 25 Nov 2020 18:38:29 GMT	http://plugins.trac.wordpress.org/changeset/2425914	Changeset [2425914]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Wed, 25 Nov 2020 18:32:40 GMT	http://plugins.trac.wordpress.org/changeset/2425912	Changeset [2425912]: Bump &#39;Tested Up To&#39; to WP 5.6 
+Tue, 30 Mar 2021 17:59:46 GMT	http://plugins.trac.wordpress.org/changeset/2506154	Changeset [2506154]: Tag v0.1.1 
+Tue, 30 Mar 2021 17:59:14 GMT	http://plugins.trac.wordpress.org/changeset/2506153	Changeset [2506153]: Sync v0.1.1 from GitHub 
+Mon, 29 Mar 2021 18:27:55 GMT	http://plugins.trac.wordpress.org/changeset/2505479	Changeset [2505479]: Tag v1.2.2 
+Mon, 29 Mar 2021 18:27:05 GMT	http://plugins.trac.wordpress.org/changeset/2505475	Changeset [2505475]: Sync v1.2.2 from GitHub 
+Wed, 24 Mar 2021 11:44:52 GMT	http://plugins.trac.wordpress.org/changeset/2502493	Changeset [2502493]: Tag v1.1.2 
+Wed, 24 Mar 2021 11:44:18 GMT	http://plugins.trac.wordpress.org/changeset/2502491	Changeset [2502491]: Ignore a couple more files 
+Wed, 24 Mar 2021 11:42:43 GMT	http://plugins.trac.wordpress.org/changeset/2502489	Changeset [2502489]: Sync v1.1.2 from GitHub 
+Tue, 23 Mar 2021 19:30:57 GMT	http://plugins.trac.wordpress.org/changeset/2502010	Changeset [2502010]: More text to fix formatting issue 
+Mon, 15 Mar 2021 21:47:25 GMT	http://plugins.trac.wordpress.org/changeset/2496319	Changeset [2496319]: Remove extra pixel from each one 
+Mon, 15 Mar 2021 21:45:58 GMT	http://plugins.trac.wordpress.org/changeset/2496318	Changeset [2496318]: Banner and icon assets 
+Thu, 11 Mar 2021 23:13:41 GMT	http://plugins.trac.wordpress.org/changeset/2493708	Changeset [2493708]: Fix typo 
+Thu, 11 Mar 2021 23:12:57 GMT	http://plugins.trac.wordpress.org/changeset/2493706	Changeset [2493706]: Update readme.txt 
+Wed, 10 Mar 2021 14:37:34 GMT	http://plugins.trac.wordpress.org/changeset/2492222	Changeset [2492222]: Tag v0.1.0 
+Wed, 10 Mar 2021 14:37:10 GMT	http://plugins.trac.wordpress.org/changeset/2492221	Changeset [2492221]: Sync v0.1.0 from GitHub 
+Wed, 10 Mar 2021 14:31:31 GMT	http://plugins.trac.wordpress.org/changeset/2492218	Changeset [2492218]: Ignore some files we don&#39;t want included 
+Tue, 09 Mar 2021 14:09:32 GMT	http://plugins.trac.wordpress.org/changeset/2490680	Changeset [2490680]: Bump &#39;Tested Up To&#39; to WP 5.7 
+Tue, 09 Mar 2021 14:03:40 GMT	http://plugins.trac.wordpress.org/changeset/2490676	Changeset [2490676]: Bump &#39;Tested Up To&#39; to WP 5.7 
+Tue, 09 Mar 2021 14:01:52 GMT	http://plugins.trac.wordpress.org/changeset/2490675	Changeset [2490675]: Bump &#39;Tested Up To&#39; to WP 5.7 
+Tue, 09 Mar 2021 13:59:34 GMT	http://plugins.trac.wordpress.org/changeset/2490671	Changeset [2490671]: Bump &#39;Tested Up To&#39; to WP 5.7 
+Mon, 08 Mar 2021 17:14:31 GMT	http://plugins.trac.wordpress.org/changeset/2489761	Changeset [2489761]: Tag v2.2.3 
+Mon, 08 Mar 2021 17:13:41 GMT	http://plugins.trac.wordpress.org/changeset/2489759	Changeset [2489759]: Sync v2.2.3 from GitHub 
+Tue, 02 Mar 2021 13:41:38 GMT	http://plugins.trac.wordpress.org/changeset/2484329	Changeset [2484329]: Tag v1.2.1 
+Tue, 02 Mar 2021 13:39:59 GMT	http://plugins.trac.wordpress.org/changeset/2484327	Changeset [2484327]: Sync v1.2.1 from GitHub 
+Mon, 22 Feb 2021 15:03:44 GMT	http://plugins.trac.wordpress.org/changeset/2479064	Changeset [2479064]: Tag v1.2.0 
+Mon, 22 Feb 2021 15:00:25 GMT	http://plugins.trac.wordpress.org/changeset/2479061	Changeset [2479061]: Sync v1.2.0 from GitHub 
+Wed, 03 Feb 2021 16:04:40 GMT	http://plugins.trac.wordpress.org/changeset/2468099	Changeset [2468099]: Tag v1.1.1 
+Wed, 03 Feb 2021 16:03:55 GMT	http://plugins.trac.wordpress.org/changeset/2468098	Changeset [2468098]: Sync v1.1.1 from GitHub 
+Tue, 01 Jun 2021 18:52:12 GMT	http://plugins.trac.wordpress.org/changeset/2540833	Changeset [2540833]: Tag v0.3.1 
+Tue, 01 Jun 2021 18:50:21 GMT	http://plugins.trac.wordpress.org/changeset/2540831	Changeset [2540831]: Sync v0.3.1 from GitHub 
+Tue, 25 May 2021 12:50:36 GMT	http://plugins.trac.wordpress.org/changeset/2537144	Changeset [2537144]: Tag v1.2.3 
+Tue, 25 May 2021 12:49:48 GMT	http://plugins.trac.wordpress.org/changeset/2537142	Changeset [2537142]: Sync v1.2.3 from GitHub 
+Wed, 05 May 2021 23:54:42 GMT	http://plugins.trac.wordpress.org/changeset/2526986	Changeset [2526986]: Tag v2.2.4 
+Wed, 05 May 2021 23:54:03 GMT	http://plugins.trac.wordpress.org/changeset/2526985	Changeset [2526985]: Sync v2.2.4 from GitHub 
+Thu, 29 Apr 2021 20:44:42 GMT	http://plugins.trac.wordpress.org/changeset/2523746	Changeset [2523746]: Tag v0.1.2 
+Thu, 29 Apr 2021 20:44:15 GMT	http://plugins.trac.wordpress.org/changeset/2523745	Changeset [2523745]: Sync v0.1.2 from GitHub 
+Mon, 26 Apr 2021 16:35:04 GMT	http://plugins.trac.wordpress.org/changeset/2521563	Changeset [2521563]: Tag v1.2.2 
+Mon, 26 Apr 2021 16:32:41 GMT	http://plugins.trac.wordpress.org/changeset/2521561	Changeset [2521561]: Sync v1.2.2 from GitHub 
+Fri, 09 Apr 2021 12:45:43 GMT	http://plugins.trac.wordpress.org/changeset/2512158	Changeset [2512158]: Tag v1.2.3 
+Fri, 09 Apr 2021 12:45:06 GMT	http://plugins.trac.wordpress.org/changeset/2512156	Changeset [2512156]: Sync v1.2.3 from GitHub 
+Tue, 14 Sep 2021 11:18:33 GMT	http://plugins.trac.wordpress.org/changeset/2598607	Changeset [2598607]: Tag v1.2.4 
+Tue, 14 Sep 2021 11:18:05 GMT	http://plugins.trac.wordpress.org/changeset/2598606	Changeset [2598606]: Sync v1.2.4 from GitHub 
+Mon, 30 Aug 2021 23:22:39 GMT	http://plugins.trac.wordpress.org/changeset/2591105	Changeset [2591105]: Tag v0.4.0 
+Mon, 30 Aug 2021 23:22:08 GMT	http://plugins.trac.wordpress.org/changeset/2591104	Changeset [2591104]: Sync v0.4.0 from GitHub 
+Wed, 18 Aug 2021 21:35:12 GMT	http://plugins.trac.wordpress.org/changeset/2585089	Changeset [2585089]: Tag v1.2.5 
+Wed, 18 Aug 2021 21:34:23 GMT	http://plugins.trac.wordpress.org/changeset/2585088	Changeset [2585088]: Sync v1.2.5 from GitHub 
+Wed, 18 Aug 2021 12:30:23 GMT	http://plugins.trac.wordpress.org/changeset/2584841	Changeset [2584841]: Tag v1.2.4 
+Wed, 18 Aug 2021 12:29:31 GMT	http://plugins.trac.wordpress.org/changeset/2584840	Changeset [2584840]: Sync v1.2.4 from GitHub 
+Tue, 27 Jul 2021 17:56:25 GMT	http://plugins.trac.wordpress.org/changeset/2573369	Changeset [2573369]: Tag v2.2.5 
+Tue, 27 Jul 2021 17:55:45 GMT	http://plugins.trac.wordpress.org/changeset/2573367	Changeset [2573367]: Sync v2.2.5 from GitHub 
+Mon, 12 Jul 2021 13:06:44 GMT	http://plugins.trac.wordpress.org/changeset/2562856	Changeset [2562856]: Bump ‘Tested Up To’ to WP 5.8 
+Mon, 12 Jul 2021 13:03:19 GMT	http://plugins.trac.wordpress.org/changeset/2562855	Changeset [2562855]: Bump ‘Tested Up To’ to WP 5.8 
+Mon, 12 Jul 2021 13:01:12 GMT	http://plugins.trac.wordpress.org/changeset/2562853	Changeset [2562853]: Bump ‘Tested Up To’ to WP 5.8 
+Mon, 12 Jul 2021 12:59:50 GMT	http://plugins.trac.wordpress.org/changeset/2562851	Changeset [2562851]: Bump ‘Tested Up To’ to WP 5.8 
+Mon, 12 Jul 2021 12:48:23 GMT	http://plugins.trac.wordpress.org/changeset/2562841	Changeset [2562841]: Bump &#39;Tested Up To&#39; to WP 5.8 
+Mon, 12 Jul 2021 12:45:46 GMT	http://plugins.trac.wordpress.org/changeset/2562840	Changeset [2562840]: Bump &#39;Tested Up To&#39; to WP 5.8 
+Mon, 12 Jul 2021 12:39:52 GMT	http://plugins.trac.wordpress.org/changeset/2562829	Changeset [2562829]: Bump &#39;Tested Up To&#39; to WP 5.8 
+Mon, 12 Jul 2021 12:36:50 GMT	http://plugins.trac.wordpress.org/changeset/2562826	Changeset [2562826]: Bump &#39;Tested Up To&#39; to WP 5.8 
+Thu, 09 Dec 2021 16:31:23 GMT	http://plugins.trac.wordpress.org/changeset/2641987	Changeset [2641987]: Tag v1.2.7 
+Thu, 09 Dec 2021 16:27:43 GMT	http://plugins.trac.wordpress.org/changeset/2641985	Changeset [2641985]: Sync v1.2.7 from GitHub 
+Thu, 21 Oct 2021 15:25:25 GMT	http://plugins.trac.wordpress.org/changeset/2617883	Changeset [2617883]: Tag v1.1.4 
+Thu, 21 Oct 2021 15:24:20 GMT	http://plugins.trac.wordpress.org/changeset/2617880	Changeset [2617880]: Sync v1.1.4 from GitHub 
+Tue, 12 Oct 2021 17:36:05 GMT	http://plugins.trac.wordpress.org/changeset/2613178	Changeset [2613178]: Sync PHPCS fix 
+Tue, 12 Oct 2021 17:34:14 GMT	http://plugins.trac.wordpress.org/changeset/2613177	Changeset [2613177]: Tag v1.2.6 
+Tue, 12 Oct 2021 17:32:51 GMT	http://plugins.trac.wordpress.org/changeset/2613175	Changeset [2613175]: Sync v1.2.6 from GitHub 
+Tue, 29 Mar 2022 21:15:46 GMT	http://plugins.trac.wordpress.org/changeset/2701536	Changeset [2701536]: Tag v2.3.1 
+Tue, 29 Mar 2022 21:15:06 GMT	http://plugins.trac.wordpress.org/changeset/2701535	Changeset [2701535]: Sync v2.3.1 from GitHub 
+Tue, 29 Mar 2022 20:55:38 GMT	http://plugins.trac.wordpress.org/changeset/2701527	Changeset [2701527]: Tag v2.3.0 
+Tue, 29 Mar 2022 20:54:46 GMT	http://plugins.trac.wordpress.org/changeset/2701526	Changeset [2701526]: Sync v2.3.0 from GitHub 
+Tue, 22 Feb 2022 11:08:35 GMT	http://plugins.trac.wordpress.org/changeset/2682947	Changeset [2682947]: Tag v2.2.6 
+Tue, 22 Feb 2022 11:06:01 GMT	http://plugins.trac.wordpress.org/changeset/2682942	Changeset [2682942]: Sync v2.2.6 from GitHub 
+Fri, 18 Feb 2022 02:31:16 GMT	http://plugins.trac.wordpress.org/changeset/2681115	Changeset [2681115]: Tag v1.2.0 
+Fri, 18 Feb 2022 02:30:35 GMT	http://plugins.trac.wordpress.org/changeset/2681114	Changeset [2681114]: Sync v1.2.0 from GitHub 
+Mon, 24 Jan 2022 13:15:29 GMT	http://plugins.trac.wordpress.org/changeset/2663398	Changeset [2663398]: Tag v2.0.1 
+Mon, 24 Jan 2022 13:14:22 GMT	http://plugins.trac.wordpress.org/changeset/2663395	Changeset [2663395]: Sync v2.0.1 from GitHub 
+Mon, 24 Jan 2022 13:09:32 GMT	http://plugins.trac.wordpress.org/changeset/2663391	Changeset [2663391]: Update &#39;Tested Up To&#39; for WordPress 5.9 
+Mon, 24 Jan 2022 12:57:21 GMT	http://plugins.trac.wordpress.org/changeset/2663375	Changeset [2663375]: Update &#39;Tested Up To&#39; for WordPress 5.9 
+Mon, 24 Jan 2022 12:51:43 GMT	http://plugins.trac.wordpress.org/changeset/2663369	Changeset [2663369]: Update &#39;Tested Up To&#39; for WordPress 5.9 
+Mon, 24 Jan 2022 12:50:42 GMT	http://plugins.trac.wordpress.org/changeset/2663368	Changeset [2663368]: Update &#39;Tested Up To&#39; for WordPress 5.9 
+Mon, 24 Jan 2022 12:43:05 GMT	http://plugins.trac.wordpress.org/changeset/2663355	Changeset [2663355]: Update &#39;Tested Up To&#39; to WordPress 5.9 
+Mon, 24 Jan 2022 12:31:20 GMT	http://plugins.trac.wordpress.org/changeset/2663339	Changeset [2663339]: Bump &#39;Tested Up To&#39; to WP 5.9 
+Mon, 24 Jan 2022 12:30:06 GMT	http://plugins.trac.wordpress.org/changeset/2663334	Changeset [2663334]: Bump &#39;Tested Up To&#39; to WP 5.9 
+Thu, 06 Jan 2022 11:41:25 GMT	http://plugins.trac.wordpress.org/changeset/2653540	Changeset [2653540]: Tag v2.0.0 
+Thu, 06 Jan 2022 11:40:29 GMT	http://plugins.trac.wordpress.org/changeset/2653539	Changeset [2653539]: Sync v2.0.0 from GitHub 
+Fri, 15 Apr 2022 10:34:17 GMT	http://plugins.trac.wordpress.org/changeset/2710171	Changeset [2710171]: Tag v0.2.0 
+Fri, 15 Apr 2022 10:33:27 GMT	http://plugins.trac.wordpress.org/changeset/2710170	Changeset [2710170]: Sync v0.2.0 from GitHub 
+Fri, 01 Apr 2022 11:17:43 GMT	http://plugins.trac.wordpress.org/changeset/2703252	Changeset [2703252]: Tag v2.3.2 
+Fri, 01 Apr 2022 11:16:14 GMT	http://plugins.trac.wordpress.org/changeset/2703251	Changeset [2703251]: Sync v2.3.2 from GitHub 
+Fri, 01 Apr 2022 10:11:16 GMT	http://plugins.trac.wordpress.org/changeset/2703211	Changeset [2703211]: Clarify installation instructions 
+Thu, 14 Jul 2022 19:20:38 GMT	http://plugins.trac.wordpress.org/changeset/2756549	Changeset [2756549]: Update Editing Toolkit Plugin to 3.37229
+Thu, 14 Jul 2022 19:18:42 GMT	http://plugins.trac.wordpress.org/changeset/2756548	Changeset [2756548]: Update Editing Toolkit Plugin to 3.37229
+Tue, 05 Jul 2022 20:41:25 GMT	http://plugins.trac.wordpress.org/changeset/2752253	Changeset [2752253]: Update Editing Toolkit Plugin to 3.36612
+Tue, 05 Jul 2022 20:40:12 GMT	http://plugins.trac.wordpress.org/changeset/2752252	Changeset [2752252]: Update Editing Toolkit Plugin to 3.36612
+Tue, 16 May 2023 20:55:07 GMT	http://plugins.trac.wordpress.org/changeset/2913222	Changeset [2913222]: Properly sync v0.4.0 from GitHub 
+Wed, 18 Oct 2023 15:55:25 GMT	http://plugins.trac.wordpress.org/changeset/2980846	Changeset [2980846]: Update the Tested Up To version 
+Sat, 10 Jan 2026 15:13:40 GMT	http://plugins.trac.wordpress.org/changeset/3436677	Changeset [3436677]: Bump &#39;Tested Up To&#39; 
