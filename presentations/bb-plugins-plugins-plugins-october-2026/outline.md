@@ -41,7 +41,8 @@ words. ✓ means the slide exists.
 - 15 ✓ Grade: B-. Moments of delight, like the Dependabot workflow and the film
   strip; other times cluttered, too complex, incomplete, and hard to work
   with; found by trial and error.
-- 16 ✓ **Roundtable:** how do you handle the output provided by your LLM?
+- 16 ✓ **Roundtable:** how do you handle the output provided by your LLM? What
+  does this inspire for you?
 
 ### Thread Overview (20-23)
 
