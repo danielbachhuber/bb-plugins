@@ -93,13 +93,14 @@ words. ✓ means the slide exists.
 
 - 70 Three tips for working with bb plugins. **Interactive:** before each tip,
   "who already does this?"
-- 71 ✓ Tip 1: iterate on live data. Every real bug here passed its tests; four
-  bugs found on the live page.
-- 72 ✓ Tip 2: ask for mockups, from live data or every permutation of it. 249
-  options across 9 plugins.
+- 71 ✓ Tip 1: just try it. Some plugins will be super useful, some duds;
+  you can't tell which in advance. The Why Greatness Cannot Be Planned quote
+  beside this talk's six grades.
+- 72 ✓ Tip 2: ask for mockups, built from your live data or every permutation
+  of it. 249 options across 9 plugins.
 - 73 ✓ Tip 3: a component library. 7 components shared by 11 plugins.
 
-The other tips (fix it right away, cards, the 8.5-second page, settings) are
+The other tips (iterate on live data, fix it right away, cards, the 8.5-second page, settings) are
 set aside in `unused/`.
 
 ### Closing (90)
