@@ -60,8 +60,6 @@ words. ✓ means the slide exists.
 - 32 ✓ New plugin: Review Sweep. Screenshot of the list.
 - 33 ✓ New plugin: PR Sweep. Screenshot of the list. I talk through how the
   three act as one.
-- 34-35 ✓ **Pick one:** how a stack of pull requests shows in Review Sweep.
-  I picked C, Chip only.
 - 36 ✓ Grade: A-. Works really well; it's delightful to use.
 
 ### Super Diff (40-43) ✓
@@ -92,7 +90,6 @@ words. ✓ means the slide exists.
   header and the context meter above the composer.
 - 62 New plugin: Tokenomics. The whole page: tokens over the past day,
   where turn time went, each thread's share.
-- 63-64 ✓ **Pick one:** which icon. I picked B, Coin stack.
 - 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
 - 66 ✓ **Roundtable:** how do you know whether a session with your agent was
