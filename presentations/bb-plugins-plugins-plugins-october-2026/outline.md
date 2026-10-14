@@ -113,7 +113,9 @@ set aside in `unused/`.
 
 - 89 ✓ **Roundtable:** what's one change you'd make to your LLM tool today if it took ten minutes?
 
-- 90 Check out my plugins, and how each one looks:
+- 90 Thanks! Email me feedback at daniel@bachhuber.co: one thing you liked,
+  and one thing you wish the presentation had. Then check out my plugins, and
+  how each one looks:
   - https://github.com/danielbachhuber/bb-plugins
   - https://github.com/danielbachhuber/bb-plugins-screenshots
 
