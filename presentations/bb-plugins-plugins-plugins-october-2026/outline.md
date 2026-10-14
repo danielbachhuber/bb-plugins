@@ -92,9 +92,8 @@ words. ✓ means the slide exists.
 - 65 Grade: C-. It shows me the outliers in token use well; I haven't
   solved tying threads to business value, or the time I spend.
 - 66 ✓ **Roundtable:** how do you know whether a session with your agent was
-  worth it?
-- 69 ✓ **Roundtable:** what's one change you'd make to your LLM tool tomorrow
-  if it took ten minutes?
+  worth it? What's one change you'd make to your LLM tool tomorrow if it took
+  ten minutes?
 
 ### Three tips for working with bb plugins (70-73)
 
