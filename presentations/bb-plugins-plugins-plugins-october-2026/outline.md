@@ -65,8 +65,7 @@ words. ✓ means the slide exists.
 ### Super Diff (40-43) ✓
 
 - 40 Problem: large diffs are hard to grok.
-- 41 New plugin: Super Diff.
-- 42 Behold: Super Diff.
+- 41 New plugin: Super Diff. The same 45-file commit, grouped.
 - 43 Grade: C.
 
 ### Now (50-55)
