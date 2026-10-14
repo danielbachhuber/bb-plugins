@@ -34,7 +34,9 @@ words. ✓ means the slide exists.
 - 13 ✓ Behold: milestone triage, the thirteen issues as rows with one opened.
 - 14 ✓ Behold: pick one. A real round from Now, four directions for a summary
   above the list; I picked D, one square per row.
-- 15 Grade: B-
+- 15 ✓ Grade: B-. Moments of delight, like the Dependabot workflow; other
+  times cluttered, too complex, incomplete, and hard to work with; found by
+  trial and error.
 
 ### Thread Overview (20-23)
 
