@@ -109,8 +109,7 @@ set aside in `unused/`.
 
 ### Closing (90)
 
-- 89 ✓ **Roundtable:** how do you decide whether or not to build custom tools?
-  What's one change you'd make to your LLM tool tomorrow if it took ten minutes?
+- 89 ✓ **Roundtable:** what's one change you'd make to your LLM tool tomorrow if it took ten minutes?
 
 - 90 Check out my plugins, and how each one looks:
   - https://github.com/danielbachhuber/bb-plugins
