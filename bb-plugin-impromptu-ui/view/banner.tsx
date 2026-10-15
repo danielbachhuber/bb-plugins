@@ -49,6 +49,26 @@ export function orderItems(stored: StoredView): Item[] {
   return [...items.filter(isOpen), ...items.filter((item) => !isOpen(item))];
 }
 
+/**
+ * The rows above the composer, grouped by section when the view titles any
+ * of them. Sections are optional: a view with no titles is one untitled
+ * group, as before. Within each group, open items come first. The closing
+ * step is drawn under the rows instead, so it is in no group.
+ */
+export function rowGroups(stored: StoredView): Array<{ title: string; items: Item[] }> {
+  const isOpen = (item: Item) => (stored.items[item.id]?.state ?? "open") === "open";
+  const steps = (items: Item[]) => items.filter((item) => !item.closing);
+  if (stored.view.sections.every((section) => section.title === "")) {
+    return [{ title: "", items: steps(orderItems(stored)) }];
+  }
+  return stored.view.sections
+    .map((section) => {
+      const items = steps(section.items);
+      return { title: section.title, items: [...items.filter(isOpen), ...items.filter((item) => !isOpen(item))] };
+    })
+    .filter((group) => group.items.length > 0);
+}
+
 /** The items with a decision on them: every one but a list view's plain rows. */
 export function decisionItems(stored: StoredView): Item[] {
   return stored.view.sections.flatMap((section) => section.items.filter((item) => !isQuiet(stored.view, item)));
@@ -128,7 +148,6 @@ export function ViewBanner({
   currentThreadId,
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
-  const items = list ? decisionItems(stored) : orderItems(stored).filter((item) => !item.closing);
   const closing = list ? undefined : closingItem(stored);
 
   return (
@@ -155,7 +174,16 @@ export function ViewBanner({
         <ListRow stored={stored} onOpen={onOpenView} />
       ) : (
         <ul className="max-h-72 overflow-y-auto border-t border-border">
-          {items.map((item) => {
+          {rowGroups(stored).map((group, g) => [
+            group.title === "" ? null : (
+              <li
+                key={`section-${g}`}
+                className="border-b border-border bg-muted/40 px-3 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                {group.title}
+              </li>
+            ),
+            ...group.items.map((item) => {
             const record = stored.items[item.id];
             const state = record?.state ?? "open";
             const result = record?.result;
@@ -233,7 +261,8 @@ export function ViewBanner({
                 )}
               </li>
             );
-          })}
+            }),
+          ])}
         </ul>
       )}
       {collapsed || closing === undefined ? null : (

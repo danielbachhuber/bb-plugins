@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allHandled, progressLabel } from "./banner.js";
+import { allHandled, progressLabel, rowGroups } from "./banner.js";
 import { fillTally, openBeforeClosing, tally } from "./closing.js";
 import { parseView } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -44,5 +44,20 @@ describe("closing step", () => {
   it("allows one closing step, and only in the cards layout", () => {
     expect(() => stored({}, [{ items: [verdict, { ...verdict, id: "verdict-2" }] }])).toThrow(/at most one closing step/);
     expect(() => parseView(JSON.stringify({ title: "List", layout: "list", sections: [{ items: [verdict] }] }))).toThrow(/closing step needs the "cards" layout/);
+  });
+});
+
+describe("row groups", () => {
+  it("groups rows under titled sections, open first, and leaves untitled views as one list", () => {
+    const titled = stored({ a: done("Attach") }, [
+      { title: "Fix before merge", items: [finding("a"), finding("b")] },
+      { title: "Worth considering", items: [finding("c")] },
+      { items: [verdict] },
+    ]);
+    expect(rowGroups(titled).map((group) => [group.title, group.items.map((item) => item.id)])).toEqual([
+      ["Fix before merge", ["b", "a"]],
+      ["Worth considering", ["c"]],
+    ]);
+    expect(rowGroups(stored({ a: done("Attach") })).map((group) => [group.title, group.items.map((item) => item.id)])).toEqual([["", ["b", "c", "a"]]]);
   });
 });
