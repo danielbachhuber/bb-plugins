@@ -109,14 +109,15 @@ export default async function plugin(bb: BbPluginApi) {
     bb.log.warn(message);
   }
 
-  /** The URL of the thread's open pull request, or null. */
+  /** The URL of the thread's open pull request, draft or not, or null. */
   async function pullRequestUrl(threadId: string): Promise<string | null> {
     const thread = await bb.sdk.threads.get({ threadId });
     const environmentId = (thread as { environmentId?: string | null }).environmentId;
     if (!environmentId) return null;
     const result = await bb.sdk.environments.pullRequest({ environmentId });
     if (result.outcome !== "available") return null;
-    return result.pullRequest.state === "open" ? result.pullRequest.url : null;
+    const { state, url } = result.pullRequest;
+    return state === "open" || state === "draft" ? url : null;
   }
 
   const reviews = cachedPerThread(async (threadId): Promise<GithubReview | null> => {

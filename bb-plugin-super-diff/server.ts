@@ -85,8 +85,10 @@ export default async function plugin(bb: BbPluginApi) {
     if (syncGithub !== "on") return null;
     try {
       const result = await bb.sdk.environments.pullRequest({ environmentId });
-      if (result.outcome !== "available" || result.pullRequest.state !== "open") return null;
-      return await fetchPullRequestFiles(ghFor(ghPath), result.pullRequest.url);
+      if (result.outcome !== "available") return null;
+      const { state, url } = result.pullRequest;
+      if (state !== "open" && state !== "draft") return null;
+      return await fetchPullRequestFiles(ghFor(ghPath), url);
     } catch (cause) {
       warnOnce(`GitHub sync unavailable: ${cause instanceof Error ? cause.message : String(cause)}`);
       return null;
