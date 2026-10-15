@@ -28,7 +28,10 @@ them.
 - The root's postinstall links each `file:` dependency into the workspace's own
   `node_modules` too, because bb's build reads a library's
   `bb.pluginTailwindContent` only from there. Without it a plugin builds, but
-  the shared library's Tailwind classes are missing from its panel.
+  the shared library's Tailwind classes are missing from its panel. Another
+  thread's `npm install` can remove the links partway through your builds, so
+  when a shared component's styles are missing, run
+  `node scripts/link-workspace-deps.mjs` and build again.
 
 ## This repository is public
 
@@ -92,6 +95,11 @@ with `git add bb-plugin-now` instead of by file.
   whole directory.
 - Read `git diff --cached --stat` before committing, and unstage anything
   you do not recognise.
+- Commit with `git commit -- <paths>`, naming the files. The index is shared
+  too, so a plain `git commit` also takes whatever another thread has staged,
+  however carefully you staged your own. A hover fix once pushed four of
+  another thread's files this way, minutes before that thread committed the
+  rest of its change.
 - The same goes for screenshots. A capture photographs every story affected
   by changes in this checkout since the last capture, including another
   thread's commits and uncommitted changes (though not the `explore/` stories,
