@@ -156,6 +156,11 @@ export interface SweepRowProps {
   /** Drawn at the right end of the action line. */
   trailing?: ReactNode;
   /**
+   * Drawn directly under the action line, before the note: the row's thread,
+   * as component-library's ThreadLine.
+   */
+  threadLine?: ReactNode;
+  /**
    * Turns the comment count into a toggle for a drawer under the action line.
    * Left out, the count is only a number.
    */
@@ -206,6 +211,7 @@ export function SweepRow({
   onToggleComments,
   commentsOpen = false,
   commentsDrawer,
+  threadLine,
   editing,
   onEditNote,
   onNoteSave,
@@ -357,6 +363,7 @@ export function SweepRow({
               ) : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
+            {threadLine}
             {/* The note and its editor share one place under the action line, the editor replacing the note while open. */}
             {editing ? (
               <NoteField

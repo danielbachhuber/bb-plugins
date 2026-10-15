@@ -15,7 +15,8 @@ where its first fact would be. Above the list, one square per row, grouped by
 run, narrows the list to one run when pressed: blue for new, red for late,
 orange for work under way, and grey for the rest. A stale row has a red left
 edge and a faint red wash, a blocked one a slate one, and a row in an
-under-way run an orange one.
+under-way run an orange one. `threadLine` draws under the action line,
+before the note, for component-library's `ThreadLine`.
 
 Every row carries a track on the right: a dot for each stage with the stage
 names under it, the current stage's name in bold. A row with `blockedStage`

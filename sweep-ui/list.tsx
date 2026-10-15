@@ -53,6 +53,8 @@ export interface SweepListProps {
   collapsible?: boolean;
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
+  /** Drawn directly under a row's action line: component-library's ThreadLine for a row with a thread. */
+  renderThreadLine?: (item: SweepItem) => ReactNode;
   /**
    * The drawer the comment count opens, under the action line. Without it the
    * count is only a number. Drawn only while open, so a drawer that loads its
@@ -86,6 +88,7 @@ export function SweepList({
   renderTrack,
   collapsible = true,
   renderTrailing,
+  renderThreadLine,
   renderComments,
   order = "tier",
   summaryAction,
@@ -134,6 +137,7 @@ export function SweepList({
         Link={Link}
         actions={renderActions(item)}
         trailing={renderTrailing?.(item)}
+        threadLine={renderThreadLine?.(item)}
         onToggleComments={
           renderComments
             ? () =>

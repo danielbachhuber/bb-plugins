@@ -20,7 +20,8 @@
     "./date-range": "./date-range/date-range.tsx",
     "./copy-link": "./copy-link/copy-link.ts",
     "./top-bar": "./top-bar/top-bar.tsx",
-    "./start-thread": "./start-thread/start-thread.tsx"
+    "./start-thread": "./start-thread/start-thread.tsx",
+    "./thread-status": "./thread-status/thread-status.tsx"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

@@ -18,6 +18,7 @@ what not to do with it.
 | [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
 | [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left just after the sidebar toggle |
 | [Start thread](#start-thread) | `component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
+| [Thread status](#thread-status) | `component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -38,7 +39,8 @@ an optional peer, so a plugin that imports neither [Calendar](#calendar) nor
 either one lists `react-day-picker` in its own dependencies.
 
 `@get-bb/plugin-sdk` and `sonner` are optional peers too, for
-[Start thread](#start-thread). bb provides both at runtime.
+[Start thread](#start-thread) and [Thread status](#thread-status). bb provides
+both at runtime.
 
 The package uses relative imports only, since `@/` means the plugin's own
 directory once it is installed there. For the same reason it cannot use a
@@ -338,6 +340,38 @@ toast.
 
 **Don't** put the row's identity in the editable prompt instead of the card.
 Editing it could only break the link between the thread and its row.
+
+## Thread status
+
+How a row looks once its item has a thread, the same in Now, the three
+sweeps, and Contributor Dashboard: an orange left edge, **Open thread** first
+in the action line where **Start thread** was, and a line under the actions,
+set off by an orange rule, saying what the thread is doing and its title.
+
+```tsx
+const threadStatus = useThreadStatus(); // once, on the page
+
+<li className={cn("py-3", threadId && THREAD_EDGE)}>
+  …
+  <OpenThreadAction onOpen={() => navigate.toThread(threadId)} />
+  …
+  <ThreadLine status={threadStatus(threadId)} onOpen={() => navigate.toThread(threadId)} />
+</li>
+```
+
+`useThreadStatus` reads bb's sidebar, which the page already holds, so it
+makes no request. The line says **Working**, **Needs you**, **Done, unread**,
+**Failed, unread**, or **Idle**, as the sidebar's glyph would, and only
+**Needs you** and **Failed** are bold. `THREAD_EDGE` reaches into the list's
+padding the way a stale row's red edge does; `THREAD_EDGE_INSET` is for a list
+drawn inside its own border. A sweep passes the line to sweep-ui's row as
+`threadLine`, which draws it between the action line and the note.
+
+Call the hook in the page and pass the lookup down, so a story can pass
+fixtures instead.
+
+**Don't** let an overdue or due-today edge give way to the orange one. They
+say more.
 
 ## Working on it
 
