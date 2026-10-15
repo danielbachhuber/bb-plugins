@@ -180,13 +180,11 @@ plugin would do, not only the name you have in mind. Report what you find
 before writing any code: a close match may be worth installing, extending, or
 borrowing from instead of building from scratch.
 
-A plugin listed in the marketplace keeps a **Related plugins** section in its
-README, after the sections on using it and before the ones on how it works.
-List each similar plugin, including the ones bundled with bb, and say in a
-sentence or two how this one differs. Name a plugin by its marketplace display
-name and entry id, such as **Markdown PRO** (`md-editor`), and leave out its
-author and repository link, following the public-repository rule above. Search again when you change what a published plugin does, since
-the list of similar plugins changes too.
+Every plugin's README has a **Related plugins** section, whether or not the
+plugin is listed in the marketplace. List each similar plugin, including the
+ones bundled with bb, and say how this one is similar or different. The
+`write-plugin-docs` skill covers the format. Search again when you change what
+a plugin does, since the list of similar plugins changes too.
 
 ## Working on a plugin
 
@@ -218,21 +216,20 @@ stops that machine from updating until someone notices.
 
 ## A feature is not shipped until the prose matches
 
-Each plugin describes itself in three places, and a change to what it does
-changes all three in the same commit:
+Each plugin describes itself in these places, and a change to what it does
+changes all of them in the same commit:
 
-- `package.json`'s `bb.description`, which is what bb shows in the plugin list
-  and the marketplace
-- the plugin's own `README.md` — the prose, and its Layout table when the
-  change adds a directory
+- `package.json`'s `bb.description`, one sentence under 140 characters, which
+  is what bb shows in the plugin list and the marketplace
+- `PLUGIN_OVERVIEW.md`, when the plugin has one, which the store page shows
+  under that sentence
+- the plugin's own `README.md`
 - the root `README.md` table, whose "What it does" column is `bb.description`
-  word for word where that description is one sentence, and a condensed
-  sentence of its own where it runs to a paragraph
+  word for word
 
-Those last two are coupled, so editing one and not the other is the usual way
-this goes wrong. Match whichever shape the row already has rather than pasting
-a four-sentence description into a table cell. Add the screenshots to the list
-when the change is visible in one of them.
+Follow the `write-plugin-docs` skill in `.claude/skills/` for the shape and
+length of each. Editing the description and not the root table is the usual
+way this goes wrong.
 
 Leaving it for later does not work: the description is the only account of the
 plugin that anyone outside this checkout reads, and a plugin whose description
