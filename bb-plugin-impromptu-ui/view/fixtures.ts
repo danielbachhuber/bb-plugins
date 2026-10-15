@@ -190,7 +190,7 @@ export const selfImproveView: View = viewSchema.parse({
       items: [
         {
           id: "finding-1",
-          title: "1. Link local files with absolute paths",
+          title: "Link local files with absolute paths",
           badges: [
             { label: "correction overhead", tone: "warning" },
             { label: "18 threads", tone: "neutral" },
@@ -208,7 +208,7 @@ export const selfImproveView: View = viewSchema.parse({
         },
         {
           id: "finding-2",
-          title: "2. Delegate repository surveys to subagents",
+          title: "Delegate repository surveys to subagents",
           badges: [
             { label: "tokens", tone: "warning" },
             { label: "11 threads", tone: "neutral" },
@@ -221,7 +221,7 @@ export const selfImproveView: View = viewSchema.parse({
         },
         {
           id: "finding-3",
-          title: "3. Stop nesting worktrees inside bb worktrees",
+          title: "Stop nesting worktrees inside bb worktrees",
           badges: [
             { label: "breakage", tone: "danger" },
             { label: "4 threads", tone: "neutral" },
@@ -234,7 +234,7 @@ export const selfImproveView: View = viewSchema.parse({
         },
         {
           id: "finding-4",
-          title: "4. One-click post, approve, merge for dependency bumps",
+          title: "One-click post, approve, merge for dependency bumps",
           badges: [
             { label: "non-chat UX", tone: "info" },
             { label: "19 threads", tone: "neutral" },
@@ -247,7 +247,7 @@ export const selfImproveView: View = viewSchema.parse({
         },
         {
           id: "finding-5",
-          title: "5. Say which suites the root test command skips",
+          title: "Say which suites the root test command skips",
           badges: [
             { label: "excess steps", tone: "info" },
             { label: "3 threads", tone: "neutral" },

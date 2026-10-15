@@ -62,6 +62,7 @@ After publishing, say in chat how many items there are and that they are above t
 }
 ```
 
+- Rows above the composer are numbered in the order you publish them, so do not number titles yourself. Set `"numbered": false` on the view when the order means nothing.
 - Sections are optional. A section's `title` shows as a heading over its rows above the composer, with open items first within it, so group by what the user decides in order, such as "Fix before merge" and "Worth considering". Leave every title empty for one plain list.
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
 - `url` is what the item is about on the web (the issue, the PR, the review comment's `html_url`). The opened item's title links to it, so set it whenever there is one; a separate `link` button for the same page is then unnecessary.

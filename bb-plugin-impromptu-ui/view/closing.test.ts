@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allHandled, progressLabel, rowGroups } from "./banner.js";
+import { allHandled, progressLabel, rowGroups, rowNumbers } from "./banner.js";
 import { fillTally, openBeforeClosing, tally } from "./closing.js";
 import { parseView } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -59,5 +59,13 @@ describe("row groups", () => {
       ["Worth considering", ["c"]],
     ]);
     expect(rowGroups(stored({ a: done("Attach") })).map((group) => [group.title, group.items.map((item) => item.id)])).toEqual([["", ["b", "c", "a"]]]);
+  });
+});
+
+describe("row numbers", () => {
+  it("numbers rows in the order published, skipping the closing step, unless the view turns it off", () => {
+    expect([...rowNumbers(stored({ a: done("Attach") }))]).toEqual([["a", 1], ["b", 2], ["c", 3]]);
+    const off = stored();
+    expect(rowNumbers({ ...off, view: { ...off.view, numbered: false } }).size).toBe(0);
   });
 });

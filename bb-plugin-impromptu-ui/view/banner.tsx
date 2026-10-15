@@ -69,6 +69,17 @@ export function rowGroups(stored: StoredView): Array<{ title: string; items: Ite
     .filter((group) => group.items.length > 0);
 }
 
+/**
+ * Each row's number: its place in the order published, counting every item
+ * but the closing step, so a number stays put as rows move. None for a view
+ * that turns numbering off.
+ */
+export function rowNumbers(stored: StoredView): Map<string, number> {
+  if (!stored.view.numbered || stored.view.layout === "list") return new Map();
+  const items = stored.view.sections.flatMap((section) => section.items).filter((item) => !item.closing);
+  return new Map(items.map((item, index) => [item.id, index + 1]));
+}
+
 /** The items with a decision on them: every one but a list view's plain rows. */
 export function decisionItems(stored: StoredView): Item[] {
   return stored.view.sections.flatMap((section) => section.items.filter((item) => !isQuiet(stored.view, item)));
@@ -149,6 +160,7 @@ export function ViewBanner({
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
   const closing = list ? undefined : closingItem(stored);
+  const numbers = rowNumbers(stored);
 
   return (
     <div>
@@ -201,10 +213,15 @@ export function ViewBanner({
                 )}
               >
                 <span
-                  className={cn("w-3 shrink-0 text-center text-xs", failed ? "text-destructive" : state === "done" ? "text-success" : "text-muted-foreground")}
+                  className={cn(
+                    "shrink-0 text-center text-xs tabular-nums",
+                    numbers.size === 0 ? "w-3" : "w-4",
+                    failed ? "text-destructive" : state === "done" ? "text-success" : "text-muted-foreground",
+                    state === "dismissed" && numbers.size > 0 && "line-through",
+                  )}
                   aria-hidden
                 >
-                  {failed ? "!" : state === "done" ? "✓" : state === "dismissed" ? "–" : "○"}
+                  {failed ? "!" : state === "done" ? "✓" : (numbers.get(item.id) ?? (state === "dismissed" ? "–" : "○"))}
                 </span>
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={open} title={elsewhere === null ? "Open in the side panel" : "Open its thread"}>
                   <span className="flex min-w-0 items-baseline gap-2">
@@ -266,7 +283,7 @@ export function ViewBanner({
         </ul>
       )}
       {collapsed || closing === undefined ? null : (
-        <ClosingRow stored={stored} item={closing} focused={focusedItem === closing.id} onOpen={() => onOpenItem(closing)} />
+        <ClosingRow stored={stored} item={closing} focused={focusedItem === closing.id} wide={numbers.size > 0} onOpen={() => onOpenItem(closing)} />
       )}
     </div>
   );
@@ -276,14 +293,14 @@ export function ViewBanner({
  * The closing step under the rows: what it is, and either how many items are
  * left before it or what was done with them. Muted until it is ready.
  */
-function ClosingRow({ stored, item, focused, onOpen }: { stored: StoredView; item: Item; focused: boolean; onOpen: () => void }) {
+function ClosingRow({ stored, item, focused, wide, onOpen }: { stored: StoredView; item: Item; focused: boolean; wide: boolean; onOpen: () => void }) {
   const state = stored.items[item.id]?.state ?? "open";
   const left = openBeforeClosing(stored);
   const ready = left === 0;
   const before = stepsBefore(stored).length;
   return (
     <div className={cn("flex items-center gap-2 border-t border-border px-3 py-1.5", focused && "bg-state-active")}>
-      <span className={cn("w-3 shrink-0 text-center text-xs", state === "done" ? "text-success" : "text-muted-foreground")} aria-hidden>
+      <span className={cn("shrink-0 text-center text-xs", wide ? "w-4" : "w-3", state === "done" ? "text-success" : "text-muted-foreground")} aria-hidden>
         {state === "done" ? "✓" : "→"}
       </span>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen} title="Open in the side panel">

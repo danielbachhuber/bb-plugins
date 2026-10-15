@@ -420,6 +420,11 @@ export const viewSchema = z
     sections: z.array(sectionSchema).min(1).max(20),
     layout: z.enum(LAYOUTS).default("cards"),
     /**
+     * Numbers the rows above the composer in the order published, so the
+     * user can say "the third one". Off for a list whose order means nothing.
+     */
+    numbered: z.boolean().default(true),
+    /**
      * The items laid out as the pages they fill, at the top of the side
      * panel: each block sized by its item's meter max and filled by its value.
      * Clicking a block opens its item.
