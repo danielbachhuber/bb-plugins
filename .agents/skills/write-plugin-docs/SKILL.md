@@ -1,6 +1,6 @@
 ---
 name: write-plugin-docs
-description: Use when writing or rewriting a plugin's README.md, PLUGIN_OVERVIEW.md, or bb.description in this repository, including after a change to what a plugin does, and when a README has grown long or reads as a design document.
+description: Use when writing or rewriting a plugin's README.md, PLUGIN_OVERVIEW.md, or bb.description in this repository, or when a plugin has no screenshots, including after a change to what a plugin does, and when a README has grown long or reads as a design document.
 ---
 
 # Write plugin docs
@@ -56,6 +56,24 @@ them:
 
 Template: [overview-template.md](overview-template.md).
 
+## Screenshots come first
+
+Every plugin has captures in the screenshots repository
+(`../bb-plugins-screenshots/<id>/`, or wherever `BB_PLUGINS_SCREENSHOTS_DIR`
+points), and the README and the marketplace entry use only those. Before you
+write, list that directory and look at the images:
+
+- If it is missing, the plugin has no stories. Write one for each surface
+  the README will describe, as the Stories section of AGENTS.md says:
+  split the component from its data loading, render it with invented fixture
+  props, and import bb's components with `@bb-app/...`.
+- If a surface the README describes has no capture, or the capture is
+  clipped or does not show the point, add or fix the story. A taller stage,
+  a different starting state, or a more realistic fixture usually does it.
+- Commit the stories, push, and run `npm run screenshots:isolated`. Read
+  every image it lists, then commit them with `screenshots:commit`, before
+  you link any of them.
+
 ## README.md
 
 Template: [readme-template.md](readme-template.md).
@@ -91,8 +109,10 @@ Template: [readme-template.md](readme-template.md).
 
 - [ ] `bb.description` is one sentence under 140 characters, and the root
       README table matches it.
+- [ ] The screenshots repository has a directory for the plugin, with a
+      capture of every surface the README describes.
 - [ ] The README is under 120 lines and opens with a screenshot you have
-      looked at.
+      looked at, and every image URL loads (`curl -sI <url>` returns 200).
 - [ ] No paragraph explains an edge case, a failure, or an earlier version.
 - [ ] The overview has no `#` title, image, or table, does not repeat
       `bb.description`, and is under 1500 characters
