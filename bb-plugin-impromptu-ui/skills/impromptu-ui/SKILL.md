@@ -97,6 +97,28 @@ An item with `variations` is a visual review instead: see below.
 
 Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again. A button with `"repeat": true` leaves the card open after it goes through, for a step the user may take again, such as "Regenerate".
 
+## A closing step
+
+When the items lead up to one last decision that depends on them, such as a code review's verdict after its findings, make that decision the closing step rather than the first card. Give it `"closing": true`:
+
+```json
+{
+  "id": "verdict",
+  "title": "Submit as Request changes",
+  "closing": true,
+  "summary": "Request changes for the paging bug; the other two are not blocking. So far: {tally}.",
+  "actions": [
+    { "type": "message", "label": "Submit as Request changes", "text": "Submit my pending review on acme/widgets#431 as Request changes. Findings: {tally}.", "primary": true },
+    { "type": "message", "label": "Submit as Comment", "text": "Submit my pending review on acme/widgets#431 as a comment. Findings: {tally}." }
+  ]
+}
+```
+
+- It shows under the rows as a "Then" line instead of a row, and the header's count leaves it out. The side panel opens on it only once every other item is done or dismissed.
+- Its buttons wait until then: opened early, it says how many items are still open. Put it in a section of its own at the end, so it reads last in the file too.
+- `{tally}` in its summary or in a `message` or `thread` button's text becomes what was done with the other items, such as "2 Attach as draft comment, 1 dismissed". Recommend the verdict in the summary, and let the user change it once they have been through the items.
+- A view has at most one closing step, and it needs the "cards" layout.
+
 ## Show what changed
 
 When an item is about a change, such as a pull request's files, a code review finding's hunk, or a section's new text against the document it goes into, give it `changes` rather than describing the diff in its summary:

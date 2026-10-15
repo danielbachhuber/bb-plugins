@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { expandPatchFiles } from "./view/changes.js";
+import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
@@ -150,6 +151,13 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /** A closing step's button with `{tally}` filled in from what was done with the items before it. */
+  function withTally(action: Action, stored: StoredView): Action {
+    if (action.type === "message") return { ...action, text: fillTally(action.text, stored) };
+    if (action.type === "thread") return { ...action, prompt: fillTally(action.prompt, stored) };
+    return action;
+  }
+
   async function runAction(viewId: number, itemId: string, index: number, draft?: string, note?: string): Promise<StoredView> {
     const stored = requireView(viewId);
     const item = findItem(stored, itemId);
@@ -160,9 +168,13 @@ export default async function plugin(bb: BbPluginApi) {
     // A text field can start empty, and an empty answer is not one to send.
     if (usesDraft(original) && (draft ?? item.draft).trim() === "") throw new Error(`Fill in "${item.draftLabel}" before "${original.label}".`);
     if (note !== undefined && !usesNote(original)) throw new Error(`"${original.label}" does not send the note.`);
+    // The panel disables these too, but what it draws is not a check.
+    const left = item.closing ? openBeforeClosing(stored) : 0;
+    if (left > 0) throw new Error(`Handle the ${left} open item${left === 1 ? "" : "s"} before "${original.label}".`);
     const filled = fillDraft(original, item.draft, draft);
     const edited = filled.edited;
-    const action = usesNote(original) ? fillNote(filled.action, note ?? "") : filled.action;
+    const noted = usesNote(original) ? fillNote(filled.action, note ?? "") : filled.action;
+    const action = item.closing ? withTally(noted, stored) : noted;
     // What was sent is kept when the user changed it, or typed it into a
     // one-line field, so the card, the list, and the agent see it.
     const keep = edited || (item.draftFormat === "text" && usesDraft(original));

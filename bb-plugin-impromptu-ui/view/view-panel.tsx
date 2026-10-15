@@ -13,6 +13,7 @@ import { DraftEditor } from "./draft-editor.js";
 import { EvidenceCard } from "./evidence-block.js";
 import type { Feedback } from "./review.js";
 import { ReviewPanel } from "./review-panel.js";
+import { openBeforeClosing, tally } from "./closing.js";
 
 export interface ViewPanelProps {
   stored: StoredView;
@@ -126,7 +127,11 @@ export function nextOpenItem(stored: StoredView, itemId: string, threadId?: stri
   const at = items.findIndex((item) => item.id === itemId);
   const isOpen = (item: Item) =>
     item.id !== itemId && showsInPanel(stored, item, threadId) && (stored.items[item.id]?.state ?? "open") === "open";
-  return items.slice(at + 1).find(isOpen) ?? items.slice(0, Math.max(at, 0)).find(isOpen) ?? null;
+  // The closing step comes once nothing else is left, wherever it sits in the list.
+  const step = (item: Item) => isOpen(item) && !item.closing;
+  return (
+    items.slice(at + 1).find(step) ?? items.slice(0, Math.max(at, 0)).find(step) ?? items.find((item) => isOpen(item) && item.closing) ?? null
+  );
 }
 
 /** Whether an item opens in this thread's side panel: not a list view's plain row, and not one worked in a thread of its own elsewhere. */
@@ -140,12 +145,11 @@ function showsInPanel(stored: StoredView, item: Item, threadId: string | undefin
  * worked in its own thread opens there, so neither is shown.
  */
 export function firstOpenItem(stored: StoredView, threadId?: string): Item | null {
-  for (const section of stored.view.sections) {
-    for (const item of section.items) {
-      if (showsInPanel(stored, item, threadId) && (stored.items[item.id]?.state ?? "open") === "open") return item;
-    }
-  }
-  return null;
+  const open = stored.view.sections
+    .flatMap((section) => section.items)
+    .filter((item) => showsInPanel(stored, item, threadId) && (stored.items[item.id]?.state ?? "open") === "open");
+  // A closing step waits until it is the only thing left.
+  return open.find((item) => !item.closing) ?? open[0] ?? null;
 }
 
 /** "10:35 AM" today, "Mar 12, 10:35 AM" otherwise; nothing for a stamp that is not a date. */
@@ -563,6 +567,7 @@ function ItemCard({
   onStartThread,
   threads,
   currentThreadId,
+  closing,
 }: {
   item: Item;
   record: ItemRecord | undefined;
@@ -581,6 +586,8 @@ function ItemCard({
   onStartThread?: () => void;
   threads?: Record<string, LinkedThread>;
   currentThreadId?: string;
+  /** For a closing step: how many items are still open before it, and what was done with the rest. */
+  closing?: { left: number; tally: string };
 }) {
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
   const [draft, setDraft] = useState(editorDraft(item, record, publishedAt));
@@ -611,7 +618,7 @@ function ItemCard({
           action.type === "thread" && record?.result?.label === action.label ? (record.result.threadId ?? null) : null
         }
         busy={busy}
-        used={state === "done"}
+        used={state === "done" || (closing !== undefined && closing.left > 0)}
         blank={blank && usesDraft(action)}
         onRun={() => run(index)}
         onConfirm={() => setConfirming(index)}
@@ -692,9 +699,14 @@ function ItemCard({
       {/* What happened comes first, above the evidence for it. */}
       {record === undefined || !showsResult(item, record, publishedAt) ? null : <Result record={record} onGo={onGo} />}
 
+      {closing === undefined || closing.left === 0 || state !== "open" ? null : (
+        <div className="mt-3 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground">
+          {closing.left === 1 ? "1 item above is still open." : `${closing.left} items above are still open.`} This step&apos;s buttons work once they&apos;re handled.
+        </div>
+      )}
       {item.summary === "" ? null : (
         <div className="mt-2 text-sm">
-          <Markdown content={item.summary} />
+          <Markdown content={closing === undefined ? item.summary : item.summary.replaceAll("{tally}", closing.tally)} />
         </div>
       )}
       {item.history.length === 0 ? null : <History entries={item.history} />}
@@ -875,6 +887,7 @@ export function ViewPanel({
             dismissLabel={dismissLabelOf(view, focused)}
             busy={busyItem === focused.id}
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
+            closing={focused.closing ? { left: openBeforeClosing(stored), tally: tally(stored) } : undefined}
             initialDraftMode={draftMode}
             initialChangesMode={changesMode}
             review={{

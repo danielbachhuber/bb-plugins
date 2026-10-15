@@ -734,6 +734,78 @@ export const codeReviewView: View = viewSchema.parse({
   ],
 });
 
+const attach = (line: number) => ({
+  type: "message",
+  label: "Attach as draft comment",
+  text: `Add this to my pending review on acme/widgets#431, line ${line}:\n\n{draft}`,
+  primary: true,
+});
+
+/** A code review with its verdict as the closing step: three findings to decide on, then submitting the review. */
+export const reviewWithVerdictView: View = viewSchema.parse({
+  title: "Review: acme/widgets#431 Page the gadget sync",
+  summary: "",
+  sections: [
+    {
+      title: "Fix before merge",
+      items: [
+        {
+          id: "finding-paging",
+          title: "Paging drops the last rows of every sync",
+          badges: [{ label: "Bug", tone: "danger" }],
+          summary: "120 rows sync as 49: the loop stops one page early and slices each page one row short.",
+          changesLabel: "In this PR",
+          changes: [
+            { label: "src/sync.ts", patch: syncHunk },
+            { label: "src/sync.ts", patch: syncFixHunk, role: "proposed" },
+          ],
+          draft: "This drops rows: with 120 rows and a page size of 50, the loop stops after the first page. The original `start < rows.length` and `start + pageSize` were right.",
+          draftLabel: "Comment to post",
+          actions: [attach(43)],
+        },
+      ],
+    },
+    {
+      title: "Worth considering",
+      items: [
+        {
+          id: "finding-retry",
+          title: "A failed page is retried forever",
+          badges: [{ label: "Reliability", tone: "warning" }],
+          summary: "One bad row keeps the whole sync looping, since the retry has no limit.",
+          draft: "Could the retry stop after a few tries and report the page it gave up on?",
+          draftLabel: "Comment to post",
+          actions: [attach(52)],
+        },
+        {
+          id: "finding-name",
+          title: "`pages` holds rows, not page numbers",
+          badges: [{ label: "Naming", tone: "neutral" }],
+          summary: "Reading `pages.length` as a page count is right, but `pages[0]` reads as a number.",
+          draft: "Nit: `batches` might read better than `pages` here.",
+          draftLabel: "Comment to post",
+          actions: [attach(42)],
+        },
+      ],
+    },
+    {
+      title: "",
+      items: [
+        {
+          id: "verdict",
+          title: "Submit as Request changes",
+          closing: true,
+          summary: "Request changes for the paging bug; the other two are not blocking. So far: {tally}.",
+          actions: [
+            { type: "message", label: "Submit as Request changes", text: "Submit my pending review on acme/widgets#431 as Request changes. Findings: {tally}.", primary: true },
+            { type: "message", label: "Submit as Comment", text: "Submit my pending review on acme/widgets#431 as a comment. Findings: {tally}." },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
 const evidenceNeed = {
   id: "need",
   title: "Need",

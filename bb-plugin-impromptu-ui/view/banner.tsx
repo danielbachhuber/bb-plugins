@@ -8,6 +8,7 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { closingItem, fillTally, openBeforeClosing, stepsBefore } from "./closing.js";
 import { feedbackLabel } from "./review.js";
 import { isQuiet, threadElsewhere, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -65,7 +66,8 @@ export function allHandled(stored: StoredView): boolean {
  * otherwise it counts what is left to decide.
  */
 export function progressLabel(stored: StoredView): string {
-  const items = stored.view.layout === "list" ? decisionItems(stored) : orderItems(stored);
+  // The closing step is what the count leads up to, not one of the things counted.
+  const items = (stored.view.layout === "list" ? decisionItems(stored) : orderItems(stored)).filter((item) => !item.closing);
   if (items.length === 0) return "nothing to decide";
   const state = (item: Item) => stored.items[item.id]?.state ?? "open";
   if (items.some((item) => item.status !== undefined)) {
@@ -126,7 +128,8 @@ export function ViewBanner({
   currentThreadId,
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
-  const items = list ? decisionItems(stored) : orderItems(stored);
+  const items = list ? decisionItems(stored) : orderItems(stored).filter((item) => !item.closing);
+  const closing = list ? undefined : closingItem(stored);
 
   return (
     <div>
@@ -232,6 +235,45 @@ export function ViewBanner({
             );
           })}
         </ul>
+      )}
+      {collapsed || closing === undefined ? null : (
+        <ClosingRow stored={stored} item={closing} focused={focusedItem === closing.id} onOpen={() => onOpenItem(closing)} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The closing step under the rows: what it is, and either how many items are
+ * left before it or what was done with them. Muted until it is ready.
+ */
+function ClosingRow({ stored, item, focused, onOpen }: { stored: StoredView; item: Item; focused: boolean; onOpen: () => void }) {
+  const state = stored.items[item.id]?.state ?? "open";
+  const left = openBeforeClosing(stored);
+  const ready = left === 0;
+  const before = stepsBefore(stored).length;
+  return (
+    <div className={cn("flex items-center gap-2 border-t border-border px-3 py-1.5", focused && "bg-state-active")}>
+      <span className={cn("w-3 shrink-0 text-center text-xs", state === "done" ? "text-success" : "text-muted-foreground")} aria-hidden>
+        {state === "done" ? "✓" : "→"}
+      </span>
+      <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen} title="Open in the side panel">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">Then</span>
+          <span className={cn("truncate text-sm", ready && state === "open" ? "text-foreground" : "text-muted-foreground")}>{item.title}</span>
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {state === "done"
+            ? (stored.items[item.id]?.result?.label ?? "Done")
+            : ready
+              ? fillTally(firstLine(item.summary) || "Everything above is handled.", stored)
+              : `After the ${left} of ${before} still open above`}
+        </span>
+      </button>
+      {state !== "open" ? null : (
+        <Button size="sm" variant={ready ? "default" : "outline"} className="h-6 shrink-0 px-2 text-xs" onClick={onOpen}>
+          Review
+        </Button>
       )}
     </div>
   );

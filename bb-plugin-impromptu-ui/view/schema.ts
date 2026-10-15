@@ -395,6 +395,13 @@ export const itemSchema = z.object({
    * the thread as one message.
    */
   variations: z.array(variationSchema).max(6).default([]),
+  /**
+   * The step that comes after every other item, such as a review's verdict:
+   * shown under the list rather than as a row, left out of the count, and
+   * opened only once the others are handled. `{tally}` in its summary or a
+   * button's text becomes what was done with them.
+   */
+  closing: z.boolean().default(false),
   ...dismissLabel,
 });
 export type Item = z.infer<typeof itemSchema>;
@@ -547,6 +554,12 @@ export const viewSchema = z
           }
           seenEntries.add(entry.id);
         });
+        if (item.closing && view.layout === "list") {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "closing"], message: 'a closing step needs the "cards" layout' });
+        }
+        if (item.closing && view.sections.flatMap((other) => other.items).filter((other) => other.closing)[0] !== item) {
+          ctx.addIssue({ code: "custom", path: [...itemPath, "closing"], message: "a view has at most one closing step" });
+        }
         if (item.variations.length === 1) {
           ctx.addIssue({
             code: "custom",

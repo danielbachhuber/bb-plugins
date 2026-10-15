@@ -18,7 +18,7 @@ import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -566,6 +566,35 @@ export function BeforeAfterSent() {
         "rows-sections": { state: "done", result: { label: "Send feedback", at: "2026-03-12T12:05:00Z", feedback } },
       })}
       initialFocus="rows-sections"
+    />
+  );
+}
+
+const verdictTurns: Turn[] = [
+  { kind: "user", text: "Review acme/widgets#431." },
+  { kind: "work", text: "Read the diff and ran the sync tests against it" },
+  {
+    kind: "assistant",
+    text: "I'd request changes for the paging bug. **3 findings** are above the composer, then the verdict once you've been through them.",
+  },
+];
+
+/** A review with its verdict as the closing step: under the findings rather than first. Opened early, it says what is left and its buttons wait. */
+export function ClosingStepWaiting() {
+  return <ThreadStage turns={verdictTurns} view={stored(reviewWithVerdictView)} initialFocus="verdict" />;
+}
+
+/** Every finding handled: the closing step opens, its summary tallies what was done, and its buttons work. */
+export function ClosingStepReady() {
+  const at = "2026-03-12T12:05:00Z";
+  return (
+    <ThreadStage
+      turns={verdictTurns}
+      view={stored(reviewWithVerdictView, {
+        "finding-paging": { state: "done", result: { label: "Attach as draft comment", at } },
+        "finding-retry": { state: "done", result: { label: "Attach as draft comment", at } },
+        "finding-name": { state: "dismissed", result: null },
+      })}
     />
   );
 }
