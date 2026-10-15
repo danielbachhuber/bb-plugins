@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Pushing a `<plugin>/vX.Y.Z` tag is a release: installed copies update to it.
+# Before one leaves this machine, install the tagged commit the way bb installs
+# a marketplace plugin, and stop the push if it fails to build. Impromptu UI
+# v0.1.0 and Tokenomics v0.1.0 both built here and failed for everyone else.
+#
+# setup.sh points git at this directory (git config core.hooksPath .githooks).
+# `git push --no-verify` skips it.
+
+root="$(git rev-parse --show-toplevel)"
+status=0
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/tags/*/v*) ;;
+    *) continue ;;
+  esac
+  [ "$local_sha" = "$zero" ] && continue   # deleting a tag
+  tag="${remote_ref#refs/tags/}"
+  plugin="${tag%/v*}"
+  if ! command -v bb >/dev/null 2>&1; then
+    echo "pre-push: bb is not on PATH, so $tag cannot be checked. Install bb, or push with --no-verify." >&2
+    status=1
+    continue
+  fi
+  echo "pre-push: installing $tag the way the marketplace does" >&2
+  node "$root/scripts/check-installable.mjs" --ref "$local_sha" "$plugin" >&2 || status=1
+done
+
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: not pushing a release that fails to install." >&2
+fi
+exit "$status"

@@ -51,10 +51,14 @@ else.
   root entry, such as an RPC contract. The SDK is a devDependency, so the
   build cannot find it. Import types from the contract, and keep constants
   the app needs in a separate file.
-- Before tagging a release, run `node scripts/check-installable.mjs <id>` at
-  the root. It installs the plugin from the last commit the way bb does and
-  builds it. With no id, it checks every plugin; the ones that are not in the
-  marketplace still use `file:` dependencies and fail.
+- Pushing a `<plugin>/vX.Y.Z` tag runs `.githooks/pre-push`, which installs
+  the tagged commit the way bb does and stops the push if it fails.
+  `setup.sh` turns the hook on (`git config core.hooksPath .githooks`). Do not
+  skip it with `--no-verify`; fix the plugin instead.
+- To check before tagging, run `node scripts/check-installable.mjs <id>`, or
+  `--published` for every plugin with a release tag. With neither, it checks
+  every plugin, and the ones not in the marketplace still use `file:`
+  dependencies and fail.
 
 ## This repository is public
 

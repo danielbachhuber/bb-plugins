@@ -30,6 +30,10 @@ export npm_config_include=dev
 echo "==> npm install"
 ( cd "$DIR" && npm install --silent --no-audit --no-fund )
 
+# Pushing a release tag runs .githooks/pre-push, which installs the tagged
+# plugin the way the marketplace does and stops a release that fails to.
+git -C "$DIR" config core.hooksPath .githooks
+
 installed="$(bb plugin list --json 2>/dev/null || echo '[]')"
 
 for package in "$DIR"/*/; do

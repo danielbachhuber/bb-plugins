@@ -8,10 +8,14 @@
 // node_modules works here in the checkout and fails for everyone else.
 //
 //   node scripts/check-installable.mjs                 # every plugin, at HEAD
+//   node scripts/check-installable.mjs --published     # plugins with a release tag
 //   node scripts/check-installable.mjs impromptu-ui    # one plugin
 //   node scripts/check-installable.mjs --ref impromptu-ui/v0.1.0 impromptu-ui
 //
 // It installs from a commit, not the working tree, so commit before checking.
+// A plugin counts as published once it has a `<name>/v*` tag, which is what a
+// marketplace entry's range selects. The pre-push hook in .githooks/ runs this
+// for each such tag being pushed.
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,8 +31,20 @@ if (refAt !== -1) {
   args.splice(refAt, 2);
 }
 
+const publishedAt = args.indexOf("--published");
+const publishedOnly = publishedAt !== -1;
+if (publishedOnly) args.splice(publishedAt, 1);
+const tagged = new Set(
+  execFileSync("git", ["-C", root, "tag", "--list", "*/v*"], { encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean)
+    .map((tag) => tag.slice(0, tag.lastIndexOf("/v"))),
+);
+
 const index = JSON.parse(readFileSync(path.join(root, ".bb/plugins.json"), "utf8"));
-const plugins = index.plugins.filter((p) => args.length === 0 || args.includes(p.name));
+const plugins = index.plugins.filter(
+  (p) => (args.length === 0 || args.includes(p.name)) && (!publishedOnly || tagged.has(p.name)),
+);
 if (plugins.length === 0) {
   console.error(`No plugin named ${args.join(", ")} in .bb/plugins.json`);
   process.exit(1);
