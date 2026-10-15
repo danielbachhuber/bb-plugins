@@ -148,8 +148,11 @@ assignee on a list of someone's own work says nothing.
 **Start a thread** opens bb's composer with the issue or pull request already
 written into the prompt, and the project, provider, environment and branch
 pickers the composer always has. Starting it leaves you on the page, with a
-toast whose **Go to thread** button opens the new thread. Once a thread exists for that row, the glyph
-changes and the button opens it rather than starting a second one; the plugin
+toast whose **Go to thread** button opens the new thread. Once a thread exists for that row, the row
+gets an orange left edge and a line under its title saying what the thread is
+doing, as bb's sidebar does (**Working**, **Needs you**, **Done, unread**,
+**Failed, unread**, or **Idle**), with the thread's title. Clicking the line,
+or the changed glyph, opens the thread rather than starting a second one; the plugin
 remembers which thread belongs to which number in its own table, which is the
 only thing in its database that does not come from GitHub.
 

@@ -2,10 +2,12 @@
 // it is, the facts that list cares about, and the two things worth doing from
 // here. Drawn like the sweeps' rows, and the same height as before: an icon
 // button is no taller than the line of text beside it.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { writeLinkToClipboard } from "component-library/copy-link";
+import { THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 
 /** How long the tick stays up before the copy glyph returns. */
 const COPIED_MS = 1500;
@@ -48,6 +50,13 @@ export function Assignees({ logins }: { logins: readonly string[] }) {
   );
 }
 
+/**
+ * What a row's thread is doing, from bb's sidebar. The page provides it once,
+ * from component-library's useThreadStatus, so the views between need not
+ * pass it down; the stories provide fixtures.
+ */
+export const ThreadStatusContext = createContext<(threadId: string | null) => ThreadStatus | null>(() => null);
+
 function RowAction({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
   return (
     <button
@@ -84,6 +93,7 @@ export function ItemRow({
   onThread: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const threadStatus = useContext(ThreadStatusContext);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The list can unmount the row mid-tick.
@@ -102,26 +112,30 @@ export function ItemRow({
   };
 
   return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2">
-      <a href={url} target="_blank" rel="noreferrer" className="min-w-0 truncate hover:underline">
-        <span className="tabular-nums text-muted-foreground">#{number}</span> {title}
-      </a>
-      <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
-        {assignees === undefined ? null : <Assignees logins={assignees} />}
-        {facts}
-        <span className="flex items-center gap-0.5">
-          <RowAction
-            name={threadId === null ? "MessageSquarePlus" : "MessageSquare"}
-            label={threadId === null ? "Start a thread" : "Open the thread"}
-            onClick={onThread}
-          />
-          <RowAction
-            name={copied ? "Check" : "Copy"}
-            label={copied ? "Copied" : "Copy link"}
-            onClick={() => void copy()}
-          />
+    <li className={cn("px-3 py-2", threadId !== null && cn(THREAD_EDGE_INSET, "pl-[10px]"))}>
+      <div className="flex items-center justify-between gap-3">
+        <a href={url} target="_blank" rel="noreferrer" className="min-w-0 truncate hover:underline">
+          <span className="tabular-nums text-muted-foreground">#{number}</span> {title}
+        </a>
+        <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
+          {assignees === undefined ? null : <Assignees logins={assignees} />}
+          {facts}
+          <span className="flex items-center gap-0.5">
+            <RowAction
+              name={threadId === null ? "MessageSquarePlus" : "MessageSquare"}
+              label={threadId === null ? "Start a thread" : "Open the thread"}
+              onClick={onThread}
+            />
+            <RowAction
+              name={copied ? "Check" : "Copy"}
+              label={copied ? "Copied" : "Copy link"}
+              onClick={() => void copy()}
+            />
+          </span>
         </span>
-      </span>
+      </div>
+      {/* Open thread is the icon on the right; what the thread is doing goes under the title. */}
+      {threadId === null ? null : <ThreadLine status={threadStatus(threadId)} onOpen={onThread} />}
     </li>
   );
 }

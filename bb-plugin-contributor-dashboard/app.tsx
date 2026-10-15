@@ -31,6 +31,8 @@ import { StartThreadDialog, announceStartedThread } from "component-library/star
 import * as dialogParts from "@/components/ui/dialog";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
+import { useThreadStatus } from "component-library/thread-status";
+import { ThreadStatusContext } from "./components/item-row";
 
 const PANEL_PATH = "contributor-dashboard";
 
@@ -241,13 +243,23 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   );
 }
 
+/** The page, with what each row's thread is doing read once from bb's sidebar. */
+function ContributorDashboardPanel(props: PluginNavPanelProps) {
+  const threadStatus = useThreadStatus();
+  return (
+    <ThreadStatusContext.Provider value={threadStatus}>
+      <ContributorDashboardPage {...props} />
+    </ThreadStatusContext.Provider>
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.navPanel({
     id: "contributor-dashboard",
     title: "Contributor Dashboard",
     icon: "ChartColumn",
     path: PANEL_PATH,
-    component: ContributorDashboardPage,
+    component: ContributorDashboardPanel,
     headerContent: SyncHeader,
   });
 });

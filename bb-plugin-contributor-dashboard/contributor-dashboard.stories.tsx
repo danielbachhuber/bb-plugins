@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
@@ -6,6 +6,8 @@ import { StageView } from "./components/stage-view";
 import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
+import type { ThreadStatus } from "component-library/thread-status";
+import { ThreadStatusContext } from "./components/item-row";
 
 export default {
   title: "contributor-dashboard/Page",
@@ -410,6 +412,13 @@ function Page({
 }
 
 /** Six weeks, the default: a chart per person in each section, busiest first, and the quiet tail folded into rows of counts. */
+/** What bb's sidebar would say about the fixture thread, as the page's provider would. */
+function WithThreads({ children }: { children: ReactNode }) {
+  const status = (id: string | null): ThreadStatus | null =>
+    id === "thr_demo" ? { id, title: "Review the widget sync retry change", live: "needs-you" } : null;
+  return <ThreadStatusContext.Provider value={status}>{children}</ThreadStatusContext.Provider>;
+}
+
 export const SixWeeks = () => <Page />;
 
 /** Hovering a week shows that week's counts for the person hovered. */
@@ -512,7 +521,11 @@ function Person({
 }
 
 /** One person's page, reached by clicking their name on the dashboard. */
-export const PersonPage = () => <Person />;
+export const PersonPage = () => (
+  <WithThreads>
+    <Person />
+  </WithThreads>
+);
 
 /** A prolific author: their pull requests page 25 at a time. */
 export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
@@ -637,7 +650,11 @@ function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
 }
 
 /** One stage's page: how long it took, how long the queue has waited, what is in it, and each week. */
-export const StagePage = () => <Stage />;
+export const StagePage = () => (
+  <WithThreads>
+    <Stage />
+  </WithThreads>
+);
 
 /** A stage with nothing waiting: the queue chart is empty and the list says so. */
 export const StagePageClear = () => (
