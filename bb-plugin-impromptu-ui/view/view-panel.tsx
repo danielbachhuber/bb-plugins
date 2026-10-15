@@ -595,6 +595,8 @@ function ItemCard({
     );
   };
   const state = record?.state ?? "open";
+  const current = item.changes.filter((change) => change.role === "current");
+  const proposed = item.changes.filter((change) => change.role === "proposed");
   const elsewhere = threadElsewhere(item, currentThreadId);
   const textDraft = item.draftFormat === "text";
   const blank = textDraft && draft.trim() === "";
@@ -696,13 +698,24 @@ function ItemCard({
         </div>
       )}
       {item.history.length === 0 ? null : <History entries={item.history} />}
-      {item.changes.length === 0 ? null : (
+      {current.length === 0 ? null : (
         <ChangesBlock
-          item={item}
+          item={{ ...item, changes: current }}
           draft={state === "open" ? draft : sentDraft(item, record)}
           onDraftChange={state === "open" ? setDraft : undefined}
           initialMode={initialChangesMode}
         />
+      )}
+      {/* A suggested edit in a block of its own, so it never reads as the change under review. */}
+      {proposed.length === 0 ? null : (
+        <div className="mt-3 rounded-lg border border-dashed border-success/50 bg-success/5 px-2 pb-2 [&>div]:mt-1.5">
+          <ChangesBlock
+            item={{ ...item, changesLabel: item.proposedLabel, changes: proposed }}
+            draft={state === "open" ? draft : sentDraft(item, record)}
+            onDraftChange={state === "open" ? setDraft : undefined}
+            initialMode={initialChangesMode}
+          />
+        </div>
       )}
       {/* Under the changes it footnotes, before the details. */}
       {item.evidence.length === 0 ? null : (

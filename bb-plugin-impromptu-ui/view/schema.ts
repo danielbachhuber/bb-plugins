@@ -209,6 +209,14 @@ export type HistoryEntry = z.infer<typeof historyEntrySchema>;
 export const CHANGE_FORMATS = ["prose", "code"] as const;
 
 /**
+ * What a change is: `current` is the change as it stands, such as the pull
+ * request's own diff, and `proposed` is an edit you suggest on top of it,
+ * such as a review finding's fix. The two are drawn in separate blocks so a
+ * fix never reads as the code under review.
+ */
+export const CHANGE_ROLES = ["current", "proposed"] as const;
+
+/**
  * One changed thing on an item: a file in a pull request, or a section of a
  * document. Given as `before` and `after` text, a unified `patch`, or a
  * `patchFile` that `publish` reads and splits into one change per file.
@@ -226,6 +234,7 @@ export const changeSchema = z.object({
   patchFile: z.string().trim().min(1).max(1_000).optional(),
   /** Starts folded to its header, for a file that matters less, such as a generated one. */
   collapsed: z.boolean().default(false),
+  role: z.enum(CHANGE_ROLES).default("current"),
 });
 export type Change = z.infer<typeof changeSchema>;
 
@@ -350,8 +359,10 @@ export const itemSchema = z.object({
   summary: markdown.default(""),
   /** What changed, shown after the summary: files in a pull request, a section's text against the document. */
   changes: z.array(changeSchema).max(50).default([]),
-  /** The heading over the changes: "Files changed", "Changes against the Doc". */
+  /** The heading over the changes: "Files changed", "In this PR", "Changes against the Doc". */
   changesLabel: z.string().trim().max(80).default("Changes"),
+  /** The heading over the changes whose role is `proposed`: "Suggested fix". */
+  proposedLabel: z.string().trim().max(80).default("Suggested fix"),
   /** Shown after the summary, changes, and evidence. */
   details: markdown.default(""),
   /**

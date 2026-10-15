@@ -233,6 +233,13 @@ describe("item changes", () => {
     expect(parseView(view({ draft: "new", changes: [{ label: "Need", before: "old" }] })).sections[0]!.items[0]!.changes).toHaveLength(1);
   });
 
+  it("keeps a proposed patchFile's role on each file it splits into", async () => {
+    const parsed = parseView(view({ changes: [{ patchFile: "/tmp/fix.diff", role: "proposed" }] }));
+    expect(parseView(view({ changes: [{ label: "a", before: "x", after: "y" }] })).sections[0]!.items[0]!.changes[0]!.role).toBe("current");
+    const changes = (await expandPatchFiles(parsed, async () => PACKAGE_JSON + PACKAGE_LOCK)).sections[0]!.items[0]!.changes;
+    expect(changes.map((change) => change.role)).toEqual(["proposed", "proposed"]);
+  });
+
   it("reads a patchFile into one change per file at publish, keeping the others as they were", async () => {
     const parsed = parseView(
       view({ changes: [{ label: "README.md", before: "a", after: "b" }, { patchFile: "/tmp/pr-418.diff", collapsed: true }] }),

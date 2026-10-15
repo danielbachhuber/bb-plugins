@@ -269,7 +269,7 @@ export async function expandPatchFiles(view: View, read: (path: string) => Promi
         }
         const files = splitPatch(text);
         if (files.length === 0) throw new Error(`${item.id}: ${change.patchFile} has no diff in it.`);
-        for (const file of files) changes.push({ label: file.path, patch: file.patch, collapsed: change.collapsed });
+        for (const file of files) changes.push({ label: file.path, patch: file.patch, collapsed: change.collapsed, role: change.role });
       }
       items.push({ ...item, changes });
     }

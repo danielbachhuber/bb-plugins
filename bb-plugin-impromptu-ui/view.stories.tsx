@@ -285,7 +285,7 @@ export function ChangesRawLockfile() {
   return <RawLockfile />;
 }
 
-/** A code review finding: the hunk it is about, above the comment to post. */
+/** A code review finding: the pull request's hunk under In this PR, the fix it suggests in its own tinted block, then the comment to post. */
 export function ChangesCodeReview() {
   return <Panel stored={{ ...fresh, key: "review", view: codeReviewView }} focusItemId="finding-1" />;
 }

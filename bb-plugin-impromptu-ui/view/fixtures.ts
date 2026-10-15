@@ -100,6 +100,20 @@ const syncHunk = `diff --git a/src/sync.ts b/src/sync.ts
  }
 `;
 
+/** The fix a review suggests for `syncHunk`: the PR's loop put back. */
+const syncFixHunk = `diff --git a/src/sync.ts b/src/sync.ts
+--- a/src/sync.ts
++++ b/src/sync.ts
+@@ -41,6 +41,6 @@ export async function syncGadgets(rows: GadgetRow[], pageSize = 50) {
+   const pages = [];
+-  for (let start = 0; start + pageSize < rows.length; start += pageSize) {
+-    pages.push(rows.slice(start, start + pageSize - 1));
++  for (let start = 0; start < rows.length; start += pageSize) {
++    pages.push(rows.slice(start, start + pageSize));
+   }
+   for (const page of pages) {
+`;
+
 /** A triage-shaped view: invented repository, issues, and people. */
 export const triageView: View = viewSchema.parse({
   title: "Triage: acme/widgets milestone 4.2",
@@ -702,8 +716,11 @@ export const codeReviewView: View = viewSchema.parse({
           ],
           summary:
             "The new loop stops one page early and slices one row short, so 120 rows sync as 49. Found by running the existing `sync.test.ts` fixture through the changed loop.",
-          changesLabel: "The change",
-          changes: [{ label: "src/sync.ts", patch: syncHunk }],
+          changesLabel: "In this PR",
+          changes: [
+            { label: "src/sync.ts", patch: syncHunk },
+            { label: "src/sync.ts", patch: syncFixHunk, role: "proposed" },
+          ],
           draft:
             "This drops rows: with 120 rows and a page size of 50, the loop stops after the first page, and `pageSize - 1` leaves off each page's last row. The original `start < rows.length` and `start + pageSize` were right.",
           draftLabel: "Comment to post",

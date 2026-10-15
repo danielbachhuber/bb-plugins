@@ -115,7 +115,8 @@ When an item is about a change, such as a pull request's files, a code review fi
 - A lockfile (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`) shows as the packages whose versions changed, with downgrades flagged and each package marked by whether the `package.json` diff beside it names it. Its raw diff is one click away. Include the manifest's diff so the marks can show.
 - `"collapsed": true` starts a change folded to its header, for a file that matters less.
 - `before` with no `after` compares against the item's `draft`. The changes block then has an Edit tab that edits the draft, the draft's own editor is left out, and `{draft}` buttons send it as edited. Use this for a section you propose: `before` is the text now in the document, `draft` the proposed text.
-- `changesLabel` names the heading, such as "Files changed" or "Changes against the Doc"; it defaults to "Changes".
+- `changesLabel` names the heading, such as "Files changed", "In this PR", or "Changes against the Doc"; it defaults to "Changes".
+- A change you suggest on top of the one under review, such as a code review finding's fix, gets `"role": "proposed"`. It shows in its own tinted block under the item's other changes, headed by `proposedLabel` (default "Suggested fix"), so a fix never reads as the pull request's own code. Give a review finding its PR hunk as an ordinary change with `"changesLabel": "In this PR"`, and its fix, when it has one, as a proposed change. A proposed `patchFile` keeps the role on every file it splits into.
 
 ## Show the evidence behind proposed text
 
