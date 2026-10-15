@@ -167,9 +167,10 @@ export function ViewBanner({
       <div className="flex items-center pr-1.5">
         <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left" onClick={onToggle} aria-expanded={!collapsed}>
           <span className="text-xs text-muted-foreground">{collapsed ? "▸" : "▾"}</span>
-          <span className="min-w-0 flex-1 truncate text-sm">
-            <b className="font-medium text-foreground">{stored.view.title}</b>
-            <span className="text-muted-foreground"> · {progressLabel(stored)}</span>
+          {/* The title gives way first, so a long one never hides how much is left. */}
+          <span className="flex min-w-0 flex-1 items-baseline text-sm">
+            <b className="min-w-0 truncate font-medium text-foreground">{stored.view.title}</b>
+            <span className="shrink-0 whitespace-pre text-muted-foreground"> · {progressLabel(stored)}</span>
           </span>
         </button>
         <button
