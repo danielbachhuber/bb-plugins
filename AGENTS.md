@@ -227,8 +227,8 @@ changes all of them in the same commit:
 - the root `README.md` table, whose "What it does" column is `bb.description`
   word for word
 
-Follow the `write-plugin-docs` skill in `.claude/skills/` for the shape and
-length of each. Editing the description and not the root table is the usual
+Follow the `write-plugin-docs` skill in `.agents/skills/`, linked from
+`.claude/skills/`, for the shape and length of each. Editing the description and not the root table is the usual
 way this goes wrong.
 
 Leaving it for later does not work: the description is the only account of the
