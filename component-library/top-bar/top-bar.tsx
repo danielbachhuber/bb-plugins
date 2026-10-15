@@ -4,12 +4,16 @@ import { createPortal } from "react-dom";
 import { SidebarCount } from "../sidebar-count/sidebar-count";
 
 /**
- * bb's right-panel toggle, which most pages draw at the right end of their top
- * bar. bb has no plugin slot there, so `TopBarSlot` finds the toggle by its
- * label and puts its children just before it. The label is the only thing
- * the toggle keeps on every page; when bb changes it, the slot falls back to
- * the header's actions, and failing those draws nothing.
+ * The row inside bb's page header that holds the page's title and buttons.
+ * bb has no plugin slot in its top bar, so `TopBarSlot` finds this row by its
+ * test id and puts its children at the start of it, at the top left of the
+ * page. When bb changes the id, or on a page without a header such as the
+ * new-thread page, the slot falls back to the right-panel toggle, then the
+ * header's actions, and failing those draws nothing.
  */
+export const HEADER_ROW = '[data-testid="app-page-header-content-row"]';
+
+/** bb's right-panel toggle, which most pages draw at the right end of their top bar. */
 export const RIGHT_PANEL_TOGGLE = 'button[aria-label^="Show right panel"], button[aria-label^="Hide right panel"]';
 
 /** The row of buttons at the right of a page's header, for a page with no right panel, such as a plugin's. */
@@ -19,12 +23,14 @@ export const HEADER_ACTIONS = "[data-app-page-header-actions]";
 const SLOT = "[data-top-bar-slot]";
 
 /**
- * Where the slots go: before the last right-panel toggle, which is the
- * rightmost pane's when a thread is split, or else before the first of the
- * last header's own buttons. `before` is null when the slots go last in
- * `parent`.
+ * Where the slots go: at the start of the first header row, which is the
+ * leftmost pane's when a thread is split. Without one, before the last
+ * right-panel toggle, or else before the first of the last header's own
+ * buttons. `before` is null when the slots go last in `parent`.
  */
 export function findTopBarAnchor(root: ParentNode): { parent: HTMLElement; before: Element | null } | null {
+  const header = root.querySelector<HTMLElement>(HEADER_ROW);
+  if (header) return { parent: header, before: Array.from(header.children).find((child) => !child.matches(SLOT)) ?? null };
   const toggles = root.querySelectorAll<HTMLElement>(RIGHT_PANEL_TOGGLE);
   const toggle = toggles[toggles.length - 1];
   if (toggle?.parentElement) return { parent: toggle.parentElement, before: toggle };
@@ -65,9 +71,9 @@ export function onPath(pathname: string, prefixes: readonly string[]): boolean {
 const ActiveContext = createContext(false);
 
 /**
- * Puts `children` in bb's top bar, just left of the right-panel toggle, or
- * before the header's own buttons on a page without one, beside any other
- * plugin's slot in `order`. Mount it from an
+ * Puts `children` at the top left of bb's top bar, before the page's title,
+ * or just left of the right-panel toggle on a page without a header, beside
+ * any other plugin's slot in `order`. Mount it from an
  * `experimental_appOverlay` component. It follows bb from page to page by
  * watching the document, and draws nothing on a page with neither. Under a
  * path in `activeOn`, the `TopBarCount` inside shows as the current page.
@@ -114,7 +120,7 @@ export function TopBarSlot({ pluginId, order = 0, activeOn = [], children }: {
       const next = slotNextSibling(parent, before, el);
       if (el.parentElement !== parent || el.nextElementSibling !== next) {
         parent.insertBefore(el, next);
-        // Keep a gap before the toggle: a flex row's own gap does it, but the lone toggle on the new-thread page has none.
+        // Keep a gap before what follows: a flex row's own gap does it, but the lone toggle on the new-thread page has none.
         const style = getComputedStyle(parent);
         const gap = style.display.includes("flex") ? parseFloat(style.columnGap) || 0 : 0;
         el.style.marginRight = `${Math.max(0, 6 - gap)}px`;

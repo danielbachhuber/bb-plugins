@@ -16,7 +16,7 @@ what not to do with it.
 | [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 | [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
 | [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
-| [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, beside the right-panel toggle |
+| [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left before the page title |
 | [Start thread](#start-thread) | `component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
@@ -259,16 +259,18 @@ the page it opens, the button is shaded and marked `aria-current="page"`,
 the way bb marks the open page in its own navigation.
 
 **Where it goes.** bb has no plugin slot in its top bar, so `TopBarSlot`
-finds a place in the page instead: just before the right-panel toggle, found
-by its "Show right panel" or "Hide right panel" label, or at the start of
-the header's buttons (`[data-app-page-header-actions]`) on a page without
-the toggle. A split thread has two toggles; it takes the last, the rightmost
-pane's. Several plugins' slots line up side by side, lowest `order` on the
+finds a place in the page instead: at the start of the page header's row
+(`[data-testid="app-page-header-content-row"]`), before the page title. A
+split thread has two header rows; it takes the first, the leftmost pane's.
+On a page without a header, such as the new-thread page, it goes just before
+the right-panel toggle, found by its "Show right panel" or "Hide right panel"
+label, or else at the start of the header's buttons
+(`[data-app-page-header-actions]`). Several plugins' slots line up side by side, lowest `order` on the
 left and plugin id breaking a tie; each works the order out the same way, so
 they settle rather than moving past each other. It watches the document so
 it follows bb from page to page, and tells the button it is current under a
 path in `activeOn`. If a bb
-update changes both, it draws nothing rather than throwing.
+update changes all three, it draws nothing rather than throwing.
 
 `pluginId` matters beyond naming the element: bb scopes a plugin's
 stylesheet to elements under `data-bb-plugin="<id>"`, and the slot sits in

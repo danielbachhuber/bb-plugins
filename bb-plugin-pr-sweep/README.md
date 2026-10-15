@@ -280,9 +280,8 @@ starts it over.
 A pull request with a thread attached moves to **working**, whatever its flags
 say, so needs you only ever holds work that is actually waiting on you. The
 sidebar follows the same rule: the rows in needs you in a red circle, then
-the count of every open pull request you authored. The same counts sit in
-bb's top bar on every page, after the pull request icon, beside the
-right-panel toggle. Clicking them opens the list, and they are shaded while it
+the count of every open pull request you authored. The same counts sit at
+the top left of bb's top bar on every page, after the pull request icon. Clicking them opens the list, and they are shaded while it
 is open. They read the stored list the sidebar reads, so they add no GitHub
 calls. With nothing open, only the icon shows.
 

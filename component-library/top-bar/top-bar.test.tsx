@@ -24,7 +24,34 @@ function topBar(label = "Show right panel (⌘ J)") {
   return { row, toggle };
 }
 
+/** bb's page header row: the title, then the actions ending in the right-panel toggle. */
+function headerRow() {
+  const row = document.createElement("div");
+  row.setAttribute("data-testid", "app-page-header-content-row");
+  row.style.display = "flex";
+  const title = document.createElement("div");
+  title.textContent = "Thread title";
+  const actions = document.createElement("div");
+  const toggle = document.createElement("button");
+  toggle.setAttribute("aria-label", "Show right panel");
+  actions.append(toggle);
+  row.append(title, actions);
+  document.body.append(row);
+  return { row, title };
+}
+
 describe("findTopBarAnchor", () => {
+  it("puts the slots at the start of the header row, before the title", () => {
+    const { row, title } = headerRow();
+    expect(findTopBarAnchor(document)).toEqual({ parent: row, before: title });
+  });
+
+  it("takes the first header row when a split thread draws two", () => {
+    const { row } = headerRow();
+    headerRow();
+    expect(findTopBarAnchor(document)?.parent).toBe(row);
+  });
+
   it("finds the right-panel toggle whether the panel is open or shut", () => {
     const { row, toggle } = topBar("Hide right panel");
     expect(findTopBarAnchor(document)).toEqual({ parent: row, before: toggle });
@@ -59,6 +86,14 @@ describe("onPath", () => {
 });
 
 describe("TopBarSlot", () => {
+  it("puts its children at the top left, before the page title", async () => {
+    const { row, title } = headerRow();
+    render(<TopBarSlot pluginId="test"><span>chip</span></TopBarSlot>);
+    const chip = await screen.findByText("chip");
+    expect(chip.parentElement?.parentElement).toBe(row);
+    expect(chip.parentElement?.nextElementSibling).toBe(title);
+  });
+
   it("puts its children just before the toggle", async () => {
     const { toggle } = topBar();
     render(<TopBarSlot pluginId="test"><span>chip</span></TopBarSlot>);
