@@ -291,7 +291,9 @@ describe("workOnThisSubmit is one thread per pull request", () => {
       repo: "acme/widgets",
       number: 42,
     });
-    expect(draft.seed!.prompt).not.toMatch(/You already have a git worktree/);
+    expect(draft.seed!.skills.map((skill) => skill.instruction).join("\n")).not.toMatch(
+      /You already have a git worktree/,
+    );
 
     await harness.behavior.callRpc("workOnThisSubmit", {
       repo: "acme/widgets",

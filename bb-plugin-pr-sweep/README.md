@@ -178,17 +178,25 @@ the row then opens that thread rather than starting another. gh-context's
 banner above the composer shows the pull request on every thread, so this
 plugin adds nothing to the thread itself.
 
-A row's Start thread opens bb's composer in a dialog, so you can read and edit the
-prompt first. Starting it leaves you on the page, with a toast whose **Go to
-thread** button opens the new thread. The thread runs in a worktree on the pull request's own branch,
-beside the checkout as `<checkout>-pr-<number>`, so its commits land on the
-pull request and bb shows the pull request's checks and merge state on the
-thread. bb's own worktrees always start a new branch, so the dialog hides the
-composer's project, environment, and branch pickers and names the branch
-instead. When another worktree already has the branch checked out, usually the
-thread that opened the pull request, the dialog says so and keeps the pickers,
-and the thread starts on a new branch and is told to make its own worktree on
-the pull request's branch inside that one.
+A row's Start thread opens bb's composer under the row, where Add note opens
+its editor, and clicking it again closes it. Above the composer, each skill the
+sweep suggests for the pull request is a chip, such as
+`resolve-merge-conflicts` for a conflict and `address-code-review` for new
+comments. The ones its findings name are picked, worst first, and `pr-sweep`
+is offered unpicked for anything else. Each picked chip puts one line in the
+prompt naming its skill and what it is for, and clicking a chip adds or
+removes its line. Changing the chips starts the prompt over, so pick them
+before typing anything of your own. Starting it leaves you on the page, with a
+toast whose **Go to thread** button opens the new thread. The thread runs in a
+worktree on the pull request's own branch, beside the checkout as
+`<checkout>-pr-<number>`, so its commits land on the pull request and bb shows
+the pull request's checks and merge state on the thread. bb's own worktrees
+always start a new branch, so the box hides the composer's project,
+environment, and branch pickers and names the branch instead. When another
+worktree already has the branch checked out, usually the thread that opened
+the pull request, the box says so and keeps the pickers, and the thread starts
+on a new branch and is told to make its own worktree on the pull request's
+branch inside that one.
 
 bb does not delete a worktree it did not create, so this plugin removes one
 when its thread is archived or deleted and no other thread uses it. `git

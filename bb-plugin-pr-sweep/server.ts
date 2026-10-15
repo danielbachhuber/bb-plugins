@@ -22,7 +22,7 @@ import {
 import { rpcContract } from "./sweep/contract.js";
 import { createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
 import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, runSweep } from "./sweep/gh.js";
-import { buildPromptParts, headerItem, trailerItem } from "./sweep/prompt.js";
+import { buildPromptParts, headerItem, suggestedSkills, trailerItem } from "./sweep/prompt.js";
 import {
   actionSummary,
   commentsToRead,
@@ -1063,7 +1063,7 @@ export default async function plugin(bb: BbPluginApi) {
           // the composer is where you disagree with it for one thread.
           model: modelForFlags(row.flags, models) || null,
           permissionMode: parsePermissionMode(permissionMode),
-          prompt: buildPromptParts(row).body,
+          skills: suggestedSkills(row),
           workspace: await (async () => {
             const found = await branchWorkspace(repo, number);
             return found.ok

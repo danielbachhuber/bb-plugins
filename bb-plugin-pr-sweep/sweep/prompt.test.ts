@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompt, buildPromptParts, joinPromptParts } from "./prompt.js";
+import { buildPrompt, buildPromptParts, joinPromptParts, suggestedSkills } from "./prompt.js";
 import type { ResolvedPullRequest } from "./open-pr.js";
 import type { ClassifiedRow } from "./types.js";
 
@@ -322,5 +322,33 @@ describe("a thread that starts on the pull request's branch", () => {
   it("leaves the composer's half alone", () => {
     const flagged = row({ flags: ["conflict"] });
     expect(buildPromptParts(flagged, pr).body).toBe(buildPromptParts(flagged).body);
+  });
+});
+
+describe("suggestedSkills", () => {
+  it("picks one chip per skill the findings name, worst first, then offers pr-sweep unpicked", () => {
+    const skills = suggestedSkills(row({ flags: ["conflict", "feedback"], commentedBy: ["hubber"] }));
+    expect(skills.map((skill) => [skill.name, skill.selected ?? false])).toEqual([
+      ["resolve-merge-conflicts", true],
+      ["address-code-review", true],
+      ["pr-sweep", false],
+    ]);
+    expect(skills[0]!.instruction).toBe(
+      "It conflicts with its base branch. Use the `resolve-merge-conflicts` skill.",
+    );
+  });
+
+  it("puts two findings that share a skill on one chip", () => {
+    const skills = suggestedSkills(
+      row({ flags: ["ci-failing", "no-reviewer"], checks: { pass: 2, fail: 2, skip: 0, pending: 0, cancelled: 0, total: 4 } }),
+    );
+    expect(skills.map((skill) => skill.name)).toEqual(["pr-sweep"]);
+    expect(skills[0]!.instruction).toContain("CI is failing");
+    expect(skills[0]!.instruction).toContain("no reviewer requested");
+    expect(skills[0]!.instruction).toContain("show me the evidence");
+  });
+
+  it("tells the thread to take more than one picked skill in order", () => {
+    expect(buildPromptParts(row({ flags: ["conflict"] })).trailer).toContain("they are steps in that order");
   });
 });

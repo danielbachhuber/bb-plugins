@@ -13,11 +13,10 @@ import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/th
 import { OpenPullRequestPage } from "./sweep/open-panel.js";
 import {
   FIXED_ENVIRONMENT_CSS,
-  StartThreadDialog,
+  StartThreadInline,
   announceStartedThread,
   type StartThreadSeed,
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialog from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sectionForRow } from "./sweep/actions.js";
@@ -178,8 +177,8 @@ function Panel() {
     [reload, rpc],
   );
 
-  // The pull request whose composer is open, with the seeds the backend
-  // resolved for it. Null when the dialog is closed.
+  // The pull request whose Start thread box is open, with the seeds the
+  // backend resolved for it. Null when every box is closed.
   const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
     null,
   );
@@ -187,6 +186,11 @@ function Panel() {
   const onWork = useCallback(
     (row: Row) => {
       const key = `${row.repo}#${row.number}`;
+      // The button that opened the box closes it, as Add note's does.
+      if (draft && `${draft.row.repo}#${draft.row.number}` === key) {
+        setDraft(null);
+        return;
+      }
       // Mark it starting before awaiting anything, so the button changes on
       // the same tick as the click.
       setStarting((current) => new Set(current).add(key));
@@ -216,7 +220,7 @@ function Panel() {
         }
       })();
     },
-    [navigate, rpc],
+    [draft, navigate, rpc],
   );
 
   const onSubmitDraft = useCallback(
@@ -274,6 +278,15 @@ function Panel() {
         listing={listing}
         now={Date.now()}
         starting={starting}
+        renderStartThread={(row) =>
+          draft && draft.row.repo === row.repo && draft.row.number === row.number ? (
+            <StartThreadInline
+              draftKey={`pr-sweep:${row.repo}#${row.number}`}
+              seed={draft.seed}
+              onSubmit={onSubmitDraft}
+            />
+          ) : null
+        }
         harvest={harvest}
         onWork={onWork}
         onOpen={onOpen}
@@ -285,16 +298,6 @@ function Panel() {
         threadStatus={threadStatus}
       />
 
-      <StartThreadDialog
-        dialog={dialog}
-        onClose={() => setDraft(null)}
-        heading={
-          draft ? `Start a thread for #${draft.row.number}` : "Start a thread"
-        }
-        draftKey={draft ? `pr-sweep:${draft.row.repo}#${draft.row.number}` : ""}
-        seed={draft?.seed ?? null}
-        onSubmit={onSubmitDraft}
-      />
     </TooltipProvider>
   );
 }
@@ -327,7 +330,7 @@ function PrsTopBar() {
 }
 
 export default definePluginApp((app) => {
-  // The dialog marks a composer whose environment this plugin decides; this
+  // The Start thread box marks a composer whose environment this plugin decides; this
   // hides that composer's pickers, which would otherwise offer choices the
   // server ignores.
   app.contentScripts.register({

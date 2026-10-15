@@ -591,13 +591,28 @@ describe("thread action", () => {
     release?.();
   });
 
-  it("opens the composer naming the pull request, rather than spawning", async () => {
+  it("opens the box under the row with the suggested skills, rather than spawning", async () => {
     const slot = render(listing(), {
       workOnThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
     });
     fireEvent.click(await slot.findByRole("button", { name: "Start thread" }));
-    expect(await slot.findByText("Start a thread for #42")).toBeInTheDocument();
+    expect(await slot.findByRole("region", { name: "Start a thread" })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "resolve-merge-conflicts" })).toHaveAttribute("aria-pressed", "true");
+    expect(slot.getByRole("button", { name: "pr-sweep" })).toHaveAttribute("aria-pressed", "false");
+    // The composer has a Start thread button of its own; the row's is the one that expands.
+    expect(slot.getByRole("button", { name: "Start thread", expanded: true })).toBeInTheDocument();
     expect(slot.inspection.rpcCalls.some((call) => call.method === "workOnThisSubmit")).toBe(false);
+  });
+
+  it("closes the box when Start thread is clicked again", async () => {
+    const slot = render(listing(), {
+      workOnThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Start thread" }));
+    await slot.findByRole("region", { name: "Start a thread" });
+    fireEvent.click(slot.getByRole("button", { name: "Start thread", expanded: true }));
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Start a thread" })).toBeNull());
+    expect(slot.inspection.rpcCalls.filter((call) => call.method === "workOnThisDraft")).toHaveLength(1);
   });
 
   it("offers Archive thread once a row with a thread has no flags left", async () => {
@@ -624,7 +639,19 @@ const SEED = {
   providerId: "claude-code",
   model: "claude-sonnet-5",
   permissionMode: "full" as const,
-  prompt: "Resolve the conflict on acme/widgets#42.",
+  skills: [
+    {
+      name: "resolve-merge-conflicts",
+      reason: "It conflicts with its base branch.",
+      instruction: "It conflicts with its base branch. Use the `resolve-merge-conflicts` skill.",
+      selected: true,
+    },
+    {
+      name: "pr-sweep",
+      reason: "Check the pull request for anything else that needs doing",
+      instruction: "Check the pull request for anything else that needs doing. Use the `pr-sweep` skill.",
+    },
+  ],
   preview: {
     title: "Add the widget endpoint",
     number: 42,

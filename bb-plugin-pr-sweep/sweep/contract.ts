@@ -25,8 +25,19 @@ const seedSchema = z.object({
   providerId: z.string().nullable(),
   model: z.string().nullable(),
   permissionMode: z.enum(["accept-edits", "auto", "full"]),
-  /** Only the "what to do" half; the rest is reassembled at submit. */
-  prompt: z.string(),
+  /**
+   * What to do, as skills offered as chips over an empty composer. Each
+   * picked chip's instruction is the "what to do" half of the prompt; the
+   * rest is reassembled at submit.
+   */
+  skills: z.array(
+    z.object({
+      name: z.string(),
+      reason: z.string(),
+      instruction: z.string(),
+      selected: z.boolean().optional(),
+    }),
+  ),
   preview: previewSchema,
   /**
    * Where the thread will run. `branch` is the pull request's head branch

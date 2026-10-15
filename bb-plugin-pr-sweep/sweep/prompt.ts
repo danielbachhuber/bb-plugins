@@ -2,6 +2,14 @@ import { commentsToRead, workSteps } from "./actions.js";
 import { forkNote, type ResolvedPullRequest } from "./open-pr.js";
 import type { ClassifiedRow, Flag } from "./types.js";
 
+/** A chip in the Start thread box; the same shape as component-library's `SuggestedSkill`. */
+export interface SuggestedSkill {
+  name: string;
+  reason: string;
+  instruction: string;
+  selected?: boolean;
+}
+
 /**
  * A prompt in the three pieces the panel needs it in.
  *
@@ -100,6 +108,56 @@ export function describeCommentsToRead(row: ClassifiedRow): string | null {
 }
 
 /**
+ * What the sweep found on a row, worst first, each with the skill that owns
+ * it. The flags, plus the reading, which belongs to no flag. Last because it
+ * is the step an earlier fix most often changes: answering a comment about
+ * code a conflict resolution just rewrote is answering the wrong code.
+ */
+function findingsFor(row: ClassifiedRow): { text: string; skill: string }[] {
+  const commentFinding = describeCommentsToRead(row);
+  return [
+    ...workSteps(row.flags, commentsToRead(row)).map(({ flag, skill }) => ({
+      text: describeFlag(flag, row) ?? flag,
+      skill,
+    })),
+    ...(commentFinding ? [{ text: commentFinding, skill: "address-code-review" }] : []),
+  ];
+}
+
+const PR_SWEEP_TRIAGE =
+  "That skill is triage rather than a fixed workflow, so show me the evidence, such as the failing log or the thread bodies, before proposing work.";
+
+/**
+ * The skills offered as chips when a thread is started from a row: one per
+ * skill the findings name, picked and in the order the work should go, then
+ * `pr-sweep` unpicked when no finding names it, for a look at everything else.
+ * A skill two findings share is one chip carrying both.
+ */
+export function suggestedSkills(row: ClassifiedRow): SuggestedSkill[] {
+  const bySkill = new Map<string, string[]>();
+  for (const { text, skill } of findingsFor(row)) {
+    bySkill.set(skill, [...(bySkill.get(skill) ?? []), text]);
+  }
+  const skills: SuggestedSkill[] = [...bySkill].map(([name, texts]) => ({
+    name,
+    reason: texts.join(" "),
+    instruction: [
+      ...texts,
+      `Use the \`${name}\` skill.${name === "pr-sweep" ? ` ${PR_SWEEP_TRIAGE}` : ""}`,
+    ].join(" "),
+    selected: true,
+  }));
+  if (!bySkill.has("pr-sweep")) {
+    skills.push({
+      name: "pr-sweep",
+      reason: "Check the pull request for anything else that needs doing",
+      instruction: `Check the pull request for anything else that needs doing. Use the \`pr-sweep\` skill. ${PR_SWEEP_TRIAGE}`,
+    });
+  }
+  return skills;
+}
+
+/**
  * Where the thread is, and what that rules out.
  *
  * `onBranch` is the pull request when the thread starts in a worktree already
@@ -130,8 +188,6 @@ function worktreeGuidance(onBranch: ResolvedPullRequest | undefined): string[] {
 }
 
 export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequest): PromptParts {
-  const steps = workSteps(row.flags, commentsToRead(row));
-
   // The same standing procedure every time, which is why it is neither
   // read nor worth the screen space in the composer. It still reaches the
   // agent in full.
@@ -148,17 +204,14 @@ export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequ
     "I started this from the PR Sweep panel, which is my explicit request for this work. Follow each skill all the way through, including its commit, push, and reply steps.",
     "Still ask me first before: force-pushing, rewriting any pushed commit, or merging the PR.",
     "",
+    // In the trailer because the composer now holds only the skills picked
+    // from the chips, each on its own, with nothing tying them together.
+    "Where I name more than one skill, they are steps in that order. Finish each, including its commit and push, before starting the next, and re-check the later ones afterwards: an earlier fix often changes them.",
+    "",
     ...worktreeGuidance(onBranch),
   ];
 
-  // The flags, plus the reading, which belongs to no flag. Last because it is
-  // the step an earlier fix most often changes: answering a comment about code
-  // a conflict resolution just rewrote is answering the wrong code.
-  const commentFinding = describeCommentsToRead(row);
-  const findings = [
-    ...steps.map(({ flag, skill }) => ({ text: describeFlag(flag, row) ?? flag, skill })),
-    ...(commentFinding ? [{ text: commentFinding, skill: "address-code-review" }] : []),
-  ];
+  const findings = findingsFor(row);
 
   if (findings.length === 0) {
     return {

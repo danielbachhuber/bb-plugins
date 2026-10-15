@@ -26,6 +26,7 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
@@ -119,11 +120,14 @@ function keyOf(row: Row): string {
 function ThreadAction({
   row,
   isStarting,
+  isOpen,
   onWork,
   onOpen,
 }: {
   row: Row;
   isStarting: boolean;
+  /** The Start thread box is open under this row; the button stays pressed and closes it. */
+  isOpen: boolean;
   onWork: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
 }) {
@@ -144,7 +148,8 @@ function ThreadAction({
   return (
     <button
       type="button"
-      className={LINE_ACTION}
+      className={cn(LINE_ACTION, isOpen && "bg-accent text-foreground")}
+      aria-expanded={isOpen}
       disabled={!row.canSpawn || isStarting}
       title={row.canSpawn ? action : `No bb project is checked out for ${row.repo}`}
       onClick={() => onWork(row)}
@@ -506,6 +511,11 @@ export interface PrListViewProps {
   now: number;
   /** Rows whose thread is being created, keyed `repo#number`. */
   starting: ReadonlySet<string>;
+  /**
+   * The Start thread box for a row, keyed `repo#number`, drawn under its
+   * action line while its button has it open. Null for every other row.
+   */
+  renderStartThread?: (row: Row) => ReactNode;
   harvest: HarvestPanelState;
   onWork: (row: Row) => void;
   /** Opens one of the row's threads: the newest, or one from the earlier-threads menu. */
@@ -543,6 +553,7 @@ export function PrListView({
   listing,
   now,
   starting,
+  renderStartThread,
   harvest,
   onWork,
   onOpen,
@@ -640,6 +651,10 @@ export function PrListView({
             // Newest first with the pinned rows on top, not grouped by tier.
             order="given"
             Link={UrlLink}
+            renderStartThread={(item) => {
+              const row = rowsByKey.get(item.key);
+              return row ? renderStartThread?.(row) : null;
+            }}
             onNoteSave={(item, body) => {
               const row = rowsByKey.get(item.key);
               return row ? onNoteSave(row, body) : Promise.resolve(false);
@@ -713,6 +728,7 @@ export function PrListView({
                   <ThreadAction
                     row={row}
                     isStarting={starting.has(item.key)}
+                    isOpen={Boolean(renderStartThread?.(row))}
                     onWork={onWork}
                     onOpen={onOpen}
                   />
