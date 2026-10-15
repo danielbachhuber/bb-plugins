@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Automation Palette",
-    "description": "Lists your automations in bb's quick palette, so a scheduled sweep can be run by hand without leaving the keyboard.",
+    "description": "Run any bb automation from the quick palette, without opening the Automations page.",
     "branding": {
       "icon": "Play"
     },

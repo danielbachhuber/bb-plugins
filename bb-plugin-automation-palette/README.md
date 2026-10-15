@@ -1,112 +1,44 @@
 # Automation Palette
 
-Every automation gets a row in bb's quick palette (`Mod+Shift+P`), so a
-twice-daily sweep can be started by hand without opening the Automations page
-or remembering an `auto_...` id.
+Run any bb automation from the quick palette, without opening the Automations page.
 
-```
-> run automation
-  Run automation: Widget sweep · Acme Widgets            Automation Palette
-  Run automation: Gadget notes · Acme Gadgets (paused)   Automation Palette
-```
+Without the plugin, typing "automation" in bb's quick palette finds only the Automations page. To start one by hand, you open that page, open the automation, and press **Run now**:
 
-Rows are listed in every project's palette, not only in the project that owns
-the automation: the run is queued in the owning project either way, and an
-automation worth starting by hand is worth reaching from whichever window you
-are already in. The project's name is in the title so two projects'
-automations stay apart, and so that typing a project name lists its
-automations.
+![bb's quick palette with "automation" typed in, listing one row, Automations, under Plugin pages](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/automation-palette/quick-palette--without-the-plugin.png)
 
-Selecting a row runs the automation exactly as its schedule would:
-`bb automation run <id> --project <id>`. A paused automation keeps its row —
-running one by hand is the case pausing does not cover — and says so in the
-title.
+With it, the same search lists every automation as a row you can run:
 
-## Why there are two steps
+![The same search listing the Automations page and four rows, such as "Run automation: Widget sweep · Acme Widgets" and "Run automation: Gadget release notes · Acme Gadgets (paused)", each under Plugins](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/automation-palette/quick-palette--with-the-plugin.png)
 
-bb collects a plugin's palette rows once per app interpretation, from a
-synchronous `setup`, and then memoizes them. A row cannot be built while the
-palette is open, so the rows for this app load come from a snapshot the plugin
-already holds:
+## Use
 
-- `setup` (app.tsx) reads the snapshot out of `localStorage` and registers one
-  row per automation.
-- A content script refreshes that snapshot in the background, over the plugin's
-  own `automations_list` RPC.
-
-The consequence is worth knowing: **a newly created, renamed, or deleted
-automation appears in the palette after the next bb reload.** The content
-script logs a line to the console when it notices the rows are stale.
+- Open the quick palette and type `run`, `automation`, or the automation's name.
+- Select a row to start that automation now, the same as when its schedule fires. The run shows on the Automations page with the others.
+- Type a project's name to list only that project's automations. Every project's automations are listed in every window.
+- A paused automation keeps its row, marked **(paused)**, so you can still run it by hand.
+- Rows come from a list the plugin saves between loads. After you add, rename, or delete an automation, reload bb to update them.
 
 ## Settings
 
-| Setting | Default | What it is for |
+| Setting | Default | What it does |
 | --- | --- | --- |
-| `bbPath` | empty | Absolute path to the `bb` CLI. Empty uses the path bb injects (`BB_CLI`), then `PATH`, then `/opt/homebrew/bin/bb`, `/usr/local/bin/bb`, `/usr/bin/bb`. |
+| `bbPath` | empty | Path to the `bb` CLI, for when the plugin cannot find it. |
 
-```sh
-bb plugin config automation-palette set bbPath /opt/homebrew/bin/bb
-```
+## Requirements
 
-The server's `PATH` is not a login shell's, which is why the fallbacks exist.
-
-## How it talks to automations
-
-Automations belong to bb's own automations plugin and the Plugin SDK exposes no
-API for them, so the CLI is the seam:
-
-| RPC | CLI it runs |
-| --- | --- |
-| `automations_list` | `bb project list --include-personal --json`, then `bb automation list --project <id> --json` per project |
-| `automations_run` | `bb automation run <id> --project <id>` |
-
-`automations_list` covers every project, Personal included, because a row is
-registered once for the whole app. That also means the content script never
-has to work out which project it is in. The project's name comes from
-`bb project list`, since `bb automation list` reports only the id.
-
-A CLI failure is reported through the RPC's `error` field and logged, never
-latched into `bb.status.needsConfiguration`: that flag is one-way, and this
-plugin's entire surface is those rows.
-
-## Feedback after a run
-
-There isn't much, by design of the surface: palette callbacks have no way to
-draw anything, and errors from them are contained and logged by the host. A
-started run logs to the browser console, and the run itself shows up where
-every other run does, on the Automations page and in
-`bb automation runs <id> --project <id>`.
+bb 0.42 or later, with the bundled Automations plugin, and the `bb` CLI on the machine running the bb server. On each bb load the plugin runs `bb project list` once and `bb automation list` once per project. Selecting a row runs `bb automation run` once.
 
 ## Related plugins
 
-- **Automations** (bundled with bb) owns the automations this plugin lists. Its
-  panel creates, edits, and runs them. Automation Palette adds only the palette
-  rows, so a run is a few keystrokes from whichever window you are in.
-- **Autopilots** (`automation-groups`) sorts automations into folders on its own
-  page, and pauses, resumes, or runs a folder together. Automation Palette has
-  no page or groups: one row per automation, in the palette you already use.
+- **Automations** (`automations`), bundled with bb: creates, schedules, edits, and runs automations, and shows their history. Automation Palette lists them in the quick palette and starts them, and leaves everything else to Automations.
+- **Autopilots** (`automation-groups`): sorts automations into folders on its own page, and pauses, resumes, or runs a folder at once. Automation Palette has no page: it starts one automation at a time from the keyboard.
+- **Scheduled Jobs** (`launchd-jobs`): runs shell commands on a schedule as macOS launchd jobs, which keep running while bb is closed. It does not work with bb automations.
 
-## Layout
-
-| Path | What it holds |
-| --- | --- |
-| `palette/automations.ts` | The `AutomationSummary` shape, and the tolerant parsers for `bb automation list` and `bb project list` output |
-| `palette/rows.ts` | What the palette shows: a row's id, its title, and the order the rows are registered in |
-| `palette/snapshot.ts` | The `localStorage` snapshot the rows are built from, and whether a refreshed list has made them stale |
-| `palette/cli.ts` | The only place a process is spawned: finding the `bb` CLI and running it with an argument array |
-| `server.ts` | The `automations_list` / `automations_run` contract and the `bbPath` setting |
-| `app.tsx` | The palette registrations and the content script that refreshes the snapshot |
-
-## Working on it
+## Develop
 
 ```sh
 npm install
-npx tsc --noEmit -p tsconfig.json
+npx tsc --noEmit
 npm test
 bb plugin build . && bb plugin reload automation-palette
 ```
-
-The palette rows themselves are not covered by the frontend test harness —
-`loadPluginApp` does not capture `commandPaletteAction` registrations — which is
-why row ids, titles, and ordering live in `palette/rows.ts` as a pure function
-with its own tests.
