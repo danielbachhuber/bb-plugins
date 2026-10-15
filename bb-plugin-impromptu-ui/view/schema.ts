@@ -2,8 +2,8 @@
  * The view file a skill publishes with `bb impromptu-ui publish`.
  *
  * A view is a title, an optional summary, and items grouped into sections.
- * Each item is a card: a title, badges, a markdown summary, markdown details
- * behind a toggle, and buttons. Parsed at the boundary, so the store and the
+ * Each item is a card: a title, badges, a markdown summary, markdown details,
+ * and buttons. Parsed at the boundary, so the store and the
  * panel only see values that passed; the agent reads a failed parse and fixes
  * its file, so the messages from `describeIssues` stand on their own.
  */
@@ -352,7 +352,7 @@ export const itemSchema = z.object({
   changes: z.array(changeSchema).max(50).default([]),
   /** The heading over the changes: "Files changed", "Changes against the Doc". */
   changesLabel: z.string().trim().max(80).default("Changes"),
-  /** Shown behind a "Details" toggle. */
+  /** Shown after the summary, changes, and evidence. */
   details: markdown.default(""),
   /**
    * Text the user can edit before a button sends it: a comment to post, the

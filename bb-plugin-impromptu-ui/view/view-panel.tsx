@@ -553,7 +553,6 @@ function ItemCard({
   publishedAt,
   dismissLabel,
   busy,
-  initiallyExpanded,
   initiallyConfirming,
   initialDraftMode,
   initialChangesMode,
@@ -572,7 +571,6 @@ function ItemCard({
   /** What Dismiss is called on this item, such as "Skip". */
   dismissLabel: string;
   busy: boolean;
-  initiallyExpanded: boolean;
   initiallyConfirming: number | null;
   initialDraftMode?: "preview" | "raw";
   initialChangesMode?: ChangesMode;
@@ -584,7 +582,6 @@ function ItemCard({
   threads?: Record<string, LinkedThread>;
   currentThreadId?: string;
 }) {
-  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [confirming, setConfirming] = useState<number | null>(initiallyConfirming);
   const [draft, setDraft] = useState(editorDraft(item, record, publishedAt));
   const draftChanged = draft.trim() !== item.draft.trim();
@@ -711,17 +708,11 @@ function ItemCard({
       {item.evidence.length === 0 ? null : (
         <EvidenceCard text={evidenceText(item, state === "open" ? draft : sentDraft(item, record))} evidence={item.evidence} />
       )}
+      {/* Always shown: the opened item is where the user reads everything, so a toggle only hides it. */}
       {item.details === "" ? null : (
-        <>
-          <Button size="sm" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "Hide details" : "Details"}
-          </Button>
-          {expanded ? (
-            <div className="mt-1 rounded-md bg-muted/40 px-3 py-2 text-sm">
-              <Markdown content={item.details} />
-            </div>
-          ) : null}
-        </>
+        <div className="mt-3 border-t border-border pt-3 text-sm">
+          <Markdown content={item.details} />
+        </div>
       )}
 
       {item.variations.length === 0 || review === undefined ? null : (
@@ -870,7 +861,6 @@ export function ViewPanel({
             publishedAt={stored.publishedAt}
             dismissLabel={dismissLabelOf(view, focused)}
             busy={busyItem === focused.id}
-            initiallyExpanded
             initiallyConfirming={confirmItem === focused.id ? Number(confirmIndex) : null}
             initialDraftMode={draftMode}
             initialChangesMode={changesMode}

@@ -45,7 +45,7 @@ After publishing, say in chat how many items there are and that they are above t
           "url": "https://github.com/acme/widgets/issues/101",
           "badges": [{ "label": "Done", "tone": "success" }],
           "summary": "Markdown, always shown.",
-          "details": "Markdown behind a Details toggle.",
+          "details": "Markdown, shown under the summary and changes.",
           "draft": "This is done. #140 added Export.",
           "draftLabel": "Comment to post",
           "actions": [
