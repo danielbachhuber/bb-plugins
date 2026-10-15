@@ -67,8 +67,8 @@ function Title({ title, positions }: { title: string; positions: readonly number
 function QuickPalette({ actions, query }: { actions: PaletteAction[]; query: string }) {
   const ranked: RankedPaletteAction[] = rankPaletteActions({ actions, query, recentIds: [] });
   return (
-    <div className="p-6">
-      <div className="w-full max-w-xl overflow-hidden rounded-lg border bg-background shadow-lg">
+    <div data-screenshot-frame className="w-fit p-8">
+      <div className="w-xl overflow-hidden rounded-lg border bg-background shadow-lg">
         <div className="flex items-center gap-2 border-b px-3">
           <Icon name="Search" className="size-4 shrink-0 text-muted-foreground" />
           <input

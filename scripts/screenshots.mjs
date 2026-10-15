@@ -333,12 +333,21 @@ async function captureStories() {
     if (errors.length) {
       results[index] = { error: `${id}: ${errors[0]}` };
     } else {
+      // A story that marks an element with `data-screenshot-frame` is
+      // photographed at that element's size, for a small component that would
+      // otherwise sit in the corner of a mostly empty page.
+      const frame = page.locator("[data-screenshot-frame]").first();
+      const framed = (await frame.count()) > 0;
+      const shoot = () =>
+        framed
+          ? frame.screenshot({ animations: "disabled" })
+          : page.screenshot({ fullPage: true, animations: "disabled" });
       // A busy machine can catch a story before it has finished laying out,
       // so it is photographed again until two pictures in a row match.
-      let image = await page.screenshot({ fullPage: true, animations: "disabled" });
+      let image = await shoot();
       for (let attempt = 0; attempt < 10; attempt++) {
         await page.waitForTimeout(100);
-        const again = await page.screenshot({ fullPage: true, animations: "disabled" });
+        const again = await shoot();
         if (again.equals(image)) break;
         image = again;
       }

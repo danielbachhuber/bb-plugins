@@ -389,6 +389,9 @@ components. The root README covers the setup. What costs time:
 - Stories render display components with fixture props. A component that
   calls `useRpc` reaches for a server a story does not have, so split the
   data loading from what it draws before writing the story.
+- The capture photographs the whole 1400 by 900 page. For a small component,
+  put `data-screenshot-frame` on a padded wrapper around it, and the capture
+  photographs only that element.
 - Editing a story file reloads the page; editing a component it imports
   updates in place.
 - Stories that lay out design options to pick from go in the plugin's
