@@ -216,13 +216,13 @@ function harvestFor(listing: Listing): HarvestPanelState {
   };
 }
 
-/** The panel's title bar, so a frame reads like the real panel. */
 /** What bb's sidebar would say about the fixture threads. */
 const THREADS: Record<string, ThreadStatus> = {
   thr_fixture1: { id: "thr_fixture1", title: "Show gadget quotas on the widget settings page (#231)", live: "working" },
 };
 const threadStatus = (id: string | null) => (id === null ? null : (THREADS[id] ?? null));
 
+/** The panel's title bar, so a frame reads like the real panel. */
 function Frame({
   listing,
   starting = new Set(),

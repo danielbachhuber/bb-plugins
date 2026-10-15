@@ -270,7 +270,6 @@ const FEEDBACK: FeedbackEntry[] = [
   },
 ];
 
-/** The panel's title bar, so a frame reads like the real panel. */
 /** What bb's sidebar would say about the fixture threads. */
 const THREADS: Record<string, ThreadStatus> = {
   thr_fixture1: { id: "thr_fixture1", title: "Review the widget export retry change", live: "needs-you" },
@@ -278,6 +277,7 @@ const THREADS: Record<string, ThreadStatus> = {
 };
 const threadStatus = (id: string | null) => (id === null ? null : (THREADS[id] ?? null));
 
+/** The panel's title bar, so a frame reads like the real panel. */
 function Frame({
   listing,
   starting = new Set(),

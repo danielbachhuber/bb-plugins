@@ -411,14 +411,14 @@ function Page({
   );
 }
 
-/** Six weeks, the default: a chart per person in each section, busiest first, and the quiet tail folded into rows of counts. */
-/** What bb's sidebar would say about the fixture thread, as the page's provider would. */
+// What bb's sidebar would say about the fixture thread, as the page's provider would.
 function WithThreads({ children }: { children: ReactNode }) {
   const status = (id: string | null): ThreadStatus | null =>
     id === "thr_demo" ? { id, title: "Review the widget sync retry change", live: "needs-you" } : null;
   return <ThreadStatusContext.Provider value={status}>{children}</ThreadStatusContext.Provider>;
 }
 
+/** Six weeks, the default: a chart per person in each section, busiest first, and the quiet tail folded into rows of counts. */
 export const SixWeeks = () => <Page />;
 
 /** Hovering a week shows that week's counts for the person hovered. */

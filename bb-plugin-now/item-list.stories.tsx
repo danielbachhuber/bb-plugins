@@ -353,10 +353,6 @@ const ok: NowList = {
   fetchedAt: syncedAt,
 };
 
-/**
- * The page with its title bar, where the sync control lives. `listing` null is
- * the moment before the stored list has been read.
- */
 /** Rows with a thread, and what bb's sidebar would say each thread is doing. */
 const STORY_THREADS: Record<string, string> = {
   "github:acme/widgets#128": "thread-1",
@@ -372,6 +368,10 @@ const THREAD_STATUSES: Record<string, ThreadStatus> = {
 };
 const threadStatus = (id: string | null) => (id === null ? null : (THREAD_STATUSES[id] ?? null));
 
+/**
+ * The page with its title bar, where the sync control lives. `listing` null is
+ * the moment before the stored list has been read.
+ */
 function Frame({
   listing,
   pending,
