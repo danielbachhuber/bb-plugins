@@ -1,7 +1,7 @@
 import type { SyncUsage } from "component-library/sync-status";
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
+import { THREAD_HOVER, ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
 import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
@@ -685,6 +685,7 @@ export function PrListView({
                 />
               );
             }}
+            rowClassName={THREAD_HOVER}
             renderThreadLine={(item) => {
               const row = rowsByKey.get(item.key);
               const threadId = row?.threadId;

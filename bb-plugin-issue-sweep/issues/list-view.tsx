@@ -1,7 +1,7 @@
 import type { SyncUsage } from "component-library/sync-status";
 import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
+import { THREAD_HOVER, ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
 import { SummarySquares } from "sweep-ui/summary";
@@ -832,6 +832,7 @@ function SplitList({
         actions={renderActions(item)}
         trailing={renderTrailing(item)}
         threadLine={renderThreadLine(item)}
+        className={THREAD_HOVER}
         onToggleComments={() =>
           setCommentsOpen((current) => {
             const next = new Set(current);
