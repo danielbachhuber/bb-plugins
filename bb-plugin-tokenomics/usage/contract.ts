@@ -2,11 +2,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-/** Published with `{ threadIds }` after new usage is recorded. */
-export const USAGE_CHANNEL = "usage-changed";
-
-/** Published with `{ threadIds }` after a thread's context size is recorded. */
-export const CONTEXT_CHANNEL = "context-changed";
+export { CONTEXT_CHANNEL, USAGE_CHANNEL } from "./channels.js";
 
 /** The page's longest range is a week; allow a little over for clock skew. */
 export const MAX_WINDOW_MS = 9 * 24 * 3_600_000;

@@ -18,7 +18,8 @@ import { UsageView, type UsageData } from "@/components/usage-view";
 
 import type { rpcContract } from "./server";
 import { contextLevel, type ContextThresholds } from "./usage/context.js";
-import { CONTEXT_CHANNEL, USAGE_CHANNEL, type TurnDetail } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
+import type { TurnDetail } from "./usage/contract.js";
 import { fillBars, windowFor, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
