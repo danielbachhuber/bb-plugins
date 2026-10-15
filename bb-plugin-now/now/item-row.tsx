@@ -52,7 +52,10 @@ export interface RowActions {
   onMerge: (item: Item, method: MergeMethod) => void;
   /** Resolves true once the comment is posted, so the box can close. */
   onReply: (item: Item, body: string) => Promise<boolean>;
+  /** Opens the Start thread box under the row, or closes it when it is open there. */
   onStartThread: (item: Item) => void;
+  /** The Start thread box while it is open under this row; null otherwise. */
+  startThreadBox?: (item: Item) => ReactNode;
   onOpenThread: (threadId: string) => void;
   /** Saves a Todoist row's edit strip. Resolves true once saved, so the strip can close. */
   onEdit: (item: Item, draft: TaskDraft) => Promise<boolean>;
@@ -586,6 +589,7 @@ export function ItemRow({
   // An Inbox task is there to be sorted, so its strip starts open.
   const editable = actions !== undefined && item.source === "todoist";
   const [editing, setEditing] = useState(editable && item.inbox === true);
+  const startThreadBox = actions?.startThreadBox?.(item) ?? null;
   const postpone = editable ? postponeTarget(item, now) : null;
   const reading = useContext(ReadingContext) === item.id;
   // An overdue row says how late it is in place of its date, and is tinted red.
@@ -752,6 +756,8 @@ export function ItemRow({
               <LineAction
                 label="Start thread"
                 icon="MessageSquarePlus"
+                expanded={startThreadBox !== null}
+                className={startThreadBox !== null ? "bg-accent text-foreground" : undefined}
                 disabled={busy}
                 onClick={() => actions.onStartThread(item)}
               />
@@ -866,6 +872,7 @@ export function ItemRow({
             ))}
             {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
+          {startThreadBox}
           {actions === undefined || threadId === null ? null : (
             <ThreadLine status={threadStatus} onOpen={() => actions.onOpenThread(threadId)} />
           )}

@@ -29,8 +29,7 @@ import { hideSidePanel } from "./now/side-panel.js";
 import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { Icon } from "@/components/ui/icon";
-import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialogParts from "@/components/ui/dialog";
+import { StartThreadInline, announceStartedThread, type StartThreadSeed } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
 
@@ -204,7 +203,7 @@ function undoAction(label: string, request: () => Promise<{ error: string | null
 function useRowActions(
   rpc: ReturnType<typeof useListing>["rpc"],
   run: Run,
-  threads: Pick<RowActions, "onStartThread" | "onOpenThread">,
+  threads: Pick<RowActions, "onStartThread" | "onOpenThread" | "startThreadBox">,
 ): RowActions {
   return useMemo(() => {
     const fail = (cause: unknown) => toast.error(messageOf(cause));
@@ -330,18 +329,19 @@ function useRowActions(
 
 /**
  * Start a thread about a row or a priority: `start` and `startPriority` open
- * bb's composer seeded with it, and `dialog` is that composer, for the caller
- * to render.
+ * bb's composer seeded with it, or close it when it is already open for that
+ * one, and `boxFor` draws it under whichever row, priority, or email it is
+ * open for.
  */
 function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
   // What the open composer is about: its id for the thread link, its title
-  // for the toast. Null when the dialog is closed.
+  // for the toast. Null when every box is closed.
   const [draft, setDraft] = useState<{ id: string; title: string; seed: StartThreadSeed } | null>(null);
 
   const start = useCallback(
     (item: Item) =>
-      setDraft({
+      setDraft((current) => current?.id === item.id ? null : {
         id: item.id,
         title: item.title,
         seed: {
@@ -355,7 +355,7 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
 
   const startPriority = useCallback(
     (monday: string, priority: StoredPriority) =>
-      setDraft({
+      setDraft((current) => current?.id === priorityThreadId(monday, priority.text) ? null : {
         id: priorityThreadId(monday, priority.text),
         title: priority.text,
         seed: {
@@ -386,19 +386,15 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
     [draft, navigate, rpc],
   );
 
-  const dialog = (
-    <StartThreadDialog
-      dialog={dialogParts}
-      onClose={() => setDraft(null)}
-      heading="Start a thread"
-      description="Write what this thread should do, then start it."
-      draftKey={draft === null ? "" : `now:${draft.id}`}
-      seed={draft?.seed ?? null}
-      onSubmit={onSubmitDraft}
-    />
+  const boxFor = useCallback(
+    (id: string) =>
+      draft?.id === id ? (
+        <StartThreadInline draftKey={`now:${draft.id}`} seed={draft.seed} onSubmit={onSubmitDraft} />
+      ) : null,
+    [draft, onSubmitDraft],
   );
 
-  return { start, startPriority, dialog };
+  return { start, startPriority, boxFor };
 }
 
 function NowPage() {
@@ -407,14 +403,15 @@ function NowPage() {
   const navigate = useBbNavigate();
   const panel = experimental_useAppPanel();
   const reading = experimental_useFixedTabTarget(EMAIL_TAB)?.target.id ?? null;
-  const { start, startPriority, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, startPriority, boxFor } = useStartThread(rpc, listing?.threadProjectId ?? null);
 
   const threadActions = useMemo(
     () => ({
       onOpenThread: (threadId: string) => navigate.toThread(threadId),
       onStartThread: start,
+      startThreadBox: (item: Item) => boxFor(item.id),
     }),
-    [navigate, start],
+    [boxFor, navigate, start],
   );
   const rowActions = useRowActions(rpc, run, threadActions);
   // Reading an email marks it read, as opening it in Gmail would.
@@ -469,6 +466,7 @@ function NowPage() {
                 onToggle={priorities.toggle}
                 threads={listing?.threads ?? {}}
                 onStartThread={(priority) => startPriority(priorities.week!.monday, priority)}
+                renderStartThread={(priority) => boxFor(priorityThreadId(priorities.week!.monday, priority.text))}
                 onOpenThread={(threadId) => navigate.toThread(threadId)}
               />
             )
@@ -484,7 +482,6 @@ function NowPage() {
           />
         </WithPriorities>
       </ReadingContext.Provider>
-      {dialog}
     </div>
   );
 }
@@ -545,7 +542,7 @@ function EmailTab() {
   const target = experimental_useFixedTabTarget(EMAIL_TAB);
   const id = target?.target.id ?? null;
   const item = id === null ? null : (listing?.list?.items.find((row) => row.id === id) ?? null);
-  const { start, dialog } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, boxFor } = useStartThread(rpc, listing?.threadProjectId ?? null);
   const [thread, setThread] = useState<{ id: string; thread: EmailThread | null; error: string | null } | null>(null);
   const [archiving, setArchiving] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -595,13 +592,13 @@ function EmailTab() {
         archiving={archiving}
         onArchive={() => void onArchive()}
         onStartThread={item === null ? undefined : () => start(item)}
+        startThread={item === null ? null : boxFor(item.id)}
         onClose={() => {
           hideSidePanel(root.current);
           target?.clear();
         }}
         onOpenLink={(url) => navigate.openUrl(url)}
       />
-      {dialog}
     </div>
   );
 }

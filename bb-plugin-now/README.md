@@ -113,8 +113,8 @@ under a priority show beneath it as a list that keeps the journal's levels,
 each deeper level indented further.
 
 The small icon after each priority starts a thread about it, in bb's own
-composer seeded with the priority and the bullets under it, as Start thread
-does for a row. Once a thread has been started from a priority, the icon opens
+composer under the priority, seeded with the priority and the bullets under
+it, as Start thread does for a row. Once a thread has been started from a priority, the icon opens
 that thread instead.
 
 Check a priority off when it is finished. It is struck through and stays in
@@ -199,6 +199,7 @@ through the `priorities_set` and `priorities_get` RPC methods.
   each, which open when clicked. Scripts in an email do not run, and its links
   open the way bb opens other links. **Archive**, **Start thread**, and
   **Close** stay at the top of the tab, with **Open in Gmail** beside them.
+  **Start thread** opens bb's composer just under them.
   **Archive** archives the email and hides the side panel; **Close** hides the
   side panel and leaves the email in the inbox. The email is
   fetched from Gmail each time it is opened and is not stored.
@@ -238,7 +239,8 @@ survive a reload of the plugin. Undo shows "Restoring…" in the toast until it
 has finished.
 
 Every row also starts its details line with **Start thread**, which opens bb's
-new-thread composer in a dialog, with the row's facts already in the prompt
+new-thread composer under the row, and clicking it again closes it. The
+composer opens with the row's facts already in the prompt
 (its title, link, dates, description, and latest comment) and room for what
 the thread should do. The composer's project defaults to the
 `threadProjectId` setting when it is set. Starting it leaves you on the page,

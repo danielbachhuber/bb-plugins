@@ -1,7 +1,7 @@
 // The week's priorities beside the list: each with a checkbox, its nested
 // bullets, and the hours it has had this week. Draws only; the page loads
 // the week and saves a check.
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type * as React from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,11 +30,21 @@ export interface PrioritiesColumnProps {
   threads?: Readonly<Record<string, string>>;
   /** Left out, the column draws no thread buttons. */
   onStartThread?: (priority: StoredPriority) => void;
+  /** The Start thread box while it is open under a priority; null for the rest. */
+  renderStartThread?: (priority: StoredPriority) => ReactNode;
   onOpenThread?: (threadId: string) => void;
 }
 
 /** Nothing at all for a week with no priorities, so the list keeps the full width. */
-export function PrioritiesColumn({ week, now, onToggle, threads = {}, onStartThread, onOpenThread }: PrioritiesColumnProps) {
+export function PrioritiesColumn({
+  week,
+  now,
+  onToggle,
+  threads = {},
+  onStartThread,
+  renderStartThread,
+  onOpenThread,
+}: PrioritiesColumnProps) {
   if (week === null || week.items.length === 0) return null;
   // Said only when some priority has hours, since it dates them.
   const asOf = week.items.some((each) => each.hours !== null) ? hoursAsOf(week.hoursAt, now) : null;
@@ -50,6 +60,7 @@ export function PrioritiesColumn({ week, now, onToggle, threads = {}, onStartThr
           const id = `now-priority-${index}`;
           const done = priority.doneAt !== null;
           const hours = hoursLabel(priority.hours);
+          const box = renderStartThread?.(priority) ?? null;
           return (
             <li key={priority.text} className="flex gap-2 text-sm">
               <Checkbox id={id} className="mt-0.5" checked={done} onCheckedChange={(checked) => onToggle(priority.text, checked === true)} />
@@ -61,10 +72,12 @@ export function PrioritiesColumn({ week, now, onToggle, threads = {}, onStartThr
                   <ThreadButton
                     text={priority.text}
                     threadId={threads[priorityThreadId(week.monday, priority.text)] ?? null}
+                    open={box !== null}
                     onStart={() => onStartThread(priority)}
                     onOpen={(threadId) => onOpenThread?.(threadId)}
                   />
                 )}
+                {box}
                 <Details details={priority.details} />
                 {hours === null ? null : (
                   <div
@@ -92,11 +105,14 @@ export function PrioritiesColumn({ week, now, onToggle, threads = {}, onStartThr
 function ThreadButton({
   text,
   threadId,
+  open,
   onStart,
   onOpen,
 }: {
   text: string;
   threadId: string | null;
+  /** The Start thread box is open under the priority; the button stays pressed and closes it. */
+  open: boolean;
   onStart: () => void;
   onOpen: (threadId: string) => void;
 }) {
@@ -106,7 +122,11 @@ function ThreadButton({
       type="button"
       title={label}
       aria-label={`${label}: ${text}`}
-      className="-my-1 ml-1 inline-flex size-5 items-center justify-center rounded align-middle text-muted-foreground/70 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      aria-expanded={threadId === null ? open : undefined}
+      className={cn(
+        "-my-1 ml-1 inline-flex size-5 items-center justify-center rounded align-middle text-muted-foreground/70 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        open && "bg-accent text-foreground",
+      )}
       onClick={() => (threadId === null ? onStart() : onOpen(threadId))}
     >
       <Icon name={threadId === null ? "MessageSquarePlus" : "MessageSquare"} className="size-3.5" />

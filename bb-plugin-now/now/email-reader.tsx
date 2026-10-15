@@ -82,6 +82,8 @@ export interface EmailReaderProps {
   archiving?: boolean;
   onArchive?: () => void;
   onStartThread?: () => void;
+  /** The Start thread box while it is open, drawn under the toolbar. */
+  startThread?: ReactNode;
   /** Hides the side panel without archiving the email. */
   onClose?: () => void;
   onOpenLink?: (url: string) => void;
@@ -92,7 +94,15 @@ export interface EmailReaderProps {
  * earlier ones one line each until clicked. Archive, Start thread, and Close
  * stay at the top however long the message is.
  */
-export function EmailReader({ thread, archiving = false, onArchive, onStartThread, onClose, onOpenLink }: EmailReaderProps) {
+export function EmailReader({
+  thread,
+  archiving = false,
+  onArchive,
+  onStartThread,
+  startThread,
+  onClose,
+  onOpenLink,
+}: EmailReaderProps) {
   const latest = thread.messages[thread.messages.length - 1]?.id;
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(latest === undefined ? [] : [latest]));
   useEffect(() => setOpen(new Set(latest === undefined ? [] : [latest])), [thread.threadId, latest]);
@@ -112,7 +122,14 @@ export function EmailReader({ thread, archiving = false, onArchive, onStartThrea
           <Icon name={archiving ? "Loading" : "Archive"} className={cn("size-3.5", archiving && "animate-spin")} />
           {archiving ? "Archiving…" : "Archive"}
         </Button>
-        <Button variant="outline" size="sm" disabled={archiving} onClick={onStartThread}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={archiving}
+          aria-expanded={Boolean(startThread)}
+          className={startThread ? "bg-accent text-foreground" : undefined}
+          onClick={onStartThread}
+        >
           <Icon name="MessageSquarePlus" className="size-3.5" />
           Start thread
         </Button>
@@ -124,6 +141,7 @@ export function EmailReader({ thread, archiving = false, onArchive, onStartThrea
           Open in Gmail
         </UrlLink>
       </div>
+      {startThread ? <div className="border-b border-border px-4 pb-2">{startThread}</div> : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <h2 className="text-base font-semibold text-foreground">{thread.subject}</h2>
         <div className="mt-3 space-y-2">
