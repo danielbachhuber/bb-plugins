@@ -4,13 +4,20 @@ import { createPortal } from "react-dom";
 import { SidebarCount } from "../sidebar-count/sidebar-count";
 
 /**
- * The row inside bb's page header that holds the page's title and buttons.
- * bb has no plugin slot in its top bar, so `TopBarSlot` finds this row by its
- * test id and puts its children at the start of it, at the top left of the
- * page. When bb changes the id, or on a page without a header such as the
- * new-thread page, the slot falls back to the right-panel toggle, then the
- * header's actions, and failing those draws nothing.
+ * The desktop app's title bar, the row along the top of the window that holds
+ * the traffic lights, back and forward, the sidebar toggle, and the
+ * right-panel toggle. bb has no plugin slot in it, so `TopBarSlot` finds it by
+ * its test id and puts its children just after the sidebar toggle. In a
+ * browser, or when bb changes the id, the slot falls back to the start of the
+ * page header's row, then the right-panel toggle, then the header's actions,
+ * and failing those draws nothing.
  */
+export const TITLE_BAR = '[data-testid="app-window-title-bar"]';
+
+/** bb's sidebar toggle. */
+export const SIDEBAR_TOGGLE = '[data-sidebar="trigger"]';
+
+/** The row inside bb's page header that holds the page's title and buttons. */
 export const HEADER_ROW = '[data-testid="app-page-header-content-row"]';
 
 /** bb's right-panel toggle, which most pages draw at the right end of their top bar. */
@@ -23,12 +30,19 @@ export const HEADER_ACTIONS = "[data-app-page-header-actions]";
 const SLOT = "[data-top-bar-slot]";
 
 /**
- * Where the slots go: at the start of the first header row, which is the
- * leftmost pane's when a thread is split. Without one, before the last
+ * Where the slots go: just after the sidebar toggle in the desktop app's
+ * title bar. Without one, at the start of the first header row, which is the
+ * leftmost pane's when a thread is split. Without that, before the last
  * right-panel toggle, or else before the first of the last header's own
  * buttons. `before` is null when the slots go last in `parent`.
  */
 export function findTopBarAnchor(root: ParentNode): { parent: HTMLElement; before: Element | null } | null {
+  const titleBar = root.querySelector<HTMLElement>(TITLE_BAR);
+  const children = titleBar ? Array.from(titleBar.children) : [];
+  const toggleAt = children.findIndex((child) => child.matches(SIDEBAR_TOGGLE) || child.querySelector(SIDEBAR_TOGGLE));
+  if (titleBar && toggleAt !== -1) {
+    return { parent: titleBar, before: children.slice(toggleAt + 1).find((child) => !child.matches(SLOT)) ?? null };
+  }
   const header = root.querySelector<HTMLElement>(HEADER_ROW);
   if (header) return { parent: header, before: Array.from(header.children).find((child) => !child.matches(SLOT)) ?? null };
   const toggles = root.querySelectorAll<HTMLElement>(RIGHT_PANEL_TOGGLE);
@@ -71,9 +85,9 @@ export function onPath(pathname: string, prefixes: readonly string[]): boolean {
 const ActiveContext = createContext(false);
 
 /**
- * Puts `children` at the top left of bb's top bar, before the page's title,
- * or just left of the right-panel toggle on a page without a header, beside
- * any other plugin's slot in `order`. Mount it from an
+ * Puts `children` at the top left of bb's window, just after the sidebar
+ * toggle in the desktop app's title bar, or before the page's title in a
+ * browser, beside any other plugin's slot in `order`. Mount it from an
  * `experimental_appOverlay` component. It follows bb from page to page by
  * watching the document, and draws nothing on a page with neither. Under a
  * path in `activeOn`, the `TopBarCount` inside shows as the current page.

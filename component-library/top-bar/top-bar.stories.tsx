@@ -1,6 +1,7 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Target02Icon from "@hugeicons/core-free-icons/Target02Icon";
+import PanelLeftIcon from "@hugeicons/core-free-icons/PanelLeftIcon";
 
 import { TopBarCount } from "./top-bar";
 
@@ -8,10 +9,13 @@ export default {
   title: "component-library/Top bar",
 };
 
-// The left end of bb's top bar: the chip, then a stand-in for the page title it sits before.
+// The left end of bb's title bar: a stand-in for the sidebar toggle, then the chip.
 function Bar({ urgent, soon = 0, total, active = false }: { urgent: number; soon?: number; total: number; active?: boolean }) {
   return (
     <div className="flex h-10 w-80 items-center gap-1.5 bg-background px-3">
+      <span className="inline-flex size-7 items-center justify-center text-muted-foreground [&_svg]:size-4">
+        <HugeiconsIcon icon={PanelLeftIcon} />
+      </span>
       <TopBarCount
         icon={<HugeiconsIcon icon={Target02Icon} />}
         label="Open Now"
@@ -24,12 +28,11 @@ function Bar({ urgent, soon = 0, total, active = false }: { urgent: number; soon
         soonLabel={`${soon} due today`}
         totalLabel={`${total} in Now`}
       />
-      <span className="truncate text-sm text-foreground">Fix the widget sync</span>
     </div>
   );
 }
 
-/** A page's counts at the top left of bb's top bar, before the page title: its icon, the urgent and due-today counts as in the sidebar, then the total. Clicking it opens the page, and it shows as current while that page is open. */
+/** A page's counts at the top left of bb's window, just after the sidebar toggle: its icon, the urgent and due-today counts as in the sidebar, then the total. Clicking it opens the page, and it shows as current while that page is open. */
 export const States = () => (
   <StoryCard>
     <StoryRow label="Urgent and due today" hint="Two urgent, three due today, nine in all.">

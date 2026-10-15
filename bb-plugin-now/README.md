@@ -11,10 +11,10 @@ Urgent run described below in red, the Today run (tasks due today whose
 time has not passed) in amber, joined into one pill when both are above zero,
 and then how many rows are in the Now section, the same number as its tab,
 which includes the other two. Each is left out at zero. The same counts sit
-at the top left of bb's top bar on every page, after Now's icon, before the
-page title. Clicking them opens Now, and they are shaded while Now is open. bb has no plugin slot there, so the
-plugin finds the header in the page and draws at its start; if a bb update
-changes the header, the counts leave the top bar and stay in the sidebar.
+at the top left of bb's window on every page, after Now's icon, just after
+the sidebar toggle. Clicking them opens Now, and they are shaded while Now is open. bb has no plugin slot there, so the
+plugin finds the sidebar toggle in the page and draws beside it; if a bb
+update changes the page, the counts leave the top bar and stay in the sidebar.
 They read the stored list the sidebar reads, so they add no calls to
 Todoist, Gmail, Calendar, or GitHub. It loads every
 configured source at once and merges their items into one list. The header

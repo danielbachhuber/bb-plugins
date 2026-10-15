@@ -40,7 +40,32 @@ function headerRow() {
   return { row, title };
 }
 
+/** The desktop app's title bar: back and forward, the sidebar toggle, then the right-panel toggle. */
+function titleBar() {
+  const bar = document.createElement("div");
+  bar.setAttribute("data-testid", "app-window-title-bar");
+  bar.style.display = "flex";
+  const history = document.createElement("div");
+  const sidebar = document.createElement("div");
+  const trigger = document.createElement("button");
+  trigger.setAttribute("data-sidebar", "trigger");
+  sidebar.append(trigger);
+  const panel = document.createElement("div");
+  const toggle = document.createElement("button");
+  toggle.setAttribute("aria-label", "Show right panel");
+  panel.append(toggle);
+  bar.append(history, sidebar, panel);
+  document.body.append(bar);
+  return { bar, sidebar, panel };
+}
+
 describe("findTopBarAnchor", () => {
+  it("puts the slots just after the sidebar toggle in the desktop title bar", () => {
+    headerRow();
+    const { bar, panel } = titleBar();
+    expect(findTopBarAnchor(document)).toEqual({ parent: bar, before: panel });
+  });
+
   it("puts the slots at the start of the header row, before the title", () => {
     const { row, title } = headerRow();
     expect(findTopBarAnchor(document)).toEqual({ parent: row, before: title });
@@ -86,6 +111,15 @@ describe("onPath", () => {
 });
 
 describe("TopBarSlot", () => {
+  it("puts its children after the sidebar toggle in the desktop title bar", async () => {
+    const { bar, sidebar, panel } = titleBar();
+    render(<TopBarSlot pluginId="test"><span>chip</span></TopBarSlot>);
+    const chip = await screen.findByText("chip");
+    expect(chip.parentElement?.parentElement).toBe(bar);
+    expect(chip.parentElement?.previousElementSibling).toBe(sidebar);
+    expect(chip.parentElement?.nextElementSibling).toBe(panel);
+  });
+
   it("puts its children at the top left, before the page title", async () => {
     const { row, title } = headerRow();
     render(<TopBarSlot pluginId="test"><span>chip</span></TopBarSlot>);

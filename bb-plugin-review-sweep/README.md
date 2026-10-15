@@ -113,8 +113,8 @@ you to do. There is no chevron to close one.
 The sidebar count is requests with no thread that are not drafts. Before it, a red circle counts the ones waiting too long, as Now
 counts its urgent rows.
 
-The same counts sit at the top left of bb's top bar on every page, after the
-Reviews eye. Clicking them opens the list, and they are
+The same counts sit at the top left of bb's window on every page, just after
+the sidebar toggle, after the Reviews eye. Clicking them opens the list, and they are
 shaded while it is open. They read the stored list the sidebar reads, so they
 add no GitHub calls. With nothing to review, only the icon shows.
 
