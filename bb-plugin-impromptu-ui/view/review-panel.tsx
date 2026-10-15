@@ -2,7 +2,7 @@
 // per screen with the original first, each with a pick toggle and a note box,
 // and one Send feedback button for all of it. Kept free of RPC so a story can
 // render it with fixture images.
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -127,8 +127,14 @@ export function ReviewPanel({ item, record, imageUrl, busy, onSubmit, initial }:
   const [notes, setNotes] = useState<string[]>(item.variations.map((_, index) => start?.notes[index] ?? ""));
   const [overall, setOverall] = useState(start?.overall ?? "");
   const [zoomed, setZoomed] = useState<number | null>(null);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(start?.pick ?? 0);
   const track = useRef<HTMLDivElement | null>(null);
+  // A review reopened with a pick starts on that variation, so the track has to start there too.
+  useLayoutEffect(() => {
+    const element = track.current;
+    if (element && active > 0) element.scrollTo({ left: active * element.clientWidth, behavior: "instant" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, []);
   const locked = sent !== undefined || record?.state === "dismissed";
   const feedback: Feedback = { pick, notes, overall };
   const zoomedVariation = zoomed === null ? undefined : item.variations[zoomed];

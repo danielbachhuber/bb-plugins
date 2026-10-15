@@ -13,7 +13,12 @@ import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
 import { allHandled, ViewBanner } from "./view/banner";
-import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import nowRound0 from "./view/now-round/now-summary-0.webp?url";
+import nowRound1 from "./view/now-round/now-summary-1.webp?url";
+import nowRound2 from "./view/now-round/now-summary-2.webp?url";
+import nowRound3 from "./view/now-round/now-summary-3.webp?url";
+import nowRound4 from "./view/now-round/now-summary-4.webp?url";
+import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -156,6 +161,8 @@ function ThreadStage({
   threads,
   others = [],
   chatOnly = false,
+  height = 860,
+  images = reviewImages,
 }: {
   turns: Turn[];
   /** Only the chat and composer, as the thread looked before it published the view. */
@@ -170,6 +177,10 @@ function ThreadStage({
   /** The thread on screen, when the view was published by another. */
   currentThreadId?: string;
   threads?: Record<string, LinkedThread>;
+  /** The stage's height in pixels, raised when the open item's buttons sit below the default. */
+  height?: number;
+  /** The screenshots a visual review shows, in the order of its variations. */
+  images?: string[];
 }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
@@ -182,7 +193,7 @@ function ThreadStage({
   const collapsed = collapsedByUser ?? allHandled(view);
   const setItem = (item: Item, record: ItemRecord) => setItems((current) => ({ ...current, [item.id]: record }));
   return (
-    <div className="flex h-[860px] w-[1320px] overflow-hidden border border-border bg-background">
+    <div className="flex w-[1320px] overflow-hidden border border-border bg-background" style={{ height }}>
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <Conversation turns={turns} />
@@ -272,7 +283,7 @@ function ThreadStage({
           onStartThread={noop}
           onRunRelated={noop}
           onOpenItem={(item) => setFocus(item.id)}
-          imageUrl={(_, index) => reviewImages[index] ?? null}
+          imageUrl={(_, index) => images[index] ?? null}
           reviewInitial={reviewInitial}
           currentThreadId={currentThreadId}
           threads={threads}
@@ -477,7 +488,7 @@ export function Dependabot() {
 
 /** The pull request opened: the evidence, the assessment to edit, and every button. */
 export function DependabotItemOpen() {
-  return <ThreadStage turns={dependabotTurns} view={stored(dependabotView)} initialFocus="pr-412" />;
+  return <ThreadStage turns={dependabotTurns} view={stored(dependabotView)} initialFocus="pr-412" height={1220} />;
 }
 
 /** A conflicted bump: the rebase is the main button, and it asks before running. */
@@ -529,6 +540,29 @@ const reviewTurns: Turn[] = [
 /** A fresh review: the original on top, two directions under it. */
 export function VisualReview() {
   return <ThreadStage turns={reviewTurns} view={stored(reviewView)} />;
+}
+
+const nowRoundImages = [nowRound0, nowRound1, nowRound2, nowRound3, nowRound4];
+
+const nowRoundTurns: Turn[] = [
+  { kind: "user", text: "The Now page has no overview. How might we show what's waiting before I scroll?" },
+  { kind: "work", text: "Built four directions in the Now story and took screenshots of each" },
+  {
+    kind: "assistant",
+    text: "You can't see how much is urgent until you scroll. I've put the page as it is and **4 directions** for a summary above the composer: pick one and note anything to change.",
+  },
+];
+
+/** Picking a design: four directions for a summary above the Now list, with one square per row picked. */
+export function VisualReviewNowRound() {
+  return (
+    <ThreadStage
+      turns={nowRoundTurns}
+      view={stored(nowRoundView)}
+      images={nowRoundImages}
+      reviewInitial={{ pick: 4, notes: ["", "", "", "", "Keep the counts under each run"], overall: "" }}
+    />
+  );
 }
 
 /** One picked, with notes, ready to send. */

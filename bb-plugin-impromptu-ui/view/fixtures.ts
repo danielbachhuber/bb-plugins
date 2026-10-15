@@ -362,6 +362,32 @@ export const reviewView: View = viewSchema.parse({
   ],
 });
 
+export const nowRoundView: View = viewSchema.parse({
+  title: "Visual review: a summary above the Now list",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "now-summary",
+          title: "Now summary: 4 directions",
+          badges: [{ label: "Visual review", tone: "info" }],
+          summary: "The list has no overview: you can't see how much is urgent until you scroll.",
+          variations: [
+            { label: "Original", description: "As it is now: the toggles, then the rows.", image: "shots/now-0.png" },
+            { label: "A. Stacked bar", description: "One thin bar split by group, with counts beneath.", image: "shots/now-1.png" },
+            { label: "B. Stat tiles", description: "One tile per group: the count and a line of detail.", image: "shots/now-2.png" },
+            { label: "C. By day", description: "Columns from last week through next week.", image: "shots/now-3.png" },
+            { label: "D. One square per row", description: "Each row is a square, colored by group. It shrinks as you clear rows.", image: "shots/now-4.png" },
+          ],
+          actions: [],
+        },
+      ],
+    },
+  ],
+});
+
 type MockRow = { title: string; detail: string; date: string; overdue: boolean };
 
 const MOCK_ROWS: MockRow[] = [
