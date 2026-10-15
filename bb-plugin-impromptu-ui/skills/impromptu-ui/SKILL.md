@@ -121,6 +121,15 @@ When the items lead up to one last decision that depends on them, such as a code
 - `{tally}` in its summary or in a `message` or `thread` button's text becomes what was done with the other items, such as "2 Attach as draft comment, 1 dismissed". Recommend the verdict in the summary, and let the user change it once they have been through the items.
 - A view has at most one closing step, and it needs the "cards" layout.
 
+## Code review findings
+
+When the items are a pull request review's findings, lay the view out so the user reads them before deciding the review:
+
+- One item per finding, grouped into sections by how much it matters: "Fix before merge", then "Worth considering". Leave out a section with nothing in it.
+- Open each finding's summary with what goes wrong for the user or the system ("Every archived widget comes back on the next sync"), then the code that causes it. Names of functions and variables after the consequence, not before.
+- Give each finding the hunk it is about, from `gh pr diff`, as a change, with `"changesLabel": "In this PR"`. When the finding has a concrete fix, add it as a change with `"role": "proposed"`, never in the PR hunk's block or as prose. Quote code the PR does not change in `details`.
+- Make the verdict (approve, comment, or request changes) the closing step, in a section of its own at the end, with your recommendation in its summary and `{tally}` in its buttons' text. Offer the other verdicts as its other buttons.
+
 ## Show what changed
 
 When an item is about a change, such as a pull request's files, a code review finding's hunk, or a section's new text against the document it goes into, give it `changes` rather than describing the diff in its summary:
