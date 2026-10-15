@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { SidebarCount } from "component-library/sidebar-count";
 import { TopBarCount, TopBarSlot } from "component-library/top-bar";
 import { SyncStatus } from "component-library/sync-status";
+import { useThreadStatus } from "component-library/thread-status";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -105,6 +106,8 @@ function SyncHeader() {
 }
 
 function Panel() {
+  // bb's sidebar, already on the page, says what each row's thread is doing.
+  const threadStatus = useThreadStatus();
   const { listing, reload, rpc } = useListing();
   const [busy, setBusy] = useState(false);
   // Per-row, not one flag: two statuses can be set in quick succession and a
@@ -285,6 +288,7 @@ function Panel() {
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
         loadComments={loadComments}
+        threadStatus={threadStatus}
       />
 
       <StartThreadDialog

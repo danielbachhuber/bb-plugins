@@ -1,6 +1,7 @@
 import type { SyncUsage } from "component-library/sync-status";
 import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
 import { SummarySquares } from "sweep-ui/summary";
@@ -310,14 +311,7 @@ function ThreadAction({
   onStart: (row: Row) => void;
   onOpen: (row: Row) => void;
 }) {
-  if (row.threadId) {
-    return (
-      <button type="button" className={LINE_ACTION} onClick={() => onOpen(row)}>
-        <Icon name="MessageSquare" className="size-3" />
-        Open thread
-      </button>
-    );
-  }
+  if (row.threadId) return <OpenThreadAction onOpen={() => onOpen(row)} />;
   // Disabled with its reason as the label, rather than hidden: a row that
   // silently lacks the action reads as a bug.
   const label = !row.canSpawn ? "No project here" : isStarting ? "Starting…" : "Start thread";
@@ -528,6 +522,11 @@ export interface IssueListViewProps {
    * Once it has read them, the row's "N new" is marked seen.
    */
   loadComments: (row: Row) => Promise<CommentsResult>;
+  /**
+   * What a row's thread is doing, from bb's sidebar. Left out, a row with a
+   * thread still draws its thread line, without the status.
+   */
+  threadStatus?: (threadId: string | null) => ThreadStatus | null;
 }
 
 export function IssueListView({
@@ -542,6 +541,7 @@ export function IssueListView({
   onNoteSave,
   onOpenLink,
   loadComments,
+  threadStatus,
 }: IssueListViewProps): ReactNode {
   if (!listing) return <SweepingBoard />;
 
@@ -677,6 +677,11 @@ export function IssueListView({
                 />
               );
             }}
+            renderThreadLine={(item) => {
+              const row = rowsByKey.get(item.key);
+              if (!row?.threadId) return null;
+              return <ThreadLine status={threadStatus?.(row.threadId) ?? null} onOpen={() => onOpen(row)} />;
+            }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
               const row = rowsByKey.get(item.key);
@@ -731,6 +736,8 @@ interface SplitListProps {
   renderStatus: (row: Row, stretch: boolean) => ReactNode;
   renderActions: (item: SweepItem) => ReactNode;
   renderTrailing: (item: SweepItem) => ReactNode;
+  /** Drawn directly under a row's action line, for a row with a thread. */
+  renderThreadLine: (item: SweepItem) => ReactNode;
   /** The drawer the comment count opens, drawn only while it is open. */
   renderComments: (item: SweepItem) => ReactNode;
   onNoteSave: (item: SweepItem, body: string, onHold: boolean) => Promise<boolean>;
@@ -764,6 +771,7 @@ function SplitList({
   renderStatus,
   renderActions,
   renderTrailing,
+  renderThreadLine,
   renderComments,
   onNoteSave,
   onOpenLink,
@@ -823,6 +831,7 @@ function SplitList({
         Link={UrlLink}
         actions={renderActions(item)}
         trailing={renderTrailing(item)}
+        threadLine={renderThreadLine(item)}
         onToggleComments={() =>
           setCommentsOpen((current) => {
             const next = new Set(current);

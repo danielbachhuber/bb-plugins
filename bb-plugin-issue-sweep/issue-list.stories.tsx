@@ -3,6 +3,7 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
 import { SyncStatus } from "component-library/sync-status";
+import type { ThreadStatus } from "component-library/thread-status";
 import { TooltipProvider } from "./components/ui/tooltip";
 import {
   IssueListView,
@@ -216,6 +217,12 @@ function harvestFor(listing: Listing): HarvestPanelState {
 }
 
 /** The panel's title bar, so a frame reads like the real panel. */
+/** What bb's sidebar would say about the fixture threads. */
+const THREADS: Record<string, ThreadStatus> = {
+  thr_fixture1: { id: "thr_fixture1", title: "Show gadget quotas on the widget settings page (#231)", live: "working" },
+};
+const threadStatus = (id: string | null) => (id === null ? null : (THREADS[id] ?? null));
+
 function Frame({
   listing,
   starting = new Set(),
@@ -253,6 +260,7 @@ function Frame({
             onNoteSave={async () => true}
             onOpenLink={noop}
             loadComments={async () => ({ comments: COMMENTS, total: COMMENTS.length, error: null })}
+            threadStatus={threadStatus}
           />
         </div>
       </div>

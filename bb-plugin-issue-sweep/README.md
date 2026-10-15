@@ -119,6 +119,11 @@ buttons sit beside the title, with no label saying why the issue needs you:
 the squares above the column name each run. In the narrower right column the
 buttons have a line of their own under the number line.
 
+A row with a thread has a line under its actions saying what the thread is
+doing, as bb's sidebar does (**Working**, **Needs you**, **Done, unread**,
+**Failed, unread**, or **Idle**), with the thread's title. Clicking the line
+opens the thread. The status comes from bb's sidebar, so it makes no request.
+
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note, then the progress bar, with its count in green, and the comment count. The Harvest clock, when the Harvest plugin is installed, sits at
 the right end of that line. Start
