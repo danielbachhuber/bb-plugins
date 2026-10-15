@@ -1,171 +1,54 @@
 # Impromptu UI
 
-Lets a skill show its results as a list right above the thread's composer,
-instead of as a numbered list in chat that the user answers by typing. Each
-item opens in the side panel with its details and every button.
+Generate interfaces for what you need to process or act on, instead of walls of text in chat.
 
-## How it works
+An agent that assesses a Dependabot pull request without Impromptu UI writes its assessment out in chat and ends with a question for you to answer by typing:
 
-A skill that produces several items to act on (issues to triage, findings to
-fix, pull requests to merge) writes a view file and publishes it from its
-thread:
+![A Dependabot assessment written out in chat as nine bolded paragraphs, ending in "Do you want me to post this on #412, approve it, and merge it? Or post it only?"](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--dependabot-in-chat.png)
+
+With it, the same assessment is a row above the composer. Opening it shows the verdict, the diff, and the comment to post, with buttons to post it:
+
+![The same pull request as one row above the composer, open in the side panel with a Safe to merge badge, a three-line summary, the package.json diff, the assessment to post, and Post, approve, and merge, Post only, and Open #412 buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--dependabot-item-open.png)
+
+## Use
+
+- A skill publishes the items it wants you to act on, such as issues to triage or a pull request to merge. Each one shows as a row above the composer.
+- Click **Review** to open an item in the side panel. It shows the details, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
+- To pick a design, the agent shows screenshots of the original and its alternatives in a film strip. Pick one, leave notes, and press **Send feedback**.
+
+![A visual review of four directions for a summary above the Now list, with D, one square per row, picked and a note to keep the counts under each run](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--visual-review-now-round.png)
+
+## For agents
+
+The `impromptu-ui` skill describes the view file and when to publish one. The `refine-impromptu-ui` skill files an anonymized issue on this repository when a view falls short.
 
 ```sh
-bb impromptu-ui publish --file view.json [--key <name>]
+bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view
+bb impromptu-ui state [--key <name>]                        # read what the user did
+bb impromptu-ui hide [--key <name>]                         # hide a view
+bb impromptu-ui list                                        # list this thread's views
 ```
 
-Each view the thread has published appears above its composer, newest first,
-one row per item: the
-title, up to two badges, a line of summary, and a **Review** button. Nothing
-runs from the list: the button and the row both open the item. An item
-moves to the bottom of the list once it is done or dismissed. The
-list collapses to one line from its header, and does so by itself once every
-item is done or dismissed. The archive button on the header hides the view until the thread
-publishes again, and the agent can do the same with `bb impromptu-ui hide`. Clicking a row opens that item in
-the side panel, with its full summary, its details, and every button; the panel
-keeps one tab per view and switches items as rows are clicked. Publishing again
-with the same key replaces the view and keeps what the user already did to
-each item. A view published under a different key shows alongside the others
-in the same card, with its own header, count, collapse, and archive button, so
-a thread can show a long piece of work and a one-off question at once. The
-side panel opens by itself on the newest one.
-
-A view can use the **list** layout instead, for items that are a quick yes or
-no, such as staples to add to a grocery list. The whole view then shows in the
-side panel as one list. Above the composer, under the view's header, one row
-previews it: the names still to decide, then what is on the list, with a
-**Review** button that opens the panel. The items to decide sit at the top as
-dashed rows, each with its buttons and Dismiss. An item with a draft shows it
-in a text field to edit before pressing Add, and a command there gets the edited name as one
-quoted shell word, so nothing typed into it runs. Once one of its buttons goes through, a row
-moves into the list below, tagged with the button's done label, such as **Just
-added**. A dismissed row stays on top, struck through, with **Undo**. A failed
-command stays on top with its error and its buttons, so it can be retried.
-Items with no buttons are the list as it stands: plain rows linked to their
-`url`.
-
-A view is a title, a markdown summary, and cards grouped into sections. A card
-has a title (linked, when the card names a `url` such as the issue or comment it is about), badges, a markdown summary, markdown details behind a toggle, and
-up to six buttons:
-
-| Button | What it does |
-|---|---|
-| `message` | Sends text to the thread that published the view, as if the user typed it, or to another thread the button names. The agent does the work with its own permissions and context. |
-| `thread` | Starts a new thread in a named project with a prompt and title. The button then becomes **Go to thread**. |
-| `command` | Runs a shell command in the user's login shell. The side panel shows the command and asks before running it, then shows the exit code and the tail of the output. A command marked `confirm: false` runs as soon as it is clicked. A failed command leaves the item open. |
-| `link` | Opens a URL. |
-
-An item can carry a `draft`, such as a comment to post or a new thread's task. The opened item shows it once, with the same Preview/Raw toggle as the Markdown Editor plugin: Preview renders the markdown, and Raw (or a double-click on the preview) edits the source. Once the item is done or dismissed, only the preview shows, greyed to say it can no longer be edited, with the draft as the user sent it. Every `message` or `thread` button whose text contains `{draft}` sends its own instruction with the draft as the user left it. A command on a card cannot use `{draft}`; in a list view, a command gets the edited text as one quoted shell word, so it cannot run as a command.
-
-A short answer does not need a markdown editor. With `"draftFormat": "text"`, the draft is a one-line field instead, with an optional `draftPlaceholder`, and it can start empty. The field sits below the card's other buttons, with the buttons that send it on its right, so a card can offer several products as buttons and a field for a value of the user's own. A button that sends the field stays disabled while it is empty, and Enter presses it: the primary one among them if there are several, never a button that would drop what was typed. Once it is sent, the field shows what was sent, greyed, and the banner at the top of the card quotes it.
-
-The first time you look at a thread after it publishes, the side panel opens on the first item still open, whether the publish happened while you were watching or before you arrived. Close the panel and it stays closed until the next publish. When the agent republishes after a button is pressed, the panel moves on to the next open item, unless the one you are reading is still open. With no entry picked, the panel shows the first open one, and once every item is handled it says to click one.
-
-Once one of a card's buttons goes through, the card is done and its other buttons are disabled, so one click cannot be followed by a contradictory second one; links and **Go to thread** stay usable. A button marked `repeat` leaves its card open instead. What the last button did shows as a banner at the top of the item, above its summary: green for done, red for a failure with its output. Every card can be dismissed and restored, and a view, section, or item can rename Dismiss with `dismissLabel`, such as to **Skip**. Dismissing a card moves the side panel on to the next open item. **Start thread**, beside Dismiss, opens bb's new-thread composer in the publishing thread's project, with the card's title, link, summary, and details as the prompt to edit; it does not change the card, so it stays usable after a decision.
-
-## What changed
-
-An item about a change shows it under its summary: a pull request's files, a code review finding's hunk, or a section's proposed text against the document it goes into. One heading names the changes and switches them between **Unified** and **Split**, and each change is a block with its name and its lines added and removed, folded or opened from its header. A file's patch shows in bb's own diff view. Prose shows each line beside the one it replaced, with the changed words marked, rather than a run of removed lines and then a run of added ones. A lockfile shows as the packages whose versions changed, with a downgrade flagged and each package marked by whether the `package.json` diff names it, so a stale-base downgrade stands out; its raw diff is one click away.
-
-When the change compares a section's text against the item's draft, the heading has an **Edit** tab too, which edits the draft in place of the diff, and the buttons that send the draft send it as edited.
-
-A skill can hand `publish` a diff on disk, such as one `gh pr diff` wrote, and `publish` reads it and splits it into one change per file, so the view keeps what was proposed.
-
-## Evidence
-
-An item's proposed text can show what backs each claim in it, such as a grant section citing its sources, a resume line pointing at the accomplishment it comes from, or a code review finding quoting the lines it is based on. Each claim is underlined in the text with a number, colored by whether it is supported, partly supported, or unsupported. An **Evidence** card under the changes lists the claims in the order of their numbers, each with the verbatim quotes that back it, where each quote is from (linked, when it has a page), and any doubt the agent has about it, beside the claim it is about. The card's heading counts the claims by how well they are supported.
-
-A claim is found by its exact text, so its mark follows the draft as it is edited in the **Edit** tab. A claim whose text is edited away moves to the bottom of the card under **No longer in the text**, with its quotes, so they are still there to check. In a file's diff, which bb's own diff view draws, the claims are not underlined, and the card lists them.
-
-Evidence is for text already in the draft. **Related** notes, below, are the ones not used yet.
-
-## Work in rounds
-
-Some items are a piece of work rather than one decision: a section of a document that the agent drafts, the user pushes back on, and the agent revises until it is right. The agent gives each such item a **status**, such as **In progress** or **40 words over**, shown beside its badges on the row and the opened item. An item with a status is finished only when the agent publishes it as complete, so its buttons stay usable through as many rounds as it takes, and pressing Accept does not mark it done before the agent has checked that the work landed. Once any item has a status, the header counts what is complete, such as **1 of 4 complete**, instead of what is open.
-
-An item can also have a one-line **note** field beside its buttons, for the push-back that goes with Revise, such as what to change in the next round; Enter sends it with the button that uses it. The item's **history** shows under its summary: each round the agent proposed and each push-back, with the time of each. When the agent publishes the next round, the opened item starts over with the new draft, even when the user edited the last one before pressing Revise, and the banner saying which button was pressed gives way to the history.
-
-### An item in its own thread
-
-When each item is drafted with the user in a thread of its own, such as a section of a resume, the item can name that thread. It then shows above that thread's composer too, as the same card from the same view: what is pressed in either thread shows in both, and publishing again updates both. That thread sees only its own items, without the page map, and hiding the list there leaves it in the thread that published it.
-
-In the thread that published the view, such an item's row has **Open thread** in place of Review, and clicking the row goes to the item's thread rather than the side panel, where the page map stays. A block on the map opens the thread too. If the item is opened in the panel anyway, **Open**, named for its thread, takes the place of Start thread, since the thread already exists.
-
-A `message` button can name the thread it sends to, so Revise and its note can go to the section's thread while Accept goes to the thread that published the view. Sending wakes an idle thread and joins a running one, as typing into it would. A button sending to a thread other than the item's own gets a line above the buttons naming that thread. A thread archived since shows as archived, and a button sending to it fails with a note to unarchive it, keeping what was typed. `bb impromptu-ui state` says where each message went, and in the item's own thread it reads that item back.
-
-## Budgets, supporting notes, and a map
-
-An item can show how much of a budget it uses, such as **180 of 200 words**, as a bar on its row and on the opened item, red once it runs over.
-
-An item can carry **related** material in its own card under it: supporting notes the agent ranked, each with a line saying what it matches, a badge such as **Used**, and at most one button such as **Add**, which sends the note to the thread. A note says it was added until the agent publishes again and marks it.
-
-A view whose items fill pages, such as sections of a two-page document, can draw them as a **map** at the top of the side panel. Each page shows its items as blocks sized by their budgets and filled by what they use, colored by where each stands, with one over budget in red, so it is clear at a glance which section is crowding the page. Clicking a block opens that item.
-
-## Visual review
-
-An item with `variations` is a visual review: screenshots of one piece of UI, the original first and then the alternatives, each with a label and a line of description. The opened item shows them side by side, one at a time at the panel's width, with every image in the same place: flip between them with the arrow keys, the ‹ › buttons, or a swipe, and what changed is what moves. Clicking an image shows it full size. A filmstrip of thumbnails stays at the top of the panel: it shows how many variations there are, highlights the one showing, marks the pick and any variation with a note, and flips to a variation when you click it. Under each is **Pick this one** and a note box, and at the bottom an overall note and **Send feedback**, which sends one message to the thread naming the pick and quoting every note. `publish` copies the images into the plugin's database, so the review keeps showing what was proposed after the files move or the code changes. Once feedback is sent, the row above the composer says which variation was picked. The agent reads back what the user
-did with `bb impromptu-ui state`.
-
-The view file's shape, and when a skill should use it, are in
-`skills/impromptu-ui/SKILL.md`, which bb gives to every agent thread.
-
-## Commands run as you
-
-A `command` button runs whatever the view file says, with your permissions,
-once you press **Run** on the confirmation that shows it. Read the command
-before running it, as you would one an agent proposed in chat. A command the
-view marks `confirm: false` skips that step and runs on the first click.
-
-## When it falls short
-
-The plugin ships a second skill, `refine-impromptu-ui`, for when a view
-should have appeared and did not, or appeared but could not do what the work
-needed. Tell the agent what went wrong. It reads back what it published,
-places the problem (did not fire, could not express it, worked badly, or
-broke), and asks one question if that is unclear. It then shows two to four
-ways the plugin could change as a view, one card each, and checks the
-plugin's repository for an issue that already asks for the one you pick.
-It drafts the issue for you to read before anything is posted, written so it
-names no repository, person, or text from your thread, and files it on this
-repository with `gh`, or gives you a link to the filled-in form when `gh`
-is not signed in.
-
-## CLI
-
-```
-bb impromptu-ui publish --file <view.json> [--key <name>]
-bb impromptu-ui state [--key <name>]
-bb impromptu-ui hide [--key <name>]
-bb impromptu-ui list
-```
-
-Each works only from inside a bb thread, because a view belongs to the thread
-that published it.
+Each command works only inside a bb thread.
 
 ## Settings
 
-| Setting | Default | |
-|---|---|---|
-| `providerId` | `claude-code` | Provider for threads a `thread` button starts. |
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `providerId` | `claude-code` | Provider for threads a button starts. |
 
-## Storage
+## Requirements
 
-Views, item states, and visual review images live in the plugin's own database, which bb keeps under
-its data directory. Views quote your work, so none of it is written inside
-this checkout.
+Nothing to configure. A command button runs with your permissions, so read it before you press **Run**.
 
-## Layout
+## Related plugins
 
-| Path | What |
-|---|---|
-| `server.ts` | The `bb impromptu-ui` command, RPC, and what each button does |
-| `app.tsx` | The list above the composer and the side-panel tab it opens |
-| `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the evidence behind its text, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
-| `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
-| `skills/impromptu-ui/` | How an agent publishes a view |
-| `skills/refine-impromptu-ui/` | How an agent turns a view that fell short into an anonymized issue |
+- **Ask User Question** (`ask-user-question`), bundled with bb: lets any provider ask one multiple-choice question, and the turn waits for the answer. Impromptu UI shows many items at once, and they stay open while you work through them.
+- **Generative UI** (`genui`): the agent picks from 86 components, such as charts and forms, and they render inside its replies. Impromptu UI's items sit above the composer instead of in the transcript, and each button runs an action you can see, such as posting a draft or starting a thread.
+- **Thread Pages** (`thread-pages`): the agent writes a web page for its task and you answer from the page. Impromptu UI uses one fixed format of cards, buttons, and drafts, so every skill's results look and work the same way.
+- **Inline visualizations** (`inline-vis`), bundled with bb: shows an HTML or Markdown file inside a reply, for reading. Impromptu UI is for acting on each item.
 
-## Development
+## Develop
 
 ```sh
 npm install
