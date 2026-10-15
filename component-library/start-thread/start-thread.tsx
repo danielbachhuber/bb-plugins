@@ -1,10 +1,11 @@
-// bb's own new-thread composer in a dialog, seeded with whatever row the
-// thread is for, and the toast that follows once it starts. Starting a thread
+// bb's own new-thread composer, in a dialog or in a box under the row's
+// Start thread button, seeded with whatever row the thread is for, and the
+// toast that follows once it starts. Starting a thread
 // never takes the user away from the page they started it on: the toast
 // offers the way there instead.
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { GitBranchIcon } from "@hugeicons/core-free-icons";
+import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
   experimental_NewThreadComposer as NewThreadComposer,
   UrlLink,
@@ -14,9 +15,16 @@ import {
 import { toast } from "sonner";
 
 import { cn } from "../lib/cn";
-import { FIXED_ENVIRONMENT_ATTRIBUTE, draftKeyFor } from "./keys";
+import { FIXED_ENVIRONMENT_ATTRIBUTE, draftKeyFor, skillPrompt, type SuggestedSkill } from "./keys";
 
-export { BB_PICKER_SELECTORS, FIXED_ENVIRONMENT_ATTRIBUTE, FIXED_ENVIRONMENT_CSS, draftKeyFor } from "./keys";
+export {
+  BB_PICKER_SELECTORS,
+  FIXED_ENVIRONMENT_ATTRIBUTE,
+  FIXED_ENVIRONMENT_CSS,
+  draftKeyFor,
+  skillPrompt,
+  type SuggestedSkill,
+} from "./keys";
 
 /**
  * What the plugin knows before bb's composer opens. Every field is a seed the
@@ -29,8 +37,14 @@ export type StartThreadSeed = {
   providerId?: string | null;
   model?: string | null;
   permissionMode?: NewThreadComposerProps["defaultPermissionMode"];
-  /** Omitted for a composer that opens empty. */
+  /** Omitted for a composer that opens empty. Ignored when `skills` is set. */
   prompt?: string;
+  /**
+   * Skills offered as chips above the composer. The prompt opens with only
+   * the picked ones' instructions in it, and each click on a chip adds or
+   * removes its instruction.
+   */
+  skills?: SuggestedSkill[];
   /** Shown while the prompt is empty. Defaults to "What should this thread do?" */
   placeholder?: string;
   /**
@@ -147,14 +161,55 @@ export function PreviewCard({ preview }: { preview: NonNullable<StartThreadSeed[
 }
 
 /**
- * The card, the banner, and bb's composer, without a dialog around them. For
- * a page that puts the composer inline; {@link StartThreadDialog} draws the
- * same thing in a dialog.
+ * The suggested skills as chips that each toggle on and off. A picked chip is
+ * filled and ticked.
+ */
+export function SkillChips({
+  skills,
+  picked,
+  onToggle,
+}: {
+  skills: readonly SuggestedSkill[];
+  picked: ReadonlySet<string>;
+  onToggle: (name: string) => void;
+}) {
+  return (
+    <div role="group" aria-label="Suggested skills" className="flex flex-wrap items-center gap-2">
+      {skills.map((skill) => {
+        const on = picked.has(skill.name);
+        return (
+          <button
+            key={skill.name}
+            type="button"
+            aria-pressed={on}
+            title={skill.reason}
+            onClick={() => onToggle(skill.name)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 font-mono text-xs",
+              on
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-foreground hover:bg-state-hover",
+            )}
+          >
+            {on ? <HugeiconsIcon icon={Tick02Icon} className="size-3.5" aria-hidden="true" /> : null}
+            {skill.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The card, the banner, the skill chips, and bb's composer, without a dialog
+ * around them. {@link StartThreadDialog} draws the same thing in a dialog and
+ * {@link StartThreadInline} in a box under the row.
  */
 export function StartThreadForm({
   seed,
   draftKey,
   focusRequest,
+  showPreview = true,
   className,
   onSubmit,
 }: {
@@ -163,32 +218,85 @@ export function StartThreadForm({
   draftKey: string;
   /** Bump to move focus into the composer. */
   focusRequest?: number;
+  /** False leaves out the card, for a form drawn inside the row it would describe. */
+  showPreview?: boolean;
   className?: string;
   onSubmit: (request: NewThreadRequest) => Promise<void>;
 }) {
   const fixed = Boolean(seed.workspace?.branch);
+  const skills = seed.skills;
+  const [picked, setPicked] = useState<ReadonlySet<string>>(
+    () => new Set((skills ?? []).filter((skill) => skill.selected).map((skill) => skill.name)),
+  );
+  const toggle = (name: string) =>
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(name)) next.add(name);
+      return next;
+    });
+  // bb's composer has no way to insert text once it is open, so a chip
+  // remounts it seeded with the picked skills' instructions. The draft key
+  // carries a digest of that seed, so each set of picks keeps its own draft.
+  const prompt = skills ? skillPrompt(skills, picked) || undefined : seed.prompt;
   return (
     <div className={cn("space-y-3", className)}>
-      {seed.preview ? <PreviewCard preview={seed.preview} /> : null}
+      {showPreview && seed.preview ? <PreviewCard preview={seed.preview} /> : null}
       {seed.workspace?.branch || seed.workspace?.note ? (
         <WorkspaceBanner branch={seed.workspace.branch} note={seed.workspace.note} />
       ) : null}
+      {skills?.length ? <SkillChips skills={skills} picked={picked} onToggle={toggle} /> : null}
       <div className="contents" {...(fixed ? { [FIXED_ENVIRONMENT_ATTRIBUTE]: "" } : {})}>
         <NewThreadComposer
+          key={skills ? [...picked].sort().join(" ") : undefined}
           defaultProjectId={seed.projectId ?? undefined}
           defaultProviderId={seed.providerId ?? undefined}
           defaultModel={seed.model ?? undefined}
           defaultPermissionMode={seed.permissionMode}
           defaultEnvironment={seed.environment}
-          initialPrompt={seed.prompt}
-          placeholder={seed.placeholder ?? "What should this thread do?"}
-          draftKey={draftKeyFor(draftKey, seed.prompt)}
+          initialPrompt={prompt}
+          placeholder={seed.placeholder ?? (skills?.length ? "Pick a skill above, or say what this thread should do" : "What should this thread do?")}
+          draftKey={draftKeyFor(draftKey, prompt)}
           layout="document"
           focusRequest={focusRequest}
           onSubmit={onSubmit}
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * The form in a box under a row's Start thread button, where Add note opens
+ * its editor, so the list stays in view and in reach. The row is the context,
+ * so the card is left out. The button that opened it closes it again.
+ *
+ * After `onSubmit` resolves, call {@link announceStartedThread} rather than
+ * navigating to the thread.
+ */
+export function StartThreadInline({
+  seed,
+  draftKey,
+  onSubmit,
+}: {
+  seed: StartThreadSeed;
+  /** Identifies the row, so a draft typed for one row stays with it. */
+  draftKey: string;
+  /** Throw to keep the box open with the draft in it. */
+  onSubmit: (request: NewThreadRequest) => Promise<void>;
+}) {
+  // Focus the composer once, when the box opens.
+  const [focusRequest] = useState(1);
+  return (
+    <section aria-label="Start a thread" className="mt-2 rounded-md border border-border bg-muted/40 p-2">
+      <StartThreadForm
+        seed={seed}
+        draftKey={draftKey}
+        focusRequest={focusRequest}
+        showPreview={false}
+        className="space-y-2"
+        onSubmit={onSubmit}
+      />
+    </section>
   );
 }
 

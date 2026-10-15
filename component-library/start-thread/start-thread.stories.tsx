@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { PreviewCard, WorkspaceBanner } from "./start-thread";
+import { PreviewCard, SkillChips, WorkspaceBanner } from "./start-thread";
+import type { SuggestedSkill } from "./keys";
 
 export default {
   title: "component-library/Start thread",
@@ -44,6 +46,44 @@ export const Workspace = () => (
     </StoryRow>
     <StoryRow label="On a new branch" hint="The plugin could not use the pull request's own">
       <WorkspaceBanner branch={null} note="it comes from a fork." />
+    </StoryRow>
+  </StoryCard>
+);
+
+const SKILLS: SuggestedSkill[] = [
+  { name: "resolve-merge-conflicts", reason: "It conflicts with its base branch.", instruction: "", selected: true },
+  { name: "address-code-review", reason: "There is live reviewer feedback from hubber.", instruction: "", selected: true },
+  { name: "pr-sweep", reason: "Check the pull request for anything else that needs doing", instruction: "" },
+];
+
+function Chips({ initial }: { initial: string[] }) {
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set(initial));
+  return (
+    <SkillChips
+      skills={SKILLS}
+      picked={picked}
+      onToggle={(name) =>
+        setPicked((current) => {
+          const next = new Set(current);
+          if (!next.delete(name)) next.add(name);
+          return next;
+        })
+      }
+    />
+  );
+}
+
+/**
+ * The skills a plugin suggests for a row, above the composer. A picked chip
+ * is filled and ticked, and puts a line naming its skill in the prompt.
+ */
+export const SuggestedSkills = () => (
+  <StoryCard>
+    <StoryRow label="As the box opens" hint="The skills the findings name are picked; pr-sweep is offered for the rest">
+      <Chips initial={["resolve-merge-conflicts", "address-code-review"]} />
+    </StoryRow>
+    <StoryRow label="Nothing picked">
+      <Chips initial={[]} />
     </StoryRow>
   </StoryCard>
 );

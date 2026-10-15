@@ -46,3 +46,30 @@ function digest(text: string): string {
 export function draftKeyFor(row: string, seededPrompt: string | undefined): string {
   return seededPrompt ? `${row}:${digest(seededPrompt)}` : row;
 }
+
+/**
+ * A skill the plugin suggests for the row, offered as a chip above the
+ * composer instead of text already typed into it.
+ */
+export interface SuggestedSkill {
+  /** The skill's name, such as `resolve-merge-conflicts`, drawn on the chip. */
+  name: string;
+  /** Why the plugin suggests it for this row, shown when the chip is hovered. */
+  reason: string;
+  /** What picking it puts in the prompt: the skill named, with what it is for. */
+  instruction: string;
+  /** Picked when the box opens. */
+  selected?: boolean;
+}
+
+/**
+ * What the picked chips put in the prompt, in the order the plugin suggested
+ * them rather than the order they were clicked, since a plugin lists its
+ * skills in the order the work should go. Empty when nothing is picked.
+ */
+export function skillPrompt(skills: readonly SuggestedSkill[], picked: ReadonlySet<string>): string {
+  return skills
+    .filter((skill) => picked.has(skill.name))
+    .map((skill) => skill.instruction)
+    .join("\n\n");
+}

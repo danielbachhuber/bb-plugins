@@ -161,6 +161,12 @@ export interface SweepRowProps {
    */
   threadLine?: ReactNode;
   /**
+   * Drawn directly under the action line, before the thread line, while the
+   * row's Start thread button has it open: component-library's
+   * StartThreadInline.
+   */
+  startThread?: ReactNode;
+  /**
    * Turns the comment count into a toggle for a drawer under the action line.
    * Left out, the count is only a number.
    */
@@ -212,6 +218,7 @@ export function SweepRow({
   commentsOpen = false,
   commentsDrawer,
   threadLine,
+  startThread,
   editing,
   onEditNote,
   onNoteSave,
@@ -363,6 +370,7 @@ export function SweepRow({
               ) : null}
               {trailing ? <span className="ml-auto flex items-center">{trailing}</span> : null}
             </div>
+            {startThread}
             {threadLine}
             {/* The note and its editor share one place under the action line, the editor replacing the note while open. */}
             {editing ? (

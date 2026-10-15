@@ -17,7 +17,7 @@ what not to do with it.
 | [Calendar](#calendar) | `@danielbachhuber/bb-plugin-component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
 | [Date range](#date-range) | `@danielbachhuber/bb-plugin-component-library/date-range` | A button that opens two months of calendar to pick a span of days |
 | [Top bar](#top-bar) | `@danielbachhuber/bb-plugin-component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left just after the sidebar toggle |
-| [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
+| [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer under a row or in a dialog, with the plugin's suggested skills as chips, and the toast that links to the thread once it starts |
 | [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
@@ -314,38 +314,52 @@ adds a chip takes room from them.
 ## Start thread
 
 ```tsx
-import { StartThreadDialog, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialogParts from "@/components/ui/dialog";
+import { StartThreadInline, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 
-<StartThreadDialog
-  dialog={dialogParts}
-  heading={`Start a thread for #${row.number}`}
-  draftKey={`pr-sweep:${row.repo}#${row.number}`}
-  seed={draft?.seed ?? null}
-  onClose={() => setDraft(null)}
-  onSubmit={async (request) => {
-    const { threadId } = await rpc.call("start", { request });
-    setDraft(null);
-    announceStartedThread(navigate, threadId, `Started a thread for ${key}`);
-  }}
-/>
+// Drawn under the row's action line while its Start thread button has it open.
+{draft && draft.key === key ? (
+  <StartThreadInline
+    draftKey={`pr-sweep:${row.repo}#${row.number}`}
+    seed={draft.seed}
+    onSubmit={async (request) => {
+      const { threadId } = await rpc.call("start", { request });
+      setDraft(null);
+      announceStartedThread(navigate, threadId, `Started a thread for ${key}`);
+    }}
+  />
+) : null}
 ```
 
 It is how a plugin starts a thread about one row: a pull request, an issue, a
-task, a plugin. The dialog holds bb's own `experimental_NewThreadComposer`, so
+task, a plugin. It holds bb's own `experimental_NewThreadComposer`, so
 @-mentions, attachments, and the provider, project, environment, branch and
 permission pickers are bb's. The plugin supplies a seed and passes the
 resolved `NewThreadRequest` on to `threads.spawn`.
 
-**What it draws.** A card naming the row (`seed.preview`), linked when it has
-a URL, then the composer, seeded with `seed.prompt` and whichever of
-`projectId`, `providerId`, `model`, `permissionMode` and `environment` the
-plugin has an opinion on. With `seed.workspace.branch`, a banner names the
-branch the thread runs on and the composer's project, environment and branch
-pickers are hidden, which needs `FIXED_ENVIRONMENT_CSS` on the page from a
-content script. The draft is saved per row and per seeded prompt, so an edit
-survives reopening the same row and is dropped once the plugin seeds
-something different. `StartThreadForm` is the same without the dialog.
+**Where it opens.** `StartThreadInline` draws it in a box under the row, where
+sweep-ui's Add note opens its editor, so the list stays in view. The row's
+Start thread button opens it, stays pressed (`aria-expanded`) while it is
+open, and closes it. sweep-ui's `SweepList` draws it from
+`renderStartThread`. `StartThreadDialog` draws the same thing in a dialog,
+under a card naming the row (`seed.preview`), for a page without rows to open
+it under. `StartThreadForm` is the contents of either.
+
+**Suggested skills.** `seed.skills` lists the skills the plugin suggests, each
+with a `reason` shown on hover and an `instruction`, the line it puts in the
+prompt. They are drawn as chips above the composer, and the ones marked
+`selected` start picked. The prompt holds only the picked instructions, in the
+order the plugin listed them. bb's composer cannot have text inserted once it
+is open and will not submit an empty prompt, so a chip remounts it seeded with
+the new instructions, and anything typed before is dropped. Without `skills`,
+the composer is seeded with `seed.prompt`.
+
+**The rest of the seed.** Whichever of `projectId`, `providerId`, `model`,
+`permissionMode` and `environment` the plugin has an opinion on. With
+`seed.workspace.branch`, a banner names the branch the thread runs on and the
+composer's project, environment and branch pickers are hidden, which needs
+`FIXED_ENVIRONMENT_CSS` on the page from a content script. The draft is saved
+per row and per seeded prompt, so an edit survives reopening the same row
+with the same chips and is dropped once the plugin seeds something different.
 
 **After it starts.** Call `announceStartedThread` rather than
 `navigate.toThread`. Every plugin leaves you on the page you started the
@@ -354,10 +368,10 @@ thread that already exists, from a row's Open thread, still navigates.
 
 **The dialog parts.** The library cannot import a plugin's vendored
 `components/ui/dialog.tsx`, since `@/` means the plugin's directory, so the
-plugin passes its own in as `dialog`.
+plugin passes its own in to `StartThreadDialog` as `dialog`.
 
-The three sweeps, Now, Impromptu UI, Plugin Shelf, and Contributor Dashboard
-use the dialog. New issue, Presentations, and Weekly Review use only the
+PR Sweep and Review Sweep open it under the row. Issue Sweep, Now, Impromptu
+UI, Plugin Shelf, and Contributor Dashboard use the dialog. New issue, Presentations, and Weekly Review use only the
 toast.
 
 **Don't** put the row's identity in the editable prompt instead of the card.
