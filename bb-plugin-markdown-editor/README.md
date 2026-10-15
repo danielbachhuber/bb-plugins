@@ -2,13 +2,13 @@
 
 Edit markdown files in the tab bb opens them in, preview the result, and save with Cmd+S without overwriting an agent's edits.
 
-Without the plugin, bb opens a markdown file read-only. You can switch between Preview and Raw, but to change a line you have to open the file in another editor:
+With the plugin, the tab bb opens a markdown file in can edit it. Raw is the source in an editable pane, and the header shows Unsaved changes, Discard, and Save:
 
-![bb's own preview of docs/release-checklist.md, with a Preview and Raw toggle and no way to edit the text](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--without-the-plugin.png)
+![docs/release-checklist.md in Markdown Editor's Raw view, with step 2 rewritten and a step added, Unsaved changes and Discard in the header, and Save enabled](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--raw-with-unsaved-changes.png)
 
-With it, the same tab edits the file. Raw is the source in an editable pane, and the header shows Unsaved changes, Discard, and Save:
+Without the plugin, bb opens the same file read-only. You can switch between Preview and Raw, but to change a line you have to open the file in another editor:
 
-![The same file in Markdown Editor's Raw view, with step 2 rewritten and a step added, Unsaved changes and Discard in the header, and Save enabled](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--raw-with-unsaved-changes.png)
+![bb's own preview of the same file, with a Preview and Raw toggle and no way to edit the text](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--without-the-plugin.png)
 
 ## Use
 
