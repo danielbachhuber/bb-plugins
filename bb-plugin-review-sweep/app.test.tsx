@@ -504,7 +504,14 @@ const SEED = {
   providerId: "claude-code",
   model: null,
   permissionMode: "full" as const,
-  prompt: "Review acme/widgets#42.",
+  skills: [
+    {
+      name: "code-review",
+      reason: "A review was requested of you",
+      instruction: "Review acme/widgets#42. Use the `code-review` skill.",
+      selected: true,
+    },
+  ],
   preview: {
     title: "Add the widget endpoint",
     number: 42,
@@ -547,12 +554,14 @@ describe("thread action", () => {
     );
   });
 
-  it("asks for a draft and opens the composer naming the review, rather than spawning", async () => {
+  it("asks for a draft and opens the box under the row with the review skill picked, rather than spawning", async () => {
     const slot = render(listing(), {
       reviewThisDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
     });
     fireEvent.click(await slot.findByRole("button", { name: "Start review" }));
-    expect(await slot.findByText("Start a review thread for #42")).toBeInTheDocument();
+    expect(await slot.findByRole("region", { name: "Start a thread" })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: "code-review" })).toHaveAttribute("aria-pressed", "true");
+    expect(slot.getByRole("button", { name: "Start review", expanded: true })).toBeInTheDocument();
     const call = slot.inspection.rpcCalls.find((entry) => entry.method === "reviewThisDraft");
     expect(call?.input).toEqual({ repo: "acme/widgets", number: 42 });
     expect(slot.inspection.rpcCalls.some((entry) => entry.method === "reviewThisSubmit")).toBe(false);

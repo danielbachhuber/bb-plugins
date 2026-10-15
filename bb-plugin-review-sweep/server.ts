@@ -3,7 +3,7 @@ import { REPO_SLUG_PATTERN, createSyncUsage, fetchFeedback } from "@danielb/gh-s
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./review/gh.js";
-import { buildPromptParts, headerItem, trailerItem, type PromptParts } from "./review/prompt.js";
+import { buildPromptParts, headerItem, suggestedSkills, trailerItem, type PromptParts } from "./review/prompt.js";
 import type { ClassifiedRow } from "./review/types.js";
 import type { z } from "zod";
 import {
@@ -358,7 +358,7 @@ export default async function plugin(bb: BbPluginApi) {
         providerId: providerId || null,
         model: chosenModel || null,
         permissionMode: parsePermissionMode(permissionMode),
-        prompt: buildPromptParts(row, Date.now()).body,
+        skills: suggestedSkills(row, Date.now()),
         preview: {
           title: row.title,
           number: row.number,

@@ -11,11 +11,10 @@ import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import {
-  StartThreadDialog,
+  StartThreadInline,
   announceStartedThread,
   type StartThreadSeed,
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialog from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection } from "./review/actions.js";
@@ -172,8 +171,8 @@ function Panel() {
     [reload, rpc],
   );
 
-  // The review whose composer is open, with the seeds the backend resolved for
-  // it. Null when the dialog is closed.
+  // The review whose Start thread box is open, with the seeds the backend
+  // resolved for it. Null when every box is closed.
   const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
     null,
   );
@@ -181,6 +180,11 @@ function Panel() {
   const onReview = useCallback(
     (row: Row) => {
       const key = `${row.repo}#${row.number}`;
+      // The button that opened the box closes it, as Add note's does.
+      if (draft && `${draft.row.repo}#${draft.row.number}` === key) {
+        setDraft(null);
+        return;
+      }
       // Mark it starting before awaiting anything, so the button changes on the
       // same tick as the click.
       setStarting((current) => new Set(current).add(key));
@@ -210,7 +214,7 @@ function Panel() {
         }
       })();
     },
-    [onOpen, rpc],
+    [draft, onOpen, rpc],
   );
 
   const onSubmitDraft = useCallback(
@@ -299,6 +303,15 @@ function Panel() {
         listing={listing}
         now={now}
         starting={starting}
+        renderStartThread={(row) =>
+          draft && draft.row.repo === row.repo && draft.row.number === row.number ? (
+            <StartThreadInline
+              draftKey={`review-sweep:${row.repo}#${row.number}`}
+              seed={draft.seed}
+              onSubmit={onSubmitDraft}
+            />
+          ) : null
+        }
         harvest={harvest}
         onReview={onReview}
         onOpen={onOpen}
@@ -322,18 +335,6 @@ function Panel() {
         onStart={onBatchStart}
       />
 
-      <StartThreadDialog
-        dialog={dialog}
-        onClose={() => setDraft(null)}
-        heading={
-          draft ? `Start a review thread for #${draft.row.number}` : "Start a thread"
-        }
-        draftKey={
-          draft ? `review-sweep:${draft.row.repo}#${draft.row.number}` : ""
-        }
-        seed={draft?.seed ?? null}
-        onSubmit={onSubmitDraft}
-      />
     </TooltipProvider>
   );
 }

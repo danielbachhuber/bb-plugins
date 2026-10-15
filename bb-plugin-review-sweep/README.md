@@ -271,8 +271,11 @@ before trusting it unattended.
 
 ## Threads
 
-"Start review" opens bb's composer in a dialog, so you can read and edit the
-prompt first. Starting it leaves you on the page, with a toast whose **Go to
+"Start review" opens bb's composer under the row, where Add note opens its
+editor, and clicking it again closes it. Above the composer, the
+`code-review` skill is a chip, already picked, and it puts what this review is
+and how it should read in the prompt. Unpick it to write your own prompt
+instead. Starting it leaves you on the page, with a toast whose **Go to
 thread** button opens the new thread. A thread started from a row is linked to its pull request in gh-context, and
 the row then opens that thread rather than starting another. A review thread
 is not on the pull request's branch, so bb itself finds no pull request for it;

@@ -22,6 +22,7 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   LoadingGraphic,
@@ -114,11 +115,14 @@ function keyOf(row: Row): string {
 function ThreadAction({
   row,
   isStarting,
+  isOpen,
   onReview,
   onOpen,
 }: {
   row: Row;
   isStarting: boolean;
+  /** The Start thread box is open under this row; the button stays pressed and closes it. */
+  isOpen: boolean;
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
 }) {
@@ -133,7 +137,8 @@ function ThreadAction({
   return (
     <button
       type="button"
-      className={LINE_ACTION}
+      className={cn(LINE_ACTION, isOpen && "bg-accent text-foreground")}
+      aria-expanded={isOpen}
       disabled={!row.canSpawn || isStarting}
       title={row.canSpawn ? undefined : `No bb project is checked out for ${row.repo}`}
       onClick={() => onReview(row)}
@@ -414,6 +419,11 @@ export interface ReviewListViewProps {
   now: number;
   /** Rows whose thread is being created, keyed `repo#number`. */
   starting: ReadonlySet<string>;
+  /**
+   * The Start thread box for a row, drawn under its action line while its
+   * button has it open. Null for every other row.
+   */
+  renderStartThread?: (row: Row) => ReactNode;
   harvest: HarvestPanelState;
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
@@ -445,6 +455,7 @@ export function ReviewListView({
   listing,
   now,
   starting,
+  renderStartThread,
   harvest,
   onReview,
   onOpen,
@@ -513,6 +524,10 @@ export function ReviewListView({
             runs={REVIEW_RUNS}
             items={items}
             Link={UrlLink}
+            renderStartThread={(item) => {
+              const row = rowsByKey.get(item.key);
+              return row ? renderStartThread?.(row) : null;
+            }}
             onNoteSave={(item, body) => {
               const row = rowsByKey.get(item.key);
               return row ? onNoteSave(row, body) : Promise.resolve(false);
@@ -579,6 +594,7 @@ export function ReviewListView({
                   <ThreadAction
                     row={row}
                     isStarting={starting.has(item.key)}
+                    isOpen={Boolean(renderStartThread?.(row))}
                     onReview={onReview}
                     onOpen={onOpen}
                   />

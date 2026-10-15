@@ -350,7 +350,9 @@ describe("reviewThisSubmit is one thread per review", () => {
       repo: "acme/widgets",
       number: 42,
     });
-    expect(draft.seed!.prompt).not.toMatch(/Do NOT post anything to GitHub/);
+    expect(draft.seed!.skills.map((skill) => skill.instruction).join("\n")).not.toMatch(
+      /Do NOT post anything to GitHub/,
+    );
 
     // Submitted with the box emptied to nothing but a stray word, the way a
     // user who deleted the seeded text would.

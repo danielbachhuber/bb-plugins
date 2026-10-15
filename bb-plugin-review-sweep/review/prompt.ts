@@ -109,3 +109,24 @@ export function buildPromptParts(row: PromptRow, now: number): PromptParts {
 export function buildPrompt(row: PromptRow, now: number): string {
   return joinPromptParts(buildPromptParts(row, now));
 }
+
+/**
+ * The skill offered as a chip when a review is started from a row, already
+ * picked: the review skill, carrying the same "what to do" half that Batch
+ * starts with.
+ */
+export function suggestedSkills(row: PromptRow, now: number): {
+  name: string;
+  reason: string;
+  instruction: string;
+  selected: boolean;
+}[] {
+  return [
+    {
+      name: REVIEW_SKILL,
+      reason: row.state === "re-review" ? "It came back to you for another review" : "A review was requested of you",
+      instruction: buildPromptParts(row, now).body,
+      selected: true,
+    },
+  ];
+}
