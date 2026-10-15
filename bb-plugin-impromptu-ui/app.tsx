@@ -2,9 +2,9 @@
 // panel.
 //
 // Every view a thread published and has not hidden shows as a compact list
-// right above the composer, newest first: one row per item with a Review
-// button. Clicking a row opens that
-// item in the side panel, with its details and every button. The panel keeps
+// right above the composer, newest first: one row per item, with a chevron.
+// Clicking a row opens that item in the side panel, with its details and
+// every button. The panel keeps
 // one tab per view and switches the item it shows as rows are clicked. A view
 // with the "list" layout shows whole in the panel instead, as one list.
 import { useCallback, useEffect, useRef, useState } from "react";

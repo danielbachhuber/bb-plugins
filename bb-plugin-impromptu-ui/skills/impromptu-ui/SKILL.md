@@ -7,7 +7,7 @@ description: Use when `bb impromptu-ui` is available and either a skill or task 
 
 ## Overview
 
-`bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its title, first two badges, the first line of its summary, and a Review button. By default nothing runs from the list: the row and its button open the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its number, title, first two badges, and the first line of its summary. By default nothing runs from the list: clicking a row opens the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
 
 ## Is it available?
 

@@ -1,5 +1,5 @@
 // A thread's view as a compact list right above the composer. Each row is one
-// item: its title, badges, one line of summary, and a Review button. Clicking
+// item: its title, badges, one line of summary, and a chevron. Clicking
 // the row opens the item in the side panel with everything else, or goes to the
 // thread the item is worked in when it has one elsewhere. A view with
 // the "list" layout lives in the side panel instead, so here it is one row
@@ -207,7 +207,7 @@ export function ViewBanner({
               <li
                 key={item.id}
                 className={cn(
-                  "flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-0",
+                  "group flex items-center gap-2 border-b border-border px-3 py-1.5 last:border-0",
                   focusedItem === item.id && "bg-state-active",
                   state === "dismissed" && "opacity-50",
                 )}
@@ -253,7 +253,7 @@ export function ViewBanner({
                   ) : null}
                 </button>
                 {elsewhere !== null ? (
-                  <Button size="sm" variant={state === "open" ? "default" : "ghost"} className="h-6 shrink-0 px-2 text-xs" onClick={open}>
+                  <Button size="sm" variant="ghost" className="h-6 shrink-0 px-2 text-xs" onClick={open}>
                     <Icon name="SideChat" aria-hidden />
                     Open thread
                   </Button>
@@ -266,15 +266,12 @@ export function ViewBanner({
                 ) : (
                   // Always opens the item: nothing runs from the list, so every
                   // action is taken with its details, draft, or command in view.
-                  <Button
-                    size="sm"
-                    variant="default"
-                    className="h-6 shrink-0 px-2 text-xs"
-                    disabled={busyItem === item.id}
-                    onClick={() => onOpenItem(item)}
-                  >
-                    {busyItem === item.id ? "Working…" : "Review"}
-                  </Button>
+                  // Quiet, since the whole row opens it too: the titles are what to read.
+                  busyItem === item.id ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">Working…</span>
+                  ) : (
+                    <OpenChevron label={`Review ${item.title}`} strong={focusedItem === item.id} onClick={() => onOpenItem(item)} />
+                  )
                 )}
               </li>
             );
@@ -299,7 +296,7 @@ function ClosingRow({ stored, item, focused, wide, onOpen }: { stored: StoredVie
   const ready = left === 0;
   const before = stepsBefore(stored).length;
   return (
-    <div className={cn("flex items-center gap-2 border-t border-border px-3 py-1.5", focused && "bg-state-active")}>
+    <div className={cn("group flex items-center gap-2 border-t border-border px-3 py-1.5", focused && "bg-state-active")}>
       <span className={cn("shrink-0 text-center text-xs", wide ? "w-4" : "w-3", state === "done" ? "text-success" : "text-muted-foreground")} aria-hidden>
         {state === "done" ? "✓" : "→"}
       </span>
@@ -316,11 +313,25 @@ function ClosingRow({ stored, item, focused, wide, onOpen }: { stored: StoredVie
               : `After the ${left} of ${before} still open above`}
         </span>
       </button>
-      {state !== "open" ? null : (
-        <Button size="sm" variant={ready ? "default" : "outline"} className="h-6 shrink-0 px-2 text-xs" onClick={onOpen}>
-          Review
-        </Button>
-      )}
+      {state !== "open" ? null : <OpenChevron label={`Review ${item.title}`} strong={focused || ready} onClick={onOpen} />}
     </div>
+  );
+}
+
+/** A row's way into the side panel: a chevron that darkens on hover and on the row the panel shows. */
+function OpenChevron({ label, strong, onClick }: { label: string; strong: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title="Open in the side panel"
+      onClick={onClick}
+      className={cn(
+        "flex size-6 shrink-0 items-center justify-center rounded-md hover:bg-state-hover hover:text-foreground group-hover:text-foreground",
+        strong ? "text-foreground" : "text-muted-foreground/60",
+      )}
+    >
+      <Icon name="ChevronRight" className="size-4" aria-hidden />
+    </button>
   );
 }
