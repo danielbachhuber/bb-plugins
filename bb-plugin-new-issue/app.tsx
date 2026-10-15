@@ -15,7 +15,7 @@ import {
   useRpc,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { announceStartedThread } from "component-library/start-thread";
+import { announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import type { rpcContract } from "./server";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";

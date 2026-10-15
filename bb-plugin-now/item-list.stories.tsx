@@ -1,7 +1,7 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { SyncStatus } from "component-library/sync-status";
-import type { ThreadStatus } from "component-library/thread-status";
+import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView, type Filter } from "./now/item-list";

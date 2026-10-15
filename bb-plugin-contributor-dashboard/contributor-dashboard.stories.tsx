@@ -6,7 +6,7 @@ import { StageView } from "./components/stage-view";
 import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
-import type { ThreadStatus } from "component-library/thread-status";
+import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { ThreadStatusContext } from "./components/item-row";
 
 export default {

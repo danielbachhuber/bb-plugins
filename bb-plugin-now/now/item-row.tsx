@@ -2,7 +2,7 @@
 // from here. Draws only; every action is a callback.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
-import { THREAD_EDGE, ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
+import { THREAD_EDGE, ThreadLine, OpenThreadAction, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";

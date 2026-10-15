@@ -77,12 +77,24 @@ newest_mtime() {
     | xargs -0 stat -f '%m' 2>/dev/null | sort -rn | head -1
 }
 
-# The sibling directories a plugin bundles, as `file:../<dir>` dependency specs.
+# The sibling directories a plugin bundles: its `file:../<dir>` dependency
+# specs, and its dependencies on another workspace by name, which npm links to
+# that workspace's directory (the component library, published to npm for
+# marketplace installs).
 file_dep_dirs() {
-  jq -r '[(.dependencies // {}), (.devDependencies // {})]
-         | add | values | .[]
-         | select(type == "string" and startswith("file:../"))
-         | sub("^file:\\.\\./"; "")' "$1/package.json" 2>/dev/null || true
+  jq -r --slurpfile ws <(workspace_names) \
+        '[(.dependencies // {}), (.devDependencies // {})] | add // {}
+         | to_entries[]
+         | if (.value | type == "string" and startswith("file:../"))
+           then .value | sub("^file:\\.\\./"; "")
+           else ($ws[0][.key] // empty) end' "$1/package.json" 2>/dev/null || true
+}
+
+# A JSON object of each workspace's package name to its directory.
+workspace_names() {
+  jq -r '.workspaces[]' "$DIR/package.json" | while read -r ws; do
+    jq -c --arg dir "$ws" '{(.name): $dir}' "$DIR/$ws/package.json" 2>/dev/null
+  done | jq -s 'add // {}'
 }
 
 detect_plugins() {

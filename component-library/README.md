@@ -11,27 +11,49 @@ what not to do with it.
 
 | Entry | Import | What it is |
 | --- | --- | --- |
-| [Sync status](#sync-status) | `component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar, with what the past hour of syncs cost on GitHub behind the label |
-| [Sidebar count](#sidebar-count) | `component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
-| [Segmented](#segmented) | `component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
-| [Calendar](#calendar) | `component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
-| [Date range](#date-range) | `component-library/date-range` | A button that opens two months of calendar to pick a span of days |
-| [Top bar](#top-bar) | `component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left just after the sidebar toggle |
-| [Start thread](#start-thread) | `component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
-| [Thread status](#thread-status) | `component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
+| [Sync status](#sync-status) | `@danielbachhuber/bb-plugin-component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar, with what the past hour of syncs cost on GitHub behind the label |
+| [Sidebar count](#sidebar-count) | `@danielbachhuber/bb-plugin-component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
+| [Segmented](#segmented) | `@danielbachhuber/bb-plugin-component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
+| [Calendar](#calendar) | `@danielbachhuber/bb-plugin-component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
+| [Date range](#date-range) | `@danielbachhuber/bb-plugin-component-library/date-range` | A button that opens two months of calendar to pick a span of days |
+| [Top bar](#top-bar) | `@danielbachhuber/bb-plugin-component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left just after the sidebar toggle |
+| [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer in a dialog, under a card naming the row the thread is for, and the toast that links to the thread once it starts |
+| [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
 
 ## Installing
 
-A plugin depends on it as `"component-library": "file:../component-library"`
-and installs with `npm install --install-links`, through its `harvest:sync`
-script. A plain `npm install` links the directory instead of copying it, and
-the link resolves React from this package's own `node_modules`, which puts a
-second React in the plugin. React, `react-dom`, the Hugeicons packages,
-`clsx`, and `tailwind-merge` are peer dependencies for the same reason: the
-copy uses the plugin's.
+It is published to npm as `@danielbachhuber/bb-plugin-component-library`, and
+a plugin depends on it as `"@danielbachhuber/bb-plugin-component-library":
+"^1.0.0"`. In this checkout npm links the local `component-library/`
+directory, since it is a workspace whose version fits that range, so an edit
+here reaches every plugin without publishing.
+
+The published copy is what a marketplace install gets. bb installs a plugin
+from git with `npm install --prefix <plugin dir> --omit=dev` and builds it
+from source, so nothing is installed beside a `file:../` sibling, and its
+imports of Hugeicons fail to resolve. A copy npm installs from the registry
+sits inside the plugin's own `node_modules`, where they resolve.
+
+So a plugin release that needs a change made here needs that change published
+first:
+
+```sh
+cd component-library
+npm version patch --no-git-tag-version   # or minor, for a new entry
+npm publish
+```
+
+Raise the range in each plugin that needs the new version, then run
+`node scripts/check-installable.mjs <plugin>` at the root, which installs the
+plugin from the last commit the way bb does.
+
+React, `react-dom`, the Hugeicons packages, `clsx`, and `tailwind-merge` are
+peer dependencies, so the library uses the plugin's copy and React stays
+single. bb provides React, `clsx`, and `tailwind-merge` at runtime; the plugin
+lists the Hugeicons packages in its own dependencies.
 
 `react-day-picker` is an optional peer, for the calendar. npm does not install
 an optional peer, so a plugin that imports neither [Calendar](#calendar) nor
@@ -54,13 +76,13 @@ and in dependencies that list files this way. A `bb` block with no `name` does
 not make this a plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 
 An edit here does nothing in bb until every plugin that uses it is rebuilt.
-`./sync.sh` at the repository root does that, since it counts a plugin's
-`file:` dependencies as part of its source.
+`./sync.sh` at the repository root does that, since it counts this package as
+part of the source of every plugin that depends on it.
 
 ## Sync status
 
 ```tsx
-import { SyncStatus } from "component-library/sync-status";
+import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 
 <SyncStatus syncedAt={listing?.syncedAt ?? null} busy={busy} onRefresh={refresh} />
 ```
@@ -117,7 +139,7 @@ button anything but Refresh, or write another formatter for the same label.
 ## Sidebar count
 
 ```tsx
-import { SidebarCount } from "component-library/sidebar-count";
+import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 
 <SidebarCount urgent={2} total={5} urgentLabel="2 need you" totalLabel="5 to review" />
 ```
@@ -152,7 +174,7 @@ the rows around it, or count rows the page would not show.
 Tokenomics, where every thread counts, draws `SidebarLevels` instead:
 
 ```tsx
-import { SidebarLevels } from "component-library/sidebar-count";
+import { SidebarLevels } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 
 <SidebarLevels warning={3} error={1} warningLabel="3 past the warning" errorLabel="1 past the limit" />
 ```
@@ -165,7 +187,7 @@ drawn when both are. Tokenomics uses it.
 ## Segmented
 
 ```tsx
-import { Segmented, SegmentedToggle } from "component-library/segmented";
+import { Segmented, SegmentedToggle } from "@danielbachhuber/bb-plugin-component-library/segmented";
 
 <Segmented label="Period" options={periods} value={period} onChange={setPeriod} />
 <SegmentedToggle label="Source" options={sources} value={source} onChange={setSource} />
@@ -192,7 +214,7 @@ labels need more than a word or two. A select fits those better.
 ## Calendar
 
 ```tsx
-import { Calendar } from "component-library/calendar";
+import { Calendar } from "@danielbachhuber/bb-plugin-component-library/calendar";
 
 <Calendar mode="range" numberOfMonths={2} selected={range} onSelect={setRange} />
 ```
@@ -213,7 +235,7 @@ range](#date-range) already draws the button, the panel, and Apply around it.
 ## Date range
 
 ```tsx
-import { DateRange, type DayRange } from "component-library/date-range";
+import { DateRange, type DayRange } from "@danielbachhuber/bb-plugin-component-library/date-range";
 
 <DateRange value={range} onChange={setRange} earliest={twoYearsAgo} latest={Date.now()} />
 ```
@@ -239,7 +261,7 @@ keep this for the rest.
 ## Top bar
 
 ```tsx
-import { TopBarCount, TopBarSlot } from "component-library/top-bar";
+import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 
 <TopBarSlot pluginId="now" order={0} activeOn={["/plugins/now/now"]}>
   <TopBarCount icon={<Icon name="Target" />} label="Open Now" onClick={open}
@@ -292,7 +314,7 @@ adds a chip takes room from them.
 ## Start thread
 
 ```tsx
-import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import { StartThreadDialog, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialogParts from "@/components/ui/dialog";
 
 <StartThreadDialog

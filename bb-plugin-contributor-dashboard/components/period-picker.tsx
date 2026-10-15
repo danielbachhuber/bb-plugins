@@ -1,8 +1,8 @@
 // The span control every page shares: the presets, then a range for the
 // question they do not answer. Choosing a preset drops the custom range, so
 // the two never both look selected.
-import { Segmented } from "component-library/segmented";
-import { DateRange, type DayRange } from "component-library/date-range";
+import { Segmented } from "@danielbachhuber/bb-plugin-component-library/segmented";
+import { DateRange, type DayRange } from "@danielbachhuber/bb-plugin-component-library/date-range";
 
 import { BACKFILL_MS, DEFAULT_SELECTION, PRESETS, type PresetId, type Selection } from "@/dashboard/period";
 

@@ -7,17 +7,17 @@ import {
   type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { SidebarCount } from "component-library/sidebar-count";
-import { TopBarCount, TopBarSlot } from "component-library/top-bar";
-import { SyncStatus } from "component-library/sync-status";
-import { useThreadStatus } from "component-library/thread-status";
+import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
+import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   StartThreadDialog,
   announceStartedThread,
   type StartThreadSeed,
-} from "component-library/start-thread";
+} from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialog from "@/components/ui/dialog";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import type { rpcContract } from "./server.js";

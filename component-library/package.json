@@ -1,7 +1,23 @@
 {
-  "name": "component-library",
+  "name": "@danielbachhuber/bb-plugin-component-library",
   "version": "1.0.0",
   "description": "UI that several plugins draw the same way, starting with the sync status in a page's title bar.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danielbachhuber/bb-plugins.git",
+    "directory": "component-library"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "*/*.ts",
+    "*/*.tsx",
+    "!**/*.test.ts",
+    "!**/*.test.tsx",
+    "!**/*.stories.tsx",
+    "README.md"
+  ],
   "bb": {
     "pluginTailwindContent": [
       "**/*.tsx",
@@ -10,7 +26,6 @@
       "!node_modules/**"
     ]
   },
-  "private": true,
   "type": "module",
   "exports": {
     "./sync-status": "./sync-status/sync-status.tsx",

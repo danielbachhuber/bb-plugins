@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
-import { SyncStatus } from "component-library/sync-status";
-import type { ThreadStatus } from "component-library/thread-status";
+import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { BatchPicker } from "./review/batch-dialog";
 import {

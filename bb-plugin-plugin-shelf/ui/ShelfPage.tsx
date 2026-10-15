@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import type { rpcContract } from "../shelf/contract";
 import { ShelfTable } from "./ShelfTable";
-import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import { StartThreadDialog, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialogParts from "@/components/ui/dialog";
 import { shelfStore } from "./shelf-store";
 

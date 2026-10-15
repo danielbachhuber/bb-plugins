@@ -16,7 +16,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { PluginNavPanelProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import { announceStartedThread } from "component-library/start-thread";
+import { announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import type { rpcContract } from "./server";
 import type { CalendarEvent, SlackThread, SourceResult, Task, WeekData } from "./review/types.js";
 import { buildDaySlices, comingUp, weekTotals } from "./review/week.js";

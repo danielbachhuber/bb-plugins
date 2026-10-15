@@ -1,14 +1,14 @@
 // What the Now page draws, given a loaded list. It loads nothing itself, so
 // the story can render it with fixtures.
 import { useEffect, useState, type ReactNode } from "react";
-import type { ThreadStatus } from "component-library/thread-status";
+import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { Listing, SourceStatus } from "./contract.js";
 import { ItemRow, type PendingAction, type RowActions } from "./item-row.js";
-import { SegmentedToggle } from "component-library/segmented";
+import { SegmentedToggle } from "@danielbachhuber/bb-plugin-component-library/segmented";
 
 import { NowSummary } from "./now-summary.js";
 import { groupIntoSections, nowGroupOf, NOW_GROUPS, type NowGroupId, type SectionId } from "./sections.js";

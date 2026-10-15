@@ -3,8 +3,8 @@
 // here. Drawn like the sweeps' rows, and the same height as before: an icon
 // button is no taller than the line of text beside it.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { writeLinkToClipboard } from "component-library/copy-link";
-import { THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "component-library/thread-status";
+import { writeLinkToClipboard } from "@danielbachhuber/bb-plugin-component-library/copy-link";
+import { THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";

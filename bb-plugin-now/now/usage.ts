@@ -1,6 +1,6 @@
 // What Now's syncs and buttons cost in calls to each service, for the sync
 // status in the title bar. In memory only: a restart starts the hour over.
-import type { SyncUsage } from "component-library/sync-status";
+import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 
 const HOUR = 3_600_000;
 

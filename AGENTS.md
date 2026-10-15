@@ -8,9 +8,9 @@ package; `.bb/plugins.json` indexes the ones that are plugins.
 Every plugin and shared library is a workspace of the root `package.json`.
 They share one `package-lock.json` and one `node_modules` at the root, and
 `npm install` anywhere in the checkout installs all of them. Shared libraries
-(`component-library`, `gh-shared`, `sweep-ui`, `bb-plugin-harvest`) stay
-`file:../<dir>` dependencies, and npm links them in place rather than copying
-them.
+(`gh-shared`, `sweep-ui`, `bb-plugin-harvest`) stay `file:../<dir>`
+dependencies, and npm links them in place rather than copying them. The
+component library is the exception, below.
 
 - The root lists the workspaces by name, because Dependabot does not expand a
   glob such as `bb-plugin-*`. Add a new plugin's directory to that list and
@@ -25,13 +25,36 @@ them.
   each plugin keeps its own and npm nests a copy where they differ.
 - Put `allowScripts` in the root `package.json`. npm ignores it in a
   workspace.
-- The root's postinstall links each `file:` dependency into the workspace's own
-  `node_modules` too, because bb's build reads a library's
-  `bb.pluginTailwindContent` only from there. Without it a plugin builds, but
+- The root's postinstall links each `file:` dependency, and each dependency on
+  another workspace by name, into the workspace's own `node_modules` too,
+  because bb's build reads a library's `bb.pluginTailwindContent` only from
+  there. Without it a plugin builds, but
   the shared library's Tailwind classes are missing from its panel. Another
   thread's `npm install` can remove the links partway through your builds, so
   when a shared component's styles are missing, run
   `node scripts/link-workspace-deps.mjs` and build again.
+
+## A marketplace plugin installs without the rest of the checkout
+
+bb installs a marketplace plugin by cloning this repository and running
+`npm install --prefix <plugin dir> --omit=dev --ignore-scripts` there, then
+building it from source. Nothing is installed at the root or beside a
+`file:../` sibling, so the sibling's own imports fail to resolve, and
+devDependencies are missing. A plugin that builds here can fail for everyone
+else.
+
+- A plugin in the marketplace uses no `file:` dependency. It depends on the
+  component library as `@danielbachhuber/bb-plugin-component-library`, which
+  is published to npm. In this checkout npm still links the local
+  `component-library/`. Its README covers publishing a new version.
+- The app never imports a value from a file that imports `@get-bb/plugin-sdk`'s
+  root entry, such as an RPC contract. The SDK is a devDependency, so the
+  build cannot find it. Import types from the contract, and keep constants
+  the app needs in a separate file.
+- Before tagging a release, run `node scripts/check-installable.mjs <id>` at
+  the root. It installs the plugin from the last commit the way bb does and
+  builds it. With no id, it checks every plugin; the ones that are not in the
+  marketplace still use `file:` dependencies and fail.
 
 ## This repository is public
 

@@ -13,8 +13,8 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
-import { SyncStatus } from "component-library/sync-status";
-import { useThreadStatus } from "component-library/thread-status";
+import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import type { rpcContract } from "./server";
 import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
@@ -26,10 +26,10 @@ import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
 import { hideSidePanel } from "./now/side-panel.js";
-import { SidebarCount } from "component-library/sidebar-count";
-import { TopBarCount, TopBarSlot } from "component-library/top-bar";
+import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
+import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { Icon } from "@/components/ui/icon";
-import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "component-library/start-thread";
+import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialogParts from "@/components/ui/dialog";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";

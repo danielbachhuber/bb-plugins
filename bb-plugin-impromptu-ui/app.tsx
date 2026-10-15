@@ -25,7 +25,7 @@ import { threadElsewhere, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
 import { firstOpenItem, nextOpenItem, ViewPanel, type LinkedThread } from "./view/view-panel.js";
 import { ListPanel } from "./view/list-panel.js";
-import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "component-library/start-thread";
+import { StartThreadDialog, announceStartedThread, type StartThreadSeed } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialogParts from "@/components/ui/dialog";
 import { viewFor } from "./view/store.js";
 

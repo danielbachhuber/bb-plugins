@@ -1,7 +1,7 @@
-import type { SyncUsage } from "component-library/sync-status";
+import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
+import { ThreadLine, OpenThreadAction, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
 import { SummarySquares } from "sweep-ui/summary";

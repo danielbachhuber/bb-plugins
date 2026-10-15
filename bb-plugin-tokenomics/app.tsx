@@ -10,7 +10,7 @@ import {
   type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 
-import { SidebarLevels } from "component-library/sidebar-count";
+import { SidebarLevels } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 
 import { ContextMeter } from "@/components/context-meter";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";

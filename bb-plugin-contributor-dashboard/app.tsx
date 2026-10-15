@@ -10,7 +10,7 @@ import {
   type PluginNavPanelProps,
 } from "@get-bb/plugin-sdk/app";
 
-import { SyncStatus as SyncStatusBar } from "component-library/sync-status";
+import { SyncStatus as SyncStatusBar } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
@@ -27,11 +27,11 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
-import { StartThreadDialog, announceStartedThread } from "component-library/start-thread";
+import { StartThreadDialog, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import * as dialogParts from "@/components/ui/dialog";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
-import { useThreadStatus } from "component-library/thread-status";
+import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { ThreadStatusContext } from "./components/item-row";
 
 const PANEL_PATH = "contributor-dashboard";
