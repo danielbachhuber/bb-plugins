@@ -1,6 +1,7 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
 import { SyncStatus } from "component-library/sync-status";
+import type { ThreadStatus } from "component-library/thread-status";
 
 import type { Listing, NowList, SourceStatus } from "./now/contract";
 import { ItemListView, type Filter } from "./now/item-list";
@@ -356,6 +357,21 @@ const ok: NowList = {
  * The page with its title bar, where the sync control lives. `listing` null is
  * the moment before the stored list has been read.
  */
+/** Rows with a thread, and what bb's sidebar would say each thread is doing. */
+const STORY_THREADS: Record<string, string> = {
+  "github:acme/widgets#128": "thread-1",
+  "todoist:a1": "thread-2",
+  "todoist:a4": "thread-3",
+  "todoist:a5": "thread-4",
+};
+const THREAD_STATUSES: Record<string, ThreadStatus> = {
+  "thread-1": { id: "thread-1", title: "Answer the review on the widget export pull request", live: "idle" },
+  "thread-2": { id: "thread-2", title: "Draft a reply to octocat about the widget launch date", live: "needs-you" },
+  "thread-3": { id: "thread-3", title: "Draft the Acme Board announcement", live: "working" },
+  "thread-4": { id: "thread-4", title: "Compare widget sample suppliers", live: "done" },
+};
+const threadStatus = (id: string | null) => (id === null ? null : (THREAD_STATUSES[id] ?? null));
+
 function Frame({
   listing,
   pending,
@@ -384,6 +400,7 @@ function Frame({
         pending={pending}
         initialFilter={filter}
         projects={projects}
+        threadStatus={threadStatus}
       />
     </div>
   );
@@ -391,7 +408,7 @@ function Frame({
 
 function stored(list: NowList, syncing = false): Listing {
   // One row already has its thread, so the story shows Open thread beside Start thread.
-  return { list, threads: { "github:acme/widgets#128": "thread-1" }, threadProjectId: null, syncing };
+  return { list, threads: STORY_THREADS, threadProjectId: null, syncing };
 }
 
 const actions = {

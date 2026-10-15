@@ -1,6 +1,7 @@
 // What the Now page draws, given a loaded list. It loads nothing itself, so
 // the story can render it with fixtures.
 import { useEffect, useState, type ReactNode } from "react";
+import type { ThreadStatus } from "component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -92,6 +93,8 @@ export interface ItemListViewProps {
   initialFilter?: Filter;
   /** Your Todoist projects, for the edit strip. Null until they load. */
   projects?: readonly TodoistProject[] | null;
+  /** What a row's thread is doing, from bb's sidebar. Left out, rows with a thread draw their thread line without it. */
+  threadStatus?: (threadId: string | null) => ThreadStatus | null;
 }
 
 /** Gmail before Todoist in the source picker, whatever order they sync in. */
@@ -232,6 +235,7 @@ export function ItemListView({
   pending = new Map(),
   initialFilter = { section: "now" },
   projects = null,
+  threadStatus,
 }: ItemListViewProps) {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const threads = listing?.threads ?? {};
@@ -274,6 +278,7 @@ export function ItemListView({
                 now={now}
                 actions={actions}
                 threadId={threads[item.id] ?? null}
+                threadStatus={threadStatus?.(threads[item.id] ?? null) ?? null}
                 pending={pending.get(item.id) ?? null}
                 projects={projects}
               />

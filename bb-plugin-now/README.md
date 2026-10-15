@@ -237,13 +237,18 @@ instead of offering Undo. Undo is for the moment after the click; it does not
 survive a reload of the plugin. Undo shows "Restoring…" in the toast until it
 has finished.
 
-Every row also has **Start thread** in its details line, which opens bb's
+Every row also starts its details line with **Start thread**, which opens bb's
 new-thread composer in a dialog, with the row's facts already in the prompt
 (its title, link, dates, description, and latest comment) and room for what
 the thread should do. The composer's project defaults to the
 `threadProjectId` setting when it is set. Starting it leaves you on the page,
 with a toast whose **Go to thread** button opens the new thread. Once a thread is started, the row
-offers **Open thread** instead, until that thread is archived or deleted.
+offers **Open thread** instead, until that thread is archived or deleted, and
+gets an orange left edge, unless it is overdue or due today. A line under its
+actions says what the thread is doing, as bb's sidebar does (**Working**,
+**Needs you**, **Done, unread**, **Failed, unread**, or **Idle**), with the
+thread's title. Clicking the line opens the thread. The status comes from bb's
+sidebar, so it makes no request.
 
 A GitHub row also has **Reply** in its details line, which opens a box under
 the row that comments on the pull request or issue through the GitHub API, as

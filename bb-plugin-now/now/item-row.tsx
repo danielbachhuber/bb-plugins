@@ -2,6 +2,7 @@
 // from here. Draws only; every action is a callback.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
+import { THREAD_EDGE, ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
 
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -367,6 +368,8 @@ export interface ItemRowProps {
   actions?: RowActions;
   /** The thread already started from this row. */
   threadId?: string | null;
+  /** What that thread is doing, from bb's sidebar. Null while it loads or when the sidebar does not list it. */
+  threadStatus?: ThreadStatus | null;
   /** The action this row is waiting on, if any. */
   pending?: PendingAction | null;
   /** Your Todoist projects, for the edit strip. Null until they load. */
@@ -558,7 +561,15 @@ function rowDate(item: Item, now: Date): { text: string; urgent: boolean; icon: 
   return null;
 }
 
-export function ItemRow({ item, now, actions, threadId = null, pending = null, projects = null }: ItemRowProps) {
+export function ItemRow({
+  item,
+  now,
+  actions,
+  threadId = null,
+  threadStatus = null,
+  pending = null,
+  projects = null,
+}: ItemRowProps) {
   const busy = pending !== null;
   const subtasks = item.todoist?.subtasks ?? [];
   const mergeMethods = actions === undefined ? [] : (item.github?.mergeMethods ?? []);
@@ -635,6 +646,8 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
         // Out to the list's edges, with a red bar where its padding was.
         overdue && "-mx-4 border-l-2 border-l-destructive bg-destructive/[0.04] pl-[14px] pr-4",
         dueToday && "-mx-4 border-l-2 border-l-[#eda100] bg-[#eda100]/[0.06] pl-[14px] pr-4 dark:border-l-[#c98500] dark:bg-[#c98500]/[0.08]",
+        // A row with a thread is in progress, unless it is late or due today, which say more.
+        !overdue && !dueToday && threadId !== null && actions !== undefined && THREAD_EDGE,
       )}
       aria-busy={busy}
     >
@@ -734,6 +747,17 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
             </div>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {/* The thread first, so it sits in one place on every row, with the thread line below its actions. */}
+            {actions === undefined ? null : threadId === null ? (
+              <LineAction
+                label="Start thread"
+                icon="MessageSquarePlus"
+                disabled={busy}
+                onClick={() => actions.onStartThread(item)}
+              />
+            ) : (
+              <OpenThreadAction disabled={busy} onOpen={() => actions.onOpenThread(threadId)} />
+            )}
             {actions === undefined || !mentionsYou(item) ? null : (
               <UrlLink
                 href={item.url}
@@ -829,21 +853,6 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
                 onClick={() => setReplying((open) => !open)}
               />
             )}
-            {actions === undefined ? null : threadId === null ? (
-              <LineAction
-                label="Start thread"
-                icon="MessageSquarePlus"
-                disabled={busy}
-                onClick={() => actions.onStartThread(item)}
-              />
-            ) : (
-              <LineAction
-                label="Open thread"
-                icon="MessageSquare"
-                disabled={busy}
-                onClick={() => actions.onOpenThread(threadId)}
-              />
-            )}
             {deadline === null ? null : (
               <span
                 className={cn("inline-flex items-center gap-1", deadlineDue(deadline, now) && "text-destructive-text")}
@@ -857,6 +866,9 @@ export function ItemRow({ item, now, actions, threadId = null, pending = null, p
             ))}
             {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
+          {actions === undefined || threadId === null ? null : (
+            <ThreadLine status={threadStatus} onOpen={() => actions.onOpenThread(threadId)} />
+          )}
           {card}
           {editable && editing ? (
             <TaskEdit

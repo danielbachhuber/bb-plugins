@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 
 import { SyncStatus } from "component-library/sync-status";
+import { useThreadStatus } from "component-library/thread-status";
 
 import type { rpcContract } from "./server";
 import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
@@ -453,6 +454,8 @@ function NowPage() {
   }, [rpc]);
 
   const priorities = usePriorities(rpc);
+  // bb's sidebar, already on the page, says what each row's thread is doing.
+  const threadStatus = useThreadStatus();
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -471,7 +474,14 @@ function NowPage() {
             )
           }
         >
-          <ItemListView listing={listing} now={new Date()} actions={actions} pending={pending} projects={projects} />
+          <ItemListView
+            listing={listing}
+            now={new Date()}
+            actions={actions}
+            pending={pending}
+            projects={projects}
+            threadStatus={threadStatus}
+          />
         </WithPriorities>
       </ReadingContext.Provider>
       {dialog}
