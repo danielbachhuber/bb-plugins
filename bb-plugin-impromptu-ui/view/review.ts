@@ -34,8 +34,29 @@ export function hasFeedback(feedback: Feedback): boolean {
   return feedback.pick !== null || feedback.overall.trim() !== "" || feedback.notes.some((note) => note.trim() !== "");
 }
 
+/**
+ * One proposed change shown against how it is now: the original and a single
+ * alternative. There is nothing to pick between, so the panel asks whether to
+ * build it instead.
+ */
+export function isBeforeAfter(item: Pick<Item, "variations">): boolean {
+  return item.variations.length === 2;
+}
+
+/** What a sent review says on its row: "Build it" for a before and after, "Picked A. Sections" otherwise. */
+export function feedbackLabel(item: Item, feedback: Feedback): string {
+  if (isBeforeAfter(item)) return feedback.pick === 1 ? "Build it" : "Note sent";
+  return feedback.pick === null ? "Feedback sent" : `Picked ${item.variations[feedback.pick]?.label ?? "one"}`;
+}
+
 /** The message the thread receives, written so it reads without the panel. */
 export function feedbackMessage(item: Item, feedback: Feedback): string {
+  if (isBeforeAfter(item)) {
+    const lines = [`Before and after feedback on "${item.title}":`, ""];
+    lines.push(feedback.pick === 1 ? `Decision: **build it** (${item.variations[1]!.label})` : "Decision: not yet, see the note.");
+    if (feedback.overall.trim() !== "") lines.push("", `Note: ${feedback.overall.trim()}`);
+    return lines.join("\n");
+  }
   const lines = [`Visual review feedback on "${item.title}":`, ""];
   const picked = feedback.pick === null ? undefined : item.variations[feedback.pick];
   lines.push(picked === undefined ? "Pick: none of them yet." : `Pick: **${picked.label}**`);

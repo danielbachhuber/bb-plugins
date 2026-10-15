@@ -8,6 +8,7 @@
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { feedbackLabel } from "./review.js";
 import { isQuiet, threadElsewhere, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
 import { MeterBar, TONE_CLASS } from "./view-panel.js";
@@ -196,9 +197,7 @@ export function ViewBanner({
                       {failed
                         ? `${result!.label} failed`
                         : state === "done" && result?.feedback
-                          ? result.feedback.pick === null
-                            ? "Feedback sent"
-                            : `Picked ${item.variations[result.feedback.pick]?.label ?? "one"}`
+                          ? feedbackLabel(item, result.feedback)
                           : state === "done" && result && item.status === undefined
                             ? result.label
                             : summary}

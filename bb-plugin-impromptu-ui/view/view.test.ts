@@ -8,7 +8,7 @@ import { grantSectionThreadsView, staplesView, triageView } from "./fixtures.js"
 import { runCommand, tail } from "./run-command.js";
 import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTargets, threadElsewhere, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
 import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
-import { feedbackMessage, hasFeedback, imageMime } from "./review.js";
+import { feedbackLabel, feedbackMessage, hasFeedback, imageMime, isBeforeAfter } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { draftKey, editorDraft, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
@@ -509,6 +509,19 @@ describe("visual review", () => {
       ].join("\n"),
     );
     expect(feedbackMessage(item(), { pick: null, notes: ["too busy"], overall: "" })).toContain("Pick: none of them yet.");
+  });
+
+  it("treats the original and one alternative as a before and after", () => {
+    const pair = { ...item(), title: "Group the rows", variations: item().variations.slice(0, 2) };
+    expect(isBeforeAfter(item())).toBe(false);
+    expect(isBeforeAfter(pair)).toBe(true);
+    expect(feedbackMessage(pair, { pick: 1, notes: ["", ""], overall: " keep the count " })).toBe(
+      ['Before and after feedback on "Group the rows":', "", "Decision: **build it** (A. Sections)", "", "Note: keep the count"].join("\n"),
+    );
+    expect(feedbackMessage(pair, { pick: null, notes: ["", ""], overall: "too tall" })).toContain("Decision: not yet");
+    expect(feedbackLabel(pair, { pick: 1, notes: [], overall: "" })).toBe("Build it");
+    expect(feedbackLabel(pair, { pick: null, notes: [], overall: "x" })).toBe("Note sent");
+    expect(feedbackLabel(item(), { pick: 2, notes: [], overall: "" })).toBe("Picked B. Dates right");
   });
 
   it("has nothing to send until something is picked or written", () => {

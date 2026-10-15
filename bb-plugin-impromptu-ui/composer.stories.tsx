@@ -18,7 +18,7 @@ import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, selfImproveView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -540,6 +540,34 @@ const reviewTurns: Turn[] = [
 /** A fresh review: the original on top, two directions under it. */
 export function VisualReview() {
   return <ThreadStage turns={reviewTurns} view={stored(reviewView)} />;
+}
+
+const beforeAfterTurns: Turn[] = [
+  { kind: "user", text: "These rows look kinda messy. What would you change?" },
+  { kind: "work", text: "Built the change in the story and took a screenshot before and after" },
+  {
+    kind: "assistant",
+    text: "One change would do most of it: headings for Overdue and Today in place of a red date on every row. It's above the composer as **before and after**.",
+  },
+];
+
+/** One proposed change: Before and After in the same place, flipped with the tabs or the arrow keys, and Build it to go ahead. */
+export function BeforeAfter() {
+  return <ThreadStage turns={beforeAfterTurns} view={stored(beforeAfterView)} />;
+}
+
+/** After Build it: the row says so, and the panel keeps the note that went with it. */
+export function BeforeAfterSent() {
+  const feedback = { pick: 1, notes: ["", ""], overall: "Keep the overdue count in the heading" };
+  return (
+    <ThreadStage
+      turns={beforeAfterTurns}
+      view={stored(beforeAfterView, {
+        "rows-sections": { state: "done", result: { label: "Send feedback", at: "2026-03-12T12:05:00Z", feedback } },
+      })}
+      initialFocus="rows-sections"
+    />
+  );
 }
 
 const nowRoundImages = [nowRound0, nowRound1, nowRound2, nowRound3, nowRound4];

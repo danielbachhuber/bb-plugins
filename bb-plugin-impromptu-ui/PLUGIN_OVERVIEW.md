@@ -3,6 +3,7 @@
 - Rows above the composer, one per item an agent wants you to act on, such as issues to triage or a Dependabot pull request to merge.
 - A side panel for each item, with its details, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
 - A film strip for picking a design: screenshots of the original and its alternatives, a note on each, and **Send feedback**, which sends your pick and notes to the thread.
+- Before and After for a single proposed change: flip between the two screenshots in place, then **Build it** or send a note.
 
 ## How it works
 

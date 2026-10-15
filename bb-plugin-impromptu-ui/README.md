@@ -14,7 +14,7 @@ With it, the same assessment is a row above the composer. Opening it shows the v
 
 - A skill publishes the items it wants you to act on, such as issues to triage or a pull request to merge. Each one shows as a row above the composer.
 - Click **Review** to open an item in the side panel. It shows the details, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
-- To pick a design, the agent shows screenshots of the original and its alternatives in a film strip. Pick one, leave notes, and press **Send feedback**.
+- To pick a design, the agent shows screenshots of the original and its alternatives in a film strip. Pick one, leave notes, and press **Send feedback**. A single proposed change shows as **Before** and **After** in the same place instead, with **Build it**.
 
 ![A visual review of four directions for a summary above the Now list, with D, one square per row, picked and a note to keep the counts under each run](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--visual-review-now-round.png)
 

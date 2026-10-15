@@ -362,6 +362,29 @@ export const reviewView: View = viewSchema.parse({
   ],
 });
 
+/** One proposed change and the screen as it is: shown as Before and After, with a choice to build it. */
+export const beforeAfterView: View = viewSchema.parse({
+  title: "Suggestions: task rows",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "rows-sections",
+          title: "Group the rows under Overdue and Today",
+          badges: [{ label: "Small", tone: "success" }],
+          summary: "Every row has a bright icon and a red date, so nothing stands out. Headings would carry the urgency instead.",
+          variations: [
+            { label: "Original", description: "A bright icon and a red date on every row.", image: "shots/original.png" },
+            { label: "A. Sections", description: "Overdue and Today headings, with grey outline icons.", image: "shots/a.png" },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
 export const nowRoundView: View = viewSchema.parse({
   title: "Visual review: a summary above the Now list",
   summary: "",

@@ -270,7 +270,7 @@ When each item is a quick yes or no that needs no reading, such as suggestions t
 
 ## Visual review
 
-When you would otherwise describe two or more ways a piece of UI could look ("how might we improve this?"), show them instead. Give an item `variations` in place of `actions`, or alongside a link:
+When you would otherwise describe how a piece of UI could look, show it instead: two or more directions ("how might we improve this?"), or a single change you propose. An item that proposes a change to what the user sees, such as one of several suggested improvements, gets screenshots of the screen as it is and with the change, however small the change. Describing it in the summary alone leaves the user to imagine it. Give an item `variations` in place of `actions`, or alongside a link:
 
 ```json
 {
@@ -290,7 +290,8 @@ When you would otherwise describe two or more ways a piece of UI could look ("ho
 - Take every image the same way: the same story or screen, the same data, width, and crop, so only the design differs. Build each alternative as a story or behind a flag and screenshot it; do not draw mockups by hand. PNG, JPEG, WebP, or GIF, up to 8 MB each.
 - Capture the element itself (Playwright's `locator.screenshot()`) rather than cropping a full-page capture afterwards. If you must crop, use `magick in.png -crop <w>x<h>+0+0 +repage out.png`, not `sips`: `sips -c` crops around the centre, and its `--cropOffset` does not pin the crop to the top-left, so the left and top edges are lost. Read each image back before publishing to check nothing is cut off.
 - `publish` copies the images, so moving or deleting the files afterwards is fine.
-- The user picks one (or none), notes on any, and presses Send feedback. You receive one message: `Visual review feedback on "<title>":`, the pick, and each note. Build what it says, then publish the next round as a new item with a new `id` (`review-rows-2`) if another round is needed. A sent review cannot be sent again.
+- Two variations, the original and one alternative, show as **Before and After** instead of a film strip: one image at a time in the same place, flipped with tabs or the arrow keys, an optional note, and **Build it** or **Send note only**. You receive `Before and after feedback on "<title>":`, then `Decision: **build it**` or `Decision: not yet`, and the note. Use this for each suggestion in a list of proposed changes: one item per change, each with its own before and after, so the user decides on each.
+- With more variations, the user picks one (or none), notes on any, and presses Send feedback. You receive one message: `Visual review feedback on "<title>":`, the pick, and each note. Build what it says, then publish the next round as a new item with a new `id` (`review-rows-2`) if another round is needed. A sent review cannot be sent again.
 
 ## Read back what the user did
 

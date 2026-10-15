@@ -1,13 +1,15 @@
 // A visual review inside an opened item: the variations side by side, one
 // per screen with the original first, each with a pick toggle and a note box,
-// and one Send feedback button for all of it. Kept free of RPC so a story can
+// and one Send feedback button for all of it. With a single alternative there
+// is nothing to pick between, so it shows as Before and After in one place
+// instead, and asks whether to build it. Kept free of RPC so a story can
 // render it with fixture images.
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { hasFeedback, type Feedback } from "./review.js";
+import { feedbackLabel, hasFeedback, isBeforeAfter, type Feedback } from "./review.js";
 import type { Item } from "./schema.js";
 import type { ItemRecord } from "./store.js";
 
@@ -120,7 +122,109 @@ function Filmstrip({
   );
 }
 
-export function ReviewPanel({ item, record, imageUrl, busy, onSubmit, initial }: ReviewPanelProps) {
+/**
+ * The original and one proposed change, in the same place: a cut between the
+ * two makes what changed jump out. The decision is whether to build it, with
+ * an optional note either way.
+ */
+function BeforeAfterPanel({ item, record, imageUrl, busy, onSubmit, initial }: ReviewPanelProps) {
+  const sent = record?.state === "done" ? record.result?.feedback : undefined;
+  const start = sent ?? record?.result?.feedback ?? initial;
+  const [showing, setShowing] = useState<0 | 1>(1);
+  const [note, setNote] = useState(start?.overall ?? "");
+  const [zoomed, setZoomed] = useState<number | null>(null);
+  const locked = sent !== undefined || record?.state === "dismissed";
+  const send = (pick: number | null) => onSubmit({ pick, notes: ["", ""], overall: note });
+  const sides = [
+    { name: "Before", variation: item.variations[0]! },
+    { name: "After", variation: item.variations[1]! },
+  ] as const;
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === "TEXTAREA" || target.tagName === "INPUT") return;
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      setShowing(event.key === "ArrowRight" ? 1 : 0);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-3" onKeyDown={onKeyDown}>
+      <div className="flex items-center gap-2">
+        <div role="tablist" aria-label="Before and after" className="flex shrink-0 items-center gap-0.5 rounded-lg bg-muted p-0.5">
+          {sides.map((side, index) => (
+            <button
+              key={side.name}
+              type="button"
+              role="tab"
+              aria-selected={showing === index}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium",
+                showing === index ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setShowing(index as 0 | 1)}
+            >
+              {side.name}
+            </button>
+          ))}
+        </div>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">← → to flip</span>
+      </div>
+
+      {/* Both images in one cell, so each starts in the same place and the cell keeps the taller one's height. */}
+      <div tabIndex={0} aria-label="Before and after images" className="grid outline-none">
+        {sides.map((side, index) => (
+          <div key={side.name} className={cn("[grid-area:1/1]", showing === index ? "visible" : "invisible")} aria-hidden={showing !== index}>
+            <VariationImage url={imageUrl(index)} label={`${side.name}: ${side.variation.label}`} onZoom={() => setZoomed(index)} />
+          </div>
+        ))}
+      </div>
+      {sides[showing].variation.description === "" ? null : (
+        <div className="-mt-1 text-xs text-muted-foreground [&_*]:!text-xs [&_p]:!my-0">
+          <Markdown content={sides[showing].variation.description} />
+        </div>
+      )}
+
+      {locked && note.trim() === "" ? null : (
+        <textarea
+          aria-label="Note"
+          placeholder="Note (optional): what to change before building it"
+          className={noteClass}
+          rows={2}
+          value={note}
+          disabled={locked || busy}
+          onChange={(event) => setNote(event.target.value)}
+        />
+      )}
+      {locked ? (
+        sent === undefined ? null : <div className="text-xs text-muted-foreground">Sent: {feedbackLabel(item, sent)}</div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={busy} onClick={() => send(1)}>
+            {busy ? "Sending…" : "Build it"}
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy || note.trim() === ""} onClick={() => send(null)}>
+            Send note only
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={zoomed !== null} onOpenChange={(open) => (open ? null : setZoomed(null))}>
+        <DialogContent className="max-h-[92vh] max-w-[92vw] overflow-auto p-3">
+          <DialogTitle className="text-sm">{zoomed === null ? "" : sides[zoomed as 0 | 1].name}</DialogTitle>
+          {zoomed === null ? null : <img src={imageUrl(zoomed) ?? undefined} alt={sides[zoomed as 0 | 1].name} className="max-w-none" />}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+export function ReviewPanel(props: ReviewPanelProps) {
+  return isBeforeAfter(props.item) ? <BeforeAfterPanel {...props} /> : <VariationsPanel {...props} />;
+}
+
+function VariationsPanel({ item, record, imageUrl, busy, onSubmit, initial }: ReviewPanelProps) {
   const sent = record?.state === "done" ? record.result?.feedback : undefined;
   const start = sent ?? record?.result?.feedback ?? initial;
   const [pick, setPick] = useState<number | null>(start?.pick ?? null);
