@@ -771,7 +771,7 @@ describe("thread action", () => {
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 2 });
   });
 
-  it("opens the composer naming the issue, rather than spawning", async () => {
+  it("opens the box under the row, rather than spawning, and closes it on a second click", async () => {
     const slot = await expanded(
       render(listing({ rows: [rowFixture({ number: 7, title: "Second" })] }), {
         startThreadDraft: () => ({ existingThreadId: null, reason: null, seed: SEED }),
@@ -780,7 +780,11 @@ describe("thread action", () => {
 
     fireEvent.click(slot.getByRole("button", { name: "Start thread" }));
 
-    expect(await slot.findByText("Start a thread for #7")).toBeInTheDocument();
+    expect(await slot.findByRole("region", { name: "Start a thread" })).toBeInTheDocument();
+    expect(slot.inspection.rpcCalls.some((call) => call.method === "startThreadSubmit")).toBe(false);
+    // The composer has a Start thread button of its own; the row's is the one that expands.
+    fireEvent.click(slot.getByRole("button", { name: "Start thread", expanded: true }));
+    await waitFor(() => expect(slot.queryByRole("region", { name: "Start a thread" })).toBeNull());
   });
 
   it("refuses without opening the composer when the server says why", async () => {

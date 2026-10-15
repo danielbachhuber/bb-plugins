@@ -14,11 +14,10 @@ import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/th
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
-  StartThreadDialog,
+  StartThreadInline,
   announceStartedThread,
   type StartThreadSeed,
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialog from "@/components/ui/dialog";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import type { rpcContract } from "./server.js";
 import { countedRows } from "./issues/board.js";
@@ -167,8 +166,8 @@ function Panel() {
     onStarted: reload,
   };
 
-  // The issue whose composer is open, with the seeds the backend resolved for
-  // it. Null when the dialog is closed.
+  // The issue whose Start thread box is open, with the seeds the backend
+  // resolved for it. Null when every box is closed.
   const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
     null,
   );
@@ -176,6 +175,11 @@ function Panel() {
   const onStart = useCallback(
     (row: Row) => {
       const key = `${row.repo}#${row.number}`;
+      // The button that opened the box closes it, as Add note's does.
+      if (draft && `${draft.row.repo}#${draft.row.number}` === key) {
+        setDraft(null);
+        return;
+      }
       // Marked before awaiting anything, so the button changes on the same tick
       // as the click rather than after the draft returns.
       setStarting((keys) => new Set(keys).add(key));
@@ -205,7 +209,7 @@ function Panel() {
         }
       })();
     },
-    [navigate, rpc],
+    [draft, navigate, rpc],
   );
 
   const onSubmitDraft = useCallback(
@@ -281,6 +285,15 @@ function Panel() {
         now={Date.now()}
         busyKeys={busyKeys}
         starting={starting}
+        renderStartThread={(row) =>
+          draft && draft.row.repo === row.repo && draft.row.number === row.number ? (
+            <StartThreadInline
+              draftKey={`issue-sweep:${row.repo}#${row.number}`}
+              seed={draft.seed}
+              onSubmit={onSubmitDraft}
+            />
+          ) : null
+        }
         harvest={harvest}
         onPick={(row, status) => void onPick(row, status)}
         onStart={onStart}
@@ -291,16 +304,6 @@ function Panel() {
         threadStatus={threadStatus}
       />
 
-      <StartThreadDialog
-        dialog={dialog}
-        onClose={() => setDraft(null)}
-        heading={
-          draft ? `Start a thread for #${draft.row.number}` : "Start a thread"
-        }
-        draftKey={draft ? `issue-sweep:${draft.row.repo}#${draft.row.number}` : ""}
-        seed={draft?.seed ?? null}
-        onSubmit={onSubmitDraft}
-      />
     </TooltipProvider>
   );
 }

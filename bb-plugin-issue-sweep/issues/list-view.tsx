@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
@@ -303,11 +304,14 @@ function isRunningFor(running: RunningReference, row: Row): boolean {
 function ThreadAction({
   row,
   isStarting,
+  isOpen,
   onStart,
   onOpen,
 }: {
   row: Row;
   isStarting: boolean;
+  /** The Start thread box is open under this row; the button stays pressed and closes it. */
+  isOpen: boolean;
   onStart: (row: Row) => void;
   onOpen: (row: Row) => void;
 }) {
@@ -318,7 +322,8 @@ function ThreadAction({
   return (
     <button
       type="button"
-      className={LINE_ACTION}
+      className={cn(LINE_ACTION, isOpen && "bg-accent text-foreground")}
+      aria-expanded={isOpen}
       disabled={!row.canSpawn || isStarting}
       title={row.canSpawn ? undefined : `No bb project is checked out for ${row.repo}`}
       onClick={() => onStart(row)}
@@ -509,6 +514,11 @@ export interface IssueListViewProps {
   busyKeys: ReadonlySet<string>;
   /** Rows whose thread is being started, keyed `repo#number`. */
   starting: ReadonlySet<string>;
+  /**
+   * The Start thread box for a row, drawn under its action line while its
+   * button has it open. Null for every other row.
+   */
+  renderStartThread?: (row: Row) => ReactNode;
   harvest: HarvestPanelState;
   onPick: (row: Row, status: string) => void;
   onStart: (row: Row) => void;
@@ -534,6 +544,7 @@ export function IssueListView({
   now,
   busyKeys,
   starting,
+  renderStartThread,
   harvest,
   onPick,
   onStart,
@@ -677,6 +688,10 @@ export function IssueListView({
                 />
               );
             }}
+            renderStartThread={(item) => {
+              const row = rowsByKey.get(item.key);
+              return row ? renderStartThread?.(row) : null;
+            }}
             renderThreadLine={(item) => {
               const row = rowsByKey.get(item.key);
               if (!row?.threadId) return null;
@@ -704,6 +719,7 @@ export function IssueListView({
                   <ThreadAction
                     row={row}
                     isStarting={starting.has(item.key)}
+                    isOpen={Boolean(renderStartThread?.(row))}
                     onStart={onStart}
                     onOpen={onOpen}
                   />
@@ -738,6 +754,7 @@ interface SplitListProps {
   renderTrailing: (item: SweepItem) => ReactNode;
   /** Drawn directly under a row's action line, for a row with a thread. */
   renderThreadLine: (item: SweepItem) => ReactNode;
+  renderStartThread: (item: SweepItem) => ReactNode;
   /** The drawer the comment count opens, drawn only while it is open. */
   renderComments: (item: SweepItem) => ReactNode;
   onNoteSave: (item: SweepItem, body: string, onHold: boolean) => Promise<boolean>;
@@ -772,6 +789,7 @@ function SplitList({
   renderActions,
   renderTrailing,
   renderThreadLine,
+  renderStartThread,
   renderComments,
   onNoteSave,
   onOpenLink,
@@ -832,6 +850,7 @@ function SplitList({
         actions={renderActions(item)}
         trailing={renderTrailing(item)}
         threadLine={renderThreadLine(item)}
+        startThread={renderStartThread(item)}
         onToggleComments={() =>
           setCommentsOpen((current) => {
             const next = new Set(current);
