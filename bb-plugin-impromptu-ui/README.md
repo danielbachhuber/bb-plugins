@@ -12,11 +12,14 @@ With it, the same assessment is a row above the composer. Opening it shows the v
 
 ## Use
 
-- A skill publishes the items it wants you to act on, such as issues to triage or a pull request to merge. Each one shows as a numbered row above the composer, under its section's heading when the view groups them.
-- Click a row to open its item in the side panel. It shows the details, any diff, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link. A suggested fix shows in its own tinted block under the code it would change, so it never reads as the pull request's own diff. A last step that depends on the rest, such as a review's verdict, waits under the list until the other items are handled, then tallies what you did with them.
-- To pick a design, the agent shows screenshots of the original and its alternatives in a film strip. Pick one, leave notes, and press **Send feedback**. A single proposed change shows as **Before** and **After** in the same place instead, with **Build it**.
+- A skill publishes the items it wants you to act on, such as issues to triage, findings from a code review, or a pull request to merge. Each one is a numbered row above the composer, under a section heading when the skill groups them.
+- Click a row to open it in the side panel: its summary and details, any diff, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
+- A fix the agent suggests sits in its own **Suggested fix** block under the code it changes, apart from the pull request's own diff under **In this PR**.
+- A last step that depends on the rest, such as a review's verdict, waits under the list as a **Then** row. It opens once every item above it is handled and tallies what you did with them.
 
-![A visual review of four directions for a summary above the Now list, with D, one square per row, picked and a note to keep the counts under each run](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--visual-review-now-round.png)
+![A code review above the composer: findings under Fix before merge and Worth considering, two done and one dismissed, and a Then row to submit as Request changes, open in the side panel with the tally of what was done](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--closing-step-ready.png)
+
+- To compare designs, the agent shows screenshots of the original and its alternatives. Pick one, leave notes, and press **Send feedback**. A single proposed change shows as **Before** and **After** in the same place, with **Build it**.
 
 ## For agents
 
@@ -47,6 +50,7 @@ Nothing to configure. A command button runs with your permissions, so read it be
 - **Generative UI** (`genui`): the agent picks from 86 components, such as charts and forms, and they render inside its replies. Impromptu UI's items sit above the composer instead of in the transcript, and each button runs an action you can see, such as posting a draft or starting a thread.
 - **Thread Pages** (`thread-pages`): the agent writes a web page for its task and you answer from the page. Impromptu UI uses one fixed format of cards, buttons, and drafts, so every skill's results look and work the same way.
 - **Inline visualizations** (`inline-vis`), bundled with bb: shows an HTML or Markdown file inside a reply, for reading. Impromptu UI is for acting on each item.
+- **Doc Review** (`doc-review`): leave comments on documents and pages beside the chat, then send them to an agent in one message. Impromptu UI works the other way round: the agent lays out what it found, and you decide on each item.
 
 ## Develop
 

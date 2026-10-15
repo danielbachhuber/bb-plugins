@@ -1,14 +1,13 @@
 ## What you get
 
-- Numbered rows above the composer, one per item an agent wants you to act on, such as issues to triage or a Dependabot pull request to merge, grouped under section headings when the agent groups them.
+- Numbered rows above the composer, one per item an agent wants you to act on, such as issues to triage or code review findings, grouped under section headings.
 - A side panel for each item, with its details, any diff, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link. A suggested fix gets its own block, apart from the code under review.
-- A closing step, such as a review's verdict, under the list: it opens once everything above it is handled and tallies what you did.
-- A film strip for picking a design: screenshots of the original and its alternatives, a note on each, and **Send feedback**, which sends your pick and notes to the thread.
-- Before and After for a single proposed change: flip between the two screenshots in place, then **Build it** or send a note.
+- A closing step, such as a review's verdict, that opens once everything above it is handled.
+- Screenshots to pick a design from, or **Before** and **After** for a single proposed change.
 
 ## How it works
 
-A skill writes its results as a view file and publishes it from the thread. Done and dismissed items sink to the bottom, and the agent reads back what you did. Views are stored in the plugin's own database on this machine.
+A skill writes its results as a view file and publishes it from the thread. Done and dismissed items sink to the bottom of their section, and the agent reads back what you did. Views are stored in the plugin's own database on this machine.
 
 ## For agents
 
