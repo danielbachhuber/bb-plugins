@@ -1,6 +1,6 @@
 # Diff Viewed
 
-Keep your place in a long diff with a Viewed checkbox on each file, shared with GitHub's Viewed boxes on the thread's pull request.
+Use a Viewed checkbox on each file to keep track of what you've read in a long diff, synced with GitHub on the thread's pull request.
 
 ![bb's changes panel with README.md, src/cart.ts, and src/inventory.ts checked Viewed, collapsed, and dimmed above src/pricing.ts, which is still open, and "3/6 viewed" with a progress ring in the toolbar](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--viewed.png)
 

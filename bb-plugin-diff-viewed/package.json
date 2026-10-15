@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Diff Viewed",
-    "description": "Keep your place in a long diff with a Viewed checkbox on each file, shared with GitHub's Viewed boxes on the thread's pull request.",
+    "description": "Use a Viewed checkbox on each file to keep track of what you've read in a long diff, synced with GitHub on the thread's pull request.",
     "branding": {
       "icon": "CircleCheck"
     },
