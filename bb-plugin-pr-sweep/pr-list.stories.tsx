@@ -3,6 +3,7 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { Icon } from "./components/ui/icon";
 import { SyncStatus } from "component-library/sync-status";
+import type { ThreadStatus } from "component-library/thread-status";
 import { TooltipProvider } from "./components/ui/tooltip";
 import {
   PrListView,
@@ -475,6 +476,12 @@ const FEEDBACK: FeedbackEntry[] = [
 ];
 
 /** The panel's title bar, so a frame reads like the real panel. */
+/** What bb's sidebar would say about the fixture threads. */
+const THREADS: Record<string, ThreadStatus> = {
+  thr_fixture1: { id: "thr_fixture1", title: "Fix the theme snapshot job after the rebase (#495)", live: "working" },
+};
+const threadStatus = (id: string | null) => (id === null ? null : (THREADS[id] ?? null));
+
 function Frame({
   listing,
   starting = new Set(),
@@ -509,6 +516,7 @@ function Frame({
             onOpenLink={noop}
             loadFeedback={async () => ({ entries: FEEDBACK, error: null })}
             avatarFor={avatarFor}
+            threadStatus={threadStatus}
           />
         </div>
       </div>

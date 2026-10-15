@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { SyncStatus } from "component-library/sync-status";
+import { useThreadStatus } from "component-library/thread-status";
 import { OpenPullRequestPage } from "./sweep/open-panel.js";
 import {
   FIXED_ENVIRONMENT_CSS,
@@ -107,6 +108,8 @@ function SyncHeader() {
 }
 
 function Panel() {
+  // bb's sidebar, already on the page, says what each row's thread is doing.
+  const threadStatus = useThreadStatus();
   const { listing, reload, rpc } = useListing();
   const harvestClient = useHarvestClient(rpc);
   const harvest: HarvestPanelState = {
@@ -279,6 +282,7 @@ function Panel() {
         onDismissChecks={onDismissChecks}
         onOpenLink={markSeen}
         loadFeedback={loadFeedback}
+        threadStatus={threadStatus}
       />
 
       <StartThreadDialog

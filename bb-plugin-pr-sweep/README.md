@@ -136,6 +136,11 @@ threads were all answered still shows it was discussed. The Harvest clock, when 
 plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
+A row with a thread has a line under its actions saying what the thread is
+doing, as bb's sidebar does (**Working**, **Needs you**, **Done, unread**,
+**Failed, unread**, or **Idle**), with the thread's title. Clicking the line
+opens the thread. The status comes from bb's sidebar, so it makes no request.
+
 Clicking the comment count opens everything on the pull request in a drawer
 under the action line, in one list, oldest first: reviews with something to
 say, inline comments, and top-level comments from the pull request's

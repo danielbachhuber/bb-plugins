@@ -1,6 +1,7 @@
 import type { SyncUsage } from "component-library/sync-status";
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { ThreadLine, OpenThreadAction, type ThreadStatus } from "component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
 import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
@@ -128,12 +129,7 @@ function ThreadAction({
 }) {
   if (row.threadId) {
     const threadId = row.threadId;
-    return (
-      <button type="button" className={LINE_ACTION} onClick={() => onOpen(row, threadId)}>
-        <Icon name="MessageSquare" className="size-3" />
-        Open thread
-      </button>
-    );
+    return <OpenThreadAction onOpen={() => onOpen(row, threadId)} />;
   }
 
   const toRead = commentsToRead(row);
@@ -536,6 +532,11 @@ export interface PrListViewProps {
    * and the icons say where a pull request stands.
    */
   renderTrack?: (item: SweepItem, line: boolean, row: Row) => ReactNode;
+  /**
+   * What a row's thread is doing, from bb's sidebar. Left out, a row with a
+   * thread still draws its thread line, without the status.
+   */
+  threadStatus?: (threadId: string | null) => ThreadStatus | null;
 }
 
 export function PrListView({
@@ -552,6 +553,7 @@ export function PrListView({
   loadFeedback,
   avatarFor,
   renderTrack,
+  threadStatus,
 }: PrListViewProps): ReactNode {
   if (!listing) return <SweepingPullRequests />;
 
@@ -682,6 +684,12 @@ export function PrListView({
                   }}
                 />
               );
+            }}
+            renderThreadLine={(item) => {
+              const row = rowsByKey.get(item.key);
+              const threadId = row?.threadId;
+              if (!row || !threadId) return null;
+              return <ThreadLine status={threadStatus?.(threadId) ?? null} onOpen={() => onOpen(row, threadId)} />;
             }}
             // The timer sits at the bottom right of the row, apart from the actions.
             renderTrailing={(item) => {
