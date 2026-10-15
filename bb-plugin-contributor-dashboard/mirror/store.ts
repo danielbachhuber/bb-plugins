@@ -130,6 +130,8 @@ export function createStore(db: Database) {
        started_at = excluded.started_at`,
   );
   const selectThreads = db.prepare(`SELECT number, thread_id FROM threads WHERE repository = ? AND kind = ?`);
+  const releaseThread = db.prepare(`DELETE FROM threads WHERE thread_id = ?`);
+  const selectLinkedThreadIds = db.prepare(`SELECT DISTINCT thread_id FROM threads`);
   const upsertPr = db.prepare(
     `INSERT INTO pull_requests (id, repository, number, updated_at, data) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (id) DO UPDATE SET repository = excluded.repository, number = excluded.number,
@@ -221,6 +223,24 @@ export function createStore(db: Database) {
     linkThread(repository: string, kind: ThreadKind, number: number, threadId: string) {
       linkThread.run(repository, kind, number, threadId, Date.now());
     },
+
+    /**
+     * Forget a thread that was archived or deleted, so its row offers to
+     * start a new one. Returns how many rows it was linked to.
+     */
+    releaseThread(threadId: string): number {
+      return releaseThread.run(threadId).changes;
+    },
+
+    /** Forget every linked thread not in `live`. Returns how many it forgot. */
+    releaseThreadsExcept: db.transaction((live: ReadonlySet<string>): number => {
+      const linked = selectLinkedThreadIds.all() as Array<{ thread_id: string }>;
+      let released = 0;
+      for (const { thread_id } of linked) {
+        if (!live.has(thread_id)) released += releaseThread.run(thread_id).changes;
+      }
+      return released;
+    }),
 
     /** Every row in this repository that has a thread, as number to thread id. */
     threadsFor(repository: string, kind: ThreadKind): Map<number, string> {

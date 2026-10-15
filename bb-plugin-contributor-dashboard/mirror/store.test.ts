@@ -118,3 +118,27 @@ describe("store", () => {
     expect(store.syncState("acme/gadgets").highWater).toBeNull();
   });
 });
+
+describe("thread links", () => {
+  it("forgets a thread once it is archived or deleted", () => {
+    const store = openStore();
+    store.linkThread("acme/widgets", "pull", 1, "thr_a");
+    store.linkThread("acme/widgets", "issue", 2, "thr_b");
+
+    expect(store.releaseThread("thr_a")).toBe(1);
+    expect(store.threadsFor("acme/widgets", "pull").size).toBe(0);
+    expect(store.threadsFor("acme/widgets", "issue").get(2)).toBe("thr_b");
+    expect(store.releaseThread("thr_gone")).toBe(0);
+  });
+
+  it("keeps only the links whose threads bb still has", () => {
+    const store = openStore();
+    store.linkThread("acme/widgets", "pull", 1, "thr_live");
+    store.linkThread("acme/widgets", "pull", 2, "thr_archived");
+    store.linkThread("acme/gadgets", "issue", 3, "thr_deleted");
+
+    expect(store.releaseThreadsExcept(new Set(["thr_live"]))).toBe(2);
+    expect([...store.threadsFor("acme/widgets", "pull")]).toEqual([[1, "thr_live"]]);
+    expect(store.threadsFor("acme/gadgets", "issue").size).toBe(0);
+  });
+});

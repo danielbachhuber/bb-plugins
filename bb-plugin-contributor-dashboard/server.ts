@@ -53,6 +53,35 @@ export default async function plugin(bb: BbPluginApi) {
   const aborter = new AbortController();
   bb.onDispose(() => aborter.abort());
 
+  // A row whose thread has been archived or deleted offers to start a new one
+  // rather than opening a thread that is gone.
+  for (const event of ["thread.archived", "thread.deleted"] as const) {
+    bb.events.on(event, ({ thread }) => {
+      if (store.releaseThread(thread.id) > 0) bb.realtime.publish(DASHBOARD_CHANNEL, { releasedAt: Date.now() });
+    });
+  }
+
+  // The events fire only while this plugin runs, so a thread archived while
+  // bb was stopped is caught here, against the threads bb still has.
+  void (async () => {
+    try {
+      const live = new Set<string>();
+      const pageSize = 100;
+      for (let offset = 0; ; offset += pageSize) {
+        const page = await bb.sdk.threads.list({ archived: false, includeHidden: true, limit: pageSize, offset });
+        for (const thread of page) live.add(thread.id);
+        if (page.length < pageSize) break;
+      }
+      const released = store.releaseThreadsExcept(live);
+      if (released > 0) {
+        bb.log.info(`released ${released} links to archived or deleted threads`);
+        bb.realtime.publish(DASHBOARD_CHANNEL, { releasedAt: Date.now() });
+      }
+    } catch (cause) {
+      bb.log.warn(`could not check thread links: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+  })();
+
   let running: Promise<void> | null = null;
   let lastError: string | null = null;
 

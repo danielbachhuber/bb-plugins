@@ -154,7 +154,8 @@ doing, as bb's sidebar does (**Working**, **Needs you**, **Done, unread**,
 **Failed, unread**, or **Idle**), with the thread's title. Clicking the line,
 or the changed glyph, opens the thread rather than starting a second one; the plugin
 remembers which thread belongs to which number in its own table, which is the
-only thing in its database that does not come from GitHub.
+only thing in its database that does not come from GitHub. It forgets a thread
+once it is archived or deleted, so the row offers to start a new one.
 
 **Copy link** writes the title and URL to the clipboard in both flavours,
 rich text for a document or a chat window and markdown for an editor or a
