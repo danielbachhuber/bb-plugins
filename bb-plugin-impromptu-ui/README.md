@@ -116,6 +116,20 @@ once you press **Run** on the confirmation that shows it. Read the command
 before running it, as you would one an agent proposed in chat. A command the
 view marks `confirm: false` skips that step and runs on the first click.
 
+## When it falls short
+
+The plugin ships a second skill, `refine-impromptu-ui`, for when a view
+should have appeared and did not, or appeared but could not do what the work
+needed. Tell the agent what went wrong. It reads back what it published,
+places the problem (did not fire, could not express it, worked badly, or
+broke), and asks one question if that is unclear. It then shows two to four
+ways the plugin could change as a view, one card each, and checks the
+plugin's repository for an issue that already asks for the one you pick.
+It drafts the issue for you to read before anything is posted, written so it
+names no repository, person, or text from your thread, and files it on this
+repository with `gh`, or gives you a link to the filled-in form when `gh`
+is not signed in.
+
 ## CLI
 
 ```
@@ -149,6 +163,7 @@ this checkout.
 | `view/` | The view schema, the SQLite store, the command runner, the list, the panel, the item the panel shows, its draft editor, the evidence behind its text, the visual review and its feedback message, the list layout's panel, and when the panel opens by itself |
 | `view.stories.tsx`, `composer.stories.tsx` | The panel's states, and whole threads with the list above bb's composer, with invented fixtures, for `npm run storybook` at the root |
 | `skills/impromptu-ui/` | How an agent publishes a view |
+| `skills/refine-impromptu-ui/` | How an agent turns a view that fell short into an anonymized issue |
 
 ## Development
 
