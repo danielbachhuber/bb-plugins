@@ -144,7 +144,11 @@ Under the title, a banner appears for two kinds of request:
 - **Asked to review again**, in blue, for a re-review.
 
 A row in the reviewing run has an orange left edge and a faint orange wash, in
-the same orange as its squares.
+the same orange as its squares. A line under its actions says what the review
+thread is doing, as bb's sidebar does (**Working**, **Needs you**, **Done,
+unread**, **Failed, unread**, or **Idle**), with the thread's title. Clicking
+the line opens the thread. The status comes from bb's sidebar, so it makes no
+request.
 
 Then a line of icons:
 
