@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { createWeekStore } from "./db.js";
-import { entryIn, nextBullets, suggestLinks } from "./priorities.js";
+import { entryIn, nextBullets, suggestLinks, weekEntry } from "./priorities.js";
 import { MIGRATIONS } from "./sources.js";
 import { createWorkstreamService } from "./workstream-service.js";
 import { createWorkstreamStore } from "./workstream-store.js";
@@ -32,6 +32,18 @@ Next:
 Done:
 - Nothing yet.
 `;
+
+describe("weekEntry", () => {
+  it("finds an entry headed with a Friday that is still ahead", () => {
+    // Wednesday's gathered range ends that day, but the entry is headed Friday.
+    expect(entryIn(JOURNAL, "2026-09-14", "2026-09-16")).toBeNull();
+    expect(weekEntry(JOURNAL, "2026-09-14")?.heading).toBe("September 18, 2026");
+  });
+
+  it("leaves out the next week's entry", () => {
+    expect(weekEntry(JOURNAL, "2026-09-07")?.heading).toBe("September 11, 2026");
+  });
+});
 
 describe("nextBullets", () => {
   it("reads the top-level bullets under Next, with what is nested under each", () => {

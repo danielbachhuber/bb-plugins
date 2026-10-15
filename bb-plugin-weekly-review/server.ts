@@ -38,7 +38,7 @@ import {
   type SourceStore,
 } from "./review/sources.js";
 import { run, runJson } from "./review/fetch/shell.js";
-import { parseEntry, planInsert, type BatchBody, type DocsDocument } from "./review/journal-insert.js";
+import { parseEntry, planInsert, planReplace, type BatchBody, type DocsDocument } from "./review/journal-insert.js";
 import { buildDigest } from "./review/digest.js";
 import {
   DEFAULT_FEEDBACK_PROMPT,
@@ -50,7 +50,7 @@ import {
 } from "./review/agents.js";
 import type { PromptKind } from "./review/contract.js";
 import { reflectNoteSchema, slackThreadSchema } from "./review/schema.js";
-import { entryIn, ruleProposalSchema } from "./review/priorities.js";
+import { ruleProposalSchema, weekEntry } from "./review/priorities.js";
 import { datedSections, matchDoc, matchNote, sectionNear, entriesWithoutNotes } from "./review/meeting-notes.js";
 import { readFile } from "node:fs/promises";
 import type { WeekData } from "./review/types.js";
@@ -404,7 +404,7 @@ export default async function plugin(bb: BbPluginApi) {
   function entryFrom(text: string | null, week: WeekData) {
     const { journalDocId } = sources.read();
     if (journalDocId === "" || text === null) return null;
-    const section = entryIn(text, week.from, week.to);
+    const section = weekEntry(text, week.from);
     if (section === null) return null;
     return {
       heading: section.heading,
@@ -449,6 +449,34 @@ export default async function plugin(bb: BbPluginApi) {
           created,
           url: `https://docs.google.com/document/d/${journalDocId}/edit${anchor}`,
         };
+      } catch (error) {
+        if (attempt > 0 || !/revision/i.test(String(error))) throw error;
+      }
+    }
+  }
+
+  /**
+   * Swaps one bullet of a section in the week's entry, with what is nested
+   * under it, for an entry written as markdown bullets, in the same place.
+   * `match` is the start of the bullet's text. One read and one write, retried
+   * once from a fresh read when Google refuses a stale revision.
+   */
+  async function replaceEntry(monday: string, section: string, match: string, markdown: string) {
+    const { journalDocId } = sources.read();
+    if (journalDocId === "") throw new Error("No journal doc is set. Set one with `bb weekly-review source set journalDocId <id>`.");
+    const lines = parseEntry(markdown);
+    const week = { from: monday, to: addDays(monday, 6) };
+    const { gws } = await tools();
+    const params = JSON.stringify({ documentId: journalDocId });
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const doc = await runJson<DocsDocument>(gws, ["docs", "documents", "get", "--params", params]);
+        const plan = planReplace(doc, week, section, match, lines);
+        await run(gws, ["docs", "documents", "batchUpdate", "--params", params, "--json", JSON.stringify(plan.body)]);
+        await readJournal();
+        const anchor = plan.headingId === undefined ? "" : `#heading=${plan.headingId}`;
+        return { heading: plan.heading, url: `https://docs.google.com/document/d/${journalDocId}/edit${anchor}` };
       } catch (error) {
         if (attempt > 0 || !/revision/i.test(String(error))) throw error;
       }
@@ -538,7 +566,7 @@ export default async function plugin(bb: BbPluginApi) {
       throw new Error(
         sources.read().journalDocId === ""
           ? "No weekly entry doc configured. Set it in this plugin's settings."
-          : `Nothing written for ${week.from} through ${week.to} yet.`,
+          : `Nothing written for ${week.from} through ${addDays(week.from, 6)} yet.`,
       );
     }
 
@@ -856,6 +884,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review slack <monday> --file <path-to-json>",
     "  bb weekly-review entry <monday>",
     "  bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>",
+    "  bb weekly-review entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>",
     "  bb weekly-review feedback <monday> --file <path-to-json>",
     "  bb weekly-review prompt [notes|slack|feedback|rules] [reset]",
     "  bb weekly-review table [<monday>]",
@@ -959,8 +988,9 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "entry",
-        summary: "Print the week's hand-written entry as it stands in the doc, or add a bullet to one of its sections",
-        usage: "bb weekly-review entry <monday> | entry add <monday> --section <label> --file <path-to-markdown>",
+        summary: "Print the week's hand-written entry as it stands in the doc, or add or replace a bullet in one of its sections",
+        usage:
+          "bb weekly-review entry <monday> | entry add <monday> --section <label> --file <path-to-markdown> | entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>",
       },
       {
         name: "feedback",
@@ -1081,6 +1111,28 @@ export default async function plugin(bb: BbPluginApi) {
               return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
             }
           }
+          if (positional[0] === "replace") {
+            const monday = positional[1];
+            const section = flag("section");
+            const match = flag("match");
+            const file = flag("file");
+            if (monday === undefined || section === undefined || match === undefined || file === undefined) {
+              return {
+                exitCode: 1,
+                stderr:
+                  "Usage: bb weekly-review entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>",
+              };
+            }
+            try {
+              const replaced = await replaceEntry(monday, section, match, await readFile(file, "utf8"));
+              return {
+                exitCode: 0,
+                stdout: `Replaced a bullet in ${section.replace(/:$/, "")} under ${replaced.heading}.\n${replaced.url}`,
+              };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
           const monday = positional[0] ?? resolveRange().from;
           const week = weeks.readWeek(monday);
           if (week === null) {
@@ -1090,7 +1142,7 @@ export default async function plugin(bb: BbPluginApi) {
           if (entry === null) {
             return {
               exitCode: 1,
-              stderr: `Nothing written for ${week.from} through ${week.to} yet.`,
+              stderr: `Nothing written for ${week.from} through ${addDays(week.from, 6)} yet.`,
             };
           }
           return { exitCode: 0, stdout: `### ${entry.heading}\n\n${entry.text}` };

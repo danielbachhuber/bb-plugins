@@ -367,9 +367,8 @@ padding the way a stale row's red edge does; `THREAD_EDGE_INSET` is for a list
 drawn inside its own border. A sweep passes the line to sweep-ui's row as
 `threadLine`, which draws it between the action line and the note.
 
-Put `THREAD_HOVER` on the row, so hovering Open thread or the line
-underlines both. An icon that opens the thread joins in with a
-`data-thread-open` attribute; sweep-ui's row takes the class as `className`.
+Hovering Open thread underlines its label, and hovering the line underlines
+the thread's title.
 
 Call the hook in the page and pass the lookup down, so a story can pass
 fixtures instead.

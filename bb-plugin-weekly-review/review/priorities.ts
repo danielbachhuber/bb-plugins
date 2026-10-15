@@ -3,6 +3,7 @@
  * `Next:` line. Pure, so it is tested against the shape of a real entry.
  */
 import { z } from "zod";
+import { addDays } from "./dates.js";
 import { datedSections, type DatedSection } from "./meeting-notes.js";
 import type { Workstream, Rule } from "./workstreams.js";
 
@@ -15,6 +16,15 @@ export function entryIn(text: string, from: string, to: string): DatedSection | 
   const inWeek = datedSections(text, from).filter((section) => section.day >= from && section.day <= to);
   const section = inWeek[inWeek.length - 1];
   return section === undefined || section.body.trim() === "" ? null : section;
+}
+
+/**
+ * The entry for the week starting `monday`, looked for through its Sunday.
+ * The doc heads an entry with the week's Friday, which is still ahead on any
+ * day before it, so a range ending today would miss an entry already written.
+ */
+export function weekEntry(text: string, monday: string): DatedSection | null {
+  return entryIn(text, monday, addDays(monday, 6));
 }
 
 export interface PriorityDetail {

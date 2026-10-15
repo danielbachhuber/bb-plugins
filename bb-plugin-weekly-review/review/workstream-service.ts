@@ -4,7 +4,7 @@
  */
 import { activities, type Activity } from "./activity.js";
 import { addDays } from "./dates.js";
-import { entryIn, nextBullets, suggestLinks, type PriorityDetail, type RuleProposal } from "./priorities.js";
+import { nextBullets, suggestLinks, type PriorityDetail, type RuleProposal, weekEntry } from "./priorities.js";
 import type { WeekStore } from "./db.js";
 import { suggestWorkstreams, type Suggestion } from "./suggestions.js";
 import type { StoredProposal, WorkstreamStore } from "./workstream-store.js";
@@ -68,7 +68,7 @@ export function createWorkstreamService(weeks: WeekStore, store: WorkstreamStore
   function priorities(monday: string, workstreams: WorkstreamView["workstreams"]): WorkstreamView["priorities"] {
     const journal = store.journal();
     if (journal === null) return null;
-    const entry = entryIn(journal.text, addDays(monday, -7), addDays(monday, -1));
+    const entry = weekEntry(journal.text, addDays(monday, -7));
     if (entry === null) return null;
     const links = store.links(monday);
     return {

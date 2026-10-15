@@ -4,7 +4,7 @@
 // button is no taller than the line of text beside it.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { writeLinkToClipboard } from "component-library/copy-link";
-import { THREAD_EDGE_INSET, THREAD_HOVER, ThreadLine, type ThreadStatus } from "component-library/thread-status";
+import { THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -57,25 +57,13 @@ export function Assignees({ logins }: { logins: readonly string[] }) {
  */
 export const ThreadStatusContext = createContext<(threadId: string | null) => ThreadStatus | null>(() => null);
 
-function RowAction({
-  name,
-  label,
-  onClick,
-  opensThread = false,
-}: {
-  name: string;
-  label: string;
-  onClick: () => void;
-  /** Underlines the thread line while hovered, as Open thread does elsewhere. */
-  opensThread?: boolean;
-}) {
+function RowAction({ name, label, onClick }: { name: string; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
       onClick={onClick}
-      {...(opensThread ? { "data-thread-open": "" } : {})}
       className="shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
     >
       <Icon name={name} className="size-3.5" />
@@ -124,7 +112,7 @@ export function ItemRow({
   };
 
   return (
-    <li className={cn("px-3 py-2", THREAD_HOVER, threadId !== null && cn(THREAD_EDGE_INSET, "pl-[10px]"))}>
+    <li className={cn("px-3 py-2", threadId !== null && cn(THREAD_EDGE_INSET, "pl-[10px]"))}>
       <div className="flex items-center justify-between gap-3">
         <a href={url} target="_blank" rel="noreferrer" className="min-w-0 truncate hover:underline">
           <span className="tabular-nums text-muted-foreground">#{number}</span> {title}
@@ -137,7 +125,6 @@ export function ItemRow({
               name={threadId === null ? "MessageSquarePlus" : "MessageSquare"}
               label={threadId === null ? "Start a thread" : "Open the thread"}
               onClick={onThread}
-              opensThread={threadId !== null}
             />
             <RowAction
               name={copied ? "Check" : "Copy"}
