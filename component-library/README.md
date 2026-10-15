@@ -370,8 +370,8 @@ thread that already exists, from a row's Open thread, still navigates.
 `components/ui/dialog.tsx`, since `@/` means the plugin's directory, so the
 plugin passes its own in to `StartThreadDialog` as `dialog`.
 
-PR Sweep and Review Sweep open it under the row. Issue Sweep, Now, Impromptu
-UI, Plugin Shelf, and Contributor Dashboard use the dialog. New issue, Presentations, and Weekly Review use only the
+The three sweeps, Now, and Contributor Dashboard open it under the row.
+Impromptu UI and Plugin Shelf use the dialog. New issue, Presentations, and Weekly Review use only the
 toast.
 
 **Don't** put the row's identity in the editable prompt instead of the card.

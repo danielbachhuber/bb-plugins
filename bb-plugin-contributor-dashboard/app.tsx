@@ -27,12 +27,11 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
-import { StartThreadDialog, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
-import * as dialogParts from "@/components/ui/dialog";
+import { StartThreadInline, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
-import { ThreadStatusContext } from "./components/item-row";
+import { StartThreadContext, ThreadStatusContext } from "./components/item-row";
 
 const PANEL_PATH = "contributor-dashboard";
 
@@ -121,15 +120,16 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const { projectId } = useBbContext();
   const [seed, setSeed] = useState<ThreadSeed | null>(null);
 
-  // A row with a thread opens it; one without offers bb's composer, which
-  // owns the provider, environment and branch choices.
+  // A row with a thread opens it; one without opens bb's composer under the
+  // row, which owns the provider, environment and branch choices, or closes it
+  // when it is already open there.
   const onThread = useCallback(
     (next: ThreadSeed, threadId: string | null) => {
       if (threadId !== null) {
         navigate.toThread(threadId);
         return;
       }
-      setSeed(next);
+      setSeed((current) => (current?.number === next.number ? null : next));
     },
     [navigate],
   );
@@ -175,30 +175,27 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
-  // One dialog for the page, whichever list the row came from. It opens with
-  // no project too: the composer has its own picker, and bb's panel reports no
-  // project when the page was opened from outside one.
-  const dialog = (
-    <StartThreadDialog
-      dialog={dialogParts}
-      heading={`Start a thread on #${seed?.number ?? ""}`}
-      draftKey={seed ? `contributor-dashboard:${seed.kind}:${seed.number}` : ""}
-      seed={
-        seed
-          ? {
-              projectId: projectId ?? null,
-              prompt: promptFor(seed),
-              preview: { title: seed.title, number: seed.number, url: seed.url, meta: seed.meta },
-            }
-          : null
-      }
-      onClose={() => setSeed(null)}
-      onSubmit={(request) => (seed ? startThread(seed, request) : Promise.resolve())}
-    />
+  // One box for the page, under whichever row it was opened from. It opens
+  // with no project too: the composer has its own picker, and bb's panel
+  // reports no project when the page was opened from outside one.
+  const boxFor = useCallback(
+    (number: number) =>
+      seed !== null && seed.number === number ? (
+        <StartThreadInline
+          draftKey={`contributor-dashboard:${seed.kind}:${seed.number}`}
+          seed={{
+            projectId: projectId ?? null,
+            prompt: promptFor(seed),
+            preview: { title: seed.title, number: seed.number, url: seed.url, meta: seed.meta },
+          }}
+          onSubmit={(request) => startThread(seed, request)}
+        />
+      ) : null,
+    [projectId, seed, startThread],
   );
   if (stage !== null) {
     return (
-      <>
+      <StartThreadContext.Provider value={boxFor}>
         <StageView
           selection={selection}
           onSelect={choose}
@@ -209,13 +206,12 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           periodLabel={selectionWords(selection)}
           onThread={onThread}
         />
-        {dialog}
-      </>
+      </StartThreadContext.Provider>
     );
   }
   if (login !== null) {
     return (
-      <>
+      <StartThreadContext.Provider value={boxFor}>
         <PersonView
           login={login}
           selection={selection}
@@ -226,8 +222,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           onAuthoredPage={setAuthoredPage}
           onThread={onThread}
         />
-        {dialog}
-      </>
+      </StartThreadContext.Provider>
     );
   }
   return (

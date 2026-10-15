@@ -145,8 +145,8 @@ because avatars would be twenty-five image requests for a page that otherwise
 makes none. The person's own pull requests are the exception, since naming an
 assignee on a list of someone's own work says nothing.
 
-**Start a thread** opens bb's composer with the issue or pull request already
-written into the prompt, and the project, provider, environment and branch
+**Start a thread** opens bb's composer under the row, with the issue or pull
+request already written into the prompt, and the project, provider, environment and branch
 pickers the composer always has. Starting it leaves you on the page, with a
 toast whose **Go to thread** button opens the new thread. Once a thread exists for that row, the row
 gets an orange left edge and a line under its title saying what the thread is
