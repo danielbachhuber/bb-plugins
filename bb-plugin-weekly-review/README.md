@@ -339,6 +339,11 @@ one write, or two of each when the entry is new. The write names the revision
 it read, so Google refuses it if the doc changed in between, and it is tried
 once more from a fresh read.
 
+When the week's entry already has a bullet about the work, the draft is a
+refinement of that bullet, shown against it, and Accept swaps it in place
+with `bb weekly-review entry replace`. If the bullet already says what the
+evidence supports, the skill says so instead of drafting a change.
+
 The new bullets form a list of their own, with the same bullets and indents
 as the one above. The Docs API counts a new bullet's level from the list item
 above it, so joining that list would put a top-level entry under a sub-bullet.
@@ -397,6 +402,7 @@ bb weekly-review notes <monday> --file <path-to-json>
 bb weekly-review slack <monday> --file <path-to-json>
 bb weekly-review entry <monday>
 bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>
+bb weekly-review entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>
 bb weekly-review feedback <monday> --file <path-to-json>
 bb weekly-review prompt [notes|slack|feedback|rules] [reset]
 bb weekly-review table [<monday>]

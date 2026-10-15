@@ -88,6 +88,8 @@ interface Para {
   style: string;
   headingId: string | undefined;
   bulleted: boolean;
+  /** 0 for a top-level bullet, 1 for one under it, and so on. */
+  level: number;
 }
 
 function paragraphs(doc: DocsDocument): Para[] {
@@ -101,6 +103,7 @@ function paragraphs(doc: DocsDocument): Para[] {
       style: paragraph.paragraphStyle?.namedStyleType ?? "NORMAL_TEXT",
       headingId: paragraph.paragraphStyle?.headingId,
       bulleted: paragraph.bullet !== undefined,
+      level: paragraph.bullet?.nestingLevel ?? 0,
     }];
   });
 }
@@ -151,18 +154,89 @@ export type Plan =
 export function planInsert(doc: DocsDocument, week: { from: Day; to: Day }, section: string, lines: EntryLine[]): Plan {
   if (lines.length === 0) throw new Error("The entry has no bullets.");
   const paras = paragraphs(doc);
-  const dated = datedHeadings(paras, week.from);
-  const inWeek = dated.filter((heading) => heading.day >= week.from && heading.day <= week.to);
-  const entry = inWeek[inWeek.length - 1];
-  const body = (requests: object[]): BatchBody =>
-    doc.revisionId === undefined ? { requests } : { requests, writeControl: { requiredRevisionId: doc.revisionId } };
+  const found = findSection(paras, week, section);
 
-  if (entry === undefined) {
+  if (found.kind === "missing") {
+    const dated = datedHeadings(paras, week.from);
     const below = dated.find((heading) => heading.day < week.from);
     if (below === undefined) throw new Error(`There is no earlier entry to copy the sections of, so no entry for ${week.from} was added.`);
     const heading = headingFor(week.from);
-    return { kind: "create", heading, body: body(createEntry(paras, below.index, heading)) };
+    return { kind: "create", heading, body: batch(doc, createEntry(paras, below.index, heading)) };
   }
+
+  const anchor = found.bullets.length === 0 ? found.labelAt : found.bullets[found.bullets.length - 1];
+  return {
+    kind: "insert",
+    heading: found.heading.text,
+    headingId: found.heading.headingId,
+    body: batch(doc, bulletRequests(paras[anchor].end - 1, lines)),
+  };
+}
+
+/**
+ * The requests that swap one top-level bullet of `section`, with everything
+ * nested under it, for `lines`, in the same place. `match` picks the bullet:
+ * the start of its text as the entry reads, links and all, which must fit
+ * exactly one bullet in the section.
+ */
+export function planReplace(
+  doc: DocsDocument,
+  week: { from: Day; to: Day },
+  section: string,
+  match: string,
+  lines: EntryLine[],
+): Extract<Plan, { kind: "insert" }> {
+  if (lines.length === 0) throw new Error("The entry has no bullets.");
+  const paras = paragraphs(doc);
+  const found = findSection(paras, week, section);
+  if (found.kind === "missing") throw new Error(`There is no entry for ${week.from} to replace a bullet in.`);
+
+  const wanted = comparable(parseEntry(`- ${match.trim().replace(/^[-*]\s+/, "")}`)[0]?.text ?? "");
+  if (wanted === "") throw new Error("Give the start of the bullet to replace.");
+  const label = section.trim().replace(/:$/, "");
+  const tops = found.bullets.filter((index) => paras[index].level === 0);
+  const matches = tops.filter((index) => comparable(paras[index].text).startsWith(wanted));
+  if (matches.length === 0) throw new Error(`No bullet under ${label} in "${found.heading.text}" starts with "${match.trim()}".`);
+  if (matches.length > 1) throw new Error(`${matches.length} bullets under ${label} in "${found.heading.text}" start with "${match.trim()}". Give more of it.`);
+
+  const first = matches[0];
+  let last = first;
+  while (found.bullets.includes(last + 1) && paras[last + 1].level > 0) last += 1;
+
+  return {
+    kind: "insert",
+    heading: found.heading.text,
+    headingId: found.heading.headingId,
+    // Deleting first leaves the paragraph above ending where the bullet began,
+    // so the new bullets go in after it exactly as an insert would.
+    body: batch(doc, [
+      { deleteContentRange: { range: { startIndex: paras[first].start, endIndex: paras[last].end } } },
+      ...bulletRequests(paras[first].start - 1, lines),
+    ]),
+  };
+}
+
+/** Whitespace and curly quotes vary between the doc and what is typed, so neither counts. */
+function comparable(text: string): string {
+  return text.replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** The revision check makes Google refuse the requests if the doc changed since it was read. */
+function batch(doc: DocsDocument, requests: object[]): BatchBody {
+  return doc.revisionId === undefined ? { requests } : { requests, writeControl: { requiredRevisionId: doc.revisionId } };
+}
+
+type FoundSection =
+  | { kind: "missing" }
+  /** `bullets` are the indexes of the section's list paragraphs, in order. */
+  | { kind: "found"; heading: Para; labelAt: number; bullets: number[] };
+
+/** The week's entry, which is the last dated heading inside the week, and the label line of `section` in it. */
+function findSection(paras: Para[], week: { from: Day; to: Day }, section: string): FoundSection {
+  const dated = datedHeadings(paras, week.from);
+  const inWeek = dated.filter((heading) => heading.day >= week.from && heading.day <= week.to);
+  const entry = inWeek[inWeek.length - 1];
+  if (entry === undefined) return { kind: "missing" };
 
   const heading = paras[entry.index];
   const rank = headingRank(heading);
@@ -174,15 +248,9 @@ export function planInsert(doc: DocsDocument, week: { from: Day; to: Day }, sect
   );
   if (labelAt === -1) throw new Error(`The entry under "${heading.text}" has no "${section}:" line.`);
 
-  let anchor = labelAt;
-  while (anchor + 1 < endOfEntry && paras[anchor + 1].bulleted) anchor += 1;
-
-  return {
-    kind: "insert",
-    heading: heading.text,
-    headingId: heading.headingId,
-    body: body(bulletRequests(paras[anchor].end - 1, lines)),
-  };
+  const bullets: number[] = [];
+  for (let index = labelAt + 1; index < endOfEntry && paras[index].bulleted; index++) bullets.push(index);
+  return { kind: "found", heading, labelAt, bullets };
 }
 
 /**

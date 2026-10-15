@@ -13,7 +13,8 @@ thread was started for. The format matters more than anything else here.
 
 Nothing reaches the doc until the user accepts the draft. Then
 `bb weekly-review entry add` puts it at the end of its section in the week's
-entry.
+entry, or, when the draft refines a bullet already there,
+`bb weekly-review entry replace` swaps it in place.
 
 ## Where the entry comes from
 
@@ -30,7 +31,7 @@ Then fill in from Weekly Review, which has the week already gathered:
 
 | Command | What it gives you |
 | --- | --- |
-| `bb weekly-review entry <monday>` | The week's entry as it stands in the doc. Read it first: the user may have written about this already, and its bullets show the voice to match. |
+| `bb weekly-review entry <monday>` | The week's entry as it stands in the doc, whatever day it is headed. Read it first: the user may have written about this already, and its bullets show the voice to match. |
 | `bb weekly-review meetings <monday> --notes` | The week's named time entries, each with the notes from the 1:1 doc, meeting doc, or daily note matched to it, and that doc's URL |
 | `bb weekly-review digest <monday>` | Hours, PRs, reviews, issues, tasks, and time entries with their notes. PRs and issues appear as `#N`, without URLs. |
 | `bb weekly-review priorities <monday>` | Last week's `Next:` bullets, which is what this week was meant to be about |
@@ -45,8 +46,28 @@ Most entries go under `Done:`. One goes under `Wins/Highlights:` when its
 point is an outcome that went well, and you are proposing that, so say so.
 Never draft `Reflections/Learnings:`; that is the user's own thinking.
 
-If the week's entry already has a bullet about this work, propose a change
-to that bullet rather than a second one.
+### When the entry already has a bullet about this work
+
+Look through every section of the week's entry for a bullet on the same
+work before drafting anything. Match on what it is about: the same doc, PR,
+or issue linked, the same people, the same request. The words will differ,
+since the user wrote it in their own.
+
+When there is one, never draft a second bullet. Weigh the existing bullet
+against the evidence:
+
+- **It already says what the evidence supports.** Publish no card. Say in
+  chat which bullet covers it, quoted, and that it needs nothing.
+- **The evidence adds something worth having.** Draft a refinement of that
+  bullet: the trigger or who asked, the outcome, sub-bullets for the
+  questions or points the user worked through, a missing link, a wrong fact,
+  an `AI-Native SDLC:` note. Start from the user's text and keep their
+  wording, links, and order; add to it rather than rewriting it. The draft is
+  the whole bullet as it would read after the change, nested bullets
+  included.
+
+Name each refinement in the card's summary, so the user can take some and
+drop others by editing the draft.
 
 ### Done
 
@@ -139,9 +160,13 @@ change. One item, worked in rounds:
   `id`, `claim` copied exactly from the draft, `support` (`full`, `partial`,
   or `none`), and `sources`, each with `quote` and `source` and a `url` when
   there is one. The `impromptu-ui` skill has the rest.
-- **changes**, when the doc already has a bullet about this: give
-  `[{ "label": "Done", "before": "<the existing bullet>" }]`, so the card
-  shows the draft against it.
+- **changes**, when the draft refines a bullet already in the doc: give
+  `[{ "label": "Done", "before": "<the existing bullet>" }]`, with its nested
+  bullets, so the card shows the draft against it. Title the card
+  `Done: Refine <the work>`, start the summary with the refinements, and add
+  a third action, `{ "type": "message", "label": "Keep mine", "text": "Keep
+  the existing journal entry as it is." }`. Keep mine closes the card as
+  `Kept` and changes nothing in the doc.
 
 Say in chat only that the draft is above the composer, and any question in
 one line.
@@ -166,8 +191,21 @@ levels written, with the links kept. When the week has no entry yet, it adds
 one first, headed with the week's Friday and with the section labels of the
 entry below it. It prints the entry's heading and a link to it.
 
-Then republish the card with `"complete": true`, the status `Added`, and a
-`link` action to the URL it printed, and say in chat where it went.
+When the draft refines an existing bullet, replace that bullet instead:
+
+```sh
+bb weekly-review entry replace <monday> --section "Done" --match "<start of the existing bullet>" --file /tmp/journal-entry-<monday>.md
+```
+
+`--match` is the opening words of the existing top-level bullet, as
+`entry <monday>` printed it, enough to fit only that bullet in the section.
+The bullet and everything nested under it are removed, and the accepted text
+goes in at the same place. It refuses, and changes nothing, when no bullet or
+more than one starts that way.
+
+Then republish the card with `"complete": true`, the status `Added` (or
+`Refined`), and a `link` action to the URL it printed, and say in chat where
+it went.
 
 If the command fails, say why and leave the card open. Do not retry with
 different text: the doc is the user's, and a second attempt can add the

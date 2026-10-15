@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headingFor, parseEntry, planInsert, type DocsDocument } from "./journal-insert.js";
+import { headingFor, parseEntry, planInsert, planReplace, type DocsDocument } from "./journal-insert.js";
 
 // The shape `documents.get` returns for the journal: newest week first, a
 // heading per week, then label lines each followed by a list. Every word invented.
@@ -136,6 +136,56 @@ describe("planInsert", () => {
       location: { index: startOf("October 9, 2026") },
       text: "October 16, 2026\n\nDone:\n\nWins/Highlights:\n\nNext:\n\n\n",
     });
+  });
+});
+
+describe("planReplace", () => {
+  const TWO = doc([
+    ["October 9, 2026", "HEADING_2"],
+    ["Done:"],
+    ["Shipped the widget sync beta.", undefined, 0],
+    ["Octocat signed off on it.", undefined, 1],
+    ["Paired with Hubber on gadgets.", undefined, 0],
+    [""],
+    ["Next:"],
+  ]);
+
+  it("deletes the bullet and its nested bullets, then adds the new ones in its place", () => {
+    const plan = planReplace(TWO, WEEK, "Done", "Shipped the [widget sync](https://example.com) beta", parseEntry("- Shipped it.\n  - Hubber helped."));
+    const requests = plan.body.requests as any[];
+    const start = startOf("Shipped the widget sync beta.", TWO);
+    expect(requests[0]).toEqual({
+      deleteContentRange: { range: { startIndex: start, endIndex: startOf("Paired with Hubber on gadgets.", TWO) } },
+    });
+    expect(requests[1]).toEqual({ insertText: { location: { index: start - 1 }, text: "\n\nShipped it.\n\tHubber helped." } });
+    expect(plan.body.writeControl).toEqual({ requiredRevisionId: "rev1" });
+  });
+
+  it("replaces only the bullet itself when nothing is nested under it", () => {
+    const plan = planReplace(TWO, WEEK, "Done", "- Paired with Hubber", parseEntry("- Paired with Hubber."));
+    const start = startOf("Paired with Hubber on gadgets.", TWO);
+    expect((plan.body.requests as any[])[0].deleteContentRange.range).toEqual({
+      startIndex: start,
+      endIndex: start + "Paired with Hubber on gadgets.".length + 1,
+    });
+  });
+
+  it("refuses a match that fits no bullet, or more than one", () => {
+    expect(() => planReplace(TWO, WEEK, "Done", "Wrote up", parseEntry("- x"))).toThrow(
+      'No bullet under Done in "October 9, 2026" starts with "Wrote up".',
+    );
+    expect(() => planReplace(TWO, WEEK, "Done", "S", parseEntry("- x"))).not.toThrow();
+    const twice = doc([
+      ["October 9, 2026", "HEADING_2"],
+      ["Done:"],
+      ["Shipped one.", undefined, 0],
+      ["Shipped two.", undefined, 0],
+    ]);
+    expect(() => planReplace(twice, WEEK, "Done", "Shipped", parseEntry("- x"))).toThrow("2 bullets under Done");
+  });
+
+  it("does not match a nested bullet", () => {
+    expect(() => planReplace(TWO, WEEK, "Done", "Octocat signed", parseEntry("- x"))).toThrow("No bullet under Done");
   });
 });
 
