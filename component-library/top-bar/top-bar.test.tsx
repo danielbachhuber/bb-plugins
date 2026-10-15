@@ -49,6 +49,7 @@ function titleBar() {
   const sidebar = document.createElement("div");
   const trigger = document.createElement("button");
   trigger.setAttribute("data-sidebar", "trigger");
+  trigger.style.transform = "translateY(2px)";
   sidebar.append(trigger);
   const panel = document.createElement("div");
   const toggle = document.createElement("button");
@@ -118,6 +119,8 @@ describe("TopBarSlot", () => {
     expect(chip.parentElement?.parentElement).toBe(bar);
     expect(chip.parentElement?.previousElementSibling).toBe(sidebar);
     expect(chip.parentElement?.nextElementSibling).toBe(panel);
+    // On the same line as the toggle, which bb nudges down.
+    expect(chip.parentElement?.style.transform).toBe("translateY(2px)");
   });
 
   it("puts its children at the top left, before the page title", async () => {

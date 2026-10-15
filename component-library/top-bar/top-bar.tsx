@@ -139,6 +139,10 @@ export function TopBarSlot({ pluginId, order = 0, activeOn = [], children }: {
         const gap = style.display.includes("flex") ? parseFloat(style.columnGap) || 0 : 0;
         el.style.marginRight = `${Math.max(0, 6 - gap)}px`;
       }
+      // bb nudges the title bar's buttons down onto the traffic lights' line; match the sidebar toggle's offset.
+      const toggle = parent.matches(TITLE_BAR) ? parent.querySelector(SIDEBAR_TOGGLE) : null;
+      const transform = toggle ? getComputedStyle(toggle).transform : "none";
+      el.style.transform = transform === "none" ? "" : transform;
       setHost(el);
     };
     const schedule = () => {
