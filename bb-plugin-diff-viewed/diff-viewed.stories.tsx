@@ -195,6 +195,8 @@ interface Fixture {
   github: GithubState | null;
   /** Never answer viewed_list, to hold the panel in its loading state. */
   holdGithub?: boolean;
+  /** Start with Only unviewed on. */
+  onlyUnviewed?: boolean;
 }
 
 /** The plugin's RPC, answered from memory. */
@@ -203,8 +205,9 @@ function fakeRpc(fixture: Fixture) {
   return async <Result,>(method: string, input: unknown): Promise<Result> => {
     switch (method) {
       case "filter_get":
+        return { onlyUnviewed: fixture.onlyUnviewed ?? false } as Result;
       case "filter_set":
-        return { onlyUnviewed: false } as Result;
+        return { onlyUnviewed: (input as { onlyUnviewed: boolean }).onlyUnviewed } as Result;
       case "viewed_marks":
       case "viewed_prune":
         return { record } as Result;
@@ -295,15 +298,31 @@ function FileList({ files }: { files: DiffFileEntry[]; target: { type: string } 
 
 const noop = () => {};
 
-function Panel({ fixture, threadId, files = FILES }: { fixture: Fixture; threadId: string; files?: DiffFileEntry[] }) {
+function Panel({
+  fixture,
+  threadId,
+  files = FILES,
+  openRangeMenu = false,
+}: {
+  fixture: Fixture;
+  threadId: string;
+  files?: DiffFileEntry[];
+  openRangeMenu?: boolean;
+}) {
   useEngine(fixture, threadId);
+  useEffect(() => {
+    if (!openRangeMenu) return;
+    // Radix opens the menu on pointerdown, as a click in bb would.
+    const trigger = document.querySelector('[data-testid="git-diff-toolbar-selector-slot"] button');
+    trigger?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, pointerType: "mouse" }));
+  }, [openRangeMenu]);
   const stats = {
     filesCount: files.length,
     insertions: files.reduce((sum, file) => sum + file.additions, 0),
     deletions: files.reduce((sum, file) => sum + file.deletions, 0),
   };
   return (
-    <div className="flex w-[800px] min-w-0 flex-col overflow-hidden bg-background pt-3">
+    <div data-screenshot-frame className="flex w-[800px] min-w-0 flex-col overflow-hidden bg-background pt-3">
       <GitDiffToolbar
         selectionValue="all"
         selectionOptions={[
@@ -384,4 +403,18 @@ const LOADING_FIXTURE: Fixture = {
  */
 export function Loading() {
   return <Panel fixture={LOADING_FIXTURE} threadId="thr_loading" />;
+}
+
+const ONLY_UNVIEWED_FIXTURE: Fixture = {
+  record: {},
+  github: pull(["README.md", "src/cart.ts", "src/inventory.ts"]),
+  onlyUnviewed: true,
+};
+
+/**
+ * Only unviewed, checked at the bottom of the range dropdown, hides the three
+ * viewed files. The toolbar still counts 3/6 viewed.
+ */
+export function OnlyUnviewed() {
+  return <Panel fixture={ONLY_UNVIEWED_FIXTURE} threadId="thr_only_unviewed" openRangeMenu />;
 }

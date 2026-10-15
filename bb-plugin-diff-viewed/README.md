@@ -10,6 +10,9 @@ Keep your place in a long diff with a Viewed checkbox on each file, shared with 
 - Check a file to collapse and dim it. The files still open are the ones you have not read. Uncheck it to bring it back.
 - The toolbar counts the files you have viewed, such as **3/6 viewed**, across the whole range, including files you have not scrolled to.
 - Pick **Only unviewed** at the bottom of the range dropdown (**All changes**, **Uncommitted changes**) to hide viewed files. Pick it again to show them.
+
+![The range dropdown open with All changes and Only unviewed checked, over a list that starts at src/pricing.ts because the three viewed files are hidden, while the toolbar still reads 3/6 viewed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--only-unviewed.png)
+
 - A mark clears itself when that file's `+N -M` counts change, such as after a rebase or a new hunk, so the file opens again for you to reread.
 - When the thread has an open pull request, a mark is the same as GitHub's **Viewed** box on that file. A file whose diff in bb differs from GitHub's, such as one with edits you have not pushed, shows a crossed-out cloud for **Local**: the mark stays in bb, and goes to GitHub once a push makes the diffs match.
 
