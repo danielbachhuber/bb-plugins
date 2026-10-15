@@ -420,7 +420,9 @@ for (const id of stories) {
     plugins.set(dir, {
       dir,
       sourceDir,
-      name: bb.name ?? pkg.name ?? dir,
+      // A library goes by its directory, not its package name, whose npm scope
+      // would sort the component library above every plugin.
+      name: bb.name ?? sourceDir,
       description: bb.description ?? pkg.description ?? "",
       stories: [],
     });
