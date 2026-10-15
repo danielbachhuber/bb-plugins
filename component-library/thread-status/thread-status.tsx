@@ -46,6 +46,15 @@ export const THREAD_EDGE =
 export const THREAD_EDGE_INSET =
   "border-l-2 border-l-[#ea7a0c] bg-[#ea7a0c]/[0.05] dark:border-l-[#f08a24] dark:bg-[#f08a24]/[0.06]";
 
+/**
+ * On the row: hovering Open thread or the thread line underlines both, so
+ * the two read as one way into the thread. Anything marked
+ * `data-thread-open` starts it; anything marked `data-thread-underline`
+ * takes the underline.
+ */
+export const THREAD_HOVER =
+  "[&:has([data-thread-open]:hover)_[data-thread-underline]]:underline [&:has([data-thread-open]:hover)_[data-thread-underline]]:underline-offset-2";
+
 const ACCENT = "text-[#c25e00] dark:text-[#f5a25a]";
 const RULE = "border-l-[#ea7a0c]/45 dark:border-l-[#f08a24]/50";
 
@@ -119,10 +128,11 @@ export function OpenThreadAction({ onOpen, disabled = false }: { onOpen: () => v
       type="button"
       disabled={disabled}
       onClick={onOpen}
+      data-thread-open=""
       className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:bg-accent hover:text-foreground disabled:opacity-60"
     >
       <HugeiconsIcon icon={BubbleChatIcon} aria-hidden="true" className="size-3" />
-      Open thread
+      <span data-thread-underline="">Open thread</span>
     </button>
   );
 }
@@ -148,6 +158,7 @@ export function ThreadLine({
     <button
       type="button"
       onClick={onOpen}
+      data-thread-open=""
       className={cn(
         "mt-1.5 flex w-full min-w-0 items-center border-l-2 pl-2 text-left text-xs text-muted-foreground hover:text-foreground",
         RULE,
@@ -158,14 +169,16 @@ export function ThreadLine({
         <span className={cn("inline-flex size-3 items-center justify-center", ACCENT)}>
           <Glyph live={live} />
         </span>
-        {status === null ? "Thread" : LIVE_LABEL[live]}
+        {status === null ? <span data-thread-underline="">Thread</span> : LIVE_LABEL[live]}
       </span>
       {status === null ? null : (
         <>
           <span aria-hidden="true" className="mx-1.5 shrink-0 text-muted-foreground/60">
             ·
           </span>
-          <span className="min-w-0 truncate">{status.title}</span>
+          <span data-thread-underline="" className="min-w-0 truncate">
+            {status.title}
+          </span>
         </>
       )}
       <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden="true" className="ml-1 size-3 shrink-0" />

@@ -160,6 +160,8 @@ export interface SweepRowProps {
    * as component-library's ThreadLine.
    */
   threadLine?: ReactNode;
+  /** Added to the row, such as component-library's THREAD_HOVER. */
+  className?: string;
   /**
    * Turns the comment count into a toggle for a drawer under the action line.
    * Left out, the count is only a number.
@@ -212,6 +214,7 @@ export function SweepRow({
   commentsOpen = false,
   commentsDrawer,
   threadLine,
+  className,
   editing,
   onEditNote,
   onNoteSave,
@@ -310,7 +313,7 @@ export function SweepRow({
     </>
   );
   return (
-    <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item, tone), busy && "opacity-50")}>
+    <li className={cn("flex gap-3 text-sm", open ? "py-3" : "py-2.5", tint(item, tone), busy && "opacity-50", className)}>
       {iconColumn}
       <div className="min-w-0 flex-1">
         {trackPlacement === "header" ? (
