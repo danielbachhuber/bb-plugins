@@ -262,7 +262,11 @@ if (captureEverything || !existsSync(graphPath)) {
 } else {
   const affected = modulesImporting(changedFiles);
   // Explore stories are never committed, so with --explore they are all captured.
-  toCapture = stories.filter((id) => (includeExplore && isExplore(id)) || affected.has(storySource(id).file));
+  // A story with no image yet, such as one in a new, untracked file, is captured too.
+  toCapture = stories.filter(
+    (id) =>
+      (includeExplore && isExplore(id)) || affected.has(storySource(id).file) || !existsSync(outputPath(id)),
+  );
   console.log(
     `Capturing ${toCapture.length} of ${stories.length} stories, the ones that import a file changed since ${baseSha.slice(0, 7)}.`,
   );
