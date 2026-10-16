@@ -55,8 +55,11 @@ only its pull requests, in the same order; pressing it again shows them all.
 - **Waiting**: only a CI run in flight, approved with another reviewer still
   asked, or awaiting review.
 
-Every row is open, with its title line, banner, icons, note, and actions.
-There is no chevron to close one.
+Every row is open, with its title line, banner, icons, note, and actions,
+except the waiting ones. A waiting row is one line: its title, number, and
+stack chip, with its reviewers, checks, and size at the right. The chevron at
+its left opens it to the full row. A waiting row whose Harvest timer is
+running stays open.
 
 ## Each row
 

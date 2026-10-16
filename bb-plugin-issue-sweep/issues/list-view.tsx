@@ -830,16 +830,19 @@ function SplitList({
 
   const rowFor = (item: SweepItem, side: "mine" | "rest") => {
     const row = rowsByKey.get(item.key)!;
-    const open = side === "mine" || item.forceOpen === true || opened[item.key] === true;
+    // Everything else, and an issue on hold, closes to one line, the held one
+    // showing its note there.
+    const closable = side === "rest" || item.runId === "on-hold";
+    const open = !closable || item.forceOpen === true || opened[item.key] === true;
     return (
       <SweepRow
         key={item.key}
         item={item}
-        tier={side === "mine" ? "now" : "later"}
+        tier={closable ? "later" : "now"}
         open={open}
-        chevron={side === "rest"}
+        chevron={closable}
         onToggle={
-          side === "rest" && !item.forceOpen
+          closable && !item.forceOpen
             ? () => setOpened((current) => ({ ...current, [item.key]: !open }))
             : undefined
         }

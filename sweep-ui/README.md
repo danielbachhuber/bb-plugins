@@ -10,8 +10,8 @@ actions. Next rows are closed to their title and number line. Later rows are
 one dimmed line each, and fold into "N more" after five. A chevron in the left
 column opens or closes a row. A row with `forceOpen` set stays open in any
 tier and has no chevron to close it; the plugins set it on the row whose
-Harvest timer is running. A one-line Later row with a flag shows the flag
-where its first fact would be. Above the list, one square per row, grouped by
+Harvest timer is running. A one-line Later row shows, where its first fact
+would be, its note when it is on hold, or else its flag. Above the list, one square per row, grouped by
 run, narrows the list to one run when pressed: blue for new, red for late,
 orange for work under way, and grey for the rest. A stale row has a red left
 edge and a faint red wash, a blocked one a slate one, and a row in an
@@ -90,7 +90,7 @@ plugin: `sync.sh` and `setup.sh` look for `bb.name`.
 | `busyKeys` | Keys of rows to dim while a request for them runs |
 | `renderBody` | Optional. `(item, open, line)` draws the row's body in place of its number line. `line` is true on a one-line Later row, where it is drawn inline in place of the first fact |
 | `renderTrack` | Optional. `(item, line)` draws the right-hand column in place of the stage track. Returning null leaves the column out, so the row takes the full width |
-| `collapsible` | Optional, default true. False keeps every row open, whatever its tier, with no chevron and no column for one |
+| `collapsible` | Optional, default true. False keeps every row open, whatever its tier, with no chevron and no column for one. `"later"` keeps Now and Next rows open that way and draws Later rows as one closed line each, with a chevron to open them; PR Sweep uses it for its waiting rows |
 | `renderTrailing` | Optional. `(item)` draws at the right end of an open row's action line, after the note button. The sweeps put the Harvest timer there |
 | `renderStartThread` | Optional. `(item)` draws under the row's action line, above its thread line. PR Sweep and Review Sweep return component-library's `StartThreadInline` for the row whose Start thread button opened it, and null for the rest |
 | `renderComments` | Optional. `(item)` draws the drawer the comment count opens under the action line, and turns the count into a toggle. Drawn only while open, so a drawer that loads its comments loads them on the click. PR Sweep and Review Sweep pass a `FeedbackDrawer` |

@@ -270,9 +270,15 @@ export function SweepRow({
             {item.stack ? <StackChip stack={item.stack} Link={Link} /> : null}
             {conflict}
           </span>
-          {/* One slot on the right: a flag outranks the first fact, or it would never show on a line. */}
+          {/* One slot on the right: a held row's note, then a flag, then the first fact, or the flag would never show on a line. */}
           {renderBody ? (
             <span className="ml-auto flex shrink-0 items-center">{renderBody(item, false, true)}</span>
+          ) : item.onHold ? (
+            // Up to 60% of the line, so the title is what gives way.
+            <span className="ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs text-muted-foreground" style={{ maxWidth: "60%" }}>
+              <Icon name="Pause" className="size-3 shrink-0" />
+              <span className="truncate">{item.note ?? "On hold"}</span>
+            </span>
           ) : item.flags[0] ? (
             <span className="ml-auto shrink-0 text-xs">
               <FlagText flag={item.flags[0]} />

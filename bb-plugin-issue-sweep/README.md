@@ -52,7 +52,7 @@ them all.
 
 | Column | Runs, in order | Rows |
 | --- | --- | --- |
-| Needs you | new comments, stale, working, in progress, to start, on hold | Open: title, number line, note, actions, and why the issue is there |
+| Needs you | new comments, stale, working, in progress, to start, on hold | Open: title, number line, note, actions, and why the issue is there. On hold rows are one line, with the note at the right, opening to the rest |
 | Everything else | waiting on review, later, blocked | One line each, grouped by board status, opening to the same actions |
 
 - **New comments**: comments others posted since you last opened the issue,
@@ -141,8 +141,9 @@ row's "N new" clears. Clicking the count again closes it.
 A note is a one-line next step, stored only on this machine and never sent to
 GitHub. It shows in a grey drawer under the action line, and Add note or Edit
 note opens its editor in the same place. The editor's On hold box puts the
-issue on hold, with or without text: it moves to the bottom of Needs you, and
-its drawer starts with "On hold". The hold is stored with the note, on this
+issue on hold, with or without text: it moves to the bottom of Needs you as
+one line, with the note at its right end (or "On hold" when there is no text),
+and its chevron opens it to the full row, whose drawer starts with "On hold". The hold is stored with the note, on this
 machine only, and clearing the box takes the issue off hold. The X at the
 right end of the drawer deletes the note and the hold together. The button stays put, pressed, while
 the editor is open; pressing it again

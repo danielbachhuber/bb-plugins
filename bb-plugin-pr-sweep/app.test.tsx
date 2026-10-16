@@ -276,7 +276,7 @@ describe("panel", () => {
 });
 
 describe("tiers", () => {
-  it("keeps every row open, whatever its tier, with no chevron", async () => {
+  it("keeps every row open but the waiting ones, which close to one line", async () => {
     const slot = render(
       listing({
         rows: [
@@ -286,12 +286,18 @@ describe("tiers", () => {
         ],
       }),
     );
-    for (const title of ["Conflict item", "Draft item", "Waiting item"]) {
+    for (const title of ["Conflict item", "Draft item"]) {
       const row = await rowFor(slot, title);
       expect(within(row).getByText("3/3")).toBeInTheDocument();
       expect(within(row).getByRole("button", { name: "Add note" })).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
     }
-    expect(slot.queryByRole("button", { name: /^(Collapse|Expand)$/ })).toBeNull();
+    // The waiting row's line keeps its checks, and opens to its actions.
+    const waiting = await rowFor(slot, "Waiting item");
+    expect(within(waiting).getByText("3/3")).toBeInTheDocument();
+    expect(within(waiting).queryByRole("button", { name: "Add note" })).toBeNull();
+    fireEvent.click(within(waiting).getByRole("button", { name: "Expand" }));
+    expect(await within(await rowFor(slot, "Waiting item")).findByRole("button", { name: "Add note" })).toBeInTheDocument();
   });
 
   it("draws the newest first, with the overdue and then the ones being worked on pinned on top", async () => {

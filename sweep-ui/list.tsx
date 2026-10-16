@@ -48,9 +48,11 @@ export interface SweepListProps {
   renderTrack?: (item: SweepItem, line: boolean) => ReactNode;
   /**
    * False keeps every row open, whatever its tier, with no chevron to close it
-   * and no column for one. Defaults to true: Now rows open, the rest closed.
+   * and no column for one. "later" keeps Now and Next rows open that way, and
+   * draws Later rows as one closed line each with a chevron to open them.
+   * Defaults to true: Now rows open, the rest closed.
    */
-  collapsible?: boolean;
+  collapsible?: boolean | "later";
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
   /** Drawn directly under a row's action line: component-library's ThreadLine for a row with a thread. */
@@ -127,15 +129,16 @@ export function SweepList({
   const visibleLater = fold ? later.slice(0, laterShown) : later;
 
   const rowFor = (item: SweepItem, tier: Tier) => {
-    const open = !collapsible || item.forceOpen === true || (toggled[item.key] ?? tier === "now");
+    const closable = collapsible === true || (collapsible === "later" && tier === "later");
+    const open = !closable || item.forceOpen === true || (toggled[item.key] ?? tier === "now");
     return (
       <SweepRow
         key={item.key}
         item={item}
         tier={tier}
         open={open}
-        onToggle={!collapsible || item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
-        chevron={collapsible}
+        onToggle={!closable || item.forceOpen ? undefined : () => setToggled((current) => ({ ...current, [item.key]: !open }))}
+        chevron={closable}
         tone={toneOf.get(item.runId)}
         stages={stages}
         onMove={onMove ? (stage) => onMove(item, stage) : undefined}

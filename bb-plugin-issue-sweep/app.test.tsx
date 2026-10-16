@@ -527,13 +527,22 @@ describe("notes", () => {
       },
     });
 
+    // A held issue is one closed line until it is opened.
+    fireEvent.click(await slot.findByRole("button", { name: "Expand" }));
     fireEvent.click(await slot.findByRole("button", { name: "Clear note" }));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, body: "", onHold: false });
   });
 
-  it("says On hold before the note of a held issue", async () => {
+  it("closes a held issue to one line that shows its note", async () => {
     const slot = render(listing({ rows: [nowRow({ note: "Waiting on #31", onHold: true })] }));
+    expect(await slot.findByText("Waiting on #31")).toBeInTheDocument();
+    expect(slot.queryByRole("button", { name: "Edit note" })).toBeNull();
+  });
+
+  it("says On hold before the note of a held issue once it is opened", async () => {
+    const slot = render(listing({ rows: [nowRow({ note: "Waiting on #31", onHold: true })] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Expand" }));
     expect(await slot.findByText("On hold")).toBeInTheDocument();
     expect(slot.getByText("Waiting on #31")).toBeInTheDocument();
   });

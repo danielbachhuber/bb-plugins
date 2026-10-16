@@ -601,6 +601,8 @@ export function PrListView({
           on: row.stack.on === null ? null : { number: row.stack.on, url: `https://github.com/${row.repo}/pull/${row.stack.on}` },
         }
       : null,
+    // A running timer must stay in view, and it lives in the action line.
+    forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
 
   return (
@@ -646,8 +648,9 @@ export function PrListView({
             stages={STAGES}
             runs={PR_RUNS}
             items={items}
-            // Every row stays open, so each pull request shows its actions.
-            collapsible={false}
+            // Rows stay open, so each pull request shows its actions, except
+            // the ones waiting on someone else, which close to one line.
+            collapsible="later"
             // Newest first with the pinned rows on top, not grouped by tier.
             order="given"
             Link={UrlLink}
