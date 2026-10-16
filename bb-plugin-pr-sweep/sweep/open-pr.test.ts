@@ -191,18 +191,35 @@ describe("pushTargetForRepo", () => {
 
 describe("worktreePlan", () => {
   it("fetches a same-repository branch from origin by name", () => {
-    expect(worktreePlan(basePr, [])).toEqual({ kind: "origin", branch: "feat/widgets" });
+    expect(
+      worktreePlan(basePr, [{ name: "origin", url: "git@github.com:acme/widgets.git" }]),
+    ).toEqual({ kind: "origin", branch: "feat/widgets", fetchFrom: "origin" });
+  });
+
+  it("fetches from the base repository's remote when origin is a fork", () => {
+    const remotes = [
+      { name: "origin", url: "git@github.com:octocat/widgets.git" },
+      { name: "upstream", url: "https://github.com/acme/widgets.git" },
+    ];
+    expect(worktreePlan(basePr, remotes)).toMatchObject({ fetchFrom: "upstream" });
+    expect(
+      worktreePlan({ ...basePr, isFork: true, headRepo: "octocat/widgets" }, remotes),
+    ).toMatchObject({ kind: "fork", fetchFrom: "upstream", pushTo: "origin" });
   });
 
   it("fetches a fork's branch from refs/pull, and keeps the branch name", () => {
     expect(
       worktreePlan(
         { ...basePr, isFork: true, headRepo: "octocat/widgets" },
-        [{ name: "octocat", url: "git@github.com:octocat/widgets.git" }],
+        [
+          { name: "origin", url: "git@github.com:acme/widgets.git" },
+          { name: "octocat", url: "git@github.com:octocat/widgets.git" },
+        ],
       ),
     ).toEqual({
       kind: "fork",
       branch: "feat/widgets",
+      fetchFrom: "origin",
       prRef: "refs/pull/42/head",
       pushTo: "octocat",
       repo: "acme/widgets",

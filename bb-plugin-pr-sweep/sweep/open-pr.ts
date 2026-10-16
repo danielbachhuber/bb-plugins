@@ -29,10 +29,17 @@ export interface ResolvedPullRequest {
  * the decision is a value the caller can test.
  */
 export type WorktreePlan =
-  | { kind: "origin"; branch: string }
+  | {
+      kind: "origin";
+      branch: string;
+      /** A remote name or URL for the pull request's base repository. */
+      fetchFrom: string;
+    }
   | {
       kind: "fork";
       branch: string;
+      /** A remote name or URL for the pull request's base repository. */
+      fetchFrom: string;
       /** `refs/pull/<n>/head` on the base repository. */
       prRef: string;
       /** A remote name or URL for the fork, or `null` when the fork has gone. */
@@ -122,10 +129,15 @@ export function worktreePlan(
   pr: ResolvedPullRequest,
   remotes: { name: string; url: string }[],
 ): WorktreePlan {
-  if (!pr.isFork) return { kind: "origin", branch: pr.headRef };
+  // The base repository is not always origin: a checkout cloned from a fork
+  // keeps the fork as origin and the base repository as another remote, and
+  // `refs/pull/<n>/head` exists only on the base.
+  const fetchFrom = pushTargetForRepo(remotes, pr.repo)!;
+  if (!pr.isFork) return { kind: "origin", branch: pr.headRef, fetchFrom };
   return {
     kind: "fork",
     branch: pr.headRef,
+    fetchFrom,
     prRef: `refs/pull/${pr.number}/head`,
     pushTo: pushTargetForRepo(remotes, pr.headRepo),
     repo: pr.repo,

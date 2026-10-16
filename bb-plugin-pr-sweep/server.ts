@@ -624,7 +624,7 @@ export default async function plugin(bb: BbPluginApi) {
     repoPath: string,
     plan: Extract<WorktreePlan, { kind: "fork" }>,
   ): Promise<void> {
-    await mustGit(repoPath, ["fetch", "origin", plan.prRef]);
+    await mustGit(repoPath, ["fetch", plan.fetchFrom, plan.prRef]);
     const head = (await mustGit(repoPath, ["rev-parse", "FETCH_HEAD"])).trim();
 
     const existing = await git(repoPath, ["rev-parse", "--verify", `refs/heads/${plan.branch}`]);
@@ -681,7 +681,7 @@ export default async function plugin(bb: BbPluginApi) {
     await git(repoPath, ["worktree", "prune"]);
 
     if (plan.kind === "fork") await fetchForkBranch(repoPath, plan);
-    else await mustGit(repoPath, ["fetch", "origin", plan.branch]);
+    else await mustGit(repoPath, ["fetch", plan.fetchFrom, plan.branch]);
 
     try {
       await mustGit(repoPath, ["worktree", "add", path, plan.branch]);
