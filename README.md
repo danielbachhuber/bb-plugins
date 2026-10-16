@@ -164,3 +164,16 @@ last captured, and keeps the other images as they are; add `-- --all` to
 capture every story. It
 needs `npm install`, which installs Playwright with everything else, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.
+
+To photograph a few stories, such as design options in `explore/`, without
+building or touching that checkout:
+
+```sh
+npm run screenshots -- --story 'pr-sweep--pr-list--*' --out /tmp/options [--theme dark]
+```
+
+`--story` takes a story id or a glob over ids and can be repeated. Each image
+is written to `<out>/<story id>.png`. It uses a running `npm run storybook`
+server for this checkout, or starts one for the run, so it takes seconds
+rather than a build. A story that throws, or that Vite cannot load, stops the
+run at once with the error and a non-zero exit.
