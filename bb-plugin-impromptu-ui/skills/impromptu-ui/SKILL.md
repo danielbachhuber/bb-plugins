@@ -91,11 +91,24 @@ After publishing, say in chat how many items there are and that they are above t
 | Action | What the button does |
 |---|---|
 | `message` | Sends `text` to this thread as if the user typed it, or to the thread named by `threadId` (see "An item in its own thread"). Use it when the work needs your judgment or context: posting a drafted comment, revising something. Write `text` so it names the item, because you will read it later with no other context. |
-| `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone. |
+| `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone. Add `baseBranch` when the work belongs on a branch other than the project's default (see below). |
 | `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. `"confirm": false` runs it as soon as the button is clicked; use that only for a small step the user already expects, such as adding a to-do. Use a command for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
 
 An item with `variations` is a visual review instead: see below.
+
+A `thread` button with `baseBranch` starts its thread in a new worktree cut from that ref, after fetching it, and diffs the thread against it from the first turn. Use it whenever the new thread will open a pull request whose base is not the default branch, such as a fix in a PR against the PR you are reviewing. Without it, the thread's diff compares against `main` and shows the parent PR's changes too. Give a remote branch, `origin/<PR head branch>`, not a local one, which may be behind:
+
+```json
+{
+  "type": "thread",
+  "label": "Fix in a PR against this PR",
+  "project": "widgets",
+  "title": "Fix #101's retry loop",
+  "baseBranch": "origin/retry-on-timeout",
+  "prompt": "acme/widgets#101 retries forever when the server times out. Make a branch off retry-on-timeout, fix it there, and open a PR whose base is retry-on-timeout."
+}
+```
 
 Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again. A button with `"repeat": true` leaves the card open after it goes through, for a step the user may take again, such as "Regenerate".
 
@@ -128,6 +141,7 @@ When the items are a pull request review's findings, lay the view out so the use
 - One item per finding, grouped into sections by how much it matters: "Fix before merge", then "Worth considering". Leave out a section with nothing in it.
 - Open each finding's summary with what goes wrong for the user or the system ("Every archived widget comes back on the next sync"), then the code that causes it. Names of functions and variables after the consequence, not before.
 - Give each finding the hunk it is about, from `gh pr diff`, as a change, with `"changesLabel": "In this PR"`. When the finding has a concrete fix, add it as a change with `"role": "proposed"`, never in the PR hunk's block or as prose. Quote code the PR does not change in `details`.
+- A `thread` button that fixes a finding in a new pull request against the one under review gets `"baseBranch": "origin/<PR head branch>"`, so the new thread's diff shows only its own fix.
 - Make the verdict (approve, comment, or request changes) the closing step, in a section of its own at the end, with your recommendation in its summary and `{tally}` in its buttons' text. Offer the other verdicts as its other buttons.
 
 ## Show what changed

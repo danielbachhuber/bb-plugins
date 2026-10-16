@@ -14,6 +14,7 @@ With it, the same assessment is a row above the composer. Opening it shows the v
 
 - A skill publishes the items it wants you to act on, such as issues to triage, findings from a code review, or a pull request to merge. Each one is a numbered row above the composer, under a section heading when the skill groups them.
 - Click a row to open it in the side panel: its summary and details, any diff, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
+- A button that starts a thread for a pull request against another branch, such as a fix in a PR against the PR under review, starts it in a new worktree on that branch, so the thread's diff matches the pull request from the first turn.
 - A fix the agent suggests sits in its own **Suggested fix** block under the code it changes, apart from the pull request's own diff under **In this PR**.
 - A last step that depends on the rest, such as a review's verdict, waits under the list as a **Then** row. It opens once every item above it is handled and tallies what you did with them.
 

@@ -6,6 +6,7 @@
 // thread's composer; each item opens in the side panel. Each button sends a
 // message back to that thread, opens a new thread, runs a shell command the
 // user has confirmed, or opens a link.
+import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
@@ -14,6 +15,7 @@ import { expandPatchFiles } from "./view/changes.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
+import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, fillNote, itemThreads, messageTargets, parseView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
@@ -27,9 +29,6 @@ const PUBLISHED = "impromptu-ui-published";
 const CHANGED = "impromptu-ui-changed";
 
 const KEY = /^[A-Za-z0-9._-]{1,60}$/;
-
-const PERSONAL_WORKSPACE = { type: "host", workspace: { type: "personal" } } as const;
-const PROJECT_DEFAULT = { type: "project-default" } as const;
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
@@ -57,18 +56,48 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function projectFor(name: string): Promise<string> {
+  type ProjectSource = { path?: string | null; hostId?: string | null; isDefault?: boolean | null };
+
+  /** The project, with where its default checkout is, which a worktree for it is made from. */
+  async function projectFor(
+    name: string,
+  ): Promise<{ id: string; personal: boolean; hostId: string | null; path: string | null }> {
     const wanted = name.trim();
     const personal = await personalProjectId();
-    if (personal !== null && (wanted.toLowerCase() === "personal" || wanted === personal)) return personal;
-    const projects = (await bb.sdk.projects.list({})) as Array<{ id: string; name: string }>;
+    if (personal !== null && (wanted.toLowerCase() === "personal" || wanted === personal)) {
+      return { id: personal, personal: true, hostId: null, path: null };
+    }
+    const projects = (await bb.sdk.projects.list({})) as Array<{ id: string; name: string; sources?: ProjectSource[] | null }>;
     const match = projects.find(
       (project) => project.id === wanted || project.name.toLowerCase() === wanted.toLowerCase(),
     );
     if (match === undefined) {
       throw new Error(`No bb project named "${name}". Projects: ${projects.map((p) => p.name).join(", ")}.`);
     }
-    return match.id;
+    const sources = (match.sources ?? []).filter((source) => source.path && source.hostId);
+    const source = sources.find((candidate) => candidate.isDefault) ?? sources[0];
+    return { id: match.id, personal: false, hostId: source?.hostId ?? null, path: source?.path ?? null };
+  }
+
+  function git(cwd: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> {
+    return new Promise((resolve) => {
+      execFile("git", ["-C", cwd, ...args], { timeout: 60_000 }, (error, stdout, stderr) =>
+        resolve({ ok: !error, stdout: stdout ?? "", stderr: (stderr ?? "").trim() || (error ? error.message : "") }),
+      );
+    });
+  }
+
+  /**
+   * Fetches a `<remote>/<branch>` base before a worktree is cut from it, so a
+   * branch pushed or rebased on GitHub since the last fetch is current. A
+   * failed fetch is logged rather than thrown: the ref may still be good.
+   */
+  async function fetchBase(path: string, baseBranch: string) {
+    const remotes = (await git(path, ["remote"])).stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+    const args = fetchArgsFor(baseBranch, remotes);
+    if (args === null) return;
+    const fetched = await git(path, args);
+    if (!fetched.ok) bb.log.warn(`could not fetch ${baseBranch} in ${path}: ${fetched.stderr}`);
   }
 
   /** Tells every thread that shows the view to look again: the one that published it, and each one its items show in. */
@@ -130,11 +159,13 @@ export default async function plugin(bb: BbPluginApi) {
         return {};
       }
       case "thread": {
-        const projectId = await projectFor(action.project);
+        const project = await projectFor(action.project);
+        const environment = threadEnvironment({ baseBranch: action.baseBranch, project: action.project, ...project });
+        if (action.baseBranch !== undefined && project.path !== null) await fetchBase(project.path, action.baseBranch);
         const providerId = (await settings.get()).providerId.trim();
         const thread = await bb.sdk.threads.spawn({
-          projectId,
-          environment: projectId === (await personalProjectId()) ? PERSONAL_WORKSPACE : PROJECT_DEFAULT,
+          projectId: project.id,
+          environment,
           ...(providerId === "" ? {} : { providerId }),
           prompt: action.prompt,
           title: action.title,
