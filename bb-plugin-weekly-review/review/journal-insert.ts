@@ -12,7 +12,7 @@ import { parseHeadingDate } from "./meeting-notes.js";
 import type { Day } from "./types.js";
 
 export interface DocsParagraph {
-  elements: Array<{ textRun?: { content?: string } }>;
+  elements: Array<{ textRun?: { content?: string; textStyle?: { italic?: boolean } } }>;
   paragraphStyle?: { namedStyleType?: string; headingId?: string };
   bullet?: { listId: string; nestingLevel?: number };
 }
@@ -81,7 +81,7 @@ function inline(source: string): Omit<EntryLine, "level"> {
   return { text: text + rest, links };
 }
 
-interface Para {
+export interface Para {
   start: number;
   end: number;
   text: string;
@@ -92,7 +92,7 @@ interface Para {
   level: number;
 }
 
-function paragraphs(doc: DocsDocument): Para[] {
+export function paragraphs(doc: DocsDocument): Para[] {
   return doc.body.content.flatMap((element) => {
     const paragraph = element.paragraph;
     if (paragraph === undefined || element.startIndex === undefined) return [];
@@ -108,8 +108,8 @@ function paragraphs(doc: DocsDocument): Para[] {
   });
 }
 
-const isHeading = (para: Para) => para.style.startsWith("HEADING_") || para.style === "TITLE";
-const headingRank = (para: Para) => (para.style === "TITLE" ? 0 : Number(para.style.slice("HEADING_".length)));
+export const isHeading = (para: Para) => para.style.startsWith("HEADING_") || para.style === "TITLE";
+export const headingRank = (para: Para) => (para.style === "TITLE" ? 0 : Number(para.style.slice("HEADING_".length)));
 const sameLabel = (text: string, label: string) =>
   text.trim().replace(/:$/, "").toLowerCase() === label.trim().replace(/:$/, "").toLowerCase();
 
@@ -222,7 +222,7 @@ function comparable(text: string): string {
 }
 
 /** The revision check makes Google refuse the requests if the doc changed since it was read. */
-function batch(doc: DocsDocument, requests: object[]): BatchBody {
+export function batch(doc: DocsDocument, requests: object[]): BatchBody {
   return doc.revisionId === undefined ? { requests } : { requests, writeControl: { requiredRevisionId: doc.revisionId } };
 }
 
@@ -264,7 +264,7 @@ function findSection(paras: Para[], week: { from: Day; to: Day }, section: strin
  * and indent, so both are cleared first. The tabs are removed as the bullets
  * are made, so the link ranges are counted without them.
  */
-function bulletRequests(at: number, lines: EntryLine[]): object[] {
+export function bulletRequests(at: number, lines: EntryLine[]): object[] {
   const inserted = "\n" + lines.map((line) => `\n${"\t".repeat(line.level)}${line.text}`).join("");
   const spare = { startIndex: at + 1, endIndex: at + 2 };
   const all = { startIndex: at + 1, endIndex: at + inserted.length };

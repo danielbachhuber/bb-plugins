@@ -4,7 +4,9 @@ A BB nav panel that puts one week of work on one page, so the weekly journal
 entry can be written from evidence rather than from memory.
 
 It gathers what happened, and its `weekly-journal-entry` skill writes entries
-into the journal doc one at a time, once you accept each one.
+into the journal doc one at a time, once you accept each one. Its
+`draft-wins-entry` skill turns a month of entries into that month's wins, in a
+separate doc.
 
 The week is gathered at 7am and 1pm on weekdays, so the page is already current
 when you open it. **Sync** gathers it now rather than at the next run.
@@ -241,6 +243,7 @@ bb weekly-review source list
 bb weekly-review source set repo octocat/acme-widgets
 bb weekly-review source set author octocat
 bb weekly-review source set harvestProjectId 12345678
+bb weekly-review source set winsDocId 1AbCdEf...
 bb weekly-review source add-doc 1AbCdEf... Annual goals
 bb weekly-review source remove-doc "Annual goals"
 ```
@@ -348,6 +351,28 @@ The new bullets form a list of their own, with the same bullets and indents
 as the one above. The Docs API counts a new bullet's level from the list item
 above it, so joining that list would put a top-level entry under a sub-bullet.
 
+## Drafting a month's wins
+
+The `draft-wins-entry` skill, in `skills/`, drafts a month's wins, last month unless
+you name another, into a Google Doc with a heading per month, newest first.
+Set the doc with `bb weekly-review source set winsDocId <id>`.
+
+It drafts from each week's journal entry, mainly its Wins/Highlights and Done
+bullets, plus the week's meeting notes and digest, and leaves out anything the
+month or the month before already lists. Each win is one or two sentences, with
+at most two sub-bullets for a quote or a group of items.
+
+Each win appears as its own card above the composer, with its source, to
+accept, revise, or drop. One more card has the month's pull request counts,
+from `bb weekly-review wins stats`: how many you opened, had merged, and
+reviewed, the last counted by when each review was submitted. Accepted, it
+goes in italics directly under the month's heading, with
+`bb weekly-review wins summary`. Counting makes one GitHub request per hundred
+pull requests reviewed, usually one. Accept adds that win at the end of the month's section
+with `bb weekly-review wins add`, adding the month's heading above the newest
+earlier month when there is none. `bb weekly-review wins` makes one Docs read.
+Adding a win is one read and one write, or two of each when the heading is new.
+
 ## Coming up
 
 The calendar is read through `gws` on the primary calendar, with `singleEvents`
@@ -404,6 +429,10 @@ bb weekly-review entry <monday>
 bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>
 bb weekly-review entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>
 bb weekly-review feedback <monday> --file <path-to-json>
+bb weekly-review wins [<YYYY-MM>]
+bb weekly-review wins add <YYYY-MM> --file <path-to-markdown>
+bb weekly-review wins stats [<YYYY-MM>]
+bb weekly-review wins summary <YYYY-MM> --file <path-to-text>
 bb weekly-review prompt [notes|slack|feedback|rules] [reset]
 bb weekly-review table [<monday>]
 bb weekly-review unsorted [<monday>]

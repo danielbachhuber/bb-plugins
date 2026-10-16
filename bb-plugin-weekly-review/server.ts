@@ -40,6 +40,8 @@ import {
 import { run, runJson } from "./review/fetch/shell.js";
 import { parseEntry, planInsert, planReplace, type BatchBody, type DocsDocument } from "./review/journal-insert.js";
 import { buildDigest } from "./review/digest.js";
+import { monthHeading, monthSection, parseMonth, planWinsInsert, planWinsSummary, previousMonth, statsLine, weeksOf, type Month } from "./review/wins.js";
+import { fetchMonthPrCounts } from "./review/fetch/month-prs.js";
 import {
   DEFAULT_FEEDBACK_PROMPT,
   DEFAULT_NOTES_PROMPT,
@@ -483,6 +485,68 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  function winsDocUrl(winsDocId: string, headingId?: string) {
+    return `https://docs.google.com/document/d/${winsDocId}/edit${headingId === undefined ? "" : `#heading=${headingId}`}`;
+  }
+
+  /**
+   * The month's wins as they stand in the wins doc, read fresh, and the
+   * newest earlier month that has any, so a win is not claimed twice. One Docs read.
+   */
+  async function readWins(month: Month) {
+    const { winsDocId } = sources.read();
+    if (winsDocId === "") throw new Error("No wins doc is set. Set one with `bb weekly-review source set winsDocId <id>`.");
+    const text = await run((await tools()).fetchDocScript, [winsDocId]);
+    const current = monthSection(text, month);
+    let earlier: { heading: string; body: string } | null = null;
+    for (let [year, number] = month.split("-").map(Number), step = 0; step < 12; step++) {
+      number -= 1;
+      if (number === 0) [year, number] = [year - 1, 12];
+      const section = monthSection(text, `${year}-${String(number).padStart(2, "0")}`);
+      if (section !== null && section.body !== "") {
+        earlier = section;
+        break;
+      }
+    }
+    return { current, earlier, url: winsDocUrl(winsDocId) };
+  }
+
+  /**
+   * Adds wins, written as markdown bullets, to the end of the month's section
+   * of the wins doc, or as `summary`, sets the italic line directly under the
+   * month's heading. Adds the month's heading first when there is none. A
+   * read and a write, or two of each when the heading is new, retried once
+   * from a fresh read when Google refuses a stale revision.
+   */
+  async function addWins(month: Month, markdown: string, as: "bullets" | "summary" = "bullets") {
+    const { winsDocId } = sources.read();
+    if (winsDocId === "") throw new Error("No wins doc is set. Set one with `bb weekly-review source set winsDocId <id>`.");
+    const lines = as === "bullets" ? parseEntry(markdown) : [];
+    const plan = (doc: DocsDocument) => (as === "bullets" ? planWinsInsert(doc, month, lines) : planWinsSummary(doc, month, markdown));
+    const { gws } = await tools();
+    const params = JSON.stringify({ documentId: winsDocId });
+    const read = () => runJson<DocsDocument>(gws, ["docs", "documents", "get", "--params", params]);
+    const write = (body: BatchBody) =>
+      run(gws, ["docs", "documents", "batchUpdate", "--params", params, "--json", JSON.stringify(body)]);
+
+    let created = false;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        let planned = plan(await read());
+        if (planned.kind === "create") {
+          await write(planned.body);
+          created = true;
+          planned = plan(await read());
+          if (planned.kind === "create") throw new Error(`Added a heading "${planned.heading}", but could not find it again.`);
+        }
+        await write(planned.body);
+        return { heading: planned.heading, created, url: winsDocUrl(winsDocId, planned.headingId) };
+      } catch (error) {
+        if (attempt > 0 || !/revision/i.test(String(error))) throw error;
+      }
+    }
+  }
+
   function describePrompt(kind: PromptKind) {
     const fallback = DEFAULT_PROMPTS[kind];
     const prompt = sources.readPrompt(kind, fallback);
@@ -886,6 +950,10 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb weekly-review entry add <monday> --section <label> --file <path-to-markdown>",
     "  bb weekly-review entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>",
     "  bb weekly-review feedback <monday> --file <path-to-json>",
+    "  bb weekly-review wins [<YYYY-MM>]",
+    "  bb weekly-review wins add <YYYY-MM> --file <path-to-markdown>",
+    "  bb weekly-review wins stats [<YYYY-MM>]",
+    "  bb weekly-review wins summary <YYYY-MM> --file <path-to-text>",
     "  bb weekly-review prompt [notes|slack|feedback|rules] [reset]",
     "  bb weekly-review table [<monday>]",
     "  bb weekly-review unsorted [<monday>]",
@@ -913,6 +981,7 @@ export default async function plugin(bb: BbPluginApi) {
       `author            ${current.author || "(unset)"}`,
       `harvestProjectId  ${current.harvestProjectId || "(all projects)"}`,
       `journalDocId      ${current.journalDocId || "(unset)"}`,
+      `winsDocId         ${current.winsDocId || "(unset)"}`,
       current.docs.length === 0
         ? "docs              (none)"
         : `docs              ${current.docs.length}`,
@@ -991,6 +1060,12 @@ export default async function plugin(bb: BbPluginApi) {
         summary: "Print the week's hand-written entry as it stands in the doc, or add or replace a bullet in one of its sections",
         usage:
           "bb weekly-review entry <monday> | entry add <monday> --section <label> --file <path-to-markdown> | entry replace <monday> --section <label> --match <start of bullet> --file <path-to-markdown>",
+      },
+      {
+        name: "wins",
+        summary: "Print a month's wins and its weeks, last month by default, count its pull requests, or add wins or the italic line of counts to the wins doc",
+        usage:
+          "bb weekly-review wins [<YYYY-MM>] | wins add <YYYY-MM> --file <path-to-markdown> | wins stats [<YYYY-MM>] | wins summary <YYYY-MM> --file <path-to-text>",
       },
       {
         name: "feedback",
@@ -1146,6 +1221,82 @@ export default async function plugin(bb: BbPluginApi) {
             };
           }
           return { exitCode: 0, stdout: `### ${entry.heading}\n\n${entry.text}` };
+        }
+        case "wins": {
+          if (positional[0] === "add") {
+            const month = parseMonth(positional[1] ?? "");
+            const file = flag("file");
+            if (month === null || file === undefined) {
+              return { exitCode: 1, stderr: "Usage: bb weekly-review wins add <YYYY-MM> --file <path-to-markdown>" };
+            }
+            try {
+              const added = await addWins(month, await readFile(file, "utf8"));
+              const where = added.created ? `a new heading, ${added.heading}` : added.heading;
+              return { exitCode: 0, stdout: `Added under ${where}.\n${added.url}` };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
+          if (positional[0] === "stats") {
+            const month = positional[1] === undefined ? previousMonth() : parseMonth(positional[1]);
+            if (month === null) return { exitCode: 1, stderr: "Usage: bb weekly-review wins stats [<YYYY-MM>]" };
+            const config = await gatherConfig();
+            const missing = missingSources(config);
+            if (missing.length > 0) return { exitCode: 1, stderr: `Set ${missing.join(" and ")} with \`bb weekly-review source set\`.` };
+            try {
+              const counts = await fetchMonthPrCounts(month, config);
+              return {
+                exitCode: 0,
+                stdout: [
+                  `${monthHeading(month)} in ${config.repo}:`,
+                  `  opened    ${counts.opened}`,
+                  `  merged    ${counts.merged}`,
+                  `  reviewed  ${counts.reviewed}  (other people's pull requests, by when the review was submitted)`,
+                  "",
+                  statsLine(counts),
+                ].join("\n"),
+              };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
+          if (positional[0] === "summary") {
+            const month = parseMonth(positional[1] ?? "");
+            const file = flag("file");
+            if (month === null || file === undefined) {
+              return { exitCode: 1, stderr: "Usage: bb weekly-review wins summary <YYYY-MM> --file <path-to-text>" };
+            }
+            try {
+              const added = await addWins(month, await readFile(file, "utf8"), "summary");
+              return { exitCode: 0, stdout: `Set the line under ${added.heading}.\n${added.url}` };
+            } catch (error) {
+              return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            }
+          }
+          const month = positional[0] === undefined ? previousMonth() : parseMonth(positional[0]);
+          if (month === null) return { exitCode: 1, stderr: "Usage: bb weekly-review wins [<YYYY-MM>]" };
+          try {
+            const wins = await readWins(month);
+            const gathered = new Set(weeks.listWeeks().map((week) => week.monday));
+            const lines = [
+              `### ${monthHeading(month)}`,
+              "",
+              wins.current === null
+                ? "No heading for this month yet. `wins add` adds one."
+                : wins.current.body === "" ? "No wins written yet." : wins.current.body,
+              "",
+              `Doc: ${wins.url}`,
+              "",
+              "Weeks (by Monday, those whose Friday is in the month):",
+              ...weeksOf(month).map((monday) => `  ${monday}${gathered.has(monday) ? "" : "  not gathered"}`),
+            ];
+            if (wins.earlier !== null) {
+              lines.push("", `### ${wins.earlier.heading} (the newest earlier month, so a win is not claimed twice)`, "", wins.earlier.body);
+            }
+            return { exitCode: 0, stdout: lines.join("\n") };
+          } catch (error) {
+            return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+          }
         }
         case "feedback": {
           const monday = positional[0];

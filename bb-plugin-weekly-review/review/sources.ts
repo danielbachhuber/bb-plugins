@@ -57,11 +57,16 @@ export interface Sources {
    * does not have to.
    */
   journalDocId: string;
+  /**
+   * The Google Doc of wins, one section per month, newest first. The
+   * `draft-wins-entry` skill adds a month's wins to it once the user accepts them.
+   */
+  winsDocId: string;
   docs: DocSource[];
 }
 
 /** The scalar keys, so a typo in a `set` is a failure rather than a new row. */
-export const SCALAR_KEYS = ["repo", "author", "harvestProjectId", "journalDocId"] as const;
+export const SCALAR_KEYS = ["repo", "author", "harvestProjectId", "journalDocId", "winsDocId"] as const;
 export type ScalarKey = (typeof SCALAR_KEYS)[number];
 
 export function isScalarKey(key: string): key is ScalarKey {
@@ -137,6 +142,7 @@ export function createSourceStore(db: Database): SourceStore {
         author: (values.get("author") ?? "").trim(),
         harvestProjectId: (values.get("harvestProjectId") ?? "").trim(),
         journalDocId: (values.get("journalDocId") ?? "").trim(),
+        winsDocId: (values.get("winsDocId") ?? "").trim(),
         docs: statements.readDocs.all() as DocSource[],
       };
     },

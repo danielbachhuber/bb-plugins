@@ -18,6 +18,7 @@ type Sources = {
   author: string;
   harvestProjectId: string;
   journalDocId: string;
+  winsDocId: string;
   docs: DocSource[];
 };
 
@@ -45,6 +46,12 @@ const FIELDS = [
     label: "Weekly entry doc id",
     placeholder: "1AbCdEf…",
     hint: "The Google Doc you write the weekly entry in. Read only — nothing here ever writes to it.",
+  },
+  {
+    key: "winsDocId" as const,
+    label: "Wins doc id",
+    placeholder: "1AbCdEf…",
+    hint: "The Google Doc of wins, a section per month. The draft-wins-entry skill adds a month's wins once you accept them.",
   },
 ];
 

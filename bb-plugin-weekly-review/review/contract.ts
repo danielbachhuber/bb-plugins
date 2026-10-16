@@ -64,6 +64,7 @@ const sourcesSchema = z.object({
   author: z.string(),
   harvestProjectId: z.string(),
   journalDocId: z.string(),
+  winsDocId: z.string(),
   docs: z.array(docSourceSchema),
 });
 
@@ -352,6 +353,7 @@ export const rpcContract = defineRpcContract({
       author: z.string().trim().max(200).optional(),
       harvestProjectId: z.string().trim().max(50).optional(),
       journalDocId: z.string().trim().max(200).optional(),
+      winsDocId: z.string().trim().max(200).optional(),
       /** Present replaces the whole list, in the order given. */
       docs: z.array(docSourceSchema).max(100).optional(),
     }),
