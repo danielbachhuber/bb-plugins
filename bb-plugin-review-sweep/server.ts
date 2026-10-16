@@ -1,6 +1,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { localDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { REPO_SLUG_PATTERN, createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
+import { prepareForPullRequest, runGit } from "@danielb/gh-shared/projects";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
 import { GhUnavailableError, createGhRunner, runSweep } from "./review/gh.js";
@@ -386,6 +387,36 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
+   * Fetches the pull request's base and head into the project's checkout, and
+   * starts a new default worktree from `<remote>/<base>`, which bb records as
+   * its merge base. Without it, the thread diffs against bb's default branch,
+   * and a pull request stacked on another shows the other's changes too. Any
+   * other environment the composer chose is left as it is: the project
+   * checkout or an existing worktree is shared with other threads.
+   *
+   * Two git fetches per thread started, and no GitHub API calls. A failure
+   * here is logged and the thread starts anyway.
+   */
+  async function diffAgainstBase(row: ClassifiedRow, args: SpawnArgs): Promise<SpawnArgs> {
+    if (!row.baseRefName) return args;
+    try {
+      const path = (await projectCandidates()).find((candidate) => candidate.id === args.projectId)?.path;
+      if (!path) return args;
+      const prepared = await prepareForPullRequest(
+        runGit,
+        path,
+        { repo: row.repo, number: row.number, baseRef: row.baseRefName, headRef: row.headRefName },
+        args.environment,
+      );
+      for (const warning of prepared.warnings) bb.log.warn(`${row.repo}#${row.number}: ${warning}`);
+      return { ...args, environment: prepared.environment };
+    } catch (error) {
+      bb.log.warn(`could not prepare ${row.repo}#${row.number}'s checkout: ${String(error)}`);
+      return args;
+    }
+  }
+
+  /**
    * Starts the review's thread with what `spawnFor` builds, or returns the one
    * already linked to it.
    *
@@ -433,7 +464,7 @@ export default async function plugin(bb: BbPluginApi) {
       const built = await spawnFor(row, buildPromptParts(row, Date.now()));
       if ("reason" in built) return { threadId: null, existing: false, reason: built.reason };
 
-      const thread = await bb.sdk.threads.spawn(built.args);
+      const thread = await bb.sdk.threads.spawn(await diffAgainstBase(row, built.args));
       bb.log.info(`started ${thread.id} for ${key} in ${built.projectId}`);
       await links.link(repo, number, thread.id, "spawned");
       markSeen();

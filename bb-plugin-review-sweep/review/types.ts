@@ -87,6 +87,14 @@ export interface ClassifiedRow {
   reviewers?: RowReviewer[];
   /** Where it sits in a stack of pull requests, or null when it is in none. Optional for the same reason. */
   stack?: StackPosition | null;
+  /**
+   * The branch it merges into, which a thread for it diffs against. Optional
+   * for the same reason; a thread for a row without it diffs against bb's
+   * default.
+   */
+  baseRefName?: string;
+  /** Its own branch, for bringing a stale local copy up to date. Optional for the same reason. */
+  headRefName?: string;
 }
 
 export interface SweepResult {
@@ -146,6 +154,8 @@ export interface RawPullRequest {
   additions?: number;
   deletions?: number;
   changedFiles?: number;
+  baseRefName?: string;
+  headRefName?: string;
   repository?: { nameWithOwner?: string } | null;
   author?: { login?: string } | null;
   comments?: { totalCount?: number } | null;

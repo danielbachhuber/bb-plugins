@@ -292,6 +292,17 @@ the row then opens that thread rather than starting another. A review thread
 is not on the pull request's branch, so bb itself finds no pull request for it;
 gh-context's banner above the composer shows the one this plugin linked.
 
+In a new worktree, which is the composer's default here, the thread starts from
+`origin/<base>`, the branch the pull request merges into, and bb diffs the
+thread against it. A pull request stacked on another one then shows only its
+own changes, as GitHub does. Before the thread starts, the plugin fetches that
+base branch and the pull request's head into the project's checkout, and moves
+a local copy of the head branch up to date when that loses no commits, so
+`gh pr checkout` in the thread finds it current after a rebase on GitHub. That
+is two git fetches per thread and no GitHub API calls. A thread started in the
+project checkout or an existing worktree keeps that environment's diff base,
+since other threads share it.
+
 ## Starting several reviews at once
 
 Batch opens a dialog listing every request that Start review could start: no
