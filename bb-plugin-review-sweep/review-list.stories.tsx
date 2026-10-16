@@ -469,7 +469,7 @@ const LONG_TITLES = [
   "WIP: gadget usage charts",
 ];
 
-/** Many draft requests, so the fold after five Later rows shows. */
+/** Many ignored requests, so the fold after five Later rows shows. */
 const long: Listing = {
   ...baseline,
   rows: [
@@ -478,7 +478,7 @@ const long: Listing = {
       row({
         number: 450 + index,
         title,
-        isDraft: true,
+        ignored: true,
         author: index % 2 ? "hubber" : "octocat",
         requestedAt: now - (index + 1) * 11 * HOUR,
       }),
@@ -493,7 +493,7 @@ const long: Listing = {
 export function LongList() {
   return (
     <StoryCard>
-      <StoryRow label="Long list" hint="Eight draft requests, three of them folded.">
+      <StoryRow label="Long list" hint="Eight ignored requests, one line each, three of them folded.">
         <Frame listing={long} />
       </StoryRow>
     </StoryCard>
