@@ -160,8 +160,9 @@ On Accept of the `stats` card, write the accepted line to
 bb weekly-review wins summary <YYYY-MM> --file /tmp/wins-<YYYY-MM>-stats.txt
 ```
 
-It puts the line in italics directly under the month's heading, replacing an
-italic line already there, so accepting it again updates the counts. Then mark the card complete the same way as a win.
+It puts the line in italics directly under the month's heading, with a blank
+line after it, replacing an italic line already there, so accepting it again
+updates the counts. Then mark the card complete the same way as a win.
 
 On Drop, republish the card with
 `"status": { "label": "Dropped", "complete": true }`, and change nothing in

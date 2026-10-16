@@ -159,7 +159,7 @@ describe("planWinsSummary", () => {
     const plan = planWinsSummary(WINS, "2026-08", `_${LINE}_`);
     const at = startOf("August 2026") + "August 2026".length;
     expect(plan.kind).toBe("insert");
-    expect(plan.body.requests[0]).toEqual({ insertText: { location: { index: at }, text: `\n${LINE}` } });
+    expect(plan.body.requests[0]).toEqual({ insertText: { location: { index: at }, text: `\n${LINE}\n` } });
     expect(plan.body.requests.at(-1)).toEqual({
       updateTextStyle: { range: { startIndex: at + 1, endIndex: at + 1 + LINE.length }, textStyle: { italic: true }, fields: "*" },
     });
@@ -176,6 +176,39 @@ describe("planWinsSummary", () => {
     const old = withLine.body.content[1];
     const plan = planWinsSummary(withLine, "2026-09", LINE);
     expect(plan.body.requests[0]).toEqual({ deleteContentRange: { range: { startIndex: old.startIndex, endIndex: old.endIndex } } });
+  });
+
+  it("replaces the italic line and the blank line after it", () => {
+    const withLine = doc([
+      ["September 2026", "HEADING_2"],
+      ["Opened 1 pull request, had 1 merged, and reviewed 0."],
+      [""],
+      ["Shipped the widget sync beta.", undefined, 0],
+    ]);
+    withLine.body.content[1].paragraph!.elements[0].textRun!.textStyle = { italic: true };
+    const plan = planWinsSummary(withLine, "2026-09", LINE);
+    expect(plan.body.requests[0]).toEqual({
+      deleteContentRange: { range: { startIndex: withLine.body.content[1].startIndex, endIndex: withLine.body.content[2].endIndex } },
+    });
+  });
+
+  it("takes the place of a blank line already under the heading", () => {
+    // WINS has an empty paragraph under September 2026.
+    const blank = WINS.body.content[2];
+    const plan = planWinsSummary(WINS, "2026-09", LINE);
+    expect(plan.body.requests[0]).toEqual({ deleteContentRange: { range: { startIndex: blank.startIndex, endIndex: blank.endIndex } } });
+  });
+
+  it("puts wins below the blank line after the italic line", () => {
+    const withLine = doc([
+      ["September 2026", "HEADING_2"],
+      [LINE],
+      [""],
+      ["August 2026", "HEADING_2"],
+    ]);
+    const blank = withLine.body.content[2];
+    const plan = planWinsInsert(withLine, "2026-09", LINES);
+    expect(plan.body.requests[0]).toMatchObject({ insertText: { location: { index: blank.endIndex - 1 } } });
   });
 
   it("puts wins after the italic line, not between it and the heading", () => {

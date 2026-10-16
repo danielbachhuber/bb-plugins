@@ -366,7 +366,8 @@ Each win appears as its own card above the composer, with its source, to
 accept, revise, or drop. One more card has the month's pull request counts,
 from `bb weekly-review wins stats`: how many you opened, had merged, and
 reviewed, the last counted by when each review was submitted. Accepted, it
-goes in italics directly under the month's heading, with
+goes in italics directly under the month's heading, followed by a blank line,
+with
 `bb weekly-review wins summary`. Counting makes one GitHub request per hundred
 pull requests reviewed, usually one. Accept adds that win at the end of the month's section
 with `bb weekly-review wins add`, adding the month's heading above the newest

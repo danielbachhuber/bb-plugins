@@ -193,6 +193,11 @@ export function planWinsInsert(doc: DocsDocument, month: Month, lines: EntryLine
     // placeholder bullets stay below what is added.
     if (para.text.trim() !== "") anchor = index;
   }
+  // The italic line is followed by a blank line; wins go below it.
+  const after = paras[anchor + 1];
+  if (anchor !== at && !paras[anchor].bulleted && after !== undefined && !after.bulleted && !isHeading(after) && after.text.trim() === "") {
+    anchor += 1;
+  }
   return {
     kind: "insert",
     heading: heading.text,
@@ -203,8 +208,9 @@ export function planWinsInsert(doc: DocsDocument, month: Month, lines: EntryLine
 
 /**
  * The requests that put `text` in italics on its own line directly under the
- * month's heading, replacing the italic line already there, so running it
- * again updates the counts rather than adding a second line. When the month
+ * month's heading, followed by a blank line, replacing the italic line (and
+ * its blank line) already there, so running it again updates the counts
+ * rather than adding a second line. When the month
  * has no heading, the plan is to add one first, as `planWinsInsert` does.
  */
 export function planWinsSummary(doc: DocsDocument, month: Month, text: string): Plan {
@@ -222,19 +228,28 @@ export function planWinsSummary(doc: DocsDocument, month: Month, text: string): 
   const existing =
     next !== undefined && !isHeading(next) && !next.bulleted && runs.length > 0 && runs.every((part) => part.textRun?.textStyle?.italic === true);
 
+  const isBlank = (para: Para | undefined) => para !== undefined && !para.bulleted && !isHeading(para) && para.text.trim() === "";
+  // What goes: the italic line with the blank line after it, or a blank line
+  // already under the heading, so the new pair does not add a second one.
+  const remove = existing
+    ? { startIndex: next.start, endIndex: isBlank(paras[at + 2]) ? paras[at + 2].end : next.end }
+    : isBlank(next) ? { startIndex: next.start, endIndex: next.end } : null;
+
   const insertAt = heading.end - 1;
   const start = insertAt + 1;
+  // The line, then an empty paragraph after it.
+  const inserted = `\n${line}\n`;
   return {
     kind: "insert",
     heading: heading.text,
     headingId: heading.headingId,
     body: batch(doc, [
-      ...(existing ? [{ deleteContentRange: { range: { startIndex: next.start, endIndex: next.end } } }] : []),
-      { insertText: { location: { index: insertAt }, text: `\n${line}` } },
-      { deleteParagraphBullets: { range: { startIndex: start, endIndex: start + line.length + 1 } } },
+      ...(remove === null ? [] : [{ deleteContentRange: { range: remove } }]),
+      { insertText: { location: { index: insertAt }, text: inserted } },
+      { deleteParagraphBullets: { range: { startIndex: start, endIndex: start + inserted.length } } },
       {
         updateParagraphStyle: {
-          range: { startIndex: start, endIndex: start + line.length + 1 },
+          range: { startIndex: start, endIndex: start + inserted.length },
           paragraphStyle: { namedStyleType: "NORMAL_TEXT" },
           fields: "namedStyleType",
         },
