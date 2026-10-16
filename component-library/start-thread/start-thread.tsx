@@ -3,9 +3,9 @@
 // toast that follows once it starts. Starting a thread
 // never takes the user away from the page they started it on: the toast
 // offers the way there instead.
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { AlertCircleIcon, GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
   experimental_NewThreadComposer as NewThreadComposer,
   UrlLink,
@@ -265,6 +265,19 @@ export function StartThreadForm({
   );
 }
 
+/** Why the thread did not start, at the top of the box it was started from. */
+export function StartThreadError({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-xs text-destructive"
+    >
+      <HugeiconsIcon icon={AlertCircleIcon} className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 break-words">{message}</span>
+    </p>
+  );
+}
+
 /**
  * The form in a box under a row's Start thread button, where Add note opens
  * its editor, so the list stays in view and in reach. The row is the context,
@@ -276,18 +289,33 @@ export function StartThreadForm({
 export function StartThreadInline({
   seed,
   draftKey,
+  starting = false,
+  error = null,
   onSubmit,
 }: {
   seed: StartThreadSeed;
   /** Identifies the row, so a draft typed for one row stays with it. */
   draftKey: string;
+  /**
+   * The thread is being started: the box is hidden rather than unmounted, so
+   * that if starting fails, bb's composer can put the prompt back, with its
+   * mentions and attachments, as the box shows again.
+   */
+  starting?: boolean;
+  /** Why the last try did not start a thread, shown at the top of the box. */
+  error?: string | null;
   /** Throw to keep the box open with the draft in it. */
   onSubmit: (request: NewThreadRequest) => Promise<void>;
 }) {
   // Focus the composer once, when the box opens.
   const [focusRequest] = useState(1);
   return (
-    <section aria-label="Start a thread" className="mt-2 rounded-md border border-border bg-muted/40 p-2">
+    <section
+      aria-label="Start a thread"
+      hidden={starting}
+      className="mt-2 space-y-2 rounded-md border border-border bg-muted/40 p-2"
+    >
+      {error ? <StartThreadError message={error} /> : null}
       <StartThreadForm
         seed={seed}
         draftKey={draftKey}
@@ -360,5 +388,131 @@ export function StartThreadDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** One row's Start thread box: which row it is for, and what it opens with. */
+export interface StartThreadDraft {
+  /** Identifies the row. One box per key. */
+  key: string;
+  seed: StartThreadSeed;
+  /** The composer's draft key. Defaults to `key`. */
+  draftKey?: string;
+}
+
+/** What the plugin's server said about one submit. */
+export interface StartThreadOutcome {
+  /** Null when no thread was started. */
+  threadId: string | null;
+  /** The row already had a thread, which by default skips the toast. */
+  existing?: boolean;
+  /** Why no thread was started, shown at the top of the box. */
+  error?: string | null;
+}
+
+function without<V>(map: ReadonlyMap<string, V>, key: string): ReadonlyMap<string, V> {
+  if (!map.has(key)) return map;
+  const next = new Map(map);
+  next.delete(key);
+  return next;
+}
+
+/**
+ * The Start thread boxes on a page, and what each row shows while its thread
+ * starts. Pressing Send hides the box at once, rather than leaving it open
+ * with its prompt cleared; the row shows that its thread is starting until
+ * the plugin's `submit` resolves. If no thread started, the box opens again
+ * with the prompt put back and the reason at the top.
+ *
+ * Draw each row's box with `boxFor(key)`. Where `isStarting(key)` is true,
+ * draw `<OpenThreadAction disabled />` and `<StartingThreadLine>` from
+ * thread-status, or the surface's own starting state. `startedThread(key)`
+ * covers the time between the thread starting and the plugin's own data
+ * listing it.
+ */
+export function useStartThreadBox<D extends StartThreadDraft>({
+  submit,
+  navigate,
+  announcement,
+}: {
+  /** Starts the thread. Resolve once the row's data lists it, such as after a reload. */
+  submit: (draft: D, request: NewThreadRequest) => Promise<StartThreadOutcome>;
+  navigate: { toThread(threadId: string): void };
+  /**
+   * The toast once the thread starts, with its Go to thread button. Null skips
+   * it. Defaults to "Started a thread", and to nothing for an existing thread.
+   */
+  announcement?: (draft: D, outcome: StartThreadOutcome & { threadId: string }) => string | null;
+}) {
+  const [open, setOpen] = useState<D | null>(null);
+  // Hidden but still mounted, so a failed start can show them again.
+  const [submitting, setSubmitting] = useState<ReadonlyMap<string, D>>(() => new Map());
+  const [errors, setErrors] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [started, setStarted] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const latest = useRef({ submit, navigate, announcement });
+  latest.current = { submit, navigate, announcement };
+
+  const show = useCallback((draft: D | null) => {
+    setOpen(draft);
+    if (draft) setErrors((current) => without(current, draft.key));
+  }, []);
+
+  const toggle = useCallback(
+    (draft: D) => setOpen((current) => (current?.key === draft.key ? null : draft)),
+    [],
+  );
+
+  const send = useCallback(async (draft: D, request: NewThreadRequest) => {
+    setSubmitting((current) => new Map(current).set(draft.key, draft));
+    setOpen((current) => (current?.key === draft.key ? null : current));
+    setErrors((current) => without(current, draft.key));
+    let outcome: StartThreadOutcome;
+    try {
+      outcome = await latest.current.submit(draft, request);
+    } catch (cause) {
+      outcome = { threadId: null, error: cause instanceof Error ? cause.message : String(cause) };
+    }
+    const threadId = outcome.threadId;
+    if (!threadId) {
+      const reason = outcome.error || "Could not start a thread.";
+      setErrors((current) => new Map(current).set(draft.key, reason));
+      setOpen(draft);
+      setSubmitting((current) => without(current, draft.key));
+      // Thrown so bb's composer puts the prompt back.
+      throw new Error(reason);
+    }
+    setStarted((current) => new Map(current).set(draft.key, threadId));
+    setSubmitting((current) => without(current, draft.key));
+    const { announcement: say, navigate: to } = latest.current;
+    const message = say ? say(draft, { ...outcome, threadId }) : outcome.existing ? null : "Started a thread";
+    if (message) announceStartedThread(to, threadId, message);
+  }, []);
+
+  const boxFor = useCallback(
+    (key: string): ReactNode => {
+      const draft = submitting.get(key) ?? (open?.key === key ? open : null);
+      if (!draft) return null;
+      return (
+        <StartThreadInline
+          draftKey={draft.draftKey ?? draft.key}
+          seed={draft.seed}
+          starting={submitting.has(key)}
+          error={errors.get(key) ?? null}
+          onSubmit={(request) => send(draft, request)}
+        />
+      );
+    },
+    [errors, open, send, submitting],
+  );
+
+  const isOpen = useCallback((key: string) => open?.key === key, [open]);
+  const isStarting = useCallback((key: string) => submitting.has(key), [submitting]);
+  const startedThread = useCallback((key: string) => started.get(key) ?? null, [started]);
+
+  const close = useCallback(() => show(null), [show]);
+
+  return useMemo(
+    () => ({ draft: open, open: show, toggle, close, boxFor, isOpen, isStarting, startedThread }),
+    [boxFor, close, isOpen, isStarting, open, show, startedThread, toggle],
   );
 }

@@ -114,9 +114,10 @@ function Glyph({ live }: { live: ThreadLive }) {
 
 /**
  * Open thread, drawn like the other actions in a row's action line. Put it
- * first, where Start thread was.
+ * first, where Start thread was. Disabled, and with no `onOpen`, while the
+ * thread is still starting.
  */
-export function OpenThreadAction({ onOpen, disabled = false }: { onOpen: () => void; disabled?: boolean }) {
+export function OpenThreadAction({ onOpen, disabled = false }: { onOpen?: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
@@ -130,6 +131,33 @@ export function OpenThreadAction({ onOpen, disabled = false }: { onOpen: () => v
       <HugeiconsIcon icon={BubbleChatIcon} aria-hidden="true" className="size-3" />
       <span data-thread-underline="">Open thread</span>
     </button>
+  );
+}
+
+/**
+ * The thread line while the thread is being started, in the place the thread
+ * line will be: a spinner, "Starting", and the title the row will be known
+ * by. Not a button, since there is no thread to open yet. Put
+ * `<OpenThreadAction disabled />` where Start thread was beside it, so the
+ * row already has the shape it keeps once the thread exists.
+ */
+export function StartingThreadLine({ title, className }: { title: string; className?: string }) {
+  return (
+    <div
+      role="status"
+      className={cn("mt-1.5 flex w-full min-w-0 items-center border-l-2 pl-2 text-xs text-muted-foreground", RULE, className)}
+    >
+      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+        <span className={cn("inline-flex size-3 items-center justify-center", ACCENT)}>
+          <Glyph live="working" />
+        </span>
+        Starting
+      </span>
+      <span aria-hidden="true" className="mx-1.5 shrink-0 text-muted-foreground/60">
+        ·
+      </span>
+      <span className="min-w-0 truncate">{title}</span>
+    </div>
   );
 }
 

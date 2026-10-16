@@ -314,20 +314,22 @@ adds a chip takes room from them.
 ## Start thread
 
 ```tsx
-import { StartThreadInline, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
+import { useStartThreadBox } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 
-// Drawn under the row's action line while its Start thread button has it open.
-{draft && draft.key === key ? (
-  <StartThreadInline
-    draftKey={`pr-sweep:${row.repo}#${row.number}`}
-    seed={draft.seed}
-    onSubmit={async (request) => {
-      const { threadId } = await rpc.call("start", { request });
-      setDraft(null);
-      announceStartedThread(navigate, threadId, `Started a thread for ${key}`);
-    }}
-  />
-) : null}
+const box = useStartThreadBox({
+  navigate,
+  submit: async (draft, request) => {
+    const { threadId, error } = await rpc.call("start", { id: draft.key, request });
+    return { threadId, error };
+  },
+  announcement: (draft) => `Started a thread for ${draft.key}`,
+});
+
+// The row's Start thread button:
+onClick={() => box.toggle({ key, seed })}
+// Under the row's action line:
+{box.boxFor(key)}
+{box.isStarting(key) ? <StartingThreadLine title={title} /> : null}
 ```
 
 It is how a plugin starts a thread about one row: a pull request, an issue, a
@@ -361,7 +363,17 @@ composer's project, environment and branch pickers are hidden, which needs
 per row and per seeded prompt, so an edit survives reopening the same row
 with the same chips and is dropped once the plugin seeds something different.
 
-**After it starts.** Call `announceStartedThread` rather than
+**While it starts.** `useStartThreadBox` holds which row's box is open and
+which rows' threads are starting. Pressing Send hides the box at once, and
+the row shows `OpenThreadAction disabled` and `StartingThreadLine` from
+[Thread status](#thread-status) until `submit` resolves, so resolve it once
+the row's own data lists the thread, such as after a reload. Where the data
+arrives later, `startedThread(key)` has the id meanwhile. The box is hidden
+rather than unmounted, so if no thread starts, it shows again with bb's
+composer having put the prompt back, and the reason at the top
+(`StartThreadError`).
+
+**After it starts.** The hook calls `announceStartedThread` rather than
 `navigate.toThread`. Every plugin leaves you on the page you started the
 thread from, with a toast whose **Go to thread** button opens it. Opening a
 thread that already exists, from a row's Open thread, still navigates.
@@ -405,6 +417,11 @@ drawn inside its own border. A sweep passes the line to sweep-ui's row as
 
 Hovering Open thread underlines its label, and hovering the line underlines
 the thread's title.
+
+While the thread is being started, draw `<OpenThreadAction disabled />` and
+`<StartingThreadLine title={…} />` in the same places: a spinner, **Starting**,
+and the title the row is known by, such as `Let widgets export to CSV (#487)`.
+[Start thread](#start-thread)'s `useStartThreadBox` says when.
 
 Call the hook in the page and pass the lookup down, so a story can pass
 fixtures instead.

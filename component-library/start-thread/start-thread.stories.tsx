@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 
-import { PreviewCard, SkillChips, WorkspaceBanner } from "./start-thread";
+import { OpenThreadAction, StartingThreadLine } from "../thread-status/thread-status";
+import { PreviewCard, SkillChips, StartThreadError, WorkspaceBanner } from "./start-thread";
 import type { SuggestedSkill } from "./keys";
 
 export default {
@@ -84,6 +85,43 @@ export const SuggestedSkills = () => (
     </StoryRow>
     <StoryRow label="Nothing picked">
       <Chips initial={[]} />
+    </StoryRow>
+  </StoryCard>
+);
+
+/**
+ * A row while its thread starts. The box has closed, Open thread is greyed
+ * where Start thread was, and the thread line says Starting with the title
+ * the row is known by, until the thread exists.
+ */
+export const Starting = () => (
+  <StoryCard>
+    <StoryRow label="Pull request" hint="Open thread greyed, the line under the actions">
+      <div className="text-xs text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <OpenThreadAction disabled />
+          <span>Copy link</span>
+          <span>Add note</span>
+        </div>
+        <StartingThreadLine title="Let widgets export to CSV (#487)" />
+      </div>
+    </StoryRow>
+    <StoryRow label="A long title" hint="Cut to one line">
+      <div className="w-80 text-xs">
+        <StartingThreadLine title="Retry gadget sync after a network drop, and say which gadgets were skipped (#503)" />
+      </div>
+    </StoryRow>
+  </StoryCard>
+);
+
+/**
+ * When no thread started: the box opens again with the prompt put back, and
+ * the reason at the top.
+ */
+export const DidNotStart = () => (
+  <StoryCard>
+    <StoryRow label="With the server's reason">
+      <StartThreadError message="Another thread already has octocat/widget-csv-export checked out." />
     </StoryRow>
   </StoryCard>
 );
