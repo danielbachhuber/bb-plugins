@@ -197,3 +197,7 @@ export function buildRepoFilter(options: {
     },
   };
 }
+
+// Served from this path rather than a `./git` export of its own: bb caches a
+// package's exports map for as long as its server runs.
+export * from "./git.js";
