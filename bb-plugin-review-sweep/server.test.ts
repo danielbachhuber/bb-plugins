@@ -1,4 +1,5 @@
 import { localDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
+import { execFileSync } from "node:child_process";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +42,7 @@ function seedRow(overrides: Partial<ClassifiedRow> = {}): ClassifiedRow {
 
 /** A host with a matching project, a spawn stub, and one row already swept. */
 async function seededHost(
-  options: { settings?: Record<string, string>; row?: Partial<ClassifiedRow> } = {},
+  options: { settings?: Record<string, string>; row?: Partial<ClassifiedRow>; project?: typeof PROJECT } = {},
 ) {
   spawnCount = 0;
   const liveThreads: Array<{ id: string }> = [];
@@ -49,7 +50,7 @@ async function seededHost(
     pluginId: PLUGIN_ID,
     ...(options.settings ? { settings: options.settings } : {}),
     sdk: {
-      projects: { list: async () => [PROJECT] },
+      projects: { list: async () => [options.project ?? PROJECT] },
       threads: {
         spawn: async () => {
           // Give a racing second call a window to slip through if the
@@ -804,5 +805,97 @@ describe("notes and seen counts", () => {
     const { bb, harness } = await seededHost({ row: { comments: 6 } });
     await reviewThis(harness, { repo: "acme/widgets", number: 42 });
     expect(createStore(bb.storage.database() as never).seenCounts().get("acme/widgets#42")).toBe(6);
+  });
+});
+
+describe("the thread's diff base", () => {
+  function git(cwd: string, ...args: string[]): string {
+    return execFileSync("git", ["-C", cwd, ...args], {
+      encoding: "utf8",
+      env: { ...process.env, GIT_AUTHOR_NAME: "octocat", GIT_AUTHOR_EMAIL: "octocat@example.com", GIT_COMMITTER_NAME: "octocat", GIT_COMMITTER_EMAIL: "octocat@example.com" },
+    }).trim();
+  }
+
+  function commit(cwd: string, file: string): string {
+    writeFileSync(join(cwd, file), file);
+    git(cwd, "add", file);
+    git(cwd, "commit", "-q", "-m", file);
+    return git(cwd, "rev-parse", "HEAD");
+  }
+
+  /**
+   * A stand-in for acme/widgets on GitHub, with #42 stacked on `parent`, and a
+   * checkout of it whose origin is acme/widgets. Both branches move after the
+   * clone, as they do when someone pushes or rebases on GitHub.
+   */
+  function checkout() {
+    const root = mkdtempSync(join(tmpdir(), "review-sweep-base-"));
+    const github = join(root, "github");
+    git(root, "init", "-q", "-b", "main", github);
+    commit(github, "a.txt");
+    git(github, "checkout", "-q", "-b", "parent");
+    commit(github, "b.txt");
+    const path = join(root, "checkout");
+    git(root, "clone", "-q", github, path);
+    git(path, "remote", "set-url", "origin", "git@github.com:acme/widgets.git");
+    git(path, "config", `url.${github}.insteadOf`, "git@github.com:acme/widgets.git");
+    const parent = commit(github, "c.txt");
+    git(github, "checkout", "-q", "-b", "child");
+    git(github, "update-ref", "refs/pull/42/head", commit(github, "d.txt"));
+    return { path, parent, project: { ...PROJECT, sources: [{ hostId: "host_1", path, isDefault: true }] } };
+  }
+
+  function environmentOf(harness: Awaited<ReturnType<typeof seededHost>>["harness"]) {
+    const [[args]] = harness.inspection.sdk.callsTo("threads.spawn") as [[{ environment: unknown }]];
+    return args.environment;
+  }
+
+  it("starts a stacked pull request's worktree from origin/<its base>, fetched first", async () => {
+    const { path, parent, project } = checkout();
+    const { harness } = await seededHost({ project, row: { baseRefName: "parent", headRefName: "child" } });
+
+    await harness.behavior.callRpc("reviewBatchStart", { repo: "acme/widgets", number: 42, prompt: "Review it." });
+
+    expect(environmentOf(harness)).toEqual({
+      type: "host",
+      hostId: "host_1",
+      workspace: { type: "managed-worktree", baseBranch: { kind: "named", name: "origin/parent" } },
+    });
+    expect(git(path, "rev-parse", "origin/parent")).toBe(parent);
+  });
+
+  it("uses origin/main for a pull request based on main", async () => {
+    const { project } = checkout();
+    const { harness } = await seededHost({ project, row: { baseRefName: "main", headRefName: "child" } });
+
+    // Through the composer, which submits the new worktree Start review seeds.
+    const draft = await harness.behavior.callRpc("reviewThisDraft", { repo: "acme/widgets", number: 42 });
+    await harness.behavior.callRpc("reviewThisSubmit", {
+      repo: "acme/widgets",
+      number: 42,
+      request: { projectId: "proj_a", environment: draft.seed!.environment, input: [{ type: "text", text: "Review it.", mentions: [] }] },
+    } as never);
+
+    expect(environmentOf(harness)).toMatchObject({ workspace: { baseBranch: { kind: "named", name: "origin/main" } } });
+  });
+
+  it("leaves an environment the user picked in the composer alone", async () => {
+    const { project } = checkout();
+    const { harness } = await seededHost({ project, row: { baseRefName: "parent" } });
+    const local = { type: "host", hostId: "host_1", workspace: { type: "unmanaged", path: null } };
+
+    await harness.behavior.callRpc("reviewThisSubmit", {
+      repo: "acme/widgets",
+      number: 42,
+      request: { projectId: "proj_a", environment: local, input: [{ type: "text", text: "Review it.", mentions: [] }] },
+    } as never);
+
+    expect(environmentOf(harness)).toEqual(local);
+  });
+
+  it("keeps bb's default for a row swept before it carried the base", async () => {
+    const { harness } = await seededHost();
+    await harness.behavior.callRpc("reviewBatchStart", { repo: "acme/widgets", number: 42, prompt: "Review it." });
+    expect(environmentOf(harness)).toMatchObject({ workspace: { baseBranch: { kind: "default" } } });
   });
 });

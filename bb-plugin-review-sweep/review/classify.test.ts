@@ -200,6 +200,14 @@ describe("classifyOne", () => {
     expect(classifyOne(makePr(), ME)?.conflicted).toBe(false);
   });
 
+  it("carries the base and head branches through, for the thread's diff", () => {
+    expect(classifyOne(makePr({ baseRefName: "retry-on-timeout", headRefName: "fix-backoff" }), ME)).toMatchObject({
+      baseRefName: "retry-on-timeout",
+      headRefName: "fix-backoff",
+    });
+    expect(classifyOne(makePr(), ME)).not.toHaveProperty("baseRefName");
+  });
+
   it("defaults a missing author to unknown rather than dropping the row", () => {
     expect(classifyOne(makePr({ author: null }), ME)?.author).toBe("unknown");
   });

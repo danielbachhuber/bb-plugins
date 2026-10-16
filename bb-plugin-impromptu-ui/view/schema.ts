@@ -49,6 +49,17 @@ export const actionSchema = z.discriminatedUnion("type", [
     project: z.string().trim().min(1).max(200),
     title: z.string().trim().min(1).max(200),
     prompt: z.string().trim().min(1).max(50_000),
+    /**
+     * A ref such as `origin/feature` to start the thread in a new worktree
+     * from, and to diff it against. Without it, the project's default.
+     */
+    baseBranch: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/^(?!-)[A-Za-z0-9._/-]+$/, "a branch or ref name, such as origin/feature")
+      .optional(),
   }),
   z.object({
     ...actionBase,

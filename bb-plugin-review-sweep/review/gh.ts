@@ -50,6 +50,8 @@ query($q: String!, $limit: Int!) {
         additions
         deletions
         changedFiles
+        baseRefName
+        headRefName
         repository { nameWithOwner }
         author { login }
         comments { totalCount }

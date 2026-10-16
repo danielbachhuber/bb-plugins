@@ -305,6 +305,7 @@ describe("a thread that starts on the pull request's branch", () => {
     number: 42,
     title: "Add the widget endpoint",
     headRef: "feat/widgets",
+    baseRef: "main",
     url: "https://github.com/acme/widgets/pull/42",
     isDraft: false,
     headRepo: "acme/widgets",

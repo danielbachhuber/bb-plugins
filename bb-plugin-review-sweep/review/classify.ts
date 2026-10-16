@@ -301,6 +301,8 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
     reviewers: reviewersOf(pr, viewer),
     // Filled in by the sweep, which reads the rest of each stack in one more call.
     stack: null,
+    ...(pr.baseRefName ? { baseRefName: pr.baseRefName } : {}),
+    ...(pr.headRefName ? { headRefName: pr.headRefName } : {}),
   };
 }
 

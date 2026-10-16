@@ -47,6 +47,13 @@ and nothing else:
   applies the filter where its own fetching allows: pr-sweep and issue-sweep
   before the per-repository fan-out, review-sweep to the rows of its single
   search.
+- **`git`**, served from the `projects` path — what a thread started for a
+  pull request needs from the checkout first: `fetchPullRequest` fetches its
+  base branch and head from the remote for its repository and returns
+  `<remote>/<base>` as the thread's merge base, `updateLocalBranch` moves a
+  stale local branch to the head when that loses no commits, and
+  `withWorktreeBase` points a new default worktree at the base. PR Sweep and
+  Review Sweep use them so a thread's diff matches the pull request's.
 - **`bots`** and **`feedback`**, both served from the `gh` path for the same
   reason as `stacks`. `isBotLogin` matches the logins whose comments are not a
   question waiting on anyone. `fetchFeedback` reads what people left on one

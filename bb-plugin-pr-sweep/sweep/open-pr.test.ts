@@ -81,12 +81,13 @@ describe("resolvePullRequest", () => {
         title: "Add the widget endpoint",
         url: "https://github.com/acme/widgets/pull/42",
         headRefName: "feat/widgets",
+        baseRefName: "feat/base",
         isDraft: false,
       }),
       "acme/widgets",
       42,
     );
-    expect(pr).toMatchObject({ headRef: "feat/widgets", number: 42, repo: "acme/widgets" });
+    expect(pr).toMatchObject({ headRef: "feat/widgets", baseRef: "feat/base", number: 42, repo: "acme/widgets" });
   });
 
   it("reports a fork's own repository, and that it is one", async () => {
@@ -160,6 +161,7 @@ const basePr = {
   number: 42,
   title: "Add the widget endpoint",
   headRef: "feat/widgets",
+  baseRef: "main",
   url: "https://github.com/acme/widgets/pull/42",
   isDraft: false,
   headRepo: "acme/widgets",

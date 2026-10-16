@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import {
   createFakePluginHost as createHost,
   makeThreadResponse,
@@ -893,5 +897,144 @@ describe("notes, seen counts, and the stale setting", () => {
     const { bb, harness } = await seededHost({ commentsCount: 6 });
     await workOnThis(harness, { repo: "acme/widgets", number: 42 });
     expect(createStore(bb.storage.database() as never).seenCounts().get("acme/widgets#42")).toBe(6);
+  });
+});
+
+describe("the thread's diff base", () => {
+  function git(cwd: string, ...args: string[]): string {
+    return execFileSync("git", ["-C", cwd, ...args], {
+      encoding: "utf8",
+      env: { ...process.env, GIT_AUTHOR_NAME: "octocat", GIT_AUTHOR_EMAIL: "octocat@example.com", GIT_COMMITTER_NAME: "octocat", GIT_COMMITTER_EMAIL: "octocat@example.com" },
+    }).trim();
+  }
+
+  function commit(cwd: string, file: string): string {
+    writeFileSync(join(cwd, file), file);
+    git(cwd, "add", file);
+    git(cwd, "commit", "-q", "-m", file);
+    return git(cwd, "rev-parse", "HEAD");
+  }
+
+  /**
+   * A stand-in for acme/widgets on GitHub with #42, `feat/widgets`, stacked on
+   * `feat/base`; a checkout of it whose local `feat/widgets` is a commit
+   * behind; and a gh that answers `pr view` for #42.
+   */
+  function setup() {
+    const root = mkdtempSync(join(tmpdir(), "pr-sweep-base-"));
+    const github = join(root, "github");
+    git(root, "init", "-q", "-b", "main", github);
+    commit(github, "a.txt");
+    git(github, "checkout", "-q", "-b", "feat/base");
+    commit(github, "b.txt");
+    git(github, "checkout", "-q", "-b", "feat/widgets");
+    commit(github, "c.txt");
+    git(github, "checkout", "-q", "main");
+    const checkout = join(root, "widgets");
+    git(root, "clone", "-q", github, checkout);
+    git(checkout, "remote", "set-url", "origin", "git@github.com:acme/widgets.git");
+    git(checkout, "config", `url.${github}.insteadOf`, "git@github.com:acme/widgets.git");
+    // `git remote -v` shows the rewritten URL, so the worktree's own fetch
+    // falls back to the repository's https URL; rewrite that one too.
+    git(checkout, "config", "--add", `url.${github}.insteadOf`, "https://github.com/acme/widgets.git");
+    git(checkout, "branch", "feat/widgets", "origin/feat/widgets");
+    git(github, "checkout", "-q", "feat/widgets");
+    const head = commit(github, "d.txt");
+    git(github, "update-ref", "refs/pull/42/head", head);
+
+    const gh = join(root, "gh");
+    const pr = {
+      number: 42,
+      title: "Add the widget endpoint",
+      url: "https://github.com/acme/widgets/pull/42",
+      headRefName: "feat/widgets",
+      baseRefName: "feat/base",
+      isDraft: false,
+      isCrossRepository: false,
+      maintainerCanModify: true,
+    };
+    writeFileSync(gh, `#!/bin/sh\ncat <<'JSON'\n${JSON.stringify(pr)}\nJSON\n`);
+    chmodSync(gh, 0o755);
+    return { checkout, gh, head };
+  }
+
+  let polls = 0;
+
+  async function host(checkout: string, gh: string) {
+    polls = 0;
+    const fixture = createFakePluginHost({
+      pluginId: "pr-sweep",
+      settings: { ghPath: gh },
+      sdk: {
+        projects: {
+          list: async () => [
+            { id: "proj_a", gitRemoteUrl: "git@github.com:acme/widgets.git", sources: [{ hostId: "host_1", path: checkout, isDefault: true }] },
+          ],
+        },
+        // As bb does for an unmanaged workspace: no environment when spawn
+        // returns, and one a moment later.
+        threads: {
+          spawn: async () => ({ id: "thr_1", environmentId: null }),
+          get: async () => ({ id: "thr_1", environmentId: (polls += 1) > 1 ? "env_1" : null }),
+        },
+        environments: { update: async () => ({}) },
+      },
+    });
+    await plugin(fixture.bb);
+    createStore(fixture.bb.storage.database() as never).replaceRepoRows("acme/widgets", [
+      { ...seedRow(), baseRefName: "feat/base" },
+    ] as never);
+    return fixture;
+  }
+
+  it("opens a pull request on its own branch, brought up to date, and diffs it against origin/<base>", async () => {
+    const { checkout, gh, head } = setup();
+    const { harness } = await host(checkout, gh);
+
+    const result = await harness.behavior.callRpc("openPullRequest", { input: "https://github.com/acme/widgets/pull/42", instructions: "" });
+
+    expect(result).toMatchObject({ threadId: "thr_1", error: null });
+    expect(git(`${checkout}-pr-42`, "rev-parse", "HEAD")).toBe(head);
+    await vi.waitFor(() =>
+      expect(harness.inspection.sdk.callsTo("environments.update")).toEqual([
+        [{ environmentId: "env_1", mergeBaseBranch: "origin/feat/base" }],
+      ]),
+    );
+  });
+
+  it("does the same for Work on this on the pull request's branch", async () => {
+    const { checkout, gh, head } = setup();
+    const { harness } = await host(checkout, gh);
+
+    await harness.behavior.callRpc("workOnThisSubmit", {
+      repo: "acme/widgets",
+      number: 42,
+      onBranch: true,
+      request: { projectId: "proj_a", input: [{ type: "text", text: "Fix it.", mentions: [] }] },
+    });
+
+    expect(git(`${checkout}-pr-42`, "rev-parse", "HEAD")).toBe(head);
+    await vi.waitFor(() =>
+      expect(harness.inspection.sdk.callsTo("environments.update")).toEqual([
+        [{ environmentId: "env_1", mergeBaseBranch: "origin/feat/base" }],
+      ]),
+    );
+  });
+
+  it("starts a new default worktree from origin/<base> when the thread is not on the branch", async () => {
+    const { checkout, gh } = setup();
+    const { harness } = await host(checkout, gh);
+    const worktree = { type: "host", hostId: "host_1", workspace: { type: "managed-worktree", baseBranch: { kind: "default" } } };
+
+    await harness.behavior.callRpc("workOnThisSubmit", {
+      repo: "acme/widgets",
+      number: 42,
+      request: { projectId: "proj_a", environment: worktree, input: [{ type: "text", text: "Fix it.", mentions: [] }] },
+    });
+
+    const [[args]] = harness.inspection.sdk.callsTo("threads.spawn") as [[{ environment: unknown }]];
+    expect(args.environment).toEqual({ ...worktree, workspace: { type: "managed-worktree", baseBranch: { kind: "named", name: "origin/feat/base" } } });
+    // bb records a named base as the merge base itself.
+    expect(harness.inspection.sdk.callsTo("environments.update")).toEqual([]);
   });
 });

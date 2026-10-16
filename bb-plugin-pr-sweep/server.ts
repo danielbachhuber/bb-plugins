@@ -21,6 +21,7 @@ import {
 } from "bb-plugin-gh-context/links";
 import { rpcContract } from "./sweep/contract.js";
 import { createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
+import { prepareForPullRequest, runGit } from "@danielb/gh-shared/projects";
 import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, runSweep } from "./sweep/gh.js";
 import { buildPromptParts, headerItem, suggestedSkills, trailerItem } from "./sweep/prompt.js";
 import {
@@ -51,6 +52,10 @@ const REALTIME_CHANNEL = "prs-updated";
 
 const GH_CONTEXT_REQUIRED =
   "PR Sweep needs the gh-context plugin, which records which threads belong to which pull requests. Install it, then reload PR Sweep.";
+
+/** How long a thread's unmanaged workspace may take to attach before its merge base is given up on. */
+const ENVIRONMENT_WAIT_MS = 15_000;
+const ENVIRONMENT_POLL_MS = 200;
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
@@ -670,6 +675,61 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /**
+   * Fetches the pull request's base and head into the checkout, and returns
+   * `<remote>/<base>` for the thread's merge base, or null when the checkout
+   * has no remote for the repository. Without it bb diffs the thread against
+   * its default branch, and a pull request stacked on another one shows the
+   * other's changes too.
+   *
+   * A local copy of the head branch is brought up to date when that loses no
+   * commits, so a branch rebased or pushed to on GitHub is not stale here.
+   * In a worktree this panel made earlier, that is a fast-forward, which git
+   * refuses when it would touch uncommitted changes.
+   */
+  async function fetchForThread(repoPath: string, path: string, pr: ResolvedPullRequest): Promise<string | null> {
+    const exists = existsSync(path);
+    const prepared = await prepareForPullRequest(
+      runGit,
+      repoPath,
+      { repo: pr.repo, number: pr.number, baseRef: pr.baseRef, ...(exists ? {} : { headRef: pr.headRef }) },
+      undefined,
+    );
+    for (const warning of prepared.warnings) bb.log.warn(`${pr.repo}#${pr.number}: ${warning}`);
+    if (exists && prepared.head !== null) {
+      const merged = await git(path, ["merge", "--ff-only", prepared.head]);
+      if (!merged.ok) bb.log.warn(`could not fast-forward ${path} to ${pr.repo}#${pr.number}'s head: ${merged.stderr}`);
+    }
+    return prepared.mergeBase;
+  }
+
+  /**
+   * Sets the thread's merge base, logging rather than failing a thread that
+   * already started.
+   *
+   * bb attaches an unmanaged workspace to the thread after `threads.spawn`
+   * returns, which comes back with no environment id, so this reads the thread
+   * until it has one. One `threads.get` per poll, for at most
+   * {@link ENVIRONMENT_WAIT_MS}.
+   */
+  async function setMergeBase(thread: { id: string; environmentId?: string | null }, mergeBase: string | null) {
+    if (mergeBase === null) return;
+    try {
+      let environmentId = thread.environmentId ?? null;
+      for (const started = Date.now(); environmentId === null && Date.now() - started < ENVIRONMENT_WAIT_MS; ) {
+        await new Promise((resolve) => setTimeout(resolve, ENVIRONMENT_POLL_MS));
+        environmentId = (await bb.sdk.threads.get({ threadId: thread.id })).environmentId;
+      }
+      if (environmentId === null) {
+        bb.log.warn(`${thread.id} had no environment after ${ENVIRONMENT_WAIT_MS} ms, so its merge base is not ${mergeBase}`);
+        return;
+      }
+      await bb.sdk.environments.update({ environmentId, mergeBaseBranch: mergeBase });
+    } catch (error) {
+      bb.log.warn(`could not set ${thread.id}'s merge base to ${mergeBase}: ${String(error)}`);
+    }
+  }
+
   async function addWorktree(repoPath: string, path: string, plan: WorktreePlan): Promise<void> {
     if (existsSync(path)) return;
 
@@ -734,6 +794,32 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: false, reason: `${pr.headRef} is already checked out at ${holder}.` };
     }
     return { ok: true, pr, project, path };
+  }
+
+  /**
+   * For a thread the composer starts in a new worktree on the default base,
+   * which is where it goes when the pull request's branch is taken: fetches
+   * the base and head, and starts the worktree from `<remote>/<base>` instead,
+   * which bb records as its merge base. Any other environment the composer
+   * chose is left as it is, since other threads share it. A failure is logged
+   * and the thread starts as the composer asked.
+   */
+  async function worktreeOnBase(
+    repo: string,
+    number: number,
+    baseRef: string,
+    request: { projectId: string; environment?: unknown },
+  ): Promise<Record<string, unknown>> {
+    try {
+      const path = (await projectCandidates()).find((candidate) => candidate.id === request.projectId)?.path;
+      if (!path) return {};
+      const prepared = await prepareForPullRequest(runGit, path, { repo, number, baseRef }, request.environment);
+      for (const warning of prepared.warnings) bb.log.warn(`${repo}#${number}: ${warning}`);
+      return prepared.environment === request.environment ? {} : { environment: prepared.environment };
+    } catch (error) {
+      bb.log.warn(`could not prepare ${repo}#${number}'s checkout: ${String(error)}`);
+      return {};
+    }
   }
 
   /**
@@ -920,7 +1006,9 @@ export default async function plugin(bb: BbPluginApi) {
       }
 
       const path = worktreePath(project.path, pr.number);
+      let mergeBase: string | null = null;
       try {
+        mergeBase = await fetchForThread(project.path, path, pr);
         await addWorktree(project.path, path, worktreePlan(pr, await remotesOf(project.path)));
       } catch (error) {
         // addWorktree already explains the one failure with a useful answer;
@@ -970,6 +1058,9 @@ export default async function plugin(bb: BbPluginApi) {
         };
       }
 
+      // Not awaited: it waits for bb to attach the workspace, and the panel
+      // should not wait with it.
+      void setMergeBase(thread, mergeBase);
       await links.link(pr.repo, pr.number, thread.id, "spawned");
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`opened ${pr.repo}#${pr.number} at ${path} as ${thread.id}`);
@@ -1127,12 +1218,14 @@ export default async function plugin(bb: BbPluginApi) {
         // what keeps any @-mention or attachment that was added.
         let environment: Record<string, unknown> = {};
         let branchPr: ResolvedPullRequest | undefined;
+        let mergeBase: string | null = null;
         if (onBranch) {
           // Decided again rather than trusted from the draft: the dialog can
           // sit open while another thread takes the branch.
           const found = await branchWorkspace(repo, number);
           if (!found.ok) return { threadId: null, existing: false, reason: found.reason };
           try {
+            mergeBase = await fetchForThread(found.project.path, found.path, found.pr);
             await addWorktree(
               found.project.path,
               found.path,
@@ -1155,6 +1248,8 @@ export default async function plugin(bb: BbPluginApi) {
               },
             },
           };
+        } else if (row.baseRefName) {
+          environment = await worktreeOnBase(row.repo, row.number, row.baseRefName, request);
         }
 
         const parts = buildPromptParts(row, branchPr);
@@ -1171,6 +1266,7 @@ export default async function plugin(bb: BbPluginApi) {
           title: await titleForNewThread(row, actionSummary(row.flags, commentsToRead(row))),
         } as Parameters<typeof bb.sdk.threads.spawn>[0]);
 
+        void setMergeBase(thread, mergeBase);
         bb.log.info(`started ${thread.id} for ${key} in ${request.projectId}`);
         await links.link(repo, number, thread.id, "spawned");
         markSeen();

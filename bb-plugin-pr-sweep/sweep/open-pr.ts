@@ -7,6 +7,8 @@ export interface ResolvedPullRequest {
   number: number;
   title: string;
   headRef: string;
+  /** The branch it merges into, which a thread on it diffs against. */
+  baseRef: string;
   url: string;
   isDraft: boolean;
   /**
@@ -174,13 +176,14 @@ export async function resolvePullRequest(
     "pr", "view", String(number),
     "--repo", repo,
     "--json",
-    "number,title,url,headRefName,isDraft,isCrossRepository,headRepository,headRepositoryOwner,maintainerCanModify",
+    "number,title,url,headRefName,baseRefName,isDraft,isCrossRepository,headRepository,headRepositoryOwner,maintainerCanModify",
   ]);
   const pr = JSON.parse(raw) as {
     number: number;
     title: string;
     url: string;
     headRefName: string;
+    baseRefName: string;
     isDraft: boolean;
     isCrossRepository?: boolean;
     headRepository?: { name?: string } | null;
@@ -199,6 +202,7 @@ export async function resolvePullRequest(
     number: pr.number,
     title: pr.title,
     headRef: pr.headRefName,
+    baseRef: pr.baseRefName,
     url: pr.url,
     isDraft: pr.isDraft,
     headRepo: pr.isCrossRepository ? headRepo : repo,
