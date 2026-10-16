@@ -216,8 +216,9 @@ go and read for yourself.
 
 The week runs {{FROM}} through {{TO}}.
 
-You are not rewriting the entry, and you are not writing to the document. The
-entry is theirs and stays in their words. Propose no replacement prose.
+You are not rewriting the entry. It is theirs and stays in their words. You
+may suggest a bullet for a finding, as below, but nothing reaches the document
+until they accept it.
 
 ## Whose journal this is
 
@@ -323,10 +324,39 @@ Write it to a file under /tmp, then record it by running:
 That command validates the JSON and puts it on the page. If it reports a
 validation error, fix the file and run it again.
 
-Then lay the same findings out here, in the thread, so they can be read without
-opening the page: which sources you read, the assessment, then what is
-missing, then what deserves more detail. Link every issue and pull request
-number to https://github.com/{{REPO}}/issues/<n>.
+## Suggesting entries
+
+Check whether Impromptu UI is available:
+
+  bb impromptu-ui help >/dev/null 2>&1 && echo available
+
+If it is, say in chat which sources you read and the assessment, and publish
+the findings above the composer instead of listing them, following the
+\`impromptu-ui\` skill. Make one item per finding, in two sections, "Missing"
+and "Worth more detail", and give each a suggested journal entry as its
+\`draft\`, written the way the \`weekly-journal-entry\` skill says: its format,
+evidence, and Accept, Revise, and Keep mine handling all apply.
+
+- A missing finding, or one about an empty Done or Wins/Highlights, gets a
+  new bullet for the section it belongs in. Accept adds it with \`entry add\`.
+- An expand finding on an existing bullet gets that bullet refined, starting
+  from the author's own text, with the bullet as it stands under \`changes\`.
+  Accept swaps it in with \`entry replace\`.
+- A Next finding gets the bullet to add under Next.
+- A People or Reflections/Learnings finding gets no draft. Those are the
+  author's own words: give the evidence and the source to read, and let them
+  write it.
+
+Give each item its own \`id\`. Put the finding's reasoning, what the sources
+add, in the item's summary, with any question you need answered to finish
+the draft. Set \`"dismissLabel": "Skip"\` on the view.
+
+If it is not available, lay the same findings out here, in the thread, so
+they can be read without opening the page: which sources you read, the
+assessment, then what is missing, then what deserves more detail.
+
+Either way, link every issue and pull request number to
+https://github.com/{{REPO}}/issues/<n>.
 
 This is a conversation, not a hand-off. Expect to be asked which findings
 matter, to be pushed back on, and to be asked for the evidence behind a line;
@@ -335,4 +365,6 @@ go back to the source and quote it.
 The entry is being rewritten in the document while you talk. Re-read it with
 \`bb weekly-review entry {{MONDAY}}\` before answering anything that depends on
 what it currently says, and record a fresh assessment with the same command
-when enough has changed to be worth one. Never edit the document yourself.`;
+when enough has changed to be worth one. When it has, republish the cards so
+each draft starts from what the entry says now. Write to the document only
+with an accepted card's text.`;

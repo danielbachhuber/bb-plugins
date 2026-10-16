@@ -262,7 +262,7 @@ settings. The calendar needs no configuration beyond the path: it reads
 
 The weekly entry is written in a Google Doc. This plugin reads that document,
 and writes to it only to add an entry you have accepted (see Capturing an
-entry, below). The feedback step never writes to it.
+entry, below).
 
 Set the doc with `bb weekly-review source set journalDocId <id>`. The entry for
 a week is the last dated section falling inside it — the doc uses the same
@@ -299,10 +299,19 @@ line. The agent re-reads the document before answering anything that turns on
 what the entry currently says, and records a fresh assessment when enough has
 changed to warrant one.
 
+When Impromptu UI is installed, the thread shows each finding as a card above
+its composer with a suggested journal bullet, written the way the
+`weekly-journal-entry` skill writes one: a new bullet for something missing,
+or your own bullet refined for something worth more detail. Edit it, ask for
+a revision, or skip it. Accept adds it to the doc, or swaps it in for the
+bullet it refines. People and Reflections/Learnings findings get no draft,
+only the evidence, since those are yours to write. Without Impromptu UI, the
+findings are listed in the thread.
+
 The page itself shows only that the entry was checked and how much came back.
 The findings are worth arguing with, and a page cannot be argued with.
 
-It proposes no replacement prose, and never edits the document. Feedback is
+Nothing reaches the document until you accept a card. Feedback is
 stored with the week, stamped with the heading of the entry it was given on, so feedback on a draft you have since rewritten shows as stale
 rather than quietly wrong.
 
