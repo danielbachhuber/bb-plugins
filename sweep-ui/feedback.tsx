@@ -8,7 +8,8 @@ import type { SweepLinkProps } from "./row";
  * request, each entry a link to it on GitHub, oldest first. An inline comment
  * sits in a card headed by its file and line; reviews and top-level comments
  * do not. Yours and bots' carry a "you" or "bot" label. Resolved threads wait
- * behind a toggle at the end.
+ * behind a toggle at the end. A long list opens on its newest entries, with
+ * the earlier ones behind a button at the top.
  */
 
 /** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. */
@@ -149,13 +150,33 @@ export interface FeedbackListProps {
   Link: ComponentType<SweepLinkProps>;
 }
 
-/** The entries as they come, with resolved threads folded behind a toggle. */
+/** How many of the newest entries show before "Show N earlier". */
+export const RECENT_FEEDBACK = 10;
+
+/**
+ * The entries as they come, with resolved threads folded behind a toggle and
+ * all but the newest `RECENT_FEEDBACK` behind "Show N earlier".
+ */
 export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
   const [showResolved, setShowResolved] = useState(false);
+  const [showEarlier, setShowEarlier] = useState(false);
   const resolved = entries.filter((entry) => entry.kind === "thread" && entry.status === "resolved");
-  const shown = showResolved ? entries : entries.filter((entry) => !resolved.includes(entry));
+  const unfolded = showResolved ? entries : entries.filter((entry) => !resolved.includes(entry));
+  const earlier = showEarlier ? 0 : Math.max(0, unfolded.length - RECENT_FEEDBACK);
+  const shown = unfolded.slice(earlier);
   return (
     <>
+      {earlier > 0 ? (
+        <div className="mb-1.5 border-b border-border pb-1.5 text-xs text-muted-foreground">
+          <button
+            type="button"
+            className="-mx-1 rounded px-1 hover:bg-accent hover:text-foreground"
+            onClick={() => setShowEarlier(true)}
+          >
+            Show {earlier} earlier
+          </button>
+        </div>
+      ) : null}
       {shown.length > 0 ? (
         <ul className="-mx-2 space-y-0.5">
           {shown.map((entry, index) => (

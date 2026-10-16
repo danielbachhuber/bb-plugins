@@ -185,7 +185,8 @@ the action line, drawn the same way as PR Sweep's: one list, oldest first, of
 reviews, inline comments, and top-level comments, with each inline comment in
 a small card headed by its file and line. Your own reviews, threads, and
 comments carry a "you" label and bots' a "bot" label. Resolved threads wait
-behind "N resolved" at the bottom. A thread is "unanswered" when someone else
+behind "N resolved" at the bottom. When there are more than 10 entries, the
+drawer shows the 10 newest, with "Show N earlier" at the top for the rest. A thread is "unanswered" when someone else
 spoke last, including the author answering one of yours; "waiting on a reply"
 when you started it and nobody has answered; and "you replied" when you spoke
 last. Each entry opens on GitHub, and its text is cut to

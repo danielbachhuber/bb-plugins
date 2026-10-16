@@ -148,7 +148,9 @@ say, inline comments, and top-level comments from the pull request's
 conversation. Each inline comment sits in a small card headed by its file and
 line, with whether it is unanswered or you replied. Your own comments carry a
 "you" label and bots' a "bot" label, since the count includes both. Resolved
-threads wait behind "N resolved" at the bottom. Each entry opens on GitHub, and its text is cut to three
+threads wait behind "N resolved" at the bottom. When there are more than 10
+entries, the drawer shows the 10 newest, with "Show N earlier" at the top for
+the rest. Each entry opens on GitHub, and its text is cut to three
 lines. Opening the drawer makes one GitHub GraphQL request for that pull
 request, and none is made until you click; once it has read the comments, the
 row's "N new" clears. Clicking the count again closes it.

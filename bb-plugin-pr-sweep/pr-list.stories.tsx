@@ -475,6 +475,19 @@ const FEEDBACK: FeedbackEntry[] = [
   },
 ];
 
+/** A long design review: 40 earlier comments on top of #487's, so the drawer opens on its newest 10. */
+const LONG_FEEDBACK: FeedbackEntry[] = [
+  ...Array.from({ length: 40 }, (_, index): FeedbackEntry => ({
+    kind: "comment",
+    author: index % 2 === 0 ? "hubber" : "octocat",
+    avatarUrl: avatarFor(index % 2 === 0 ? "hubber" : "octocat"),
+    body: index % 2 === 0 ? "Could the export run in the background for large accounts?" : "Measured it: about four seconds for ten thousand widgets.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 60 * HOUR + index * HOUR,
+  })),
+  ...FEEDBACK,
+];
+
 /** What bb's sidebar would say about the fixture threads. */
 const THREADS: Record<string, ThreadStatus> = {
   thr_fixture1: { id: "thr_fixture1", title: "Fix the theme snapshot job after the rebase (#495)", live: "working" },
@@ -601,7 +614,8 @@ export function Rows() {
  * The drawer a row's comment count opens. The review that requested changes
  * comes first, then the threads still open, unanswered ones marked in red,
  * then general comments. Resolved threads wait behind "1 resolved". Each entry
- * opens on GitHub. Then the drawer while it reads, when GitHub fails, and with
+ * opens on GitHub. Then a long list, which opens on its newest 10 under
+ * "Show 40 earlier", the drawer while it reads, when GitHub fails, and with
  * nothing open.
  */
 export function CommentsDrawer() {
@@ -614,6 +628,9 @@ export function CommentsDrawer() {
     <StoryCard>
       <StoryRow label="Open" hint="What reviewers left on #487.">
         {box(<FeedbackList entries={FEEDBACK} age={age} url={url} Link={PlainLink} />)}
+      </StoryRow>
+      <StoryRow label="Long" hint="More than 10 entries: the newest 10, the rest behind Show earlier.">
+        {box(<FeedbackList entries={LONG_FEEDBACK} age={age} url={url} Link={PlainLink} />)}
       </StoryRow>
       <StoryRow label="Reading" hint="While the one request to GitHub runs.">
         <FeedbackDrawer load={() => new Promise(() => {})} age={age} url={url} Link={PlainLink} />
