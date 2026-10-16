@@ -372,6 +372,9 @@ arrives later, `startedThread(key)` has the id meanwhile. The box is hidden
 rather than unmounted, so if no thread starts, it shows again with bb's
 composer having put the prompt back, and the reason at the top
 (`StartThreadError`).
+Two surfaces that draw the same rows, such as Now's list and its Email tab,
+pass the same `scope`, so a row started from either says Starting in both.
+Each keeps its own box.
 
 **After it starts.** The hook calls `announceStartedThread` rather than
 `navigate.toThread`. Every plugin leaves you on the page you started the

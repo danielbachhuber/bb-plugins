@@ -335,9 +335,11 @@ function useRowActions(
 function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
   // The open composer, keyed by the id the thread is linked under, with its
-  // title for the toast, and the ones whose thread is starting.
+  // title for the toast, and the ones whose thread is starting. One scope for
+  // the list and the Email tab, so a row starting from either shows in both.
   const box = useStartThreadBox<StartThreadDraft & { title: string }>({
     navigate,
+    scope: "now",
     submit: async ({ key }, request) => {
       const result = await rpc.call("items_start_thread", { id: key, request: request as never });
       return { threadId: result.threadId, existing: result.existing, error: result.error };

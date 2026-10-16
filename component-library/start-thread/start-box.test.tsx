@@ -28,16 +28,26 @@ const { StartingThreadLine } = await import("../thread-status/thread-status");
 
 type Outcome = { threadId: string | null; existing?: boolean; error?: string | null };
 
-function Page({ submit, keys = ["acme/widgets#7"] }: { submit: () => Promise<Outcome>; keys?: string[] }) {
-  const box = useStartThreadBox({ submit, navigate: { toThread: vi.fn() } });
+function Page({
+  submit,
+  keys = ["acme/widgets#7"],
+  scope,
+  label = "",
+}: {
+  submit: () => Promise<Outcome>;
+  keys?: string[];
+  scope?: string;
+  label?: string;
+}) {
+  const box = useStartThreadBox({ submit, navigate: { toThread: vi.fn() }, scope });
   return (
     <ul>
       {keys.map((key) => (
         <li key={key} data-testid={key}>
-          {box.isStarting(key) ? <span>starting {key}</span> : null}
-          {box.startedThread(key) ? <span>thread {box.startedThread(key)}</span> : null}
+          {box.isStarting(key) ? <span>{label}starting {key}</span> : null}
+          {box.startedThread(key) ? <span>{label}thread {box.startedThread(key)}</span> : null}
           <button type="button" onClick={() => box.toggle({ key, seed: { projectId: null } })}>
-            Start {key}
+            {label}Start {key}
           </button>
           {box.boxFor(key)}
         </li>
@@ -120,6 +130,31 @@ describe("useStartThreadBox", () => {
     fireEvent.click(screen.getByText("Start acme/widgets#7"));
     await act(async () => fireEvent.click(screen.getByText("Send")));
     expect(success).not.toHaveBeenCalled();
+  });
+});
+
+describe("useStartThreadBox with a scope", () => {
+  it("says a row is starting, then has its thread, on every surface in the scope", async () => {
+    const pending = deferred<Outcome>();
+    render(
+      <>
+        <Page submit={() => pending.promise} scope="acme" label="list " />
+        <Page submit={() => pending.promise} scope="acme" label="reader " />
+        <Page submit={() => pending.promise} label="other " />
+      </>,
+    );
+    fireEvent.click(screen.getByText("reader Start acme/widgets#7"));
+    fireEvent.click(screen.getByText("Send"));
+
+    expect(screen.getByText("list starting acme/widgets#7")).toBeTruthy();
+    expect(screen.queryByText("other starting acme/widgets#7")).toBeNull();
+    // The box stays with the surface it was opened on.
+    expect(sections()).toHaveLength(1);
+
+    await act(async () => pending.resolve({ threadId: "thr_1" }));
+    expect(screen.queryByText("list starting acme/widgets#7")).toBeNull();
+    expect(screen.getByText("list thread thr_1")).toBeTruthy();
+    expect(screen.queryByText("other thread thr_1")).toBeNull();
   });
 });
 

@@ -3,7 +3,7 @@
 // toast that follows once it starts. Starting a thread
 // never takes the user away from the page they started it on: the toast
 // offers the way there instead.
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AlertCircleIcon, GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -417,6 +417,55 @@ function without<V>(map: ReadonlyMap<string, V>, key: string): ReadonlyMap<strin
   return next;
 }
 
+/** Which rows' threads are starting, and the threads just started, for one scope. */
+interface StartingState {
+  starting: ReadonlySet<string>;
+  started: ReadonlyMap<string, string>;
+}
+
+const NOTHING_STARTING: StartingState = { starting: new Set(), started: new Map() };
+
+// Module-level, so every surface a plugin draws in the same page, such as a
+// list and a side panel tab, reads the same scope. A scope lasts while
+// something is subscribed to it.
+const scopes = new Map<string, { state: StartingState; listeners: Set<() => void> }>();
+
+function scopeNamed(name: string) {
+  let scope = scopes.get(name);
+  if (!scope) {
+    scope = { state: NOTHING_STARTING, listeners: new Set() };
+    scopes.set(name, scope);
+  }
+  return scope;
+}
+
+function changeScope(name: string, change: (state: StartingState) => StartingState): void {
+  // Nothing draws a scope nobody is subscribed to, and the next surface to
+  // mount reads its threads from the plugin's own data.
+  const scope = scopes.get(name);
+  if (!scope) return;
+  scope.state = change(scope.state);
+  for (const listener of scope.listeners) listener();
+}
+
+function useStartingScope(name: string): StartingState {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const scope = scopeNamed(name);
+      scope.listeners.add(listener);
+      return () => {
+        scope.listeners.delete(listener);
+        if (scope.listeners.size === 0 && scopes.get(name) === scope) scopes.delete(name);
+      };
+    },
+    [name],
+  );
+  const read = useCallback(() => scopeNamed(name).state, [name]);
+  return useSyncExternalStore(subscribe, read, read);
+}
+
+let unscoped = 0;
+
 /**
  * The Start thread boxes on a page, and what each row shows while its thread
  * starts. Pressing Send hides the box at once, rather than leaving it open
@@ -429,11 +478,16 @@ function without<V>(map: ReadonlyMap<string, V>, key: string): ReadonlyMap<strin
  * thread-status, or the surface's own starting state. `startedThread(key)`
  * covers the time between the thread starting and the plugin's own data
  * listing it.
+ *
+ * Give two surfaces that draw the same rows the same `scope`, such as a list
+ * and a reader in a side panel tab, and each says a row is starting when
+ * either one started it. Each keeps its own box.
  */
 export function useStartThreadBox<D extends StartThreadDraft>({
   submit,
   navigate,
   announcement,
+  scope,
 }: {
   /** Starts the thread. Resolve once the row's data lists it, such as after a reload. */
   submit: (draft: D, request: NewThreadRequest) => Promise<StartThreadOutcome>;
@@ -443,14 +497,25 @@ export function useStartThreadBox<D extends StartThreadDraft>({
    * it. Defaults to "Started a thread", and to nothing for an existing thread.
    */
   announcement?: (draft: D, outcome: StartThreadOutcome & { threadId: string }) => string | null;
+  /** Shares which rows are starting with every other hook given this scope. */
+  scope?: string;
 }) {
+  const [own] = useState(() => `unscoped:${(unscoped += 1)}`);
+  const name = scope ?? own;
+  const shared = useStartingScope(name);
   const [open, setOpen] = useState<D | null>(null);
   // Hidden but still mounted, so a failed start can show them again.
   const [submitting, setSubmitting] = useState<ReadonlyMap<string, D>>(() => new Map());
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [started, setStarted] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const latest = useRef({ submit, navigate, announcement });
-  latest.current = { submit, navigate, announcement };
+  const latest = useRef({ submit, navigate, announcement, name });
+  latest.current = { submit, navigate, announcement, name };
+  const marked = (key: string, starting: boolean, threadId: string | null = null) =>
+    changeScope(latest.current.name, (state) => {
+      const next = new Set(state.starting);
+      if (starting) next.add(key);
+      else next.delete(key);
+      return { starting: next, started: threadId ? new Map(state.started).set(key, threadId) : state.started };
+    });
 
   const show = useCallback((draft: D | null) => {
     setOpen(draft);
@@ -464,6 +529,7 @@ export function useStartThreadBox<D extends StartThreadDraft>({
 
   const send = useCallback(async (draft: D, request: NewThreadRequest) => {
     setSubmitting((current) => new Map(current).set(draft.key, draft));
+    marked(draft.key, true);
     setOpen((current) => (current?.key === draft.key ? null : current));
     setErrors((current) => without(current, draft.key));
     let outcome: StartThreadOutcome;
@@ -478,10 +544,11 @@ export function useStartThreadBox<D extends StartThreadDraft>({
       setErrors((current) => new Map(current).set(draft.key, reason));
       setOpen(draft);
       setSubmitting((current) => without(current, draft.key));
+      marked(draft.key, false);
       // Thrown so bb's composer puts the prompt back.
       throw new Error(reason);
     }
-    setStarted((current) => new Map(current).set(draft.key, threadId));
+    marked(draft.key, false, threadId);
     setSubmitting((current) => without(current, draft.key));
     const { announcement: say, navigate: to } = latest.current;
     const message = say ? say(draft, { ...outcome, threadId }) : outcome.existing ? null : "Started a thread";
@@ -506,8 +573,11 @@ export function useStartThreadBox<D extends StartThreadDraft>({
   );
 
   const isOpen = useCallback((key: string) => open?.key === key, [open]);
-  const isStarting = useCallback((key: string) => submitting.has(key), [submitting]);
-  const startedThread = useCallback((key: string) => started.get(key) ?? null, [started]);
+  const isStarting = useCallback(
+    (key: string) => submitting.has(key) || shared.starting.has(key),
+    [shared, submitting],
+  );
+  const startedThread = useCallback((key: string) => shared.started.get(key) ?? null, [shared]);
 
   const close = useCallback(() => show(null), [show]);
 

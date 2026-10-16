@@ -183,6 +183,8 @@ describe("Start thread on a row", () => {
 
     fireEvent.click(within(box).getByTestId("bb-new-thread-composer-submit"));
     await waitFor(() => expect(within(row).queryByRole("region", { name: "Start a thread" })).toBeNull());
+    // Open thread, once the thread exists, without waiting for the listing.
+    await waitFor(() => expect(within(row).getByRole("button", { name: "Open thread" })).toBeEnabled());
     const call = slot.inspection.rpcCalls.find((entry) => entry.method === "items_start_thread");
     expect((call?.input as { id: string }).id).toBe("todoist:a1");
   });
