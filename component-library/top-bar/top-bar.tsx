@@ -139,9 +139,12 @@ export function TopBarSlot({ pluginId, order = 0, activeOn = [], children }: {
         const gap = style.display.includes("flex") ? parseFloat(style.columnGap) || 0 : 0;
         el.style.marginRight = `${Math.max(0, 6 - gap)}px`;
       }
-      // bb nudges the title bar's buttons down onto the traffic lights' line; match the sidebar toggle's offset.
-      const toggle = parent.matches(TITLE_BAR) ? parent.querySelector(SIDEBAR_TOGGLE) : null;
-      const transform = toggle ? getComputedStyle(toggle).transform : "none";
+      // bb nudges the title bar's buttons down onto the traffic lights' line, on the toggle or a wrapper around it; match that offset.
+      let transform = "none";
+      for (let node = parent.matches(TITLE_BAR) ? parent.querySelector(SIDEBAR_TOGGLE) : null; node && node !== parent; node = node.parentElement) {
+        transform = getComputedStyle(node).transform;
+        if (transform !== "none" && transform !== "") break;
+      }
       el.style.transform = transform === "none" ? "" : transform;
       setHost(el);
     };

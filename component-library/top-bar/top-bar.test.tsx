@@ -40,22 +40,27 @@ function headerRow() {
   return { row, title };
 }
 
-/** The desktop app's title bar: back and forward, the sidebar toggle, then the right-panel toggle. */
+/**
+ * The desktop app's title bar: back and forward and the sidebar toggle in one
+ * group that bb nudges down, then the right-panel toggle.
+ */
 function titleBar() {
   const bar = document.createElement("div");
   bar.setAttribute("data-testid", "app-window-title-bar");
   bar.style.display = "flex";
-  const history = document.createElement("div");
   const sidebar = document.createElement("div");
+  sidebar.style.transform = "translateY(2px)";
+  const history = document.createElement("div");
+  const wrap = document.createElement("div");
   const trigger = document.createElement("button");
   trigger.setAttribute("data-sidebar", "trigger");
-  trigger.style.transform = "translateY(2px)";
-  sidebar.append(trigger);
+  wrap.append(trigger);
+  sidebar.append(history, wrap);
   const panel = document.createElement("div");
   const toggle = document.createElement("button");
   toggle.setAttribute("aria-label", "Show right panel");
   panel.append(toggle);
-  bar.append(history, sidebar, panel);
+  bar.append(sidebar, panel);
   document.body.append(bar);
   return { bar, sidebar, panel };
 }
