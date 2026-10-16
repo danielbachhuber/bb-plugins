@@ -16,6 +16,11 @@
 // Add `-- --explore` to either capture command to include the stories in
 // explore/ directories, which are left out otherwise.
 //
+// To photograph a few stories somewhere else, such as design options to
+// compare, without building or touching the screenshots checkout:
+//
+//   npm run screenshots -- --story 'pr-sweep--*' --out /tmp/options
+//
 // Plain `npm run screenshots` builds into build/ and captures into the shared
 // checkout, so two threads running it at once delete each other's build and
 // mix their images. The isolated run builds into a temporary directory and
@@ -50,8 +55,14 @@ import { availableParallelism, homedir, tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { contextOptions, photograph, screenshotStories } from "./screenshot-stories.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// `--story` photographs the matching stories into a directory and nothing
+// else; scripts/screenshot-stories.mjs describes it.
+if (process.argv.includes("--story")) process.exit(await screenshotStories(process.argv.slice(2)));
+
 const commitMode = process.argv.includes("--commit");
 const isolated = process.argv.includes("--isolated");
 const includeExplore = process.argv.includes("--explore");
@@ -165,7 +176,7 @@ function lastCapturedSha() {
 }
 
 // A change to any of these can alter every story's picture.
-const CAPTURE_SETUP = /^(\.ladle\/|scripts\/(screenshots|ladle)\.mjs$|package(-lock)?\.json$|\.nvmrc$)/;
+const CAPTURE_SETUP = /^(\.ladle\/|scripts\/(screenshots|screenshot-stories|ladle)\.mjs$|package(-lock)?\.json$|\.nvmrc$)/;
 
 const baseSha = captureAll ? null : lastCapturedSha();
 const changedFiles = baseSha
@@ -301,16 +312,6 @@ function outputPath(id) {
 }
 
 const browser = await chromium.launch();
-// Reduced motion, and animations disabled at capture, so a loading animation
-// or a spinner is on the same frame each run rather than showing a new diff
-// in the history every time. The second catches what the first does not:
-// `animate-spin` ignores the reduced-motion preference.
-const contextOptions = {
-  viewport: { width: 1400, height: 900 },
-  deviceScaleFactor: 2,
-  reducedMotion: "reduce",
-  colorScheme: "light",
-};
 
 // Each story spends most of its time waiting, for the network to go quiet and
 // then for half a second more, so several are captured at once. Each worker has
@@ -320,7 +321,7 @@ const results = new Array(toCapture.length);
 let next = 0;
 
 async function captureStories() {
-  const context = await browser.newContext(contextOptions);
+  const context = await browser.newContext(contextOptions("light"));
   while (next < toCapture.length) {
     const index = next++;
     const id = toCapture[index];
@@ -333,24 +334,7 @@ async function captureStories() {
     if (errors.length) {
       results[index] = { error: `${id}: ${errors[0]}` };
     } else {
-      // A story that marks an element with `data-screenshot-frame` is
-      // photographed at that element's size, for a small component that would
-      // otherwise sit in the corner of a mostly empty page.
-      const frame = page.locator("[data-screenshot-frame]").first();
-      const framed = (await frame.count()) > 0;
-      const shoot = () =>
-        framed
-          ? frame.screenshot({ animations: "disabled" })
-          : page.screenshot({ fullPage: true, animations: "disabled" });
-      // A busy machine can catch a story before it has finished laying out,
-      // so it is photographed again until two pictures in a row match.
-      let image = await shoot();
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await page.waitForTimeout(100);
-        const again = await shoot();
-        if (again.equals(image)) break;
-        image = again;
-      }
+      const image = await photograph(page);
       const file = outputPath(id);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, image);

@@ -442,10 +442,15 @@ components. The root README covers the setup. What costs time:
   updates in place.
 - Stories that lay out design options to pick from go in the plugin's
   `explore/` directory, which git ignores. Move the chosen direction into a
-  real story once it ships. The screenshot capture skips these stories. To
+  real story once it ships. The full capture skips these stories. To
   photograph them, for example to show the options side by side, run
-  `npm run screenshots:isolated -- --explore`, and throw that capture away
-  rather than committing it.
+  `npm run screenshots -- --story '<plugin>--<component>--*' --out /tmp/<dir>`
+  (add `--theme dark` for the dark theme). It takes story ids or globs over
+  them, writes `<story id>.png` into `--out`, uses a running
+  `npm run storybook` server for this checkout or starts one for the run,
+  and never touches the screenshots repository. A story that throws, or
+  that Vite cannot load, stops it at once with the error. Do not write a
+  one-off Playwright script for this.
 - Fixtures follow the public-repository rule above: `acme/widgets`, never a
   real repository or PR. When a fixture copies the layout of a real screen,
   invent every field: titles, PR numbers, line counts, and ages as well as
