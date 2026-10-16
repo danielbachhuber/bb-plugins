@@ -360,7 +360,8 @@ Set the doc with `bb weekly-review source set winsDocId <id>`.
 It drafts from each week's journal entry, mainly its Wins/Highlights and Done
 bullets, plus the week's meeting notes and digest, and leaves out anything the
 month or the month before already lists. Each win is one or two sentences, with
-at most two sub-bullets for a quote or a group of items.
+at most two sub-bullets for a quote or a group of items, and links the issues
+and pull requests it is about.
 
 Each win appears as its own card above the composer, with its source, to
 accept, revise, or drop. One more card has the month's pull request counts,

@@ -31,7 +31,7 @@ A week marked `not gathered` has to be gathered before its commands work:
 | --- | --- |
 | `bb weekly-review entry <monday>` | The week's journal entry. Its `Wins/Highlights:` and `Done:` bullets are the main source: the user already chose what mattered that week and wrote it in their own words. |
 | `bb weekly-review meetings <monday> --notes` | The week's meetings with the notes matched to each, for what someone said or decided |
-| `bb weekly-review digest <monday>` | Hours, PRs, reviews, and issues, when a win needs a number or a link |
+| `bb weekly-review digest <monday>` | Hours, PRs, reviews, and issues, with their numbers, when a win needs a number or a link |
 
 ## Choosing the wins
 
@@ -56,14 +56,21 @@ do not match their length.
 - **At most two sub-bullets**, and only for a verbatim quote that shows the
   outcome, or a short group of related items. No sub-bullet that explains why
   the win matters; that reflection is the user's to add.
-- **Keep the links the journal had** on the words that name the work. Add no
-  new ones.
+- **Link the issues and pull requests a win is about**, on the words that
+  name the work: `Shipped [the widget sync beta](<pr url>)`. A second one
+  goes in parentheses as its number: `([#123](<issue url>))`. Keep every link
+  the journal bullet had. Find the numbers in the journal, the digest, and the
+  meeting notes. A PR or issue URL is
+  `https://github.com/<repo>/issues/<N>`, with the repository from
+  `bb weekly-review source list`; GitHub sends an issue URL on to the pull
+  request when the number is one. Leave a win unlinked rather than guess a
+  number.
 - `-` for bullets, two spaces per level of nesting. No em dashes.
 
 ```markdown
-- Handed the widget sync release to Hubber, who tagged it on his own two weeks later.
+- Handed [the widget sync release](https://github.com/acme/widgets/issues/412) to Hubber, who tagged it on his own two weeks later.
   - Hubber: "I didn't need to ask anyone this time."
-- Got the gadget migration approved after Octocat's review turned up no blockers.
+- Got [the gadget migration](https://github.com/acme/widgets/issues/398) approved after Octocat's review turned up no blockers ([#401](https://github.com/acme/widgets/issues/401)).
 ```
 
 ## Show the drafts
@@ -81,10 +88,10 @@ accept, revise, or drop each on its own:
     "status": { "label": "Round 1", "tone": "warning" },
     "summary": "From the September 11 entry. Asks: did Hubber tag it before the 30th?",
     "history": [{ "text": "Round 1: drafted from the September 11 entry.", "at": "<iso time>" }],
-    "draft": "- Handed the widget sync release to Hubber ...",
+    "draft": "- Handed [the widget sync release](https://github.com/acme/widgets/issues/412) to Hubber ...",
     "draftLabel": "Win",
     "evidence": [
-      { "id": "handoff", "claim": "Handed the widget sync release to Hubber", "support": "full",
+      { "id": "handoff", "claim": "Handed [the widget sync release](https://github.com/acme/widgets/issues/412) to Hubber", "support": "full",
         "sources": [{ "quote": "Handed widget sync releases to Hubber.", "source": "Journal, September 11, 2026" }] }
     ],
     "note": { "placeholder": "What to change" },
