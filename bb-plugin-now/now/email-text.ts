@@ -24,11 +24,25 @@ export function htmlText(html: string): string {
 }
 
 /**
+ * Characters that draw nothing, which marketing emails repeat after their
+ * preview text so a mail client's preview shows no more of the body.
+ */
+const FILLER = /[\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u206A-\u206F\u3164\uFEFF\uFFA0]/g;
+
+/**
+ * Text without that filler, and without the run of spaces it leaves, so a
+ * snippet that is mostly filler ends where its words do.
+ */
+export function withoutFiller(text: string): string {
+  return text.replace(FILLER, "").replace(/[^\S\n]+/g, " ").trim();
+}
+
+/**
  * A message's text tidied for a row: each line trimmed, runs of blank lines
  * cut to one, and the earlier messages a reply quotes beneath it taken off.
  */
 export function tidyEmailText(text: string): string {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n").map((line) => line.replace(/[ \t ]+/g, " ").trim());
+  const lines = text.replace(/\r\n?/g, "\n").split("\n").map(withoutFiller);
   const quoted = lines.findIndex(
     (line, index) =>
       /^-{2,}\s*(Original Message|Forwarded message)\s*-{2,}$/i.test(line) ||

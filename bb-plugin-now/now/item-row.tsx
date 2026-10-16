@@ -14,6 +14,7 @@ import { MergeSplitButton, type MergeMethod } from "./merge-button.js";
 import { PullRequestBar, PullRequestSegment } from "./pull-request-bar.js";
 import { ReviewerStack } from "./reviewer-stack.js";
 import { describeDue } from "./due.js";
+import { withoutFiller } from "./email-text.js";
 import { readable, sortDate } from "./items.js";
 import { isAtProposedTime, spanText } from "../calendar/proposal.js";
 import { archiveReason, isOverdue, nowGroupOf, overdueText, shortDate } from "./sections.js";
@@ -709,7 +710,7 @@ export function ItemRow({
             />
           ) : (
             <ShowMoreText
-              text={item.description}
+              text={withoutFiller(item.description)}
               className="mt-0.5 text-xs text-muted-foreground"
               cut={emailText !== undefined && item.description.length >= MAYBE_CUT_SNIPPET}
               onLoad={emailText}
