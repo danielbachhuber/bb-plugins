@@ -28,6 +28,12 @@ updates:
       # needs it: https://github.com/danielbachhuber/bb-plugins/issues/78
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
+      # @get-bb/plugin-sdk declares these types as a peer at ^7.6.12. With a
+      # newer major, npm nests a copy in each plugin instead of the root, and
+      # the plugins on the root's copy of the SDK fail typecheck. Lift this
+      # once the SDK's peer range allows the new major.
+      - dependency-name: "@types/better-sqlite3"
+        versions: [">=8.0.0"]
     groups:
       # One pull request for every minor and patch update across the
       # workspaces, instead of one per dependency. Major updates still arrive
