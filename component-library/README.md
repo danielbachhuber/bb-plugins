@@ -258,6 +258,44 @@ Contributor Dashboard uses it, beside the presets rather than instead of them.
 than pressing a button, so offer the spans people ask for most as presets and
 keep this for the rest.
 
+## Day menu
+
+```tsx
+import { DayMenu, describeDay } from "@danielbachhuber/bb-plugin-component-library/day-menu";
+
+<PopoverContent align="start" className="w-72 p-1">
+  <DayMenu
+    heading="Snooze until"
+    choices={[{ label: "Tomorrow", day: "2026-10-17" }]}
+    describe={(day) => describeDay(day, now)}
+    check={(day) => (day > today ? null : "Too early")}
+    onPick={snoozeUntil}
+    now={now}
+    menuLabel="Snooze until"
+    inputLabel="Snooze until a day"
+  />
+</PopoverContent>
+```
+
+What goes inside a "pick a later day" popover, as Now's Postpone first drew
+it: a line saying what moves, a few quick days each with the day in words
+beside it, a box for a day typed in words ("fri", "next mon", "oct 8", "in 3
+days", "9/30", "2026-09-30") that says which day it read or why it cannot
+use it, and an optional note under a rule. Enter in the box picks the typed
+day. Days are `YYYY-MM-DD` strings throughout.
+
+**The popover stays in the plugin.** bb's popover is vendored into each
+plugin, so the plugin draws its own button and `PopoverContent` and puts
+`DayMenu` inside. Radix unmounts the content when it closes, so the box is
+empty each time it opens.
+
+**The parser is separate.** `@danielbachhuber/bb-plugin-component-library/parse-day`
+exports `parseDay`, `describeDay` ("Tomorrow", "Friday", "Oct 24"),
+`localDay`, `addDaysTo`, and `nextMonday`, with no React, so a server or a
+CLI can read a typed day the same way. `day-menu` re-exports them.
+
+Now's Postpone and Review Sweep's Snooze use it.
+
 ## Top bar
 
 ```tsx

@@ -33,6 +33,8 @@
     "./segmented": "./segmented/segmented.tsx",
     "./calendar": "./calendar/calendar.tsx",
     "./date-range": "./date-range/date-range.tsx",
+    "./day-menu": "./day-menu/day-menu.tsx",
+    "./parse-day": "./day-menu/parse-day.ts",
     "./copy-link": "./copy-link/copy-link.ts",
     "./top-bar": "./top-bar/top-bar.tsx",
     "./start-thread": "./start-thread/start-thread.tsx",
