@@ -203,9 +203,10 @@ The bullet and everything nested under it are removed, and the accepted text
 goes in at the same place. It refuses, and changes nothing, when no bullet or
 more than one starts that way.
 
-Then republish the card with `"complete": true`, the status `Added` (or
-`Refined`), and a `link` action to the URL it printed, and say in chat where
-it went.
+Then republish the card with
+`"status": { "label": "Added", "tone": "success", "complete": true }` (or
+`"Refined"`), and a `link` action to the URL it printed, and say in chat where
+it went. `complete` goes inside `status`; without it the card stays open.
 
 If the command fails, say why and leave the card open. Do not retry with
 different text: the doc is the user's, and a second attempt can add the
