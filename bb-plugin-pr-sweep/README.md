@@ -204,6 +204,16 @@ the pull request, the box says so and keeps the pickers, and the thread starts
 on a new branch and is told to make its own worktree on the pull request's
 branch inside that one.
 
+Before the thread starts, the plugin fetches the pull request's base branch and
+head, so a branch pushed to or rebased on GitHub is not stale here. A local
+copy of the branch moves to the head when that loses no commits, and a worktree
+made earlier fast-forwards. The thread's diff compares against
+`origin/<base>`, the branch the pull request merges into, so a pull request
+stacked on another one shows only its own changes, as GitHub does. When the
+thread starts on a new branch instead, its new worktree starts from
+`origin/<base>`. That is two git fetches per thread and no GitHub API calls
+beyond the one that reads the branch.
+
 bb does not delete a worktree it did not create, so this plugin removes one
 when its thread is archived or deleted and no other thread uses it. `git
 worktree remove` keeps a worktree with uncommitted or untracked changes, and
