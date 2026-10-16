@@ -203,10 +203,11 @@ function seedRow() {
 
 
 describe("workOnThisSubmit is one thread per pull request", () => {
-  async function seededHost() {
+  async function seededHost({ settings }: { settings?: Record<string, string> } = {}) {
     spawnCount = 0;
     const fixture = createFakePluginHost({
       pluginId: "pr-sweep",
+      settings,
       sdk: {
         projects: {
           list: async () => [
@@ -333,8 +334,20 @@ describe("workOnThisSubmit is one thread per pull request", () => {
     expect(spawnArgs.title.length).toBeLessThanOrEqual(40);
   });
 
-  it("spawns a conflict thread on the cheap model, and others on the default", async () => {
+  it("spawns a conflict thread on the provider default model", async () => {
     const { harness } = await seededHost();
+    await workOnThis(harness, { repo: "acme/widgets", number: 42 });
+
+    const [[spawnArgs]] = harness.inspection.sdk.callsTo("threads.spawn") as [[
+      { model?: string },
+    ]];
+    expect(spawnArgs.model).toBeUndefined();
+  });
+
+  it("spawns a conflict thread on the model the setting names", async () => {
+    const { harness } = await seededHost({
+      settings: { modelByAction: '{"conflict": "claude-sonnet-5"}' },
+    });
     await workOnThis(harness, { repo: "acme/widgets", number: 42 });
 
     const [[spawnArgs]] = harness.inspection.sdk.callsTo("threads.spawn") as [[

@@ -158,16 +158,10 @@ export function scopedThreadTitle(number: number, scope: string): string {
 
 /**
  * Model per action, keyed by the row's worst flag. Anything unlisted uses the
- * provider's default.
- *
- * Note that `resolve-merge-conflicts` argues the markers are the easy part and
- * the real work is the semantic collisions git could not mark, so a conflict is
- * arguably the worst candidate for a cheap model. The default below is the
- * user's explicit choice; override it with the "Model by action" setting.
+ * provider's default, and by default every action does. Override it with the
+ * "Model by action" setting.
  */
-export const DEFAULT_MODEL_BY_ACTION: Record<string, string> = {
-  conflict: "claude-sonnet-5",
-};
+export const DEFAULT_MODEL_BY_ACTION: Record<string, string> = {};
 
 /**
  * Parses the "Model by action" setting. Never throws: a malformed setting must

@@ -105,9 +105,9 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Model by action",
       experimental_multiline: true,
       // A JSON object keyed by flag: {"conflict": "claude-sonnet-5"}.
-      // An unlisted flag takes the provider's default model. Blank restores
-      // the defaults.
-      default: '{\n  "conflict": "claude-sonnet-5"\n}',
+      // An unlisted flag takes the provider's default model, and blank
+      // gives every flag the provider's default.
+      default: "",
     },
     permissionMode: {
       type: "select",

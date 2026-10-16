@@ -201,8 +201,8 @@ describe("parseModelByAction", () => {
     expect(parseModelByAction("   ").models).toBe(DEFAULT_MODEL_BY_ACTION);
   });
 
-  it("defaults to a cheap model for merge conflicts", () => {
-    expect(DEFAULT_MODEL_BY_ACTION.conflict).toBe("claude-sonnet-5");
+  it("leaves every action on the provider's default model", () => {
+    expect(DEFAULT_MODEL_BY_ACTION).toEqual({});
   });
 
   it("reads a flag-to-model object", () => {

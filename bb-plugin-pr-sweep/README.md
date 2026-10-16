@@ -263,7 +263,8 @@ starts it over.
   carries the work through to the PR unattended, and it grants unsandboxed
   command execution in the worktree.
 - **Model by action** — a JSON object keyed by flag, picking the model for that
-  action's thread. An unlisted flag takes the provider's default model, and a
+  action's thread. Blank by default, so every action takes the provider's
+  default model. An unlisted flag takes the provider's default too, and a
   malformed value is logged and ignored rather than blocking a spawn.
 
   ```json
