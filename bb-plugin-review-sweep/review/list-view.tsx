@@ -1,7 +1,7 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import type { ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { ThreadLine, OpenThreadAction, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
 import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
@@ -115,12 +115,15 @@ function keyOf(row: Row): string {
 function ThreadAction({
   row,
   isStarting,
+  isThreadStarting,
   isOpen,
   onReview,
   onOpen,
 }: {
   row: Row;
   isStarting: boolean;
+  /** Its thread is being started: Open thread, greyed until it exists. */
+  isThreadStarting: boolean;
   /** The Start thread box is open under this row; the button stays pressed and closes it. */
   isOpen: boolean;
   onReview: (row: Row) => void;
@@ -130,6 +133,7 @@ function ThreadAction({
     const threadId = row.threadId;
     return <OpenThreadAction onOpen={() => onOpen(row, threadId)} />;
   }
+  if (isThreadStarting) return <OpenThreadAction disabled />;
 
   // Disabled with its reason as the label, rather than hidden: a row that
   // silently lacks the action reads as a bug.
@@ -424,6 +428,8 @@ export interface ReviewListViewProps {
    * button has it open. Null for every other row.
    */
   renderStartThread?: (row: Row) => ReactNode;
+  /** The row's thread is being started from its box, keyed `repo#number`. */
+  isThreadStarting?: (key: string) => boolean;
   harvest: HarvestPanelState;
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
@@ -456,6 +462,7 @@ export function ReviewListView({
   now,
   starting,
   renderStartThread,
+  isThreadStarting = () => false,
   harvest,
   onReview,
   onOpen,
@@ -568,6 +575,9 @@ export function ReviewListView({
             renderThreadLine={(item) => {
               const row = rowsByKey.get(item.key);
               const threadId = row?.threadId;
+              if (row && !threadId && isThreadStarting(item.key)) {
+                return <StartingThreadLine title={`${row.title} (#${row.number})`} />;
+              }
               if (!row || !threadId) return null;
               return <ThreadLine status={threadStatus?.(threadId) ?? null} onOpen={() => onOpen(row, threadId)} />;
             }}
@@ -594,6 +604,7 @@ export function ReviewListView({
                   <ThreadAction
                     row={row}
                     isStarting={starting.has(item.key)}
+                    isThreadStarting={isThreadStarting(item.key)}
                     isOpen={Boolean(renderStartThread?.(row))}
                     onReview={onReview}
                     onOpen={onOpen}

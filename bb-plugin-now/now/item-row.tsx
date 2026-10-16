@@ -2,7 +2,7 @@
 // from here. Draws only; every action is a callback.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
-import { THREAD_EDGE, ThreadLine, OpenThreadAction, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { THREAD_EDGE, ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -56,6 +56,10 @@ export interface RowActions {
   onStartThread: (item: Item) => void;
   /** The Start thread box while it is open under this row; null otherwise. */
   startThreadBox?: (item: Item) => ReactNode;
+  /** The row's thread is being started from its box. */
+  isThreadStarting?: (item: Item) => boolean;
+  /** The thread just started from the row, until the listing has it. */
+  startedThread?: (item: Item) => string | null;
   onOpenThread: (threadId: string) => void;
   /** Saves a Todoist row's edit strip. Resolves true once saved, so the strip can close. */
   onEdit: (item: Item, draft: TaskDraft) => Promise<boolean>;
@@ -590,6 +594,7 @@ export function ItemRow({
   const editable = actions !== undefined && item.source === "todoist";
   const [editing, setEditing] = useState(editable && item.inbox === true);
   const startThreadBox = actions?.startThreadBox?.(item) ?? null;
+  const threadStarting = threadId === null && actions?.isThreadStarting?.(item) === true;
   const postpone = editable ? postponeTarget(item, now) : null;
   const reading = useContext(ReadingContext) === item.id;
   // An overdue row says how late it is in place of its date, and is tinted red.
@@ -752,7 +757,9 @@ export function ItemRow({
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {/* The thread first, so it sits in one place on every row, with the thread line below its actions. */}
-            {actions === undefined ? null : threadId === null ? (
+            {actions === undefined ? null : threadStarting ? (
+              <OpenThreadAction disabled />
+            ) : threadId === null ? (
               <LineAction
                 label="Start thread"
                 icon="MessageSquarePlus"
@@ -873,6 +880,7 @@ export function ItemRow({
             {item.context === null || github !== null ? null : <span className="ml-auto truncate">{item.context}</span>}
           </div>
           {startThreadBox}
+          {threadStarting ? <StartingThreadLine title={item.title} /> : null}
           {actions === undefined || threadId === null ? null : (
             <ThreadLine status={threadStatus} onOpen={() => actions.onOpenThread(threadId)} />
           )}

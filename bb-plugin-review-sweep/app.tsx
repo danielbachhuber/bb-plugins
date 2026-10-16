@@ -4,16 +4,14 @@ import {
   useBbNavigate,
   useRealtime,
   useRpc,
-  type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import {
-  StartThreadInline,
-  announceStartedThread,
-  type StartThreadSeed,
+  useStartThreadBox,
+  type StartThreadDraft,
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -172,17 +170,29 @@ function Panel() {
   );
 
   // The review whose Start thread box is open, with the seeds the backend
-  // resolved for it. Null when every box is closed.
-  const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
-    null,
-  );
+  // resolved for it, and the ones whose thread is starting.
+  const box = useStartThreadBox<StartThreadDraft & { row: Row }>({
+    navigate,
+    submit: async ({ row }, request) => {
+      const result = await rpc.call("reviewThisSubmit", {
+        repo: row.repo,
+        number: row.number,
+        request: request as never,
+      });
+      // Read again before the row stops saying Starting, so it goes straight
+      // to its thread line rather than back to Start review.
+      if (result.threadId) await reload();
+      return { threadId: result.threadId, existing: result.existing, error: result.reason };
+    },
+    announcement: ({ key }, { existing }) => (existing ? null : `Started a review thread for ${key}`),
+  });
 
   const onReview = useCallback(
     (row: Row) => {
       const key = `${row.repo}#${row.number}`;
       // The button that opened the box closes it, as Add note's does.
-      if (draft && `${draft.row.repo}#${draft.row.number}` === key) {
-        setDraft(null);
+      if (box.isOpen(key)) {
+        box.close();
         return;
       }
       // Mark it starting before awaiting anything, so the button changes on the
@@ -204,7 +214,7 @@ function Panel() {
             toast.error(result.reason ?? "Could not start a thread.");
             return;
           }
-          setDraft({ row, seed: result.seed });
+          box.open({ key, row, seed: result.seed, draftKey: `review-sweep:${key}` });
         } finally {
           setStarting((current) => {
             const next = new Set(current);
@@ -214,29 +224,7 @@ function Panel() {
         }
       })();
     },
-    [draft, onOpen, rpc],
-  );
-
-  const onSubmitDraft = useCallback(
-    async (request: NewThreadRequest) => {
-      if (!draft) return;
-      const { repo, number } = draft.row;
-      const key = `${repo}#${number}`;
-      const result = await rpc.call("reviewThisSubmit", {
-        repo,
-        number,
-        request: request as never,
-      });
-      if (!result.threadId) {
-        toast.error(result.reason ?? "Could not start a thread.");
-        // Thrown so the composer keeps the draft rather than clearing it.
-        throw new Error(result.reason ?? "Could not start a thread.");
-      }
-      setDraft(null);
-      if (!result.existing) announceStartedThread(navigate, result.threadId, `Started a review thread for ${key}`);
-      await reload();
-    },
-    [draft, navigate, reload, rpc],
+    [box, onOpen, rpc],
   );
 
   const onArchive = useCallback(
@@ -303,15 +291,8 @@ function Panel() {
         listing={listing}
         now={now}
         starting={starting}
-        renderStartThread={(row) =>
-          draft && draft.row.repo === row.repo && draft.row.number === row.number ? (
-            <StartThreadInline
-              draftKey={`review-sweep:${row.repo}#${row.number}`}
-              seed={draft.seed}
-              onSubmit={onSubmitDraft}
-            />
-          ) : null
-        }
+        renderStartThread={(row) => box.boxFor(`${row.repo}#${row.number}`)}
+        isThreadStarting={box.isStarting}
         harvest={harvest}
         onReview={onReview}
         onOpen={onOpen}

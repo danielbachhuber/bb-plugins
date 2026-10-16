@@ -4,7 +4,7 @@
 // button is no taller than the line of text beside it.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { writeLinkToClipboard } from "@danielbachhuber/bb-plugin-component-library/copy-link";
-import { THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { StartingThreadLine, THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -58,23 +58,38 @@ export function Assignees({ logins }: { logins: readonly string[] }) {
 export const ThreadStatusContext = createContext<(threadId: string | null) => ThreadStatus | null>(() => null);
 
 /**
- * The Start thread box for a row, by its number, while the row's button has
- * it open; null for every other row. From the page, so the views between need
- * not pass it down. Issues and pull requests share GitHub's numbering, so the
- * number alone names the row.
+ * Each row's Start thread box, by its number, while the row's button has it
+ * open, and whether its thread is starting. From the page, so the views
+ * between need not pass it down. Issues and pull requests share GitHub's
+ * numbering, so the number alone names the row.
  */
-export const StartThreadContext = createContext<(number: number) => ReactNode>(() => null);
+export interface StartThreadRows {
+  /** The box under the row; null for every row without one. */
+  boxFor: (number: number) => ReactNode;
+  /** The row's thread is being started from its box. */
+  isStarting: (number: number) => boolean;
+  /** The thread just started from the row, until the page's data lists it. */
+  startedThread: (number: number) => string | null;
+}
+
+export const StartThreadContext = createContext<StartThreadRows>({
+  boxFor: () => null,
+  isStarting: () => false,
+  startedThread: () => null,
+});
 
 function RowAction({
   name,
   label,
   expanded,
+  disabled = false,
   onClick,
 }: {
   name: string;
   label: string;
   /** Set on a button that opens something under the row; it stays pressed while that is open. */
   expanded?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -83,9 +98,10 @@ function RowAction({
       title={label}
       aria-label={label}
       aria-expanded={expanded}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        "shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground",
+        "shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent",
         expanded && "bg-accent text-foreground",
       )}
     >
@@ -100,7 +116,7 @@ export function ItemRow({
   url,
   facts,
   assignees,
-  threadId,
+  threadId: listedThreadId,
   onThread,
 }: {
   number: number;
@@ -117,7 +133,10 @@ export function ItemRow({
 }) {
   const [copied, setCopied] = useState(false);
   const threadStatus = useContext(ThreadStatusContext);
-  const startThreadBox = useContext(StartThreadContext)(number);
+  const rows = useContext(StartThreadContext);
+  const startThreadBox = rows.boxFor(number);
+  const threadId = listedThreadId ?? rows.startedThread(number);
+  const starting = threadId === null && rows.isStarting(number);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The list can unmount the row mid-tick.
@@ -146,9 +165,10 @@ export function ItemRow({
           {facts}
           <span className="flex items-center gap-0.5">
             <RowAction
-              name={threadId === null ? "MessageSquarePlus" : "MessageSquare"}
-              label={threadId === null ? "Start a thread" : "Open the thread"}
-              expanded={threadId === null ? startThreadBox !== null : undefined}
+              name={threadId === null && !starting ? "MessageSquarePlus" : "MessageSquare"}
+              label={starting ? "Starting a thread" : threadId === null ? "Start a thread" : "Open the thread"}
+              expanded={threadId === null && !starting ? startThreadBox !== null : undefined}
+              disabled={starting}
               onClick={onThread}
             />
             <RowAction
@@ -160,6 +180,7 @@ export function ItemRow({
         </span>
       </div>
       {startThreadBox}
+      {starting ? <StartingThreadLine title={`${title} (#${number})`} /> : null}
       {/* Open thread is the icon on the right; what the thread is doing goes under the title. */}
       {threadId === null ? null : <ThreadLine status={threadStatus(threadId)} onOpen={onThread} />}
     </li>

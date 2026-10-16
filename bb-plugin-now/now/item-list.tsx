@@ -271,18 +271,21 @@ export function ItemListView({
             now={now}
             filter={filter}
             onFilter={setFilter}
-            renderRow={(item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                now={now}
-                actions={actions}
-                threadId={threads[item.id] ?? null}
-                threadStatus={threadStatus?.(threads[item.id] ?? null) ?? null}
-                pending={pending.get(item.id) ?? null}
-                projects={projects}
-              />
-            )}
+            renderRow={(item) => {
+              const threadId = threads[item.id] ?? actions?.startedThread?.(item) ?? null;
+              return (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  now={now}
+                  actions={actions}
+                  threadId={threadId}
+                  threadStatus={threadStatus?.(threadId) ?? null}
+                  pending={pending.get(item.id) ?? null}
+                  projects={projects}
+                />
+              );
+            }}
           />
         )}
       </div>

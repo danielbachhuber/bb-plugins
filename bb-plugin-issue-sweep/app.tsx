@@ -4,7 +4,6 @@ import {
   useBbNavigate,
   useRealtime,
   useRpc,
-  type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
@@ -14,9 +13,8 @@ import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/th
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
-  StartThreadInline,
-  announceStartedThread,
-  type StartThreadSeed,
+  useStartThreadBox,
+  type StartThreadDraft,
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import type { rpcContract } from "./server.js";
@@ -167,17 +165,29 @@ function Panel() {
   };
 
   // The issue whose Start thread box is open, with the seeds the backend
-  // resolved for it. Null when every box is closed.
-  const [draft, setDraft] = useState<{ row: Row; seed: StartThreadSeed } | null>(
-    null,
-  );
+  // resolved for it, and the ones whose thread is starting.
+  const box = useStartThreadBox<StartThreadDraft & { row: Row }>({
+    navigate,
+    submit: async ({ row }, request) => {
+      const result = await rpc.call("startThreadSubmit", {
+        repo: row.repo,
+        number: row.number,
+        request: request as never,
+      });
+      // Read again before the row stops saying Starting, so it goes straight
+      // to its thread line rather than back to Start thread.
+      if (result.threadId) await reload();
+      return { threadId: result.threadId, existing: result.existing, error: result.reason };
+    },
+    announcement: ({ key }, { existing }) => (existing ? null : `Started a thread for ${key}`),
+  });
 
   const onStart = useCallback(
     (row: Row) => {
       const key = `${row.repo}#${row.number}`;
       // The button that opened the box closes it, as Add note's does.
-      if (draft && `${draft.row.repo}#${draft.row.number}` === key) {
-        setDraft(null);
+      if (box.isOpen(key)) {
+        box.close();
         return;
       }
       // Marked before awaiting anything, so the button changes on the same tick
@@ -199,7 +209,7 @@ function Panel() {
             toast.error(result.reason ?? "Could not start a thread.");
             return;
           }
-          setDraft({ row, seed: result.seed });
+          box.open({ key, row, seed: result.seed, draftKey: `issue-sweep:${key}` });
         } finally {
           setStarting((keys) => {
             const next = new Set(keys);
@@ -209,29 +219,7 @@ function Panel() {
         }
       })();
     },
-    [draft, navigate, rpc],
-  );
-
-  const onSubmitDraft = useCallback(
-    async (request: NewThreadRequest) => {
-      if (!draft) return;
-      const { repo, number } = draft.row;
-      const key = `${repo}#${number}`;
-      const result = await rpc.call("startThreadSubmit", {
-        repo,
-        number,
-        request: request as never,
-      });
-      if (!result.threadId) {
-        toast.error(result.reason ?? "Could not start a thread.");
-        // Thrown so the composer keeps the draft rather than clearing it.
-        throw new Error(result.reason ?? "Could not start a thread.");
-      }
-      setDraft(null);
-      if (!result.existing) announceStartedThread(navigate, result.threadId, `Started a thread for ${key}`);
-      await reload();
-    },
-    [draft, navigate, reload, rpc],
+    [box, navigate, rpc],
   );
 
   const onPick = useCallback(
@@ -285,15 +273,8 @@ function Panel() {
         now={Date.now()}
         busyKeys={busyKeys}
         starting={starting}
-        renderStartThread={(row) =>
-          draft && draft.row.repo === row.repo && draft.row.number === row.number ? (
-            <StartThreadInline
-              draftKey={`issue-sweep:${row.repo}#${row.number}`}
-              seed={draft.seed}
-              onSubmit={onSubmitDraft}
-            />
-          ) : null
-        }
+        renderStartThread={(row) => box.boxFor(`${row.repo}#${row.number}`)}
+        isThreadStarting={box.isStarting}
         harvest={harvest}
         onPick={(row, status) => void onPick(row, status)}
         onStart={onStart}

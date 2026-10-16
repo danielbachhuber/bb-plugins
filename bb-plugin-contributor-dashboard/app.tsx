@@ -6,7 +6,6 @@ import {
   useBbNavigate,
   useRpc,
   useRealtime,
-  type NewThreadRequest,
   type PluginNavPanelProps,
 } from "@get-bb/plugin-sdk/app";
 
@@ -27,7 +26,7 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
-import { StartThreadInline, announceStartedThread } from "@danielbachhuber/bb-plugin-component-library/start-thread";
+import { useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -118,33 +117,43 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const login = personFrom(subPath);
   const stage = stageFrom(subPath);
   const { projectId } = useBbContext();
-  const [seed, setSeed] = useState<ThreadSeed | null>(null);
+  const box = useStartThreadBox<StartThreadDraft & { thread: ThreadSeed }>({
+    navigate,
+    submit: async ({ thread }, request) => {
+      const { threadId } = await rpc.call("start_thread", {
+        kind: thread.kind,
+        number: thread.number,
+        title: `${thread.title} (#${thread.number})`,
+        request: request as unknown as Record<string, unknown>,
+      });
+      return { threadId };
+    },
+    announcement: ({ thread }) => `Started a thread for #${thread.number}`,
+  });
 
   // A row with a thread opens it; one without opens bb's composer under the
   // row, which owns the provider, environment and branch choices, or closes it
-  // when it is already open there.
+  // when it is already open there. It opens with no project too: the composer
+  // has its own picker, and bb's panel reports no project when the page was
+  // opened from outside one.
   const onThread = useCallback(
     (next: ThreadSeed, threadId: string | null) => {
       if (threadId !== null) {
         navigate.toThread(threadId);
         return;
       }
-      setSeed((current) => (current?.number === next.number ? null : next));
-    },
-    [navigate],
-  );
-  const startThread = useCallback(
-    async (started: ThreadSeed, request: NewThreadRequest) => {
-      setSeed(null);
-      const { threadId } = await rpc.call("start_thread", {
-        kind: started.kind,
-        number: started.number,
-        title: `${started.title} (#${started.number})`,
-        request: request as unknown as Record<string, unknown>,
+      box.toggle({
+        key: String(next.number),
+        draftKey: `contributor-dashboard:${next.kind}:${next.number}`,
+        thread: next,
+        seed: {
+          projectId: projectId ?? null,
+          prompt: promptFor(next),
+          preview: { title: next.title, number: next.number, url: next.url, meta: next.meta },
+        },
       });
-      announceStartedThread(navigate, threadId, `Started a thread for #${started.number}`);
     },
-    [navigate, rpc],
+    [box, navigate, projectId],
   );
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
@@ -175,27 +184,17 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
-  // One box for the page, under whichever row it was opened from. It opens
-  // with no project too: the composer has its own picker, and bb's panel
-  // reports no project when the page was opened from outside one.
-  const boxFor = useCallback(
-    (number: number) =>
-      seed !== null && seed.number === number ? (
-        <StartThreadInline
-          draftKey={`contributor-dashboard:${seed.kind}:${seed.number}`}
-          seed={{
-            projectId: projectId ?? null,
-            prompt: promptFor(seed),
-            preview: { title: seed.title, number: seed.number, url: seed.url, meta: seed.meta },
-          }}
-          onSubmit={(request) => startThread(seed, request)}
-        />
-      ) : null,
-    [projectId, seed, startThread],
+  const startRows = useMemo(
+    () => ({
+      boxFor: (number: number) => box.boxFor(String(number)),
+      isStarting: (number: number) => box.isStarting(String(number)),
+      startedThread: (number: number) => box.startedThread(String(number)),
+    }),
+    [box],
   );
   if (stage !== null) {
     return (
-      <StartThreadContext.Provider value={boxFor}>
+      <StartThreadContext.Provider value={startRows}>
         <StageView
           selection={selection}
           onSelect={choose}
@@ -211,7 +210,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   }
   if (login !== null) {
     return (
-      <StartThreadContext.Provider value={boxFor}>
+      <StartThreadContext.Provider value={startRows}>
         <PersonView
           login={login}
           selection={selection}

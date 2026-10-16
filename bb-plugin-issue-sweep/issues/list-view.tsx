@@ -1,7 +1,7 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { ThreadLine, OpenThreadAction, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
 import { SummarySquares } from "sweep-ui/summary";
@@ -304,18 +304,22 @@ function isRunningFor(running: RunningReference, row: Row): boolean {
 function ThreadAction({
   row,
   isStarting,
+  isThreadStarting,
   isOpen,
   onStart,
   onOpen,
 }: {
   row: Row;
   isStarting: boolean;
+  /** Its thread is being started: Open thread, greyed until it exists. */
+  isThreadStarting: boolean;
   /** The Start thread box is open under this row; the button stays pressed and closes it. */
   isOpen: boolean;
   onStart: (row: Row) => void;
   onOpen: (row: Row) => void;
 }) {
   if (row.threadId) return <OpenThreadAction onOpen={() => onOpen(row)} />;
+  if (isThreadStarting) return <OpenThreadAction disabled />;
   // Disabled with its reason as the label, rather than hidden: a row that
   // silently lacks the action reads as a bug.
   const label = !row.canSpawn ? "No project here" : isStarting ? "Starting…" : "Start thread";
@@ -519,6 +523,8 @@ export interface IssueListViewProps {
    * button has it open. Null for every other row.
    */
   renderStartThread?: (row: Row) => ReactNode;
+  /** The row's thread is being started from its box, keyed `repo#number`. */
+  isThreadStarting?: (key: string) => boolean;
   harvest: HarvestPanelState;
   onPick: (row: Row, status: string) => void;
   onStart: (row: Row) => void;
@@ -545,6 +551,7 @@ export function IssueListView({
   busyKeys,
   starting,
   renderStartThread,
+  isThreadStarting = () => false,
   harvest,
   onPick,
   onStart,
@@ -694,6 +701,9 @@ export function IssueListView({
             }}
             renderThreadLine={(item) => {
               const row = rowsByKey.get(item.key);
+              if (row && !row.threadId && isThreadStarting(item.key)) {
+                return <StartingThreadLine title={`${row.title} (#${row.number})`} />;
+              }
               if (!row?.threadId) return null;
               return <ThreadLine status={threadStatus?.(row.threadId) ?? null} onOpen={() => onOpen(row)} />;
             }}
@@ -719,6 +729,7 @@ export function IssueListView({
                   <ThreadAction
                     row={row}
                     isStarting={starting.has(item.key)}
+                    isThreadStarting={isThreadStarting(item.key)}
                     isOpen={Boolean(renderStartThread?.(row))}
                     onStart={onStart}
                     onOpen={onOpen}

@@ -84,6 +84,8 @@ export interface EmailReaderProps {
   onStartThread?: () => void;
   /** The Start thread box while it is open, drawn under the toolbar. */
   startThread?: ReactNode;
+  /** The thread is being started from that box, which is hidden meanwhile. */
+  threadStarting?: boolean;
   /** Hides the side panel without archiving the email. */
   onClose?: () => void;
   onOpenLink?: (url: string) => void;
@@ -100,6 +102,7 @@ export function EmailReader({
   onArchive,
   onStartThread,
   startThread,
+  threadStarting = false,
   onClose,
   onOpenLink,
 }: EmailReaderProps) {
@@ -125,13 +128,16 @@ export function EmailReader({
         <Button
           variant="outline"
           size="sm"
-          disabled={archiving}
-          aria-expanded={Boolean(startThread)}
-          className={startThread ? "bg-accent text-foreground" : undefined}
+          disabled={archiving || threadStarting}
+          aria-expanded={threadStarting ? undefined : Boolean(startThread)}
+          className={startThread && !threadStarting ? "bg-accent text-foreground" : undefined}
           onClick={onStartThread}
         >
-          <Icon name="MessageSquarePlus" className="size-3.5" />
-          Start thread
+          <Icon
+            name={threadStarting ? "Loading" : "MessageSquarePlus"}
+            className={cn("size-3.5", threadStarting && "animate-spin")}
+          />
+          {threadStarting ? "Starting…" : "Start thread"}
         </Button>
         <Button variant="outline" size="sm" disabled={archiving} onClick={onClose}>
           <Icon name="X" className="size-3.5" />
@@ -141,7 +147,11 @@ export function EmailReader({
           Open in Gmail
         </UrlLink>
       </div>
-      {startThread ? <div className="border-b border-border px-4 pb-2">{startThread}</div> : null}
+      {startThread ? (
+        <div hidden={threadStarting} className="border-b border-border px-4 pb-2">
+          {startThread}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <h2 className="text-base font-semibold text-foreground">{thread.subject}</h2>
         <div className="mt-3 space-y-2">

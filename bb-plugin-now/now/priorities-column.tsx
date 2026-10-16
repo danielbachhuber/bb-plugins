@@ -32,6 +32,10 @@ export interface PrioritiesColumnProps {
   onStartThread?: (priority: StoredPriority) => void;
   /** The Start thread box while it is open under a priority; null for the rest. */
   renderStartThread?: (priority: StoredPriority) => ReactNode;
+  /** The priority's thread is being started from its box. */
+  isThreadStarting?: (priority: StoredPriority) => boolean;
+  /** The thread just started from a priority, until `threads` has it. */
+  startedThread?: (priority: StoredPriority) => string | null;
   onOpenThread?: (threadId: string) => void;
 }
 
@@ -43,6 +47,8 @@ export function PrioritiesColumn({
   threads = {},
   onStartThread,
   renderStartThread,
+  isThreadStarting,
+  startedThread,
   onOpenThread,
 }: PrioritiesColumnProps) {
   if (week === null || week.items.length === 0) return null;
@@ -71,7 +77,8 @@ export function PrioritiesColumn({
                 {onStartThread === undefined ? null : (
                   <ThreadButton
                     text={priority.text}
-                    threadId={threads[priorityThreadId(week.monday, priority.text)] ?? null}
+                    threadId={threads[priorityThreadId(week.monday, priority.text)] ?? startedThread?.(priority) ?? null}
+                    starting={isThreadStarting?.(priority) === true}
                     open={box !== null}
                     onStart={() => onStartThread(priority)}
                     onOpen={(threadId) => onOpenThread?.(threadId)}
@@ -105,17 +112,32 @@ export function PrioritiesColumn({
 function ThreadButton({
   text,
   threadId,
+  starting,
   open,
   onStart,
   onOpen,
 }: {
   text: string;
   threadId: string | null;
+  /** Its thread is being started: a spinner until it turns into Open thread. */
+  starting: boolean;
   /** The Start thread box is open under the priority; the button stays pressed and closes it. */
   open: boolean;
   onStart: () => void;
   onOpen: (threadId: string) => void;
 }) {
+  if (threadId === null && starting) {
+    return (
+      <span
+        role="status"
+        title="Starting a thread"
+        className="-my-1 ml-1 inline-flex h-5 items-center gap-1 align-middle text-xs text-muted-foreground"
+      >
+        <Icon name="Loading" className="size-3.5 animate-spin text-[#c25e00] dark:text-[#f5a25a]" />
+        Starting…
+      </span>
+    );
+  }
   const label = threadId === null ? "Start thread" : "Open thread";
   return (
     <button

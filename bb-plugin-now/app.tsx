@@ -9,7 +9,6 @@ import {
   useRpc,
   type ExperimentalPluginFixedTabReference,
   type JsonValue,
-  type NewThreadRequest,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 
@@ -29,7 +28,7 @@ import { hideSidePanel } from "./now/side-panel.js";
 import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { Icon } from "@/components/ui/icon";
-import { StartThreadInline, announceStartedThread, type StartThreadSeed } from "@danielbachhuber/bb-plugin-component-library/start-thread";
+import { useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
 
@@ -335,14 +334,23 @@ function useRowActions(
  */
 function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
-  // What the open composer is about: its id for the thread link, its title
-  // for the toast. Null when every box is closed.
-  const [draft, setDraft] = useState<{ id: string; title: string; seed: StartThreadSeed } | null>(null);
+  // The open composer, keyed by the id the thread is linked under, with its
+  // title for the toast, and the ones whose thread is starting.
+  const box = useStartThreadBox<StartThreadDraft & { title: string }>({
+    navigate,
+    submit: async ({ key }, request) => {
+      const result = await rpc.call("items_start_thread", { id: key, request: request as never });
+      return { threadId: result.threadId, existing: result.existing, error: result.error };
+    },
+    announcement: ({ title }, { existing }) =>
+      existing ? `Already started a thread for "${title}"` : `Started a thread for "${title}"`,
+  });
 
   const start = useCallback(
     (item: Item) =>
-      setDraft((current) => current?.id === item.id ? null : {
-        id: item.id,
+      box.toggle({
+        key: item.id,
+        draftKey: `now:${item.id}`,
         title: item.title,
         seed: {
           projectId: threadProjectId,
@@ -350,51 +358,27 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
           preview: { title: item.title, url: item.url, meta: itemOrigin(item) },
         },
       }),
-    [threadProjectId],
+    [box, threadProjectId],
   );
 
   const startPriority = useCallback(
-    (monday: string, priority: StoredPriority) =>
-      setDraft((current) => current?.id === priorityThreadId(monday, priority.text) ? null : {
-        id: priorityThreadId(monday, priority.text),
+    (monday: string, priority: StoredPriority) => {
+      const key = priorityThreadId(monday, priority.text);
+      box.toggle({
+        key,
+        draftKey: `now:${key}`,
         title: priority.text,
         seed: {
           projectId: threadProjectId,
           prompt: priorityPrompt(monday, priority),
           preview: { title: priority.text, url: null, meta: `Priority for the ${weekLabel(monday).replace(/^Week/, "week")}` },
         },
-      }),
-    [threadProjectId],
-  );
-
-  const onSubmitDraft = useCallback(
-    async (request: NewThreadRequest) => {
-      if (draft === null) return;
-      const result = await rpc.call("items_start_thread", { id: draft.id, request: request as never });
-      if (result.threadId === null) {
-        toast.error(result.error ?? "Could not start a thread.");
-        // Thrown so the composer keeps the draft rather than clearing it.
-        throw new Error(result.error ?? "Could not start a thread.");
-      }
-      setDraft(null);
-      announceStartedThread(
-        navigate,
-        result.threadId,
-        result.existing ? `Already started a thread for "${draft.title}"` : `Started a thread for "${draft.title}"`,
-      );
+      });
     },
-    [draft, navigate, rpc],
+    [box, threadProjectId],
   );
 
-  const boxFor = useCallback(
-    (id: string) =>
-      draft?.id === id ? (
-        <StartThreadInline draftKey={`now:${draft.id}`} seed={draft.seed} onSubmit={onSubmitDraft} />
-      ) : null,
-    [draft, onSubmitDraft],
-  );
-
-  return { start, startPriority, boxFor };
+  return { start, startPriority, boxFor: box.boxFor, isStarting: box.isStarting, startedThread: box.startedThread };
 }
 
 function NowPage() {
@@ -403,15 +387,17 @@ function NowPage() {
   const navigate = useBbNavigate();
   const panel = experimental_useAppPanel();
   const reading = experimental_useFixedTabTarget(EMAIL_TAB)?.target.id ?? null;
-  const { start, startPriority, boxFor } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, startPriority, boxFor, isStarting, startedThread } = useStartThread(rpc, listing?.threadProjectId ?? null);
 
   const threadActions = useMemo(
     () => ({
       onOpenThread: (threadId: string) => navigate.toThread(threadId),
       onStartThread: start,
       startThreadBox: (item: Item) => boxFor(item.id),
+      isThreadStarting: (item: Item) => isStarting(item.id),
+      startedThread: (item: Item) => startedThread(item.id),
     }),
-    [boxFor, navigate, start],
+    [boxFor, isStarting, navigate, start, startedThread],
   );
   const rowActions = useRowActions(rpc, run, threadActions);
   // Reading an email marks it read, as opening it in Gmail would.
@@ -467,6 +453,8 @@ function NowPage() {
                 threads={listing?.threads ?? {}}
                 onStartThread={(priority) => startPriority(priorities.week!.monday, priority)}
                 renderStartThread={(priority) => boxFor(priorityThreadId(priorities.week!.monday, priority.text))}
+                isThreadStarting={(priority) => isStarting(priorityThreadId(priorities.week!.monday, priority.text))}
+                startedThread={(priority) => startedThread(priorityThreadId(priorities.week!.monday, priority.text))}
                 onOpenThread={(threadId) => navigate.toThread(threadId)}
               />
             )
@@ -542,7 +530,7 @@ function EmailTab() {
   const target = experimental_useFixedTabTarget(EMAIL_TAB);
   const id = target?.target.id ?? null;
   const item = id === null ? null : (listing?.list?.items.find((row) => row.id === id) ?? null);
-  const { start, boxFor } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, boxFor, isStarting } = useStartThread(rpc, listing?.threadProjectId ?? null);
   const [thread, setThread] = useState<{ id: string; thread: EmailThread | null; error: string | null } | null>(null);
   const [archiving, setArchiving] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -593,6 +581,7 @@ function EmailTab() {
         onArchive={() => void onArchive()}
         onStartThread={item === null ? undefined : () => start(item)}
         startThread={item === null ? null : boxFor(item.id)}
+        threadStarting={item !== null && isStarting(item.id)}
         onClose={() => {
           hideSidePanel(root.current);
           target?.clear();
