@@ -49,6 +49,14 @@ for package in "$DIR"/*/; do
   id="$(basename "$package")"
   id="${id#bb-plugin-}"
 
+  # "retired" or "ignored" in package.json's bbPlugins.status keeps a plugin
+  # out of bb. sync.sh skips it the same way.
+  status="$(jq -r '.bbPlugins.status // empty' "$package/package.json")"
+  if [ "$status" = retired ] || [ "$status" = ignored ]; then
+    echo "==> $id ($status, skipping)"
+    continue
+  fi
+
   if printf '%s' "$installed" | grep -q "\"$id\""; then
     echo "==> $id (already installed, skipping)"
     continue

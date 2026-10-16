@@ -106,8 +106,18 @@ missing_links() {
   node "$DIR/scripts/link-workspace-deps.mjs" --check 2>/dev/null | cut -f1 | sort -u || true
 }
 
+# A plugin's package.json can opt it out of bb with "bbPlugins": {"status": ...}:
+# "retired" for a plugin kept only for reference, "ignored" for one that should
+# not be installed on every machine, such as an experiment. Prints the status
+# and succeeds for either; fails for anything else.
+skipped_status() {
+  jq -er '.bbPlugins.status | select(. == "retired" or . == "ignored")' "$1/package.json" 2>/dev/null
+}
+
+retired_installed=""   # retired plugin ids bb still has installed
+
 detect_plugins() {
-  local plugin id dist_mtime src_mtime reason dep dep_dir dep_mtime lock_mtime unlinked
+  local plugin id status dist_mtime src_mtime reason dep dep_dir dep_mtime lock_mtime unlinked
   unlinked="$(missing_links)"
   lock_mtime="$(stat -f '%m' "$DIR/package-lock.json" 2>/dev/null || true)"
   for plugin in "$DIR"/*/; do
@@ -116,6 +126,16 @@ detect_plugins() {
     jq -e '.bb.name | type == "string"' "$plugin/package.json" >/dev/null 2>&1 || continue
 
     id="$(basename "$plugin")"; id="${id#bb-plugin-}"
+
+    # A plugin marked retired or ignored is left out of bb on purpose. One
+    # that bb still has is reported, so it can be removed by hand.
+    if status="$(skipped_status "$plugin")"; then
+      if [ "$status" = retired ] && printf '%s\n' "$installed_ids" | grep -qx "$id"; then
+        retired_installed="${retired_installed}${id}
+"
+      fi
+      continue
+    fi
 
     if ! printf '%s\n' "$installed_ids" | grep -qx "$id"; then
       stale_plugins="${stale_plugins}${plugin}	${id}	not installed
@@ -184,6 +204,12 @@ detect_removed() {
 
 detect_plugins
 detect_removed
+
+# Reported, not removed: removing a plugin deletes its settings and secrets.
+while read -r id; do
+  [ -z "$id" ] && continue
+  echo "bb: $id is retired but still installed. Remove it with: bb plugin remove $id"
+done < <(printf '%s' "$retired_installed")
 
 if [ -z "$stale_plugins" ]; then
   [ "$CHECK_ONLY" = yes ] || echo "bb: every plugin is current."

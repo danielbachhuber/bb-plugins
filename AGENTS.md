@@ -107,6 +107,12 @@ fix in Review Sweep was once committed and pushed, then the next review thread
 was spawned with the old prompt, because the running build was a day older
 than the commit.
 
+To take a plugin out of bb without deleting it, set `"bbPlugins": {"status":
+"retired"}` in its `package.json`, or `"ignored"` for one that should not be
+installed on every machine yet. `setup.sh` and `sync.sh` skip it, and `sync.sh`
+reports a retired plugin bb still has installed. Remove it from
+`.bb/plugins.json` too, and move its row in the root README to Retired plugins.
+
 ## Commit only your own work
 
 Several agents work in this one checkout on `main` at the same time, so the

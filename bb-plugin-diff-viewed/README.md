@@ -35,7 +35,6 @@ bb 0.41 or later. GitHub sync needs `gh` signed in (`gh auth login`); without it
 
 - **Guided Review** (`guided-review`): turns a GitHub pull request or a local Git range into chapters to read, with its own viewed tracking, notes, and a review to submit. Diff Viewed adds only a checkbox to bb's own changes panel, and needs no agent provider.
 - **Diff Explorer** (`diff-explorer`): every changed file in one scroll, with go to definition. It is a separate view of the diff; Diff Viewed marks files in bb's changes panel.
-- **Super Diff** (`super-diff`), in this repository: groups a branch's hunks into concerns, with a summary of each, and lets you check off each hunk. With no pull request, it uses Diff Viewed's marks.
 - **Diff Comment** (`diff-comment`), in this repository: leave review comments inline on the same changes panel for the agent to work through. Diff Viewed tracks what you have read; Diff Comment records what you want changed.
 
 ## Develop

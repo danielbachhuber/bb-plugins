@@ -6,7 +6,7 @@ import { buildView, type StoredGrouping } from "./review/view";
 import { notCoveredFeature, scenarioFeature, type ResolvedStep } from "./review/tests/feature";
 import type { Scenario } from "./review/grouping";
 
-export default { title: "super-diff/Review panel" };
+export default { title: "super-diff-v1/Review panel" };
 
 const DiffView = ({ patch, path, wrap }: { patch: string; path: string; wrap: boolean }) => <Diff patch={patch} path={path} overflow={wrap ? "wrap" : "scroll"} />;
 const SourceView = ({ content, path }: { content: string; path: string }) => <SourceCode content={content} path={path} overflow="wrap" />;

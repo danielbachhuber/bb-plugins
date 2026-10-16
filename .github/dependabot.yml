@@ -19,11 +19,11 @@ updates:
       # together; a bump to the pin alone would leave them disagreeing.
       - dependency-name: "@get-bb/plugin-sdk"
       # @testing-library/jest-dom's matcher types do not merge with Vitest 5's,
-      # which fails bb-plugin-super-diff's typecheck. Lift this once jest-dom
+      # which fails bb-plugin-super-diff-v1's typecheck. Lift this once jest-dom
       # ships a fix: https://github.com/danielbachhuber/bb-plugins/issues/74
       - dependency-name: "vitest"
         versions: [">=5.0.0"]
-      # TypeScript 7 drops the JavaScript compiler API that bb-plugin-super-diff
+      # TypeScript 7 drops the JavaScript compiler API that bb-plugin-super-diff-v1
       # uses at runtime to parse test files. Lift this once Super Diff no longer
       # needs it: https://github.com/danielbachhuber/bb-plugins/issues/78
       - dependency-name: "typescript"

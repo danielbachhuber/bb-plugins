@@ -32,11 +32,22 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 | `bb-plugin-presentations` | `presentations` | Give a talk from a bb thread: the agent writes the slides as numbered markdown files, and a Present button shows them beside the chat with each file listed for editing, a full-screen mode, and a separate window for the projector, styled by the deck's own `style.css` when it has one. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored in one list, newest first with the overdue and in-progress ones pinned on top, with local notes, new comment counts, review comments a click away, a Dismiss for failing checks you cannot fix, and where a stacked pull request sits in its stack. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its counts also sit in bb's top bar on every page, and clicking them opens the list. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, comments a click away, and where a stacked pull request sits in its stack, plus Batch to start reviews for several at once. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its counts also sit in bb's top bar on every page, and clicking them opens the list. Needs gh-context. |
-| `bb-plugin-super-diff` | `super-diff` | Review a branch one concern at a time: every hunk grouped into concerns with summaries by the thread's agent, checked so each appears exactly once and against bb's own file list, with a checkmark per hunk kept in step with GitHub's Viewed or Diff Viewed's, and test changes shown as Gherkin scenarios beside what they leave out. |
 | `bb-plugin-thread-overview` | `thread-overview` | A band under each thread's header saying what the thread is for, what has been done so far, and which step it is on, written by the agent as it works and edited by you in place. |
 | `bb-plugin-tokenomics` | `tokenomics` | Understand what your threads cost in tokens and time, so you can cut what isn't worth it: a sparkline in each thread's header that opens a per-message summary, a context meter with a Compact button once a thread's context passes a size you set, a page graphing token use and turn time by thread, and a `bb tokenomics` command for scripts. |
 | `bb-plugin-thread-todos` | `thread-todos` | Forwards bb todo and the todo tools to Thread Overview for threads started before it replaced this plugin; uninstall once none of them are still running. |
 | `bb-plugin-weekly-review` | `weekly-review` | One page of what you actually did this week, gathered at 7am and 1pm on weekdays, sorted into workstreams by rules you refine, and set against the priorities in last week's entry, to write the journal entry from. It sends those priorities to the Now page, with each one's hours, and shows which you checked off there. A skill writes up the work of any thread as a journal entry in the same format, and adds it to the doc once you have edited and accepted it. Another drafts last month's wins from the journal into your wins doc. |
+
+### Retired plugins
+
+A plugin whose `package.json` sets `"bbPlugins": {"status": "retired"}` is
+kept for reference only. It is not in the marketplace, and `setup.sh` and
+`sync.sh` leave it out of bb; `sync.sh` says so when bb still has one
+installed. `"ignored"` skips a plugin the same way, for one that should not
+be installed on every machine yet.
+
+| Directory | What it was |
+| --- | --- |
+| `bb-plugin-super-diff-v1` | The first Super Diff: an agent grouped a branch's hunks into concerns, with a checkmark per hunk and test changes shown as Gherkin scenarios. Super Diff is being rebuilt with a different approach. |
 
 `gh-shared` is not a plugin. It is the `gh` runner and project matching that
 the three sweeps share, pulled in as a `file:` dependency and bundled at build

@@ -1,4 +1,9 @@
-# Super Diff
+# Super Diff v1
+
+> **Retired.** This was an exploration of grouping a branch's hunks into
+> concerns, kept for reference. It is not in the marketplace, and `setup.sh`
+> and `sync.sh` leave it out of bb. Super Diff is being rebuilt with a
+> different approach.
 
 Review a branch one concern at a time. bb's changes panel lists a branch's
 files in path order; Super Diff adds a panel beside the thread that groups the
@@ -8,7 +13,7 @@ thread's own agent writes the grouping, and the plugin checks it against the
 real diff before accepting it, so every hunk on the branch appears in the panel
 exactly once.
 
-![The Super Diff panel: a one-sentence headline and a viewed bar, the first concern on the left with its note and two files, and a rail of concerns on the right with each one's viewed count and lines changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--grouped.png)
+![The Super Diff panel: a one-sentence headline and a viewed bar, the first concern on the left with its note and two files, and a rail of concerns on the right with each one's viewed count and lines changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff-v1/review-panel--grouped.png)
 
 From top to bottom, the panel shows:
 
@@ -30,7 +35,7 @@ From top to bottom, the panel shows:
    and **Mechanical** for lockfiles, snapshots, and generated files.
 6. A count of files and hunks, and whether all of them are shown.
 
-![A concern that changes code and tests: its source files as diffs, then a Tests heading with a Scenarios and Diff toggle, its scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--code-and-tests.png)
+![A concern that changes code and tests: its source files as diffs, then a Tests heading with a Scenarios and Diff toggle, its scenarios listed with their asserted and snapshot counts, the first one as highlighted Gherkin with its recorded value folded to a line count, and a dashed block of the scenarios no test tries](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff-v1/review-panel--code-and-tests.png)
 
 ## The bar of files
 
@@ -255,7 +260,7 @@ Each time the panel opens, it compares those contents with the files now. If
 nothing differs, the grouping is current, including after a commit of exactly
 the work it grouped.
 
-![The stale banner: "Grouped at a1b2c3d, 1 commit and 1 file changed since", a Regenerate button, and the diff of the one file that changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/review-panel--stale.png)
+![The stale banner: "Grouped at a1b2c3d, 1 commit and 1 file changed since", a Regenerate button, and the diff of the one file that changed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff-v1/review-panel--stale.png)
 
 If something differs, a banner says when the grouping was made and how many
 commits and files have changed since, or that the branch was rewritten when
