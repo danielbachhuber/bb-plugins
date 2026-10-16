@@ -161,7 +161,7 @@ function ThreadAction({
  * project here is checked out for its repository.
  */
 export function canBatch(row: Row): boolean {
-  return row.threadId === null && row.canSpawn;
+  return row.threadId === null && row.canSpawn && !row.ignored;
 }
 
 /**
@@ -177,6 +177,24 @@ function BatchButton({ count, onBatch }: { count: number; onBatch: () => void })
         Batch
       </Button>
     </span>
+  );
+}
+
+/**
+ * Ignore, which sinks the request to one line at the bottom until your review
+ * is requested again, or Stop ignoring on a row already ignored.
+ */
+function IgnoreAction({ row, onIgnore }: { row: Row; onIgnore: (row: Row, ignored: boolean) => void }) {
+  return row.ignored ? (
+    <button type="button" className={LINE_ACTION} onClick={() => onIgnore(row, false)}>
+      <Icon name="Eye" className="size-3" />
+      Stop ignoring
+    </button>
+  ) : (
+    <button type="button" className={LINE_ACTION} onClick={() => onIgnore(row, true)}>
+      <Icon name="EyeOff" className="size-3" />
+      Ignore
+    </button>
   );
 }
 
@@ -244,7 +262,19 @@ function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
  */
 function RowBody({ line, inputs, ...props }: BodyProps & { line: boolean; inputs: TierInputs }) {
   const icons = <FactIcons {...props} />;
-  if (line) return icons;
+  if (line) {
+    return props.row.ignored ? (
+      <span className="inline-flex items-center gap-3">
+        {icons}
+        <span data-part="ignored" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <Icon name="EyeOff" className="size-3" />
+          Ignored
+        </span>
+      </span>
+    ) : (
+      icons
+    );
+  }
   const banner = bannerFor(props.row, inputs);
   return (
     <>
@@ -434,6 +464,8 @@ export interface ReviewListViewProps {
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
   onArchive: (row: Row) => void;
+  /** Ignores the request until your review is requested again, or stops ignoring it. */
+  onIgnore: (row: Row, ignored: boolean) => void;
   /** Saves the row's note; "" deletes it. Resolves true once saved. */
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the pull request is about to open. */
@@ -467,6 +499,7 @@ export function ReviewListView({
   onReview,
   onOpen,
   onArchive,
+  onIgnore,
   onNoteSave,
   onOpenLink,
   loadFeedback,
@@ -551,8 +584,9 @@ export function ReviewListView({
                 <RowBody row={row} line={line} now={now} inputs={inputs} showRepo={showRepo} avatarFor={avatarFor} />
               ) : null;
             }}
-            // Every row stays open: each review is one to do, so none hides its actions.
-            collapsible={false}
+            // Every row stays open, since each review is one to do, except an
+            // ignored one, which closes to one line at the bottom.
+            collapsible="later"
             summaryAction={
               onBatch ? <BatchButton count={listing.rows.filter(canBatch).length} onBatch={onBatch} /> : undefined
             }
@@ -610,6 +644,7 @@ export function ReviewListView({
                     onOpen={onOpen}
                   />
                   <ArchiveAction row={row} onArchive={onArchive} />
+                  <IgnoreAction row={row} onIgnore={onIgnore} />
                   <CopyLinkAction
                     text={`${row.title} (#${row.number})`}
                     url={row.url}

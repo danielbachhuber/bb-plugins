@@ -719,6 +719,19 @@ describe("notes and seen counts", () => {
     );
   });
 
+  it("lists an ignored request as ignored until your review is requested again", async () => {
+    const { bb, harness } = await seededHost();
+    expect(await harness.behavior.callRpc("setIgnored", { repo: "acme/widgets", number: 42, ignored: true })).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.ignored).toBe(true);
+
+    // Ignored before the request was made, as if it was requested again since.
+    createStore(bb.storage.database() as never).setIgnored("acme/widgets", 42, true, 0);
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.ignored).toBe(false);
+
+    await harness.behavior.callRpc("setIgnored", { repo: "acme/widgets", number: 42, ignored: false });
+    expect(createStore(bb.storage.database() as never).ignores().size).toBe(0);
+  });
+
   it("deletes the note when it is saved empty, rather than keeping blank text", async () => {
     const { bb, harness } = await seededHost();
     await harness.behavior.callRpc("setNote", { repo: "acme/widgets", number: 42, body: "Later" });

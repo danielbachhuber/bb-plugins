@@ -55,6 +55,14 @@ export const MIGRATIONS = [
    )`,
   // "Ignore for 48 hours" was removed, and its deadlines with it.
   `DROP TABLE IF EXISTS snoozes`,
+  // Review requests ignored from the panel, and when. Local only: you stay a
+  // requested reviewer on GitHub. A request newer than `ignored_at` lifts it.
+  `CREATE TABLE IF NOT EXISTS ignores (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     ignored_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
 ];
 
 export interface SweepMeta {
@@ -98,6 +106,10 @@ export interface Store {
   notes(): Map<string, string>;
   /** Saves a note. Empty or blank text deletes it instead. */
   setNote(repo: string, number: number, body: string, now: number): void;
+  /** When each ignored review request was ignored, keyed `repo#number`. */
+  ignores(): Map<string, number>;
+  /** Ignores a review request as of `now`, or stops ignoring it. */
+  setIgnored(repo: string, number: number, ignored: boolean, now: number): void;
   /** The comment count each pull request was last seen at, keyed `repo#number`. */
   seenCounts(): Map<string, number>;
   /**
@@ -143,6 +155,12 @@ export function createStore(db: DatabaseLike): Store {
      ON CONFLICT(repo, number) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
   );
   const deleteNote = db.prepare(`DELETE FROM notes WHERE repo = ? AND number = ?`);
+  const selectIgnores = db.prepare(`SELECT repo, number, ignored_at FROM ignores`);
+  const upsertIgnore = db.prepare(
+    `INSERT INTO ignores (repo, number, ignored_at) VALUES (?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET ignored_at = excluded.ignored_at`,
+  );
+  const deleteIgnore = db.prepare(`DELETE FROM ignores WHERE repo = ? AND number = ?`);
   const selectSeen = db.prepare(`SELECT repo, number, comments FROM seen`);
   const insertSeen = db.prepare(
     `INSERT OR IGNORE INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)`,
@@ -230,6 +248,16 @@ export function createStore(db: DatabaseLike): Store {
       const trimmed = body.trim();
       if (trimmed === "") deleteNote.run(repo, number);
       else upsertNote.run(repo, number, trimmed, now);
+    },
+
+    ignores() {
+      const rows = selectIgnores.all() as Array<{ repo: string; number: number; ignored_at: number }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.ignored_at]));
+    },
+
+    setIgnored(repo, number, ignored, now) {
+      if (ignored) upsertIgnore.run(repo, number, now);
+      else deleteIgnore.run(repo, number);
     },
 
     seenCounts() {

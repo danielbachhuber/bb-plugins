@@ -239,6 +239,21 @@ function Panel() {
     [reload, rpc],
   );
 
+  const onIgnore = useCallback(
+    (row: Row, ignored: boolean) => {
+      void (async () => {
+        await rpc.call("setIgnored", { repo: row.repo, number: row.number, ignored });
+        toast.success(
+          ignored
+            ? `Ignoring ${row.repo}#${row.number} until your review is requested again`
+            : `${row.repo}#${row.number} is back in the list`,
+        );
+        await reload();
+      })();
+    },
+    [reload, rpc],
+  );
+
   const [batchOpen, setBatchOpen] = useState(false);
 
   // Starts every ticked review at once. A review that fails stays ticked in
@@ -297,6 +312,7 @@ function Panel() {
         onReview={onReview}
         onOpen={onOpen}
         onArchive={onArchive}
+        onIgnore={onIgnore}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
         loadFeedback={loadFeedback}
@@ -337,7 +353,7 @@ function useCounts() {
   const rows =
     listing?.rows.filter(
       (row) =>
-        displaySection(Boolean(row.threadId), row.isDraft) === "needs-review",
+        !row.ignored && displaySection(Boolean(row.threadId), row.isDraft) === "needs-review",
     ) ?? [];
   if (!listing) return null;
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };

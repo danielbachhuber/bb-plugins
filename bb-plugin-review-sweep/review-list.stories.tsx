@@ -180,6 +180,16 @@ const everything: Listing = {
       requestedAt: now - 26 * HOUR,
       size: { additions: 890, deletions: 45, changedFiles: 21 },
     }),
+    row({
+      number: 436,
+      title: "Translate the gadget settings page into every supported language",
+      author: "octocat",
+      requestedAt: now - 4 * 24 * HOUR,
+      requestedReviewers: ["you", "widgets-committers"],
+      size: { additions: 1240, deletions: 310, changedFiles: 38 },
+      reviewers: [YOU, { login: "acme/widgets-committers", state: "pending", team: true }],
+      ignored: true,
+    }),
   ],
 };
 
@@ -307,6 +317,7 @@ function Frame({
             onReview={noop}
             onOpen={noop}
             onArchive={noop}
+            onIgnore={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
             loadFeedback={async () => ({ entries: FEEDBACK, error: null })}
@@ -351,7 +362,7 @@ export function Rows() {
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; and a draft. The re-review with a thread and the draft are in one stack."
+        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored request, closed to one line at the bottom. The re-review with a thread and the draft are in one stack."
       >
         <Frame listing={everything} />
       </StoryRow>

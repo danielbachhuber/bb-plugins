@@ -342,7 +342,7 @@ describe("tiers", () => {
 
   it("folds Later after five rows", async () => {
     const rows = Array.from({ length: 7 }, (_, index) =>
-      freshRow({ number: index + 1, title: `Draft item ${index + 1}`, isDraft: true }),
+      freshRow({ number: index + 1, title: `Ignored item ${index + 1}`, ignored: true }),
     );
     const slot = render(listing({ rows }));
     expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
@@ -365,6 +365,41 @@ describe("track", () => {
     const slot = render(listing());
     await slot.findByText(/Add the widget endpoint/);
     for (const stage of ["Requested", "Reviewing", "Re-review"]) expect(slot.queryByText(stage)).toBeNull();
+  });
+});
+
+describe("ignore", () => {
+  it("ignores a request from its row, then reloads the listing", async () => {
+    const calls: unknown[] = [];
+    let loads = 0;
+    const slot = render(listing(), {
+      listRows: () => {
+        loads += 1;
+        return listing();
+      },
+      setIgnored: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Ignore" }));
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, ignored: true }]));
+    await waitFor(() => expect(loads).toBeGreaterThan(1));
+  });
+
+  it("closes an ignored request to one line that says so, opening to Stop ignoring", async () => {
+    const calls: unknown[] = [];
+    const slot = render(listing({ rows: [rowFixture({ ignored: true })] }), {
+      setIgnored: (input: unknown) => {
+        calls.push(input);
+        return { ok: true };
+      },
+    });
+    expect(await slot.findByText("Ignored")).toBeInTheDocument();
+    expect(slot.queryByRole("button", { name: "Add note" })).toBeNull();
+    fireEvent.click(slot.getByRole("button", { name: "Expand" }));
+    fireEvent.click(await slot.findByRole("button", { name: "Stop ignoring" }));
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, ignored: false }]));
   });
 });
 
@@ -695,6 +730,19 @@ describe("sidebar count", () => {
     expect(badge).toHaveTextContent("1");
     expect(badge).toHaveClass("bg-red-600");
     expect(slot.getByTitle("2 to review")).toHaveTextContent("2");
+  });
+
+  it("leaves ignored requests out of the count", async () => {
+    const slot = renderCount(
+      listing({
+        rows: [
+          rowFixture({ number: 1, requestedAt: daysAgo(4), ignored: true }),
+          rowFixture({ number: 2, requestedAt: daysAgo(1) }),
+        ],
+      }),
+    );
+    await waitFor(() => expect(slot.container.textContent).toBe("1"));
+    expect(slot.queryByTitle(/waiting too long/)).toBeNull();
   });
 });
 

@@ -115,6 +115,11 @@ const rowSchema = z.object({
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */
   newComments: z.number(),
+  /**
+   * Ignored from the panel, and not requested again since. Local only.
+   * Optional so a listing from before Ignore still parses.
+   */
+  ignored: z.boolean().optional(),
   canSpawn: z.boolean(),
   /** The thread already started for this review, if any. */
   threadId: z.string().nullable(),
@@ -285,6 +290,14 @@ export const rpcContract = defineRpcContract({
   /** Saves the row's local note. An empty body deletes it. */
   setNote: {
     input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),
+    output: z.object({ ok: z.boolean() }),
+  },
+  /**
+   * Ignores a review request on this machine, until your review is requested
+   * again, or stops ignoring it.
+   */
+  setIgnored: {
+    input: z.object({ repo: z.string(), number: z.number(), ignored: z.boolean() }).strict(),
     output: z.object({ ok: z.boolean() }),
   },
   /**

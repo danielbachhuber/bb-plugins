@@ -470,6 +470,7 @@ export default async function plugin(bb: BbPluginApi) {
       const meta = store.readMeta();
       const rows = store.readRows();
       const notes = store.notes();
+      const ignores = store.ignores();
       const seen = store.seenCounts();
       const { staleAfterDays } = await settings.get();
 
@@ -500,8 +501,11 @@ export default async function plugin(bb: BbPluginApi) {
           // first sight, and until it has, every comment is one already there.
           // Floored at zero, since deleted comments can drop the count.
           const seenCount = seen.get(key);
+          // A request made after you ignored it brings the review back.
+          const ignoredAt = ignores.get(key);
           return {
             ...row,
+            ignored: ignoredAt !== undefined && row.requestedAt <= ignoredAt,
             comments,
             inlineComments: row.inlineComments ?? 0,
             // Rows stored before the sweep read these draw no checks and no reviewers.
@@ -531,6 +535,11 @@ export default async function plugin(bb: BbPluginApi) {
 
     setNote({ repo, number, body }) {
       store.setNote(repo, number, body, Date.now());
+      return { ok: true };
+    },
+
+    setIgnored({ repo, number, ignored }) {
+      store.setIgnored(repo, number, ignored, Date.now());
       return { ok: true };
     },
 

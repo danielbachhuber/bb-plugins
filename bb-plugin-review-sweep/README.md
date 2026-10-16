@@ -90,8 +90,8 @@ shows them all. Batch sits at the right end of the same line.
 | Tier | Runs, in order |
 | --- | --- |
 | Now | re-review, waiting too long, reviewing |
-| Next | to review |
-| Later | drafts, folded after five |
+| Next | to review, drafts |
+| Later | ignored, folded after five |
 
 - **Re-review**: you reviewed it, the author pushed, and it came back. The
   author is blocked on you, and it is usually the quickest row to clear, so it
@@ -104,13 +104,18 @@ shows them all. Batch sits at the right end of the same line.
 - **To review**: every other request.
 - **Drafts**: a draft was assigned to you: a real request, but not offered for
   review yet.
+- **Ignored**: you pressed Ignore on it. It stays here until your review is
+  requested again, whatever else is true of it, and a new request lifts the
+  ignore by itself. The ignore is stored on this machine only: you stay a
+  requested reviewer on GitHub.
 
 Within a run, the oldest request comes first, tie-broken by repository then
 number, so rows do not reshuffle between sweeps. Every row is open, with its
 title line, banner, icons, note, and actions, since each request is one for
-you to do. There is no chevron to close one.
+you to do, except an ignored one. That is one line, with its icons and
+"Ignored" at the right, and the chevron at its left opens it to the full row.
 
-The sidebar count is requests with no thread that are not drafts. Before it, a red circle counts the ones waiting too long, as Now
+The sidebar count is requests with no thread that are not drafts or ignored. Before it, a red circle counts the ones waiting too long, as Now
 counts its urgent rows.
 
 The same counts sit at the top left of bb's window on every page, just after
@@ -173,7 +178,7 @@ A row has no stage track on the right, unlike Issue Sweep's: the banner and
 the icons say where a review stands.
 
 An open row's actions are Start review or Open thread; Archive thread on a row
-with a thread; Copy link; and Add note or Edit note, then the comment count:
+with a thread; Ignore, or Stop ignoring on an ignored row; Copy link; and Add note or Edit note, then the comment count:
 general and inline comments together, resolved threads included. Inline
 comments are counted through the reviews that posted them, since each reply to
 a thread is a review of its own, leaving out your pending review. Only general
@@ -285,7 +290,7 @@ gh-context's banner above the composer shows the one this plugin linked.
 ## Starting several reviews at once
 
 Batch opens a dialog listing every request that Start review could start: no
-thread yet, and a project here for its repository. Drafts come last, as in the
+thread yet, not ignored, and a project here for its repository. Drafts come last, as in the
 list. Tick the ones to review. The request ticked last is shaded, and its
 prompt fills the column on the right, where you can edit it; clicking another
 ticked title shows that one's prompt instead, and clicking an unticked title

@@ -120,6 +120,18 @@ describe("store", () => {
     });
   });
 
+  describe("ignores", () => {
+    it("records when a request was ignored, and forgets it when it stops", () => {
+      const store = freshStore();
+      store.setIgnored("acme/widgets", 12, true, 5);
+      expect(store.ignores().get("acme/widgets#12")).toBe(5);
+      store.setIgnored("acme/widgets", 12, true, 9);
+      expect([...store.ignores().values()]).toEqual([9]);
+      store.setIgnored("acme/widgets", 12, false, 10);
+      expect(store.ignores().size).toBe(0);
+    });
+  });
+
   describe("notes", () => {
     it("saves a note and reads it back by pull request", () => {
       const store = freshStore();

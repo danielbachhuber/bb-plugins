@@ -125,11 +125,20 @@ describe("sortReviews", () => {
       review({ threadId: "thr_1" }),
       review({ requestedAt: old }),
       review({ state: "re-review" }),
+      review({ state: "re-review", ignored: true }),
     ];
     const order = REVIEW_RUNS.map((run) => run.id);
     const runs = sortReviews(rows, inputs).map((row) => order.indexOf(runOf(row, inputs)));
     expect(runs).toEqual([...runs].sort((a, b) => a - b));
     expect(new Set(runs).size).toBe(REVIEW_RUNS.length);
+  });
+});
+
+describe("ignored", () => {
+  it("puts an ignored request in its own run, whatever else is true of it", () => {
+    for (const overrides of [{}, { state: "re-review" as const }, { threadId: "thr_1" }, { isDraft: true }, { requestedAt: old }]) {
+      expect(runOf(review({ ...overrides, ignored: true }), inputs)).toBe("ignored");
+    }
   });
 });
 
@@ -140,7 +149,8 @@ describe("REVIEW_RUNS", () => {
       ["overdue", "late", "now"],
       ["reviewing", "underway", "now"],
       ["to-review", "next", "next"],
-      ["drafts", "later", "later"],
+      ["drafts", "later", "next"],
+      ["ignored", "later", "later"],
     ]);
   });
 
