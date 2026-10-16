@@ -475,7 +475,7 @@ const FEEDBACK: FeedbackEntry[] = [
   },
 ];
 
-/** A long design review: 40 earlier comments on top of #487's, so the drawer opens on its newest 10. */
+/** A long design review: 40 earlier comments before #487's, so the drawer opens on its newest 10. */
 const LONG_FEEDBACK: FeedbackEntry[] = [
   ...Array.from({ length: 40 }, (_, index): FeedbackEntry => ({
     kind: "comment",
@@ -483,7 +483,7 @@ const LONG_FEEDBACK: FeedbackEntry[] = [
     avatarUrl: avatarFor(index % 2 === 0 ? "hubber" : "octocat"),
     body: index % 2 === 0 ? "Could the export run in the background for large accounts?" : "Measured it: about four seconds for ten thousand widgets.",
     url: "https://github.com/acme/widgets/pull/487",
-    at: now - 60 * HOUR + index * HOUR,
+    at: now - 80 * HOUR + index * HOUR,
   })),
   ...FEEDBACK,
 ];
@@ -615,7 +615,7 @@ export function Rows() {
  * comes first, then the threads still open, unanswered ones marked in red,
  * then general comments. Resolved threads wait behind "1 resolved". Each entry
  * opens on GitHub. Then a long list, which opens on its newest 10 under
- * "Show 40 earlier", the drawer while it reads, when GitHub fails, and with
+ * "Show 37 earlier", the drawer while it reads, when GitHub fails, and with
  * nothing open.
  */
 export function CommentsDrawer() {
