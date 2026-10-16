@@ -135,6 +135,14 @@ describe("sortReviews", () => {
 });
 
 describe("snoozed", () => {
+  it("lists snoozed requests in the order they come back", () => {
+    const rows = [
+      review({ number: 1, snoozedUntil: "2099-01-09", requestedAt: old }),
+      review({ number: 2, snoozedUntil: "2099-01-02" }),
+    ];
+    expect(sortReviews(rows, inputs).map((row) => row.number)).toEqual([2, 1]);
+  });
+
   it("puts a snoozed request in its own run, whatever else is true of it", () => {
     for (const overrides of [{}, { state: "re-review" as const }, { threadId: "thr_1" }, { isDraft: true }, { requestedAt: old }]) {
       expect(runOf(review({ ...overrides, snoozedUntil: "2099-01-01" }), inputs)).toBe("snoozed");

@@ -107,7 +107,8 @@ export function flagsFor(row: ListedReview, inputs: TierInputs): Flag[] {
 
 /**
  * Run order first, which also puts Now before Next before Later. Within a run,
- * oldest request first, as the table sorted. Repository and number break ties,
+ * oldest request first, as the table sorted, except snoozed requests, which
+ * come in the order they come back. Repository and number break ties,
  * so rows do not reshuffle between sweeps.
  */
 export function sortReviews(rows: ListedReview[], inputs: TierInputs): ListedReview[] {
@@ -119,6 +120,7 @@ export function sortReviews(rows: ListedReview[], inputs: TierInputs): ListedRev
   keyed.sort(
     (a, b) =>
       a.run - b.run ||
+      (a.row.snoozedUntil ?? "").localeCompare(b.row.snoozedUntil ?? "") ||
       a.row.requestedAt - b.row.requestedAt ||
       a.row.repo.localeCompare(b.row.repo) ||
       a.row.number - b.row.number,
