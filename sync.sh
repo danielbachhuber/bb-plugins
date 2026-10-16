@@ -97,8 +97,18 @@ workspace_names() {
   done | jq -s 'add // {}'
 }
 
+# Workspaces missing a link to a shared library they depend on. bb's build
+# reads a library's Tailwind classes only through that link, so a plugin built
+# without it builds fine and draws its shared components unstyled.
+# link-workspace-deps.mjs says more. It only reads here, so --check stays
+# offline and writes nothing.
+missing_links() {
+  node "$DIR/scripts/link-workspace-deps.mjs" --check 2>/dev/null | cut -f1 | sort -u || true
+}
+
 detect_plugins() {
-  local plugin id dist_mtime src_mtime reason dep dep_dir dep_mtime lock_mtime
+  local plugin id dist_mtime src_mtime reason dep dep_dir dep_mtime lock_mtime unlinked
+  unlinked="$(missing_links)"
   lock_mtime="$(stat -f '%m' "$DIR/package-lock.json" 2>/dev/null || true)"
   for plugin in "$DIR"/*/; do
     plugin="${plugin%/}"
@@ -139,6 +149,10 @@ detect_plugins() {
         if [ -z "$reason" ]; then reason="$dep changed"; else reason="$reason, $dep changed"; fi
       fi
     done < <(file_dep_dirs "$plugin")
+
+    if printf '%s\n' "$unlinked" | grep -qx "$(basename "$plugin")"; then
+      if [ -z "$reason" ]; then reason="shared library links missing"; else reason="$reason, shared library links missing"; fi
+    fi
 
     [ -n "$reason" ] && stale_plugins="${stale_plugins}${plugin}	${id}	${reason}
 "
@@ -222,6 +236,10 @@ cp -p "$DIR/package-lock.json" "$lock_before"
 cmp -s "$lock_before" "$DIR/package-lock.json" && touch -r "$lock_before" "$DIR/package-lock.json"
 rm -f "$lock_before"
 
+# The install's postinstall makes the links, unless npm was told to skip
+# scripts. Make them either way.
+node "$DIR/scripts/link-workspace-deps.mjs" || { echo "    linking shared libraries failed; no plugin was rebuilt" >&2; exit 1; }
+
 # A plugin bb has not seen yet is one that arrived in a pull, so it is installed
 # rather than reloaded. One that bb has but is disabled stays as it is: disabling
 # is how a machine opts out, and `bb plugin list` still lists it.
@@ -236,6 +254,9 @@ apply_plugin() {
     # --no: a missing TypeScript fails here rather than fetching the unrelated
     # `tsc` package from the registry.
     npx --no -- tsc --noEmit -p tsconfig.json || exit 1
+    # Another thread's npm install can remove the links partway through this
+    # run, so check them again right before each build.
+    node "$DIR/scripts/link-workspace-deps.mjs" || exit 1
     bb plugin build >/dev/null || exit 1
     # Staleness is "is dist older than what it was built from". Stamping the
     # artifacts this build just produced makes dist unambiguously newer than

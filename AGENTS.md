@@ -30,9 +30,10 @@ component library is the exception, below.
   because bb's build reads a library's `bb.pluginTailwindContent` only from
   there. Without it a plugin builds, but
   the shared library's Tailwind classes are missing from its panel. Another
-  thread's `npm install` can remove the links partway through your builds, so
-  when a shared component's styles are missing, run
-  `node scripts/link-workspace-deps.mjs` and build again.
+  thread's `npm install` can remove the links at any time, so the build
+  command below runs `scripts/link-workspace-deps.mjs` first, and `sync.sh`
+  does the same before each build. `node scripts/link-workspace-deps.mjs
+  --check` lists the links that are missing.
 
 ## A marketplace plugin installs without the rest of the checkout
 
@@ -96,7 +97,8 @@ does nothing in bb until it is built. After every commit that touches a
 plugin's code, build and reload it:
 
 ```sh
-bb plugin build . && bb plugin reload <id>   # from the plugin's directory
+# from the plugin's directory
+node ../scripts/link-workspace-deps.mjs && bb plugin build . && bb plugin reload <id>
 ```
 
 `./sync.sh` does the same for every plugin whose `dist/` has drifted from its
@@ -228,7 +230,7 @@ cd bb-plugin-<name>
 npm install                           # installs every workspace, from the root
 npx tsc --noEmit -p tsconfig.json
 npm test
-bb plugin build . && bb plugin reload <id>
+node ../scripts/link-workspace-deps.mjs && bb plugin build . && bb plugin reload <id>
 ```
 
 `tsc --noEmit` is what catches a plugin that no longer fits a shared library it

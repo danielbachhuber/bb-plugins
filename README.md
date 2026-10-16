@@ -105,7 +105,7 @@ cd bb-plugin-<name>
 npm install                           # installs every workspace, from the root
 npx tsc --noEmit -p tsconfig.json
 npm test
-bb plugin build . && bb plugin reload <id>
+node ../scripts/link-workspace-deps.mjs && bb plugin build . && bb plugin reload <id>
 ```
 
 `tsc --noEmit` is what catches a plugin that no longer fits a shared library it
