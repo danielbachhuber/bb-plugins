@@ -201,7 +201,12 @@ export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequ
     // that waived that gate turned the walkthrough into a report of commits
     // already pushed. Authorize the end of the skill; let the skill decide
     // when it has arrived there.
+    //
+    // The scope sentence is there because a conflict thread once read "follow
+    // each skill all the way through" as covering a reviewer's rename it
+    // noticed along the way, and pushed it with the merge.
     "I started this from the PR Sweep panel, which is my explicit request for this work. Follow each skill all the way through, including its commit, push, and reply steps.",
+    "That covers what each named skill commits, and nothing else. Leave any other change you make uncommitted until I approve it.",
     "Still ask me first before: force-pushing, rewriting any pushed commit, or merging the PR.",
     "",
     // In the trailer because the composer now holds only the skills picked

@@ -70,6 +70,12 @@ describe("buildPrompt", () => {
     }
   });
 
+  it("limits that to what the named skills commit", () => {
+    const prompt = buildPrompt(row({ flags: ["conflict"] }));
+    expect(prompt).toMatch(/what each named skill commits, and nothing else/i);
+    expect(prompt).toMatch(/uncommitted until I approve it/i);
+  });
+
   it("does not waive the skills' own approval gate", () => {
     // Authorizing the end of the skill is not the same as waiving the
     // per-change approval on the way there. This sentence did both, and the
