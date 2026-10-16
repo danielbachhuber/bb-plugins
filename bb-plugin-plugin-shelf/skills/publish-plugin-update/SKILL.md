@@ -49,6 +49,34 @@ git log --oneline main..origin/main  # must be empty, or pull first
 If any of these fail, stop and report. A release made from a dirty or diverged
 checkout ships something other than what the commit list says.
 
+If the repository has `scripts/check-component-library.mjs`, run it for the
+plugin, using its `id`:
+
+```sh
+node scripts/check-component-library.mjs <id>
+```
+
+A marketplace install gets the component library from npm, while this
+checkout links the local copy. The script compares the entries the plugin
+imports with the newest published version its range allows. It prints `STOP`
+and exits 1 when the plugin imports an entry npm does not have, or one whose
+files changed here since that version.
+
+On `STOP`, do not bump or tag. Show the user the script's output and the
+commands it prints, which publish the library first:
+
+```sh
+cd component-library
+npm version minor --no-git-tag-version   # patch, when no entry was added
+npm publish
+```
+
+Publishing is the user's step. Do not run `npm publish` yourself. Once they
+have published, raise the plugin's range on the library to the new version,
+such as `^1.1.0`, run `npm install` at the root, and commit and push the
+plugin's `package.json` and the lockfile. Run the script again, and go on
+only when it prints `ok`.
+
 ## 3. Choose the version
 
 List the unreleased commits for the user, marking the docs-only ones.
@@ -141,3 +169,4 @@ Report:
 | Pushing the tag and not the commit | The tag points at a commit GitHub does not have |
 | Opening a marketplace PR for a patch in range | Unneeded review work for the marketplace maintainers |
 | Pushing before the user says yes | A release they did not choose |
+| Tagging past a `STOP` from `check-component-library.mjs` | The pre-push hook fails the build after the bump and tag, or the release builds against an older library than the one tested here |

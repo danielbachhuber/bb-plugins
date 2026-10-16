@@ -47,7 +47,10 @@ else.
 - A plugin in the marketplace uses no `file:` dependency. It depends on the
   component library as `@danielbachhuber/bb-plugin-component-library`, which
   is published to npm. In this checkout npm still links the local
-  `component-library/`. Its README covers publishing a new version.
+  `component-library/`, so a plugin can use an entry, or a change to one,
+  that npm does not have yet. `node scripts/check-component-library.mjs <id>`
+  lists them, and the `publish-plugin-update` skill runs it before bumping
+  the version. The library's README covers publishing a new version.
 - The app never imports a value from a file that imports `@get-bb/plugin-sdk`'s
   root entry, such as an RPC contract. The SDK is a devDependency, so the
   build cannot find it. Import types from the contract, and keep constants

@@ -38,15 +38,25 @@ imports of Hugeicons fail to resolve. A copy npm installs from the registry
 sits inside the plugin's own `node_modules`, where they resolve.
 
 So a plugin release that needs a change made here needs that change published
-first:
+first. To find out whether it does, run this at the root:
+
+```sh
+node scripts/check-component-library.mjs <plugin>   # or no id, for every plugin
+```
+
+It prints `STOP` for a plugin that imports an entry the published version
+does not export, or one whose files here differ from the published tarball.
+The `publish-plugin-update` skill runs it before bumping a plugin's version.
+To publish:
 
 ```sh
 cd component-library
-npm version patch --no-git-tag-version   # or minor, for a new entry
+npm version minor --no-git-tag-version   # patch, when no entry was added
 npm publish
 ```
 
-Raise the range in each plugin that needs the new version, then run
+Raise the range in each plugin that needs the new version, run `npm install`
+at the root, and commit. Then run
 `node scripts/check-installable.mjs <plugin>` at the root, which installs the
 plugin from the last commit the way bb does.
 
