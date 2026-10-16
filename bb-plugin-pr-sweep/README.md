@@ -66,7 +66,8 @@ stack, a warning triangle when it conflicts with its base branch, "N new" in
 blue when comments were posted since you last opened the pull request or its
 thread from the panel, or started one, and how long ago it was updated on the
 right. The first sweep to see a pull request records its comment count, so nothing is new on
-the first sync.
+the first sync. A sweep that finds your own comment newest records the count
+again, so your reply never shows as new.
 
 A pull request in a stack, built on another open pull request's branch or
 with one built on its own, has a chip after its number: "3 of 5 · on #612",

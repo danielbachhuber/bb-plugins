@@ -195,6 +195,12 @@ export function reviewNotes(pr: RawPullRequest): string[] {
  * the author spoke last, the ball is with the reviewer and there is nothing to
  * report.
  */
+/** Whether the author wrote the newest general comment. `gh` lists them oldest first. */
+export function newestCommentIsMine(pr: RawPullRequest): boolean {
+  const login = pr.comments?.at(-1)?.author?.login;
+  return login !== undefined && login === pr.author?.login;
+}
+
 export function lastCommentBy(pr: RawPullRequest): string | null {
   const authorLogin = pr.author?.login ?? null;
   let newest: { at: number; login: string } | null = null;
@@ -365,6 +371,7 @@ export function classifyOne(
     // Zero for a missing or unreadable date, which the listing reads as unknown.
     updatedAt: Date.parse(pr.updatedAt ?? "") || 0,
     commentsCount: pr.comments?.length ?? 0,
+    newestCommentIsMine: newestCommentIsMine(pr),
     changesRequestedBy: changesRequesters(pr),
     additions: pr.additions,
     deletions: pr.deletions,

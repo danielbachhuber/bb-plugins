@@ -94,6 +94,11 @@ export interface ClassifiedRow {
   updatedAt?: number;
   /** How many general comments the pull request has, for "N new". Optional for the same reason. */
   commentsCount?: number;
+  /**
+   * Whether the newest general comment is the author's own. The sweep then
+   * marks the comments seen, so your own reply never reads as "1 new".
+   */
+  newestCommentIsMine?: boolean;
   /** Logins whose latest review requested changes. Optional for the same reason. */
   changesRequestedBy?: string[];
   /** Lines added and removed, and the branch it merges into. Optional for the same reason. */

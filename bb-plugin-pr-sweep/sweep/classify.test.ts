@@ -653,6 +653,14 @@ describe("activity", () => {
     expect(classifyOne(makePr({ comments }), "acme/widgets").commentsCount).toBe(2);
     expect(classifyOne(makePr({ comments: null }), "acme/widgets").commentsCount).toBe(0);
   });
+
+  it("says whether the author wrote the newest comment", () => {
+    const mine = [{ author: { login: "github-actions" } }, { author: { login: "octocat" } }];
+    const theirs = [{ author: { login: "octocat" } }, { author: { login: "hubber" } }];
+    expect(classifyOne(makePr({ comments: mine }), "acme/widgets").newestCommentIsMine).toBe(true);
+    expect(classifyOne(makePr({ comments: theirs }), "acme/widgets").newestCommentIsMine).toBe(false);
+    expect(classifyOne(makePr({ comments: [] }), "acme/widgets").newestCommentIsMine).toBe(false);
+  });
 });
 
 describe("classifyOne row details", () => {

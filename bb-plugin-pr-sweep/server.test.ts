@@ -858,7 +858,7 @@ describe("notes, seen counts, and the stale setting", () => {
   it("counts comments since the count was recorded, and clears them once seen", async () => {
     const { bb, harness } = await seededHost({ commentsCount: 2 });
     const store = createStore(bb.storage.database() as never);
-    store.recordFirstSeen(store.readRows(), 1);
+    store.recordSeen(store.readRows(), 1);
     store.replaceRepoRows(
       "acme/widgets",
       store.readRows().map((row) => ({ ...row, commentsCount: 5 })),

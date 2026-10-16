@@ -137,11 +137,12 @@ export interface Store {
   /** The comment count each pull request was last seen at, keyed `repo#number`. */
   seenCounts(): Map<string, number>;
   /**
-   * Records the current count for every row not seen before, and leaves the
-   * rest alone. Run on every sweep, so a pull request is never "new" merely
-   * because this is the first sweep to list it.
+   * Records the current count for every row not seen before, and for every
+   * row whose newest comment is the author's own, and leaves the rest alone.
+   * Run on every sweep, so a pull request is never "new" merely because this
+   * is the first sweep to list it, or because you were the last to comment.
    */
-  recordFirstSeen(rows: readonly ClassifiedRow[], now: number): void;
+  recordSeen(rows: readonly ClassifiedRow[], now: number): void;
   /** Records the count a pull request has now, when it is opened from the panel. */
   markSeen(repo: string, number: number, comments: number, now: number): void;
   /** Every dismissal of failing checks, keyed `repo#number`. */
@@ -195,8 +196,11 @@ export function createStore(db: DatabaseLike): Store {
        dismissed_at = excluded.dismissed_at`,
   );
   const deleteDismissal = db.prepare(`DELETE FROM dismissals WHERE repo = ? AND number = ?`);
-  const writeFirstSeen = db.transaction(((rows: readonly ClassifiedRow[], now: number) => {
-    for (const row of rows) insertSeen.run(row.repo, row.number, row.commentsCount ?? 0, now);
+  const writeSeen = db.transaction(((rows: readonly ClassifiedRow[], now: number) => {
+    for (const row of rows) {
+      const write = row.newestCommentIsMine ? upsertSeen : insertSeen;
+      write.run(row.repo, row.number, row.commentsCount ?? 0, now);
+    }
   }) as (rows: readonly ClassifiedRow[], now: number) => void);
 
   function hasTable(name: string): boolean {
@@ -322,8 +326,8 @@ export function createStore(db: DatabaseLike): Store {
       return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.comments]));
     },
 
-    recordFirstSeen(rows, now) {
-      writeFirstSeen(rows, now);
+    recordSeen(rows, now) {
+      writeSeen(rows, now);
     },
 
     markSeen(repo, number, comments, now) {

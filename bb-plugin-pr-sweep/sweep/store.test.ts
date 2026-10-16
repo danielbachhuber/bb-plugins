@@ -177,20 +177,27 @@ describe("notes", () => {
 describe("seen comment counts", () => {
   it("records the count on first sight, so a first sync shows nothing new", () => {
     const store = freshStore();
-    store.recordFirstSeen([row({ number: 12, commentsCount: 5 })], 1);
+    store.recordSeen([row({ number: 12, commentsCount: 5 })], 1);
     expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
   });
 
   it("never moves a count it already has on a later sweep", () => {
     const store = freshStore();
-    store.recordFirstSeen([row({ number: 12, commentsCount: 5 })], 1);
-    store.recordFirstSeen([row({ number: 12, commentsCount: 8 })], 2);
+    store.recordSeen([row({ number: 12, commentsCount: 5 })], 1);
+    store.recordSeen([row({ number: 12, commentsCount: 8 })], 2);
     expect(store.seenCounts().get("acme/widgets#12")).toBe(5);
+  });
+
+  it("moves the count up on a sweep when the newest comment is the author's own", () => {
+    const store = freshStore();
+    store.recordSeen([row({ number: 12, commentsCount: 1 })], 1);
+    store.recordSeen([row({ number: 12, commentsCount: 2, newestCommentIsMine: true })], 2);
+    expect(store.seenCounts().get("acme/widgets#12")).toBe(2);
   });
 
   it("moves the count up to the current one when the pull request is opened", () => {
     const store = freshStore();
-    store.recordFirstSeen([row({ number: 12, commentsCount: 5 })], 1);
+    store.recordSeen([row({ number: 12, commentsCount: 5 })], 1);
     store.markSeen("acme/widgets", 12, 8, 2);
     expect(store.seenCounts().get("acme/widgets#12")).toBe(8);
   });

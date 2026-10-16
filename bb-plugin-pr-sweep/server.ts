@@ -474,9 +474,10 @@ export default async function plugin(bb: BbPluginApi) {
         runSweep(gh, () => Date.now(), scope, optional),
       );
       store.replaceAll(result);
-      // Every row's count on first sight, so a row is never "N new" just
-      // because this is the first sweep to list it.
-      store.recordFirstSeen(result.rows, result.sweptAt);
+      // Every row's count on first sight, and again whenever you commented
+      // last, so a row is never "N new" just because this is the first sweep
+      // to list it or because the newest comment is your own.
+      store.recordSeen(result.rows, result.sweptAt);
       bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: result.sweptAt });
       bb.log.info(
         `swept ${result.repos.length} repo(s), ${result.rows.length} open PR(s)` +
