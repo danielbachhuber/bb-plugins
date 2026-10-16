@@ -63,6 +63,20 @@ export const MIGRATIONS = [
      ignored_at INTEGER NOT NULL,
      PRIMARY KEY (repo, number)
    )`,
+  // Ignore became Snooze, which ends on a day you pick. The few ignores made in
+  // the meantime are dropped rather than guessed a day.
+  `DROP TABLE IF EXISTS ignores`,
+  // Review requests snoozed from the panel: until which day (`YYYY-MM-DD`),
+  // and when. Local only: you stay a requested reviewer on GitHub. The
+  // request comes back on that day, or sooner when it is made again after
+  // `snoozed_at`.
+  `CREATE TABLE IF NOT EXISTS review_snoozes (
+     repo TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     until TEXT NOT NULL,
+     snoozed_at INTEGER NOT NULL,
+     PRIMARY KEY (repo, number)
+   )`,
 ];
 
 export interface SweepMeta {
@@ -106,10 +120,10 @@ export interface Store {
   notes(): Map<string, string>;
   /** Saves a note. Empty or blank text deletes it instead. */
   setNote(repo: string, number: number, body: string, now: number): void;
-  /** When each ignored review request was ignored, keyed `repo#number`. */
-  ignores(): Map<string, number>;
-  /** Ignores a review request as of `now`, or stops ignoring it. */
-  setIgnored(repo: string, number: number, ignored: boolean, now: number): void;
+  /** Each snoozed review request's day and when it was snoozed, keyed `repo#number`. */
+  snoozes(): Map<string, { until: string; snoozedAt: number }>;
+  /** Snoozes a review request until a day (`YYYY-MM-DD`) as of `now`, or wakes it with null. */
+  setSnooze(repo: string, number: number, until: string | null, now: number): void;
   /** The comment count each pull request was last seen at, keyed `repo#number`. */
   seenCounts(): Map<string, number>;
   /**
@@ -155,12 +169,12 @@ export function createStore(db: DatabaseLike): Store {
      ON CONFLICT(repo, number) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
   );
   const deleteNote = db.prepare(`DELETE FROM notes WHERE repo = ? AND number = ?`);
-  const selectIgnores = db.prepare(`SELECT repo, number, ignored_at FROM ignores`);
-  const upsertIgnore = db.prepare(
-    `INSERT INTO ignores (repo, number, ignored_at) VALUES (?, ?, ?)
-     ON CONFLICT(repo, number) DO UPDATE SET ignored_at = excluded.ignored_at`,
+  const selectSnoozes = db.prepare(`SELECT repo, number, until, snoozed_at FROM review_snoozes`);
+  const upsertSnooze = db.prepare(
+    `INSERT INTO review_snoozes (repo, number, until, snoozed_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(repo, number) DO UPDATE SET until = excluded.until, snoozed_at = excluded.snoozed_at`,
   );
-  const deleteIgnore = db.prepare(`DELETE FROM ignores WHERE repo = ? AND number = ?`);
+  const deleteSnooze = db.prepare(`DELETE FROM review_snoozes WHERE repo = ? AND number = ?`);
   const selectSeen = db.prepare(`SELECT repo, number, comments FROM seen`);
   const insertSeen = db.prepare(
     `INSERT OR IGNORE INTO seen (repo, number, comments, seen_at) VALUES (?, ?, ?, ?)`,
@@ -250,14 +264,14 @@ export function createStore(db: DatabaseLike): Store {
       else upsertNote.run(repo, number, trimmed, now);
     },
 
-    ignores() {
-      const rows = selectIgnores.all() as Array<{ repo: string; number: number; ignored_at: number }>;
-      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, row.ignored_at]));
+    snoozes() {
+      const rows = selectSnoozes.all() as Array<{ repo: string; number: number; until: string; snoozed_at: number }>;
+      return new Map(rows.map((row) => [`${row.repo}#${row.number}`, { until: row.until, snoozedAt: row.snoozed_at }]));
     },
 
-    setIgnored(repo, number, ignored, now) {
-      if (ignored) upsertIgnore.run(repo, number, now);
-      else deleteIgnore.run(repo, number);
+    setSnooze(repo, number, until, now) {
+      if (until === null) deleteSnooze.run(repo, number);
+      else upsertSnooze.run(repo, number, until, now);
     },
 
     seenCounts() {

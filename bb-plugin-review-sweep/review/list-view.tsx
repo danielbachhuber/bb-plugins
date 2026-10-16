@@ -1,5 +1,13 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import {
+  DayMenu,
+  addDaysTo,
+  describeDay,
+  localDay,
+  nextMonday,
+  type DayChoice,
+} from "@danielbachhuber/bb-plugin-component-library/day-menu";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
@@ -24,6 +32,7 @@ import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   LoadingGraphic,
   usePrefersReducedMotion,
@@ -161,7 +170,7 @@ function ThreadAction({
  * project here is checked out for its repository.
  */
 export function canBatch(row: Row): boolean {
-  return row.threadId === null && row.canSpawn && !row.ignored;
+  return row.threadId === null && row.canSpawn && !row.snoozedUntil;
 }
 
 /**
@@ -180,21 +189,65 @@ function BatchButton({ count, onBatch }: { count: number; onBatch: () => void })
   );
 }
 
+/** The quick days Snooze offers: tomorrow, next Monday, and two weeks out. */
+export function snoozeChoices(now: Date): DayChoice[] {
+  const today = localDay(now);
+  return [
+    { label: "Tomorrow", day: addDaysTo(today, 1) },
+    { label: "Next week", day: nextMonday(now) },
+    { label: "In two weeks", day: addDaysTo(today, 14) },
+  ];
+}
+
 /**
- * Ignore, which sinks the request to one line at the bottom until your review
- * is requested again, or Stop ignoring on a row already ignored.
+ * Snooze, which opens the day menu Now's Postpone uses and sinks the request
+ * to one line at the bottom until that day, or Unsnooze on a row already
+ * snoozed.
  */
-function IgnoreAction({ row, onIgnore }: { row: Row; onIgnore: (row: Row, ignored: boolean) => void }) {
-  return row.ignored ? (
-    <button type="button" className={LINE_ACTION} onClick={() => onIgnore(row, false)}>
-      <Icon name="Eye" className="size-3" />
-      Stop ignoring
-    </button>
-  ) : (
-    <button type="button" className={LINE_ACTION} onClick={() => onIgnore(row, true)}>
-      <Icon name="EyeOff" className="size-3" />
-      Ignore
-    </button>
+function SnoozeAction({
+  row,
+  now,
+  onSnooze,
+}: {
+  row: Row;
+  now: number;
+  onSnooze: (row: Row, until: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (row.snoozedUntil) {
+    return (
+      <button type="button" className={LINE_ACTION} onClick={() => onSnooze(row, null)}>
+        <Icon name="Clock" className="size-3" />
+        Unsnooze
+      </button>
+    );
+  }
+  const today = new Date(now);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" className={cn(LINE_ACTION, open && "bg-accent text-foreground")}>
+          <Icon name="Clock" className="size-3" />
+          Snooze
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-1" mobileTitle="Snooze">
+        <DayMenu
+          heading="Snooze until"
+          choices={snoozeChoices(today)}
+          describe={(day) => describeDay(day, today)}
+          check={(day) => (day > localDay(today) ? null : "Too early")}
+          onPick={(day) => {
+            setOpen(false);
+            onSnooze(row, day);
+          }}
+          now={today}
+          menuLabel="Snooze until"
+          inputLabel="Snooze until a day"
+          footer="Comes back sooner if your review is requested again."
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -263,12 +316,13 @@ function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
 function RowBody({ line, inputs, ...props }: BodyProps & { line: boolean; inputs: TierInputs }) {
   const icons = <FactIcons {...props} />;
   if (line) {
-    return props.row.ignored ? (
+    const until = props.row.snoozedUntil;
+    return until ? (
       <span className="inline-flex items-center gap-3">
         {icons}
-        <span data-part="ignored" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <Icon name="EyeOff" className="size-3" />
-          Ignored
+        <span data-part="snoozed" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <Icon name="Clock" className="size-3" />
+          Until {describeDay(until, new Date(props.now))}
         </span>
       </span>
     ) : (
@@ -464,8 +518,8 @@ export interface ReviewListViewProps {
   onReview: (row: Row) => void;
   onOpen: (row: Row, threadId: string) => void;
   onArchive: (row: Row) => void;
-  /** Ignores the request until your review is requested again, or stops ignoring it. */
-  onIgnore: (row: Row, ignored: boolean) => void;
+  /** Snoozes the request until a day (`YYYY-MM-DD`), or wakes it with null. */
+  onSnooze: (row: Row, until: string | null) => void;
   /** Saves the row's note; "" deletes it. Resolves true once saved. */
   onNoteSave: (row: Row, body: string) => Promise<boolean>;
   /** The title was clicked, and the pull request is about to open. */
@@ -499,7 +553,7 @@ export function ReviewListView({
   onReview,
   onOpen,
   onArchive,
-  onIgnore,
+  onSnooze,
   onNoteSave,
   onOpenLink,
   loadFeedback,
@@ -584,8 +638,8 @@ export function ReviewListView({
                 <RowBody row={row} line={line} now={now} inputs={inputs} showRepo={showRepo} avatarFor={avatarFor} />
               ) : null;
             }}
-            // Every row stays open, since each review is one to do, except an
-            // ignored one, which closes to one line at the bottom.
+            // Every row stays open, since each review is one to do, except a
+            // snoozed one, which closes to one line at the bottom.
             collapsible="later"
             summaryAction={
               onBatch ? <BatchButton count={listing.rows.filter(canBatch).length} onBatch={onBatch} /> : undefined
@@ -644,7 +698,7 @@ export function ReviewListView({
                     onOpen={onOpen}
                   />
                   <ArchiveAction row={row} onArchive={onArchive} />
-                  <IgnoreAction row={row} onIgnore={onIgnore} />
+                  <SnoozeAction row={row} now={now} onSnooze={onSnooze} />
                   <CopyLinkAction
                     text={`${row.title} (#${row.number})`}
                     url={row.url}

@@ -342,7 +342,7 @@ describe("tiers", () => {
 
   it("folds Later after five rows", async () => {
     const rows = Array.from({ length: 7 }, (_, index) =>
-      freshRow({ number: index + 1, title: `Ignored item ${index + 1}`, ignored: true }),
+      freshRow({ number: index + 1, title: `Snoozed item ${index + 1}`, snoozedUntil: "2099-01-01" }),
     );
     const slot = render(listing({ rows }));
     expect(await slot.findByRole("button", { name: "2 more" })).toBeInTheDocument();
@@ -368,8 +368,8 @@ describe("track", () => {
   });
 });
 
-describe("ignore", () => {
-  it("ignores a request from its row, then reloads the listing", async () => {
+describe("snooze", () => {
+  it("snoozes a request until a day picked from its menu, then reloads the listing", async () => {
     const calls: unknown[] = [];
     let loads = 0;
     const slot = render(listing(), {
@@ -377,29 +377,39 @@ describe("ignore", () => {
         loads += 1;
         return listing();
       },
-      setIgnored: (input: unknown) => {
+      snooze: (input: unknown) => {
         calls.push(input);
         return { ok: true };
       },
     });
-    fireEvent.click(await slot.findByRole("button", { name: "Ignore" }));
-    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, ignored: true }]));
+    fireEvent.click(await slot.findByRole("button", { name: "Snooze" }));
+    const field = await slot.findByRole("textbox", { name: "Snooze until a day" });
+    fireEvent.change(field, { target: { value: "2099-01-05" } });
+    fireEvent.submit(field.closest("form")!);
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, until: "2099-01-05" }]));
     await waitFor(() => expect(loads).toBeGreaterThan(1));
   });
 
-  it("closes an ignored request to one line that says so, opening to Stop ignoring", async () => {
+  it("will not snooze until today or earlier", async () => {
+    const slot = render(listing());
+    fireEvent.click(await slot.findByRole("button", { name: "Snooze" }));
+    fireEvent.change(await slot.findByRole("textbox", { name: "Snooze until a day" }), { target: { value: "today" } });
+    expect(slot.getByText("Too early")).toBeInTheDocument();
+  });
+
+  it("closes a snoozed request to one line saying until when, opening to Unsnooze", async () => {
     const calls: unknown[] = [];
-    const slot = render(listing({ rows: [rowFixture({ ignored: true })] }), {
-      setIgnored: (input: unknown) => {
+    const slot = render(listing({ rows: [rowFixture({ snoozedUntil: "2099-01-05" })] }), {
+      snooze: (input: unknown) => {
         calls.push(input);
         return { ok: true };
       },
     });
-    expect(await slot.findByText("Ignored")).toBeInTheDocument();
+    expect(await slot.findByText("Until Jan 5, 2099")).toBeInTheDocument();
     expect(slot.queryByRole("button", { name: "Add note" })).toBeNull();
     fireEvent.click(slot.getByRole("button", { name: "Expand" }));
-    fireEvent.click(await slot.findByRole("button", { name: "Stop ignoring" }));
-    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, ignored: false }]));
+    fireEvent.click(await slot.findByRole("button", { name: "Unsnooze" }));
+    await waitFor(() => expect(calls).toEqual([{ repo: "acme/widgets", number: 42, until: null }]));
   });
 });
 
@@ -732,11 +742,11 @@ describe("sidebar count", () => {
     expect(slot.getByTitle("2 to review")).toHaveTextContent("2");
   });
 
-  it("leaves ignored requests out of the count", async () => {
+  it("leaves snoozed requests out of the count", async () => {
     const slot = renderCount(
       listing({
         rows: [
-          rowFixture({ number: 1, requestedAt: daysAgo(4), ignored: true }),
+          rowFixture({ number: 1, requestedAt: daysAgo(4), snoozedUntil: "2099-01-01" }),
           rowFixture({ number: 2, requestedAt: daysAgo(1) }),
         ],
       }),

@@ -116,10 +116,11 @@ const rowSchema = z.object({
   /** Comments since the pull request was last opened from the panel. */
   newComments: z.number(),
   /**
-   * Ignored from the panel, and not requested again since. Local only.
-   * Optional so a listing from before Ignore still parses.
+   * The day (`YYYY-MM-DD`) a request snoozed from the panel comes back, while
+   * it is snoozed: before that day, and not requested again since. Local only.
+   * Optional so a listing from before Snooze still parses.
    */
-  ignored: z.boolean().optional(),
+  snoozedUntil: z.string().nullable().optional(),
   canSpawn: z.boolean(),
   /** The thread already started for this review, if any. */
   threadId: z.string().nullable(),
@@ -293,11 +294,11 @@ export const rpcContract = defineRpcContract({
     output: z.object({ ok: z.boolean() }),
   },
   /**
-   * Ignores a review request on this machine, until your review is requested
-   * again, or stops ignoring it.
+   * Snoozes a review request on this machine until a day (`YYYY-MM-DD`), or
+   * until your review is requested again if that comes first. Null wakes it.
    */
-  setIgnored: {
-    input: z.object({ repo: z.string(), number: z.number(), ignored: z.boolean() }).strict(),
+  snooze: {
+    input: z.object({ repo: z.string(), number: z.number(), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable() }).strict(),
     output: z.object({ ok: z.boolean() }),
   },
   /**

@@ -14,6 +14,7 @@ import {
   type Row,
 } from "./review/list-view";
 import { relativeTime } from "./review/format";
+import { addDaysTo, localDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { FeedbackDrawer, FeedbackList, type FeedbackEntry } from "sweep-ui/feedback";
 import { PlainLink } from "sweep-ui/row";
 
@@ -188,7 +189,7 @@ const everything: Listing = {
       requestedReviewers: ["you", "widgets-committers"],
       size: { additions: 1240, deletions: 310, changedFiles: 38 },
       reviewers: [YOU, { login: "acme/widgets-committers", state: "pending", team: true }],
-      ignored: true,
+      snoozedUntil: addDaysTo(localDay(new Date(now)), 4),
     }),
   ],
 };
@@ -317,7 +318,7 @@ function Frame({
             onReview={noop}
             onOpen={noop}
             onArchive={noop}
-            onIgnore={noop}
+            onSnooze={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
             loadFeedback={async () => ({ entries: FEEDBACK, error: null })}
@@ -362,7 +363,7 @@ export function Rows() {
     <StoryCard>
       <StoryRow
         label="Every run"
-        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and an ignored request, closed to one line at the bottom. The re-review with a thread and the draft are in one stack."
+        hint="Two re-reviews, one with a thread and one with failing checks; one waiting too long; one reviewing with a note; two to review, one with no other reviewers, no checks, and no project checked out; a draft; and a request snoozed for four days, closed to one line at the bottom. The re-review with a thread and the draft are in one stack."
       >
         <Frame listing={everything} />
       </StoryRow>
@@ -469,7 +470,7 @@ const LONG_TITLES = [
   "WIP: gadget usage charts",
 ];
 
-/** Many ignored requests, so the fold after five Later rows shows. */
+/** Many snoozed requests, so the fold after five Later rows shows. */
 const long: Listing = {
   ...baseline,
   rows: [
@@ -478,7 +479,7 @@ const long: Listing = {
       row({
         number: 450 + index,
         title,
-        ignored: true,
+        snoozedUntil: addDaysTo(localDay(new Date(now)), 2 + index),
         author: index % 2 ? "hubber" : "octocat",
         requestedAt: now - (index + 1) * 11 * HOUR,
       }),
@@ -493,7 +494,7 @@ const long: Listing = {
 export function LongList() {
   return (
     <StoryCard>
-      <StoryRow label="Long list" hint="Eight ignored requests, one line each, three of them folded.">
+      <StoryRow label="Long list" hint="Eight snoozed requests, one line each, three of them folded.">
         <Frame listing={long} />
       </StoryRow>
     </StoryCard>

@@ -120,15 +120,15 @@ describe("store", () => {
     });
   });
 
-  describe("ignores", () => {
-    it("records when a request was ignored, and forgets it when it stops", () => {
+  describe("snoozes", () => {
+    it("records the day and when, replaces it on a second snooze, and forgets it on waking", () => {
       const store = freshStore();
-      store.setIgnored("acme/widgets", 12, true, 5);
-      expect(store.ignores().get("acme/widgets#12")).toBe(5);
-      store.setIgnored("acme/widgets", 12, true, 9);
-      expect([...store.ignores().values()]).toEqual([9]);
-      store.setIgnored("acme/widgets", 12, false, 10);
-      expect(store.ignores().size).toBe(0);
+      store.setSnooze("acme/widgets", 12, "2026-10-20", 5);
+      expect(store.snoozes().get("acme/widgets#12")).toEqual({ until: "2026-10-20", snoozedAt: 5 });
+      store.setSnooze("acme/widgets", 12, "2026-10-27", 9);
+      expect([...store.snoozes().values()]).toEqual([{ until: "2026-10-27", snoozedAt: 9 }]);
+      store.setSnooze("acme/widgets", 12, null, 10);
+      expect(store.snoozes().size).toBe(0);
     });
   });
 

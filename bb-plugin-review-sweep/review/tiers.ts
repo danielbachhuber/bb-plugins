@@ -40,8 +40,8 @@ export interface ListedReview {
   note: string | null;
   /** Comments since the pull request was last opened from here. */
   newComments: number;
-  /** Ignored from the panel and not requested again since. Left out reads as false. */
-  ignored?: boolean;
+  /** The day a snoozed request comes back, while it is snoozed. Left out or null when it is not. */
+  snoozedUntil?: string | null;
 }
 
 export interface TierInputs {
@@ -55,10 +55,10 @@ export const REVIEW_RUNS: Run[] = [
   { id: "overdue", label: "waiting too long", labelOne: "waiting too long", tone: "late", tier: "now" },
   { id: "reviewing", label: "reviewing", labelOne: "reviewing", tone: "underway", tier: "now" },
   { id: "to-review", label: "to review", labelOne: "to review", tone: "next", tier: "next" },
-  // Next, though quiet, so a draft stays open with its actions; only an
-  // ignored request closes to one line.
+  // Next, though quiet, so a draft stays open with its actions; only a
+  // snoozed request closes to one line.
   { id: "drafts", label: "drafts", labelOne: "draft", tone: "later", tier: "next" },
-  { id: "ignored", label: "ignored", labelOne: "ignored", tone: "later", tier: "later" },
+  { id: "snoozed", label: "snoozed", labelOne: "snoozed", tone: "later", tier: "later" },
 ];
 
 /** The track's stages, in order. `stageOf` returns an index into these. */
@@ -70,14 +70,14 @@ function isOverdue(row: ListedReview, inputs: TierInputs): boolean {
 }
 
 /**
- * An ignored request goes last, whatever else is true of it: you said so, and
- * a new request lifts the ignore before the row gets here. Then a re-review,
+ * A snoozed request goes last, whatever else is true of it: you said so, and
+ * its day or a new request ends the snooze before the row gets here. Then a re-review,
  * because the author is blocked on you and it is usually the quickest to
  * clear, unless it went back to draft. A thread outranks the draft: a review
  * being worked on is stronger evidence.
  */
 export function runOf(row: ListedReview, inputs: TierInputs): string {
-  if (row.ignored) return "ignored";
+  if (row.snoozedUntil) return "snoozed";
   if (row.state === "re-review" && !row.isDraft) return "re-review";
   if (row.threadId) return "reviewing";
   if (row.isDraft) return "drafts";

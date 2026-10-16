@@ -1,4 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { localDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { REPO_SLUG_PATTERN, createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import { rpcContract } from "./review/contract.js";
@@ -470,7 +471,8 @@ export default async function plugin(bb: BbPluginApi) {
       const meta = store.readMeta();
       const rows = store.readRows();
       const notes = store.notes();
-      const ignores = store.ignores();
+      const snoozes = store.snoozes();
+      const today = localDay(new Date());
       const seen = store.seenCounts();
       const { staleAfterDays } = await settings.get();
 
@@ -501,11 +503,13 @@ export default async function plugin(bb: BbPluginApi) {
           // first sight, and until it has, every comment is one already there.
           // Floored at zero, since deleted comments can drop the count.
           const seenCount = seen.get(key);
-          // A request made after you ignored it brings the review back.
-          const ignoredAt = ignores.get(key);
+          // A snooze ends on its day, or sooner when the review is requested
+          // again after it was snoozed.
+          const snooze = snoozes.get(key);
+          const snoozed = snooze !== undefined && snooze.until > today && row.requestedAt <= snooze.snoozedAt;
           return {
             ...row,
-            ignored: ignoredAt !== undefined && row.requestedAt <= ignoredAt,
+            snoozedUntil: snoozed ? snooze.until : null,
             comments,
             inlineComments: row.inlineComments ?? 0,
             // Rows stored before the sweep read these draw no checks and no reviewers.
@@ -538,8 +542,8 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true };
     },
 
-    setIgnored({ repo, number, ignored }) {
-      store.setIgnored(repo, number, ignored, Date.now());
+    snooze({ repo, number, until }) {
+      store.setSnooze(repo, number, until, Date.now());
       return { ok: true };
     },
 

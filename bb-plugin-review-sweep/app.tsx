@@ -16,6 +16,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { displaySection } from "./review/actions.js";
+import { describeDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { runOf, sortReviews } from "./review/tiers.js";
 import { BatchDialog, type BatchStart } from "./review/batch-dialog.js";
 import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
@@ -239,13 +240,13 @@ function Panel() {
     [reload, rpc],
   );
 
-  const onIgnore = useCallback(
-    (row: Row, ignored: boolean) => {
+  const onSnooze = useCallback(
+    (row: Row, until: string | null) => {
       void (async () => {
-        await rpc.call("setIgnored", { repo: row.repo, number: row.number, ignored });
+        await rpc.call("snooze", { repo: row.repo, number: row.number, until });
         toast.success(
-          ignored
-            ? `Ignoring ${row.repo}#${row.number} until your review is requested again`
+          until
+            ? `Snoozed ${row.repo}#${row.number} until ${describeDay(until, new Date())}`
             : `${row.repo}#${row.number} is back in the list`,
         );
         await reload();
@@ -312,7 +313,7 @@ function Panel() {
         onReview={onReview}
         onOpen={onOpen}
         onArchive={onArchive}
-        onIgnore={onIgnore}
+        onSnooze={onSnooze}
         onNoteSave={onNoteSave}
         onOpenLink={markSeen}
         loadFeedback={loadFeedback}
@@ -353,7 +354,7 @@ function useCounts() {
   const rows =
     listing?.rows.filter(
       (row) =>
-        !row.ignored && displaySection(Boolean(row.threadId), row.isDraft) === "needs-review",
+        !row.snoozedUntil && displaySection(Boolean(row.threadId), row.isDraft) === "needs-review",
     ) ?? [];
   if (!listing) return null;
   const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };

@@ -1,3 +1,4 @@
+import { localDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -719,17 +720,23 @@ describe("notes and seen counts", () => {
     );
   });
 
-  it("lists an ignored request as ignored until your review is requested again", async () => {
+  it("lists a snoozed request as snoozed until its day, or until your review is requested again", async () => {
     const { bb, harness } = await seededHost();
-    expect(await harness.behavior.callRpc("setIgnored", { repo: "acme/widgets", number: 42, ignored: true })).toEqual({ ok: true });
-    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.ignored).toBe(true);
+    const later = localDay(new Date(Date.now() + 3 * 86_400_000));
+    expect(await harness.behavior.callRpc("snooze", { repo: "acme/widgets", number: 42, until: later })).toEqual({ ok: true });
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.snoozedUntil).toBe(later);
 
-    // Ignored before the request was made, as if it was requested again since.
-    createStore(bb.storage.database() as never).setIgnored("acme/widgets", 42, true, 0);
-    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.ignored).toBe(false);
+    // Its day has come.
+    const store = createStore(bb.storage.database() as never);
+    store.setSnooze("acme/widgets", 42, localDay(new Date()), Date.now());
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.snoozedUntil).toBeNull();
 
-    await harness.behavior.callRpc("setIgnored", { repo: "acme/widgets", number: 42, ignored: false });
-    expect(createStore(bb.storage.database() as never).ignores().size).toBe(0);
+    // Snoozed before the request was made, as if it was requested again since.
+    store.setSnooze("acme/widgets", 42, later, 0);
+    expect((await harness.behavior.callRpc("listRows", null)).rows[0]!.snoozedUntil).toBeNull();
+
+    await harness.behavior.callRpc("snooze", { repo: "acme/widgets", number: 42, until: null });
+    expect(store.snoozes().size).toBe(0);
   });
 
   it("deletes the note when it is saved empty, rather than keeping blank text", async () => {
