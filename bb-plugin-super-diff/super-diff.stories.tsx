@@ -45,9 +45,11 @@ function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?
 
 function Concern({ index }: { index: number }) {
   const concern = FIXTURE.submission.concerns[index]!;
+  const files = new Set(concern.files);
   return (
     <ConcernHeader
       number={index + 1}
+      first={index === 0}
       title={concern.title}
       explanation={concern.explanation}
       files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
@@ -55,7 +57,9 @@ function Concern({ index }: { index: number }) {
       showList
       viewed={FIXTURE_VIEWED}
       onJump={() => {}}
-    />
+    >
+      <NotesBox notes={FIXTURE_NOTES.filter((note) => files.has(note.path))} onJump={() => {}} />
+    </ConcernHeader>
   );
 }
 
@@ -89,19 +93,17 @@ function LayoutDiff() {
   );
 }
 
-/** A Super Diff of a 57-file rename: the row, the annotation list, the first concern with what each file's change is, and one of its files in bb's diff with an annotation under the line it explains. */
+/** A Super Diff of a 57-file rename: the row, the first concern with what each file's change is and its annotation, and one of its files in bb's diff with that annotation under the line it explains. */
 export const Overview = () => (
   <Frame>
     <Row state={READY} />
-    <div className="mt-3">
-      <NotesBox notes={FIXTURE_NOTES} onJump={() => {}} />
-    </div>
+    <div className="h-3" />
     <Concern index={0} />
     <LayoutDiff />
   </Frame>
 );
 
-/** All six concerns of the same Super Diff, each with what its files' changes are and how many of them Diff Viewed has marked viewed. In bb, each concern's diff cards follow its heading. */
+/** All six concerns of the same Super Diff, each with what its files' changes are, how many of them Diff Viewed has marked viewed, and its annotations. In bb, each concern's diff cards follow its heading. */
 export const AllConcerns = () => (
   <Frame>
     {FIXTURE.submission.concerns.map((concern, index) => (
@@ -138,11 +140,11 @@ export const OutOfDate = () => (
   </Frame>
 );
 
-/** The list at the top of a Super Diff: each annotation's number, title, and line, which jumps to its card. One note's line has left the diff. */
+/** A concern's annotations, under its file list: each one's number, title, and line, which jumps to its card. One note's line has left the diff. */
 export const AnnotationList = () => (
   <Frame>
     <NotesBox
-      notes={[...FIXTURE_NOTES, { ...FIXTURE_NOTES[1]!, id: "gone", n: 5, line: null, path: "src/data/legacy-pricing.ts", title: "Kept for orders placed before the switch" }]}
+      notes={[FIXTURE_NOTES[1]!, { ...FIXTURE_NOTES[1]!, id: "gone", n: 3, line: null, path: "src/data/legacy-pricing.ts", title: "Kept for orders placed before the switch" }]}
       onJump={() => {}}
     />
   </Frame>
@@ -162,6 +164,7 @@ export const ConcernFileList = () => {
     <Frame>
       <ConcernHeader
         number={5}
+        first
         title={concern.title}
         explanation={concern.explanation}
         files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}

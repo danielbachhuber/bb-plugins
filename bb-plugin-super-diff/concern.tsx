@@ -1,6 +1,7 @@
 // A concern's file list: each file with what its change does and, when Diff
 // Viewed is installed, whether it has been viewed. Files the agent describes
 // together ("only the import is renamed") fold into one line.
+import type { ReactNode } from "react";
 import { Prose } from "./annotations";
 
 export type ConcernFile = { path: string; summary?: string };
@@ -25,7 +26,7 @@ function Mark({ viewed }: { viewed: boolean }) {
 /** "2 of 4 viewed" and a bar, for a concern heading. */
 export function ViewedCount({ viewed, total }: { viewed: number; total: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-normal tabular-nums text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
       {viewed} of {total} viewed
       <span
         aria-hidden
@@ -101,9 +102,14 @@ export function ConcernFiles({
   );
 }
 
-/** A section's heading: number, title, file count and viewed count, explanation, and (for a concern) its file list. */
+/**
+ * A section's heading: number, title, file count and viewed count,
+ * explanation, and (for a concern) its file list, then `children`, which is
+ * where its annotations go. Every heading after the first has a rule above it.
+ */
 export function ConcernHeader({
   number,
+  first,
   title,
   explanation,
   files,
@@ -111,8 +117,10 @@ export function ConcernHeader({
   showList,
   viewed,
   onJump,
+  children,
 }: {
   number: number | null;
+  first: boolean;
   title: string;
   explanation: string;
   files: ConcernFile[];
@@ -120,30 +128,50 @@ export function ConcernHeader({
   showList: boolean;
   viewed: ReadonlySet<string> | null;
   onJump: (path: string) => void;
+  children?: ReactNode;
 }) {
   return (
-    <header className="px-1 pb-2 pt-1">
-      <h3 className="text-sm font-semibold text-foreground">
-        {number !== null ? (
-          <span className="text-muted-foreground tabular-nums" style={{ marginRight: 8 }}>
-            {number}
+    <header className={`px-1 pb-3 ${first ? "pt-2" : "mt-4 border-t border-border pt-5"}`}>
+      <h2 className="flex items-center gap-2.5 text-base font-semibold text-foreground">
+        {number !== null ? <NumberBadge n={number} /> : null}
+        <span className="min-w-0">{title}</span>
+      </h2>
+      <div className="mt-1" style={{ paddingLeft: number !== null ? 32 : 0 }}>
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span>
+            {files.length} {files.length === 1 ? "file" : "files"}
           </span>
-        ) : null}
-        {title}
-        <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
-          {files.length} {files.length === 1 ? "file" : "files"}
           {viewed !== null ? (
             <>
-              {" · "}
+              <span>·</span>
               <ViewedCount viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
             </>
           ) : null}
         </span>
-      </h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        <Prose text={explanation} />
-      </p>
-      {showList ? <ConcernFiles files={files} others={others} viewed={viewed} onJump={onJump} /> : null}
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          <Prose text={explanation} />
+        </p>
+        {showList ? <ConcernFiles files={files} others={others} viewed={viewed} onJump={onJump} /> : null}
+        {children}
+      </div>
     </header>
+  );
+}
+
+function NumberBadge({ n }: { n: number }) {
+  return (
+    <span
+      className="shrink-0 text-center tabular-nums"
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 9999,
+        background: "var(--foreground)",
+        color: "var(--background)",
+        font: "600 13px/22px system-ui",
+      }}
+    >
+      {n}
+    </span>
   );
 }

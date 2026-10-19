@@ -132,12 +132,12 @@ export function NoteCard({ note, highlighted }: { note: PlacedNote; highlighted:
   );
 }
 
-/** The numbered list at the top of the Super Diff. A note not found in the diff is listed, not linked. */
+/** A concern's numbered annotations, under its file list. A note not found in the diff is listed, not linked. */
 export function NotesBox({ notes, onJump }: { notes: PlacedNote[]; onJump: (id: string) => void }) {
   if (notes.length === 0) return null;
   return (
-    <div className="mb-4 rounded-lg border border-border bg-background px-2 py-2 text-xs">
-      <div className="mb-1 flex items-center gap-1.5 px-1.5 font-medium text-foreground">
+    <div className="mt-2 rounded-md border border-border bg-background px-1.5 py-1 text-xs">
+      <div className="flex items-center gap-1.5 px-1 py-0.5 font-medium text-foreground">
         <Sparkles />
         {notes.length} {notes.length === 1 ? "annotation" : "annotations"}
       </div>
@@ -147,7 +147,7 @@ export function NotesBox({ notes, onJump }: { notes: PlacedNote[]; onJump: (id: 
           type="button"
           disabled={note.line === null}
           onClick={() => onJump(note.id)}
-          className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-state-hover disabled:opacity-60"
+          className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-state-hover disabled:opacity-60"
         >
           <Badge n={note.n} />
           <span className="min-w-0 flex-1 truncate text-foreground">{note.title}</span>

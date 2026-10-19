@@ -249,6 +249,22 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
     return placeNotes(fromAgent, order, data.patches);
   }, [stored, data, groups]);
 
+  // Each note is listed under the group its file is in. A note whose file
+  // has left the diff goes with the concern the agent put that file in, or
+  // the last group when that concern has no files left either.
+  const notesByGroup = useMemo(() => {
+    const lists = groups.map((): PlacedNote[] => []);
+    for (const note of notes) {
+      let at = groups.findIndex((group) => group.files.some((file) => file.path === note.path));
+      if (at === -1) {
+        const concern = stored.submission.concerns.find((c) => c.files.includes(note.path));
+        at = concern === undefined ? -1 : groups.findIndex((group) => group.kind === "concern" && group.title === concern.title);
+      }
+      lists[at === -1 ? lists.length - 1 : at]?.push(note);
+    }
+    return lists;
+  }, [groups, notes, stored]);
+
   // Diff Viewed marks a viewed card's header row with data-diff-viewed="true".
   // null while Diff Viewed is not decorating these cards, so no counts show.
   const [viewed, setViewed] = useState<ReadonlySet<string> | null>(null);
@@ -307,12 +323,12 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
   let concernNumber = 0;
   return (
     <div ref={wrapperRef}>
-      <NotesBox notes={notes} onJump={jump} />
       <FilesProps files={data.files} target={data.target}>
-        {groups.map((group) => (
-          <section key={`${group.kind}:${group.title}`} className="mb-4">
+        {groups.map((group, groupIndex) => (
+          <section key={`${group.kind}:${group.title}`}>
             <ConcernHeader
               number={group.kind === "concern" ? ++concernNumber : null}
+              first={groupIndex === 0}
               title={group.title}
               explanation={group.explanation}
               files={group.files.map((file) => ({ path: file.path, summary: group.summaries?.[file.path] }))}
@@ -320,7 +336,9 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
               showList={group.kind === "concern"}
               viewed={viewed}
               onJump={jumpToFile}
-            />
+            >
+              <NotesBox notes={notesByGroup[groupIndex] ?? []} onJump={jump} />
+            </ConcernHeader>
             {group.files.map((file) => (
               <FileCard
                 key={file.path}
