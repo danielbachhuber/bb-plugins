@@ -8,6 +8,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import {
   IssueListView,
   type HarvestPanelState,
+  type HarvestState,
   type Listing,
   type Row,
 } from "./issues/list-view";
@@ -95,8 +96,9 @@ const baseline: Listing = {
   skippedRepos: [],
   truncated: false,
   lastError: null,
-  harvest: { available: true, running: null },
 };
+
+const HARVEST_IDLE: HarvestState = { available: true, running: null };
 
 const EXPORT_EPIC = {
   number: 140,
@@ -207,10 +209,10 @@ const harvestClient: HarvestTimerClient = {
   stopTimer: async () => {},
 };
 
-function harvestFor(listing: Listing): HarvestPanelState {
+function harvestFor(state: HarvestState): HarvestPanelState {
   return {
-    available: listing.harvest.available,
-    running: listing.harvest.running,
+    available: state.available,
+    running: state.running,
     client: harvestClient,
     onStarted: noop,
   };
@@ -225,11 +227,13 @@ const threadStatus = (id: string | null) => (id === null ? null : (THREADS[id] ?
 /** The panel's title bar, so a frame reads like the real panel. */
 function Frame({
   listing,
+  harvest = HARVEST_IDLE,
   starting = new Set(),
   busyKeys = new Set(),
   height = "h-[30rem]",
 }: {
   listing: Listing | null;
+  harvest?: HarvestState;
   starting?: Set<string>;
   busyKeys?: Set<string>;
   /** A Tailwind height class, or "fit" to grow with the list. */
@@ -253,7 +257,7 @@ function Frame({
             now={now}
             busyKeys={busyKeys}
             starting={starting}
-            harvest={listing ? harvestFor(listing) : harvestFor(baseline)}
+            harvest={harvestFor(harvest)}
             onPick={noop}
             onStart={noop}
             onOpen={noop}
@@ -341,18 +345,16 @@ export function Rows() {
         hint="A thread being created for #214, a status change saving on #156, and a Harvest timer running on #231."
       >
         <Frame
-          listing={{
-            ...baseline,
-            harvest: {
-              available: true,
-              running: {
-                externalId: "231",
-                groupId: null,
-                entryId: 1,
-                startedAt: new Date(now - 25 * 60_000).toISOString(),
-                projectName: "Widgets",
-                taskName: "Development",
-              },
+          listing={baseline}
+          harvest={{
+            available: true,
+            running: {
+              externalId: "231",
+              groupId: null,
+              entryId: 1,
+              startedAt: new Date(now - 25 * 60_000).toISOString(),
+              projectName: "Widgets",
+              taskName: "Development",
             },
           }}
           starting={new Set(["acme/widgets#214"])}
@@ -362,7 +364,8 @@ export function Rows() {
       </StoryRow>
       <StoryRow label="Without Harvest" hint="No clock in the action line.">
         <Frame
-          listing={{ ...baseline, harvest: { available: false, running: null } }}
+          listing={baseline}
+          harvest={{ available: false, running: null }}
           height="h-[36rem]"
         />
       </StoryRow>

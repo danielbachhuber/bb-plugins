@@ -61,7 +61,6 @@ export type Listing = {
   skippedRepos: string[];
   truncated: boolean;
   lastError: string | null;
-  harvest: { available: boolean; running: RunningReference };
   /** The past hour of sweeps and what each cost on GitHub. */
   usage?: SyncUsage;
 };
@@ -76,6 +75,12 @@ export type RunningReference =
       taskName: string;
     }
   | null;
+
+/** Whether the clock shows, and which row's timer is running, read apart from the listing. */
+export interface HarvestState {
+  available: boolean;
+  running: RunningReference;
+}
 
 export interface HarvestPanelState {
   available: boolean;

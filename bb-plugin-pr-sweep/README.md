@@ -141,7 +141,7 @@ whose thread has no flags left, a menu of earlier threads when there are any,
 Copy link, and Add note or Edit note, then the comment count: general and
 inline comments together, resolved threads included, so a pull request whose
 threads were all answered still shows it was discussed. The Harvest clock, when the Harvest
-plugin is installed, sits at the right end of that line. Start thread's tooltip names the work, such as "Resolve
+plugin is installed, sits at the right end of that line. The page asks the Harvest plugin for the clock's state after it draws the rows, which costs two Harvest requests each time the page opens, a sweep lands, or a timer starts. Start thread's tooltip names the work, such as "Resolve
 conflict". A row only waiting for a run to finish offers no Start thread.
 
 A row with a thread has a line under its actions saying what the thread is

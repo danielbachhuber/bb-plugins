@@ -184,7 +184,7 @@ general and inline comments together, resolved threads included. Inline
 comments are counted through the reviews that posted them, since each reply to
 a thread is a review of its own, leaving out your pending review. Only general
 comments count toward "N new". The Harvest clock, when the Harvest plugin is
-installed, sits at the right end of that line.
+installed, sits at the right end of that line. The page asks the Harvest plugin for the clock's state after it draws the rows, which costs two Harvest requests each time the page opens, a sweep lands, or a timer starts.
 
 Snooze opens the same day menu as Now's Postpone, from component-library:
 Tomorrow, Next week (the coming Monday), and In two weeks, each with the day

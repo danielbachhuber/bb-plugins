@@ -84,13 +84,19 @@ afterEach(() => {
   mounted = null;
 });
 
+/**
+ * Mounts the panel. A fixture's `harvest` is what `harvestState` answers, and
+ * the rest is the listing.
+ */
 function render(result: Record<string, unknown>, extraRpc: Record<string, unknown> = {}) {
+  const { harvest, ...rows } = result;
   const slot = renderSlot(
     app.navPanels[0]!,
     { subPath: "" },
     {
       rpc: {
-        listRows: () => result,
+        listRows: () => rows,
+        harvestState: () => harvest ?? { available: false, running: null },
         refresh: () => ({ ok: true, error: null }),
         markSeen: () => ({ ok: true }),
         ...extraRpc,

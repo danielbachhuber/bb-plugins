@@ -634,15 +634,20 @@ export default async function plugin(bb: BbPluginApi) {
   const harvest = createHarvestBridge(bb);
 
   /**
-   * Harvest's contribution to the listing: whether the clock should render at
-   * all, and which row it should be lit on.
+   * Whether the clock should render at all, and which row it should be lit
+   * on. Kept out of `listRows`, which would otherwise wait on two Harvest API
+   * requests before returning rows already in the database.
    */
-  async function harvestListingState() {
+  async function harvestState() {
     if (!(await harvest.available())) return { available: false, running: null };
     return { available: true, running: await harvest.runningReference() };
   }
 
   bb.rpc.register(rpcContract, {
+    harvestState() {
+      return harvestState();
+    },
+
     async listRows() {
       const meta = store.readMeta();
       const { boardStages, staleAfterDays, statusOnPullRequest, projectBoard, countedStatuses } =
@@ -705,7 +710,6 @@ export default async function plugin(bb: BbPluginApi) {
         skippedRepos: meta.skippedRepos,
         truncated: meta.truncated,
         lastError: threadMap === null ? GH_CONTEXT_REQUIRED : meta.lastError,
-        harvest: await harvestListingState(),
       };
     },
 

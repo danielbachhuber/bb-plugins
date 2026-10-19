@@ -137,32 +137,6 @@ export const rpcContract = defineRpcContract({
       skippedRepos: z.array(z.string()),
       truncated: z.boolean(),
       lastError: z.string().nullable(),
-      /**
-       * Whether the Harvest plugin is installed, enabled, and usable. The
-       * per-row clock renders only when it is, so the panel stays fully
-       * useful with no Harvest plugin present.
-       */
-      harvest: z.object({
-        available: z.boolean(),
-        /**
-         * The reference the running timer is against, so the matching row can
-         * show it. Read with the listing rather than followed live: realtime
-         * signals are scoped to the plugin that publishes them, so Issue Sweep
-         * cannot subscribe to the Harvest plugin's broadcast.
-         */
-        running: z
-          .object({
-            externalId: z.string(),
-            groupId: z.string().nullable(),
-            // Declared explicitly: zod strips unknown keys, so an omitted
-            // field here silently disappears and the chip cannot tick.
-            entryId: z.number(),
-            startedAt: z.string().nullable(),
-            projectName: z.string(),
-            taskName: z.string(),
-          })
-          .nullable(),
-      }),
     }),
   },
   refresh: {
@@ -208,6 +182,35 @@ export const rpcContract = defineRpcContract({
       /** True when an existing thread was returned rather than a new one started. */
       existing: z.boolean(),
       reason: z.string().nullable(),
+    }),
+  },
+  /**
+   * Whether the clock should render at all, and which row's timer is running.
+   * Read apart from the listing, after the rows are drawn, because asking the
+   * Harvest plugin takes two Harvest API requests.
+   */
+  harvestState: {
+    input: z.null(),
+    output: z.object({
+      available: z.boolean(),
+      /**
+       * The reference the running timer is against, so the matching row can
+       * show it. Read on each listing reload rather than followed live: realtime
+       * signals are scoped to the plugin that publishes them, so Issue Sweep
+       * cannot subscribe to the Harvest plugin's broadcast.
+       */
+      running: z
+        .object({
+          externalId: z.string(),
+          groupId: z.string().nullable(),
+          // Declared explicitly: zod strips unknown keys, so an omitted
+          // field here silently disappears and the chip cannot tick.
+          entryId: z.number(),
+          startedAt: z.string().nullable(),
+          projectName: z.string(),
+          taskName: z.string(),
+        })
+        .nullable(),
     }),
   },
   /**

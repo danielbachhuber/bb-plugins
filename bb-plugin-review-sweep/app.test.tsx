@@ -52,9 +52,8 @@ function listing(overrides: Record<string, unknown> = {}) {
     truncated: false,
     lastError: null,
     staleAfterDays: 2,
-    // Required by the contract, so the fixture carries it: the panel reads
-    // listing.harvest to decide whether to draw a clock, and a fixture that
-    // omits it renders nothing at all.
+    // What `harvestState` answers. No Harvest plugin by default, which is the
+    // state the panel has to stay fully usable in.
     harvest: { available: false, running: null },
     ...overrides,
   };
@@ -74,13 +73,19 @@ afterEach(() => {
   mounted = null;
 });
 
+/**
+ * Mounts the panel. A fixture's `harvest` is what `harvestState` answers, and
+ * the rest is the listing.
+ */
 function render(result: Record<string, unknown>, extraRpc: Record<string, unknown> = {}) {
+  const { harvest, ...rows } = result;
   const slot = renderSlot(
     app.navPanels[0]!,
     { subPath: "" },
     {
       rpc: {
-        listRows: () => result,
+        listRows: () => rows,
+        harvestState: () => harvest ?? { available: false, running: null },
         refresh: () => ({ ok: true, error: null }),
         markSeen: () => ({ ok: true }),
         ...extraRpc,

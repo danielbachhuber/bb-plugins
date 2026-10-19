@@ -126,7 +126,7 @@ opens the thread. The status comes from bb's sidebar, so it makes no request.
 
 An open row's actions are Start thread or Open thread, Copy link, and Add note
 or Edit note, then the progress bar, with its count in green, and the comment count. The Harvest clock, when the Harvest plugin is installed, sits at
-the right end of that line. Start
+the right end of that line. The page asks the Harvest plugin for the clock's state after it draws the rows, which costs two Harvest requests each time the page opens, a sweep lands, or a timer starts. Start
 thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
 

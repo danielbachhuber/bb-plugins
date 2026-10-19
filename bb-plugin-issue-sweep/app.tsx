@@ -10,6 +10,7 @@ import { SidebarCount } from "@danielbachhuber/bb-plugin-component-library/sideb
 import { TopBarCount, TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { useLastValue } from "@danielbachhuber/bb-plugin-component-library/last-value";
 import { Icon } from "@/components/ui/icon";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -22,17 +23,22 @@ import { countedRows } from "./issues/board.js";
 import {
   IssueListView,
   type HarvestPanelState,
+  type HarvestState,
   type Listing,
   type Row,
 } from "./issues/list-view.js";
 
+/**
+ * The stored rows. The page opens on the listing it last read, so it draws
+ * at once, and replaces it when this read lands.
+ */
 function useListing() {
   const rpc = useRpc<typeof rpcContract>();
-  const [listing, setListing] = useState<Listing | null>(null);
+  const [listing, setListing] = useLastValue<Listing>("bb-plugin-issue-sweep:listing");
 
   const load = useCallback(async () => {
     setListing((await rpc.call("listRows", null)) as Listing);
-  }, [rpc]);
+  }, [rpc, setListing]);
 
   useEffect(() => {
     void load();
@@ -43,6 +49,29 @@ function useListing() {
   });
 
   return { listing, reload: load, rpc };
+}
+
+/**
+ * Whether the clock shows, and which row's timer is running. Read after the
+ * rows, since it waits on the Harvest API, and again on each sweep and timer
+ * start. Kept like the listing, so the clocks do not pop in on every open.
+ */
+function useHarvestState(rpc: ReturnType<typeof useRpc<typeof rpcContract>>) {
+  const [state, setState] = useLastValue<HarvestState>("bb-plugin-issue-sweep:harvest");
+
+  const load = useCallback(async () => {
+    setState(await rpc.call("harvestState", null));
+  }, [rpc, setState]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useRealtime("issues-updated", () => {
+    void load();
+  });
+
+  return { state, reload: load };
 }
 
 /**
@@ -155,13 +184,13 @@ function Panel() {
   );
 
   const harvestClient = useHarvestClient(rpc);
+  const harvestState = useHarvestState(rpc);
   const harvest: HarvestPanelState = {
-    available: listing?.harvest.available === true,
-    running: listing?.harvest.running ?? null,
+    available: harvestState.state?.available === true,
+    running: harvestState.state?.running ?? null,
     client: harvestClient,
-    // Starting a timer changes which row is lit, and that state arrives with
-    // the listing, so the listing is what has to be re-read.
-    onStarted: reload,
+    // Starting a timer changes which row is lit.
+    onStarted: () => void harvestState.reload(),
   };
 
   // The issue whose Start thread box is open, with the seeds the backend
