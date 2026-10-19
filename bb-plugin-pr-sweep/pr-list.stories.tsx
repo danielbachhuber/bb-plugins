@@ -540,7 +540,8 @@ function Frame({
 /**
  * A typical day. The one with a thread is pinned at the top; the rest follow
  * newest first, each with a red banner naming what stops it or a green one
- * when it can merge. The one with a thread is stacked on the one ready to
+ * when it can merge, and the one awaiting review closes to one line at the
+ * bottom. The one with a thread is stacked on the one ready to
  * merge, so each has a chip: "1 of 2 · base" and "2 of 2 · on #512".
  */
 export function Baseline() {
@@ -558,8 +559,9 @@ export function Baseline() {
 
 /**
  * Every run the list can draw: needs you, ready to merge, working, drafts,
- * and waiting, including one stale after six days with its reviewer, pinned
- * on top with the one being worked on, and the rest newest first. Then every flag in the banner, the list
+ * and waiting, including one stale after six days with its reviewer. The
+ * one being worked on is on top and the waiting ones close to one line at the
+ * bottom, the stale one first, and the rest are newest first. Then every flag in the banner, the list
  * across two repositories, a thread being started with a timer running, and
  * the panel without Harvest.
  */
@@ -720,8 +722,8 @@ const long: Listing = {
 };
 
 /**
- * A long list: the pinned rows at the top, then every other pull request
- * newest first, with nothing folded.
+ * A long list: the open rows first, then every pull request waiting on a
+ * reviewer closed to one line at the bottom, newest first, with nothing folded.
  */
 export function LongList() {
   return (

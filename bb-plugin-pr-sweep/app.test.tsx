@@ -300,7 +300,7 @@ describe("tiers", () => {
     expect(await within(await rowFor(slot, "Waiting item")).findByRole("button", { name: "Add note" })).toBeInTheDocument();
   });
 
-  it("draws the newest first, with the overdue and then the ones being worked on pinned on top", async () => {
+  it("draws the newest first, with the ones being worked on pinned on top and the minimized ones last, overdue first", async () => {
     const slot = render(
       listing({
         rows: [
@@ -309,11 +309,12 @@ describe("tiers", () => {
           rowFixture({ number: 3, title: "Working", threadId: "thr_1", threadIds: ["thr_1"], updatedAt: Date.now() - 2 * DAY }),
           rowFixture({ number: 4, title: "Ready", flags: ["merge-ready"], group: "ready-to-merge", updatedAt: Date.now() - 2 * HOUR }),
           rowFixture({ number: 5, title: "Conflict", updatedAt: Date.now() - 3 * HOUR }),
+          waitingRow({ number: 6, title: "Waiting", updatedAt: Date.now() - HOUR }),
         ],
       }),
     );
     await slot.findByText("Overdue");
-    expect(titles(slot)).toEqual(["Overdue", "Working", "Draft", "Ready", "Conflict"]);
+    expect(titles(slot)).toEqual(["Working", "Draft", "Ready", "Conflict", "Overdue", "Waiting"]);
   });
 
   it("puts what stops the pull request in a red banner under the title", async () => {

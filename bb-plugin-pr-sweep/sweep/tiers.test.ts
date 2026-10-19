@@ -4,6 +4,7 @@ import {
   flagsFor,
   isStale,
   parseStaleAfterDays,
+  isMinimized,
   pinOf,
   runOf,
   sortPrs,
@@ -151,20 +152,29 @@ describe("flagsFor", () => {
 
 describe("sortPrs", () => {
   it("puts the newest first", () => {
-    const old = pr({ title: "old", updatedAt: NOW - 2 * DAY });
-    const fresh = pr({ title: "fresh", updatedAt: NOW - HOUR });
+    const old = pr({ title: "old", flags: ["ci-failing"], updatedAt: NOW - 2 * DAY });
+    const fresh = pr({ title: "fresh", flags: ["ci-failing"], updatedAt: NOW - HOUR });
     const draft = pr({ title: "draft", isDraft: true, updatedAt: NOW - 2 * HOUR });
     expect(sortPrs([old, draft, fresh], inputs).map((row) => row.title)).toEqual(["fresh", "draft", "old"]);
   });
 
-  it("pins the overdue and then the ones being worked on above the newest", () => {
+  it("pins the ones being worked on above the newest, and puts the minimized rows last, overdue first", () => {
     const fresh = pr({ title: "fresh", flags: ["ci-failing"], updatedAt: NOW - HOUR });
     const working = pr({ title: "working", threadId: "thr_1", updatedAt: NOW - 2 * DAY });
     const overdue = pr({ title: "overdue", updatedAt: NOW - 5 * DAY });
+    const waiting = pr({ title: "waiting", updatedAt: NOW - 2 * HOUR });
     expect(pinOf(overdue, inputs)).toBe(0);
     expect(pinOf(working, inputs)).toBe(1);
     expect(pinOf(fresh, inputs)).toBeNull();
-    expect(sortPrs([fresh, working, overdue], inputs).map((row) => row.title)).toEqual(["overdue", "working", "fresh"]);
+    expect(isMinimized(overdue)).toBe(true);
+    expect(isMinimized(waiting)).toBe(true);
+    expect(isMinimized(fresh)).toBe(false);
+    expect(sortPrs([waiting, fresh, working, overdue], inputs).map((row) => row.title)).toEqual([
+      "working",
+      "fresh",
+      "overdue",
+      "waiting",
+    ]);
   });
 
   it("breaks a tie in time by repository, then number", () => {

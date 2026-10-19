@@ -170,9 +170,9 @@ export function flagsFor(row: ListedPr, inputs: TierInputs): Flag[] {
 }
 
 /**
- * Where a row is pinned above the rest: 0 for one waiting on a reviewer past
- * "Stale after (days)", 1 for one with a thread at work on it, and null for
- * the rest.
+ * Where a row is pinned within its group: 0 for one waiting on a reviewer
+ * past "Stale after (days)", 1 for one with a thread at work on it, and null
+ * for the rest.
  */
 export function pinOf(row: ListedPr, inputs: TierInputs): 0 | 1 | null {
   if (isStale(row, inputs)) return 0;
@@ -180,15 +180,22 @@ export function pinOf(row: ListedPr, inputs: TierInputs): 0 | 1 | null {
   return null;
 }
 
+/** A row the list closes to one line: one waiting on someone else. */
+export function isMinimized(row: ListedPr): boolean {
+  return PR_RUNS.find((run) => run.id === runOf(row))?.tier === "later";
+}
+
 /**
- * Newest first, by GitHub's last activity, with the overdue pull requests and
- * then the ones being worked on pinned above the rest. Repository and number
+ * Newest first, by GitHub's last activity, with the minimized rows grouped at
+ * the bottom. The ones being worked on are pinned above the other open rows,
+ * and the overdue ones above the other minimized rows. Repository and number
  * break ties, so rows sharing a timestamp do not reshuffle between sweeps.
  */
 export function sortPrs(rows: ListedPr[], inputs: TierInputs): ListedPr[] {
-  const keyed = rows.map((row) => ({ row, pin: pinOf(row, inputs) ?? 2 }));
+  const keyed = rows.map((row) => ({ row, group: isMinimized(row) ? 1 : 0, pin: pinOf(row, inputs) ?? 2 }));
   keyed.sort(
     (a, b) =>
+      a.group - b.group ||
       a.pin - b.pin ||
       b.row.updatedAt - a.row.updatedAt ||
       a.row.repo.localeCompare(b.row.repo) ||

@@ -1,8 +1,9 @@
 # bb-plugin-pr-sweep
 
 A bb sidebar panel listing every open pull request you authored, across all
-repositories, in one list, newest first, with the overdue ones and the ones
-being worked on pinned at the top.
+repositories, in one list, newest first, with the ones being worked on pinned
+at the top and the ones waiting on someone else closed to one line at the
+bottom.
 
 The sweep is deterministic: it runs `gh`, classifies the result with pure
 functions, and spends no model tokens. An agent is only involved when you click
@@ -33,14 +34,17 @@ bb plugin install . --yes
 
 ## How the list is ordered
 
-Newest first, by when GitHub last saw activity on the pull request, with two
-kinds pinned above the rest:
+Newest first, by when GitHub last saw activity on the pull request. The pull
+requests waiting on someone else, which close to one line, are grouped at the
+bottom. Two kinds are pinned to the top of their group:
 
-1. **Overdue**: awaiting review and not updated for "Stale after (days)".
-   Tinted red, with "Waiting N days" on its icon line.
-2. **Being worked on**: has a thread. Its rows have an orange left edge.
+1. **Being worked on**: has a thread. Its rows have an orange left edge.
+   Pinned above the other open rows.
+2. **Overdue**: awaiting review and not updated for "Stale after (days)".
+   Tinted red, with "Waiting N days" on its icon line. Pinned above the other
+   closed rows.
 
-Each pinned group is newest first too. Pull requests with the same timestamp
+Each pinned kind is newest first too. Pull requests with the same timestamp
 are ordered by repository then number, so rows do not reshuffle between
 sweeps.
 

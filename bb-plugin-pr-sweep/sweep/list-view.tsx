@@ -658,7 +658,7 @@ export function PrListView({
             // Rows stay open, so each pull request shows its actions, except
             // the ones waiting on someone else, which close to one line.
             collapsible="later"
-            // Newest first with the pinned rows on top, not grouped by tier.
+            // Newest first with the minimized rows last, not grouped by tier.
             order="given"
             Link={UrlLink}
             renderStartThread={(item) => {
