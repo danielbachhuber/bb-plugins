@@ -136,7 +136,8 @@ export function nextOpenItem(stored: StoredView, itemId: string, threadId?: stri
 
 /** Whether an item opens in this thread's side panel: not a list view's plain row, and not one worked in a thread of its own elsewhere. */
 function showsInPanel(stored: StoredView, item: Item, threadId: string | undefined): boolean {
-  return !isQuiet(stored.view, item) && threadElsewhere(item, threadId) === null;
+  // An inline view is answered above the composer, so the panel never opens on it.
+  return stored.view.layout !== "inline" && !isQuiet(stored.view, item) && threadElsewhere(item, threadId) === null;
 }
 
 /**

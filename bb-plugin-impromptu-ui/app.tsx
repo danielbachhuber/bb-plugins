@@ -18,7 +18,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
-import { allHandled, ViewBanner } from "./view/banner.js";
+import { startsCollapsed, ViewBanner } from "./view/banner.js";
 import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import { threadElsewhere, type Item } from "./view/schema.js";
@@ -301,6 +301,24 @@ function Banner() {
   // click on its header overrides that until it is next published.
   const [collapsedByUser, setCollapsedByUser] = useState<Record<number, boolean>>({});
   const focus = useFocus(threadId ?? "");
+  const fail = useFail();
+  // An inline view's answers run from here, with no side panel.
+  const replace = useCallback((updated: StoredView) => setViews((current) => current.map((stored) => (stored.id === updated.id ? updated : stored))), []);
+  const { busyItem, setBusyItem, run } = useRunAction(replace);
+  const reply = useCallback(
+    (stored: StoredView, item: Item, text: string) => {
+      setBusyItem(item.id);
+      rpc
+        .call("inline_reply", { viewId: stored.id, itemId: item.id, text })
+        .then((updated) => {
+          replace(updated);
+          const error = updated.items[item.id]?.result?.error;
+          if (error !== undefined) toast.error(error);
+        }, fail)
+        .finally(() => setBusyItem(null));
+    },
+    [rpc, fail, replace, setBusyItem],
+  );
   // Read through a ref so the fetch below does not re-run whenever the host
   // hands back a new navigate object.
   const navigateRef = useRef(navigate);
@@ -340,7 +358,7 @@ function Banner() {
   return (
     <div className="divide-y divide-border">
       {views.map((stored) => {
-        const collapsed = collapsedByUser[stored.id] ?? allHandled(stored);
+        const collapsed = collapsedByUser[stored.id] ?? startsCollapsed(stored);
         const openView = () =>
           navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
         return (
@@ -354,7 +372,9 @@ function Banner() {
                 toast.error(error instanceof Error ? error.message : String(error));
               });
             }}
-            busyItem={null}
+            busyItem={stored.view.layout === "inline" ? busyItem : null}
+            onAnswer={(item, index) => run(stored, item, index)}
+            onReply={(item, text) => reply(stored, item, text)}
             focusedItem={
               stored.id !== focusedView
                 ? null

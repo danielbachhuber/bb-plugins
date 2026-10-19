@@ -15,6 +15,7 @@ import { expandPatchFiles } from "./view/changes.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
 import { viewJsonSchema } from "./view/describe.js";
+import { INLINE_REPLY_LABEL, inlineReplyMessage } from "./view/inline.js";
 import { runCommand } from "./view/run-command.js";
 import { THREAD_INSTRUCTIONS } from "./view/instructions.js";
 import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
@@ -244,6 +245,32 @@ export default async function plugin(bb: BbPluginApi) {
     return updated;
   }
 
+  /**
+   * Answers an inline question with the user's own words, sent to the thread
+   * with the question so the agent knows what they answer. Recorded like a
+   * button, under the field's label, with the text as typed.
+   */
+  async function replyInline(viewId: number, itemId: string, text: string): Promise<StoredView> {
+    const stored = requireView(viewId);
+    const item = findItem(stored, itemId);
+    if (stored.view.layout !== "inline") throw new Error(`View ${viewId} is not an inline view.`);
+    if ((stored.items[itemId]?.state ?? "open") !== "open") throw new Error(`"${item.title}" is already answered.`);
+    let result: ActionResult = { label: INLINE_REPLY_LABEL, at: now(), draft: text };
+    try {
+      await bb.sdk.threads.send({
+        threadId: stored.threadId,
+        mode: "auto",
+        input: [{ type: "text", text: inlineReplyMessage(item, text), mentions: [] }],
+      });
+    } catch (error) {
+      result = { ...result, error: error instanceof Error ? error.message : String(error) };
+    }
+    const updated = store.setItem(viewId, itemId, { state: result.error === undefined ? "done" : "open", result }, now())!;
+    changed(stored);
+    bb.log.info(`answered ${itemId} in view ${viewId} in the user's words${result.error === undefined ? "" : ", failed"}`);
+    return updated;
+  }
+
   /** Runs a related entry's button. The item stays as it was; only the entry records what happened. */
   async function runRelated(viewId: number, itemId: string, entryId: string): Promise<StoredView> {
     const stored = requireView(viewId);
@@ -324,6 +351,7 @@ export default async function plugin(bb: BbPluginApi) {
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft, note }) => runAction(viewId, itemId, index, draft, note),
     related_run: ({ viewId, itemId, entryId }) => runRelated(viewId, itemId, entryId),
+    inline_reply: ({ viewId, itemId, text }) => replyInline(viewId, itemId, text),
     view_threads: async ({ viewId }) => {
       const threads: Record<string, { title: string; archived: boolean }> = {};
       for (const { threadId } of messageTargets(requireView(viewId).view)) {

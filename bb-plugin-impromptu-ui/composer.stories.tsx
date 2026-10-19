@@ -12,13 +12,14 @@ import { ThreadPromptContextBanner } from "@bb-app/components/promptbox/banner/T
 import { selectWorkspaceChangedFilesSection } from "@bb-app/components/workspace/workspace-change-summary";
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
-import { allHandled, ViewBanner } from "./view/banner";
+import { startsCollapsed, ViewBanner } from "./view/banner";
+import { INLINE_REPLY_LABEL } from "./view/inline";
 import nowRound0 from "./view/now-round/now-summary-0.webp?url";
 import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, threePrsView, staplesView, triageView } from "./view/fixtures";
+import { inlineTwoView, inlineView, configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, threePrsView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -129,7 +130,7 @@ function OtherViewBanner({ view, onOpenItem }: { view: StoredView; onOpenItem: (
   const [collapsedByUser, setCollapsedByUser] = useState<boolean | null>(null);
   const [hidden, setHidden] = useState(false);
   if (hidden) return null;
-  const collapsed = collapsedByUser ?? allHandled(view);
+  const collapsed = collapsedByUser ?? startsCollapsed(view);
   return (
     <ViewBanner
       stored={view}
@@ -191,8 +192,10 @@ function ThreadStage({
   // A list view's buttons work here without a server: they mark rows done or skipped.
   const [items, setItems] = useState(published.items);
   const view = { ...published, items };
-  const collapsed = collapsedByUser ?? allHandled(view);
+  const collapsed = collapsedByUser ?? startsCollapsed(view);
   const setItem = (item: Item, record: ItemRecord) => setItems((current) => ({ ...current, [item.id]: record }));
+  // An inline view is answered above the composer and has no side panel.
+  const panel = !chatOnly && view.view.layout !== "inline";
   return (
     <div className="flex w-[1320px] overflow-hidden border border-border bg-background" style={{ height }}>
     <div className="flex min-w-0 flex-1 flex-col">
@@ -219,6 +222,10 @@ function ThreadStage({
                   onGoToThread={noop}
                   onOpenView={noop}
                   currentThreadId={currentThreadId}
+                  onAnswer={(item, index) =>
+                    setItem(item, { state: "done", result: { label: item.actions[index]!.label, at: "2026-03-12T12:07:00Z" } })
+                  }
+                  onReply={(item, text) => setItem(item, { state: "done", result: { label: INLINE_REPLY_LABEL, at: "2026-03-12T12:07:00Z", draft: text } })}
                 />
                 )}
                 {others.map((other) => (
@@ -261,7 +268,7 @@ function ThreadStage({
         />
       </div>
     </div>
-    {chatOnly ? null : (
+    {!panel ? null : (
     <aside className="w-[440px] shrink-0 border-l border-border">
       {view.view.layout === "list" ? (
         <ListPanel
@@ -887,6 +894,79 @@ export function ThreePrsAtOnce() {
           initialFocus="demo-accounts"
         />
       }
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Inline: one question, answered above the composer                          */
+/* -------------------------------------------------------------------------- */
+
+const inlineTurns: Turn[] = [
+  { kind: "user", text: "Fix the failing check on acme/widgets#412" },
+  { kind: "work", text: "Read the check run, its job log, and the snapshot diff" },
+  {
+    kind: "assistant",
+    text: "The one failing check is **Run web tests**. The new tabs work; the snapshot just wasn't updated for them. Both failing snapshots have the same diff: 10 added lines and nothing removed.\n\nI'd update the snapshots, re-run the suite, then commit and push. How to go ahead is above the composer.",
+  },
+];
+
+/** A question with its answers right above the composer. Hover an answer for what it does, or type something else. */
+export function InlineQuestion() {
+  return <ThreadStage turns={inlineTurns} view={stored(inlineView)} height={640} />;
+}
+
+/** Answered: the buttons give way to a green banner with the answer sent. */
+export function InlineAnswered() {
+  return (
+    <ThreadStage
+      turns={inlineTurns}
+      view={stored(inlineView, { snapshot: { state: "done", result: { label: "Update, commit, and push", at: "2026-03-12T12:07:00Z" } } })}
+      height={640}
+    />
+  );
+}
+
+/** Answered in the user's own words, from the field under the buttons. */
+export function InlineAnsweredInOwnWords() {
+  return (
+    <ThreadStage
+      turns={inlineTurns}
+      view={stored(inlineView, { snapshot: { state: "done", result: { label: INLINE_REPLY_LABEL, at: "2026-03-12T12:07:00Z", draft: "Update them, but push to a new branch" } } })}
+      height={640}
+    />
+  );
+}
+
+/** A send that failed: red over the buttons, which stay so the answer can be sent again. */
+export function InlineFailed() {
+  return (
+    <ThreadStage
+      turns={inlineTurns}
+      view={stored(inlineView, {
+        snapshot: { state: "open", result: { label: "Update, commit, and push", at: "2026-03-12T12:07:00Z", error: "The thread is archived. Unarchive it and try again." } },
+      })}
+      height={680}
+    />
+  );
+}
+
+const inlineTwoTurns: Turn[] = [
+  { kind: "user", text: "Make the widget list open faster" },
+  { kind: "work", text: "Edited 9 files, ran the tests, timed the page" },
+  {
+    kind: "assistant",
+    text: "The widget list now opens on the rows it showed last time, in 48 ms instead of 340 ms, and the slow part loads after the rows are drawn. The tests pass.\n\nNothing is committed yet. Two questions are above the composer.",
+  },
+];
+
+/** Two questions in one view, the first answered. */
+export function InlineTwoQuestions() {
+  return (
+    <ThreadStage
+      turns={inlineTwoTurns}
+      view={stored(inlineTwoView, { commit: { state: "done", result: { label: "2 commits, push, and capture", at: "2026-03-12T12:07:00Z" } } })}
+      height={720}
     />
   );
 }

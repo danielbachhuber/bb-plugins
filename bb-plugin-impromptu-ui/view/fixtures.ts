@@ -1231,3 +1231,76 @@ export const threePrsView: View = viewSchema.parse({
     },
   ],
 });
+
+/** An inline question after a short proposal: three answers, the likely one primary. */
+export const inlineView: View = viewSchema.parse({
+  title: "Fix the failing check",
+  layout: "inline",
+  sections: [
+    {
+      items: [
+        {
+          id: "snapshot",
+          title: "How should I fix the snapshot check?",
+          actions: [
+            {
+              type: "message",
+              label: "Update, commit, and push",
+              primary: true,
+              detail: "Update the 2 snapshots, re-run the suite, commit, and push",
+              text: "Go ahead: update the 2 snapshots, re-run the suite, then commit and push.",
+            },
+            {
+              type: "message",
+              label: "Update but don't push",
+              detail: "The same, stopping after the commit",
+              text: "Update the 2 snapshots and commit, but don't push yet.",
+            },
+            {
+              type: "message",
+              label: "Show me the diff first",
+              detail: "Update the snapshots and show the diff before committing",
+              text: "Update the snapshots, then show me the diff before committing.",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
+/** An inline question after a long report: four longer answers, and a second question after it. */
+export const inlineTwoView: View = viewSchema.parse({
+  title: "Faster widget list",
+  layout: "inline",
+  sections: [
+    {
+      items: [
+        {
+          id: "commit",
+          title: "Commit and push as 2 commits, then capture screenshots?",
+          actions: [
+            {
+              type: "message",
+              label: "2 commits, push, and capture",
+              primary: true,
+              detail: "The shared hook, then the 3 pages; push; run the screenshot capture",
+              text: "Commit the hook, then the 3 pages, as 2 commits. Push, then run the screenshot capture.",
+            },
+            { type: "message", label: "Just commit and push", detail: "The same 2 commits, without the screenshot capture", text: "Commit and push as 2 commits. Skip the screenshot capture." },
+            { type: "message", label: "1 commit instead", detail: "Hook and pages together, then push and capture", text: "Commit everything as 1 commit, push, then run the screenshot capture." },
+            { type: "message", label: "Not yet", detail: "Leave everything uncommitted", text: "Don't commit yet." },
+          ],
+        },
+        {
+          id: "publish",
+          title: "Publish the component library first?",
+          actions: [
+            { type: "message", label: "Publish it", primary: true, text: "Publish the component library with the new hook." },
+            { type: "message", label: "Later", text: "Don't publish the component library yet." },
+          ],
+        },
+      ],
+    },
+  ],
+});

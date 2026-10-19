@@ -26,6 +26,8 @@ const actionBase = {
   repeat: z.boolean().optional(),
   /** What a list view's row says once this button went through, such as "Added". */
   doneLabel: label.optional(),
+  /** What the button does, in a line: shown when the pointer rests on it. */
+  detail: z.string().trim().min(1).max(200).optional(),
 };
 
 /**
@@ -181,9 +183,16 @@ const dismissLabel = { dismissLabel: label.optional() };
  * How the side panel shows a view. `cards` shows one item at a time, opened
  * from the list above the composer. `list` shows the whole view as one list:
  * the items to decide at the top with their buttons on each row, and the items
- * with no buttons below as a plain list.
+ * with no buttons below as a plain list. `inline` never uses the side panel:
+ * each item is a question answered with its buttons right above the composer.
  */
-export const LAYOUTS = ["cards", "list"] as const;
+export const LAYOUTS = ["cards", "list", "inline"] as const;
+
+/** An inline view asks at most this many questions. */
+export const INLINE_QUESTIONS = 3;
+
+/** Each inline question has this many answers, at least and at most. */
+export const INLINE_ANSWERS = { min: 2, max: 4 } as const;
 
 /** At most this many buttons on a list row, besides Dismiss, so it stays one line. */
 export const LIST_ACTIONS = 3;
@@ -593,6 +602,7 @@ export const viewSchema = z
         seen.add(item.id);
       }),
     );
+    if (view.layout === "inline") checkInline(view, ctx);
     if (view.map !== undefined) {
       if (view.layout !== "cards") ctx.addIssue({ code: "custom", path: ["map"], message: 'a map needs the "cards" layout' });
       const placed = new Set<string>();
@@ -609,6 +619,52 @@ export const viewSchema = z
     }
   });
 export type View = z.infer<typeof viewSchema>;
+
+/**
+ * What an inline view cannot hold: anything that needs the side panel. Each
+ * item is a question, its buttons the answers.
+ */
+function checkInline(view: { sections: Array<{ items: Item[] }> }, ctx: z.RefinementCtx) {
+  const items = view.sections.flatMap((section) => section.items);
+  if (items.length > INLINE_QUESTIONS) {
+    ctx.addIssue({ code: "custom", path: ["sections"], message: `an "inline" view asks at most ${INLINE_QUESTIONS} questions; use "cards" for more` });
+  }
+  view.sections.forEach((section, s) =>
+    section.items.forEach((item, i) => {
+      const path = ["sections", s, "items", i];
+      const answers = item.actions.filter((action) => action.type !== "link").length;
+      if (answers < INLINE_ANSWERS.min || item.actions.length > INLINE_ANSWERS.max) {
+        ctx.addIssue({
+          code: "custom",
+          path: [...path, "actions"],
+          message: `a question in an "inline" view has ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons, at least ${INLINE_ANSWERS.min} of them answers rather than links`,
+        });
+      }
+      item.actions.forEach((action, a) => {
+        if (action.type === "command") {
+          ctx.addIssue({ code: "custom", path: [...path, "actions", a, "type"], message: 'an "inline" view answers with message, thread, or link buttons; a command needs the "cards" layout' });
+        }
+      });
+      const panelOnly: Array<[keyof Item, boolean]> = [
+        ["draft", item.draft !== ""],
+        ["note", item.note !== undefined],
+        ["changes", item.changes.length > 0],
+        ["evidence", item.evidence.length > 0],
+        ["variations", item.variations.length > 0],
+        ["related", item.related !== undefined],
+        ["history", item.history.length > 0],
+        ["thread", item.thread !== undefined],
+        ["closing", item.closing],
+        ["status", item.status !== undefined],
+        ["meter", item.meter !== undefined],
+      ];
+      for (const [field, present] of panelOnly) {
+        if (present) ctx.addIssue({ code: "custom", path: [...path, field], message: `${field} needs the side panel, so the "cards" layout, not "inline"` });
+      }
+    }),
+  );
+}
+
 
 function sectionOf(view: View, item: Item): Section | undefined {
   return view.sections.find((section) => section.items.some((candidate) => candidate.id === item.id));

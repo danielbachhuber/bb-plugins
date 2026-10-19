@@ -2,6 +2,7 @@
 
 - **Triage your milestone** without getting lost in paragraphs of feedback. Each recommendation becomes a row with a drafted comment and buttons to post it, post and close, or start a thread.
 - **Create several PRs at once** without juggling threads. Each fix waits on its own card, with its diff and PR description, until you click **Commit, push, and open PR**.
+- **Answer "Should I go ahead?" in one click.** The question sits above the composer with its answers as buttons and a field for something else.
 - **Find the design you want** by reacting to variations instead of describing it up front. Pick one from a film strip, or leave notes for the next round.
 
 ## How it works

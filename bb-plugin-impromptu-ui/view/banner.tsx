@@ -4,11 +4,16 @@
 // thread the item is worked in when it has one elsewhere. A view with
 // the "list" layout lives in the side panel instead, so here it is one row
 // that previews it and opens it. Kept free of RPC so a story can render it
-// with fixture props.
-import { Button } from "@/components/ui/button";
+// with fixture props. An "inline" view is answered right here instead: each
+// item is a question, with its buttons and a field for an answer of the
+// user's own under it, and a green banner in their place once it is answered.
+import { useState } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { closingItem, fillTally, openBeforeClosing, stepsBefore } from "./closing.js";
+import { answerText, inlineProgress, questions } from "./inline.js";
 import { feedbackLabel } from "./review.js";
 import { isQuiet, threadElsewhere, type Item } from "./schema.js";
 import type { StoredView } from "./store.js";
@@ -30,6 +35,10 @@ export interface ViewBannerProps {
   onOpenView: () => void;
   /** The thread showing the list. An item worked in another thread opens that thread instead of the side panel. */
   currentThreadId?: string;
+  /** Presses one of an inline question's buttons, by its index in the item's actions. */
+  onAnswer?: (item: Item, index: number) => void;
+  /** Answers an inline question with what the user typed. */
+  onReply?: (item: Item, text: string) => void;
 }
 
 /** One line of plain text from a markdown summary, for the row. */
@@ -89,6 +98,14 @@ export function decisionItems(stored: StoredView): Item[] {
 export function allHandled(stored: StoredView): boolean {
   const items = decisionItems(stored);
   return items.length > 0 && items.every((item) => (stored.items[item.id]?.state ?? "open") !== "open");
+}
+
+/**
+ * Whether a view starts folded to its header: once everything in it is
+ * handled, except an inline view, whose green answers are what to see.
+ */
+export function startsCollapsed(stored: StoredView): boolean {
+  return stored.view.layout !== "inline" && allHandled(stored);
 }
 
 /**
@@ -157,8 +174,11 @@ export function ViewBanner({
   onGoToThread,
   onOpenView,
   currentThreadId,
+  onAnswer,
+  onReply,
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
+  const inline = stored.view.layout === "inline";
   const closing = list ? undefined : closingItem(stored);
   const numbers = rowNumbers(stored);
 
@@ -170,7 +190,7 @@ export function ViewBanner({
           {/* The title gives way first, so a long one never hides how much is left. */}
           <span className="flex min-w-0 flex-1 items-baseline text-sm">
             <b className="min-w-0 truncate font-medium text-foreground">{stored.view.title}</b>
-            <span className="shrink-0 whitespace-pre text-muted-foreground"> · {progressLabel(stored)}</span>
+            <span className="shrink-0 whitespace-pre text-muted-foreground"> · {inline ? inlineProgress(stored) : progressLabel(stored)}</span>
           </span>
         </button>
         <button
@@ -183,7 +203,20 @@ export function ViewBanner({
           <Icon name="Archive" className="size-4" />
         </button>
       </div>
-      {collapsed ? null : list ? (
+      {collapsed ? null : inline ? (
+        <div className="divide-y divide-border border-t border-border">
+          {questions(stored).map((item) => (
+            <InlineQuestion
+              key={item.id}
+              stored={stored}
+              item={item}
+              busy={busyItem === item.id}
+              onAnswer={(index) => onAnswer?.(item, index)}
+              onReply={(text) => onReply?.(item, text)}
+            />
+          ))}
+        </div>
+      ) : list ? (
         <ListRow stored={stored} onOpen={onOpenView} />
       ) : (
         <ul className="max-h-72 overflow-y-auto border-t border-border">
@@ -335,4 +368,102 @@ function OpenChevron({ label, strong, onClick }: { label: string; strong: boolea
       <Icon name="ChevronRight" className="size-4" aria-hidden />
     </button>
   );
+}
+
+/**
+ * One question of an inline view: the question, then its buttons and a field
+ * for an answer of the user's own; once answered, a green banner with the
+ * answer in their place. A failed send shows red over the buttons, which stay
+ * so the user can try again.
+ */
+function InlineQuestion({
+  stored,
+  item,
+  busy,
+  onAnswer,
+  onReply,
+}: {
+  stored: StoredView;
+  item: Item;
+  busy: boolean;
+  onAnswer: (index: number) => void;
+  onReply: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const record = stored.items[item.id];
+  const result = record?.result ?? null;
+  const answered = record?.state === "done" && result !== null;
+  const failed = result?.error !== undefined;
+  const reply = () => {
+    if (text.trim() !== "" && !busy) onReply(text.trim());
+  };
+  return (
+    <div className="flex flex-col gap-1.5 px-3 py-2">
+      <span className="text-sm text-foreground">{item.title}</span>
+      {answered ? (
+        <div role="status" className="flex items-baseline gap-2 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-sm">
+          <span className="font-medium text-success" aria-hidden>
+            ✓
+          </span>
+          <span className="min-w-0 flex-1 truncate font-medium text-foreground">{answerText(result)}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">Sent {sentAt(result.at)}</span>
+        </div>
+      ) : (
+        <>
+          {failed ? (
+            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+              <span className="font-medium text-foreground">{answerText(result)}</span>
+              <span className="text-muted-foreground"> didn't send: </span>
+              <span className="text-destructive">{result.error}</span>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap gap-1.5">
+            {item.actions.map((action, index) => {
+              // A native button, since bb's Button leaves out the title that shows each answer's detail.
+              const look = buttonVariants({ size: "sm", variant: action.type !== "link" && action.primary ? "default" : "outline", className: "h-7 px-2.5 text-xs" });
+              return action.type === "link" ? (
+                <UrlLink key={index} href={action.url} className={look} title={action.detail}>
+                  {action.label}
+                </UrlLink>
+              ) : (
+                <button key={index} type="button" className={look} title={action.detail} disabled={busy} onClick={() => onAnswer(index)}>
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
+          <form
+            className="flex items-center gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              reply();
+            }}
+          >
+            <input
+              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Something else…"
+              aria-label={`Answer "${item.title}" in your own words`}
+              value={text}
+              disabled={busy}
+              onChange={(event) => setText(event.target.value)}
+            />
+            {text.trim() === "" ? null : (
+              <Button type="submit" size="sm" variant="outline" className="h-7 px-2.5 text-xs" disabled={busy}>
+                Send
+              </Button>
+            )}
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** "9:41 AM" today, "Mar 12" before today. */
+function sentAt(at: string): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toDateString() === new Date().toDateString()
+    ? date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : date.toLocaleDateString([], { month: "short", day: "numeric" });
 }

@@ -7,7 +7,7 @@ description: Use when `bb impromptu-ui` is available and the user would otherwis
 
 ## Overview
 
-`bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its number, title, first two badges, and the first line of its summary. By default nothing runs from the list: clicking a row opens the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. For one answer or one question, chat is still right.
+`bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its number, title, first two badges, and the first line of its summary. By default nothing runs from the list: clicking a row opens the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. When a turn ends on one question with a few answers, such as "Should I go ahead?", publish it with `"layout": "inline"` instead (see "Ask a question inline" below).
 
 ## Is it available?
 
@@ -69,7 +69,7 @@ The examples in this skill show common shapes, not the limit. `bb impromptu-ui s
 - `id` is unique in the view and stable across republishing: `issue-101`, `finding-3`.
 - `url` is what the item is about on the web (the issue, the PR, the review comment's `html_url`). The opened item's title links to it, so set it whenever there is one; a separate `link` button for the same page is then unnecessary.
 - `tone` is `neutral` (default), `info`, `success`, `warning`, or `danger`.
-- At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice.
+- At most 6 actions per item. `primary: true` makes a button stand out; use it for the likely choice. `detail` is one line on what the button does, shown when the pointer rests on it.
 - `draft` is text the user can edit before it is sent: a comment to post, the task for a new thread. It is markdown: the opened item shows it once, rendered, under `draftLabel`, with a Raw toggle to edit the source. A `message` or `thread` button puts `{draft}` in its `text` or `prompt` where the draft goes, so several buttons ("Post and close" and "Post") share one draft, and each sends its own instruction with the draft as the user left it. A command can use `{draft}` only in a list view (see below). Do not repeat the draft in `summary` or `details`.
 - On a card, for a short answer or a value of the user's own, set `"draftFormat": "text"`: the draft becomes a one-line field, with no preview or Raw toggle, instead of the markdown editor. Keep the markdown editor for anything longer than a line, like a comment to post or a thread's task. A list view's draft is already a one-line field, so this is for cards. A `text` draft on a card can start empty (`"draft": ""` or left out), may have a `draftPlaceholder`, and needs at least one `message` or `thread` button that uses `{draft}`. The field shows below the card's other buttons, with its `{draft}` buttons on its right. Enter presses one of those (the `primary` one, if any), never another button, so a card can mark a product button `primary` and still offer the field:
 
@@ -113,6 +113,34 @@ A `thread` button with `baseBranch` starts its thread in a new worktree cut from
 ```
 
 Every card also has Dismiss, and Start thread, which opens a new thread seeded with the card so the user can dig into it; do not add a `thread` button that only does that. Once one of a card's buttons goes through, the card is done and its other buttons are disabled (links stay usable), so each card should be one decision: offer "Post and close" and "Post" as alternatives, not "Post comment" then "Close issue" as steps. Label each button with only what it does: "Post" already means the issue stays open, so leave off "and keep open", and leave off prefixes like "Instead:". A command that fails leaves the card open to try again. A button with `"repeat": true` leaves the card open after it goes through, for a step the user may take again, such as "Regenerate".
+
+## Ask a question inline
+
+When your turn ends on a question the user answers by picking, such as "Should I go ahead?" after a proposed fix, or "Commit and push as 2 commits?" after a report, ask it above the composer instead of in the last line of your reply. Give the view `"layout": "inline"`: each item is one question, and its buttons are the answers.
+
+```json
+{
+  "title": "Fix the failing check",
+  "layout": "inline",
+  "sections": [{ "items": [{
+    "id": "snapshot",
+    "title": "How should I fix the snapshot check?",
+    "actions": [
+      { "type": "message", "label": "Update, commit, and push", "primary": true,
+        "detail": "Update the 2 snapshots, re-run the suite, commit, and push",
+        "text": "Go ahead: update the 2 snapshots, re-run the suite, then commit and push." },
+      { "type": "message", "label": "Update but don't push", "detail": "The same, stopping after the commit",
+        "text": "Update the 2 snapshots and commit, but don't push yet." }
+    ]
+  }]}]
+}
+```
+
+- The question, its buttons, and a "Something else…" field show right above the composer, and the side panel never opens. Once the user answers, a green banner with the answer replaces the buttons.
+- An answer typed into the field comes to you as the question, a blank line, and what they typed. `state` prints it as `(Something else: "<text>")`.
+- 1 to 3 questions per view, each with 2 to 4 buttons: `message`, `thread`, or `link`, at least 2 of them answers rather than links. A `command` needs the "cards" layout, since it asks before it runs. So do drafts, notes, changes, evidence, variations, related notes, history, a status, a meter, a closing step, and `thread` on an item.
+- Keep labels short and say what each does in `detail`, which shows when the pointer rests on the button. Mark the answer you recommend `primary`.
+- End your reply with the proposal and say the question is above the composer. Do not repeat the question or the answers in chat.
 
 ## A closing step
 

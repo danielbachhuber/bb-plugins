@@ -62,6 +62,11 @@ export const rpcContract = defineRpcContract({
     }),
     output: storedViewSchema,
   },
+  /** Answers an inline view's question with what the user typed instead of one of its buttons. */
+  inline_reply: {
+    input: itemRefSchema.extend({ text: z.string().trim().min(1).max(5_000) }),
+    output: storedViewSchema,
+  },
   /** Runs a related entry's button, by the entry's id. */
   related_run: {
     input: itemRefSchema.extend({ entryId: z.string().min(1).max(80) }),

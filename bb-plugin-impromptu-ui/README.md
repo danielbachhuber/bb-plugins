@@ -11,6 +11,10 @@ With Impromptu UI, you can:
   ![Thirteen issues above the composer, grouped under Close and Keep open with a question, with #429 open in the side panel: a Close: completed badge, the comment to post, and Post and close and Post buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--milestone-triage-item-open.png)
 
 - **Create three PRs at once** without juggling threads. Each fix waits on its own card, with its diff and PR description, until you click **Commit, push, and open PR**.
+- **Answer "Should I go ahead?" in one click.** The agent's question sits above the composer with its answers as buttons, and a field for something else. Your answer turns into a green banner.
+
+  ![A question above the composer, "How should I fix the snapshot check?", with Update, commit, and push, Update but don't push, and Show me the diff first buttons, and a Something else field under them](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--inline-question.png)
+
 - **Find the design you want** by reacting to variations instead of describing it up front. Pick one from a film strip, or leave notes for the next round.
 
   ![A visual review of task rows open in the side panel: Original, A, and B in a film strip, B picked with a note to keep the overdue date red, and a Send feedback button](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--visual-review-filled-in.png)
@@ -20,6 +24,7 @@ With Impromptu UI, you can:
 - The agent publishes what it wants you to act on as numbered rows above the composer, grouped under headings.
 - Click a row to open its card in the side panel: the summary, any diff, a draft you can edit, and the buttons that act on it. Every card also has **Start thread** and **Dismiss**.
 - Done and dismissed rows sink to the bottom, and the agent reads back what you did.
+- A view with the `inline` layout asks one to three questions instead. Click an answer, or type your own and press Enter, without opening the side panel.
 - A last step that depends on the rest, such as a code review's verdict, waits under the rows as a **Then** row until everything above it is handled.
 
 ## For agents
@@ -51,7 +56,7 @@ Nothing to configure. A command button runs with your permissions, so read it be
 
 ## Related plugins
 
-- **Ask User Question** (`ask-user-question`), bundled with bb: lets any provider ask one multiple-choice question, and the turn waits for the answer. Impromptu UI shows many items at once, and they stay open while you work through them.
+- **Ask User Question** (`ask-user-question`), bundled with bb: lets any provider ask one multiple-choice question, and the turn waits for the answer. Impromptu UI's inline questions come after the turn ends, so the thread is idle while you decide, and your answer starts the next turn. Its other views show many items at once, and they stay open while you work through them.
 - **Generative UI** (`genui`): the agent picks from 86 components, such as charts and forms, and they render inside its replies. Impromptu UI's items sit above the composer instead of in the transcript, and each button runs an action you can see, such as posting a draft or starting a thread.
 - **Thread Pages** (`thread-pages`): the agent writes a web page for its task and you answer from the page. Impromptu UI uses one fixed format of cards, buttons, and drafts, so every skill's results look and work the same way.
 - **Inline visualizations** (`inline-vis`), bundled with bb: shows an HTML or Markdown file inside a reply, for reading. Impromptu UI is for acting on each item.
