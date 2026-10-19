@@ -7,6 +7,7 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { GUIDE } from "./guide";
 import {
+  anchorLines,
   isPlacedByRule,
   targetKey,
   validateSubmission,
@@ -65,7 +66,21 @@ const MIGRATIONS = [
     target_json TEXT NOT NULL,
     requested_at TEXT NOT NULL
   )`,
+  // One row per Explain this click: the hidden fork writing the note, and the
+  // thread, diff, and line it is for. Deleted when the note is stored.
+  `CREATE TABLE explain_requests (
+    fork_thread_id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    target_json TEXT NOT NULL,
+    path TEXT NOT NULL,
+    line INTEGER NOT NULL,
+    requested_at TEXT NOT NULL
+  )`,
 ];
+
+/** An Explain this request older than this is treated as lost: its card goes, and the line can be asked again. */
+const EXPLAIN_TIMEOUT_MS = 10 * 60_000;
 
 const targetSchema = z.union([
   z.object({ type: z.enum(["all", "branch_committed"]), mergeBaseBranch: z.string().min(1) }),
@@ -75,7 +90,22 @@ const targetSchema = z.union([
 export const rpcContract = defineRpcContract({
   superdiff_get: {
     input: z.object({ threadId: z.string().min(1), target: targetSchema }),
-    output: z.object({ stored: z.string().nullable(), requestedAt: z.string().nullable() }),
+    output: z.object({
+      stored: z.string().nullable(),
+      requestedAt: z.string().nullable(),
+      /** Explain this requests still being written, for this diff. */
+      explaining: z.array(z.object({ path: z.string(), line: z.number(), requestedAt: z.string() })),
+    }),
+  },
+  superdiff_explain: {
+    input: z.object({
+      threadId: z.string().min(1),
+      target: targetSchema,
+      path: z.string().min(1),
+      line: z.number().int().positive(),
+      text: z.string(),
+    }),
+    output: z.object({ requestedAt: z.string() }),
   },
   superdiff_generate: {
     input: z.object({ threadId: z.string().min(1), target: targetSchema }),
@@ -89,6 +119,7 @@ const USAGE = [
   "  bb super-diff files                 Every changed file, and which ones the plugin places itself",
   "  bb super-diff patch <path>...       The patches for those paths",
   "  bb super-diff submit <file | json>  Check a Super Diff and store it if it passes",
+  "  bb super-diff explain <file | json> Store one annotation asked for with Explain this (in its fork only)",
   "",
   "Each command acts on the thread it runs in, and on the diff its Generate button asked for.",
 ].join("\n");
@@ -111,6 +142,18 @@ export default async function plugin(bb: BbPluginApi) {
     `INSERT INTO generate_requests (thread_id, target_json, requested_at) VALUES (?, ?, ?)
      ON CONFLICT (thread_id) DO UPDATE SET target_json = excluded.target_json, requested_at = excluded.requested_at`,
   );
+
+  type ExplainRow = { fork_thread_id: string; thread_id: string; target_key: string; target_json: string; path: string; line: number; requested_at: string };
+  const selectExplainByFork = db.prepare<[string], ExplainRow>("SELECT * FROM explain_requests WHERE fork_thread_id = ?");
+  const selectExplains = db.prepare<[string, string], ExplainRow>(
+    "SELECT * FROM explain_requests WHERE thread_id = ? AND target_key = ? ORDER BY requested_at",
+  );
+  const insertExplain = db.prepare(
+    `INSERT INTO explain_requests (fork_thread_id, thread_id, target_key, target_json, path, line, requested_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const deleteExplain = db.prepare("DELETE FROM explain_requests WHERE fork_thread_id = ?");
+  const deleteStaleExplains = db.prepare("DELETE FROM explain_requests WHERE requested_at < ?");
 
   /** The thread's environment and the base its diff compares against, or why there is none. */
   async function environmentOf(threadId: string): Promise<{ environmentId: string; mergeBaseBranch: string } | string> {
@@ -162,7 +205,40 @@ export default async function plugin(bb: BbPluginApi) {
       // base branch changes, an older request is not one this diff waits on.
       const request = selectRequest.get(threadId);
       const forThis = request !== undefined && targetKey(JSON.parse(request.target_json) as DiffTarget) === targetKey(target);
-      return { stored: row?.stored_json ?? null, requestedAt: forThis ? request.requested_at : null };
+      deleteStaleExplains.run(new Date(Date.now() - EXPLAIN_TIMEOUT_MS).toISOString());
+      const explaining = selectExplains
+        .all(threadId, targetKey(target))
+        .map((entry) => ({ path: entry.path, line: entry.line, requestedAt: entry.requested_at }));
+      return { stored: row?.stored_json ?? null, requestedAt: forThis ? request.requested_at : null, explaining };
+    },
+    superdiff_explain: async ({ threadId, target, path: filePath, line, text }) => {
+      if (selectStored.get(threadId, targetKey(target)) === undefined) throw new Error("Generate a Super Diff for this diff first.");
+      const requestedAt = new Date().toISOString();
+      // A hidden fork has the thread's whole conversation, so it knows why
+      // the code changed, and it runs beside the thread's agent rather than
+      // queueing behind it. bb's side chat forks the same way.
+      const fork = await bb.sdk.threads.fork({
+        sourceThreadId: threadId,
+        visibility: "hidden",
+        title: `Explain ${filePath.split("/").pop()}:${line}`,
+        input: [
+          {
+            type: "text",
+            text: [
+              `The reviewer is reading this thread's Super Diff and pressed Explain this on line ${line} of ${filePath}:`,
+              "",
+              "```",
+              text,
+              "```",
+              "",
+              `Write one annotation explaining that line: run \`bb super-diff guide\` and follow its rules for annotations, read the patch with \`bb super-diff patch ${filePath}\` and whatever code you need, then store it with \`bb super-diff explain\`, passing JSON like {"title": "...", "body": "...", "anchor": "..."}. The anchor is text from line ${line} (or the line you explain, if it is a better place) that appears once in the file's patch. Explain why the code is the way it is, from what you know of this thread's work, not only what it does. Then stop; do not change any files.`,
+            ].join("\n"),
+            mentions: [],
+          },
+        ],
+      });
+      insertExplain.run(fork.id, threadId, targetKey(target), JSON.stringify(target), filePath, line, requestedAt);
+      return { requestedAt };
     },
     superdiff_generate: async ({ threadId, target }) => {
       const requestedAt = new Date().toISOString();
@@ -190,11 +266,16 @@ export default async function plugin(bb: BbPluginApi) {
       { name: "files", summary: "List every changed file", usage: "bb super-diff files" },
       { name: "patch", summary: "Print patches for the given paths", usage: "bb super-diff patch <path>..." },
       { name: "submit", summary: "Check a Super Diff and store it", usage: "bb super-diff submit <file | json>" },
+      { name: "explain", summary: "Store one annotation asked for with Explain this", usage: "bb super-diff explain <file | json>" },
     ],
 
     async run(argv, ctx) {
       const threadFlag = argv.indexOf("--thread");
-      const threadId = threadFlag === -1 ? ctx.threadId : argv[threadFlag + 1];
+      const ownThreadId = threadFlag === -1 ? ctx.threadId : argv[threadFlag + 1];
+      // In an Explain this fork, every command acts on the thread and diff the
+      // reviewer was reading.
+      const explain = ownThreadId ? selectExplainByFork.get(ownThreadId) : undefined;
+      const threadId = explain?.thread_id ?? ownThreadId;
       const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread");
       const [command, ...args] = positional;
 
@@ -204,7 +285,8 @@ export default async function plugin(bb: BbPluginApi) {
 
       const resolved = await targetFor(threadId);
       if (typeof resolved === "string") return { exitCode: 1, stderr: resolved };
-      const { environmentId, target } = resolved;
+      const environmentId = resolved.environmentId;
+      const target = explain ? (JSON.parse(explain.target_json) as DiffTarget) : resolved.target;
       const files = await listFiles(environmentId, target);
       if (typeof files === "string") return { exitCode: 1, stderr: files };
 
@@ -256,6 +338,46 @@ export default async function plugin(bb: BbPluginApi) {
           exitCode: 0,
           stdout: `Stored: ${result.submission.concerns.length} concerns, ${result.submission.annotations.length} annotations, ${ruleCount} files placed by rule. The Diff tab shows it now.`,
         };
+      }
+
+      if (command === "explain") {
+        if (explain === undefined) return { exitCode: 1, stderr: "bb super-diff explain only works in a thread started by Explain this." };
+        const source = args.join(" ").trim();
+        let raw: unknown;
+        try {
+          raw = JSON.parse(source.startsWith("{") ? source : await readFile(path.resolve(ctx.cwd ?? process.cwd(), source), "utf8"));
+        } catch (cause) {
+          return { exitCode: 1, stderr: `Could not read the annotation: ${(cause as Error).message}` };
+        }
+        const note = raw as { title?: unknown; body?: unknown; anchor?: unknown } | null;
+        const problems: string[] = [];
+        if (typeof note?.title !== "string" || note.title.trim() === "") problems.push("Give it a title.");
+        if (typeof note?.body !== "string" || note.body.trim() === "") problems.push("Give it a body.");
+        if (typeof note?.anchor !== "string" || note.anchor.trim() === "") problems.push("Give it an anchor.");
+        const patch = (await loadPatches(environmentId, target, [explain.path])).get(explain.path) ?? "";
+        if (typeof note?.anchor === "string" && note.anchor.trim() !== "") {
+          const lines = anchorLines(patch, note.anchor);
+          if (lines.length === 0) problems.push(`The anchor is not on an added or unchanged line of ${explain.path}.`);
+          if (lines.length > 1) problems.push(`The anchor appears on ${lines.length} lines (${lines.join(", ")}); add more of the line so it appears once.`);
+        }
+        const row = selectStored.get(threadId, explain.target_key);
+        if (row === undefined) problems.push("This diff no longer has a Super Diff to add the note to.");
+        if (problems.length > 0) return { exitCode: 1, stderr: `Not stored. Fix these and run it again:\n- ${problems.join("\n- ")}` };
+        const stored = JSON.parse(row!.stored_json) as StoredSuperDiff;
+        stored.submission.annotations.push({
+          path: explain.path,
+          anchor: note!.anchor as string,
+          title: (note!.title as string).trim(),
+          body: (note!.body as string).trim(),
+          asked: true,
+        });
+        upsertStored.run(threadId, explain.target_key, JSON.stringify(stored));
+        deleteExplain.run(ownThreadId!);
+        // The fork is hidden already; archiving it once its turn has had time
+        // to end keeps it out of searches and thread counts too.
+        const forkId = ownThreadId!;
+        setTimeout(() => void bb.sdk.threads.archive({ threadId: forkId }).catch(() => {}), 120_000);
+        return { exitCode: 0, stdout: "Stored. The note shows under its line in the Super Diff now. You are done; stop here." };
       }
 
       return { exitCode: 1, stderr: `Unknown command "${command}".\n\n${USAGE}` };

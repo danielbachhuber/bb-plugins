@@ -22,6 +22,8 @@ export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileC
 /** One line of the row's list of concerns. `viewed` is null when Diff Viewed is not installed. */
 export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number };
 
+export type Explaining = { path: string; line: number; requestedAt: string };
+
 export type Loaded = { files: FileEntry[]; patches: Map<string, string>; target: Target };
 
 /** What Super Diff knows about one thread's diff target. Loaded from the server; the toggle is kept in memory. */
@@ -36,6 +38,8 @@ export type ThreadState =
       stored: StoredSuperDiff;
       /** The diff as it is now, loaded when the Super Diff is first shown. */
       data: Loaded | null;
+      /** Lines the reviewer pressed Explain this on, whose notes are still being written. */
+      explaining?: Explaining[];
     };
 
 const svg = (children: ReactNode, className = "") => (

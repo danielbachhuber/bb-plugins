@@ -25,7 +25,8 @@ export type Concern = {
   /** One line covering every file in the concern that has no summary, such as "only the import is renamed". */
   others?: string;
 };
-export type Annotation = { path: string; anchor: string; title: string; body: string };
+/** `asked` marks a note the reviewer asked for with Explain this, rather than one the agent chose to write. */
+export type Annotation = { path: string; anchor: string; title: string; body: string; asked?: boolean };
 export type Submission = { concerns: Concern[]; annotations: Annotation[] };
 
 /** What the server stores for one thread and diff target. */

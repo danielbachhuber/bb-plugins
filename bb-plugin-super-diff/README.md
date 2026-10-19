@@ -1,6 +1,6 @@
 # Super Diff
 
-Group the Diff tab by concern, with an explanation for each group and notes on the trickier code, written by the thread's agent.
+Group the Diff tab by concern, with an explanation for each group and notes on tricky code, plus a note on any line you ask about.
 
 ![A Super Diff of a 57-file rename: the Super Diff | Original row listing all six concerns with their viewed counts, then the first concern's numbered heading, a line on what each of its files' change is, its one annotation, and one of its files in bb's diff with that annotation's card under the line it explains](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
 
@@ -11,6 +11,7 @@ Group the Diff tab by concern, with an explanation for each group and notes on t
 - The grouped list replaces bb's file list in the same tab: each concern's numbered title and explanation, a list of its files saying what each one's change does, then the files as bb's own diff cards. Clicking a file in the list scrolls to its card. Lockfiles, snapshots, binary files, and files too large to show go in **Generated files**.
 - Once a thread has a Super Diff, its Diff tab opens on it. **Super Diff | Original** switches between the grouped list and bb's list. Under it, the row lists every concern, highlights the one you are reading, and jumps to one when you click it. The row stays put while the list scrolls. The Super Diff is kept for each thread and picker choice, so it is still there after a reload.
 - Notes on the trickier lines sit in cards under the lines they explain. Each concern lists its annotations under its files, with each one's file and line, and clicking one jumps to its card.
+- **Explain this**, the sparkle beside Diff Comment's button when you hover a line, asks for a note on that line. A card says it is being written, and a minute or two later it fills in, marked as one you asked for. The note is written by a hidden fork of the thread, as bb's side chat is, so it knows the thread's work and does not interrupt its agent.
 
 ![An annotation card, numbered 2: "Feeds the cache key, so the value must not change", with two sentences on why](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--annotation-card.png)
 
@@ -26,11 +27,12 @@ bb super-diff guide                 # how to write a Super Diff
 bb super-diff files                 # every changed file, and which ones the plugin places itself
 bb super-diff patch <path>...       # the patches for those paths
 bb super-diff submit <file | json>  # check a Super Diff and store it if every file is placed once
+bb super-diff explain <file | json> # in an Explain this fork: store its one note
 ```
 
 ## Requirements
 
-A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. Showing the Super Diff reads the diff from bb once: one request for the file list and one per 50 files for patches. Nothing calls GitHub.
+A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. Each Explain this forks the thread once, then checks for the note every 2 seconds until it is stored. Showing the Super Diff reads the diff from bb, and reads it again when bb's file or line counts change: one request for the file list and one per 50 files for patches. Nothing calls GitHub.
 
 ## Related plugins
 

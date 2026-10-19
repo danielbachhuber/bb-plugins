@@ -2,11 +2,11 @@
 // grouped list, built from bb's diff API, while keeping the card DOM shape Diff
 // Viewed and Diff Comment look for. The grouping, explanations, and notes are
 // written by the thread's agent (Generate asks it) and stored by the server.
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp, experimental_Diff as Diff } from "@get-bb/plugin-sdk/app";
-import { NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
-import { SuperDiffRow, type ConcernLink, type Loaded, type ThreadState } from "./row";
+import { ExplainTrigger, NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
+import { SuperDiffRow, type ConcernLink, type Explaining, type Loaded, type ThreadState } from "./row";
 import { ConcernHeader } from "./concern";
 import {
   GENERATED_TITLE,
@@ -181,6 +181,7 @@ function FileCard({
   highlightId,
   collapsed,
   setCollapsed,
+  onExplain,
 }: {
   file: FileEntry;
   index: number;
@@ -190,8 +191,10 @@ function FileCard({
   highlightId: string | null;
   collapsed: boolean;
   setCollapsed: (path: string, collapsed: boolean) => void;
+  onExplain: (path: string, line: number, text: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const explain = useCallback((line: number, text: string) => onExplain(file.path, line, text), [onExplain, file.path]);
   const label = file.previousPath && file.previousPath !== file.path ? `${file.previousPath} -> ${file.path}` : file.path;
   return (
     <div data-index={index} style={{ paddingBottom: 8 }}>
@@ -227,6 +230,7 @@ function FileCard({
             <div ref={bodyRef}>
               <Diff patch={patch} path={file.path} view={split ? "split" : "unified"} />
               <NoteRows containerRef={bodyRef} notes={notes} highlightId={highlightId} />
+              <ExplainTrigger containerRef={bodyRef} onExplain={explain} />
             </div>
           </Boundary>
         ) : (
@@ -237,6 +241,20 @@ function FileCard({
       </div>
     </div>
   );
+}
+
+/** The card shown under a line while an Explain this fork writes its note. */
+function explainingNote(entry: Explaining): PlacedNote {
+  return {
+    id: `explaining-${entry.line}`,
+    n: 0,
+    path: entry.path,
+    anchor: "",
+    line: entry.line,
+    pending: true,
+    title: `Explaining line ${entry.line}…`,
+    body: "A hidden side chat of this thread is reading the change. The note appears here when it is written, usually within a couple of minutes.",
+  };
 }
 
 /** How the list tells the row (a separate React root) what to list, and lets it jump. */
@@ -262,12 +280,16 @@ function GroupedList({
   split,
   nav,
   memory,
+  explaining,
+  onExplain,
 }: {
   data: Loaded;
   stored: StoredSuperDiff;
   split: boolean;
   nav: Nav;
   memory: CardMemory;
+  explaining: Explaining[];
+  onExplain: (path: string, line: number, text: string) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -457,10 +479,14 @@ function GroupedList({
                 index={index++}
                 patch={data.patches.get(file.path)}
                 split={split}
-                notes={notes.filter((note) => note.path === file.path)}
+                notes={[
+                  ...notes.filter((note) => note.path === file.path),
+                  ...explaining.filter((entry) => entry.path === file.path).map(explainingNote),
+                ]}
                 highlightId={highlightId}
                 collapsed={collapsed.has(cardKey(file))}
                 setCollapsed={setCollapsed}
+                onExplain={onExplain}
               />
             ))}
           </section>
@@ -534,6 +560,13 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   /** bb's toolbar summary ("25 files +316 -328") last seen for each key; a change means the diff changed. */
   const summaries = new Map<string, string>();
   const memories = new Map<string, CardMemory>();
+  // One stable callback per key, so the list's hover buttons are not rewired on every render.
+  const explainers = new Map<string, (path: string, line: number, text: string) => void>();
+  const setExplainer = (key: string, threadId: string, selection: string) => {
+    const handler = (path: string, line: number, text: string) => void explain(threadId, selection, path, line, text);
+    explainers.set(key, handler);
+    return handler;
+  };
   const memoryOf = (key: string) => {
     let memory = memories.get(key);
     if (memory === undefined) {
@@ -585,7 +618,10 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     try {
       const context = await contextOf(threadId, selection);
       if (typeof context === "string") return fail(key, context);
-      const result = await callRpc<{ stored: string | null; requestedAt: string | null }>(pluginId, "superdiff_get", { threadId, target: context.target });
+      const result = await callRpc<{ stored: string | null; requestedAt: string | null; explaining: Explaining[] }>(pluginId, "superdiff_get", {
+        threadId,
+        target: context.target,
+      });
       const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
       // A request newer than what is stored means the agent is still working on it.
       if (result.requestedAt !== null && (stored === null || stored.acceptedAt < result.requestedAt)) {
@@ -593,7 +629,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         void poll(threadId, selection, result.requestedAt);
       } else {
         // A stored Super Diff opens by default; Original is one click away.
-        states.set(key, stored === null ? { phase: "idle" } : { phase: "ready", showing: "original", stored, data: null });
+        states.set(
+          key,
+          stored === null ? { phase: "idle" } : { phase: "ready", showing: "original", stored, data: null, explaining: result.explaining },
+        );
+        if (result.explaining.length > 0) void watchExplains(threadId, selection);
         if (stored !== null) void show(threadId, selection, "super");
       }
       schedule();
@@ -628,6 +668,63 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       }
     } catch (cause) {
       fail(key, cause);
+    }
+  };
+
+  /** Asks a fork of the thread to explain one line, and shows its card at once. */
+  const explain = async (threadId: string, selection: string, path: string, line: number, text: string) => {
+    const key = keyOf(threadId, selection);
+    const current = states.get(key);
+    if (current?.phase !== "ready") return;
+    if (current.explaining?.some((entry) => entry.path === path && entry.line === line)) return;
+    try {
+      const context = await contextOf(threadId, selection);
+      if (typeof context === "string") return fail(key, context);
+      const { requestedAt } = await callRpc<{ requestedAt: string }>(pluginId, "superdiff_explain", {
+        threadId,
+        target: context.target,
+        path,
+        line,
+        text: text.trimEnd(),
+      });
+      const latest = states.get(key);
+      if (latest?.phase !== "ready") return;
+      states.set(key, { ...latest, explaining: [...(latest.explaining ?? []), { path, line, requestedAt }] });
+      schedule();
+      void watchExplains(threadId, selection);
+    } catch (cause) {
+      fail(key, cause);
+    }
+  };
+
+  /** Polls while Explain this notes are being written, and picks each one up as it is stored. */
+  const watching = new Set<string>();
+  const watchExplains = async (threadId: string, selection: string) => {
+    const key = keyOf(threadId, selection);
+    if (watching.has(key)) return;
+    watching.add(key);
+    try {
+      while (!signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        const current = states.get(key);
+        if (current?.phase !== "ready" || (current.explaining ?? []).length === 0) return;
+        const context = await contextOf(threadId, selection);
+        if (typeof context === "string") return;
+        const result = await callRpc<{ stored: string | null; explaining: Explaining[] }>(pluginId, "superdiff_get", {
+          threadId,
+          target: context.target,
+        });
+        const latest = states.get(key);
+        if (latest?.phase !== "ready" || result.stored === null) return;
+        const stored = JSON.parse(result.stored) as StoredSuperDiff;
+        const changed = stored.submission.annotations.length !== latest.stored.submission.annotations.length;
+        states.set(key, { ...latest, stored: changed ? stored : latest.stored, explaining: result.explaining });
+        schedule();
+      }
+    } catch {
+      // A failed poll leaves the cards as they are; reopening the tab checks again.
+    } finally {
+      watching.delete(key);
     }
   };
 
@@ -757,7 +854,16 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       listRoot = createRoot(listHost);
     }
     listRoot?.render(
-      <GroupedList key={key} data={state.data} stored={state.stored} split={split} nav={nav} memory={memoryOf(key)} />,
+      <GroupedList
+        key={key}
+        data={state.data}
+        stored={state.stored}
+        split={split}
+        nav={nav}
+        memory={memoryOf(key)}
+        explaining={state.explaining ?? []}
+        onExplain={explainers.get(key) ?? setExplainer(key, threadId, selection)}
+      />,
     );
   };
 

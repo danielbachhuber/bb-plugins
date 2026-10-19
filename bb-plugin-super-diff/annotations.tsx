@@ -18,6 +18,10 @@ export type Note = {
   anchor: string;
   title: string;
   body: string;
+  /** The reviewer asked for it with Explain this. */
+  asked?: boolean;
+  /** Still being written by an Explain this fork: the card says so instead of showing a body. */
+  pending?: boolean;
 };
 
 /** A note with its place in the diff: `n` is its number in reading order, `line` its new-side line. */
@@ -84,6 +88,14 @@ function Badge({ n }: { n: number }) {
   );
 }
 
+function Spinner() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0 animate-spin" aria-hidden>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
 function Sparkles() {
   return (
     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
@@ -121,9 +133,10 @@ export function NoteCard({ note, highlighted }: { note: PlacedNote; highlighted:
       }}
     >
       <div className="mb-1 flex items-center gap-1.5 font-medium">
-        <Badge n={note.n} />
+        {note.pending ? <Spinner /> : <Badge n={note.n} />}
         <Sparkles />
         <span>{note.title}</span>
+        {note.asked ? <span className="font-normal text-muted-foreground">· you asked</span> : null}
       </div>
       <div className="text-muted-foreground" style={{ lineHeight: 1.45 }}>
         <Prose text={note.body} />
@@ -338,4 +351,147 @@ export function scrollToNote(scroller: HTMLElement, id: string): boolean {
   if (holder === null) return false;
   scroller.scrollTop += holder.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 90;
   return true;
+}
+
+const EXPLAIN_ATTR = "data-super-diff-explain";
+const SPARKLES_SVG =
+  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>';
+
+/*
+ * The Explain this button joins the hover toolbar bb and Diff Comment draw in
+ * the gutter. bb's own button and Diff Comment's sit at the gutter cell's
+ * right edge, overhanging the code by 1lh - 1ch (see Diff Comment's
+ * diff/style.ts); this one goes immediately left of whichever of them is
+ * there, over the line numbers, so it covers no code.
+ */
+const EXPLAIN_CSS = `
+[${EXPLAIN_ATTR}] {
+  position: absolute;
+  top: 0;
+  right: calc(-1lh + 1ch);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1lh;
+  height: 1lh;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  appearance: none;
+  border-radius: 4px;
+  font-size: var(--diffs-font-size, 13px);
+  line-height: var(--diffs-line-height, 20px);
+  background-color: #7c3aed;
+  color: #fff;
+  cursor: pointer;
+}
+[data-column-number]:has([data-utility-button]) [${EXPLAIN_ATTR}],
+[data-column-number]:has([data-diff-comment-trigger]) [${EXPLAIN_ATTR}] {
+  right: calc(1ch + 1px);
+}
+[data-column-number]:has([data-utility-button]):has([data-diff-comment-trigger]) [${EXPLAIN_ATTR}] {
+  right: calc(1ch + 1lh + 1px);
+}
+[${EXPLAIN_ATTR}]:hover,
+[${EXPLAIN_ATTR}]:focus-visible {
+  filter: brightness(1.15);
+}
+`;
+
+let explainSheet: CSSStyleSheet | null = null;
+function adoptExplainSheet(root: ShadowRoot): void {
+  if (explainSheet === null) {
+    explainSheet = new CSSStyleSheet();
+    explainSheet.replaceSync(EXPLAIN_CSS);
+  }
+  if (!root.adoptedStyleSheets.includes(explainSheet)) root.adoptedStyleSheets = [...root.adoptedStyleSheets, explainSheet];
+}
+
+/**
+ * Puts an Explain this button on the gutter of the line under the pointer, on
+ * added and unchanged lines only, since notes anchor to the new side.
+ * `onExplain` gets the line number and its text.
+ */
+export function ExplainTrigger({
+  containerRef,
+  onExplain,
+}: {
+  containerRef: RefObject<HTMLElement | null>;
+  onExplain: (line: number, text: string) => void;
+}): null {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === null) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute(EXPLAIN_ATTR, "");
+    button.setAttribute("aria-label", "Explain this line");
+    button.title = "Explain this line";
+    button.innerHTML = SPARKLES_SVG;
+    let target: { line: number; text: string } | null = null;
+    const hide = () => {
+      target = null;
+      button.remove();
+    };
+    // Pierre starts a line selection on pointerdown, so the press is taken
+    // here before it reaches that handler, as Diff Comment does.
+    const press = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (target !== null) onExplain(target.line, target.text);
+      hide();
+    };
+    button.addEventListener("pointerdown", press);
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    const over = (event: Event) => {
+      const node = (event.target as Element | null)?.closest?.("[data-line], [data-column-number]");
+      const column = node?.closest("[data-code]");
+      if (!node || !column || column.hasAttribute("data-deletions")) return;
+      const gutter = childWith(column, "data-gutter");
+      const content = childWith(column, "data-content");
+      if (gutter === null || content === null) return;
+      const rows = Array.from(content.children);
+      const cells = Array.from(gutter.children);
+      const index = node.hasAttribute("data-line") ? rows.indexOf(node) : cells.indexOf(node);
+      const row = rows[index];
+      const cell = cells[index];
+      if (!row || !cell || !row.hasAttribute("data-line")) return;
+      if (OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? "")) return hide();
+      const line = Number(row.getAttribute("data-line"));
+      if (!Number.isInteger(line)) return;
+      target = { line, text: row.textContent ?? "" };
+      if (button.parentElement !== cell) cell.append(button);
+    };
+
+    let host: HTMLElement | null = null;
+    const detach = () => {
+      host?.shadowRoot?.removeEventListener("pointerover", over);
+      host?.removeEventListener("pointerleave", hide);
+    };
+    const attach = () => {
+      const current = container.querySelector<HTMLElement>("diffs-container");
+      if (current === host || !current?.shadowRoot) return;
+      detach();
+      host = current;
+      adoptExplainSheet(current.shadowRoot!);
+      current.shadowRoot!.addEventListener("pointerover", over);
+      current.addEventListener("pointerleave", hide);
+    };
+    // The diff's container appears, and is replaced on collapse and expand,
+    // after this mounts.
+    const observer = new MutationObserver(attach);
+    observer.observe(container, { childList: true, subtree: true });
+    attach();
+    return () => {
+      observer.disconnect();
+      detach();
+      hide();
+    };
+  }, [containerRef, onExplain]);
+  return null;
 }

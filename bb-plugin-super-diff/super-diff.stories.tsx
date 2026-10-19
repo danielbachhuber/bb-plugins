@@ -165,6 +165,20 @@ export const AnnotationCard = () => (
   </Frame>
 );
 
+/** Explain this: the card under a line while a fork of the thread writes its note, and the note once it is written, marked as one you asked for. */
+export const ExplainThis = () => (
+  <Frame>
+    <NoteCard
+      highlighted={false}
+      note={{ ...FIXTURE_NOTES[0]!, id: "explaining", n: 0, pending: true, title: "Explaining line 19…", body: "A hidden side chat of this thread is reading the change. The note appears here when it is written, usually within a couple of minutes." }}
+    />
+    <NoteCard
+      highlighted={false}
+      note={{ ...FIXTURE_NOTES[0]!, id: "asked", n: 5, asked: true, title: "Reads the host so checkout and pricing agree", body: "This layout renders before `PricingProvider` exists, so it cannot ask the provider. `currencyFromHost()` is the same lookup the provider makes, which keeps the region check and the prices on one currency." }}
+    />
+  </Frame>
+);
+
 /** A concern's heading with Diff Viewed installed: its viewed count, then each file and what its change does. Files that change the same mechanical way share one line. */
 export const ConcernFileList = () => {
   const concern = FIXTURE.submission.concerns[4]!;
