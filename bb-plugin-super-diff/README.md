@@ -15,7 +15,7 @@ Group the Diff tab by concern, with an explanation for each group and notes on t
 ![An annotation card, numbered 2: "Feeds the cache key, so the value must not change", with two sentences on why](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--annotation-card.png)
 
 - When files join or leave the diff after generating, the row turns amber and offers **Regenerate**, and the new files show under **Not yet grouped**.
-- With Diff Viewed installed, each concern shows how many of its files are viewed, and its file list marks which ones. Diff Comment's line comments work on the grouped list as they do on bb's.
+- With Diff Viewed installed, each concern shows how many of its files are viewed, and its file list marks which ones. Viewed files start collapsed, as they do in bb's list, and stay that way when you switch to Original and back. Diff Comment's line comments work on the grouped list as they do on bb's.
 
 ## For agents
 

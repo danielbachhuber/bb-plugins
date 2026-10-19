@@ -178,6 +178,8 @@ function FileCard({
   split,
   notes,
   highlightId,
+  collapsed,
+  setCollapsed,
 }: {
   file: FileEntry;
   index: number;
@@ -185,13 +187,10 @@ function FileCard({
   split: boolean;
   notes: PlacedNote[];
   highlightId: string | null;
+  collapsed: boolean;
+  setCollapsed: (path: string, collapsed: boolean) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  // Jumping to a note in a collapsed file opens the file first.
-  useEffect(() => {
-    if (highlightId !== null && notes.some((note) => note.id === highlightId)) setCollapsed(false);
-  }, [highlightId, notes]);
   const label = file.previousPath && file.previousPath !== file.path ? `${file.previousPath} -> ${file.path}` : file.path;
   return (
     <div data-index={index} style={{ paddingBottom: 8 }}>
@@ -204,7 +203,7 @@ function FileCard({
               <button
                 type="button"
                 className="inline-flex w-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                onClick={() => setCollapsed((value) => !value)}
+                onClick={() => setCollapsed(file.path, !collapsed)}
                 aria-label={`${collapsed ? "Expand" : "Collapse"} ${label}`}
                 aria-expanded={!collapsed}
               >
@@ -245,7 +244,30 @@ type Nav = {
   jump: { current: ((index: number) => void) | null };
 };
 
-function GroupedList({ data, stored, split, nav }: { data: Loaded; stored: StoredSuperDiff; split: boolean; nav: Nav }) {
+/**
+ * Which cards are collapsed, kept outside the list so it survives the list
+ * remounting (switching to Original and back), as bb keeps its own cards'.
+ * `autoCollapsed` holds the viewed files already folded once, so a viewed
+ * file you reopen stays open. Keys carry the file's line counts, so a file
+ * that changes since is folded again once it is marked viewed again.
+ */
+type CardMemory = { collapsed: Set<string>; autoCollapsed: Set<string> };
+
+const cardKey = (file: FileEntry) => `${file.path} +${file.additions} -${file.deletions}`;
+
+function GroupedList({
+  data,
+  stored,
+  split,
+  nav,
+  memory,
+}: {
+  data: Loaded;
+  stored: StoredSuperDiff;
+  split: boolean;
+  nav: Nav;
+  memory: CardMemory;
+}) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const groups = useMemo(() => buildGroups(stored, data.files), [stored, data]);
@@ -297,6 +319,33 @@ function GroupedList({ data, stored, split, nav }: { data: Loaded; stored: Store
     read();
     return () => observer.disconnect();
   }, []);
+
+  // Diff Viewed folds a viewed file once per thread by clicking its toggle,
+  // and never again, which leaves cards this list creates afterwards open.
+  // So the list folds a file itself the first time it shows as viewed.
+  const [collapsed, setCollapsedState] = useState<ReadonlySet<string>>(() => new Set(memory.collapsed));
+  const setCollapsed = (path: string, value: boolean) => {
+    const file = data.files.find((entry) => entry.path === path);
+    if (file === undefined) return;
+    const key = cardKey(file);
+    if (value) memory.collapsed.add(key);
+    else memory.collapsed.delete(key);
+    setCollapsedState(new Set(memory.collapsed));
+  };
+  useEffect(() => {
+    if (viewed === null) return;
+    let changed = false;
+    for (const file of data.files) {
+      const key = cardKey(file);
+      if (!viewed.has(file.path) || memory.autoCollapsed.has(key)) continue;
+      memory.autoCollapsed.add(key);
+      if (!memory.collapsed.has(key)) {
+        memory.collapsed.add(key);
+        changed = true;
+      }
+    }
+    if (changed) setCollapsedState(new Set(memory.collapsed));
+  }, [viewed, data, memory]);
 
   const links = useMemo(() => {
     let number = 0;
@@ -361,6 +410,9 @@ function GroupedList({ data, stored, split, nav }: { data: Loaded; stored: Store
   };
 
   const jump = (id: string) => {
+    // A note in a collapsed file opens the file first.
+    const note = notes.find((entry) => entry.id === id);
+    if (note !== undefined) setCollapsed(note.path, false);
     setHighlightId(id);
     const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
     if (!scroller) return;
@@ -406,6 +458,8 @@ function GroupedList({ data, stored, split, nav }: { data: Loaded; stored: Store
                 split={split}
                 notes={notes.filter((note) => note.path === file.path)}
                 highlightId={highlightId}
+                collapsed={collapsed.has(cardKey(file))}
+                setCollapsed={setCollapsed}
               />
             ))}
           </section>
@@ -476,6 +530,15 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   // What the list last reported for the row's list of concerns.
   let links: ConcernLink[] = [];
   let current = 0;
+  const memories = new Map<string, CardMemory>();
+  const memoryOf = (key: string) => {
+    let memory = memories.get(key);
+    if (memory === undefined) {
+      memory = { collapsed: new Set(), autoCollapsed: new Set() };
+      memories.set(key, memory);
+    }
+    return memory;
+  };
   const nav: Nav = {
     report: (nextLinks, nextCurrent) => {
       if (nextCurrent === current && JSON.stringify(nextLinks) === JSON.stringify(links)) return;
@@ -656,7 +719,9 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       replaced = panel.list;
       listRoot = createRoot(listHost);
     }
-    listRoot?.render(<GroupedList data={state.data} stored={state.stored} split={split} nav={nav} />);
+    listRoot?.render(
+      <GroupedList key={key} data={state.data} stored={state.stored} split={split} nav={nav} memory={memoryOf(key)} />,
+    );
   };
 
   const schedule = () => {
