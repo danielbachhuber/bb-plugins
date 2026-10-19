@@ -24,6 +24,7 @@ import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
 import { firstOpenItem, ViewPanel, type LinkedThread } from "./view/view-panel";
 import { ListPanel } from "./view/list-panel";
+import { Stacked } from "./stacked";
 
 export default {
   title: "impromptu-ui/Thread",
@@ -871,17 +872,6 @@ I left out "Only" in the last one. Members who still hold Maintainer can open th
 I've updated the draft to match, and its card above the composer shows the new diff. The change is still uncommitted.`,
   },
 ];
-
-function Stacked({ before, after }: { before: ReactNode; after: ReactNode }) {
-  return (
-    <div data-screenshot-frame className="flex w-fit flex-col gap-3 bg-background p-6">
-      <div className="text-sm font-medium text-muted-foreground">Before</div>
-      {before}
-      <div className="pt-5 text-sm font-medium text-muted-foreground">After</div>
-      {after}
-    </div>
-  );
-}
 
 /** Before, three finished fixes written out in chat, each opened by typing which one. After, one card per pull request, each with its diff and a button that commits, pushes, and opens it: the first is already open, and the demo accounts fix is open in the side panel. */
 export function ThreePrsAtOnce() {
