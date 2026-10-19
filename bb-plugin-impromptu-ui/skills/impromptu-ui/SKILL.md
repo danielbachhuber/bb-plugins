@@ -1,6 +1,6 @@
 ---
 name: impromptu-ui
-description: Use when `bb impromptu-ui` is available and the user would otherwise read your output and type a reply to act on it, such as choosing between options, approving or editing a draft, comparing versions or UI designs (screenshots, original first), or working through several items like findings, issues, or PRs. Builds a small interface above the thread's composer, shaped to the task, instead of writing it in chat.
+description: Use when `bb impromptu-ui` is available and the user would otherwise read your output and type a reply to act on it, such as choosing between options, approving a plan before you start ("Shall I go ahead?"), approving or editing a draft, comparing versions or UI designs (screenshots, original first), or working through several items like findings, issues, or PRs. Builds a small interface above the thread's composer, shaped to the task, instead of writing it in chat.
 ---
 
 # Impromptu UI
