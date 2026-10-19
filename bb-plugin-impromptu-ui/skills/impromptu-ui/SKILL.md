@@ -31,6 +31,8 @@ After publishing, say in chat how many items there are and that they are above t
 
 ## The view file
 
+The examples in this skill show common shapes, not the limit. `bb impromptu-ui schema` prints the JSON Schema `publish` validates against, generated from the code, so it lists every field a view, item, and button can have, including ones added after this skill was written. Read it when the task calls for something the examples do not show.
+
 ```json
 {
   "title": "Triage: acme/widgets milestone 4.2",

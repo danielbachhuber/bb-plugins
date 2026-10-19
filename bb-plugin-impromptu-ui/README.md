@@ -24,7 +24,7 @@ With Impromptu UI, you can:
 
 ## For agents
 
-Every thread's instructions get a short section saying what a view can hold and to build one whenever you would otherwise read the agent's output and type a reply to act on it. The agent shapes the view to its own task, and the `impromptu-ui` skill describes the view file. Turn it off with the `threadInstructions` setting.
+Every thread's instructions get a short section telling the agent to build a view whenever you would otherwise read its output and type a reply to act on it, shaped to its own task. The section doesn't list what a view can hold. It points to `bb impromptu-ui schema`, which prints the view file's JSON Schema from the code, so new fields reach agents without anyone editing the instructions. The `impromptu-ui` skill shows how to put a view together. Turn it off with the `threadInstructions` setting.
 
 The `refine-impromptu-ui` skill files an anonymized issue on this repository when a view falls short.
 
@@ -33,9 +33,10 @@ bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a 
 bb impromptu-ui state [--key <name>]                        # read what the user did
 bb impromptu-ui hide [--key <name>]                         # hide a view
 bb impromptu-ui list                                        # list this thread's views
+bb impromptu-ui schema                                      # print everything a view can hold
 ```
 
-Each command works only inside a bb thread.
+Each command except `schema` works only inside a bb thread.
 
 ## Settings
 

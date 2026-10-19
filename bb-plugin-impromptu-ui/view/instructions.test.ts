@@ -9,5 +9,6 @@ describe("THREAD_INSTRUCTIONS", () => {
   it("points to the skill and the command", () => {
     expect(THREAD_INSTRUCTIONS).toContain("`impromptu-ui` skill");
     expect(THREAD_INSTRUCTIONS).toContain("bb impromptu-ui publish");
+    expect(THREAD_INSTRUCTIONS).toContain("bb impromptu-ui schema");
   });
 });

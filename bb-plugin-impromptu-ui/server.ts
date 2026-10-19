@@ -14,6 +14,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { expandPatchFiles } from "./view/changes.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
+import { viewJsonSchema } from "./view/describe.js";
 import { runCommand } from "./view/run-command.js";
 import { THREAD_INSTRUCTIONS } from "./view/instructions.js";
 import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
@@ -381,13 +382,15 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb impromptu-ui state [--key <name>]",
     "  bb impromptu-ui hide [--key <name>]",
     "  bb impromptu-ui list",
+    "  bb impromptu-ui schema",
     "",
     "Run these from the thread the view belongs to. `publish` shows the view above",
     "that thread's composer; publishing again with the same key replaces it and",
     "keeps what the user already did to each item. `state` prints each item's",
     "state and the result of the last button pressed on it. `hide` takes the view",
     "down from above the composer, as its archive button does, until the next",
-    "publish under its key. The view file's shape is in the impromptu-ui skill.",
+    "publish under its key. `schema` prints the JSON Schema of the view file,",
+    "everything a view can hold; the impromptu-ui skill shows how to use it.",
   ].join("\n");
 
   function flag(args: string[], name: string): string | undefined {
@@ -415,12 +418,18 @@ export default async function plugin(bb: BbPluginApi) {
         usage: "bb impromptu-ui hide [--key <name>]",
       },
       { name: "list", summary: "List this thread's views", usage: "bb impromptu-ui list" },
+      {
+        name: "schema",
+        summary: "Print the JSON Schema of the view file: everything a view can hold",
+        usage: "bb impromptu-ui schema",
+      },
     ],
     async run(argv, ctx) {
       const [command, ...args] = argv;
       if (command === undefined || command === "help" || command === "--help") {
         return { exitCode: 0, stdout: usage };
       }
+      if (command === "schema") return { exitCode: 0, stdout: viewJsonSchema() };
       const threadId = ctx.threadId;
       if (threadId === undefined) {
         return { exitCode: 1, stderr: "Run this from inside a bb thread: a view belongs to the thread that publishes it." };
