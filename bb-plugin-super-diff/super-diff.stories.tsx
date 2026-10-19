@@ -9,7 +9,7 @@ import { DEFAULT_CODE_OVERFLOW_MODE } from "@bb-app/lib/code-overflow-mode";
 import { NoteCard, NoteRows, NotesBox } from "./annotations";
 import { ConcernHeader } from "./concern";
 import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED, LAYOUT_PATCH, LAYOUT_PATH } from "./super-diff.fixtures";
-import { SuperDiffRow, type ThreadState } from "./row";
+import { SuperDiffRow, type ConcernLink, type ThreadState } from "./row";
 
 export default {
   title: "super-diff/Super Diff",
@@ -21,6 +21,12 @@ const SEGMENT_BUTTON_CLASS =
 
 const FILE_COUNT = FIXTURE.paths.length;
 const READY: ThreadState = { phase: "ready", showing: "super", stored: FIXTURE, data: null };
+const LINKS: ConcernLink[] = FIXTURE.submission.concerns.map((concern, index) => ({
+  number: index + 1,
+  title: concern.title,
+  viewed: concern.files.filter((path) => FIXTURE_VIEWED.has(path)).length,
+  total: concern.files.length,
+}));
 
 function Frame({ children }: { children: ReactNode }) {
   return (
@@ -39,6 +45,8 @@ function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?
       segmentButtonClass={SEGMENT_BUTTON_CLASS}
       onGenerate={() => {}}
       onShow={() => {}}
+      concernLinks={state.phase === "ready" ? LINKS : []}
+      current={0}
     />
   );
 }
@@ -93,7 +101,7 @@ function LayoutDiff() {
   );
 }
 
-/** A Super Diff of a 57-file rename: the row, the first concern with what each file's change is and its annotation, and one of its files in bb's diff with that annotation under the line it explains. */
+/** A Super Diff of a 57-file rename: the row with every concern listed, the first concern with what each file's change is and its annotation, and one of its files in bb's diff with that annotation under the line it explains. */
 export const Overview = () => (
   <Frame>
     <Row state={READY} />
@@ -126,7 +134,7 @@ export const Generating = () => (
   </Frame>
 );
 
-/** A Super Diff is showing: the toggle switches back to bb's own list, and the line counts what the agent wrote. */
+/** A Super Diff is showing: the toggle switches back to bb's own list, the line counts what the agent wrote, and each concern is listed with how many of its files are viewed. Clicking one jumps to it; the one at the top of the list is highlighted. */
 export const ShowingSuperDiff = () => (
   <Frame>
     <Row state={READY} />

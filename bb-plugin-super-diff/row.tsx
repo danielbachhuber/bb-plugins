@@ -19,6 +19,9 @@ export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileC
   return `Out of date · ${[added ? plural(added, "added") : "", removed ? plural(removed, "removed") : ""].filter(Boolean).join(", ")}`;
 }
 
+/** One line of the row's list of concerns. `viewed` is null when Diff Viewed is not installed. */
+export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number };
+
 export type Loaded = { files: FileEntry[]; patches: Map<string, string>; target: Target };
 
 /** What Super Diff knows about one thread's diff target. Loaded from the server; the toggle is kept in memory. */
@@ -95,6 +98,9 @@ export function SuperDiffRow({
   segmentButtonClass,
   onGenerate,
   onShow,
+  concernLinks = [],
+  current = null,
+  onJump = () => {},
 }: {
   state: ThreadState;
   fileCount: number | null;
@@ -102,6 +108,11 @@ export function SuperDiffRow({
   segmentButtonClass: string;
   onGenerate: () => void;
   onShow: (showing: "super" | "original") => void;
+  /** Every section of the Super Diff on show, listed under the toggle; empty while bb's list shows. */
+  concernLinks?: ConcernLink[];
+  /** The index in `concernLinks` of the section at the top of the list. */
+  current?: number | null;
+  onJump?: (index: number) => void;
 }) {
   const stale =
     state.phase === "ready" ? staleText(state.stored, state.data?.files.map((file) => file.path) ?? null, fileCount) : null;
@@ -122,7 +133,7 @@ export function SuperDiffRow({
   const notes = state.phase === "ready" ? state.stored.submission.annotations.length : 0;
   return (
     <div
-      className="mt-3 flex items-center gap-3 rounded-lg border border-border bg-state-hover px-3 py-2 text-xs text-muted-foreground"
+      className="mt-3 rounded-lg border border-border bg-state-hover px-3 py-2 text-xs text-muted-foreground"
       style={
         stale
           ? {
@@ -132,63 +143,106 @@ export function SuperDiffRow({
           : undefined
       }
     >
-      {state.phase === "ready" ? (
-        <div className={`${segmentClass} shrink-0 bg-background`} role="tablist" aria-label="Super Diff view">
-          {(["super", "original"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={segmentButtonClass}
-              aria-pressed={state.showing === value}
-              onClick={() => onShow(value)}
-            >
-              {value === "original" ? "Original" : "Super Diff"}
-            </button>
-          ))}
-        </div>
-      ) : state.phase === "generating" ? (
-        button(
-          <>
-            <SpinnerIcon />
-            Generating…
-          </>,
-          undefined,
-          { disabled: true },
-        )
-      ) : (
-        button(
-          <>
-            <SparklesIcon />
-            Generate Super Diff
-          </>,
-          onGenerate,
-          { primary: true, disabled: state.phase === "checking" },
-        )
-      )}
-      {stale ? (
-        <span className="-mr-1.5" style={{ color: "var(--warning-text)" }}>
-          <AlertIcon />
-        </span>
-      ) : null}
-      <span className={`min-w-0 flex-1 line-clamp-2 ${stale || state.phase === "error" ? "text-foreground" : ""}`} title={stale ?? undefined}>
-        {(state.phase === "idle" || state.phase === "checking") && `Group ${files} files by concern, with a note on what each part does.`}
-        {state.phase === "generating" &&
-          `The thread's agent is reading ${files} files and writing the Super Diff (asked ${ago(Date.parse(state.requestedAt), Date.now())}; it waits its turn if the agent is busy).`}
-        {state.phase === "error" && state.message}
-        {state.phase === "ready" &&
-          (stale ??
-            `${concerns} ${concerns === 1 ? "concern" : "concerns"} · ${notes} ${notes === 1 ? "annotation" : "annotations"} · generated ${ago(Date.parse(state.stored.acceptedAt), Date.now())}`)}
-      </span>
-      {stale
-        ? button(
+      <div className="flex items-center gap-3">
+        {state.phase === "ready" ? (
+          <div className={`${segmentClass} shrink-0 bg-background`} role="tablist" aria-label="Super Diff view">
+            {(["super", "original"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={segmentButtonClass}
+                aria-pressed={state.showing === value}
+                onClick={() => onShow(value)}
+              >
+                {value === "original" ? "Original" : "Super Diff"}
+              </button>
+            ))}
+          </div>
+        ) : state.phase === "generating" ? (
+          button(
             <>
-              <RefreshIcon />
-              Regenerate
+              <SpinnerIcon />
+              Generating…
+            </>,
+            undefined,
+            { disabled: true },
+          )
+        ) : (
+          button(
+            <>
+              <SparklesIcon />
+              Generate Super Diff
             </>,
             onGenerate,
-            { primary: true },
+            { primary: true, disabled: state.phase === "checking" },
           )
-        : null}
+        )}
+        {stale ? (
+          <span className="-mr-1.5" style={{ color: "var(--warning-text)" }}>
+            <AlertIcon />
+          </span>
+        ) : null}
+        <span className={`min-w-0 flex-1 line-clamp-2 ${stale || state.phase === "error" ? "text-foreground" : ""}`} title={stale ?? undefined}>
+          {(state.phase === "idle" || state.phase === "checking") && `Group ${files} files by concern, with a note on what each part does.`}
+          {state.phase === "generating" &&
+            `The thread's agent is reading ${files} files and writing the Super Diff (asked ${ago(Date.parse(state.requestedAt), Date.now())}; it waits its turn if the agent is busy).`}
+          {state.phase === "error" && state.message}
+          {state.phase === "ready" &&
+            (stale ??
+              `${concerns} ${concerns === 1 ? "concern" : "concerns"} · ${notes} ${notes === 1 ? "annotation" : "annotations"} · generated ${ago(Date.parse(state.stored.acceptedAt), Date.now())}`)}
+        </span>
+        {stale
+          ? button(
+              <>
+                <RefreshIcon />
+                Regenerate
+              </>,
+              onGenerate,
+              { primary: true },
+            )
+          : null}
+      </div>
+      {concernLinks.length > 0 ? (
+        <nav
+          aria-label="Concerns"
+          className="mt-2 grid gap-x-4 border-t border-border pt-1.5"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
+        >
+          {concernLinks.map((link, index) => (
+            <button
+              key={`${link.number}:${link.title}`}
+              type="button"
+              title={link.title}
+              aria-current={index === current ? "true" : undefined}
+              onClick={() => onJump(index)}
+              className="flex min-w-0 items-center gap-2 rounded px-1 py-1 text-left hover:bg-background"
+              style={index === current ? { background: "var(--background)" } : undefined}
+            >
+              {link.number !== null ? (
+                <span
+                  className="shrink-0 text-center tabular-nums"
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 9999,
+                    background: "var(--foreground)",
+                    color: "var(--background)",
+                    font: "600 10px/16px system-ui",
+                  }}
+                >
+                  {link.number}
+                </span>
+              ) : (
+                <span className="shrink-0" style={{ width: 16 }} />
+              )}
+              <span className={`min-w-0 flex-1 truncate ${link.number !== null ? "font-medium text-foreground" : ""}`}>{link.title}</span>
+              <span className="shrink-0 tabular-nums">
+                {link.viewed !== null ? `${link.viewed}/${link.total}` : link.total}
+              </span>
+            </button>
+          ))}
+        </nav>
+      ) : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 
 import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp, experimental_Diff as Diff } from "@get-bb/plugin-sdk/app";
 import { NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
-import { SuperDiffRow, type Loaded, type ThreadState } from "./row";
+import { SuperDiffRow, type ConcernLink, type Loaded, type ThreadState } from "./row";
 import { ConcernHeader } from "./concern";
 import {
   GENERATED_TITLE,
@@ -239,7 +239,13 @@ function FileCard({
   );
 }
 
-function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSuperDiff; split: boolean }) {
+/** How the list tells the row (a separate React root) what to list, and lets it jump. */
+type Nav = {
+  report: (links: ConcernLink[], current: number) => void;
+  jump: { current: ((index: number) => void) | null };
+};
+
+function GroupedList({ data, stored, split, nav }: { data: Loaded; stored: StoredSuperDiff; split: boolean; nav: Nav }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const groups = useMemo(() => buildGroups(stored, data.files), [stored, data]);
@@ -292,6 +298,58 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
     return () => observer.disconnect();
   }, []);
 
+  const links = useMemo(() => {
+    let number = 0;
+    return groups.map(
+      (group): ConcernLink => ({
+        number: group.kind === "concern" ? ++number : null,
+        title: group.title,
+        viewed: viewed === null ? null : group.files.filter((file) => viewed.has(file.path)).length,
+        total: group.files.length,
+      }),
+    );
+  }, [groups, viewed]);
+
+  // The section at the top of the scroller, for the row to highlight. Sections
+  // are few, so reading their positions once per scrolled frame is cheap.
+  const [current, setCurrent] = useState(0);
+  useEffect(() => {
+    const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
+    if (!scroller) return;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const top = scroller.getBoundingClientRect().top + 24;
+      let at = 0;
+      scroller.querySelectorAll<HTMLElement>("[data-super-diff-section]").forEach((section, index) => {
+        if (section.getBoundingClientRect().top <= top) at = index;
+      });
+      setCurrent(at);
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = window.requestAnimationFrame(read);
+    };
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    read();
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      if (frame !== 0) window.cancelAnimationFrame(frame);
+    };
+  }, [groups]);
+
+  useEffect(() => nav.report(links, current), [nav, links, current]);
+  useEffect(() => {
+    nav.jump.current = (index: number) => {
+      const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
+      const section = scroller?.querySelectorAll<HTMLElement>("[data-super-diff-section]")[index];
+      if (!scroller || !section) return;
+      scroller.scrollTop += section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    };
+    return () => {
+      nav.jump.current = null;
+    };
+  }, [nav]);
+
   const jumpToFile = (path: string) => {
     const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
     const toggle = [...(wrapperRef.current?.querySelectorAll("[data-index] button[aria-expanded]") ?? [])].find(
@@ -325,7 +383,7 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
     <div ref={wrapperRef}>
       <FilesProps files={data.files} target={data.target}>
         {groups.map((group, groupIndex) => (
-          <section key={`${group.kind}:${group.title}`}>
+          <section key={`${group.kind}:${group.title}`} data-super-diff-section="">
             <ConcernHeader
               number={group.kind === "concern" ? ++concernNumber : null}
               first={groupIndex === 0}
@@ -414,6 +472,19 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   let rowHost: HTMLDivElement | null = null;
   let rowRoot: Root | null = null;
   let frame = 0;
+
+  // What the list last reported for the row's list of concerns.
+  let links: ConcernLink[] = [];
+  let current = 0;
+  const nav: Nav = {
+    report: (nextLinks, nextCurrent) => {
+      if (nextCurrent === current && JSON.stringify(nextLinks) === JSON.stringify(links)) return;
+      links = nextLinks;
+      current = nextCurrent;
+      schedule();
+    },
+    jump: { current: null },
+  };
 
   const unmountLater = (root: Root | null) => {
     if (root !== null) setTimeout(() => root.unmount(), 0);
@@ -556,6 +627,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     if (!states.has(key)) void check(threadId, selection);
     const state = states.get(key) ?? { phase: "checking" as const };
     const fileCount = Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
+    const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
     rowRoot?.render(
       <SuperDiffRow
         state={state}
@@ -564,6 +636,9 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         segmentButtonClass={(segmentButton?.className ?? "").replace(/\bw-7\b/, "").replace(/\bp-0\b/, "px-2.5")}
         onGenerate={() => void generate(threadId, selection)}
         onShow={(showing) => void show(threadId, selection, showing)}
+        concernLinks={showingSuper ? links : []}
+        current={current}
+        onJump={(index) => nav.jump.current?.(index)}
       />,
     );
 
@@ -581,7 +656,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       replaced = panel.list;
       listRoot = createRoot(listHost);
     }
-    listRoot?.render(<GroupedList data={state.data} stored={state.stored} split={split} />);
+    listRoot?.render(<GroupedList data={state.data} stored={state.stored} split={split} nav={nav} />);
   };
 
   const schedule = () => {

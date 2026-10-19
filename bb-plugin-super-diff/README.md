@@ -2,14 +2,14 @@
 
 Group the Diff tab by concern, with an explanation for each group and notes on the trickier code, written by the thread's agent.
 
-![A Super Diff of a 57-file rename: the Super Diff | Original row, then the first concern's numbered heading, a line on what each of its files' change is, its one annotation, and one of its files in bb's diff with that annotation's card under the line it explains](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
+![A Super Diff of a 57-file rename: the Super Diff | Original row listing all six concerns with their viewed counts, then the first concern's numbered heading, a line on what each of its files' change is, its one annotation, and one of its files in bb's diff with that annotation's card under the line it explains](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
 
 ## Use
 
 - Open a thread's **Diff** tab. A row under the picker offers **Generate Super Diff**; until you click it, the tab shows bb's own list.
 - **Generate Super Diff** asks the thread's agent to read the diff and write the Super Diff. Each click asks for a fresh one.
 - The grouped list replaces bb's file list in the same tab: each concern's numbered title and explanation, a list of its files saying what each one's change does, then the files as bb's own diff cards. Clicking a file in the list scrolls to its card. Lockfiles, snapshots, binary files, and files too large to show go in **Generated files**.
-- Once a thread has a Super Diff, its Diff tab opens on it. **Super Diff | Original** switches between the grouped list and bb's list. The Super Diff is kept for each thread and picker choice, so it is still there after a reload.
+- Once a thread has a Super Diff, its Diff tab opens on it. **Super Diff | Original** switches between the grouped list and bb's list. Under it, the row lists every concern, highlights the one you are reading, and jumps to one when you click it. The row stays put while the list scrolls. The Super Diff is kept for each thread and picker choice, so it is still there after a reload.
 - Notes on the trickier lines sit in cards under the lines they explain. Each concern lists its annotations under its files, with each one's file and line, and clicking one jumps to its card.
 
 ![An annotation card, numbered 2: "Feeds the cache key, so the value must not change", with two sentences on why](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--annotation-card.png)
