@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp, experimental_Diff as Diff } from "@get-bb/plugin-sdk/app";
 import { NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
 import { SuperDiffRow, type Loaded, type ThreadState } from "./row";
+import { ConcernFiles, ViewedCount } from "./concern";
 import {
   GENERATED_TITLE,
   UNGROUPED_TITLE,
@@ -28,7 +29,14 @@ const POLL_MS = 2000;
 
 const STYLE = `[${REPLACED_ATTR}] { display: none !important; }`;
 
-type Group = { kind: "concern" | "generated" | "ungrouped"; title: string; explanation: string; files: FileEntry[] };
+type Group = {
+  kind: "concern" | "generated" | "ungrouped";
+  title: string;
+  explanation: string;
+  files: FileEntry[];
+  summaries?: Record<string, string>;
+  others?: string;
+};
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
@@ -110,7 +118,9 @@ function buildGroups(stored: StoredSuperDiff, files: FileEntry[]): Group[] {
   for (const concern of stored.submission.concerns) {
     const present = concern.files.map((path) => byPath.get(path)).filter((file): file is FileEntry => file !== undefined && !shown.has(file.path));
     present.forEach((file) => shown.add(file.path));
-    if (present.length > 0) groups.push({ kind: "concern", title: concern.title, explanation: concern.explanation, files: present });
+    if (present.length > 0) {
+      groups.push({ kind: "concern", title: concern.title, explanation: concern.explanation, files: present, summaries: concern.summaries, others: concern.others });
+    }
   }
   const generated = files.filter((file) => !shown.has(file.path) && isPlacedByRule(file));
   generated.forEach((file) => shown.add(file.path));
@@ -239,6 +249,43 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
     return placeNotes(fromAgent, order, data.patches);
   }, [stored, data, groups]);
 
+  // Diff Viewed marks a viewed card's header row with data-diff-viewed="true".
+  // null while Diff Viewed is not decorating these cards, so no counts show.
+  const [viewed, setViewed] = useState<ReadonlySet<string> | null>(null);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (wrapper === null) return;
+    const read = () => {
+      if (wrapper.querySelector("label[data-diff-viewed-owned]") === null) {
+        setViewed((previous) => (previous === null ? previous : null));
+        return;
+      }
+      const next = new Set<string>();
+      for (const row of wrapper.querySelectorAll("[data-index]")) {
+        if (row.querySelector('[data-diff-viewed="true"]') === null) continue;
+        const label = row.querySelector("button[aria-expanded]")?.getAttribute("aria-label") ?? "";
+        next.add(label.replace(/^(Collapse|Expand) /, ""));
+      }
+      setViewed((previous) =>
+        previous !== null && previous.size === next.size && [...next].every((path) => previous.has(path)) ? previous : next,
+      );
+    };
+    const observer = new MutationObserver(read);
+    observer.observe(wrapper, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-diff-viewed"] });
+    read();
+    return () => observer.disconnect();
+  }, []);
+
+  const jumpToFile = (path: string) => {
+    const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
+    const toggle = [...(wrapperRef.current?.querySelectorAll("[data-index] button[aria-expanded]") ?? [])].find(
+      (button) => button.getAttribute("aria-label")?.replace(/^(Collapse|Expand) /, "") === path,
+    );
+    const row = toggle?.closest("[data-index]");
+    if (!scroller || !row) return;
+    scroller.scrollTop += row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 8;
+  };
+
   const jump = (id: string) => {
     setHighlightId(id);
     const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
@@ -272,9 +319,23 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
                 {group.title}
                 <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
                   {group.files.length} {group.files.length === 1 ? "file" : "files"}
+                  {viewed !== null ? (
+                    <>
+                      {" · "}
+                      <ViewedCount viewed={group.files.filter((file) => viewed.has(file.path)).length} total={group.files.length} />
+                    </>
+                  ) : null}
                 </span>
               </h3>
               <p className="mt-0.5 text-xs text-muted-foreground">{group.explanation}</p>
+              {group.kind === "concern" ? (
+                <ConcernFiles
+                  files={group.files.map((file) => ({ path: file.path, summary: group.summaries?.[file.path] }))}
+                  others={group.others}
+                  viewed={viewed}
+                  onJump={jumpToFile}
+                />
+              ) : null}
             </header>
             {group.files.map((file) => (
               <FileCard

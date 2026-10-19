@@ -9,5 +9,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["app.tsx", "server.ts", "annotations.tsx", "grouping.ts", "guide.ts", "row.tsx"]
+  "include": ["app.tsx", "server.ts", "annotations.tsx", "grouping.ts", "guide.ts", "row.tsx", "concern.tsx"]
 }

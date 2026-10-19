@@ -39,6 +39,13 @@ that every changed file is placed exactly once before it stores them.
 - Explanation: one or two sentences saying why these files change together and
   what a reviewer should look for. Plain words; no "This concern...".
 - Aim for 2 to 7 concerns. A 3-file diff may have one.
+- summaries: one line per file, at most about 80 characters, saying what that
+  file's change does ("Deletes the old hook; the URL lookup stays"), not what
+  the file is in general. The reviewer reads these before opening the files.
+- others: when many files in a concern change the same mechanical way, give a
+  summary only to the ones that differ and describe the rest together in one
+  line ("only the import and call are renamed"). Every file needs a summary
+  or to be covered by others.
 
 ## Annotations
 
@@ -58,7 +65,13 @@ that every changed file is placed exactly once before it stores them.
 
 {
   "concerns": [
-    { "title": "...", "explanation": "...", "files": ["path/one.ts", "path/two.ts"] }
+    {
+      "title": "...",
+      "explanation": "...",
+      "files": ["path/one.ts", "path/two.ts", "path/three.ts"],
+      "summaries": { "path/one.ts": "..." },
+      "others": "..."
+    }
   ],
   "annotations": [
     { "path": "path/one.ts", "anchor": "exact text from one line", "title": "...", "body": "..." }

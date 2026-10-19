@@ -16,7 +16,15 @@ export type DiffFile = {
   loadMode: "auto" | "on_demand" | "too_large";
 };
 
-export type Concern = { title: string; explanation: string; files: string[] };
+export type Concern = {
+  title: string;
+  explanation: string;
+  files: string[];
+  /** One line per file saying what its change is, keyed by path. */
+  summaries?: Record<string, string>;
+  /** One line covering every file in the concern that has no summary, such as "only the import is renamed". */
+  others?: string;
+};
 export type Annotation = { path: string; anchor: string; title: string; body: string };
 export type Submission = { concerns: Concern[]; annotations: Annotation[] };
 
@@ -99,10 +107,31 @@ export function validateSubmission(
       else if (isPlacedByRule(file)) problems.push(`${path} is placed by rule in ${GENERATED_TITLE}; leave it out.`);
       else placed.set(path, (placed.get(path) ?? 0) + 1);
     }
+    const paths = concern.files.filter((path): path is string => typeof path === "string");
+    const summaries: Record<string, string> = {};
+    const rawSummaries = concern.summaries;
+    if (rawSummaries !== undefined && (typeof rawSummaries !== "object" || rawSummaries === null || Array.isArray(rawSummaries))) {
+      problems.push(`${label}: "summaries" must be an object from path to one line.`);
+    } else {
+      for (const [path, text] of Object.entries(rawSummaries ?? {})) {
+        if (!paths.includes(path)) problems.push(`${label}: the summary for ${path} names a file that is not in this concern.`);
+        else if (!isString(text)) problems.push(`${label}: the summary for ${path} is empty.`);
+        else summaries[path] = text.trim();
+      }
+    }
+    const others = isString(concern.others) ? concern.others.trim() : undefined;
+    const unsummarized = paths.filter((path) => summaries[path] === undefined && !(byPath.get(path) && isPlacedByRule(byPath.get(path)!)));
+    if (unsummarized.length > 0 && others === undefined) {
+      problems.push(
+        `${label}: ${unsummarized.length === 1 ? `${unsummarized[0]} has` : `${unsummarized.length} files have`} no summary. Add a line for each in "summaries", or describe them together in "others" when they all change the same way.`,
+      );
+    }
     concerns.push({
       title: String(concern.title ?? "").trim(),
       explanation: String(concern.explanation ?? "").trim(),
-      files: concern.files.filter((path): path is string => typeof path === "string"),
+      files: paths,
+      summaries,
+      ...(others !== undefined && unsummarized.length > 0 ? { others } : {}),
     });
   });
 

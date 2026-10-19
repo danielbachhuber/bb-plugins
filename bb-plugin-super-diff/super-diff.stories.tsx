@@ -2,6 +2,7 @@
 // the Diff tab's toolbar and copies the classes of bb's Stacked/Split control
 // from the page; here those classes are passed in, copied from that control.
 import { NoteCard, NotesBox, type PlacedNote } from "./annotations";
+import { ConcernFiles, ViewedCount } from "./concern";
 import type { StoredSuperDiff } from "./grouping";
 import { SuperDiffRow, type ThreadState } from "./row";
 
@@ -87,6 +88,37 @@ export const AnnotationCard = () => (
         title: "Rounds once, at the end",
         body: "`applyDiscount` and `applyTax` no longer round on their own. Rounding twice made a 15% discount on $19.99 come out a cent low, so `round` now runs once on the final amount.",
       }}
+    />
+  </div>
+);
+
+const PRICING_FILES = [
+  { path: "acme/widgets/src/pricing.ts", summary: "Rounds once, after the discount and tax are both applied" },
+  { path: "acme/widgets/src/pricing.test.ts", summary: "Adds the 15% on $19.99 case that came out a cent low" },
+  { path: "acme/widgets/src/cart/summary.tsx", summary: "Shows the tax line from the server's rate" },
+  { path: "acme/widgets/src/cart/line-item.tsx" },
+  { path: "acme/widgets/src/cart/totals.tsx" },
+  { path: "acme/widgets/src/checkout/review.tsx" },
+];
+
+/** A concern's heading with Diff Viewed installed: its viewed count, then each file and what its change does. Files that change the same mechanical way share one line. */
+export const ConcernFileList = () => (
+  <div data-screenshot-frame className="w-[620px] bg-background p-4">
+    <h3 className="text-sm font-semibold text-foreground">
+      <span className="text-muted-foreground tabular-nums" style={{ marginRight: 8 }}>1</span>
+      Round prices after discounts and tax
+      <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
+        6 files · <ViewedCount viewed={3} total={6} />
+      </span>
+    </h3>
+    <p className="mt-0.5 text-xs text-muted-foreground">
+      Prices were rounded twice, once per step. They now round once at the end, and the cart reads the tax rate the server sends.
+    </p>
+    <ConcernFiles
+      files={PRICING_FILES}
+      others="only the price formatter import moves"
+      viewed={new Set(["acme/widgets/src/pricing.ts", "acme/widgets/src/pricing.test.ts", "acme/widgets/src/cart/totals.tsx"])}
+      onJump={() => {}}
     />
   </div>
 );
