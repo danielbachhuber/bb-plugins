@@ -55,7 +55,7 @@ import { availableParallelism, homedir, tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { contextOptions, photograph, screenshotStories } from "./screenshot-stories.mjs";
+import { contextOptions, isStoryNotFound, photograph, screenshotStories } from "./screenshot-stories.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -333,6 +333,8 @@ async function captureStories() {
     await page.waitForTimeout(500);
     if (errors.length) {
       results[index] = { error: `${id}: ${errors[0]}` };
+    } else if (await isStoryNotFound(page)) {
+      results[index] = { error: `${id}: Ladle's build answered "Story not found"` };
     } else {
       const image = await photograph(page);
       const file = outputPath(id);

@@ -56,14 +56,23 @@ function pluginAtImports(): Plugin {
   };
 }
 
-/** Above zero when the package in directory a is newer than the one in b. */
 /**
- * Ladle means to reload when a story file is added or removed, but it hands
- * its glob to a chokidar that no longer accepts globs, so a new story stays
- * "not found" until a restart. This watches this checkout's directories and
+ * Ladle means to reload its story list when a story file is added, removed,
+ * or changes which stories it exports, but it hands its glob to a chokidar
+ * that no longer accepts globs, so it never hears of any of them. Its page
+ * then answers "Story not found" for a new story, or a new export in an
+ * existing file, until a restart, while its meta.json, which it reads afresh
+ * on every request, lists it. This watches this checkout's directories and
  * does what Ladle's watcher would have.
  */
 function newStoryFiles(): Plugin {
+  const configDir = path.join(pluginsDir!, ".ladle");
+  // Ladle's own reading of every story file, as its meta.json gives it. An
+  // edit that keeps the same stories updates in place, as Ladle intends.
+  const storyIds = async () => {
+    const { default: getMeta } = await import(path.join(bbAppDir, "node_modules/@ladle/react/api/meta.js"));
+    return Object.keys((await getMeta({ config: configDir })).stories).join("\n");
+  };
   return {
     name: "bb-plugins:new-story-files",
     configureServer(server) {
@@ -72,13 +81,28 @@ function newStoryFiles(): Plugin {
           server.watcher.add(path.join(pluginsDir!, entry.name));
         }
       }
-      const onChange = (file: string) => {
-        if (!file.endsWith(".stories.tsx") || !file.startsWith(`${pluginsDir}/`)) return;
+      let known = storyIds().catch(() => "");
+      const reloadList = () => {
         const list = server.moduleGraph.getModuleById("\0virtual:generated-list");
         if (list) server.moduleGraph.invalidateModule(list);
         server.ws.send({ type: "full-reload", path: "*" });
       };
-      server.watcher.on("add", onChange).on("unlink", onChange);
+      const isStoryFile = (file: string) => file.endsWith(".stories.tsx") && file.startsWith(`${pluginsDir}/`);
+      const onAddOrRemove = (file: string) => {
+        if (!isStoryFile(file)) return;
+        known = storyIds().catch(() => "");
+        reloadList();
+      };
+      const onChange = (file: string) => {
+        if (!isStoryFile(file)) return;
+        known = known.then(async (before) => {
+          // A file mid-edit that does not parse keeps the last list.
+          const after = await storyIds().catch(() => before);
+          if (after !== before) reloadList();
+          return after;
+        });
+      };
+      server.watcher.on("add", onAddOrRemove).on("unlink", onAddOrRemove).on("change", onChange);
     },
   };
 }

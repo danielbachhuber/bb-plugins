@@ -9,8 +9,12 @@
 //
 // It uses a Ladle server already serving this checkout, such as one from
 // `npm run storybook`, and starts one of its own for the run when there is
-// none. A story that throws, or that Vite cannot load, stops the run at once
-// with the error and a non-zero exit, rather than waiting for a timeout.
+// none. A running server can answer "Story not found" for a story its
+// meta.json lists, so the stories it misses are photographed on a server
+// started for the run, and the running one is left alone. A story that
+// throws, that Vite cannot load, or that no server finds stops the run with
+// the error and a non-zero exit, rather than saving the wrong picture or
+// waiting for a timeout.
 //
 // `photograph` is shared with the full capture, so a picture taken here
 // matches the one that capture commits.
@@ -32,6 +36,19 @@ export const contextOptions = (theme) => ({
   reducedMotion: "reduce",
   colorScheme: theme,
 });
+
+/**
+ * Whether a loaded page is Ladle's "Story not found" page rather than the
+ * story. Ladle draws it when the id is missing from the story list its page
+ * loaded, which a running server can serve out of date (see `newStoryFiles`
+ * in .ladle/vite.config.mts), and it would otherwise be photographed like any
+ * other story.
+ */
+export async function isStoryNotFound(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll(".ladle-error-content h1")].some((h1) => h1.textContent.trim() === "Story not found"),
+  );
+}
 
 /** A loaded story page as a PNG buffer. */
 export async function photograph(page) {
@@ -198,6 +215,7 @@ export async function screenshotStories(argv) {
   const { patterns, out, theme } = parseArgs(argv);
   const started = Date.now();
   let base = await runningServer();
+  const reused = Boolean(base);
   if (base) {
     console.log(`Using the Ladle server at ${base}.`);
   } else {
@@ -222,37 +240,65 @@ export async function screenshotStories(argv) {
   const outDir = resolve(out);
   mkdirSync(outDir, { recursive: true });
   const browser = await chromium.launch();
-  let next = 0;
-  let failure = null;
-  async function worker() {
-    const context = await browser.newContext(contextOptions(theme));
-    while (next < matching.length && !failure) {
-      const id = matching[next++];
-      const page = await context.newPage();
-      const failed = watchForErrors(page).then((message) => ({ message }));
-      const loaded = (async () => {
-        await page.goto(`${base}/?story=${id}&mode=preview&theme=${theme}`, { waitUntil: "networkidle", timeout: 30000 });
-        await page.evaluate(() => document.fonts.ready);
-        await page.waitForTimeout(200);
-        return { image: await photograph(page) };
-      })().catch((error) => ({ message: error.message.split("\n")[0] }));
-      const result = await Promise.race([failed, loaded]);
-      if (result.message) {
-        failure ??= `${id} failed to render:\n\n${result.message}`;
-        break;
+
+  /** Photographs `ids` from `server` into outDir, and returns the ids it served as "Story not found". */
+  async function capture(server, ids) {
+    let next = 0;
+    const missing = [];
+    async function worker() {
+      const context = await browser.newContext(contextOptions(theme));
+      while (next < ids.length && !failure) {
+        const id = ids[next++];
+        const page = await context.newPage();
+        const failed = watchForErrors(page).then((message) => ({ message }));
+        const loaded = (async () => {
+          await page.goto(`${server}/?story=${id}&mode=preview&theme=${theme}`, { waitUntil: "networkidle", timeout: 30000 });
+          await page.evaluate(() => document.fonts.ready);
+          await page.waitForTimeout(200);
+          if (await isStoryNotFound(page)) return { missing: true };
+          return { image: await photograph(page) };
+        })().catch((error) => ({ message: error.message.split("\n")[0] }));
+        const result = await Promise.race([failed, loaded]);
+        if (result.message) {
+          failure ??= `${id} failed to render:\n\n${result.message}`;
+          break;
+        }
+        if (result.missing) {
+          missing.push(id);
+        } else {
+          const file = join(outDir, `${id}.png`);
+          writeFileSync(file, result.image);
+          console.log(file);
+        }
+        await page.close();
       }
-      const file = join(outDir, `${id}.png`);
-      writeFileSync(file, result.image);
-      console.log(file);
-      await page.close();
+      await context.close();
+    }
+    await Promise.all(Array.from({ length: Math.min(4, ids.length) }, worker));
+    return missing;
+  }
+
+  let failure = null;
+  let missing = await capture(base, matching);
+  // A server that was already running can list a story in meta.json and
+  // still answer "Story not found" for it. It is left running, since someone
+  // else may be using it, and the stories it missed are tried on a fresh one.
+  if (!failure && missing.length && reused) {
+    console.log(`\nThe Ladle server at ${base} answered "Story not found" for ${missing.join(", ")}, so starting a fresh server for this run.`);
+    try {
+      missing = await capture(await startServer(), missing);
+    } catch (error) {
+      failure = `Ladle answered "Story not found" for ${missing.join(", ")}, and a fresh server would not start:\n\n${error.message}`;
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, matching.length) }, worker));
+  if (!failure && missing.length) {
+    failure = `Ladle answered "Story not found" for ${missing.join(", ")}, though meta.json lists ${missing.length === 1 ? "it" : "them"}.`;
+  }
+  await browser.close();
   if (failure) {
     console.error(`\n${failure}`);
     return 1;
   }
-  await browser.close();
   console.log(`\n${matching.length} ${matching.length === 1 ? "story" : "stories"} in ${((Date.now() - started) / 1000).toFixed(1)}s.`);
   return 0;
 }
