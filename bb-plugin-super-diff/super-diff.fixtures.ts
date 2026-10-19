@@ -154,3 +154,31 @@ export const FIXTURE_VIEWED: ReadonlySet<string> = new Set([
   "src/components/__demos__/price-tag.demo.tsx",
   ...FIXTURE.submission.concerns[5]!.files,
 ]);
+
+/** The diff of the first concern's last file, with note 1 on its added line 19. */
+export const LAYOUT_PATH = "src/app/[storeKey]/(shop)/_layout.tsx";
+export const LAYOUT_PATCH = [
+  `diff --git a/${LAYOUT_PATH} b/${LAYOUT_PATH}`,
+  "index 3a4b5c6..7d8e9f0 100644",
+  `--- a/${LAYOUT_PATH}`,
+  `+++ b/${LAYOUT_PATH}`,
+  "@@ -1,5 +1,5 @@",
+  " import { Slot } from 'acme-router';",
+  "-import { useStoreCurrency } from 'system/request-context';",
+  "+import { currencyFromHost } from 'system/request-context';",
+  " import { useRegion } from 'data/region';",
+  " import { CheckoutGate } from 'shell/checkout-gate';",
+  " ",
+  "@@ -15,9 +15,9 @@",
+  " export default function ShopLayout() {",
+  "     const store = useStoreParams();",
+  "     const region = useRegion(store);",
+  "     // Checkout needs the currency before PricingProvider mounts.",
+  "-    const currency = useStoreCurrency();",
+  "+    const currency = currencyFromHost();",
+  "     if (!region.sellsIn(currency)) {",
+  "         return <CheckoutGate reason=\"currency\" />;",
+  "     }",
+  "     return <Slot />;",
+  "",
+].join("\n");

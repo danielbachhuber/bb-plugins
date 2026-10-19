@@ -2,10 +2,13 @@
 // super-diff.fixtures.ts). In bb the row sits under the Diff tab's toolbar and
 // copies the classes of bb's Stacked/Split control from the page; here those
 // classes are passed in, copied from that control.
-import type { ReactNode } from "react";
-import { NoteCard, NotesBox } from "./annotations";
+import { useRef, type ReactNode } from "react";
+import type { DiffFileEntry } from "@bb/server-contract";
+import { DiffFileCard } from "@bb-app/components/secondary-panel/git-diff/DiffFileCard";
+import { DEFAULT_CODE_OVERFLOW_MODE } from "@bb-app/lib/code-overflow-mode";
+import { NoteCard, NoteRows, NotesBox } from "./annotations";
 import { ConcernHeader } from "./concern";
-import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED } from "./super-diff.fixtures";
+import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED, LAYOUT_PATCH, LAYOUT_PATH } from "./super-diff.fixtures";
 import { SuperDiffRow, type ThreadState } from "./row";
 
 export default {
@@ -40,34 +43,70 @@ function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?
   );
 }
 
-function Concerns() {
+function Concern({ index }: { index: number }) {
+  const concern = FIXTURE.submission.concerns[index]!;
   return (
-    <>
-      {FIXTURE.submission.concerns.map((concern, index) => (
-        <ConcernHeader
-          key={concern.title}
-          number={index + 1}
-          title={concern.title}
-          explanation={concern.explanation}
-          files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
-          others={concern.others}
-          showList
-          viewed={FIXTURE_VIEWED}
-          onJump={() => {}}
-        />
-      ))}
-    </>
+    <ConcernHeader
+      number={index + 1}
+      title={concern.title}
+      explanation={concern.explanation}
+      files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
+      others={concern.others}
+      showList
+      viewed={FIXTURE_VIEWED}
+      onJump={() => {}}
+    />
   );
 }
 
-/** A Super Diff of a 57-file rename: the row, the annotation list, then six concerns, each with what its files' changes are and how many of them Diff Viewed has marked viewed. In bb, each concern's diff cards follow its heading. */
+const LAYOUT_ENTRY: DiffFileEntry = {
+  path: LAYOUT_PATH,
+  previousPath: null,
+  changeKind: "modified",
+  additions: 2,
+  deletions: 2,
+  binary: false,
+  origin: "tracked",
+  loadMode: "auto",
+};
+
+/** bb's own file card, with note 1 placed under its line the way the panel places it. */
+function LayoutDiff() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  return (
+    <div ref={ref}>
+      <DiffFileCard
+        entry={LAYOUT_ENTRY}
+        presentation={{ view: "unified", overflow: DEFAULT_CODE_OVERFLOW_MODE, showLineNumbers: true }}
+        isCollapsed={false}
+        onToggleCollapsed={() => {}}
+        patchState={{ status: "loaded", patch: LAYOUT_PATCH }}
+        onLoadPatch={() => {}}
+        onRetry={() => {}}
+      />
+      <NoteRows containerRef={ref} notes={[{ ...FIXTURE_NOTES[0]!, line: 19 }]} highlightId={null} />
+    </div>
+  );
+}
+
+/** A Super Diff of a 57-file rename: the row, the annotation list, the first concern with what each file's change is, and one of its files in bb's diff with an annotation under the line it explains. */
 export const Overview = () => (
   <Frame>
     <Row state={READY} />
     <div className="mt-3">
       <NotesBox notes={FIXTURE_NOTES} onJump={() => {}} />
     </div>
-    <Concerns />
+    <Concern index={0} />
+    <LayoutDiff />
+  </Frame>
+);
+
+/** All six concerns of the same Super Diff, each with what its files' changes are and how many of them Diff Viewed has marked viewed. In bb, each concern's diff cards follow its heading. */
+export const AllConcerns = () => (
+  <Frame>
+    {FIXTURE.submission.concerns.map((concern, index) => (
+      <Concern key={concern.title} index={index} />
+    ))}
   </Frame>
 );
 

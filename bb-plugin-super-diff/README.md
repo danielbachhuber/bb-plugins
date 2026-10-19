@@ -2,7 +2,7 @@
 
 Group the Diff tab by concern, with an explanation for each group and notes on the trickier code, written by the thread's agent.
 
-![A Super Diff of a 57-file rename: the Original | Super Diff row, a list of four annotations, then six concerns, each with an explanation, a line on what each file's change does, and how many of its files are viewed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
+![A Super Diff of a 57-file rename: the Original | Super Diff row, a list of four annotations, the first concern with a line on what each file's change is, and one of its files in bb's diff with an annotation card under the line it explains](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
 
 ## Use
 
