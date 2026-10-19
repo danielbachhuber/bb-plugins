@@ -31,7 +31,7 @@ With Impromptu UI, you can:
 
 Every thread's instructions get a short section telling the agent to build a view whenever you would otherwise read its output and type a reply to act on it, shaped to its own task. The section doesn't list what a view can hold. It points to `bb impromptu-ui schema`, which prints the view file's JSON Schema from the code, so new fields reach agents without anyone editing the instructions. The `impromptu-ui` skill shows how to put a view together. Turn it off with the `threadInstructions` setting.
 
-The `refine-impromptu-ui` skill works on Impromptu UI itself. Run it in a thread where a view fell short or never appeared, or ask it to scan the threads active in the last 2 days. A scan reads each thread with a subagent, one `bb thread log` per thread. For a thread still waiting on an answer it offers to ask that thread to publish a view. It turns each missed moment it finds into an edit to the skill that should have published, an edit to the `impromptu-ui` guide, or an anonymized issue on this repository.
+The `refine-impromptu-ui` skill works on Impromptu UI itself. Run it in a thread where a view fell short or never appeared, and it starts a new thread to work out the fix, so the refinement stays out of the thread you were working in. Or ask it to scan the threads active in the last 2 days. A scan reads each thread with a subagent, one `bb thread log` per thread. For a thread still waiting on an answer it offers to ask that thread to publish a view. It turns each missed moment it finds into an edit to the skill that should have published, an edit to the `impromptu-ui` guide, or an anonymized issue on this repository.
 
 ```sh
 bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view

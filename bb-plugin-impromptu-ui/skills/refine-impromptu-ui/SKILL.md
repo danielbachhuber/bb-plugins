@@ -1,6 +1,6 @@
 ---
 name: refine-impromptu-ui
-description: Use when Impromptu UI fell short, or should have run and did not, such as "impromptu UI should have shown this", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", or "refine impromptu UI"; and when the user asks to scan recent or active threads for moments where Impromptu UI could have run or a better view would have helped. Finds the missed moments, shows a view in threads still waiting on the user, and turns the rest into a change to the plugin, its guide, or the skill that should have published, filing an anonymized issue on danielbachhuber/bb-plugins where the plugin needs to change.
+description: Use when Impromptu UI fell short, or should have run and did not, such as "impromptu UI should have shown this", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", or "refine impromptu UI"; and when the user asks to scan recent or active threads for moments where Impromptu UI could have run or a better view would have helped. Run in a thread doing other work, it starts a new thread for the refinement. Finds the missed moments, shows a view in threads still waiting on the user, and turns the rest into a change to the plugin, its guide, or the skill that should have published, filing an anonymized issue on danielbachhuber/bb-plugins where the plugin needs to change.
 ---
 
 # Refine Impromptu UI
@@ -12,27 +12,83 @@ done the job better. This skill finds those moments, fixes the ones the user
 is still waiting on, and turns the rest into a change that stops them
 happening again.
 
-There are two ways in:
+There are three ways in:
 
-- **This thread.** The user says Impromptu UI should have run here, or that a
-  view here fell short. Go to "This thread".
+- **In a thread doing other work.** The user says Impromptu UI should have
+  run here, or that a view here fell short. Go to "Hand it off": the
+  refinement runs in a new thread, so it stays out of this one.
+- **One thread.** This thread was started to refine one thread, by a hand-off
+  or by the user naming it. Go to "One thread".
 - **A scan.** The user asks to look across recent or active threads. Go to
   "A scan". Run it in a thread of its own: the subagents' reports fill the
   context, and the scan skips the thread it runs in.
 
-Both end in "Choose the fix".
+"One thread" and "A scan" end in "Choose the fix".
 
-## This thread
+## Hand it off
+
+Do two things here, then stop.
+
+**Show the view, if the moment is still open.** If the user has not yet acted
+on the output that should have been a view, build that view now, following
+the `impromptu-ui` skill. That is this thread's own work, and the user's
+decision is waiting on it. Skip this when the moment has passed or the
+problem is a view that broke.
+
+**Start the refinement thread.** Find the message the problem is about: the
+reply that should have been a view, or the one that published the view that
+fell short.
+
+Usually it is your last reply before the user's complaint. List your recent
+replies' sequence numbers, newest last, and check one with `--message`:
+
+```bash
+bb thread log --self --json --all | jq -r '[.[] | select(.type=="item/completed" and .data.item.type=="agentMessage")] | .[-5:][] | .seq'
+bb thread log --self --message <seq>
+bb thread show --self --json | jq '.thread | {providerId, projectId}'
+```
+
+Write the prompt to a file. It names this thread and the message, and says
+in a sentence or two what the user said went wrong, in their words where you
+can:
+
+```
+Use the refine-impromptu-ui skill to refine one thread: @thread:<this thread's id>#msg=<seq>.
+What happened: <what the reply held, and what the user did or said about it>.
+```
+
+```bash
+bb thread spawn --project <project> --provider <this thread's providerId> \
+  --title "Refine Impromptu UI: <the kind of work, in a few words>" \
+  --prompt-file /tmp/refine-impromptu-ui/handoff.md
+```
+
+For `--project`, use the project whose checkout holds this plugin if
+`bb project list` has one, since a guide edit happens there; otherwise this
+thread's project. Do not pass `--parent-self`: the refinement is not part of
+this thread's work.
+
+In chat, say in one line that the refinement is running in
+`@thread:<new id>`, and go back to the work this thread was doing.
+
+## One thread
 
 ### 1. Work out what went wrong
 
-Start from what you already know in this thread: the task, whether you
-published a view, and what the user said about it. Read back any view you
-published:
+Read the thread and the message the prompt names, with the messages around
+it:
 
 ```bash
-bb impromptu-ui list
-bb impromptu-ui state [--key <name>]
+bb thread log <id> --message <seq> --context 5
+```
+
+Read the whole thread with `--format minimal --all` if that is not enough to
+see the task. Check whether it published a view, and what the user did with
+it:
+
+```bash
+BB_THREAD_ID=<id> bb impromptu-ui list
+BB_THREAD_ID=<id> bb impromptu-ui state --key <name>
 ```
 
 Place the problem in one of these:
@@ -48,13 +104,13 @@ If what the user said leaves more than one of these possible, ask one
 question to settle it, and offer your best guess as the first answer. Do not
 ask about what you can see in the thread.
 
-### 2. Fix the moment, if it is still open
+### 2. Look for a way that already works
 
-If the user has not yet acted on the output that should have been a view,
-build that view now, following the `impromptu-ui` skill, before anything
-else. The fix for next time can wait; the user's decision is waiting now.
+If the moment is still open in that thread and no view went up for it,
+offer the scan's **Show it there** button (see "A scan") as a card of its
+own.
 
-Then read `skills/impromptu-ui/SKILL.md` (bb gives it to this thread as the
+Read `skills/impromptu-ui/SKILL.md` (bb gives it to this thread as the
 `impromptu-ui` skill) for the part that covers the problem. Some problems can
 already be solved today, with a field you did not use, a different layout,
 or a way of arranging the cards, such as one card that acts on a whole group.
@@ -234,7 +290,7 @@ anything.
 | **The view file** | The work needed a field, button type, or layout the schema does not have. | File an issue. |
 | **The panel or the list** | Something already supported looks or behaves wrong, or broke. | File an issue. |
 
-For a problem from "This thread", come up with two to four alternatives
+For a problem from "One thread", come up with two to four alternatives
 first, each specific enough to build, drawn from different places rather
 than one idea three ways. For each, say what it would change for the task at
 hand, and what it costs: another field every agent has to learn, a layout
