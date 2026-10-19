@@ -292,7 +292,9 @@ anything.
 
 For a problem from "One thread", come up with two to four alternatives
 first, each specific enough to build, drawn from different places rather
-than one idea three ways. For each, say what it would change for the task at
+than one idea three ways. Do this even when the prompt names a likely fix:
+that fix is one card, not the decision. Edit nothing until the user presses
+**Do this one**. For each, say what it would change for the task at
 hand, and what it costs: another field every agent has to learn, a layout
 that suits only this kind of work, a change in behavior that existing views
 rely on. Show them as a view under the key `refine-impromptu-ui`, so it does
@@ -304,6 +306,13 @@ If Impromptu UI is not available or is what broke, list them in chat instead
 and ask which to do. The user may pick more than one; each filed issue links
 the others among its alternatives.
 
+After an edit, to another skill or the guide, publish the
+`refine-impromptu-ui` view again with the diff in the picked card's
+`changes`, and end the turn there. If the repository's rules let you commit
+when asked, give that card a `message` button, `Commit and push`, and mark it
+`"complete": true` once the commit lands; otherwise mark it complete now. Do
+not ask about committing in chat.
+
 ### Editing another skill
 
 Find where the skill comes from. A skill in `~/.claude/skills/<name>`,
@@ -314,9 +323,10 @@ change on the plugin's repository if there is none.
 
 The change is usually a step near the end that publishes a view, with the
 view's shape: one card per item, the buttons each item needs, the key. Keep
-it short and point to the `impromptu-ui` skill for the rest. Show the user the
-diff, and follow that repository's own rules for committing. If the skill's
-repository is public, the anonymizing rules below apply to the edit too.
+it short and point to the `impromptu-ui` skill for the rest. Then show the
+diff on its card, as above, and follow that repository's own rules for
+committing. If the skill's repository is public, the anonymizing rules below
+apply to the edit too.
 
 ## File an issue
 
