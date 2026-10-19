@@ -18,7 +18,7 @@ import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, staplesView, triageView } from "./view/fixtures";
+import { configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, threePrsView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -824,6 +824,68 @@ export function MilestoneTriageItemOpen() {
       ]}
       view={stored(milestoneTriageView)}
       initialFocus="issue-434"
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Three PRs at once                                                          */
+/* -------------------------------------------------------------------------- */
+
+const threePrsRequest: Turn[] = [
+  { kind: "user", text: "Two separate PRs to fix the issues in this comment: https://github.com/acme/widgets/issues/2318#issuecomment-1" },
+  { kind: "user", text: "Actually, three:\n1. Invites\n2. Demo accounts\n3. Docs" },
+  { kind: "work", text: "Ran 8 commands, explored 9 files, 6 searches" },
+];
+
+const threePrsInChat = `I've made the three fixes from the comment, each on its own branch in its own worktree. All three are uncommitted, and each has a drafted PR description.
+
+1. **Invites** (\`invite-as-viewer\`, this worktree): members invited without a role now start as Viewer instead of Maintainer. Tests, lint and typecheck pass.
+2. **Demo accounts** (\`seed-retired-roles\`, in \`../widgets-seed-retired-roles\`): I removed the three demo accounts whose only role is one we are retiring.
+   - **Decision for you:** I removed them rather than moving them to current roles, because every current role already has a demo account.
+   - Server tests, lint and typecheck pass.
+3. **Docs** (\`docs-permissions-accuracy\`, in \`../widgets-docs-permissions-accuracy\`): I removed the "Permission groups" section, because each role in the code lists its own permissions and nothing inherits.
+
+Check the testing steps in each draft before opening the PRs:
+- pull-request-invite-as-viewer.md
+- pull-request-seed-retired-roles.md
+- pull-request-docs-permissions-accuracy.md
+
+Which should I open?`;
+
+const threePrsTurns: Turn[] = [
+  ...threePrsRequest,
+  { kind: "assistant", text: "I've made the three fixes, each uncommitted in its own worktree with its PR description drafted. They're above the composer; each card's button commits, pushes, and opens that PR." },
+  { kind: "user", text: "Only Owners and Maintainers can open this screen.\n\nWe should probably drop Maintainers, since that role is going away soon." },
+  { kind: "work", text: "Ran 2 commands" },
+  {
+    kind: "assistant",
+    text: `I've dropped Maintainers from the three places in the guide that say who can open Team Settings:
+
+- **Intro:** "available to Owners and Maintainers" is now "available to Owners."
+- **Members section:** "**Assign roles** stays with Owners and Maintainers" is now "stays with Owners."
+- **Assigning roles:** "Owners can open it. From there, an Owner can add..."
+
+I left out "Only" in the last one. Members who still hold Maintainer can open the screen until that role is removed, so "Only Owners" wouldn't be true yet.
+
+I've updated the draft to match, and its card above the composer shows the new diff. The change is still uncommitted.`,
+  },
+];
+
+/** Before: three finished fixes written out in chat, each opened by typing which one. */
+export function ThreePrsInChat() {
+  return <ThreadStage turns={[...threePrsRequest, { kind: "assistant", text: threePrsInChat }]} view={stored(threePrsView)} chatOnly />;
+}
+
+/** After: one card per pull request, each with its diff and a button that commits, pushes, and opens it. The first is already open, and the demo accounts fix is open in the side panel. */
+export function ThreePrsItemOpen() {
+  return (
+    <ThreadStage
+      turns={threePrsTurns}
+      view={stored(threePrsView, {
+        "invite-viewer": { state: "done", result: { label: "Commit, push, and open PR", at: "2026-03-12T12:05:00Z" } },
+      })}
+      initialFocus="demo-accounts"
     />
   );
 }

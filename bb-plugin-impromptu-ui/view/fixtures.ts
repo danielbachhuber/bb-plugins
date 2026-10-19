@@ -1118,3 +1118,116 @@ export const milestoneTriageView: View = viewSchema.parse({
     { title: "Move milestone", items: moveRows.map((row) => triageItem(row, "Post and move", "neutral")) },
   ],
 });
+
+/* Three pull requests from one review comment, each in its own worktree. */
+
+const permissionsDocPatch = `diff --git a/docs/guides/permissions.md b/docs/guides/permissions.md
+--- a/docs/guides/permissions.md
++++ b/docs/guides/permissions.md
+@@ -1,7 +1,7 @@
+ # Permissions
+ 
+ Widgets uses roles to control who can change gadgets, review reports, and manage a team. Each member can hold one or more roles, and each role grants a set of permissions. Members without a role can view gadgets and nothing else.
+ 
+-Roles are assigned from the **Team Settings** screen, available to Owners and Maintainers.
++Roles are assigned from the **Team Settings** screen, available to Owners.
+ 
+ Assign one of these three roles:
+@@ -42,7 +42,7 @@
+ Reading the member list (**List members**) is granted to every role: several screens use it, so no narrower permission fits.
+ 
+-Changing a member's display name is separate from deciding their role. **Edit member profiles** covers the Members screen, so a Reviewer can fix a colleague's name without being able to invite or remove anyone. **Assign roles** stays with Owners and Maintainers. On the Members screen a Reviewer therefore sees the Invite button and the Remove action disabled.
++Changing a member's display name is separate from deciding their role. **Edit member profiles** covers the Members screen, so a Reviewer can fix a colleague's name without being able to invite or remove anyone. **Assign roles** stays with Owners. On the Members screen a Reviewer therefore sees the Invite button and the Remove action disabled.
+ 
+ | Permission | Owner | Reviewer | Viewer | Maintainer |
+ |---|:-:|:-:|:-:|:-:|
+ | Edit gadgets | x | x |   | x |
+@@ -61,16 +61,7 @@
+ | Export reports | x | x | x | x |
+ 
+-## Permission groups
+-
+-Some retired roles include the permissions of others:
+-
+-- **Maintainer** includes everything a Reviewer can do.
+-- **Owner** has every permission, whatever roles they hold.
+-
+-Holding Maintainer, for example, already includes everything a Reviewer can do.
+-
+ ## Assigning roles
+ 
+-Roles are assigned on the **Team Settings** screen. Only Owners and Maintainers can open it. From there, an Owner or Maintainer can add a member by email and pick which roles to grant. A member can hold several roles, and their permissions combine.
++Roles are assigned on the **Team Settings** screen. Owners can open it. From there, an Owner can add a member by email and pick which roles to grant. A member can hold several roles, and their permissions combine.
+ 
+ To remove a member's access entirely, take away all of their roles.
+`;
+
+function splitCommentPr(id: string, title: string, summary: string, branch: string, patch: string) {
+  return {
+    id,
+    title,
+    summary: `${summary}\n\nDraft: [pull-request-${branch}.md](/tmp/drafts/pull-request-${branch}.md) · worktree \`/tmp/worktrees/widgets-${branch}\``,
+    changesLabel: "Files changed",
+    changes: [{ label: patch.match(/^\+\+\+ b\/(.+)$/m)![1]!, patch }],
+    actions: [
+      { type: "message", label: "Commit, push, and open PR", primary: true, text: `Commit, push, and open the pull request for "${title}" from \`${branch}\`.` },
+      { type: "message", label: "Revise", text: `Let's revise "${title}" before it goes up.` },
+    ],
+  };
+}
+
+const seedPatch = `diff --git a/server/seed/demo-accounts.ts b/server/seed/demo-accounts.ts
+--- a/server/seed/demo-accounts.ts
++++ b/server/seed/demo-accounts.ts
+@@ -8,9 +8,6 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
+   { name: "Octocat Owner", email: "owner@example.com", roles: ["owner"] },
+   { name: "Hubber Reviewer", email: "reviewer@example.com", roles: ["reviewer"] },
+   { name: "Vera Viewer", email: "viewer@example.com", roles: ["viewer"] },
+-  { name: "Max Maintainer", email: "maintainer@example.com", roles: ["maintainer"] },
+-  { name: "Gail Gatekeeper", email: "gatekeeper@example.com", roles: ["gatekeeper"] },
+-  { name: "Tess Triager", email: "triager@example.com", roles: ["triager"] },
+ ];
+`;
+
+const invitePatch = `diff --git a/client/screens/members/invite.tsx b/client/screens/members/invite.tsx
+--- a/client/screens/members/invite.tsx
++++ b/client/screens/members/invite.tsx
+@@ -27,7 +27,7 @@ export function InviteMember({ team }: { team: Team }) {
+   const [email, setEmail] = useState("");
+-  const role = team.defaultRole ?? "maintainer";
++  const role = team.defaultRole ?? "viewer";
+   return (
+     <Form onSubmit={() => invite(team.id, email, role)}>
+`;
+
+export const threePrsView: View = viewSchema.parse({
+  title: "Three PRs from the #2318 comment",
+  summary: "Each fix is uncommitted in its own worktree, with its pull request description drafted. Nothing has been pushed.",
+  sections: [
+    {
+      items: [
+        splitCommentPr(
+          "invite-viewer",
+          "fix(teams): invite new members as Viewer",
+          "New members invited without a role were made Maintainers, a role we are retiring. They now start as Viewers.",
+          "invite-as-viewer",
+          invitePatch,
+        ),
+        splitCommentPr(
+          "demo-accounts",
+          "fix(seed): drop demo accounts that hold retired roles",
+          "Removes Max Maintainer, Gail Gatekeeper, and Tess Triager from the demo accounts, so signing in on a preview server no longer offers roles the app is retiring.",
+          "seed-retired-roles",
+          seedPatch,
+        ),
+        splitCommentPr(
+          "permissions-doc",
+          "docs(permissions): remove permission groups and fix who opens Team Settings",
+          "Removes the Permission groups section, which describes inheritance the code doesn't have, and describes Team Settings as open to Owners, leaving out the retiring Maintainer role.",
+          "docs-permissions-accuracy",
+          permissionsDocPatch,
+        ),
+      ],
+    },
+  ],
+});
