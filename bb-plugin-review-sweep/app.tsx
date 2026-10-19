@@ -400,7 +400,7 @@ function ReviewsTopBar() {
   const navigate = useBbNavigate();
   const counts = useCounts() ?? { urgent: 0, total: 0, urgentLabel: "", totalLabel: "" };
   return (
-    <TopBarSlot pluginId="review-sweep" order={2} activeOn={["/plugins/review-sweep/reviews"]}>
+    <TopBarSlot pluginId="review-sweep" order={3} activeOn={["/plugins/review-sweep/reviews"]}>
       <TopBarCount icon={<Icon name="Eye" />} label="Open Reviews" onClick={() => navigate.toPluginPanel("reviews")} {...counts} />
     </TopBarSlot>
   );

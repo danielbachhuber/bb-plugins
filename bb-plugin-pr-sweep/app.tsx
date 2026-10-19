@@ -333,7 +333,7 @@ function NeedsActionCount() {
 function PrsTopBar() {
   const navigate = useBbNavigate();
   return (
-    <TopBarSlot pluginId="pr-sweep" order={3} activeOn={["/plugins/pr-sweep/prs"]}>
+    <TopBarSlot pluginId="pr-sweep" order={2} activeOn={["/plugins/pr-sweep/prs"]}>
       <TopBarCount icon={<Icon name="GitPullRequest" />} label="Open Pull requests" onClick={() => navigate.toPluginPanel("prs")} {...useCounts()} />
     </TopBarSlot>
   );
