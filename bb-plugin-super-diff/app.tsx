@@ -437,7 +437,9 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         states.set(key, { phase: "generating", requestedAt: result.requestedAt });
         void poll(threadId, selection, result.requestedAt);
       } else {
+        // A stored Super Diff opens by default; Original is one click away.
         states.set(key, stored === null ? { phase: "idle" } : { phase: "ready", showing: "original", stored, data: null });
+        if (stored !== null) void show(threadId, selection, "super");
       }
       schedule();
     } catch (cause) {

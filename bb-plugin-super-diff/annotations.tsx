@@ -178,21 +178,22 @@ function slotName(id: string): string {
 }
 
 /** Adds the note's row under `line`, once. Pierre re-rendering drops it, and the observer calls this again. */
-function ensureRow(root: ShadowRoot, line: number, id: string): void {
-  if (root.querySelector(`[${NOTE_ATTR}="${id}"]`) !== null) return;
+/** True once the note's row is in the diff; false while the line is not drawn yet. */
+function ensureRow(root: ShadowRoot, line: number, id: string): boolean {
+  if (root.querySelector(`[${NOTE_ATTR}="${id}"]`) !== null) return true;
   const columns = Array.from(root.querySelectorAll<HTMLElement>("[data-code]"));
   const column = columns.find((c) => c.hasAttribute("data-additions")) ?? columns.find((c) => c.hasAttribute("data-unified")) ?? columns[0];
-  if (column === undefined) return;
+  if (column === undefined) return false;
   const gutter = childWith(column, "data-gutter");
   const content = childWith(column, "data-content");
-  if (gutter === null || content === null) return;
+  if (gutter === null || content === null) return false;
   const rows = Array.from(content.children);
   const cells = Array.from(gutter.children);
-  if (rows.length !== cells.length) return;
+  if (rows.length !== cells.length) return false;
   const index = rows.findIndex(
     (row) => row.getAttribute("data-line") === String(line) && !OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? ""),
   );
-  if (index === -1) return;
+  if (index === -1) return false;
 
   const row = document.createElement("div");
   row.setAttribute("data-line-annotation", "super-diff");
@@ -232,6 +233,7 @@ function ensureRow(root: ShadowRoot, line: number, id: string): void {
     bumpSpan(otherGutter);
     bumpSpan(otherContent);
   }
+  return true;
 }
 
 /**
@@ -257,6 +259,19 @@ export function NoteRows({
     let host: HTMLElement | null = null;
     let shadowObserver: MutationObserver | null = null;
 
+    // bb draws a diff's lines a moment after its container appears, and its
+    // shadow root may not be there yet, so placement tries again for a while.
+    let tries = 0;
+    let timer: number | undefined;
+    const retry = () => {
+      if (timer !== undefined || tries >= 40) return;
+      tries++;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        ensure();
+      }, 250);
+    };
+
     const ensure = () => {
       const current = container.querySelector<HTMLElement>("diffs-container");
       if (current !== host) {
@@ -269,7 +284,11 @@ export function NoteRows({
         }
       }
       const root = host?.shadowRoot;
-      if (host === null || !root) return;
+      if (host === null || !root) {
+        retry();
+        return;
+      }
+      let missing = false;
       const next = new Map<string, HTMLElement>();
       for (const note of notes) {
         if (note.line === null) continue;
@@ -283,8 +302,9 @@ export function NoteRows({
           host.append(holder);
         }
         next.set(note.id, holder);
-        ensureRow(root, note.line, note.id);
+        if (!ensureRow(root, note.line, note.id)) missing = true;
       }
+      if (missing) retry();
       setHolders((previous) =>
         previous.size === next.size && [...next].every(([id, el]) => previous.get(id) === el) ? previous : next,
       );
@@ -295,6 +315,7 @@ export function NoteRows({
     ensure();
     return () => {
       lightObserver.disconnect();
+      if (timer !== undefined) window.clearTimeout(timer);
       shadowObserver?.disconnect();
     };
     // `key` stands in for `notes`, which is rebuilt on every render.

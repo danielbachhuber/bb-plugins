@@ -1,5 +1,5 @@
 // The row under bb's Diff tab picker: Generate Super Diff, then the
-// Original | Super Diff toggle, the status line, and Regenerate when out of date.
+// Super Diff | Original toggle, the status line, and Regenerate when out of date.
 import type { ReactNode } from "react";
 import type { DiffFile as FileEntry, DiffTarget as Target, StoredSuperDiff } from "./grouping";
 
@@ -85,7 +85,7 @@ function ago(since: number, now: number): string {
 
 /**
  * The row under bb's diff picker: Generate Super Diff on the left at first,
- * then an Original | Super Diff toggle in its place. The toggle copies bb's own
+ * then a Super Diff | Original toggle in its place. The toggle copies bb's own
  * Stacked/Split control's classes, read from the page, so it matches it.
  */
 export function SuperDiffRow({
@@ -134,7 +134,7 @@ export function SuperDiffRow({
     >
       {state.phase === "ready" ? (
         <div className={`${segmentClass} shrink-0 bg-background`} role="tablist" aria-label="Super Diff view">
-          {(["original", "super"] as const).map((value) => (
+          {(["super", "original"] as const).map((value) => (
             <button
               key={value}
               type="button"
