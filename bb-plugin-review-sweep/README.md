@@ -258,6 +258,10 @@ starts it over.
 
 **It reports findings in the thread. It posts nothing to GitHub without asking.**
 
+When Impromptu UI is installed, the prompt asks for the findings as a view
+above the composer, one card per finding with the verdict last, rather than
+as a reply in chat.
+
 Reviewing someone else's pull request is outward-facing in a way pushing to your
 own branch is not: a wrong finding lands publicly on a colleague's PR and cannot
 be quietly undone. So unlike pr-sweep, whose prompt authorizes its own commit

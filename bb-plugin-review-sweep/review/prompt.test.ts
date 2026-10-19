@@ -72,4 +72,11 @@ describe("buildPrompt", () => {
     expect(prompt).toMatch(/before you load the skill/);
     expect(prompt).toMatch(/Leave it checked out when you finish/);
   });
+
+  it("asks for the findings as an Impromptu UI view, not a reply in chat", () => {
+    const prompt = buildPrompt(rowFor(), NOW);
+    expect(prompt).toMatch(/publish them as a view rather than writing them in chat/);
+    expect(prompt).toContain('"Code review findings"');
+    expect(prompt).toMatch(/verdict as the closing step/);
+  });
 });

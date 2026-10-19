@@ -88,7 +88,12 @@ export function buildPromptParts(row: PromptRow, now: number): PromptParts {
       // The one hard rule. Out of the composer but never out of the
       // prompt: it is the whole safety story for this action, and it is the
       // same sentence every time, which is what the trailer is for.
-      "Report your findings in this thread. Do NOT post anything to GitHub — no review, no comment, no approval, no inline comments — without asking me first and showing me exactly what you intend to post. That holds even if the skill you are following ends with a step that posts a comment: skip that step and show me the comment instead.",
+      //
+      // The view is asked for here, not left to the impromptu-ui guide:
+      // `code-review` forks and hands back prose, and with only "report your
+      // findings in this thread" to go on, the agent passes that prose along
+      // in chat.
+      "Report your findings in this thread. When `bb impromptu-ui` is available, publish them as a view rather than writing them in chat: one card per finding, laid out as the impromptu-ui skill's \"Code review findings\" section describes, with the verdict as the closing step. Do this after the review skill returns, even if its own report is prose. Do NOT post anything to GitHub — no review, no comment, no approval, no inline comments — without asking me first and showing me exactly what you intend to post. That holds even if the skill you are following ends with a step that posts a comment: skip that step and show me the comment instead.",
       "",
       // A review thread opens in its own worktree by default, so checking the
       // pull request out there is safe and saves asking for it afterwards.
