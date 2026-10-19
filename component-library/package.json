@@ -38,7 +38,8 @@
     "./copy-link": "./copy-link/copy-link.ts",
     "./top-bar": "./top-bar/top-bar.tsx",
     "./start-thread": "./start-thread/start-thread.tsx",
-    "./thread-status": "./thread-status/thread-status.tsx"
+    "./thread-status": "./thread-status/thread-status.tsx",
+    "./last-value": "./last-value/last-value.ts"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

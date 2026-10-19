@@ -19,6 +19,7 @@ what not to do with it.
 | [Top bar](#top-bar) | `@danielbachhuber/bb-plugin-component-library/top-bar` | A page's counts as a button in bb's top bar on every page, and the slot that puts it there, at the top left just after the sidebar toggle |
 | [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer under a row or in a dialog, with the plugin's suggested skills as chips, and the toast that links to the thread once it starts |
 | [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
+| [Last value](#last-value) | `@danielbachhuber/bb-plugin-component-library/last-value` | State that opens on the value the page last read from its server, kept in `localStorage`, so a page draws its list at once instead of a loading screen |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -479,6 +480,34 @@ fixtures instead.
 
 **Don't** let an overdue or due-today edge give way to the orange one. They
 say more.
+
+## Last value
+
+A page that reads a stored list from its server can draw the list it read
+last time while the new read runs, so it opens on its rows rather than on a
+loading screen.
+
+```tsx
+import { useLastValue } from "@danielbachhuber/bb-plugin-component-library/last-value";
+
+const [listing, setListing] = useLastValue<Listing>("bb-plugin-pr-sweep:listing");
+
+useEffect(() => {
+  void rpc.call("listRows", null).then(setListing);
+}, [rpc, setListing]);
+```
+
+It works like `useState`, except it starts from the value kept under the key,
+or null when there is none, and keeps each value it is given for the next
+mount. Every plugin shares one `localStorage`, so name the key for the plugin.
+A value kept by another build of the page is dropped, since bb serves each
+build of a plugin's frontend at a new URL. `readLastValue` and
+`writeLastValue` do the same outside React.
+
+The three sweeps use it for their listing and their Harvest state.
+
+**Don't** keep anything private to the server here, such as a token, or a
+value the page cannot draw while it is stale for a moment.
 
 ## Working on it
 
