@@ -14,20 +14,22 @@ const markdown = z.string().max(20_000);
 
 export const TONES = ["neutral", "info", "success", "warning", "danger"] as const;
 
-export const badgeSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  tone: z.enum(TONES).default("neutral"),
-});
+export const badgeSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80).describe("The badge's text."),
+    tone: z.enum(TONES).default("neutral").describe("The badge's color: success for done or good, warning and danger for problems, info for neutral facts."),
+  })
+  .meta({ id: "badge", description: "A short label shown on the item's row and card, such as a state, a size, or a category." });
 
 const actionBase = {
-  label,
-  primary: z.boolean().default(false),
-  /** True leaves the item open after this button goes through, so it can be pressed again, as for another round. */
-  repeat: z.boolean().optional(),
-  /** What a list view's row says once this button went through, such as "Added". */
-  doneLabel: label.optional(),
-  /** What the button does, in a line: shown when the pointer rests on it. */
-  detail: z.string().trim().min(1).max(200).optional(),
+  label: label.describe("The button's text."),
+  primary: z.boolean().default(false).describe("Draws the button as the likely choice. Mark at most one per item."),
+  repeat: z
+    .boolean()
+    .optional()
+    .describe("True leaves the item open after this button goes through, so it can be pressed again, as for another round. Otherwise the item is done."),
+  doneLabel: label.optional().describe('What a list view\'s row says once this button went through, such as "Added".'),
+  detail: z.string().trim().min(1).max(200).optional().describe("What the button does, in a line: shown when the pointer rests on it."),
 };
 
 /**
@@ -39,46 +41,62 @@ export const actionSchema = z.discriminatedUnion("type", [
   z.object({
     ...actionBase,
     type: z.literal("message"),
-    /** Sent to the thread that published the view, or to `threadId`, as if the user typed it. */
-    text: z.string().trim().min(1).max(20_000),
-    /** Another bb thread to send to instead, such as the thread drafting this item with the user. */
-    threadId: z.string().trim().min(1).max(100).optional(),
-  }),
+    text: z
+      .string()
+      .trim()
+      .min(1)
+      .max(20_000)
+      .describe("Sent to the thread that published the view, or to threadId, as if the user typed it. {draft} and {note} become the item's draft and note as the user left them."),
+    threadId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Another bb thread to send to instead, such as the thread drafting this item with the user."),
+  })
+  .describe("Sends a message to the agent, which then does the work with its own permissions. The usual button for anything that needs judgment."),
   z.object({
     ...actionBase,
     type: z.literal("thread"),
-    /** A bb project name as `bb project list` prints it, a project id, or `personal`. */
-    project: z.string().trim().min(1).max(200),
-    title: z.string().trim().min(1).max(200),
-    prompt: z.string().trim().min(1).max(50_000),
-    /**
-     * A ref such as `origin/feature` to start the thread in a new worktree
-     * from, and to diff it against. Without it, the project's default.
-     */
+    project: z.string().trim().min(1).max(200).describe("A bb project name as `bb project list` prints it, a project id, or `personal`."),
+    title: z.string().trim().min(1).max(200).describe("The new thread's title."),
+    prompt: z
+      .string()
+      .trim()
+      .min(1)
+      .max(50_000)
+      .describe("The new thread's first message. It starts with no context from this thread, so make it stand alone. Can use {draft} and {note}."),
     baseBranch: z
       .string()
       .trim()
       .min(1)
       .max(200)
       .regex(/^(?!-)[A-Za-z0-9._/-]+$/, "a branch or ref name, such as origin/feature")
-      .optional(),
-  }),
+      .optional()
+      .describe("A ref such as origin/feature to start the thread in a new worktree from, and to diff it against. Without it, the project's default."),
+  })
+  .describe("Starts a new bb thread with a prompt."),
   z.object({
     ...actionBase,
     type: z.literal("command"),
-    /** Run with the user's login shell. The panel shows it and asks first, unless `confirm` is false. */
-    command: z.string().trim().min(1).max(4_000),
-    /** Absolute. Defaults to the directory `publish` ran in. */
-    cwd: z.string().trim().startsWith("/").optional(),
-    /** False runs the command as soon as the button is clicked, with no confirmation. */
-    confirm: z.boolean().default(true),
-  }),
+    command: z
+      .string()
+      .trim()
+      .min(1)
+      .max(4_000)
+      .describe('Run with the user\'s login shell. The panel shows it and asks first, unless confirm is false. Can use {draft}, as one quoted word, only in the "list" layout.'),
+    cwd: z.string().trim().startsWith("/").optional().describe("Absolute. Defaults to the directory publish ran in."),
+    confirm: z.boolean().default(true).describe("False runs the command as soon as the button is clicked, with no confirmation."),
+  })
+  .describe("Runs a shell command directly, for a step that needs no judgment."),
   z.object({
     ...actionBase,
     type: z.literal("link"),
-    url: z.string().trim().url(),
-  }),
-]);
+    url: z.string().trim().url().describe("Opened in the browser."),
+  })
+  .describe("Opens a URL. Does not finish the item."),
+]).meta({ id: "action", description: "A button. Its type says what pressing it does." });
 export type Action = z.infer<typeof actionSchema>;
 
 /** Every other thread a view names, for an item to show in or a button to send to, with where, so `publish` can check they exist. */
@@ -168,16 +186,19 @@ export function fillDraft(action: Action, original: string, draft: string | unde
  * original, the rest the alternatives. `publish` reads the file and keeps a
  * copy, so the review shows what was proposed even after the code moves on.
  */
-export const variationSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  description: markdown.default(""),
-  /** A PNG, JPEG, WebP, or GIF, absolute or relative to where `publish` runs. */
-  image: z.string().trim().min(1).max(1_000),
-});
+export const variationSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80).describe('Its name in the film strip, such as "Original", "A", or "B".'),
+    description: markdown.default("").describe("Markdown: what is different about this one."),
+    image: z.string().trim().min(1).max(1_000).describe("A PNG, JPEG, WebP, or GIF, absolute or relative to where publish runs."),
+  })
+  .describe("One way a piece of UI could look, as a screenshot.");
 export type Variation = z.infer<typeof variationSchema>;
 
 /** Renames Dismiss, such as to "Skip". Set on the view, a section, or an item; the nearest one wins. */
-const dismissLabel = { dismissLabel: label.optional() };
+const dismissLabel = {
+  dismissLabel: label.optional().describe('Renames Dismiss, such as to "Skip". Set on the view, a section, or an item; the nearest one wins.'),
+};
 
 /**
  * How the side panel shows a view. `cards` shows one item at a time, opened
@@ -209,20 +230,23 @@ export const DRAFT_FORMATS = ["markdown", "text"] as const;
  * An item with a status is finished only when the agent says so, by
  * publishing it with `complete: true`; its buttons do not finish it.
  */
-export const statusSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  tone: z.enum(TONES).default("neutral"),
-  complete: z.boolean().default(false),
-});
+export const statusSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80).describe("The status's text."),
+    tone: z.enum(TONES).default("neutral").describe("The status's color."),
+    complete: z.boolean().default(false).describe("True marks the item finished. Only republishing with this does; its buttons do not."),
+  })
+  .describe('Where the item stands, as you see it: "In progress", "5 words over". An item with a status stays open until you publish it with complete: true.');
 export type Status = z.infer<typeof statusSchema>;
 
 /** One step in an item's back and forth, such as a round proposed or the user's push-back. */
-export const historyEntrySchema = z.object({
-  who: z.enum(["agent", "user"]).default("agent"),
-  text: z.string().trim().min(1).max(2_000),
-  /** When it happened: an ISO time, shown as a time of day, or a short label shown as written. */
-  at: z.string().trim().max(40).optional(),
-});
+export const historyEntrySchema = z
+  .object({
+    who: z.enum(["agent", "user"]).default("agent").describe("Who took the step."),
+    text: z.string().trim().min(1).max(2_000).describe("What happened, in a line or two."),
+    at: z.string().trim().max(40).optional().describe("When it happened: an ISO time, shown as a time of day, or a short label shown as written."),
+  })
+  .describe("One step in an item's back and forth, such as a round proposed or the user's push-back.");
 export type HistoryEntry = z.infer<typeof historyEntrySchema>;
 
 /** How a change is drawn: prose as paired lines with the changed words marked, code as bb's diff view. */
@@ -243,19 +267,36 @@ export const CHANGE_ROLES = ["current", "proposed"] as const;
  * `before` with no `after` compares against the item's draft, and the draft
  * is then edited in the changes block.
  */
-export const changeSchema = z.object({
-  /** The file's path, or the section's name. A `patchFile` names each file by its path instead. */
-  label: z.string().trim().min(1).max(300).optional(),
-  format: z.enum(CHANGE_FORMATS).optional(),
-  before: z.string().max(200_000).optional(),
-  after: z.string().max(200_000).optional(),
-  patch: z.string().max(1_000_000).optional(),
-  /** A diff on disk, such as `gh pr diff 412 > /tmp/pr-412.diff`: absolute, or relative to where `publish` runs. */
-  patchFile: z.string().trim().min(1).max(1_000).optional(),
-  /** Starts folded to its header, for a file that matters less, such as a generated one. */
-  collapsed: z.boolean().default(false),
-  role: z.enum(CHANGE_ROLES).default("current"),
-});
+export const changeSchema = z
+  .object({
+    label: z
+      .string()
+      .trim()
+      .min(1)
+      .max(300)
+      .optional()
+      .describe("The file's path, or the section's name. Required unless patchFile is given, which names each file by its path."),
+    format: z
+      .enum(CHANGE_FORMATS)
+      .optional()
+      .describe("prose draws paired lines with the changed words marked; code draws a diff. Defaults to code for a patch, prose otherwise."),
+    before: z.string().max(200_000).optional().describe("The old text. With no after, it is compared against the item's draft, which the user then edits in the changes block."),
+    after: z.string().max(200_000).optional().describe("The new text. Needs before."),
+    patch: z.string().max(1_000_000).optional().describe("A unified diff."),
+    patchFile: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1_000)
+      .optional()
+      .describe("A diff on disk, such as `gh pr diff 412 > /tmp/pr-412.diff`: absolute, or relative to where publish runs. Split into one change per file."),
+    collapsed: z.boolean().default(false).describe("Starts folded to its header, for a file that matters less, such as a generated one."),
+    role: z
+      .enum(CHANGE_ROLES)
+      .default("current")
+      .describe("current is the change as it stands, such as a pull request's diff; proposed is an edit you suggest on top of it, such as a fix. They are drawn in separate blocks."),
+  })
+  .describe("One changed thing: a file in a pull request, or a section of a document. Give exactly one of patch, patchFile, or before.");
 export type Change = z.infer<typeof changeSchema>;
 
 /** Whether a change is drawn as prose or code: code for a patch, prose for text, unless it says. */
@@ -288,12 +329,13 @@ export function evidenceText(item: Pick<Item, "changes">, draft: string): string
 }
 
 /** How much of a budget an item uses: lines of a page, words of a limit. Red once over. */
-export const meterSchema = z.object({
-  value: z.number().min(0),
-  max: z.number().positive(),
-  /** "lines", "words"; shown after the numbers. */
-  unit: z.string().trim().max(20).default(""),
-});
+export const meterSchema = z
+  .object({
+    value: z.number().min(0).describe("How much the item uses."),
+    max: z.number().positive().describe("The budget."),
+    unit: z.string().trim().max(20).default("").describe('"lines", "words"; shown after the numbers.'),
+  })
+  .describe("How much of a budget the item uses, such as lines of a page or words of a limit. Red once over.");
 export type Meter = z.infer<typeof meterSchema>;
 
 const itemId = z
@@ -306,23 +348,26 @@ const itemId = z
  * time: notes to draw from, ranked by how well they fit, each with a badge
  * (such as "Used") and at most one button (such as "Add").
  */
-export const relatedSchema = z.object({
-  title: z.string().trim().min(1).max(80).default("Related"),
-  /** One line beside the title: how the entries are ranked, where they came from. */
-  detail: z.string().trim().max(120).optional(),
-  entries: z
-    .array(
-      z.object({
-        id: itemId,
-        text: z.string().trim().min(1).max(1_000),
-        /** A second, muted line: what the entry matches, where it is from. */
-        detail: z.string().trim().max(300).optional(),
-        badge: badgeSchema.optional(),
-        action: actionSchema.optional(),
-      }),
-    )
-    .max(30),
-});
+export const relatedSchema = z
+  .object({
+    title: z.string().trim().min(1).max(80).default("Related").describe("The card's heading."),
+    detail: z.string().trim().max(120).optional().describe("One line beside the title: how the entries are ranked, where they came from."),
+    entries: z
+      .array(
+        z.object({
+          id: itemId.describe("Unique within the item."),
+          text: z.string().trim().min(1).max(1_000).describe("The entry itself."),
+          detail: z.string().trim().max(300).optional().describe("A second, muted line: what the entry matches, where it is from."),
+          badge: badgeSchema.optional().describe('One badge, such as "Used" or a fit score.'),
+          action: actionSchema
+            .optional()
+            .describe("At most one button per entry: a message, thread, or link, without {draft} or {note}. Pressing it leaves the item open."),
+        }),
+      )
+      .max(30)
+      .describe("Ranked best first."),
+  })
+  .describe('Material that supports the item, in its own card, which the user can act on one entry at a time: notes to draw from, ranked by fit, each with a badge (such as "Used") and a button (such as "Add").');
 export type Related = z.infer<typeof relatedSchema>;
 
 /** How well a claim's sources back it. */
@@ -333,138 +378,148 @@ export const SUPPORT_LEVELS = ["full", "partial", "none"] as const;
  * the text, how well it is supported, the verbatim quotes that support it and
  * where each is from, and a doubt about it, if any.
  */
-export const evidenceSchema = z.object({
-  id: itemId,
-  /** Text quoted from the proposed text, which the claim's marks attach to. */
-  claim: z.string().trim().min(1).max(1_000),
-  support: z.enum(SUPPORT_LEVELS),
-  sources: z
-    .array(
-      z.object({
-        quote: z.string().trim().min(1).max(2_000),
-        /** Where the quote is from: a file and its heading, a page. */
-        source: z.string().trim().min(1).max(200),
-        url: z.string().trim().url().optional(),
-      }),
-    )
-    .max(10)
-    .default([]),
-  /** A doubt about the claim, shown beside it. */
-  note: z.string().trim().max(500).optional(),
-});
+export const evidenceSchema = z
+  .object({
+    id: itemId.describe("Unique within the item."),
+    claim: z
+      .string()
+      .trim()
+      .min(1)
+      .max(1_000)
+      .describe("Quoted exactly from the item's proposed text (its draft, or the new text of its changes), where the claim's mark attaches."),
+    support: z.enum(SUPPORT_LEVELS).describe("How well the sources back the claim."),
+    sources: z
+      .array(
+        z.object({
+          quote: z.string().trim().min(1).max(2_000).describe("Verbatim from the source."),
+          source: z.string().trim().min(1).max(200).describe("Where the quote is from: a file and its heading, a page."),
+          url: z.string().trim().url().optional().describe("A link to the source."),
+        }),
+      )
+      .max(10)
+      .default([])
+      .describe("The quotes that back the claim. None when its support is none."),
+    note: z.string().trim().max(500).optional().describe("A doubt about the claim, shown beside it."),
+  })
+  .describe("What backs one claim in the item's proposed text, marked where the claim appears.");
 export type Evidence = z.infer<typeof evidenceSchema>;
 
-export const itemSchema = z.object({
-  /** Stable across republishing, so a decision on the item survives it. */
-  id: itemId,
-  title: z.string().trim().min(1).max(300),
-  /** What the item is about on the web (an issue, a PR, a review comment); the opened item's title links to it. */
-  url: z.string().trim().url().optional(),
-  badges: z.array(badgeSchema).max(8).default([]),
-  status: statusSchema.optional(),
-  meter: meterSchema.optional(),
-  /** Shown in its own card under the item. */
-  related: relatedSchema.optional(),
-  /**
-   * Another bb thread that shows this item too, above its composer, such as
-   * the thread drafting it with the user. It is the same item, so what is
-   * done in either thread shows in both.
-   */
-  thread: z.string().trim().min(1).max(100).optional(),
-  /** What backs each claim in the proposed text, marked where the claim appears. */
-  evidence: z.array(evidenceSchema).max(50).default([]),
-  /** Oldest first. Shown under the summary. */
-  history: z.array(historyEntrySchema).max(50).default([]),
-  /** Always shown. */
-  summary: markdown.default(""),
-  /** What changed, shown after the summary: files in a pull request, a section's text against the document. */
-  changes: z.array(changeSchema).max(50).default([]),
-  /** The heading over the changes: "Files changed", "In this PR", "Changes against the Doc". */
-  changesLabel: z.string().trim().max(80).default("Changes"),
-  /** The heading over the changes whose role is `proposed`: "Suggested fix". */
-  proposedLabel: z.string().trim().max(80).default("Suggested fix"),
-  /** Shown after the summary, changes, and evidence. */
-  details: markdown.default(""),
-  /**
-   * Text the user can edit before a button sends it: a comment to post, the
-   * task for a new thread. A `message` or `thread` button puts `{draft}` in
-   * its text where the draft goes, so several buttons share one draft.
-   * Markdown unless `draftFormat` is `text`.
-   */
-  draft: z.string().max(50_000).default(""),
-  /** The label over the draft's box: "Comment to post", "Task for the new thread". */
-  draftLabel: z.string().trim().max(80).default("Draft"),
-  draftFormat: z.enum(DRAFT_FORMATS).default("markdown"),
-  /** Shown in an empty `text` field: "Fuji ×12, or another product". */
-  draftPlaceholder: z.string().trim().max(120).optional(),
-  actions: z.array(actionSchema).max(6).default([]),
-  /**
-   * A one-line field beside the buttons for the user's push-back, such as
-   * what to change in the next round. A button puts `{note}` in its text
-   * where the note goes; an empty note sends nothing there.
-   */
-  note: z
-    .object({
-      label: z.string().trim().min(1).max(80).default("Note"),
-      placeholder: z.string().trim().max(120).optional(),
-    })
-    .optional(),
-  /**
-   * Makes the item a visual review: the original first, then the
-   * alternatives. The user picks one, notes on any, and sends it all back to
-   * the thread as one message.
-   */
-  variations: z.array(variationSchema).max(6).default([]),
-  /**
-   * The step that comes after every other item, such as a review's verdict:
-   * shown under the list rather than as a row, left out of the count, and
-   * opened only once the others are handled. `{tally}` in its summary or a
-   * button's text becomes what was done with them.
-   */
-  closing: z.boolean().default(false),
-  ...dismissLabel,
-});
+export const itemSchema = z
+  .object({
+    id: itemId.describe("Stable across republishing, so the user's decision on the item survives it."),
+    title: z.string().trim().min(1).max(300).describe("The row's text above the composer and the opened item's heading."),
+    url: z
+      .string()
+      .trim()
+      .url()
+      .optional()
+      .describe("What the item is about on the web (an issue, a PR, a review comment); the opened item's title links to it."),
+    badges: z.array(badgeSchema).max(8).default([]).describe("Short labels on the row and card. The row shows the first two, so put the most telling first."),
+    status: statusSchema.optional(),
+    meter: meterSchema.optional(),
+    related: relatedSchema.optional(),
+    thread: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe("Another bb thread that shows this item too, above its composer, such as the thread drafting it with the user. It is the same item, so what is done in either thread shows in both. Needs the cards layout."),
+    evidence: z.array(evidenceSchema).max(50).default([]).describe("What backs each claim in the proposed text. Needs the cards layout."),
+    history: z.array(historyEntrySchema).max(50).default([]).describe("The item's back and forth, oldest first. Shown under the summary."),
+    summary: markdown.default("").describe("Markdown. Its first line shows on the row above the composer; all of it shows when the item is opened."),
+    changes: z
+      .array(changeSchema)
+      .max(50)
+      .default([])
+      .describe("What changed, shown after the summary: files in a pull request, a section's text against the document."),
+    changesLabel: z
+      .string()
+      .trim()
+      .max(80)
+      .default("Changes")
+      .describe('The heading over the changes: "Files changed", "In this PR", "Changes against the Doc".'),
+    proposedLabel: z.string().trim().max(80).default("Suggested fix").describe("The heading over the changes whose role is proposed."),
+    details: markdown.default("").describe("Markdown shown after the summary, changes, and evidence, for what the user may want but does not need to decide."),
+    draft: z
+      .string()
+      .max(50_000)
+      .default("")
+      .describe("Text the user can edit before a button sends it: a comment to post, the task for a new thread. A message or thread button puts {draft} in its text where the draft goes, so several buttons share one draft."),
+    draftLabel: z.string().trim().max(80).default("Draft").describe('The label over the draft: "Comment to post", "Task for the new thread".'),
+    draftFormat: z
+      .enum(DRAFT_FORMATS)
+      .default("markdown")
+      .describe("markdown is an editor with a rendered preview, for a comment or a task. text is a one-line field beside the buttons that send it, for a short answer; it can start empty for the user to fill in."),
+    draftPlaceholder: z.string().trim().max(120).optional().describe('Shown in an empty text field: "Fuji ×12, or another product". Needs draftFormat text.'),
+    actions: z
+      .array(actionSchema)
+      .max(6)
+      .default([])
+      .describe("The item's buttons. Every item also gets Start thread and Dismiss. An item with no buttons is something to read, not decide."),
+    note: z
+      .object({
+        label: z.string().trim().min(1).max(80).default("Note").describe("The field's label."),
+        placeholder: z.string().trim().max(120).optional().describe("Shown in the empty field: what to write there."),
+      })
+      .optional()
+      .describe("A one-line field beside the buttons for the user's push-back, such as what to change in the next round. A button puts {note} in its text where the note goes; an empty note sends nothing there."),
+    variations: z
+      .array(variationSchema)
+      .max(6)
+      .default([])
+      .describe("Makes the item a visual review: the original first, then at least one alternative. The user picks one, notes on any, and sends it all back as one message. Needs the cards layout."),
+    closing: z
+      .boolean()
+      .default(false)
+      .describe("Makes this the step after every other item, such as a review's verdict: shown under the list, left out of the count, and opened only once the others are handled. {tally} in its summary or a button's text becomes what was done with them. At most one per view; needs the cards layout."),
+    ...dismissLabel,
+  })
+  .describe("One thing for the user to read or decide on: a row above the composer that opens as a card.");
 export type Item = z.infer<typeof itemSchema>;
 
-export const sectionSchema = z.object({
-  title: z.string().trim().max(200).default(""),
-  items: z.array(itemSchema).max(200),
-  ...dismissLabel,
-});
+export const sectionSchema = z
+  .object({
+    title: z.string().trim().max(200).default("").describe("The heading over the section's items, such as a group of findings or a decision they share."),
+    items: z.array(itemSchema).max(200).describe("The section's items, the one that most needs a decision first."),
+    ...dismissLabel,
+  })
+  .describe("A group of items under a heading.");
 export type Section = z.infer<typeof sectionSchema>;
 
 export const viewSchema = z
   .object({
-    title: z.string().trim().min(1).max(200),
-    summary: markdown.default(""),
-    sections: z.array(sectionSchema).min(1).max(20),
-    layout: z.enum(LAYOUTS).default("cards"),
-    /**
-     * Numbers the rows above the composer in the order published, so the
-     * user can say "the third one". Off for a list whose order means nothing.
-     */
-    numbered: z.boolean().default(true),
-    /**
-     * The items laid out as the pages they fill, at the top of the side
-     * panel: each block sized by its item's meter max and filled by its value.
-     * Clicking a block opens its item.
-     */
+    title: z.string().trim().min(1).max(200).describe("What the view is, shown over its rows."),
+    summary: markdown.default("").describe("Markdown shown above the items."),
+    sections: z.array(sectionSchema).min(1).max(20).describe("The items, grouped. One section with an empty title for an ungrouped list."),
+    layout: z
+      .enum(LAYOUTS)
+      .default("cards")
+      .describe(
+        `cards: rows above the composer, each opening as a card in the side panel; holds everything. list: the whole view in the side panel as one list, with at most ${LIST_ACTIONS} buttons on each row, for many small decisions. inline: ${INLINE_QUESTIONS} questions at most, answered right above the composer with ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons each, and nothing that needs the side panel.`,
+      ),
+    numbered: z
+      .boolean()
+      .default(true)
+      .describe('Numbers the rows above the composer in the order published, so the user can say "the third one". Off for a list whose order means nothing.'),
     map: z
       .object({
         pages: z
           .array(
             z.object({
-              label: z.string().trim().min(1).max(40),
-              /** Item ids, top to bottom, in one to three columns side by side. */
-              columns: z.array(z.array(itemId).min(1).max(30)).min(1).max(3),
+              label: z.string().trim().min(1).max(40).describe("The page's name, such as \"Page 1\"."),
+              columns: z.array(z.array(itemId).min(1).max(30)).min(1).max(3).describe("Item ids, top to bottom, in one to three columns side by side."),
             }),
           )
           .min(1)
-          .max(6),
+          .max(6)
+          .describe("The pages, in order."),
       })
-      .optional(),
+      .optional()
+      .describe("The items laid out as the pages they fill, at the top of the side panel: each block sized by its item's meter max and filled by its value. Clicking a block opens its item. Needs the cards layout."),
     ...dismissLabel,
   })
+  .describe("A view published with `bb impromptu-ui publish --file <view.json>`: items for the user to read and act on, grouped into sections.")
   .superRefine((view, ctx) => {
     const seen = new Set<string>();
     view.sections.forEach((section, s) =>
