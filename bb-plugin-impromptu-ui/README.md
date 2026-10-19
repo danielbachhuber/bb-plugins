@@ -2,13 +2,9 @@
 
 Generate interfaces for what you need to process or act on, instead of walls of text in chat.
 
-An agent that assesses a Dependabot pull request without Impromptu UI writes its assessment out in chat and ends with a question for you to answer by typing:
+An agent that finishes three fixes from one review comment, each in its own worktree, writes them up in chat and asks which to open. With Impromptu UI, each fix is a row above the composer, and opening one shows its diff and a button that commits, pushes, and opens the pull request:
 
-![A Dependabot assessment written out in chat as nine bolded paragraphs, ending in "Do you want me to post this on #412, approve it, and merge it? Or post it only?"](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--dependabot-in-chat.png)
-
-With it, the same assessment is a row above the composer. Opening it shows the verdict, the diff, and the comment to post, with buttons to post it:
-
-![The same pull request as one row above the composer, open in the side panel with a Safe to merge badge, a three-line summary, the package.json diff, the assessment to post, and Post, approve, and merge, Post only, and Open #412 buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--dependabot-item-open.png)
+![Before: three finished fixes written out in chat, one paragraph each, ending in "Which should I open?" After: the same three as rows above the composer, one already opened as a pull request, and the demo accounts fix open in the side panel with its diff and Commit, push, and open PR and Revise buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--three-prs-at-once.png)
 
 ## Use
 

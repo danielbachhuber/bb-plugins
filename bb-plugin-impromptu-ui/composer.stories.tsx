@@ -872,20 +872,31 @@ I've updated the draft to match, and its card above the composer shows the new d
   },
 ];
 
-/** Before: three finished fixes written out in chat, each opened by typing which one. */
-export function ThreePrsInChat() {
-  return <ThreadStage turns={[...threePrsRequest, { kind: "assistant", text: threePrsInChat }]} view={stored(threePrsView)} chatOnly />;
+function Stacked({ before, after }: { before: ReactNode; after: ReactNode }) {
+  return (
+    <div data-screenshot-frame className="flex w-fit flex-col gap-3 bg-background p-6">
+      <div className="text-sm font-medium text-muted-foreground">Before</div>
+      {before}
+      <div className="pt-5 text-sm font-medium text-muted-foreground">After</div>
+      {after}
+    </div>
+  );
 }
 
-/** After: one card per pull request, each with its diff and a button that commits, pushes, and opens it. The first is already open, and the demo accounts fix is open in the side panel. */
-export function ThreePrsItemOpen() {
+/** Before, three finished fixes written out in chat, each opened by typing which one. After, one card per pull request, each with its diff and a button that commits, pushes, and opens it: the first is already open, and the demo accounts fix is open in the side panel. */
+export function ThreePrsAtOnce() {
   return (
-    <ThreadStage
-      turns={threePrsTurns}
-      view={stored(threePrsView, {
-        "invite-viewer": { state: "done", result: { label: "Commit, push, and open PR", at: "2026-03-12T12:05:00Z" } },
-      })}
-      initialFocus="demo-accounts"
+    <Stacked
+      before={<ThreadStage turns={[...threePrsRequest, { kind: "assistant", text: threePrsInChat }]} view={stored(threePrsView)} chatOnly />}
+      after={
+        <ThreadStage
+          turns={threePrsTurns}
+          view={stored(threePrsView, {
+            "invite-viewer": { state: "done", result: { label: "Commit, push, and open PR", at: "2026-03-12T12:05:00Z" } },
+          })}
+          initialFocus="demo-accounts"
+        />
+      }
     />
   );
 }
