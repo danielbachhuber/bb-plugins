@@ -24,7 +24,9 @@ With Impromptu UI, you can:
 
 ## For agents
 
-The `impromptu-ui` skill describes the view file and when to publish one. The `refine-impromptu-ui` skill files an anonymized issue on this repository when a view falls short.
+Every thread's instructions get a short section on when to publish a view instead of writing a list in chat: several findings or fixes to decide on, a draft to post, options to choose between, or a list that ends in "Which should I do?". It points to the `impromptu-ui` skill, which describes the view file. Turn it off with the `threadInstructions` setting.
+
+The `refine-impromptu-ui` skill files an anonymized issue on this repository when a view falls short.
 
 ```sh
 bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view
@@ -40,6 +42,7 @@ Each command works only inside a bb thread.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `providerId` | `claude-code` | Provider for threads a button starts. |
+| `threadInstructions` | `true` | Tell every thread when to publish a view. |
 
 ## Requirements
 

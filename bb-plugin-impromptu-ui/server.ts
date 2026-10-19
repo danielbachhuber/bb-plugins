@@ -15,6 +15,7 @@ import { expandPatchFiles } from "./view/changes.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
 import { runCommand } from "./view/run-command.js";
+import { THREAD_INSTRUCTIONS } from "./view/instructions.js";
 import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
@@ -38,7 +39,20 @@ export default async function plugin(bb: BbPluginApi) {
       // A view's task usually names a skill, and skills belong to one provider.
       default: "claude-code",
     },
+    threadInstructions: {
+      type: "boolean",
+      label: "Tell every thread when to publish a view",
+      description: "Adds a short section to each thread's instructions on when to show results above the composer.",
+      default: true,
+    },
   });
+
+  // The instructions hook must answer synchronously, so keep the setting in hand.
+  let threadInstructions = (await settings.get()).threadInstructions;
+  settings.onChange((next) => {
+    threadInstructions = next.threadInstructions;
+  });
+  bb.agents.contributeInstructions(() => (threadInstructions ? THREAD_INSTRUCTIONS : null));
 
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
