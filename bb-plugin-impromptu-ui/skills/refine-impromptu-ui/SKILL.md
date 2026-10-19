@@ -99,6 +99,12 @@ same field the view did not have, the same layout chosen when another fit
 better. A cause seen in several threads outranks one seen once. Drop a moment
 whose only problem has nothing to do with Impromptu UI.
 
+Group by root cause, not by symptom. Two causes are one when they describe
+the same failure from two sides, such as a question left in chat at the end
+of a turn and a question left in chat beside a view, or when their fixes
+would edit the same paragraph. Merge them into one card with one edit per
+file. Two cards that change the same file conflict when both are applied.
+
 Read `skills/impromptu-ui/SKILL.md` and `bb impromptu-ui schema` before
 deciding a cause is a missing feature. A view that left out a field the
 schema has is a guide problem, not a plugin one.
@@ -115,6 +121,22 @@ addresses it. A cause whose moments all came before the fix is not a card;
 mention it in one line of the chat reply. Otherwise count only the moments
 after it, and say so on the card.
 
+Moments after such a commit mean agents read the rule and did not follow it.
+More wording in the same place rarely changes that. Say so on the card:
+"The instructions already say this; 4 threads since 5a70459 did it anyway."
+Then propose a fix that does not rely on the agent remembering the rule:
+
+- a check that runs without the agent, such as the plugin noticing a turn
+  that ends on a question with no view published, which is a plugin change
+  and gets an issue;
+- a skill whose steps make the view the step itself, not a reminder at the
+  end;
+- a rule moved to where the agent is when it goes wrong, such as the step
+  that writes the reply, rather than a general section read at the start.
+
+Offer a wording change only as a second button, and say why it might work
+where the last one did not.
+
 Pick the place for each cause yourself, then draft the exact edit: the
 current text of the paragraph or step it changes, and the text you propose.
 For an issue, the edit is the change to the view file or panel in a sentence
@@ -126,9 +148,21 @@ not finished.
 Publish one view under the key `refine-impromptu-ui-scan`, with two sections.
 
 **Waiting on you**: one card per open moment, titled with the thread's title.
-The summary says what the thread's last reply holds, such as "6 pull requests,
-each needing approve or skip", and links the thread as
-`@thread:<id>`. Give it a command button:
+Before writing it, check the moment is still live: look in `bb thread list`
+for a later thread on the same subject, and in the git log of the thread's
+checkout for a commit that did what the reply asked about. Then fill in:
+
+- **Badges**: how long it has waited, from the thread's `updatedAt`, such as
+  "2 days". Add `{ "label": "Maybe settled", "tone": "warning" }` when a later
+  thread or commit looks like it answered the reply.
+- **Summary**: `@thread:<id>`, then what the reply holds, such as "6 pull
+  requests, each needing approve or skip", then **The view it would
+  publish**: the subagent's `betterView` in a sentence, such as "one card per
+  PR with Approve and Skip". When it may be settled, say by what, linking the
+  thread or naming the commit.
+- **Details**: the reply's last sentence, verbatim, from `agentWrote`.
+
+Give it a command button:
 
 ```json
 { "type": "command", "label": "Show it there", "primary": true, "doneLabel": "Asked",

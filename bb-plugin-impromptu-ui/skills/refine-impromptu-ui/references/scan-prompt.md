@@ -69,7 +69,7 @@ Return only JSON, no prose around it:
       "at": "When the user answered it, as an ISO time; null when open",
       "agentWrote": "What the reply held, such as \"a numbered list of 6 PRs, each to approve or skip\", and its last sentence verbatim when it is short",
       "userTyped": "What the user typed next, verbatim when it is under 15 words, such as \"1, 3, 5 approve\"; null when open",
-      "betterView": "The view that would have fit: layout, one card per what, which buttons",
+      "betterView": "The view that would have fit, in one sentence: layout, one card per what, which buttons",
       "cause": "Why no view or a weaker one: the skill said to list in chat, the guide does not cover this, the schema has no field for X, …"
     }
   ],
