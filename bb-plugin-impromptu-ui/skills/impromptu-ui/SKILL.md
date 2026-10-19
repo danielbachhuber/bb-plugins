@@ -171,7 +171,7 @@ When the items are a pull request review's findings, lay the view out so the use
 - One item per finding, grouped into sections by how much it matters: "Fix before merge", then "Worth considering". Leave out a section with nothing in it.
 - Open each finding's summary with what goes wrong for the user or the system ("Every archived widget comes back on the next sync"), then the code that causes it. Names of functions and variables after the consequence, not before.
 - Give each finding the hunk it is about, from `gh pr diff`, as a change, with `"changesLabel": "In this PR"`. When the finding has a concrete fix, add it as a change with `"role": "proposed"`, never in the PR hunk's block or as prose. Quote code the PR does not change in `details`.
-- A `thread` button that fixes a finding in a new pull request against the one under review gets `"baseBranch": "origin/<PR head branch>"`, so the new thread's diff shows only its own fix.
+- Give each finding that calls for a code change a "Fix in a PR" `thread` button, beside the ones that put it in the review. Its `prompt` names the pull request, the finding, and the fix, or the possible fixes when there are several, and asks for a new pull request against the PR's head branch. Give it `"baseBranch": "origin/<PR head branch>"`, so the new thread's diff shows only its own fix.
 - Make the verdict (approve, comment, or request changes) the closing step, in a section of its own at the end, with your recommendation in its summary and `{tally}` in its buttons' text. Offer the other verdicts as its other buttons.
 
 ## Show what changed
