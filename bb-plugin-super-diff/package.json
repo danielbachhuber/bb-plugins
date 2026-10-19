@@ -1,0 +1,34 @@
+{
+  "name": "bb-plugin-super-diff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bb": ">=0.41",
+    "bbPluginSdk": ">=0.4.34"
+  },
+  "bb": {
+    "name": "Super Diff",
+    "description": "Group the Diff tab by concern, with an explanation for each group and notes on the trickier code, written by the thread's agent.",
+    "branding": {
+      "icon": "Layers"
+    },
+    "app": "./app.tsx",
+    "server": "./server.ts"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "scripts": {
+    "build": "bb plugin build",
+    "typecheck": "tsc --noEmit"
+  }
+}

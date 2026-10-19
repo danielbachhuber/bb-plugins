@@ -17,7 +17,7 @@
   },
   "bbPlugins": {
     "status": "retired",
-    "note": "An exploration of grouping hunks into concerns, kept for reference. Super Diff is being rebuilt with a different approach."
+    "note": "An exploration of grouping hunks into concerns, kept for reference. Replaced by bb-plugin-super-diff."
   },
   "dependencies": {
     "@danielb/gh-shared": "file:../gh-shared",

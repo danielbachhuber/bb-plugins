@@ -2,8 +2,8 @@
 
 > **Retired.** This was an exploration of grouping a branch's hunks into
 > concerns, kept for reference. It is not in the marketplace, and `setup.sh`
-> and `sync.sh` leave it out of bb. Super Diff is being rebuilt with a
-> different approach.
+> and `sync.sh` leave it out of bb. It is replaced by
+> [Super Diff](../bb-plugin-super-diff/), which groups bb's own Diff tab.
 
 Review a branch one concern at a time. bb's changes panel lists a branch's
 files in path order; Super Diff adds a panel beside the thread that groups the
