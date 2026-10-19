@@ -1,6 +1,7 @@
 // A concern's file list: each file with what its change does and, when Diff
 // Viewed is installed, whether it has been viewed. Files the agent describes
 // together ("only the import is renamed") fold into one line.
+import { Prose } from "./annotations";
 
 export type ConcernFile = { path: string; summary?: string };
 
@@ -83,17 +84,66 @@ export function ConcernFiles({
             <span className="shrink-0 font-mono text-foreground" style={{ fontSize: 11.5 }}>
               {name(file.path)}
             </span>
-            <span className="min-w-0 text-muted-foreground">{file.summary ?? ""}</span>
+            <span className="min-w-0 text-muted-foreground">
+              <Prose text={file.summary ?? ""} />
+            </span>
           </button>
         );
       })}
       {folded ? (
-        <div className="px-1 py-0.5 text-muted-foreground" style={{ paddingLeft: viewed !== null ? 25 : 4 }}>
+        <div className="px-1 py-0.5 text-muted-foreground" style={{ paddingLeft: viewed !== null && rows.length > 0 ? 25 : 4 }}>
           {rows.length > 0 ? `and ${rest.length} more ` : `${rest.length} `}
           {rest.length === 1 ? "file" : "files"}
-          {viewed !== null ? ` (${rest.filter((file) => viewed.has(file.path)).length} viewed)` : ""}: {others}
+          {viewed !== null ? ` (${rest.filter((file) => viewed.has(file.path)).length} viewed)` : ""}: <Prose text={others ?? ""} />
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** A section's heading: number, title, file count and viewed count, explanation, and (for a concern) its file list. */
+export function ConcernHeader({
+  number,
+  title,
+  explanation,
+  files,
+  others,
+  showList,
+  viewed,
+  onJump,
+}: {
+  number: number | null;
+  title: string;
+  explanation: string;
+  files: ConcernFile[];
+  others?: string;
+  showList: boolean;
+  viewed: ReadonlySet<string> | null;
+  onJump: (path: string) => void;
+}) {
+  return (
+    <header className="px-1 pb-2 pt-1">
+      <h3 className="text-sm font-semibold text-foreground">
+        {number !== null ? (
+          <span className="text-muted-foreground tabular-nums" style={{ marginRight: 8 }}>
+            {number}
+          </span>
+        ) : null}
+        {title}
+        <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
+          {files.length} {files.length === 1 ? "file" : "files"}
+          {viewed !== null ? (
+            <>
+              {" · "}
+              <ViewedCount viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
+            </>
+          ) : null}
+        </span>
+      </h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        <Prose text={explanation} />
+      </p>
+      {showList ? <ConcernFiles files={files} others={others} viewed={viewed} onJump={onJump} /> : null}
+    </header>
   );
 }

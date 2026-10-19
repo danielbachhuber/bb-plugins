@@ -1,9 +1,11 @@
-// Super Diff's own pieces, with invented fixtures. In bb the row sits under
-// the Diff tab's toolbar and copies the classes of bb's Stacked/Split control
-// from the page; here those classes are passed in, copied from that control.
-import { NoteCard, NotesBox, type PlacedNote } from "./annotations";
-import { ConcernFiles, ViewedCount } from "./concern";
-import type { StoredSuperDiff } from "./grouping";
+// Super Diff's own pieces, rendered from an invented Super Diff (see
+// super-diff.fixtures.ts). In bb the row sits under the Diff tab's toolbar and
+// copies the classes of bb's Stacked/Split control from the page; here those
+// classes are passed in, copied from that control.
+import type { ReactNode } from "react";
+import { NoteCard, NotesBox } from "./annotations";
+import { ConcernHeader } from "./concern";
+import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED } from "./super-diff.fixtures";
 import { SuperDiffRow, type ThreadState } from "./row";
 
 export default {
@@ -14,111 +16,121 @@ const SEGMENT_CLASS = "inline-flex items-center gap-1 rounded-lg border border-b
 const SEGMENT_BUTTON_CLASS =
   "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground text-xs h-7 rounded-md px-2.5 text-muted-foreground";
 
-const MINUTE = 60_000;
+const FILE_COUNT = FIXTURE.paths.length;
+const READY: ThreadState = { phase: "ready", showing: "super", stored: FIXTURE, data: null };
 
-const STORED: StoredSuperDiff = {
-  target: { type: "all", mergeBaseBranch: "origin/main" },
-  submission: {
-    concerns: [
-      { title: "Round prices after discounts and tax", explanation: "…", files: ["src/pricing.ts", "src/pricing.test.ts"] },
-      { title: "Show tax in the cart summary", explanation: "…", files: ["src/cart/summary.tsx"] },
-      { title: "Document how tax is applied", explanation: "…", files: ["README.md"] },
-    ],
-    annotations: [
-      { path: "src/pricing.ts", anchor: "round(", title: "Rounds once, at the end", body: "…" },
-      { path: "src/cart/summary.tsx", anchor: "taxRate", title: "Reads the rate the server sent", body: "…" },
-    ],
-  },
-  paths: ["src/pricing.ts", "src/pricing.test.ts", "src/cart/summary.tsx", "README.md", "package-lock.json"],
-  acceptedAt: new Date(Date.now() - 4 * MINUTE).toISOString(),
-};
-
-function Row({ state, fileCount = 5 }: { state: ThreadState; fileCount?: number }) {
+function Frame({ children }: { children: ReactNode }) {
   return (
     <div data-screenshot-frame className="w-[620px] bg-background px-4 pb-4 pt-1">
-      <SuperDiffRow
-        state={state}
-        fileCount={fileCount}
-        segmentClass={SEGMENT_CLASS}
-        segmentButtonClass={SEGMENT_BUTTON_CLASS}
-        onGenerate={() => {}}
-        onShow={() => {}}
-      />
+      {children}
     </div>
   );
 }
 
+function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?: number }) {
+  return (
+    <SuperDiffRow
+      state={state}
+      fileCount={fileCount}
+      segmentClass={SEGMENT_CLASS}
+      segmentButtonClass={SEGMENT_BUTTON_CLASS}
+      onGenerate={() => {}}
+      onShow={() => {}}
+    />
+  );
+}
+
+function Concerns() {
+  return (
+    <>
+      {FIXTURE.submission.concerns.map((concern, index) => (
+        <ConcernHeader
+          key={concern.title}
+          number={index + 1}
+          title={concern.title}
+          explanation={concern.explanation}
+          files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
+          others={concern.others}
+          showList
+          viewed={FIXTURE_VIEWED}
+          onJump={() => {}}
+        />
+      ))}
+    </>
+  );
+}
+
+/** A Super Diff of a 57-file rename: the row, the annotation list, then six concerns, each with what its files' changes are and how many of them Diff Viewed has marked viewed. In bb, each concern's diff cards follow its heading. */
+export const Overview = () => (
+  <Frame>
+    <Row state={READY} />
+    <div className="mt-3">
+      <NotesBox notes={FIXTURE_NOTES} onJump={() => {}} />
+    </div>
+    <Concerns />
+  </Frame>
+);
+
 /** Before anything is generated: bb's own diff, with Generate Super Diff on the left of the row. */
-export const NotGenerated = () => <Row state={{ phase: "idle" }} />;
+export const NotGenerated = () => (
+  <Frame>
+    <Row state={{ phase: "idle" }} />
+  </Frame>
+);
 
 /** While the thread's agent reads the diff and writes the Super Diff. */
-export const Generating = () => <Row state={{ phase: "generating", requestedAt: new Date(Date.now() - MINUTE).toISOString() }} />;
+export const Generating = () => (
+  <Frame>
+    <Row state={{ phase: "generating", requestedAt: new Date(Date.now() - 60_000).toISOString() }} />
+  </Frame>
+);
 
 /** A Super Diff is showing: the toggle switches back to bb's own list, and the line counts what the agent wrote. */
-export const ShowingSuperDiff = () => <Row state={{ phase: "ready", showing: "super", stored: STORED, data: null }} />;
+export const ShowingSuperDiff = () => (
+  <Frame>
+    <Row state={READY} />
+  </Frame>
+);
 
 /** Two files have joined the diff since the Super Diff was written, so the row turns amber and offers Regenerate. */
-export const OutOfDate = () => <Row state={{ phase: "ready", showing: "super", stored: STORED, data: null }} fileCount={7} />;
-
-const NOTES: PlacedNote[] = [
-  { id: "n1", n: 1, path: "acme/widgets/src/pricing.ts", anchor: "", line: 14, title: "Rounds once, at the end", body: "" },
-  { id: "n2", n: 2, path: "acme/widgets/src/cart/summary.tsx", anchor: "", line: 38, title: "Reads the rate the server sent", body: "" },
-  { id: "n3", n: 3, path: "acme/widgets/src/checkout.ts", anchor: "", line: 72, title: "Tax applies after the discount, not before", body: "" },
-  { id: "n4", n: 4, path: "acme/widgets/src/legacy-cart.ts", anchor: "", line: null, title: "Kept for orders placed before the change", body: "" },
-];
+export const OutOfDate = () => (
+  <Frame>
+    <Row state={READY} fileCount={FILE_COUNT + 2} />
+  </Frame>
+);
 
 /** The list at the top of a Super Diff: each annotation's number, title, and line, which jumps to its card. One note's line has left the diff. */
 export const AnnotationList = () => (
-  <div data-screenshot-frame className="w-[620px] bg-background p-4">
-    <NotesBox notes={NOTES} onJump={() => {}} />
-  </div>
+  <Frame>
+    <NotesBox
+      notes={[...FIXTURE_NOTES, { ...FIXTURE_NOTES[1]!, id: "gone", n: 5, line: null, path: "src/data/legacy-pricing.ts", title: "Kept for orders placed before the switch" }]}
+      onJump={() => {}}
+    />
+  </Frame>
 );
 
 /** A note card as it sits under the line it explains, inside the diff. */
 export const AnnotationCard = () => (
-  <div data-screenshot-frame className="w-[620px] bg-background p-4">
-    <NoteCard
-      highlighted={false}
-      note={{
-        id: "n1",
-        n: 1,
-        path: "acme/widgets/src/pricing.ts",
-        anchor: "",
-        line: 14,
-        title: "Rounds once, at the end",
-        body: "`applyDiscount` and `applyTax` no longer round on their own. Rounding twice made a 15% discount on $19.99 come out a cent low, so `round` now runs once on the final amount.",
-      }}
-    />
-  </div>
+  <Frame>
+    <NoteCard highlighted={false} note={FIXTURE_NOTES[1]!} />
+  </Frame>
 );
-
-const PRICING_FILES = [
-  { path: "acme/widgets/src/pricing.ts", summary: "Rounds once, after the discount and tax are both applied" },
-  { path: "acme/widgets/src/pricing.test.ts", summary: "Adds the 15% on $19.99 case that came out a cent low" },
-  { path: "acme/widgets/src/cart/summary.tsx", summary: "Shows the tax line from the server's rate" },
-  { path: "acme/widgets/src/cart/line-item.tsx" },
-  { path: "acme/widgets/src/cart/totals.tsx" },
-  { path: "acme/widgets/src/checkout/review.tsx" },
-];
 
 /** A concern's heading with Diff Viewed installed: its viewed count, then each file and what its change does. Files that change the same mechanical way share one line. */
-export const ConcernFileList = () => (
-  <div data-screenshot-frame className="w-[620px] bg-background p-4">
-    <h3 className="text-sm font-semibold text-foreground">
-      <span className="text-muted-foreground tabular-nums" style={{ marginRight: 8 }}>1</span>
-      Round prices after discounts and tax
-      <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
-        6 files · <ViewedCount viewed={3} total={6} />
-      </span>
-    </h3>
-    <p className="mt-0.5 text-xs text-muted-foreground">
-      Prices were rounded twice, once per step. They now round once at the end, and the cart reads the tax rate the server sends.
-    </p>
-    <ConcernFiles
-      files={PRICING_FILES}
-      others="only the price formatter import moves"
-      viewed={new Set(["acme/widgets/src/pricing.ts", "acme/widgets/src/pricing.test.ts", "acme/widgets/src/cart/totals.tsx"])}
-      onJump={() => {}}
-    />
-  </div>
-);
+export const ConcernFileList = () => {
+  const concern = FIXTURE.submission.concerns[4]!;
+  return (
+    <Frame>
+      <ConcernHeader
+        number={5}
+        title={concern.title}
+        explanation={concern.explanation}
+        files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
+        others={concern.others}
+        showList
+        viewed={FIXTURE_VIEWED}
+        onJump={() => {}}
+      />
+    </Frame>
+  );
+};

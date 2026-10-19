@@ -7,7 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp, experimental_Diff as Diff } from "@get-bb/plugin-sdk/app";
 import { NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
 import { SuperDiffRow, type Loaded, type ThreadState } from "./row";
-import { ConcernFiles, ViewedCount } from "./concern";
+import { ConcernHeader } from "./concern";
 import {
   GENERATED_TITLE,
   UNGROUPED_TITLE,
@@ -311,32 +311,16 @@ function GroupedList({ data, stored, split }: { data: Loaded; stored: StoredSupe
       <FilesProps files={data.files} target={data.target}>
         {groups.map((group) => (
           <section key={`${group.kind}:${group.title}`} className="mb-4">
-            <header className="px-1 pb-2 pt-1">
-              <h3 className="text-sm font-semibold text-foreground">
-                {group.kind === "concern" ? (
-                  <span className="text-muted-foreground tabular-nums" style={{ marginRight: 8 }}>{++concernNumber}</span>
-                ) : null}
-                {group.title}
-                <span className="text-xs font-normal text-muted-foreground" style={{ marginLeft: 8 }}>
-                  {group.files.length} {group.files.length === 1 ? "file" : "files"}
-                  {viewed !== null ? (
-                    <>
-                      {" · "}
-                      <ViewedCount viewed={group.files.filter((file) => viewed.has(file.path)).length} total={group.files.length} />
-                    </>
-                  ) : null}
-                </span>
-              </h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">{group.explanation}</p>
-              {group.kind === "concern" ? (
-                <ConcernFiles
-                  files={group.files.map((file) => ({ path: file.path, summary: group.summaries?.[file.path] }))}
-                  others={group.others}
-                  viewed={viewed}
-                  onJump={jumpToFile}
-                />
-              ) : null}
-            </header>
+            <ConcernHeader
+              number={group.kind === "concern" ? ++concernNumber : null}
+              title={group.title}
+              explanation={group.explanation}
+              files={group.files.map((file) => ({ path: file.path, summary: group.summaries?.[file.path] }))}
+              others={group.others}
+              showList={group.kind === "concern"}
+              viewed={viewed}
+              onJump={jumpToFile}
+            />
             {group.files.map((file) => (
               <FileCard
                 key={file.path}

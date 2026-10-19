@@ -93,7 +93,7 @@ function Sparkles() {
 }
 
 /** `code` spans only; the agent's notes are short prose. */
-function Prose({ text }: { text: string }) {
+export function Prose({ text }: { text: string }) {
   return (
     <>
       {text.split(/(`[^`]+`)/).map((part, index) =>
