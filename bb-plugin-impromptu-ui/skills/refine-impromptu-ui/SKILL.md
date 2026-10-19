@@ -1,16 +1,30 @@
 ---
 name: refine-impromptu-ui
-description: Use when Impromptu UI fell short in this thread and the user wants it improved, such as "impromptu UI should have shown this", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", or "refine impromptu UI". Works out what went wrong, offers alternatives, and files an anonymized issue on danielbachhuber/bb-plugins.
+description: Use when Impromptu UI fell short, or should have run and did not, such as "impromptu UI should have shown this", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", or "refine impromptu UI"; and when the user asks to scan recent or active threads for moments where Impromptu UI could have run or a better view would have helped. Finds the missed moments, shows a view in threads still waiting on the user, and turns the rest into a change to the plugin, its guide, or the skill that should have published, filing an anonymized issue on danielbachhuber/bb-plugins where the plugin needs to change.
 ---
 
 # Refine Impromptu UI
 
-When Impromptu UI did not show up where it should have, or showed up but could
-not do what the work needed, turn that into an issue the plugin's maintainer
-can act on. The issue describes the kind of work and what would have helped,
-never the user's own data, because the repository is public.
+Impromptu UI falls short in three ways: a thread wrote its results into chat
+when a view would have let the user act on them, a view went up but could not
+do what the work needed, or a view went up when a different one would have
+done the job better. This skill finds those moments, fixes the ones the user
+is still waiting on, and turns the rest into a change that stops them
+happening again.
 
-## 1. Work out what went wrong
+There are two ways in:
+
+- **This thread.** The user says Impromptu UI should have run here, or that a
+  view here fell short. Go to "This thread".
+- **A scan.** The user asks to look across recent or active threads. Go to
+  "A scan". Run it in a thread of its own: the subagents' reports fill the
+  context, and the scan skips the thread it runs in.
+
+Both end in "Choose the fix".
+
+## This thread
+
+### 1. Work out what went wrong
 
 Start from what you already know in this thread: the task, whether you
 published a view, and what the user said about it. Read back any view you
@@ -34,60 +48,147 @@ If what the user said leaves more than one of these possible, ask one
 question to settle it, and offer your best guess as the first answer. Do not
 ask about what you can see in the thread.
 
-Then read the current guide, `skills/impromptu-ui/SKILL.md` (bb gives it to
-this thread as the `impromptu-ui` skill), for the part that covers the
-problem. Some problems can already be solved today, with a field you did not
-use or a way of arranging the cards, such as one card that acts on a whole
-group. Offer to republish that way now. If the guide does not mention the
-workaround, keep going: a change to the guide is one of the alternatives.
+### 2. Fix the moment, if it is still open
 
-## 2. Offer alternatives
+If the user has not yet acted on the output that should have been a view,
+build that view now, following the `impromptu-ui` skill, before anything
+else. The fix for next time can wait; the user's decision is waiting now.
 
-Come up with two to four ways the plugin could change, each one specific
-enough to build. Draw them from different places rather than offering one
-idea three ways:
+Then read `skills/impromptu-ui/SKILL.md` (bb gives it to this thread as the
+`impromptu-ui` skill) for the part that covers the problem. Some problems can
+already be solved today, with a field you did not use, a different layout,
+or a way of arranging the cards, such as one card that acts on a whole group.
+Offer to republish that way. If the guide does not mention the workaround,
+that is a change to the guide, and it goes on to "Choose the fix".
 
-- **The guide**: a change to the skill's description, so it fires for this
-  kind of task, or to its instructions, so an agent picks the right layout or
-  field.
-- **The view file**: a new field, button type, or layout.
-- **The panel or the list**: a change to how something already supported
-  looks or behaves.
+## A scan
 
-For each, say what it would change for the task at hand, and what it costs:
-another field every agent has to learn, a layout that suits only this kind of
-work, a change in behavior that existing views rely on.
+### 1. Pick the threads
 
-Show them as a view, one card per alternative, unless Impromptu UI is the
-thing that broke. Publish it under its own key, so it does not replace the
-view the user is still working in:
+The user may name the range: "active threads", "the last 3 days". Without
+one, take the threads updated in the last 2 days.
 
 ```bash
-bb impromptu-ui publish --file /tmp/refine-impromptu-ui/view.json --key refine-impromptu-ui
+bb thread list --json
 ```
 
-Put the cards in one section titled **Ways to change it**, with
-`"dismissLabel": "Not this"`. Give each card one button,
-`{ "type": "message", "label": "File this one", "text": "File the Impromptu UI issue for \"<card title>\"" }`,
-with the card's title copied into `text`. Put the one you would recommend
-first. If Impromptu UI is not available or is what broke, list them in chat
-instead and ask which to file.
+Keep the threads whose `updatedAt` falls in the range, or whose `status` is
+`active` or `idle` for "active threads". Leave out this thread
+(`$BB_THREAD_ID`). `bb thread list` already leaves out hidden and archived
+threads. If more than 40 remain, say how many and ask whether to read them
+all or only the 40 most recent, with the 40 as the first answer.
 
-The user may press **File this one** on more than one card. File each as its
-own issue, and link each to the others in its list of alternatives.
+### 2. Read them in parallel
 
-## 3. Check for an existing issue
+Split the threads into batches of about 8. In one message, dispatch one
+subagent per batch with the prompt in `references/scan-prompt.md`, filling in
+the thread ids with each one's title and status. Keep the transcripts out of
+your own context. Each subagent returns a list of moments in JSON.
+
+### 3. Sort the moments
+
+Each moment is one of:
+
+- **Open**: the thread is idle, its last reply is the missed moment, and the
+  user has not answered it. The subagent marks these `"open": true`.
+- **Passed**: the user has already answered, so the moment is evidence for a
+  fix.
+
+Group the passed moments by cause: the same skill that never publishes, the
+same field the view did not have, the same layout chosen when another fit
+better. A cause seen in several threads outranks one seen once. Drop a moment
+whose only problem has nothing to do with Impromptu UI.
+
+Read `skills/impromptu-ui/SKILL.md` and `bb impromptu-ui schema` before
+deciding a cause is a missing feature. A view that left out a field the
+schema has is a guide problem, not a plugin one.
+
+### 4. Show the results
+
+Publish one view under the key `refine-impromptu-ui-scan`, with two sections.
+
+**Waiting on you**: one card per open moment, titled with the thread's title.
+The summary says what the thread's last reply holds, such as "6 pull requests,
+each needing approve or skip", and links the thread as
+`@thread:<id>`. Give it a command button:
+
+```json
+{ "type": "command", "label": "Show it there", "primary": true, "doneLabel": "Asked",
+  "command": "bb thread tell <thread id> 'Your last reply ended on <what it holds>, and the user has not answered yet. Publish it as an Impromptu UI view (the impromptu-ui skill covers how), then stop.'" }
+```
+
+Fill in `<what it holds>` in plain words, with no quote from the reply and no
+apostrophe, since the message is in single quotes.
+Nothing is sent until the user presses the button. Pressing it is what allows
+this thread to message the other one.
+
+**Ways to fix it**: one card per cause, most threads first. The summary
+names the cause and the fix in a sentence each. The details list each thread
+as evidence: `@thread:<id>`, the kind of work, what the agent wrote in chat,
+and what the user typed back to act on it. Give each card the buttons that
+"Choose the fix" lists for its kind of fix, as `message` buttons whose `text`
+names the card, such as `Edit the guide for "<card title>"`.
+
+In chat, say how many threads were read, how many moments are waiting, and
+how many fixes there are, and point to the view. When a button sends you
+work, do it, then publish the view again under the same key with every card
+still in it.
+
+## Choose the fix
+
+Each problem changes one of four places. Name the place before drafting
+anything.
+
+| Place | When | What to do |
+|---|---|---|
+| **Another skill** | The thread ran a skill whose own steps end in a list or a question in chat, so the agent followed the skill instead of publishing. | Edit that skill: see "Editing another skill". |
+| **The guide** | No skill was involved, or the agent published but chose the wrong layout or missed a field the schema has. Includes the guide's description not matching the task. | Edit `skills/impromptu-ui/SKILL.md` in this repository, or the section every thread's instructions get, in `view/instructions.ts`, when the problem is that a thread never thought of a view. If you cannot write to the plugin's checkout, file it as an issue. |
+| **The view file** | The work needed a field, button type, or layout the schema does not have. | File an issue. |
+| **The panel or the list** | Something already supported looks or behaves wrong, or broke. | File an issue. |
+
+For a problem from "This thread", come up with two to four alternatives
+first, each specific enough to build, drawn from different places rather
+than one idea three ways. For each, say what it would change for the task at
+hand, and what it costs: another field every agent has to learn, a layout
+that suits only this kind of work, a change in behavior that existing views
+rely on. Show them as a view under the key `refine-impromptu-ui`, so it does
+not replace the view the user is still working in, in one section titled
+**Ways to change it**, with `"dismissLabel": "Not this"`. Give each card one
+button, `{ "type": "message", "label": "Do this one", "text": "Do the
+Impromptu UI change \"<card title>\"" }`, and put your recommendation first.
+If Impromptu UI is not available or is what broke, list them in chat instead
+and ask which to do. The user may pick more than one; each filed issue links
+the others among its alternatives.
+
+### Editing another skill
+
+Find where the skill comes from. A skill in `~/.claude/skills/<name>`,
+`~/.agents/skills/<name>`, or a repository's `.claude/skills/` is a file you
+can edit. A skill under `~/.bb/runtime/` is bb's copy of a plugin's skill:
+find the plugin in `bb plugin list` and edit its source checkout, or file the
+change on the plugin's repository if there is none.
+
+The change is usually a step near the end that publishes a view, with the
+view's shape: one card per item, the buttons each item needs, the key. Keep
+it short and point to the `impromptu-ui` skill for the rest. Show the user the
+diff, and follow that repository's own rules for committing. If the skill's
+repository is public, the anonymizing rules below apply to the edit too.
+
+## File an issue
+
+### 1. Check for an existing issue
 
 ```bash
 gh issue list -R danielbachhuber/bb-plugins --state all --search "<keywords>" --limit 10
 ```
 
 Try two or three phrasings of the change itself, such as "select several
-cards" and "bulk action", with and without "impromptu". If an open issue asks for the same change, offer
-to add this use case to it as a comment instead of filing a new one. If a
-closed one does, read why it was closed before going on.
+cards" and "bulk action", with and without "impromptu". If an open issue asks
+for the same change, offer to add this use case to it as a comment instead of
+filing a new one. If a closed one does, read why it was closed before going
+on.
 
-## 4. Draft the issue, anonymized
+### 2. Draft it, anonymized
 
 Write the draft to a markdown file and show it to the user. Nothing is posted
 until they confirm.
@@ -99,11 +200,11 @@ whoever filed it:
   `acme/widgets`, `acme/gadgets`, `octocat`, `hubber`, or `Acme Board`.
 - No thread ids, file paths under a home directory, internal URLs, or email
   addresses.
-- No text copied from the thread, the user's files, or their issues and pull
+- No text copied from a thread, the user's files, or their issues and pull
   requests. Describe the work in general terms: "a skill that triages the
   open issues in a milestone", not the issues themselves. A count or a kind
-  of thing, such as "six patch-level bumps", is fine; a title, number, or
-  quote is not.
+  of thing, such as "six patch-level bumps" or "seen in 4 threads", is fine;
+  a title, number, or quote is not.
 - An example view file is useful, but write its titles, summaries, and
   numbers from scratch. Swapping the names in a real one and lightly
   rewording it still identifies it.
@@ -111,20 +212,21 @@ whoever filed it:
 **Shape.** No headings. A title that states the change, such as "Let a
 `command` button take the draft in a card view". Then:
 
-1. A paragraph on the kind of work and what Impromptu UI did with it.
+1. A paragraph on the kind of work and what Impromptu UI did with it. From a
+   scan, say how many threads showed it.
 2. A paragraph on what would have helped, followed by an invented example
    view file or a sketch of the screen if it makes the change clearer.
-3. The other alternatives considered, a line each, then why the user picked
-   this one. If you recommended a different one, say which and why.
+3. The other alternatives considered, a line each, then why this one. If you
+   recommended a different one, say which and why.
 4. One line: `Versions: bb <x>, impromptu-ui <y>`, from `bb --version` and
    `bb plugin list | grep impromptu-ui`.
 5. A `**Done is:**` list of two to four checks someone could run to see the
    change is finished.
 
 Before showing the draft, read it once more against the anonymizing rules,
-looking for anything that came from the thread rather than from you.
+looking for anything that came from a thread rather than from you.
 
-## 5. File it
+### 3. File it
 
 Once the user confirms:
 
@@ -133,9 +235,10 @@ gh issue create -R danielbachhuber/bb-plugins \
   --title "<title>" --body-file <draft.md> --label <enhancement|bug>
 ```
 
-Use `bug` for **Broke**, `enhancement` for the rest. Reply with the issue's
-title and a link to it, then delete the draft file. Take down the
-alternatives view once every pick is filed:
+Use `bug` for something that broke, `enhancement` for the rest. Reply with
+the issue's title and a link to it, then delete the draft file. Mark the card
+done by publishing the view again, and take down the alternatives view once
+every pick is handled:
 
 ```bash
 bb impromptu-ui hide --key refine-impromptu-ui

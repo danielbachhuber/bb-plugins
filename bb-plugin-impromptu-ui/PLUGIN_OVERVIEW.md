@@ -11,7 +11,7 @@ Impromptu UI gives your agent a toolkit for generating interfaces on the fly. A 
 
 ## For agents
 
-Agents get the `impromptu-ui` skill and the `bb impromptu-ui` command: `publish`, `state`, `hide`, `list`, and `schema`, which prints everything a view can hold. Every thread is also told to build a view whenever the user would otherwise reply to act on its output, so an agent can make one for whatever task it is on without a skill asking it to. The `refine-impromptu-ui` skill files an anonymized issue when a view falls short.
+Agents get the `impromptu-ui` skill and the `bb impromptu-ui` command: `publish`, `state`, `hide`, `list`, and `schema`, which prints everything a view can hold. Every thread is also told to build a view whenever the user would otherwise reply to act on its output, so an agent can make one for whatever task it is on without a skill asking it to. The `refine-impromptu-ui` skill scans recent threads, or the current one, for moments a view should have appeared or a better one would have helped, and turns each into a fix to a skill, the guide, or an anonymized issue.
 
 ## Requirements
 
