@@ -158,8 +158,11 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     superdiff_get: async ({ threadId, target }) => {
       const row = selectStored.get(threadId, targetKey(target));
+      // A request counts only for the diff it asked about: after the thread's
+      // base branch changes, an older request is not one this diff waits on.
       const request = selectRequest.get(threadId);
-      return { stored: row?.stored_json ?? null, requestedAt: request?.requested_at ?? null };
+      const forThis = request !== undefined && targetKey(JSON.parse(request.target_json) as DiffTarget) === targetKey(target);
+      return { stored: row?.stored_json ?? null, requestedAt: forThis ? request.requested_at : null };
     },
     superdiff_generate: async ({ threadId, target }) => {
       const requestedAt = new Date().toISOString();

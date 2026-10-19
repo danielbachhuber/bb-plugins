@@ -12,6 +12,7 @@ import {
   GENERATED_TITLE,
   UNGROUPED_TITLE,
   isPlacedByRule,
+  targetKey,
   type DiffFile as FileEntry,
   type DiffTarget as Target,
   type StoredSuperDiff,
@@ -530,6 +531,8 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   // What the list last reported for the row's list of concerns.
   let links: ConcernLink[] = [];
   let current = 0;
+  /** bb's toolbar summary ("25 files +316 -328") last seen for each key; a change means the diff changed. */
+  const summaries = new Map<string, string>();
   const memories = new Map<string, CardMemory>();
   const memoryOf = (key: string) => {
     let memory = memories.get(key);
@@ -594,6 +597,35 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         if (stored !== null) void show(threadId, selection, "super");
       }
       schedule();
+    } catch (cause) {
+      fail(key, cause);
+    }
+  };
+
+  /**
+   * The diff changed under us: bb's file and line counts moved. The thread's
+   * base branch may have changed, which makes it a different diff with its
+   * own Super Diff (or none), so the base is looked up again. On the same
+   * base, a Super Diff on show reloads the diff, so new files show under Not
+   * yet grouped and the row says it is out of date.
+   */
+  const refresh = async (threadId: string, selection: string) => {
+    const key = keyOf(threadId, selection);
+    const before = await contextOf(threadId, selection);
+    contexts.delete(key);
+    const after = await contextOf(threadId, selection);
+    const current = states.get(key);
+    if (typeof before === "string" || typeof after === "string" || targetKey(before.target) !== targetKey(after.target)) {
+      return check(threadId, selection);
+    }
+    if (current?.phase !== "ready" || current.data === null) return;
+    try {
+      const data = await loadDiff(after);
+      const latest = states.get(key);
+      if (latest?.phase === "ready" && latest.stored === current.stored) {
+        states.set(key, { ...latest, data });
+        schedule();
+      }
     } catch (cause) {
       fail(key, cause);
     }
@@ -688,6 +720,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     }
     const key = keyOf(threadId, selection);
     if (!states.has(key)) void check(threadId, selection);
+    const lastSummary = summaries.get(key);
+    if (summary !== "" && summary !== lastSummary) {
+      summaries.set(key, summary);
+      if (lastSummary !== undefined) void refresh(threadId, selection);
+    }
     const state = states.get(key) ?? { phase: "checking" as const };
     const fileCount = Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
     const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
