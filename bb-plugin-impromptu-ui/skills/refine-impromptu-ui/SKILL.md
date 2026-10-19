@@ -103,6 +103,24 @@ Read `skills/impromptu-ui/SKILL.md` and `bb impromptu-ui schema` before
 deciding a cause is a missing feature. A view that left out a field the
 schema has is a guide problem, not a plugin one.
 
+Check whether a cause is already fixed. Find the file its fix would change
+(see "Choose the fix") and its last commits:
+
+```bash
+git -C <checkout> log --since="<days> days ago" --format='%h %cI %s' -- <file>
+```
+
+Split the cause's moments into those before and after a commit that already
+addresses it. A cause whose moments all came before the fix is not a card;
+mention it in one line of the chat reply. Otherwise count only the moments
+after it, and say so on the card.
+
+Pick the place for each cause yourself, then draft the exact edit: the
+current text of the paragraph or step it changes, and the text you propose.
+For an issue, the edit is the change to the view file or panel in a sentence
+or an example view. A card the user cannot judge without opening the file is
+not finished.
+
 ### 4. Show the results
 
 Publish one view under the key `refine-impromptu-ui-scan`, with two sections.
@@ -122,17 +140,53 @@ apostrophe, since the message is in single quotes.
 Nothing is sent until the user presses the button. Pressing it is what allows
 this thread to message the other one.
 
-**Ways to fix it**: one card per cause, most threads first. The summary
-names the cause and the fix in a sentence each. The details list each thread
-as evidence: `@thread:<id>`, the kind of work, what the agent wrote in chat,
-and what the user typed back to act on it. Give each card the buttons that
-"Choose the fix" lists for its kind of fix, as `message` buttons whose `text`
-names the card, such as `Edit the guide for "<card title>"`.
+**Ways to fix it**: one card per cause, most threads first. Show at most 5;
+put the rest in a third section, **Smaller**, in the same shape. Each card
+answers what goes wrong, how often, and what will change, so the user can
+decide without opening a thread:
 
-In chat, say how many threads were read, how many moments are waiting, and
-how many fixes there are, and point to the view. When a button sends you
-work, do it, then publish the view again under the same key with every card
-still in it.
+```json
+{
+  "id": "pick-lists",
+  "title": "Show a list to pick from as cards, even when no question is asked",
+  "badges": [{ "label": "Guide", "tone": "info" }, { "label": "5 threads" }],
+  "summary": "**What happens now:** The agent ends on a list of suggestions with no question, so the instructions do not read it as a decision. The user quotes an item back to act on it.\n\n> Agent: a list of 5 suggested doc changes. User typed: \"Draft those suggested changes\"\n\n**Seen in:** 5 threads in the last 2 days.\n\n**The fix:** Say in the instructions every thread gets that a list the user will pick from is a view, question or not.",
+  "changesLabel": "The edit",
+  "proposedLabel": "Proposed wording",
+  "changes": [{ "label": "view/instructions.ts", "before": "<the paragraph now>", "after": "<the paragraph with the edit>", "role": "proposed" }],
+  "details": "**Threads**\n\n- @thread:<id>: <the kind of work>; <what the user typed>.",
+  "actions": [
+    { "type": "message", "label": "Make this edit", "primary": true, "text": "Make the edit for \"<card title>\" as shown in its card." },
+    { "type": "message", "label": "File an issue instead", "text": "File an issue for \"<card title>\" instead of editing." }
+  ]
+}
+```
+
+- **Title**: the change, in plain words, not the problem.
+- **What happens now**: the problem in two or three plain sentences, with no
+  file names.
+- **The example**: one real moment, from the `agentWrote` and `userTyped` the
+  subagents returned. Never write an example yourself. If no moment has a
+  clear one, describe the moment instead, and do not set it out as a quote.
+- **Seen in**: the thread count, and how many came before a fix that already
+  landed.
+- **The fix**: one sentence.
+- **The edit**: the current and proposed text, as a proposed change labeled
+  with the file. For an issue, put the invented example view or a sentence
+  here instead.
+- **Details**: each thread as `@thread:<id>` with the kind of work and what
+  the user typed.
+- **Buttons**: one main button for the place you picked: "Make this edit" for
+  a guide or skill change, "File an issue" for a plugin change. Add "File an
+  issue instead" to an edit only when the edit lands somewhere the user does
+  not own.
+
+In chat, say only how many threads were read, how many moments are waiting,
+how many fixes there are, and any cause left out because a fix already
+landed, and point to the view. Do not repeat the cards. When a button sends
+you work, do it, then publish the view again under the same key with every
+card still in it, marking each finished card `"complete": true` with a badge
+naming the commit or issue.
 
 ## Choose the fix
 
