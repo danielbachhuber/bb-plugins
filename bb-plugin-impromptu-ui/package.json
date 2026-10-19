@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Impromptu UI",
-    "description": "Generate interfaces for what you need to process or act on, instead of walls of text in chat.",
+    "description": "Turns your agent's walls of text into interfaces you can click.",
     "branding": {
       "icon": "GridView"
     },

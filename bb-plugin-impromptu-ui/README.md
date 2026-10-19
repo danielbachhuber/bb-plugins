@@ -1,22 +1,26 @@
 # Impromptu UI
 
-Generate interfaces for what you need to process or act on, instead of walls of text in chat.
-
-An agent that finishes three fixes from one review comment, each in its own worktree, writes them up in chat and asks which to open. With Impromptu UI, each fix is a row above the composer, and opening one shows its diff and a button that commits, pushes, and opens the pull request:
+Turns your agent's walls of text into interfaces you can click.
 
 ![Before: three finished fixes written out in chat, one paragraph each, ending in "Which should I open?" After: the same three as rows above the composer, one already opened as a pull request, and the demo accounts fix open in the side panel with its diff and Commit, push, and open PR and Revise buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--three-prs-at-once.png)
 
+With Impromptu UI, you can:
+
+- **Triage your milestone** without getting lost in paragraphs of feedback. Each recommendation becomes a row with a drafted comment and **Post and close**, **Post**, and **Start thread**.
+
+  ![Thirteen issues above the composer, grouped under Close and Keep open with a question, with #429 open in the side panel: a Close: completed badge, the comment to post, and Post and close and Post buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--milestone-triage-item-open.png)
+
+- **Create three PRs at once** without juggling threads. Each fix waits on its own card, with its diff and PR description, until you click **Commit, push, and open PR**.
+- **Find the design you want** by reacting to variations instead of describing it up front. Pick one from a film strip, or leave notes for the next round.
+
+  ![A visual review of task rows open in the side panel: Original, A, and B in a film strip, B picked with a note to keep the overdue date red, and a Send feedback button](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--visual-review-filled-in.png)
+
 ## Use
 
-- A skill publishes the items it wants you to act on, such as issues to triage, findings from a code review, or a pull request to merge. Each one is a numbered row above the composer, under a section heading when the skill groups them.
-- Click a row to open it in the side panel: its summary and details, any diff, a draft you can edit, and buttons that post the draft, start a thread, run a command once you confirm it, or open a link.
-- A button that starts a thread for a pull request against another branch, such as a fix in a PR against the PR under review, starts it in a new worktree on that branch, so the thread's diff matches the pull request from the first turn.
-- A fix the agent suggests sits in its own **Suggested fix** block under the code it changes, apart from the pull request's own diff under **In this PR**.
-- A last step that depends on the rest, such as a review's verdict, waits under the list as a **Then** row. It opens once every item above it is handled and tallies what you did with them.
-
-![A code review above the composer: findings under Fix before merge and Worth considering, two done and one dismissed, and a Then row to submit as Request changes, open in the side panel with the tally of what was done](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--closing-step-ready.png)
-
-- To compare designs, the agent shows screenshots of the original and its alternatives. Pick one, leave notes, and press **Send feedback**. A single proposed change shows as **Before** and **After** in the same place, with **Build it**.
+- The agent publishes what it wants you to act on as numbered rows above the composer, grouped under headings.
+- Click a row to open its card in the side panel: the summary, any diff, a draft you can edit, and the buttons that act on it. Every card also has **Start thread** and **Dismiss**.
+- Done and dismissed rows sink to the bottom, and the agent reads back what you did.
+- A last step that depends on the rest, such as a code review's verdict, waits under the rows as a **Then** row until everything above it is handled.
 
 ## For agents
 

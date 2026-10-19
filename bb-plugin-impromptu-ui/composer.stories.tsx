@@ -824,7 +824,7 @@ export function MilestoneTriageItemOpen() {
         { kind: "assistant", text: "I've triaged all 13 open issues in the Gadget Embed milestone. Each one is above the composer with its draft comment, grouped by outcome. Nothing has been posted yet." },
       ]}
       view={stored(milestoneTriageView)}
-      initialFocus="issue-434"
+      initialFocus="issue-429"
     />
   );
 }
