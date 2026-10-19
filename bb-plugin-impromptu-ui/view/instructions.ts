@@ -28,4 +28,8 @@ export const THREAD_INSTRUCTIONS = [
   "the code, so check it rather than assuming. The `impromptu-ui` skill shows",
   "how to put a view together. After publishing, say in chat only what is",
   "above the composer.",
+  "",
+  "When a button sends you work, do it, then publish the view again under the",
+  "same key to show the result. Keep every item in the file, including the",
+  "ones already handled: an item you drop vanishes instead of reading as done.",
 ].join("\n");
