@@ -33,6 +33,8 @@ export type Submission = { concerns: Concern[]; annotations: Annotation[] };
 export type StoredSuperDiff = {
   target: DiffTarget;
   submission: Submission;
+  /** A fingerprint of each file's patch when it was accepted (see `patchHash`), so the panel can tell which files changed since. Missing from Super Diffs stored before it existed. */
+  hashes?: Record<string, string>;
   /** Every path on the diff when it was accepted, so the panel can tell when files come and go. */
   paths: string[];
   acceptedAt: string;
@@ -40,6 +42,31 @@ export type StoredSuperDiff = {
 
 export const GENERATED_TITLE = "Generated files";
 export const UNGROUPED_TITLE = "Not yet grouped";
+
+/**
+ * A short fingerprint of a patch (32-bit FNV-1a, in hex). The server stores
+ * one per file and the panel recomputes it from the diff it loads, so both
+ * sides must use this same function; it only has to notice a change, not
+ * resist tampering.
+ */
+export function patchHash(patch: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < patch.length; i++) {
+    hash ^= patch.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Paths still in the diff whose patches differ from when the Super Diff was stored. */
+export function changedPaths(stored: StoredSuperDiff, patches: Map<string, string>): Set<string> {
+  const changed = new Set<string>();
+  for (const [path, hash] of Object.entries(stored.hashes ?? {})) {
+    const patch = patches.get(path);
+    if (patch !== undefined && patchHash(patch) !== hash) changed.add(path);
+  }
+  return changed;
+}
 
 export function targetKey(target: DiffTarget): string {
   return target.type === "uncommitted" ? "uncommitted" : `${target.type}:${target.mergeBaseBranch}`;

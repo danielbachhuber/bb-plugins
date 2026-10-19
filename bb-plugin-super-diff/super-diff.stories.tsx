@@ -36,7 +36,10 @@ function Frame({ children }: { children: ReactNode }) {
   );
 }
 
-function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?: number }) {
+/** Two of concern 1's files, edited since the Super Diff was written. */
+const CHANGED: ReadonlySet<string> = new Set(FIXTURE.submission.concerns[0]!.files.slice(1, 3));
+
+function Row({ state, fileCount = FILE_COUNT, changed = false }: { state: ThreadState; fileCount?: number; changed?: boolean }) {
   return (
     <SuperDiffRow
       state={state}
@@ -45,8 +48,9 @@ function Row({ state, fileCount = FILE_COUNT }: { state: ThreadState; fileCount?
       segmentButtonClass={SEGMENT_BUTTON_CLASS}
       onGenerate={() => {}}
       onShow={() => {}}
-      concernLinks={state.phase === "ready" ? LINKS : []}
+      concernLinks={state.phase === "ready" ? LINKS.map((link, index) => (changed && index === 0 ? { ...link, changed: CHANGED.size } : link)) : []}
       current={0}
+      changedCount={changed ? CHANGED.size : 0}
     />
   );
 }
@@ -141,12 +145,32 @@ export const ShowingSuperDiff = () => (
   </Frame>
 );
 
-/** Two files have joined the diff since the Super Diff was written, so the row turns amber and offers Regenerate. */
+/** Two files have joined the diff and two have been edited since the Super Diff was written, so the row turns amber and offers Regenerate, and the concern with edited files says how many. */
 export const OutOfDate = () => (
   <Frame>
-    <Row state={READY} fileCount={FILE_COUNT + 2} />
+    <Row state={READY} fileCount={FILE_COUNT + 2} changed />
   </Frame>
 );
+
+/** A concern whose files were edited after the Super Diff was written: each one is marked changed, since its summary may no longer be right. */
+export const ChangedFiles = () => {
+  const concern = FIXTURE.submission.concerns[0]!;
+  return (
+    <Frame>
+      <ConcernHeader
+        number={1}
+        first
+        title={concern.title}
+        explanation={concern.explanation}
+        files={concern.files.map((path) => ({ path, summary: concern.summaries?.[path] }))}
+        showList
+        viewed={FIXTURE_VIEWED}
+        onJump={() => {}}
+        changed={CHANGED}
+      />
+    </Frame>
+  );
+};
 
 /** A concern's annotations, under its file list: each one's number, title, and line, which jumps to its card. One note's line has left the diff. */
 export const AnnotationList = () => (

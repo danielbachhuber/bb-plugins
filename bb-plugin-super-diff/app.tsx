@@ -11,6 +11,7 @@ import { ConcernHeader } from "./concern";
 import {
   GENERATED_TITLE,
   UNGROUPED_TITLE,
+  changedPaths,
   isPlacedByRule,
   targetKey,
   type DiffFile as FileEntry,
@@ -370,6 +371,8 @@ function GroupedList({
     if (changed) setCollapsedState(new Set(memory.collapsed));
   }, [viewed, data, memory]);
 
+  const changed = useMemo(() => changedPaths(stored, data.patches), [stored, data]);
+
   const links = useMemo(() => {
     let number = 0;
     return groups.map(
@@ -378,9 +381,10 @@ function GroupedList({
         title: group.title,
         viewed: viewed === null ? null : group.files.filter((file) => viewed.has(file.path)).length,
         total: group.files.length,
+        changed: group.files.filter((file) => changed.has(file.path)).length,
       }),
     );
-  }, [groups, viewed]);
+  }, [groups, viewed, changed]);
 
   // The section at the top of the scroller, for the row to highlight. Sections
   // are few, so reading their positions once per scrolled frame is cheap.
@@ -469,6 +473,7 @@ function GroupedList({
               showList={group.kind === "concern"}
               viewed={viewed}
               onJump={jumpToFile}
+              changed={changed}
             >
               <NotesBox notes={notesByGroup[groupIndex] ?? []} onJump={jump} />
             </ConcernHeader>
@@ -559,6 +564,16 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   let current = 0;
   /** bb's toolbar summary ("25 files +316 -328") last seen for each key; a change means the diff changed. */
   const summaries = new Map<string, string>();
+  // sync() runs on most page mutations, so the count is worked out once per
+  // loaded diff and Super Diff rather than rehashing every patch each time.
+  const changedCounts = new WeakMap<Loaded, { stored: StoredSuperDiff; count: number }>();
+  const changedCountOf = (stored: StoredSuperDiff, data: Loaded) => {
+    const cached = changedCounts.get(data);
+    if (cached?.stored === stored) return cached.count;
+    const count = changedPaths(stored, data.patches).size;
+    changedCounts.set(data, { stored, count });
+    return count;
+  };
   const memories = new Map<string, CardMemory>();
   // One stable callback per key, so the list's hover buttons are not rewired on every render.
   const explainers = new Map<string, (path: string, line: number, text: string) => void>();
@@ -834,6 +849,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         onGenerate={() => void generate(threadId, selection)}
         onShow={(showing) => void show(threadId, selection, showing)}
         concernLinks={showingSuper ? links : []}
+        changedCount={state.phase === "ready" && state.data !== null ? changedCountOf(state.stored, state.data) : 0}
         current={current}
         onJump={(index) => nav.jump.current?.(index)}
       />,

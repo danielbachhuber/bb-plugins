@@ -9,6 +9,7 @@ import { GUIDE } from "./guide";
 import {
   anchorLines,
   isPlacedByRule,
+  patchHash,
   targetKey,
   validateSubmission,
   type DiffFile,
@@ -330,6 +331,7 @@ export default async function plugin(bb: BbPluginApi) {
           target,
           submission: result.submission,
           paths: files.map((file) => file.path),
+          hashes: Object.fromEntries([...patches].map(([file, patch]) => [file, patchHash(patch)])),
           acceptedAt: new Date().toISOString(),
         };
         upsertStored.run(threadId, targetKey(target), JSON.stringify(stored));

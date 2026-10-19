@@ -23,6 +23,21 @@ function Mark({ viewed }: { viewed: boolean }) {
   );
 }
 
+const EMPTY: ReadonlySet<string> = new Set();
+
+/** Marks a file edited since the Super Diff was written, in the row's amber. */
+function ChangedPill() {
+  return (
+    <span
+      className="shrink-0 rounded px-1.5 font-medium"
+      style={{ color: "var(--warning-text)", background: "color-mix(in oklab, var(--warning) 14%, transparent)", fontSize: 10.5 }}
+      title="Edited since the Super Diff was written, so its summary may be out of date"
+    >
+      changed
+    </span>
+  );
+}
+
 /** "2 of 4 viewed" and a bar, for a concern heading. */
 export function ViewedCount({ viewed, total }: { viewed: number; total: number }) {
   return (
@@ -54,11 +69,14 @@ export function ConcernFiles({
   others,
   viewed,
   onJump,
+  changed = EMPTY,
 }: {
   files: ConcernFile[];
   others?: string;
   viewed: ReadonlySet<string> | null;
   onJump: (path: string) => void;
+  /** Files edited since the Super Diff was written, whose summaries may be out of date. */
+  changed?: ReadonlySet<string>;
 }) {
   const described = files.filter((file) => file.summary);
   const rest = files.filter((file) => !file.summary);
@@ -88,6 +106,7 @@ export function ConcernFiles({
             <span className="min-w-0 text-muted-foreground">
               <Prose text={file.summary ?? ""} />
             </span>
+            {changed.has(file.path) ? <ChangedPill /> : null}
           </button>
         );
       })}
@@ -96,6 +115,9 @@ export function ConcernFiles({
           {rows.length > 0 ? `and ${rest.length} more ` : `${rest.length} `}
           {rest.length === 1 ? "file" : "files"}
           {viewed !== null ? ` (${rest.filter((file) => viewed.has(file.path)).length} viewed)` : ""}: <Prose text={others ?? ""} />
+          {rest.some((file) => changed.has(file.path)) ? (
+            <span style={{ color: "var(--warning-text)" }}> · {rest.filter((file) => changed.has(file.path)).length} changed</span>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -117,6 +139,7 @@ export function ConcernHeader({
   showList,
   viewed,
   onJump,
+  changed,
   children,
 }: {
   number: number | null;
@@ -128,6 +151,7 @@ export function ConcernHeader({
   showList: boolean;
   viewed: ReadonlySet<string> | null;
   onJump: (path: string) => void;
+  changed?: ReadonlySet<string>;
   children?: ReactNode;
 }) {
   return (
@@ -151,7 +175,7 @@ export function ConcernHeader({
         <p className="mt-1.5 text-sm text-muted-foreground">
           <Prose text={explanation} />
         </p>
-        {showList ? <ConcernFiles files={files} others={others} viewed={viewed} onJump={onJump} /> : null}
+        {showList ? <ConcernFiles files={files} others={others} viewed={viewed} onJump={onJump} changed={changed} /> : null}
         {children}
       </div>
     </header>

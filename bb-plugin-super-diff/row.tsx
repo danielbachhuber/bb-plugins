@@ -3,24 +3,30 @@
 import type { ReactNode } from "react";
 import type { DiffFile as FileEntry, DiffTarget as Target, StoredSuperDiff } from "./grouping";
 
-/** "Out of date · 2 files added, 1 file removed" from the paths on the diff now, or null when they match. */
-export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileCount: number | null): string | null {
+/**
+ * "Out of date · 2 files added, 1 file removed, 3 files changed" from the
+ * paths on the diff now and the files whose patches differ from when the
+ * Super Diff was written, or null when nothing moved.
+ */
+export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileCount: number | null, changed = 0): string | null {
   const plural = (n: number, word: string) => `${n} ${n === 1 ? "file" : "files"} ${word}`;
   if (paths === null) {
-    if (fileCount === null || fileCount === stored.paths.length) return null;
-    const delta = fileCount - stored.paths.length;
-    return `Out of date · ${plural(Math.abs(delta), delta > 0 ? "added" : "removed")}`;
+    const delta = fileCount === null ? 0 : fileCount - stored.paths.length;
+    if (delta === 0 && changed === 0) return null;
+    const parts = [delta ? plural(Math.abs(delta), delta > 0 ? "added" : "removed") : "", changed ? plural(changed, "changed") : ""];
+    return `Out of date · ${parts.filter(Boolean).join(", ")}`;
   }
   const before = new Set(stored.paths);
   const now = new Set(paths);
   const added = paths.filter((path) => !before.has(path)).length;
   const removed = stored.paths.filter((path) => !now.has(path)).length;
-  if (added === 0 && removed === 0) return null;
-  return `Out of date · ${[added ? plural(added, "added") : "", removed ? plural(removed, "removed") : ""].filter(Boolean).join(", ")}`;
+  if (added === 0 && removed === 0 && changed === 0) return null;
+  const parts = [added ? plural(added, "added") : "", removed ? plural(removed, "removed") : "", changed ? plural(changed, "changed") : ""];
+  return `Out of date · ${parts.filter(Boolean).join(", ")}`;
 }
 
 /** One line of the row's list of concerns. `viewed` is null when Diff Viewed is not installed. */
-export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number };
+export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number; changed?: number };
 
 export type Explaining = { path: string; line: number; requestedAt: string };
 
@@ -105,6 +111,7 @@ export function SuperDiffRow({
   concernLinks = [],
   current = null,
   onJump = () => {},
+  changedCount = 0,
 }: {
   state: ThreadState;
   fileCount: number | null;
@@ -117,9 +124,11 @@ export function SuperDiffRow({
   /** The index in `concernLinks` of the section at the top of the list. */
   current?: number | null;
   onJump?: (index: number) => void;
+  /** Files still in the diff whose patches have changed since the Super Diff was written. */
+  changedCount?: number;
 }) {
   const stale =
-    state.phase === "ready" ? staleText(state.stored, state.data?.files.map((file) => file.path) ?? null, fileCount) : null;
+    state.phase === "ready" ? staleText(state.stored, state.data?.files.map((file) => file.path) ?? null, fileCount, changedCount) : null;
   const button = (label: ReactNode, onClick?: () => void, { primary = false, disabled = false } = {}) => (
     <button
       type="button"
@@ -240,6 +249,11 @@ export function SuperDiffRow({
                 <span className="shrink-0" style={{ width: 16 }} />
               )}
               <span className={`min-w-0 flex-1 truncate ${link.number !== null ? "font-medium text-foreground" : ""}`}>{link.title}</span>
+              {link.changed ? (
+                <span className="shrink-0 tabular-nums" style={{ color: "var(--warning-text)" }}>
+                  {link.changed} changed
+                </span>
+              ) : null}
               <span className="shrink-0 tabular-nums">
                 {link.viewed !== null ? `${link.viewed}/${link.total}` : link.total}
               </span>
