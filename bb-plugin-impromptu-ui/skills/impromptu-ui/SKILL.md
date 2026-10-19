@@ -1,6 +1,6 @@
 ---
 name: impromptu-ui
-description: Use when `bb impromptu-ui` is available and you are about to hand the user things to act on, such as findings, issues to triage, PRs to merge, fixes to open, or a draft to post (a PR description, issue, or reply); when a reply would end in a numbered list and a question like "Which should I do?"; or when proposing two or more visual directions for a UI, with screenshots of each and the original first. Shows them above the thread's composer instead of in chat.
+description: Use when `bb impromptu-ui` is available and the user would otherwise read your output and type a reply to act on it, such as choosing between options, approving or editing a draft, comparing versions or UI designs (screenshots, original first), or working through several items like findings, issues, or PRs. Builds a small interface above the thread's composer, shaped to the task, instead of writing it in chat.
 ---
 
 # Impromptu UI

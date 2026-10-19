@@ -1,34 +1,31 @@
 // What every thread is told about Impromptu UI.
 //
 // Most views come from skills that name `impromptu-ui` in their own steps. An
-// agent working without one of those skills ends its turn with a numbered list
-// and "Which should I do?", because nothing in its context says a view exists.
-// This block is that context. It names the moments to publish rather than
-// describing the view format, which the skill covers, and stays short because
-// it rides on every turn of every thread.
+// agent working without one of those skills writes its results as prose,
+// because nothing in its context says a view exists. This block is that
+// context. It describes what a view can hold and the general test for when to
+// build one, and leaves the agent to shape the view around its own task. The
+// skill covers the file format. It stays short because it rides on every turn
+// of every thread.
 
 export const THREAD_INSTRUCTIONS = [
   "## Impromptu UI",
   "",
+  "You can build a small interface for the user instead of writing a reply.",
   "`bb impromptu-ui publish` shows a list of items above this thread's",
-  "composer. Each item opens in the side panel with its details, any diff, a",
-  "draft the user can edit, and buttons that act on it: post a comment, start",
-  "a thread, run a command, or send you a message. The user acts on each item",
-  "instead of typing a reply.",
+  "composer, grouped under headings. Each item opens in the side panel and can",
+  "hold a summary, badges, details, a diff, images, a draft or note the user",
+  "edits, and buttons. A button can send you a message, start a thread, run a",
+  "shell command, or open a link. You read back what the user did with",
+  "`bb impromptu-ui state`.",
   "",
-  "Before you end a turn, look at what you are handing the user. Publish a",
-  "view instead of writing it in chat when it is:",
-  "",
-  "- two or more findings, issues, pull requests, or fixes to decide on one by one",
-  "- a draft to post or send, such as a PR description, an issue, or a reply",
-  "- two or more options or designs to choose between, or a UI change to",
-  "  compare before and after",
-  "- a numbered list that ends in a question, such as \"Which should I do?\"",
-  "",
-  "Keep chat for a single answer, a yes-or-no question, or a report with",
-  "nothing to act on.",
+  "Reach for it whenever the user would otherwise read your output and then",
+  "type a reply to act on it: choosing between things, approving or editing",
+  "something, comparing versions, or working through several items. Design",
+  "the view around the task in front of you; it is not limited to any",
+  "particular kind of work. Keep chat for a plain answer or a single",
+  "yes-or-no question.",
   "",
   "Load the `impromptu-ui` skill for the view file's format before you write",
-  "one. After publishing, say in chat only how many items are above the",
-  "composer.",
+  "one. After publishing, say in chat only what is above the composer.",
 ].join("\n");

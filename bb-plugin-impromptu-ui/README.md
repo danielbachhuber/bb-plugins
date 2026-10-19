@@ -24,7 +24,7 @@ With Impromptu UI, you can:
 
 ## For agents
 
-Every thread's instructions get a short section on when to publish a view instead of writing a list in chat: several findings or fixes to decide on, a draft to post, options to choose between, or a list that ends in "Which should I do?". It points to the `impromptu-ui` skill, which describes the view file. Turn it off with the `threadInstructions` setting.
+Every thread's instructions get a short section saying what a view can hold and to build one whenever you would otherwise read the agent's output and type a reply to act on it. The agent shapes the view to its own task, and the `impromptu-ui` skill describes the view file. Turn it off with the `threadInstructions` setting.
 
 The `refine-impromptu-ui` skill files an anonymized issue on this repository when a view falls short.
 
