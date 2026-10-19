@@ -31,8 +31,6 @@ With Impromptu UI, you can:
 
 Every thread's instructions get a short section telling the agent to build a view whenever you would otherwise read its output and type a reply to act on it, shaped to its own task. The section doesn't list what a view can hold. It points to `bb impromptu-ui schema`, which prints the view file's JSON Schema from the code, so new fields reach agents without anyone editing the instructions. The `impromptu-ui` skill shows how to put a view together. Turn it off with the `threadInstructions` setting.
 
-The `refine-impromptu-ui` skill works on Impromptu UI itself. Run it in a thread where a view fell short or never appeared, and it starts a new thread to work out the fix, so the refinement stays out of the thread you were working in. Or ask it to scan the threads active in the last 2 days. A scan reads each thread with a subagent, one `bb thread log` per thread. For a thread still waiting on an answer it offers to ask that thread to publish a view. It turns each missed moment it finds into an edit to the skill that should have published, an edit to the `impromptu-ui` guide, or an anonymized issue on this repository.
-
 ```sh
 bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view
 bb impromptu-ui state [--key <name>]                        # read what the user did
@@ -42,6 +40,16 @@ bb impromptu-ui schema                                      # print everything a
 ```
 
 Each command except `schema` works only inside a bb thread.
+
+### Refine Impromptu UI
+
+The `refine-impromptu-ui` skill finds the moments a view should have appeared, or a better one would have helped, and turns each into a fix. Start it one of three ways:
+
+- **Mid-thread**, when a view fell short or never appeared. It shows the missing view if you still need it, then starts a new thread for the fix, so the refinement stays out of your work.
+- **On one thread.** It offers two to four ways to change Impromptu UI, each with what it costs, and edits nothing until you press **Do this one**. It then shows the edit as a diff, with **Commit and push**.
+- **As a scan** of the threads active in the last 2 days, or a range you name. A subagent reads each batch of threads. Threads still waiting on an answer get **Show it there**, which asks that thread to publish its view. The rest become cards under **Ways to fix it**, each with what goes wrong, a real example, how many threads showed it, and the exact edit. ([See a scan](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--refine-scan-item-open.png).)
+
+Each fix lands in one of three places: the skill that should have published, the `impromptu-ui` guide, or an anonymized issue on this repository, drafted for you to confirm before it is filed.
 
 ## Settings
 

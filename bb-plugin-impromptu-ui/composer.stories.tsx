@@ -19,7 +19,7 @@ import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { inlineTwoView, inlineView, configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, threePrsView, staplesView, triageView } from "./view/fixtures";
+import { inlineTwoView, inlineView, configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, refineScanView, threePrsView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -404,6 +404,29 @@ export function StaplesAfter() {
       })}
     />
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Refine Impromptu UI                                                        */
+/* -------------------------------------------------------------------------- */
+
+const refineScanTurns: Turn[] = [
+  { kind: "user", text: "Scan the last 2 days of threads for moments Impromptu UI missed." },
+  { kind: "work", text: "Read 14 threads with 2 subagents" },
+  {
+    kind: "assistant",
+    text: "Read **14 threads**. One moment is still waiting on you, and there are **3 ways** to stop the rest happening again. They're above the composer.",
+  },
+];
+
+/** The refine-impromptu-ui skill's scan: a thread still waiting on an answer, and three fixes, each saying where it lands and how many threads showed it. */
+export function RefineScan() {
+  return <ThreadStage turns={refineScanTurns} view={stored(refineScanView)} />;
+}
+
+/** A fix opened: what goes wrong now, a real moment, and the exact edit to the instructions, with Make this edit. */
+export function RefineScanItemOpen() {
+  return <ThreadStage turns={refineScanTurns} view={stored(refineScanView)} initialFocus="pick-lists" />;
 }
 
 /* -------------------------------------------------------------------------- */

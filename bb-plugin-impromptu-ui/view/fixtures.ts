@@ -1304,3 +1304,80 @@ export const inlineTwoView: View = viewSchema.parse({
     },
   ],
 });
+
+/** A refine-impromptu-ui scan: invented threads, moments, and fixes. */
+export const refineScanView: View = viewSchema.parse({
+  title: "Refine Impromptu UI",
+  summary: "14 threads from the last 2 days: 1 moment waiting on you, and 3 ways to stop the rest.",
+  sections: [
+    {
+      title: "Waiting on you",
+      items: [
+        {
+          id: "bumps",
+          title: "Dependency bumps for acme/widgets",
+          badges: [{ label: "2 days" }],
+          summary:
+            "6 pull requests, each needing approve or skip.\n\n**The view it would publish:** one card per pull request with Approve and Skip.",
+          details: "> Which of these should I approve?",
+          actions: [
+            {
+              type: "command",
+              label: "Show it there",
+              primary: true,
+              doneLabel: "Asked",
+              command:
+                "bb thread tell thr_ref0001 'Your last reply ended on six dependency bumps to approve or skip, and the user has not answered yet. Publish it as an Impromptu UI view (the impromptu-ui skill covers how), then stop.'",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      title: "Ways to fix it",
+      items: [
+        {
+          id: "pick-lists",
+          title: "Show a list to pick from as cards, even when no question is asked",
+          badges: [{ label: "Guide", tone: "info" }, { label: "5 threads" }],
+          summary:
+            "**What happens now:** The agent ends on a list of suggestions with no question, so the instructions do not read it as a decision. The user quotes an item back to act on it.\n\n> Agent: a list of 5 suggested changes to the setup guide. User typed: \"Do the second and fourth\"\n\n**Seen in:** 5 threads in the last 2 days.\n\n**The fix:** Say in the instructions every thread gets that a list the user will pick from is a view, question or not.",
+          changesLabel: "The edit",
+          proposedLabel: "Proposed wording",
+          changes: [
+            {
+              label: "view/instructions.ts",
+              role: "proposed",
+              before:
+                "Reach for it whenever the user would otherwise read your output and then type a reply to act on it: choosing between things, approving a plan or editing a draft, comparing versions, or working through several items.",
+              after:
+                "Reach for it whenever the user would otherwise read your output and then type a reply to act on it: choosing between things, approving a plan or editing a draft, comparing versions, or working through several items. A list the user will pick from, such as suggestions or follow-ups, is a view even when your reply asks no question.",
+            },
+          ],
+          details:
+            "**Threads**\n\n- Setup guide review; typed \"Do the second and fourth\".\n- Follow-ups after a release; typed \"Open issues for 1 and 3\".\n- Test cleanup ideas; typed \"Just the flaky one\".",
+          actions: [
+            { type: "message", label: "Make this edit", primary: true, text: "Make the edit for \"Show a list to pick from as cards, even when no question is asked\" as shown in its card." },
+            { type: "message", label: "File an issue instead", text: "File an issue for \"Show a list to pick from as cards, even when no question is asked\" instead of editing." },
+          ],
+        },
+        {
+          id: "review-step",
+          title: "End the code review skill on a view of its findings",
+          badges: [{ label: "Another skill", tone: "info" }, { label: "3 threads" }],
+          summary:
+            "**What happens now:** The review skill's last step says to list the findings in chat, so the agent follows it and never publishes. The user answers each finding by number.\n\n**Seen in:** 3 threads in the last 2 days.\n\n**The fix:** Make publishing one card per finding the review skill's last step.",
+          actions: [{ type: "message", label: "Make this edit", primary: true, text: "Make the edit for \"End the code review skill on a view of its findings\" as shown in its card." }],
+        },
+        {
+          id: "bulk",
+          title: "Let one button act on every card in a section",
+          badges: [{ label: "Issue", tone: "warning" }, { label: "2 threads" }],
+          summary:
+            "**What happens now:** A view of 12 patch-level bumps had an Approve button on each card, and the user pressed it 12 times.\n\n**Seen in:** 2 threads in the last 2 days.\n\n**The fix:** A section-level button that runs one action for each open card.",
+          actions: [{ type: "message", label: "File an issue", primary: true, text: "File an issue for \"Let one button act on every card in a section\"." }],
+        },
+      ],
+    },
+  ],
+});
