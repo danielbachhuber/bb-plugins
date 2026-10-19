@@ -21,7 +21,8 @@ that every changed file is placed exactly once before it stores them.
 4. Group from the diff, not from your memory of writing it. You may have written
    this code; the reviewer has not. Describe what the diff does.
 5. Write the submission (below) to a new temporary file, made with
-   \`mktemp /tmp/super-diff-XXXXXX.json\`, and run \`bb super-diff submit <that file>\`.
+   \`mktemp /tmp/super-diff-XXXXXX\` (no extension: macOS only randomizes
+   trailing X's), and run \`bb super-diff submit <that file>\`.
 6. If it is not stored, fix every problem it lists and submit again until it is.
 7. Tell the user in one sentence how many concerns and annotations were stored.
    Do not change any code.
