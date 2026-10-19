@@ -176,7 +176,7 @@ When the items are a pull request review's findings, lay the view out so the use
 
 ## Show what changed
 
-When an item is about a change, such as a pull request's files, a code review finding's hunk, or a section's new text against the document it goes into, give it `changes` rather than describing the diff in its summary:
+When an item is about a change, such as a pull request's files, a code review finding's hunk, or a section's new text against the document it goes into, give it `changes` rather than describing the diff in its summary. This holds when another skill lists the fields its view uses and does not name `changes`: a skill's list of fields is what that skill adds, not everything an item may have.
 
 ```json
 {
