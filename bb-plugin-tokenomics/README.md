@@ -148,8 +148,8 @@ bar fills in while a thread runs.
 Above the chart, a meter for each of your subscription's limits, such as
 Claude Code's **Current session** and **Weekly limit**, shows the percent used
 and when it resets. A lighter fill and a sentence say where it lands at
-the current pace: "On pace for 95% by 8:50 AM", or "Runs out at 6:56 AM, 1h
-54m before it resets". A meter turns amber once a limit is on pace for 80%,
+the current pace: "On pace for 95% by 8:50 AM", or "On pace to run out at
+6:56 AM, 1h 54m before it resets". A meter turns amber once a limit is on pace for 80%,
 and red once it will run out first.
 
 The session's pace is its past hour, and the weekly limit's is its past day.

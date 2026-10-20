@@ -29,12 +29,12 @@ function withDay(limit: Limit): boolean {
   return limit.resetsAt - limit.sampledAt > 20 * 60 * MINUTE;
 }
 
-/** "On pace for 95% by 8:50 AM", "Runs out at 6:56 AM, 1h 54m before it resets", and so on. */
+/** "On pace for 95% by 8:50 AM", "On pace to run out at 6:56 AM, 1h 54m before it resets", and so on. */
 export function paceText(limit: Limit): string {
   const day = withDay(limit);
   if (limit.usedPercent >= 100) return `Used up until ${clock(limit.resetsAt, day)}`;
   if (limit.runsOutAt !== null) {
-    return `Runs out at ${clock(limit.runsOutAt, day)}, ${duration(limit.resetsAt - limit.runsOutAt)} before it resets`;
+    return `On pace to run out at ${clock(limit.runsOutAt, day)}, ${duration(limit.resetsAt - limit.runsOutAt)} before it resets`;
   }
   if (limit.projectedPercent === null) return "Measuring the pace";
   return `On pace for ${Math.round(Math.min(100, limit.projectedPercent))}% by ${clock(limit.resetsAt, day)}`;
