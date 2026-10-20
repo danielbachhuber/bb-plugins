@@ -129,6 +129,36 @@ starts, so a failed lookup is tried again after 1 second, then 2, 4, 8, and
 16, then every 30 seconds, and the buttons appear once it succeeds. After ten
 minutes without a daemon it stops trying.
 
+### Is the checkout behind origin
+
+Each project header in the sidebar shows whether the project's checkout is
+behind the branch it tracks on its remote, usually `origin/main`. Clicking it
+fetches, and pulls when that is safe.
+
+| Shows | Means | A click |
+| --- | --- | --- |
+| ↓ 3 | 3 commits behind | Fetches, then fast-forwards |
+| ↑ 2 | 2 commits ahead, not pushed | Fetches |
+| ↓ 3 ↑ 1 | Diverged | Fetches; merging or rebasing is left to you |
+| Warning triangle | The last fetch or pull failed. The tooltip has git's message | Tries again |
+| Check, on hover only | Up to date | Fetches |
+
+The pull is `git merge --ff-only`, so it never creates a merge commit, and
+git refuses it when an uncommitted change would be overwritten. That refusal
+shows as the warning until a later fetch or pull succeeds. The tooltip names
+the branch and the upstream, and spins while a click is fetching.
+
+A project whose checkout is on a detached HEAD, or on a branch that tracks
+nothing, shows nothing, and so does a project with no checkout on the machine
+running bb's server.
+
+Every window reads each project's status every minute, while it is visible,
+in one request for all the projects in the sidebar. The server answers with
+three local git commands per project. It runs `git fetch` for a checkout at
+most every five minutes, shared between windows, so most reads compare only
+the refs already on disk. A fetch that would ask for a password fails instead
+of waiting.
+
 ### Diff code blocks start wrapped
 
 A fenced `diff` block in a chat message starts with long lines wrapped,
@@ -152,9 +182,10 @@ Needs bb 0.43 or later. No account, external service, or separate install.
 ## How it works
 
 Every hack is a content script, which is what the SDK sanctions for decorating
-existing app-shell DOM. There is no panel and no React slot, and `server.ts`
-holds no behavior at all — bb requires a backend entry, and each hack keeps its
-state in the browser.
+existing app-shell DOM. There is no panel and no React slot. Each hack keeps
+its state in the browser, except the checkout indicator, which needs git:
+`server.ts` serves its two RPC methods, `checkout_status` and
+`checkout_pull`, and the content script calls them the way `useRpc` would.
 
 The view-preferences hack anchors only on things bb emits deliberately:
 
@@ -203,6 +234,14 @@ The open-in-editor hack anchors on the sidebar project row:
 The button copies its classes from the New thread button beside it, so it
 picks up bb's hover reveal and sizing without naming a class itself.
 
+The checkout indicator finds the same project headers the same way, then:
+
+| Anchor | Used for |
+| --- | --- |
+| `data-sidebar-trailing-controls` | The header's trailing controls. The indicator goes before the hover actions inside them, so it shows without hovering |
+| `bb-sidebar-hover-actions` | bb's hover-reveal class, which the indicator takes on only while the checkout is up to date |
+| `--sidebar-foreground`, `--warning-text` | bb's theme colors for behind and for a failure |
+
 That card parsing is a trimmed copy of the same code in Diff Viewed. The two
 plugins ship separately, so sharing it would mean publishing and versioning a
 package for the benefit of two callers; the copy is the cheaper trade until a
@@ -238,9 +277,14 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/project-open-in-editor/sidebar.ts` | Reading bb's project headers and building the button |
 | `hacks/project-open-in-editor/api.ts` | The network boundary: bb's projects and the host daemon |
 | `hacks/project-open-in-editor/engine.ts` | The sync loop: passes, observers, cleanup |
+| `hacks/checkout-sync/rules.ts` | Pure logic: what a checkout's position looks like, and whether a click pulls |
+| `hacks/checkout-sync/git.ts` | The git boundary, run by the server: status, a shared fetch, and the fast-forward |
+| `hacks/checkout-sync/contract.ts` | The RPC contract, imported by the server only |
+| `hacks/checkout-sync/sidebar.ts` | Placing and drawing the indicator in bb's project headers |
+| `hacks/checkout-sync/engine.ts` | The sync loop: polling, passes, observers, cleanup |
 | `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff blocks and wrapping each once |
 | `app.tsx` | Wiring only: registers each hack's content script |
-| `server.ts` | Required backend entry, deliberately empty |
+| `server.ts` | The checkout indicator's RPC, which finds each project's checkout on this machine |
 
 ## Development
 
