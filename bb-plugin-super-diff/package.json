@@ -22,13 +22,15 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "zod": "^4.6.5"
   },
   "scripts": {
     "build": "bb plugin build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   }
 }

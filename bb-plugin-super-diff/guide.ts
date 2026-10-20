@@ -6,6 +6,20 @@ with a short explanation of why they change together, and notes under the
 trickier lines of code. You write the grouping and the notes; the plugin checks
 that every changed file is placed exactly once before it stores them.
 
+## Which diff
+
+When the Diff tab's Generate button asked for this Super Diff, every command
+works on the diff it asked for; pass no \`--target\`. When you are writing one
+on your own, such as at the end of your work, pass \`--target\` to \`files\`,
+\`patch\`, and \`submit\` alike, naming the diff the user will review:
+
+- \`uncommitted\`: changes not yet committed
+- \`committed\`: the branch's commits against its base
+- \`all\`: both together (the default when nobody pressed Generate)
+
+The Diff tab shows a Super Diff only when its picker is on the diff it was
+stored for.
+
 ## Steps
 
 1. Run \`bb super-diff files\`. Its first line names the diff (such as "All changes

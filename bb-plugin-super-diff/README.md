@@ -30,6 +30,8 @@ bb super-diff submit <file | json>  # check a Super Diff and store it if every f
 bb super-diff explain <file | json> # in an Explain this fork: store its one note
 ```
 
+An agent can write a Super Diff without anyone pressing Generate, such as at the end of its work. `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff, and the Diff tab shows the Super Diff when its picker is on that diff. Without `--target`, they use the diff Generate last asked for, or All changes.
+
 ## Requirements
 
 A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. Each Explain this forks the thread once, then checks for the note every 2 seconds until it is stored. Showing the Super Diff reads the diff from bb, and reads it again when bb's file or line counts change: one request for the file list and one per 50 files for patches. Nothing calls GitHub.

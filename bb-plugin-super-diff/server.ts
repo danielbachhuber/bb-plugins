@@ -122,8 +122,17 @@ const USAGE = [
   "  bb super-diff submit <file | json>  Check a Super Diff and store it if it passes",
   "  bb super-diff explain <file | json> Store one annotation asked for with Explain this (in its fork only)",
   "",
-  "Each command acts on the thread it runs in, and on the diff its Generate button asked for.",
+  "Options for files, patch, and submit:",
+  "  --target all|uncommitted|committed  The diff to read and store the Super Diff for. Without it,",
+  "                                      the diff the Diff tab's Generate button last asked for, or",
+  "                                      All changes when nobody has pressed it.",
+  "",
+  "Each command acts on the thread it runs in. The Diff tab shows a Super Diff when its picker",
+  "is on the diff it was stored for, so pass the --target the user will review.",
 ].join("\n");
+
+/** The values `--target` takes, and the diff each one names. */
+const TARGET_FLAGS = { all: "all", uncommitted: "uncommitted", committed: "branch_committed" } as const;
 
 export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
@@ -166,10 +175,23 @@ export default async function plugin(bb: BbPluginApi) {
     return { environmentId: thread.environmentId, mergeBaseBranch };
   }
 
-  /** The target the thread's last Generate asked for, or All changes. */
-  async function targetFor(threadId: string): Promise<{ environmentId: string; target: DiffTarget } | string> {
+  /**
+   * The target `--target` names, or else the one the thread's last Generate
+   * asked for, or else All changes. An explicit target leaves the Generate
+   * request alone: if it is still waiting, the agent answers it in a later
+   * turn, and that answer needs the request's target.
+   */
+  async function targetFor(
+    threadId: string,
+    flag: keyof typeof TARGET_FLAGS | undefined,
+  ): Promise<{ environmentId: string; target: DiffTarget } | string> {
     const env = await environmentOf(threadId);
     if (typeof env === "string") return env;
+    if (flag !== undefined) {
+      const type = TARGET_FLAGS[flag];
+      const target: DiffTarget = type === "uncommitted" ? { type } : { type, mergeBaseBranch: env.mergeBaseBranch };
+      return { environmentId: env.environmentId, target };
+    }
     const request = selectRequest.get(threadId);
     const target = request ? (JSON.parse(request.target_json) as DiffTarget) : { type: "all" as const, mergeBaseBranch: env.mergeBaseBranch };
     return { environmentId: env.environmentId, target };
@@ -264,9 +286,9 @@ export default async function plugin(bb: BbPluginApi) {
     summary: "Group this thread's diff by concern, with notes on tricky code, for the Diff tab",
     commands: [
       { name: "guide", summary: "How to write a Super Diff", usage: "bb super-diff guide" },
-      { name: "files", summary: "List every changed file", usage: "bb super-diff files" },
-      { name: "patch", summary: "Print patches for the given paths", usage: "bb super-diff patch <path>..." },
-      { name: "submit", summary: "Check a Super Diff and store it", usage: "bb super-diff submit <file | json>" },
+      { name: "files", summary: "List every changed file", usage: "bb super-diff files [--target all|uncommitted|committed]" },
+      { name: "patch", summary: "Print patches for the given paths", usage: "bb super-diff patch <path>... [--target all|uncommitted|committed]" },
+      { name: "submit", summary: "Check a Super Diff and store it", usage: "bb super-diff submit <file | json> [--target all|uncommitted|committed]" },
       { name: "explain", summary: "Store one annotation asked for with Explain this", usage: "bb super-diff explain <file | json>" },
     ],
 
@@ -277,14 +299,19 @@ export default async function plugin(bb: BbPluginApi) {
       // reviewer was reading.
       const explain = ownThreadId ? selectExplainByFork.get(ownThreadId) : undefined;
       const threadId = explain?.thread_id ?? ownThreadId;
-      const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread");
+      const targetFlag = argv.indexOf("--target");
+      const targetValue = targetFlag === -1 ? undefined : argv[targetFlag + 1];
+      const positional = argv.filter((arg, i) => !arg.startsWith("--") && argv[i - 1] !== "--thread" && argv[i - 1] !== "--target");
       const [command, ...args] = positional;
 
       if (command === undefined || command === "help") return { exitCode: 0, stdout: USAGE };
       if (command === "guide") return { exitCode: 0, stdout: GUIDE };
       if (!threadId) return { exitCode: 1, stderr: "Run this from a bb thread, or pass --thread <id>." };
+      if (targetFlag !== -1 && !Object.hasOwn(TARGET_FLAGS, targetValue ?? "")) {
+        return { exitCode: 1, stderr: "--target takes all, uncommitted, or committed." };
+      }
 
-      const resolved = await targetFor(threadId);
+      const resolved = await targetFor(threadId, targetValue as keyof typeof TARGET_FLAGS | undefined);
       if (typeof resolved === "string") return { exitCode: 1, stderr: resolved };
       const environmentId = resolved.environmentId;
       const target = explain ? (JSON.parse(explain.target_json) as DiffTarget) : resolved.target;
