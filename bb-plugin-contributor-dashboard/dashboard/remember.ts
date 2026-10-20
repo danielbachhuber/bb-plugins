@@ -26,3 +26,26 @@ export function rememberSelection(selection: Selection): void {
     // Not worth failing a render over.
   }
 }
+
+const SCREEN_KEY = "contributor-dashboard:screen";
+
+/**
+ * The screen last shown, as its sub-path ("" for the dashboard itself), so
+ * opening the page from the sidebar returns to a person or stage rather than
+ * always to the top.
+ */
+export function rememberedScreen(): string {
+  try {
+    return window.localStorage.getItem(SCREEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function rememberScreen(subPath: string): void {
+  try {
+    window.localStorage.setItem(SCREEN_KEY, subPath);
+  } catch {
+    // Not worth failing a render over.
+  }
+}

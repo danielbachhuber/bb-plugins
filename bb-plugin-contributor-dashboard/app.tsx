@@ -28,7 +28,7 @@ import {
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
 import { useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
-import { rememberedSelection, rememberSelection } from "./dashboard/remember.js";
+import { rememberedScreen, rememberedSelection, rememberScreen, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { StartThreadContext, ThreadStatusContext } from "./components/item-row";
 
@@ -114,8 +114,29 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   // A preset is measured from now, so it is resolved once per choice rather
   // than on every render, which would reload the page on every render too.
   const range = useMemo(() => rangeOf(selection, Date.now()), [selection]);
-  const login = personFrom(subPath);
-  const stage = stageFrom(subPath);
+  // bb keeps the page mounted while its sub-path changes and remounts it when
+  // it is opened from elsewhere, which always arrives at the top. So the
+  // remembered screen is restored on mount only, and Back to the dashboard
+  // still lands there.
+  const [restoring, setRestoring] = useState(() => {
+    if (subPath !== "") return null;
+    const remembered = rememberedScreen();
+    return personFrom(remembered) !== null || stageFrom(remembered) !== null ? remembered : null;
+  });
+  useEffect(() => {
+    if (restoring !== null) navigate.toPluginPanel(PANEL_PATH, { subPath: restoring, replace: true });
+    // Once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Until the redirect lands, show the remembered screen rather than a flash
+  // of the dashboard; after it, follow the sub-path again.
+  useEffect(() => {
+    if (subPath !== "") setRestoring(null);
+  }, [subPath]);
+  const shown = restoring ?? subPath;
+  useEffect(() => rememberScreen(shown), [shown]);
+  const login = personFrom(shown);
+  const stage = stageFrom(shown);
   const { projectId: openedFrom } = useBbContext();
   // The project checked out from the repository comes first, so a thread
   // starts where the code is, whichever project the page was opened from.

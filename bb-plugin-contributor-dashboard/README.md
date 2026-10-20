@@ -12,7 +12,8 @@ the repository and has the span picker, which every section follows: 2 weeks,
 6 weeks (the default), 3 months, and a date range for the question the presets
 do not answer. The range offers the two years the mirror reaches back and
 nothing later than today, the cross beside the dates drops it back to 6 weeks,
-and whatever is chosen is remembered for next time.
+and whatever is chosen is remembered for next time. So is the screen: opening
+the page again returns to the person or stage last shown there.
 While the first sync is still reaching back, the page says how far it has got.
 
 A chart has one point per bucket, and how long a bucket is follows the span: a
@@ -416,7 +417,7 @@ needs no new sync.
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
 | `components/thread-seed.ts` | The row a thread starts from, and the prompt it is seeded with |
 | `components/period-picker.tsx` | The presets and the date range, which every page shares |
-| `dashboard/remember.ts` | The chosen span, kept across opens |
+| `dashboard/remember.ts` | The chosen span and the last screen, kept across opens |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
