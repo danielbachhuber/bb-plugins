@@ -2,9 +2,10 @@
 //
 // It sits in the header's trailing controls (`data-sidebar-trailing-controls`
 // in bb's `TopLevelSidebarSection.tsx`), before the hover actions rather than
-// inside them, so a checkout that is behind shows without hovering. An
-// up-to-date checkout takes bb's own hover-actions class and shows only on
-// hover, like the buttons beside it.
+// inside them. The sync icon shows only while the row is hovered, like the
+// buttons beside it, using bb's own hover-actions class. A checkout that is
+// out of date, or whose last pull failed, also carries an amber dot, which
+// stays visible without hovering.
 import type { CheckoutStatus, Indicator } from "./rules";
 
 /** Marks the indicator this hack adds, so a pass can find and remove its own. */
@@ -13,31 +14,16 @@ export const INDICATOR_ATTR = "data-bb-hacks-checkout-sync";
 /** bb's class for controls revealed when the row is hovered. */
 const HOVER_ONLY_CLASS = "bb-sidebar-hover-actions";
 
-/**
- * bb's theme variables, set inline because the copied button class already
- * sets a muted text color that a second color class would not reliably beat.
- */
-const TONE_COLORS: Record<Indicator["tone"], string> = {
-  synced: "",
-  ahead: "",
-  behind: "var(--sidebar-foreground)",
-  diverged: "var(--sidebar-foreground)",
-  error: "var(--warning-text)",
-};
-
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 /** Lucide icons, drawn the way bb draws its own sidebar icons. */
 const ICONS = {
-  check: ["M20 6 9 17l-5-5"],
-  arrowDown: ["M12 5v14", "m19 12-7 7-7-7"],
-  arrowUp: ["m5 12 7-7 7 7", "M12 19V5"],
   triangle: [
     "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
     "M12 9v4",
     "M12 17h.01",
   ],
-  refresh: [
+  sync: [
     "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8",
     "M21 3v5h-5",
     "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16",
@@ -74,16 +60,8 @@ export function createIndicator(
   button.type = "button";
   button.setAttribute(INDICATOR_ATTR, "");
   button.className = newThread.className;
-  // bb's control class is a fixed square; the counts need room.
-  button.style.width = "auto";
-  button.style.minWidth = "1.75rem";
-  button.style.paddingInline = "0.25rem";
-  button.style.gap = "0.125rem";
-  button.style.display = "inline-flex";
-  button.style.alignItems = "center";
-  button.style.justifyContent = "center";
-  button.style.fontSize = "0.75rem";
-  button.style.fontVariantNumeric = "tabular-nums";
+  // The dot is placed against the button's corner.
+  button.style.position = "relative";
   button.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -112,12 +90,6 @@ function icon(doc: Document, name: IconName, iconClass: string | null, spin: boo
   return svg;
 }
 
-function count(doc: Document, value: number): HTMLSpanElement {
-  const span = doc.createElement("span");
-  span.textContent = String(value);
-  return span;
-}
-
 export interface Drawn {
   project: string;
   status: CheckoutStatus;
@@ -143,18 +115,12 @@ export function draw(
 
   const { project, status, indicator, busy } = drawn;
   const iconClass = newThread.querySelector("svg")?.getAttribute("class") ?? null;
-  const parts: Node[] = [];
-  if (busy) {
-    parts.push(icon(doc, "refresh", iconClass, true));
-  } else if (indicator.tone === "error") {
-    parts.push(icon(doc, "triangle", iconClass, false));
-  } else if (indicator.tone === "synced") {
-    parts.push(icon(doc, "check", iconClass, false));
-  } else {
-    if (status.behind > 0) parts.push(icon(doc, "arrowDown", iconClass, false), count(doc, status.behind));
-    if (status.ahead > 0) parts.push(icon(doc, "arrowUp", iconClass, false), count(doc, status.ahead));
-  }
-  button.replaceChildren(...parts);
+  const flagged = needsDot(indicator.tone);
+  const glyph = icon(doc, !busy && indicator.tone === "error" ? "triangle" : "sync", iconClass, busy);
+  // While fetching, the spinner shows without hovering, so a click is answered.
+  if (!busy) glyph.classList.add(HOVER_ONLY_CLASS);
+  if (indicator.tone === "error") glyph.style.color = "var(--warning-text)";
+  button.replaceChildren(glyph, ...(flagged && !busy ? [dot(doc)] : []));
 
   const label = busy ? `${project}: fetching from ${status.upstream}…` : indicator.label;
   button.setAttribute("aria-label", label);
@@ -162,7 +128,31 @@ export function draw(
   button.disabled = busy;
   button.setAttribute("data-tone", indicator.tone);
 
-  // Behind or failed asks for attention; up to date shows only on hover.
-  button.classList.toggle(HOVER_ONLY_CLASS, indicator.tone === "synced" && !busy);
-  button.style.color = TONE_COLORS[indicator.tone];
+  // With no dot and no spinner there is nothing to see at rest, so the whole
+  // button hides until hover, keeping the invisible button from taking clicks.
+  button.classList.toggle(HOVER_ONLY_CLASS, !flagged && !busy);
+}
+
+/** Whether a tone carries the out-of-date dot: behind, diverged, or a failed pull. */
+export function needsDot(tone: Indicator["tone"]): boolean {
+  return tone === "behind" || tone === "diverged" || tone === "error";
+}
+
+/** The amber dot, at the icon's top right, ringed in the sidebar's color. */
+function dot(doc: Document): HTMLSpanElement {
+  const span = doc.createElement("span");
+  span.setAttribute("data-checkout-sync-dot", "");
+  span.setAttribute("aria-hidden", "true");
+  Object.assign(span.style, {
+    position: "absolute",
+    top: "5px",
+    right: "5px",
+    width: "7px",
+    height: "7px",
+    borderRadius: "999px",
+    background: "var(--warning)",
+    boxShadow: "0 0 0 1.5px var(--sidebar)",
+    pointerEvents: "none",
+  });
+  return span;
 }

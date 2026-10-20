@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe("checkout sync", () => {
-  it("draws before the hover actions, so a checkout behind shows without hovering", async () => {
+  it("draws before the hover actions, with a dot that shows without hovering when behind", async () => {
     const widgets = renderProject("proj_widgets", "widgets");
     start();
     await settle();
@@ -103,7 +103,8 @@ describe("checkout sync", () => {
     const indicator = indicatorIn(widgets)!;
     expect(indicator.nextElementSibling?.hasAttribute("data-hover")).toBe(true);
     expect(indicator.classList.contains("bb-sidebar-hover-actions")).toBe(false);
-    expect(indicator.textContent).toBe("3");
+    expect(indicator.querySelector("[data-checkout-sync-dot]")).not.toBeNull();
+    expect(indicator.querySelector("svg")!.classList.contains("bb-sidebar-hover-actions")).toBe(true);
     expect(indicator.getAttribute("aria-label")).toBe(
       "widgets: main is 3 commits behind origin/main. Click to pull.",
     );
@@ -116,6 +117,7 @@ describe("checkout sync", () => {
     await settle();
 
     expect(indicatorIn(gadgets)?.classList.contains("bb-sidebar-hover-actions")).toBe(true);
+    expect(indicatorIn(gadgets)?.querySelector("[data-checkout-sync-dot]")).toBeNull();
     expect(indicatorIn(loose)).toBeNull();
   });
 
@@ -130,12 +132,15 @@ describe("checkout sync", () => {
     await settle();
     expect(pull).toHaveBeenCalledWith("proj_widgets");
     expect(indicatorIn(widgets)!.disabled).toBe(true);
+    expect(indicatorIn(widgets)!.querySelector("svg")!.classList.contains("animate-spin")).toBe(true);
+    expect(indicatorIn(widgets)!.classList.contains("bb-sidebar-hover-actions")).toBe(false);
     expect(indicatorIn(widgets)!.getAttribute("aria-label")).toBe("widgets: fetching from origin/main…");
 
     finish({ name: "widgets", status: status() });
     await settle();
     expect(indicatorIn(widgets)!.disabled).toBe(false);
     expect(indicatorIn(widgets)!.getAttribute("data-tone")).toBe("synced");
+    expect(indicatorIn(widgets)!.classList.contains("bb-sidebar-hover-actions")).toBe(true);
   });
 
   it("loads a project row that appears later, once", async () => {

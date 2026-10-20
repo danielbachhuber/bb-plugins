@@ -132,21 +132,25 @@ minutes without a daemon it stops trying.
 ### Is the checkout behind origin
 
 Each project header in the sidebar shows whether the project's checkout is
-behind the branch it tracks on its remote, usually `origin/main`. Clicking it
-fetches, and pulls when that is safe.
+behind the branch it tracks on its remote, usually `origin/main`. An amber
+dot marks a checkout that is behind, has diverged, or failed to pull, and
+stays visible. Hovering the row shows a sync icon under the dot, beside bb's
+own buttons, with a tooltip saying how far behind or ahead the branch is.
+Clicking it fetches, and pulls when that is safe:
 
-| Shows | Means | A click |
+| State | Dot | A click |
 | --- | --- | --- |
-| ↓ 3 | 3 commits behind | Fetches, then fast-forwards |
-| ↑ 2 | 2 commits ahead, not pushed | Fetches |
-| ↓ 3 ↑ 1 | Diverged | Fetches; merging or rebasing is left to you |
-| Warning triangle | The last fetch or pull failed. The tooltip has git's message | Tries again |
-| Check, on hover only | Up to date | Fetches |
+| Behind | Yes | Fetches, then fast-forwards |
+| Diverged | Yes | Fetches; merging or rebasing is left to you |
+| Last fetch or pull failed | Yes, and the icon is a warning triangle with git's message in the tooltip | Tries again |
+| Ahead, not pushed | No | Fetches |
+| Up to date | No | Fetches |
+
+While a click is fetching, the icon spins without hovering.
 
 The pull is `git merge --ff-only`, so it never creates a merge commit, and
 git refuses it when an uncommitted change would be overwritten. That refusal
-shows as the warning until a later fetch or pull succeeds. The tooltip names
-the branch and the upstream, and spins while a click is fetching.
+shows as the warning until a later fetch or pull succeeds.
 
 A project whose checkout is on a detached HEAD, or on a branch that tracks
 nothing, shows nothing, and so does a project with no checkout on the machine
@@ -238,9 +242,9 @@ The checkout indicator finds the same project headers the same way, then:
 
 | Anchor | Used for |
 | --- | --- |
-| `data-sidebar-trailing-controls` | The header's trailing controls. The indicator goes before the hover actions inside them, so it shows without hovering |
-| `bb-sidebar-hover-actions` | bb's hover-reveal class, which the indicator takes on only while the checkout is up to date |
-| `--sidebar-foreground`, `--warning-text` | bb's theme colors for behind and for a failure |
+| `data-sidebar-trailing-controls` | The header's trailing controls. The indicator goes before the hover actions inside them, so its dot shows without hovering |
+| `bb-sidebar-hover-actions` | bb's hover-reveal class, on the sync icon, and on the whole indicator when there is no dot |
+| `--warning`, `--warning-text`, `--sidebar` | bb's theme colors for the dot, the failure icon, and the ring around the dot |
 
 That card parsing is a trimmed copy of the same code in Diff Viewed. The two
 plugins ship separately, so sharing it would mean publishing and versioning a
