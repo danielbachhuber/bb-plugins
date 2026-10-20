@@ -7,8 +7,9 @@ what a thread produced, so the weighing is up to you.
 
 It shows cost in five places:
 
-- **A sparkline in each thread's header**, with the thread's total. Click it
-  to see which of your messages used the most tokens and time.
+- **A sparkline in each thread's header**, with its tokens in the past day
+  and its lifetime total. Click it to see which of your messages used the
+  most tokens and time.
 - **A context meter above the composer**, once a thread's context passes a
   size you set, with a button that compacts it. The sidebar counts these
   threads in amber and red.
@@ -43,10 +44,11 @@ reads their transcripts from disk (see [Subagents](#subagents)).
 
 ![A thread header with a sparkline and "28M tokens", its summary open below: tokens per 15 minutes on a scale, with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
 
-Once a thread has recorded usage, its header shows a sparkline and a total,
-such as `39.5M tokens`. The sparkline splits the thread's life into up to 20
-equal stretches, so a quiet stretch is a gap and a burst is a spike. In a
-narrow pane only the total shows.
+Once a thread has recorded usage, its header shows a sparkline, its tokens in
+the past day, and its lifetime total under them, such as `12.4M past day`
+over `of 39.5M`, as the page's thread list does. The sparkline splits the
+thread's life into up to 20 equal stretches, so a quiet stretch is a gap and a
+burst is a spike. In a narrow pane only the numbers show.
 
 Click it to see which of your messages set off the tokens. The summary shows:
 

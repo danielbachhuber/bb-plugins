@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadUsage } from "@/usage/contract";
 
+import { pastDayTokens } from "./thread-token-count";
 import { splitArchived, threadBars, threadContextLevel } from "./thread-usage-list";
 import { logPosition, nearestDot, turnStats } from "./turn-dots";
 
@@ -88,5 +89,13 @@ describe("nearestDot", () => {
     expect(nearestDot([10, 40, 44], 43)).toBe(2);
     expect(nearestDot([10, 40, 44], 39)).toBe(1);
     expect(nearestDot([10, 40], 25)).toBeNull();
+  });
+});
+
+describe("pastDayTokens", () => {
+  it("adds up the rows from the 24 hours before now", () => {
+    const now = 10 * 24 * HOUR;
+    const row = (at: number, cacheRead: number) => ({ at, input: 0, cacheRead, output: 0 });
+    expect(pastDayTokens([row(now - 25 * HOUR, 5), row(now - 23 * HOUR, 7), row(now - HOUR, 11)], now)).toBe(18);
   });
 });

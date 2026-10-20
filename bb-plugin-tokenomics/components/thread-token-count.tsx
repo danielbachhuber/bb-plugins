@@ -21,6 +21,11 @@ export interface ThreadTokens extends Tokens {
   subagents?: { count: number; tokens: number };
 }
 
+/** The thread's tokens in the 24 hours before `now`, from its latest rows. */
+export function pastDayTokens(recent: readonly UsageAt[], now: number): number {
+  return recent.filter((row) => row.at >= now - 86_400_000 && row.at <= now).reduce((sum, row) => sum + totalOf(row), 0);
+}
+
 /** Buckets in the header's sparkline and the summary's chart. */
 const SPARK_BUCKETS = 20;
 const CHART_BUCKETS = 36;
@@ -508,6 +513,7 @@ export function ThreadTokenCount({
   isCompactViewport = false,
   defaultOpen = false,
   initialHovered,
+  now = Date.now(),
 }: {
   usage: ThreadTokens;
   turns: TurnDetail[] | null;
@@ -518,7 +524,10 @@ export function ThreadTokenCount({
   /** Open on first render, for stories. */
   defaultOpen?: boolean;
   initialHovered?: InitialHover;
+  /** What "past day" is measured from; stories pin it. */
+  now?: number;
 }) {
+  const pastDay = pastDayTokens(usage.recent, now);
   return (
     <Popover defaultOpen={defaultOpen} onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
       <PopoverTrigger asChild>
@@ -526,15 +535,20 @@ export function ThreadTokenCount({
           variant="ghost"
           size="sm"
           className="h-7 cursor-pointer gap-1.5 px-2 tabular-nums"
-          aria-label={`${formatTokens(usage.total)} tokens used by this thread. Show the summary.`}
+          aria-label={`${formatTokens(pastDay)} tokens in the past day, of ${formatTokens(usage.total)} used by this thread. Show the summary.`}
         >
           {isCompactViewport ? null : (
             <span className="text-muted-foreground">
               <Spark buckets={sparkBuckets(usage.recent)} width={40} height={14} gap={1} />
             </span>
           )}
-          <span>{formatTokens(usage.total)}</span>
-          <span className="text-muted-foreground">tokens</span>
+          {/* As the page's thread list shows it: the past day's tokens, and the thread's lifetime under them. */}
+          <span className="flex flex-col items-start text-left leading-none">
+            <span className="text-xs">
+              {formatTokens(pastDay)} <span className="text-muted-foreground">past day</span>
+            </span>
+            <span className="mt-0.5 text-[11px] text-muted-foreground">of {formatTokens(usage.total)}</span>
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[400px] p-4">

@@ -379,13 +379,13 @@ const SHORT = usageOf(SHORT_TURNS);
 export const HeaderCount = () => (
   <StoryCard>
     <StoryRow label="a long thread" hint="token use over time; click to open the summary">
-      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} />
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={() => undefined} now={NOW.getTime()} />
     </StoryRow>
     <StoryRow label="a short thread" hint="one turn, a thin bar at the right">
-      <ThreadTokenCount usage={SHORT} turns={SHORT_TURNS} onOpenPage={() => undefined} />
+      <ThreadTokenCount usage={SHORT} turns={SHORT_TURNS} onOpenPage={() => undefined} now={NOW.getTime()} />
     </StoryRow>
     <StoryRow label="compact viewport" hint="the sparkline drops out">
-      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} isCompactViewport onOpenPage={() => undefined} />
+      <ThreadTokenCount usage={LONG} turns={LONG_TURNS} isCompactViewport onOpenPage={() => undefined} now={NOW.getTime()} />
     </StoryRow>
   </StoryCard>
 );
@@ -436,7 +436,7 @@ export const HeaderOpen = () => (
   <ThreadFrame
     headerAction={
       <AfterComposerFocus>
-        <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} defaultOpen initialHovered="largest" />
+        <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} defaultOpen initialHovered="largest" now={NOW.getTime()} />
       </AfterComposerFocus>
     }
   />
@@ -623,7 +623,7 @@ function ThreadFrame({ headerAction, stack }: { headerAction: ReactNode; stack?:
  */
 export const ThreadWithMeter = () => (
   <ThreadFrame
-    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} />}
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
     stack={<ContextMeter {...METER} usedTokens={620_000} level="error" />}
   />
 );

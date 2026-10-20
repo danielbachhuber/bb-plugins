@@ -1,6 +1,6 @@
 ## What you get
 
-A sparkline and token total in **each thread's header**. Click it for the thread's summary: tokens over time, minutes per turn, and the three turns that used the most. Hover a spike to see which of your messages caused it.
+A sparkline in **each thread's header**, with its tokens in the past day and its lifetime total. Click it for the thread's summary: tokens over time, minutes per turn, and the three turns that used the most. Hover a spike to see which of your messages caused it.
 
 Your **session in bb's title bar**: a spark chart of its tokens per 15 minutes and its percent used, amber or red once it's headed for its limit. Hover it for the meters.
 
