@@ -147,7 +147,10 @@ assignee on a list of someone's own work says nothing.
 
 **Start a thread** opens bb's composer under the row, with the issue or pull
 request already written into the prompt, and the project, provider, environment and branch
-pickers the composer always has. Starting it leaves you on the page, with a
+pickers the composer always has. The project starts as the bb project
+checked out from the repository, matched by its git remotes, which the page
+looks up once each time it opens. With no such project it starts as the
+project the page was opened from, if any. Starting it leaves you on the page, with a
 toast whose **Go to thread** button opens the new thread. Once a thread exists for that row, the row
 gets an orange left edge and a line under its title saying what the thread is
 doing, as bb's sidebar does (**Working**, **Needs you**, **Done, unread**,

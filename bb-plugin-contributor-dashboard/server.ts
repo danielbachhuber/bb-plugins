@@ -2,6 +2,7 @@
 // from GitHub, and serves the Contributor Dashboard page from that mirror.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createGhRunner, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/gh-shared/gh";
+import { matchProjectForRepo, toProjectCandidates } from "@danielb/gh-shared/projects";
 
 import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
 import { ghGraphql } from "./mirror/gh.js";
@@ -250,6 +251,19 @@ export default async function plugin(bb: BbPluginApi) {
       bb.log.info(`started ${thread.id} for ${kind} #${number} in ${repository}`);
       bb.realtime.publish(DASHBOARD_CHANNEL, { startedAt: Date.now() });
       return { threadId: thread.id };
+    },
+    /**
+     * Read on each open rather than cached, so a project added or removed
+     * since the plugin started is seen. One project list per page open.
+     */
+    repository_project: async () => {
+      if (!configured) return { projectId: null };
+      try {
+        return { projectId: matchProjectForRepo(repository, await toProjectCandidates(await bb.sdk.projects.list())) };
+      } catch (error) {
+        bb.log.warn(`could not match a project to ${repository}: ${messageOf(error)}`);
+        return { projectId: null };
+      }
     },
     /** Just the sync line, for the panel header, which mounts on its own. */
     sync_status: () => status(),

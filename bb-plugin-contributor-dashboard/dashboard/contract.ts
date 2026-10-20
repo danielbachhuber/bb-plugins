@@ -261,6 +261,14 @@ export const rpcContract = defineRpcContract({
     }),
     output: z.object({ threadId: z.string() }),
   },
+  /**
+   * The bb project checked out from the repository, which the composer opens
+   * in, or null when no project's remote matches it.
+   */
+  repository_project: {
+    input: z.null(),
+    output: z.object({ projectId: z.string().nullable() }),
+  },
   sync_status: {
     input: z.null(),
     output: syncStatusSchema,

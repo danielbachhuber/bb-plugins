@@ -116,7 +116,22 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const range = useMemo(() => rangeOf(selection, Date.now()), [selection]);
   const login = personFrom(subPath);
   const stage = stageFrom(subPath);
-  const { projectId } = useBbContext();
+  const { projectId: openedFrom } = useBbContext();
+  // The project checked out from the repository comes first, so a thread
+  // starts where the code is, whichever project the page was opened from.
+  // Read once per open, not on each sync event, since it lists every project.
+  const [repositoryProject, setRepositoryProject] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    rpc.call("repository_project", null).then(
+      ({ projectId }) => live && setRepositoryProject(projectId),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [rpc]);
+  const projectId = repositoryProject ?? openedFrom ?? null;
   const box = useStartThreadBox<StartThreadDraft & { thread: ThreadSeed }>({
     navigate,
     submit: async ({ thread }, request) => {
@@ -133,9 +148,9 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
 
   // A row with a thread opens it; one without opens bb's composer under the
   // row, which owns the provider, environment and branch choices, or closes it
-  // when it is already open there. It opens with no project too: the composer
-  // has its own picker, and bb's panel reports no project when the page was
-  // opened from outside one.
+  // when it is already open there. It opens with no project too, when no
+  // project is checked out from the repository and the page was opened from
+  // outside one: the composer has its own picker.
   const onThread = useCallback(
     (next: ThreadSeed, threadId: string | null) => {
       if (threadId !== null) {
@@ -147,7 +162,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
         draftKey: `contributor-dashboard:${next.kind}:${next.number}`,
         thread: next,
         seed: {
-          projectId: projectId ?? null,
+          projectId,
           prompt: promptFor(next),
           preview: { title: next.title, number: next.number, url: next.url, meta: next.meta },
         },
