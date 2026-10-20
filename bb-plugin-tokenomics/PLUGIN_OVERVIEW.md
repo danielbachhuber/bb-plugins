@@ -2,7 +2,7 @@
 
 A sparkline in **each thread's header**, with its tokens in the past day and its lifetime total. Click it for the thread's summary: tokens over time, minutes per turn, and the three turns that used the most. Hover a spike to see which of your messages caused it.
 
-Your **session in bb's title bar**: a spark chart of its tokens per 15 minutes and two rings for the percent used, the session inside and the week outside, amber or red once either is headed for its limit. Hover it for the meters.
+Your **session in bb's title bar**: a spark chart of its tokens per 15 minutes and two rings for the percent used, the session outside and the week inside, amber or red once either is headed for its limit. Hover it for the meters.
 
 A **context meter above the composer** once a thread's context passes 300K tokens. It turns red past 550K. Every model call reads the whole context again, so at 500K a turn of 40 calls costs 20M tokens. **Compact** asks bb to compact the thread. The sidebar counts these threads in amber and red, so you can find them without opening each one.
 

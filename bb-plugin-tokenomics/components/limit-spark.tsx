@@ -1,9 +1,9 @@
 // The session in bb's title bar: its tokens per 15 minutes from its start to
 // its reset, so the empty space on the right is the time left, and two rings
-// for the percent used: the session inside, the week outside. Once the session is on pace for the warning or will run out, the
-// slots still to come fill with hatched bars at the past hour's pace, red past
-// the point it runs out, as the page's chart does. Hovering shows the page's
-// meters. Display only; app.tsx loads the limits.
+// for the percent used: the session outside, the week inside. Once the
+// session is on pace for the warning or will run out, the slots still to come
+// fill with hatched bars at the past hour's pace, red past the point it runs
+// out, as the page's chart does. Hovering shows the page's meters. Display only; app.tsx loads the limits.
 import { useState } from "react";
 
 import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
@@ -107,13 +107,13 @@ function Ring({ limit, radius }: { limit: Limit; radius: number }) {
   );
 }
 
-/** The percent used as two rings: the session inside, the weekly limit outside when there is one. */
+/** The percent used as two rings: the session outside, the weekly limit inside when there is one. */
 export function LimitDonut({ session, weekly }: { session: Limit; weekly: Limit | null }) {
   return (
     // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
     <svg width={RING_SIZE} height={RING_SIZE} aria-hidden className="shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
-      {weekly === null ? null : <Ring limit={weekly} radius={7.75} />}
-      <Ring limit={session} radius={weekly === null ? 7.75 : 4.25} />
+      <Ring limit={session} radius={7.75} />
+      {weekly === null ? null : <Ring limit={weekly} radius={4.25} />}
     </svg>
   );
 }
