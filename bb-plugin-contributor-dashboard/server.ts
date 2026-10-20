@@ -13,6 +13,7 @@ import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
+import { openItems } from "./review/open-items.js";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
@@ -256,6 +257,22 @@ export default async function plugin(bb: BbPluginApi) {
       bb.log.info(`started ${thread.id} for ${kind} #${number} in ${repository}`);
       bb.realtime.publish(DASHBOARD_CHANNEL, { startedAt: Date.now() });
       return { threadId: thread.id };
+    },
+    open_items: ({ kind, page }) => {
+      if (!configured) {
+        return { repository: null, kind, rows: [], paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, sync: status() };
+      }
+      const { syncedAt } = store.syncState(repository);
+      if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
+      const rows = openItems(kind === "issue" ? store.readIssues(repository, 0) : store.readActivity(repository, 0));
+      const paging = pageOf(rows.length, page);
+      return {
+        repository,
+        kind,
+        rows: withThreads(rows.slice(paging.offset, paging.to), kind),
+        paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
+        sync: status(),
+      };
     },
     /**
      * Read on each open rather than cached, so a project added or removed

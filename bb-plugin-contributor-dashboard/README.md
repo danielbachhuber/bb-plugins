@@ -13,7 +13,7 @@ the repository and has the span picker, which every section follows: 2 weeks,
 do not answer. The range offers the two years the mirror reaches back and
 nothing later than today, the cross beside the dates drops it back to 6 weeks,
 and whatever is chosen is remembered for next time. So is the screen: opening
-the page again returns to the person or stage last shown there.
+the page again returns to the person, stage, or list last shown there.
 While the first sync is still reaching back, the page says how far it has got.
 
 A chart has one point per bucket, and how long a bucket is follows the span: a
@@ -130,6 +130,16 @@ p90 drawn over them, so a slow one can be read against a busy one.
 
 The queue is what is in the stage now, whatever the period, since a pull
 request waiting three months is waiting today.
+
+#### Everything open
+
+Clicking the **Issues** or **Pull requests** heading opens every one of that
+kind open now, at `contributor-dashboard/issues` or
+`contributor-dashboard/pulls`, oldest first, twenty-five to a page. The span
+does not apply there, and the page has no span picker: what is open is open
+today. Each row says who opened it and when, and marks a draft pull request,
+with the actions **A row in a list** describes. It reads the local mirror and
+makes no GitHub calls.
 
 ### A row in a list
 
@@ -402,6 +412,7 @@ needs no new sync.
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
+| `review/open-items.ts` | The pure read of what is open now, oldest first |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
@@ -414,6 +425,7 @@ needs no new sync.
 | `components/releases-section.tsx` | The Releases section: one release in full and the rest as rows |
 | `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
+| `components/open-items-view.tsx` | Every open issue or pull request, oldest first |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
@@ -425,7 +437,7 @@ needs no new sync.
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, and a stage's page busy and clear |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, a stage's page busy and clear, and the open pull requests and open issues |
 
 ## Working on it
 

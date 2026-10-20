@@ -57,6 +57,16 @@ export const authoredPullRequestSchema = z.object({
   waitingDays: z.number().nullable(),
 });
 
+export const openItemSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  ...rowOwnershipSchema,
+  isDraft: z.boolean(),
+  createdAt: z.string(),
+});
+
 export const stageKeySchema = z.enum(["triage", "ownership", "implement", "prepare", "review", "decision"]);
 
 /** Every stage key, in flow order; `app.tsx` matches sub-paths against these. */
@@ -264,6 +274,29 @@ export const rpcContract = defineRpcContract({
     output: z.object({ threadId: z.string() }),
   },
   /**
+   * One page of every open issue or pull request, oldest first, whatever the
+   * period: what the Issues and Pull requests headings open.
+   */
+  open_items: {
+    input: z.object({
+      kind: z.enum(["issue", "pull"]),
+      page: z.number().int().min(0).max(10_000).default(0),
+    }),
+    output: z.object({
+      repository: z.string().nullable(),
+      kind: z.enum(["issue", "pull"]),
+      rows: z.array(openItemSchema),
+      paging: z.object({
+        page: z.number(),
+        pages: z.number(),
+        from: z.number(),
+        to: z.number(),
+        total: z.number(),
+      }),
+      sync: syncStatusSchema,
+    }),
+  },
+  /**
    * The bb project checked out from the repository, which the composer opens
    * in, or null when no project's remote matches it.
    */
@@ -293,3 +326,5 @@ export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;
+
+export type OpenItemsResult = z.infer<(typeof rpcContract)["open_items"]["output"]>;

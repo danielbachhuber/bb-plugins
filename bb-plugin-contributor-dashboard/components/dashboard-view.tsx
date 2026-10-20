@@ -35,13 +35,41 @@ function backfillLine(sync: SyncStatus): string | null {
  */
 const DRAWN = (stage: StageSummary) => stage.key !== "implement";
 
-/** A top-level section: a heading over everything the section holds. */
-function Section({ id, title, note, children }: { id: string; title: string; note: string; children: ReactNode }) {
+/**
+ * A top-level section: a heading over everything the section holds. The
+ * heading opens the full list of what is open in it.
+ */
+function Section({
+  id,
+  title,
+  note,
+  opens,
+  onOpen,
+  children,
+}: {
+  id: string;
+  title: string;
+  note: string;
+  /** What the heading's tooltip says it opens. */
+  opens: string;
+  onOpen: () => void;
+  children: ReactNode;
+}) {
   return (
     <section className="mt-8 border-t border-border pt-4" aria-labelledby={id}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 id={id} className="text-lg font-semibold">
-          {title}
+          <button
+            type="button"
+            onClick={onOpen}
+            title={opens}
+            className="group cursor-pointer hover:underline"
+          >
+            {title}
+            <span aria-hidden className="ml-1 text-muted-foreground group-hover:text-foreground">
+              ›
+            </span>
+          </button>
         </h2>
         <span className="text-xs text-muted-foreground">{note}</span>
       </div>
@@ -57,6 +85,7 @@ export function DashboardView({
   error,
   onOpenPerson,
   onOpenStage,
+  onOpenList,
   onLoadOlderReleases,
   now = Date.now(),
   initialHovered,
@@ -68,6 +97,8 @@ export function DashboardView({
   error: string | null;
   onOpenPerson: (login: string) => void;
   onOpenStage: (stage: StageKey) => void;
+  /** Opens every open issue or pull request. */
+  onOpenList: (kind: "issue" | "pull") => void;
   /** The next batch of releases published before `before`, for See more. */
   onLoadOlderReleases: (before: number, count: number) => Promise<OlderReleases>;
   now?: number;
@@ -121,7 +152,7 @@ export function DashboardView({
               onOpenStage={onOpenStage}
             />
 
-            <Section id="issues" title="Issues" note="Identify, and the first step of Execute">
+            <Section id="issues" title="Issues" note="Identify, and the first step of Execute" opens="Every open issue, oldest first" onOpen={() => onOpenList("issue")}>
               <h3 className="mt-4 text-sm font-medium">
                 How long each step takes
                 <span className="ml-2 font-normal text-muted-foreground">
@@ -135,7 +166,13 @@ export function DashboardView({
               />
             </Section>
 
-            <Section id="pull-requests" title="Pull requests" note="the rest of Execute, Verify, and Release">
+            <Section
+              id="pull-requests"
+              title="Pull requests"
+              note="the rest of Execute, Verify, and Release"
+              opens="Every open pull request, oldest first"
+              onOpen={() => onOpenList("pull")}
+            >
               <h3 className="mt-4 text-sm font-medium">
                 How long each step takes
                 <span className="ml-2 font-normal text-muted-foreground">

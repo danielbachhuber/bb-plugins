@@ -3,8 +3,9 @@ import { useState, type ReactNode } from "react";
 import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
+import { OpenItemsView } from "./components/open-items-view";
 import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
-import { AUTHORED_PAGE_SIZE, pageOf } from "./dashboard/paging";
+import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { ThreadStatusContext } from "./components/item-row";
@@ -404,6 +405,7 @@ function Page({
       error={null}
       onOpenPerson={() => undefined}
       onOpenStage={() => undefined}
+      onOpenList={() => undefined}
       onLoadOlderReleases={olderReleasesFor}
       now={NOW}
       initialHovered={initialHovered}
@@ -449,6 +451,7 @@ export const NoRepository = () => (
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
+    onOpenList={() => undefined}
     onLoadOlderReleases={olderReleasesFor}
     now={NOW}
   />
@@ -681,3 +684,61 @@ export const StagePageClear = () => (
     }}
   />
 );
+
+const OPEN_TITLES = [
+  "Rebuild the gadget importer so a partial upload resumes",
+  "Keep the widget picker open while a gadget loads",
+  "Cache avatar lookups",
+  "Rename sprocket fields",
+  "Show empty state on the gadget list",
+  "Add retry to widget sync",
+  "Validate webhook payloads",
+];
+const OPEN_PEOPLE = ["mona", "octocat", "hubber", "spacecat", "webcat", null];
+
+/** Open rows, oldest first, a few days apart, some drafts and some assigned. */
+function openRows(kind: "issue" | "pull", total: number) {
+  return Array.from({ length: total }, (_, index) => ({
+    number: 1700 + index * 4,
+    title: OPEN_TITLES[index % OPEN_TITLES.length],
+    url: `https://github.com/acme/widgets/${kind === "issue" ? "issues" : "pull"}/${1700 + index * 4}`,
+    author: OPEN_PEOPLE[index % OPEN_PEOPLE.length],
+    assignees: index % 3 === 0 ? ["hubber"] : [],
+    threadId: index === 1 ? "thr_demo" : null,
+    isDraft: kind === "pull" && index % 4 === 2,
+    createdAt: new Date(NOW - (total - index) * 3 * 86_400_000).toISOString(),
+  }));
+}
+
+function OpenList({ kind, total }: { kind: "issue" | "pull"; total: number }) {
+  const [page, setPage] = useState(0);
+  const rows = openRows(kind, total);
+  const paging = pageOf(rows.length, page);
+  return (
+    <OpenItemsView
+      kind={kind}
+      data={{
+        repository: "acme/widgets",
+        kind,
+        rows: rows.slice(paging.offset, paging.offset + PAGE_SIZE),
+        paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
+        sync: SYNCED,
+      }}
+      error={null}
+      onBack={() => undefined}
+      onPage={setPage}
+      onThread={() => undefined}
+      now={NOW}
+    />
+  );
+}
+
+/** Every open pull request, oldest first, reached from the Pull requests heading. */
+export const OpenPullRequests = () => (
+  <WithThreads>
+    <OpenList kind="pull" total={31} />
+  </WithThreads>
+);
+
+/** Every open issue, reached from the Issues heading. */
+export const OpenIssues = () => <OpenList kind="issue" total={6} />;

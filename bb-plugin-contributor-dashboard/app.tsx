@@ -14,10 +14,12 @@ import { SyncStatus as SyncStatusBar } from "@danielbachhuber/bb-plugin-componen
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
 import { StageView } from "@/components/stage-view";
+import { OpenItemsView } from "@/components/open-items-view";
 
 import type { rpcContract } from "./server";
 import {
   DASHBOARD_CHANNEL,
+  type OpenItemsResult,
   type PeopleActivityResult,
   type PersonActivityResult,
   STAGE_KEYS,
@@ -42,6 +44,13 @@ function messageOf(cause: unknown): string {
 function personFrom(subPath: string): string | null {
   const match = /^person\/([^/]+)\/?$/.exec(subPath);
   return match === null ? null : decodeURIComponent(match[1]);
+}
+
+/** `issues` and `pulls` list everything open of that kind. */
+function listFrom(subPath: string): "issue" | "pull" | null {
+  const match = /^(issues|pulls)\/?$/.exec(subPath);
+  if (match === null) return null;
+  return match[1] === "issues" ? "issue" : "pull";
 }
 
 function stageFrom(subPath: string): StageKey | null {
@@ -121,7 +130,9 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const [restoring, setRestoring] = useState(() => {
     if (subPath !== "") return null;
     const remembered = rememberedScreen();
-    return personFrom(remembered) !== null || stageFrom(remembered) !== null ? remembered : null;
+    return personFrom(remembered) !== null || stageFrom(remembered) !== null || listFrom(remembered) !== null
+      ? remembered
+      : null;
   });
   useEffect(() => {
     if (restoring !== null) navigate.toPluginPanel(PANEL_PATH, { subPath: restoring, replace: true });
@@ -137,6 +148,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   useEffect(() => rememberScreen(shown), [shown]);
   const login = personFrom(shown);
   const stage = stageFrom(shown);
+  const list = listFrom(shown);
+  const [listPage, setListPage] = useState(0);
   const { projectId: openedFrom } = useBbContext();
   // The project checked out from the repository comes first, so a thread
   // starts where the code is, whichever project the page was opened from.
@@ -193,8 +206,12 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   );
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
-    () => (login === null && stage === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
-    [rpc, range, login, stage],
+    () => (login === null && stage === null && list === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
+    [rpc, range, login, stage, list],
+  );
+  const openList = useDashboardData<OpenItemsResult | null>(
+    () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage })),
+    [rpc, list, listPage],
   );
   const stageDetail = useDashboardData<StageDetailResult | null>(
     () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage })),
@@ -219,6 +236,13 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     },
     [navigate],
   );
+  const openItemsList = useCallback(
+    (kind: "issue" | "pull") => {
+      setListPage(0);
+      navigate.toPluginPanel(PANEL_PATH, { subPath: kind === "issue" ? "issues" : "pulls" });
+    },
+    [navigate],
+  );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
   const startRows = useMemo(
     () => ({
@@ -228,6 +252,13 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     }),
     [box],
   );
+  if (list !== null) {
+    return (
+      <StartThreadContext.Provider value={startRows}>
+        <OpenItemsView kind={list} data={openList.data} error={openList.error} onBack={back} onPage={setListPage} onThread={onThread} />
+      </StartThreadContext.Provider>
+    );
+  }
   if (stage !== null) {
     return (
       <StartThreadContext.Provider value={startRows}>
@@ -268,6 +299,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       error={dashboard.error}
       onOpenPerson={openPerson}
       onOpenStage={openStage}
+      onOpenList={openItemsList}
       onLoadOlderReleases={(before, count) => rpc.call("older_releases", { before, count })}
     />
   );
