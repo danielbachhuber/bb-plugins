@@ -356,7 +356,7 @@ export default async function plugin(bb: BbPluginApi) {
           .map((view) => ({
           ...view,
           lastHourTokens: lastHour.get(view.providerId) ?? 0,
-          // One query per window, over the latest window read far enough in to tell.
+          // A query for each of up to ten past windows and the current one.
           sizeTokens: sizeOf(
             samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
             (from, to) => store.providerTokens(from, to).get(view.providerId) ?? 0,

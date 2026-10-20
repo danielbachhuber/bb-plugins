@@ -127,16 +127,23 @@ export const WINDOW_LENGTH: Record<string, number> = { "five-hour": 5 * HOUR, we
  */
 export const LEAST_SIZING_PERCENT: Record<string, number> = { "five-hour": 25, weekly: 10 };
 
+/** How many past windows a size reads, newest first. */
+const SIZING_WINDOWS = 10;
+
 /**
- * About how many tokens the whole window holds: the provider's tokens since
- * the window began, divided by the share of it they used. The limit isn't
- * counted purely in tokens, and use outside bb counts against it too, so
- * this is an estimate. It reads the latest window with a reading of at least
- * LEAST_SIZING_PERCENT, which is the current one once it gets there and the
- * one before until then. Null while
- * no window has such a reading; undefined for a window it can't size, one
- * for a single model or of an unknown length, since tokens aren't recorded
- * per model. `samples` are one window's, oldest first.
+ * About how many tokens the whole window holds. Each window read far enough
+ * in (LEAST_SIZING_PERCENT) gives one estimate: the provider's tokens from
+ * its start to its latest such reading, divided by the share used. The
+ * typical one is the median of the past windows' estimates. The current
+ * window's own estimate counts for as much of the result as the window is
+ * used, 40% at 40% used, since early readings are rounded and swing with a
+ * cache rewrite or a compaction. The limit isn't counted purely in tokens,
+ * so this is an estimate either way.
+ *
+ * Null while no window has been read far enough in; undefined for a window
+ * it can't size, one for a single model or of an unknown length, since
+ * tokens aren't recorded per model. `samples` are one window key's, oldest
+ * first.
  */
 export function sizeOf(
   samples: readonly LimitSample[],
@@ -145,13 +152,33 @@ export function sizeOf(
   const latest = samples.at(-1);
   const length = latest === undefined ? undefined : WINDOW_LENGTH[latest.kind];
   if (latest === undefined || latest.model !== null || length === undefined) return undefined;
-  for (let index = samples.length - 1; index >= 0; index -= 1) {
+  const least = LEAST_SIZING_PERCENT[latest.kind]!;
+  // Each window's latest reading far enough in, newest window first.
+  const readings: Array<{ sample: LimitSample; current: boolean }> = [];
+  let resetsAt: number | null = null;
+  for (let index = samples.length - 1; index >= 0 && readings.length <= SIZING_WINDOWS; index -= 1) {
     const sample = samples[index]!;
-    if (sample.usedPercent < LEAST_SIZING_PERCENT[latest.kind]! || sample.usedPercent > 100) continue;
-    const tokens = tokensBetween(sample.resetsAt - length, sample.sampledAt);
-    if (tokens > 0) return tokens / (sample.usedPercent / 100);
+    // Reset times wobble by a few milliseconds between readings.
+    if (resetsAt !== null && Math.abs(sample.resetsAt - resetsAt) <= MINUTE) continue;
+    if (sample.usedPercent < least || sample.usedPercent > 100) continue;
+    resetsAt = sample.resetsAt;
+    readings.push({ sample, current: Math.abs(sample.resetsAt - latest.resetsAt) <= MINUTE });
   }
-  return null;
+  const estimate = ({ sample }: { sample: LimitSample }) => {
+    const tokens = tokensBetween(sample.resetsAt - length, sample.sampledAt);
+    return tokens > 0 ? tokens / (sample.usedPercent / 100) : null;
+  };
+  const current = readings[0]?.current ? estimate(readings[0]) : null;
+  const past = readings
+    .filter((reading) => !reading.current)
+    .map(estimate)
+    .filter((size): size is number => size !== null)
+    .sort((a, b) => a - b);
+  const typical = past.length === 0 ? null : (past[Math.floor((past.length - 1) / 2)]! + past[Math.ceil((past.length - 1) / 2)]!) / 2;
+  if (current === null) return typical;
+  if (typical === null) return current;
+  const weight = Math.min(1, latest.usedPercent / 100);
+  return weight * current + (1 - weight) * typical;
 }
 
 /**

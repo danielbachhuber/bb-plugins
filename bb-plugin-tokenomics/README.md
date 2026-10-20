@@ -155,12 +155,15 @@ the current pace: "On pace for 95% by 8:50 AM", or "On pace to run out at
 6:56 AM, 1h 54m before it resets". A meter turns amber once a limit is on pace for 80%,
 and red once it will run out first.
 
-The size is the tokens your threads used since the window began, divided by
-the percent used, so it's an estimate: the limit isn't counted purely in
-tokens, and use outside bb counts against it too. Early in a window it uses
-the last window's size, read once that one passed 25% for a session or 10% for
-a week, and until there is one it says "sizing the limit". It costs one local
-query per limit each time the page loads the limits.
+The size comes from your usage patterns: in each window read far enough in,
+25% for a session or 10% for a week, the tokens your threads used divided by
+the percent used. The typical size is the median of up to ten past windows,
+and the current window's own figure counts for as much of the estimate as the
+window is used, 40% at 40% used, since early readings are rounded and swing
+with a cache rewrite or a compaction. The limit isn't counted purely in
+tokens, so it's an estimate. Until one window has been read far enough in,
+the meter says "sizing the limit". It costs up to eleven local queries per
+limit each time the page loads the limits.
 
 The session's pace is its past hour, and the weekly limit's is its past day.
 On **Past day**, once the session is amber or red, the chart runs on to its

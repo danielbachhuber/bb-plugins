@@ -135,17 +135,33 @@ describe("sizeOf", () => {
   const start = SESSION_RESET - 5 * HOUR;
   // 2M tokens a minute since the session began.
   const tokens = (from: number, to: number) => (Math.max(0, to - Math.max(from, start)) / MIN) * 2e6;
+  // A finished session read at 80% with 240M tokens: 300M in all.
+  const before = sample(400, 80, { resetsAt: NOW - 100 * MIN });
+  const withBefore = (from: number, to: number) =>
+    from === before.resetsAt - 5 * HOUR && to === before.sampledAt ? 240e6 : tokens(from, to);
 
   it("divides the window's tokens by its share used", () => {
     // 90 minutes in, 180M tokens at 60%: about 300M in all.
     expect(sizeOf([sample(10, 50), sample(0, 60)], tokens)).toBeCloseTo(300e6);
   });
 
-  it("falls back to the window before while this one is under 25%", () => {
-    const before = sample(400, 80, { resetsAt: NOW - 100 * MIN });
-    // 240M tokens in the window before, from its start to its reading at 80%.
-    const read = (from: number, to: number) => (from === before.resetsAt - 5 * HOUR && to === before.sampledAt ? 240e6 : 0);
-    expect(sizeOf([before, sample(0, 20)], read)).toBeCloseTo(300e6);
+  it("uses the past windows while this one is under 25%", () => {
+    expect(sizeOf([before, sample(0, 20)], withBefore)).toBeCloseTo(300e6);
+  });
+
+  it("counts this window for as much as it's used", () => {
+    // This one says 180M / 90% = 200M; at 90% used it counts 90%: 0.9 * 200M + 0.1 * 300M.
+    const read = (from: number, to: number) => (to === NOW ? 180e6 : withBefore(from, to));
+    expect(sizeOf([before, sample(0, 90)], read)).toBeCloseTo(210e6);
+  });
+
+  it("takes the median of the past windows", () => {
+    const old = [400, 700, 1000].map((minutesAgo, index) =>
+      sample(minutesAgo, 50, { resetsAt: NOW - (minutesAgo - 300) * MIN - index }),
+    );
+    const sizes = [100e6, 300e6, 900e6];
+    const read = (_from: number, to: number) => sizes[old.findIndex((reading) => reading.sampledAt === to)]! / 2;
+    expect(sizeOf([...[...old].reverse(), sample(0, 5)], read)).toBeCloseTo(300e6);
   });
 
   it("is null with no reading at 25% or more", () => {
