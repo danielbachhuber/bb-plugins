@@ -12,7 +12,9 @@ import type { ProjectCheckout } from "./hacks/checkout-sync/rules";
 export default async function plugin(bb: BbPluginApi) {
   bb.log.info("loaded");
 
-  const sync = createCheckoutSync(runGit);
+  const sync = createCheckoutSync(runGit, Date.now, (message) =>
+    bb.log.warn(`checkout-sync: ${message}`),
+  );
 
   /**
    * The project's name and its checkout on this machine. A project can list a

@@ -133,16 +133,17 @@ minutes without a daemon it stops trying.
 
 Each project header in the sidebar shows whether the project's checkout is
 behind the branch it tracks on its remote, usually `origin/main`. An amber
-dot marks a checkout that is behind, has diverged, or failed to pull, and
-stays visible. Hovering the row shows a sync icon under the dot, beside bb's
-own buttons, with a tooltip saying how far behind or ahead the branch is.
+dot marks a checkout that is behind, has diverged, or failed to pull when you
+clicked, and stays visible, centered on the row. Hovering the row shows a
+sync icon beside bb's own buttons, with the dot moved to its corner and a
+tooltip saying how far behind or ahead the branch is.
 Clicking it fetches, and pulls when that is safe:
 
 | State | Dot | A click |
 | --- | --- | --- |
 | Behind | Yes | Fetches, then fast-forwards |
 | Diverged | Yes | Fetches; merging or rebasing is left to you |
-| Last fetch or pull failed | Yes, and the icon is a warning triangle with git's message in the tooltip | Tries again |
+| Your last click failed to fetch or pull | Yes, and the icon is a warning triangle with git's message in the tooltip | Tries again |
 | Ahead, not pushed | No | Fetches |
 | Up to date | No | Fetches |
 
@@ -160,8 +161,15 @@ Every window reads each project's status every minute, while it is visible,
 in one request for all the projects in the sidebar. The server answers with
 three local git commands per project. It runs `git fetch` for a checkout at
 most every five minutes, shared between windows, so most reads compare only
-the refs already on disk. A fetch that would ask for a password fails instead
-of waiting.
+the refs already on disk, and a push to origin from somewhere else shows up
+within about six minutes. A push from the checkout itself updates its
+`origin/main` straight away. A fetch that would ask for a password fails
+instead of waiting.
+
+A background fetch that fails, such as one that runs into another process's
+push in the same checkout, is logged to bb's server log and tried again five
+minutes later. It never draws the dot. Only a fetch or pull you started by
+clicking shows as a failure.
 
 ### Diff code blocks start wrapped
 

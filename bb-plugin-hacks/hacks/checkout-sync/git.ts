@@ -46,9 +46,17 @@ export interface CheckoutSync {
   pull(path: string): Promise<CheckoutStatus | null>;
 }
 
-export function createCheckoutSync(git: RunGit, now: () => number = Date.now): CheckoutSync {
+export function createCheckoutSync(
+  git: RunGit,
+  now: () => number = Date.now,
+  /** Where a background fetch failure goes, since the sidebar does not show it. */
+  warn: (message: string) => void = () => {},
+): CheckoutSync {
   const fetchedAt = new Map<string, number>();
-  const fetching = new Map<string, Promise<void>>();
+  const fetching = new Map<string, Promise<string | null>>();
+  // Failures from a click only. A background fetch that fails, such as one
+  // racing another process's push in the same checkout, is logged and tried
+  // again on the next interval rather than drawn as a failure nobody asked about.
   const errors = new Map<string, string>();
 
   async function read(path: string): Promise<CheckoutStatus | null> {
@@ -70,16 +78,18 @@ export function createCheckoutSync(git: RunGit, now: () => number = Date.now): C
     return { branch, upstream, ...counts, error: errors.get(path) ?? null };
   }
 
-  function fetchUpstream(path: string): Promise<void> {
+  /** Fetches, sharing a fetch already in flight. Resolves with its error, if any. */
+  function fetchUpstream(path: string): Promise<string | null> {
     const inFlight = fetching.get(path);
     if (inFlight) return inFlight;
     const run = git(path, ["fetch", "--quiet"])
       .then(() => {
         errors.delete(path);
+        return null;
       })
-      .catch((error: unknown) => {
-        errors.set(path, summarizeError(error instanceof Error ? error.message : String(error)));
-      })
+      .catch((error: unknown) =>
+        summarizeError(error instanceof Error ? error.message : String(error)),
+      )
       .finally(() => {
         fetchedAt.set(path, now());
         fetching.delete(path);
@@ -94,13 +104,15 @@ export function createCheckoutSync(git: RunGit, now: () => number = Date.now): C
       if (last === undefined || now() - last >= FETCH_EVERY_MS) {
         // Only a checkout that tracks something is worth fetching.
         if ((await read(path)) === null) return null;
-        await fetchUpstream(path);
+        const error = await fetchUpstream(path);
+        if (error !== null) warn(`fetch failed in ${path}: ${error}`);
       }
       return read(path);
     },
 
     async pull(path) {
-      await fetchUpstream(path);
+      const fetchError = await fetchUpstream(path);
+      if (fetchError !== null) errors.set(path, fetchError);
       const status = await read(path);
       if (status === null || status.error !== null || !canFastForward(status)) return status;
       try {

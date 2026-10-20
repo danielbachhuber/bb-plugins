@@ -138,15 +138,40 @@ export function needsDot(tone: Indicator["tone"]): boolean {
   return tone === "behind" || tone === "diverged" || tone === "error";
 }
 
-/** The amber dot, at the icon's top right, ringed in the sidebar's color. */
+/**
+ * Where the dot sits: centered on the row at rest, where it reads as a mark
+ * beside the name, then at the sync icon's top right while the icon shows.
+ * The hover rule matches bb's own for revealing row actions.
+ */
+export const DOT_STYLE = `
+[data-checkout-sync-dot] {
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+}
+.bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible)) [data-checkout-sync-dot] {
+  top: 5px;
+  right: 5px;
+  transform: none;
+}
+`;
+
+/** Adds DOT_STYLE to the document once. Returns a function that removes it. */
+export function installDotStyle(doc: Document): () => void {
+  const style = doc.createElement("style");
+  style.setAttribute(INDICATOR_ATTR, "");
+  style.textContent = DOT_STYLE;
+  doc.head.append(style);
+  return () => style.remove();
+}
+
+/** The amber dot, ringed in the sidebar's color. DOT_STYLE places it. */
 function dot(doc: Document): HTMLSpanElement {
   const span = doc.createElement("span");
   span.setAttribute("data-checkout-sync-dot", "");
   span.setAttribute("aria-hidden", "true");
   Object.assign(span.style, {
     position: "absolute",
-    top: "5px",
-    right: "5px",
     width: "7px",
     height: "7px",
     borderRadius: "999px",

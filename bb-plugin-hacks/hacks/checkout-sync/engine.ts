@@ -4,7 +4,7 @@
 // This lives outside index.ts so it can be driven under jsdom.
 import { findProjectHeaders } from "../project-open-in-editor/sidebar";
 import { indicatorFor, type ProjectCheckout } from "./rules";
-import { anchorFor, createIndicator, draw, INDICATOR_ATTR } from "./sidebar";
+import { anchorFor, createIndicator, draw, INDICATOR_ATTR, installDotStyle } from "./sidebar";
 
 export interface EngineDeps {
   /** Aborted when the content script generation is torn down. */
@@ -169,6 +169,7 @@ export function startEngine(deps: EngineDeps): Engine {
     attributeFilter: ["aria-label", "data-sidebar-project-id"],
   });
 
+  const removeDotStyle = installDotStyle(doc);
   void refresh();
   poll();
 
@@ -180,6 +181,7 @@ export function startEngine(deps: EngineDeps): Engine {
     },
     dispose() {
       observer.disconnect();
+      removeDotStyle();
       if (cancel !== null) cancel();
       cancel = null;
       if (cancelPoll !== null) cancelPoll();

@@ -91,6 +91,17 @@ describe("createCheckoutSync", () => {
     expect(await sync.pull(checkout)).toMatchObject({ behind: 0, error: null });
   });
 
+  it("logs a background fetch that fails, and shows only a failed click", async () => {
+    const warn = vi.fn();
+    const sync = createCheckoutSync(runGit, Date.now, warn);
+    git(checkout, "remote", "set-url", "origin", join(root, "missing.git"));
+
+    expect((await sync.status(checkout))?.error).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^fetch failed in .*checkout: /));
+
+    expect((await sync.pull(checkout))?.error).toMatch(/missing\.git/);
+  });
+
   it("has nothing to compare on a detached HEAD or a branch tracking nothing", async () => {
     const sync = createCheckoutSync(runGit);
     git(checkout, "checkout", "-q", "-b", "local-only");
