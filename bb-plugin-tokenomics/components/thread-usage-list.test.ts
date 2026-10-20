@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadUsage } from "@/usage/contract";
 
-import { threadBars, threadContextLevel, threadsIn } from "./thread-usage-list";
+import { splitArchived, threadBars, threadContextLevel } from "./thread-usage-list";
 import { logPosition, nearestDot, turnStats } from "./turn-dots";
 
 const HOUR = 3_600_000;
@@ -16,19 +16,17 @@ function thread(
   return { threadId, title: null, projectId: "prj_acme", projectName: "widgets", providerId: "claude-code", archivedAt, turns: 1, context, hours, input: 0, cacheRead: 0, output: 0 };
 }
 
-describe("threadsIn", () => {
-  const now = 10 * 24 * HOUR;
-  const threads = [
-    thread("thr_active", null),
-    thread("thr_recent", now - 2 * HOUR),
-    thread("thr_edge", now - 72 * HOUR),
-    thread("thr_older", now - 73 * HOUR),
-  ];
-
-  it("splits active threads from those archived in the past three days and before", () => {
-    expect(threadsIn(threads, "active", now).map((t) => t.threadId)).toEqual(["thr_active"]);
-    expect(threadsIn(threads, "recent", now).map((t) => t.threadId)).toEqual(["thr_recent", "thr_edge"]);
-    expect(threadsIn(threads, "older", now).map((t) => t.threadId)).toEqual(["thr_older"]);
+describe("splitArchived", () => {
+  it("lists active threads, then archived ones however long ago, each with the most tokens first", () => {
+    const threads = [
+      { ...thread("thr_recent", 8 * HOUR), cacheRead: 5 },
+      { ...thread("thr_active", null), cacheRead: 1 },
+      { ...thread("thr_older", 1 * HOUR), cacheRead: 9 },
+      { ...thread("thr_second", null), cacheRead: 3 },
+    ];
+    const { active, archived } = splitArchived(threads);
+    expect(active.map((t) => t.threadId)).toEqual(["thr_second", "thr_active"]);
+    expect(archived.map((t) => t.threadId)).toEqual(["thr_older", "thr_recent"]);
   });
 });
 

@@ -214,10 +214,9 @@ shows:
 Hover a sparkline bar, a dot, or the total for its details. Click a row to
 open the thread. In a narrow window the dots and time drop out.
 
-**Active**, **Recent**, and **Older** above the list choose which threads it
-shows, each with a count. Recent is threads archived in the past three days,
-and Older is those archived before that. Archived and deleted threads are
-dimmed and labeled "Archived".
+The list holds every thread that used tokens in the period: active threads
+first, then archived and deleted ones under an **Archived** heading, dimmed.
+Each group is ordered by tokens, and the counts sit above the list.
 
 ### Large-context threads
 
@@ -390,7 +389,7 @@ and each turn to the message listed just before it.
 | `usage/contract.ts` | The RPC contract and the realtime channels |
 | `components/usage-view.tsx` | The page, drawn from props alone |
 | `components/usage-chart.tsx` | The stacked bar chart and its legend |
-| `components/thread-usage-list.tsx` | The thread list under the chart, its Active, Recent, and Older filter, and each row's sparkline |
+| `components/thread-usage-list.tsx` | The thread list under the chart, active threads above archived ones, and each row's sparkline |
 | `components/hover-tip.tsx` | The readout that follows the pointer over a sparkline bar or a turn's dot |
 | `components/turn-dots.tsx` | A thread's turn lengths as dots on a log scale, and the scale's labels |
 | `components/thread-token-count.tsx` | The header's sparkline button and the summary it opens, with the messages behind each spike |

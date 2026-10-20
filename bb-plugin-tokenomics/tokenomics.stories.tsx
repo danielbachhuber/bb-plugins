@@ -273,28 +273,14 @@ export const PastThreeDays = () => <Page initial="three-days" />;
 
 export const PastWeek = () => <Page initial="week" recordingSince={NOW.getTime() - 4 * 24 * HOUR} />;
 
-/** Threads archived in the past three days, dimmed and labeled Archived. */
-export const RecentThreads = () => (
-  <UsageView
-    range="day"
-    onRange={() => undefined}
-    data={dataFor("day")}
-    error={null}
-    onOpenThread={() => undefined}
-    initialLifecycle="recent"
-    now={NOW.getTime()}
-  />
-);
-
-/** Over the past week, a thread archived more than three days ago lists under Older. */
-export const OlderThreads = () => (
+/** Over the past week, every thread in one list: active threads first, then the archived ones under their own heading, dimmed. */
+export const ArchivedThreads = () => (
   <UsageView
     range="week"
     onRange={() => undefined}
     data={dataFor("week", NOW.getTime() - 7 * 24 * HOUR)}
     error={null}
     onOpenThread={() => undefined}
-    initialLifecycle="older"
     now={NOW.getTime()}
   />
 );

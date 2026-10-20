@@ -10,7 +10,7 @@ import { Segmented } from "@danielbachhuber/bb-plugin-component-library/segmente
 import type { ContextThresholds } from "@/usage/context";
 
 import { TurnTimeBreakdown } from "./turn-time-breakdown";
-import { LIFECYCLES, ThreadUsageList, threadsIn, type Lifecycle } from "./thread-usage-list";
+import { ThreadUsageList, splitArchived } from "./thread-usage-list";
 import { LimitMeters } from "./limit-meters";
 import { PARTS, UsageChart, UsageLegend, type PartKey, type Projection } from "./usage-chart";
 
@@ -83,7 +83,6 @@ export function UsageView({
   error,
   onOpenThread,
   initialHovered,
-  initialLifecycle = "active",
   now = Date.now(),
   limits = [],
   providerName = (providerId) => providerId,
@@ -95,14 +94,12 @@ export function UsageView({
   onOpenThread: (threadId: string) => void;
   /** A bar to show hovered on first render, for stories. */
   initialHovered?: number;
-  initialLifecycle?: Lifecycle;
   /** What "recently" is measured from; stories pin it. */
   now?: number;
   /** The subscriptions' usage limits, for the meters and the chart's hatched bars. */
   limits?: readonly Limit[];
   providerName?: (providerId: string) => string;
 }) {
-  const [lifecycle, setLifecycle] = useState<Lifecycle>(initialLifecycle);
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
   const toggle = (key: PartKey) =>
     setHidden((current) => {
@@ -165,19 +162,18 @@ export function UsageView({
         <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium">Threads</h2>
           {data === null ? null : (
-            <Segmented
-              label="Threads to list"
-              options={LIFECYCLES.map((option) => ({ ...option, count: threadsIn(data.threads, option.id, now).length }))}
-              value={lifecycle}
-              onChange={setLifecycle}
-            />
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                const { active, archived } = splitArchived(data.threads);
+                return `${active.length} active · ${archived.length} archived`;
+              })()}
+            </p>
           )}
         </div>
         {data === null ? null : (
           <ThreadUsageList
-            threads={threadsIn(data.threads, lifecycle, now)}
+            threads={data.threads}
             bars={data.bars}
-            lifecycle={lifecycle}
             contextThresholds={data.contextThresholds}
             onOpen={onOpenThread}
           />

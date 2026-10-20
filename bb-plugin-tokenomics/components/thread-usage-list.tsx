@@ -2,7 +2,6 @@
 // sparkline of when it used them. Display only.
 import { useState, type MouseEvent } from "react";
 
-import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { totalOf } from "@/usage/breakdown";
 import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage/context";
@@ -13,29 +12,16 @@ import { HoverTip, type TipPosition } from "./hover-tip";
 import { formatSpan } from "./thread-token-count";
 import { TurnDots, TurnDotsAxis, turnStats } from "./turn-dots";
 
-export type Lifecycle = "active" | "recent" | "older";
-
-export const LIFECYCLES: ReadonlyArray<{ id: Lifecycle; label: string }> = [
-  { id: "active", label: "Active" },
-  { id: "recent", label: "Recent" },
-  { id: "older", label: "Older" },
-];
-
-/** How long an archived thread still counts as recently active. */
-export const RECENT_MS = 3 * 24 * 3_600_000;
-
-function lifecycleOf(thread: ThreadUsage, now: number): Lifecycle {
-  if (thread.archivedAt === null) return "active";
-  return now - thread.archivedAt <= RECENT_MS ? "recent" : "older";
-}
-
 /**
- * The threads a lifecycle choice lists: active ones, those archived in the
- * past three days, or those archived before that. Deleted threads count as
- * archived.
+ * The period's threads in two groups, active first, then archived, each
+ * with the most tokens first. Deleted threads count as archived.
  */
-export function threadsIn(threads: readonly ThreadUsage[], lifecycle: Lifecycle, now: number): ThreadUsage[] {
-  return threads.filter((thread) => lifecycleOf(thread, now) === lifecycle);
+export function splitArchived(threads: readonly ThreadUsage[]): { active: ThreadUsage[]; archived: ThreadUsage[] } {
+  const sorted = [...threads].sort((a, b) => totalOf(b) - totalOf(a));
+  return {
+    active: sorted.filter((thread) => thread.archivedAt === null),
+    archived: sorted.filter((thread) => thread.archivedAt !== null),
+  };
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -128,11 +114,6 @@ function RowSpark({ totals, bars }: { totals: readonly number[]; bars: readonly 
   );
 }
 
-const EMPTY: Record<Lifecycle, string> = {
-  active: "No active thread used tokens in this period.",
-  recent: "No thread archived in the past three days used tokens in this period.",
-  older: "No thread archived more than three days ago used tokens in this period.",
-};
 
 /** How an active thread's latest context rates against the settings; archived threads are not rated. */
 export function threadContextLevel(thread: ThreadUsage, thresholds: ContextThresholds): ContextLevel | null {
@@ -148,15 +129,13 @@ const NO_THRESHOLDS: ContextThresholds = { warning: null, error: null };
 export function ThreadUsageList({
   threads,
   bars,
-  lifecycle = "active",
   contextThresholds = NO_THRESHOLDS,
   onOpen,
 }: {
-  /** Already narrowed to the lifecycle; the lifecycle only picks the empty message. */
+  /** Every thread that used tokens in the period, most first. */
   threads: readonly ThreadUsage[];
   /** The page chart's bars, which the sparklines line up with. */
   bars: readonly Bar[];
-  lifecycle?: Lifecycle;
   /** The context settings; rows past them are tinted as Now tints what is due today, then what is overdue. */
   contextThresholds?: ContextThresholds;
   onOpen: (threadId: string) => void;
@@ -167,7 +146,7 @@ export function ThreadUsageList({
         role="status"
         className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
       >
-        {EMPTY[lifecycle]}
+        No thread used tokens in this period.
       </div>
     );
   }
@@ -183,8 +162,9 @@ export function ThreadUsageList({
         </span>
         <span className="hidden w-20 shrink-0 text-right lg:block">Turn time</span>
       </div>
-    <ul className="divide-y divide-border">
-      {threads.map((thread) => {
+      {(() => {
+        const { active, archived } = splitArchived(threads);
+        const row = (thread: ThreadUsage) => {
         const total = totalOf(thread);
         const archived = thread.archivedAt !== null;
         const level = threadContextLevel(thread, contextThresholds);
@@ -226,12 +206,6 @@ export function ThreadUsageList({
                   >
                     {thread.title ?? "Untitled thread"}
                   </span>
-                  {archived ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded border border-border px-1.5 py-px text-[11px] text-muted-foreground">
-                      <Icon name="Archive" className="size-3" />
-                      Archived
-                    </span>
-                  ) : null}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {meta.join(" · ")}
@@ -280,8 +254,26 @@ export function ThreadUsageList({
             </button>
           </li>
         );
-      })}
-    </ul>
+        };
+        return (
+          <>
+            {active.length === 0 ? null : <ul className="divide-y divide-border">{active.map(row)}</ul>}
+            {archived.length === 0 ? null : (
+              <>
+                <h3
+                  className={cn(
+                    "bg-muted/30 px-4 py-1.5 text-[11px] font-medium text-muted-foreground",
+                    active.length > 0 && "border-t border-border",
+                  )}
+                >
+                  Archived · {archived.length}
+                </h3>
+                <ul className="divide-y divide-border border-t border-border">{archived.map(row)}</ul>
+              </>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
