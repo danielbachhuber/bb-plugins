@@ -51,6 +51,10 @@
     "vaul": "^1.1.2",
     "vitest": "^4.1.12"
   },
+  "bbPlugins": {
+    "status": "retired",
+    "note": "Deprecated for now, along with Thread Overview. Kept for reference."
+  },
   "scripts": {
     "build": "bb plugin build",
     "typecheck": "tsc --noEmit",
