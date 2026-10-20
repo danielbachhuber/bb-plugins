@@ -191,12 +191,13 @@ function limit(over: Partial<Limit>): Limit {
     runsOutAt: null,
     tone: "ok",
     lastHourTokens: 6_000_000,
+    sizeTokens: 300_000_000,
     ...over,
   };
 }
 
 function weekly(over: Partial<Limit>): Limit {
-  return limit({ label: "Weekly limit", kind: "weekly", resetsAt: NOW.getTime() + 6 * 24 * HOUR, ...over });
+  return limit({ label: "Weekly limit", kind: "weekly", resetsAt: NOW.getTime() + 6 * 24 * HOUR, sizeTokens: 2_600_000_000, ...over });
 }
 
 const CALM = [limit({}), weekly({ usedPercent: 1, pacePerHour: 0.2, projectedPercent: 34 })];
@@ -253,8 +254,8 @@ export const LimitMeasuring = () => (
   <Page
     initial="day"
     limits={[
-      limit({ usedPercent: 48, pacePerHour: null, projectedPercent: null }),
-      weekly({ usedPercent: 5, pacePerHour: null, projectedPercent: null }),
+      limit({ usedPercent: 48, pacePerHour: null, projectedPercent: null, sizeTokens: null }),
+      weekly({ usedPercent: 5, pacePerHour: null, projectedPercent: null, sizeTokens: null }),
     ]}
   />
 );

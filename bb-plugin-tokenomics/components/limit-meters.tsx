@@ -1,8 +1,9 @@
-// The meters above the chart: each subscription limit's percent used, a
-// lighter fill to where it lands at its reset at the current pace, and a
-// sentence saying so. Display only; app.tsx loads the limits.
+// The meters above the chart: each subscription limit's percent used of
+// about how many tokens it holds, a lighter fill to where it lands at its
+// reset at the current pace, and a sentence saying so. Display only; app.tsx loads the limits.
 import { cn } from "@/lib/utils";
 import type { Limit } from "@/usage/contract";
+import { formatTokens } from "@/usage/series";
 
 /** The context meter's amber, so a warning reads the same everywhere in the plugin. */
 const AMBER = "#d97706";
@@ -40,6 +41,12 @@ export function paceText(limit: Limit): string {
   return `On pace for ${Math.round(Math.min(100, limit.projectedPercent))}% by ${clock(limit.resetsAt, day)}`;
 }
 
+/** "4% of ~300M" once the window's size is known, "4% used" until then. */
+export function usedText(limit: Limit): string {
+  const percent = Math.round(limit.usedPercent);
+  return typeof limit.sizeTokens === "number" ? `${percent}% of ~${formatTokens(limit.sizeTokens)}` : `${percent}% used`;
+}
+
 function toneStyle(limit: Limit) {
   if (limit.tone === "error") return { text: "text-destructive", fill: "bg-destructive", color: undefined };
   if (limit.tone === "warning") return { text: "", fill: "", color: AMBER };
@@ -57,12 +64,12 @@ function LimitMeter({ limit, label }: { limit: Limit; label: string }) {
           <span className="font-medium">{label}</span>
           <span className="ml-1.5 text-muted-foreground">resets {clock(limit.resetsAt, withDay(limit))}</span>
         </span>
-        <span className="shrink-0 tabular-nums text-muted-foreground">{Math.round(limit.usedPercent)}% used</span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">{usedText(limit)}</span>
       </div>
       <div
         className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-muted"
         role="meter"
-        aria-label={`${label}: ${Math.round(limit.usedPercent)}% used. ${paceText(limit)}.`}
+        aria-label={`${label}: ${usedText(limit)} tokens. ${paceText(limit)}.`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={used}
@@ -78,6 +85,7 @@ function LimitMeter({ limit, label }: { limit: Limit; label: string }) {
       </div>
       <p className={cn("mt-1 text-xs", style.text)} style={{ color: style.color }}>
         {paceText(limit)}
+        {limit.sizeTokens === null && <span className="text-muted-foreground"> · sizing the limit</span>}
       </p>
     </div>
   );

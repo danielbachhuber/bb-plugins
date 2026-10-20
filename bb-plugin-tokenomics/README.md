@@ -149,10 +149,18 @@ bar fills in while a thread runs.
 
 Above the chart, a meter for each of your subscription's limits, such as
 Claude Code's **Current session** and **Weekly limit**, shows the percent used
-and when it resets. A lighter fill and a sentence say where it lands at
+of about how many tokens the limit holds, such as "28% of ~300M", and when it
+resets. A lighter fill and a sentence say where it lands at
 the current pace: "On pace for 95% by 8:50 AM", or "On pace to run out at
 6:56 AM, 1h 54m before it resets". A meter turns amber once a limit is on pace for 80%,
 and red once it will run out first.
+
+The size is the tokens your threads used since the window began, divided by
+the percent used, so it's an estimate: the limit isn't counted purely in
+tokens, and use outside bb counts against it too. Early in a window it uses
+the last window's size, read once that one passed 25% for a session or 10% for
+a week, and until there is one it says "sizing the limit". It costs one local
+query per limit each time the page loads the limits.
 
 The session's pace is its past hour, and the weekly limit's is its past day.
 On **Past day**, once the session is amber or red, the chart runs on to its

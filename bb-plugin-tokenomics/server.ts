@@ -2,7 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
-import { limitViews, samplesFromUsage, SLOT_MS } from "./usage/limits.js";
+import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey } from "./usage/limits.js";
 import {
   formatCommands,
   formatThreads,
@@ -343,8 +343,9 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     usage_limits: () => {
       const now = Date.now();
-      // A weekly pace reads the past day, and its baseline the day before.
-      const samples = store.limitSamplesSince(now - 2 * 86_400_000);
+      // A weekly pace reads the past day and its baseline the day before;
+      // a size can read last week's window.
+      const samples = store.limitSamplesSince(now - MAX_WINDOW_MS);
       const lastHour = store.providerTokens(now - 3_600_000, now);
       // A subscription bb reports but no thread used this week, such as one
       // signed in once, shows only when it's close to a limit.
@@ -355,6 +356,11 @@ export default async function plugin(bb: BbPluginApi) {
           .map((view) => ({
           ...view,
           lastHourTokens: lastHour.get(view.providerId) ?? 0,
+          // One query per window, over the latest window read far enough in to tell.
+          sizeTokens: sizeOf(
+            samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
+            (from, to) => store.providerTokens(from, to).get(view.providerId) ?? 0,
+          ),
           // A session lasts five hours and resets on the hour's minute it began.
           ...(view.kind === "five-hour"
             ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }

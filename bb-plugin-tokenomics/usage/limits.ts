@@ -118,6 +118,42 @@ export function viewOf(samples: readonly LimitSample[], now: number): LimitView 
   };
 }
 
+/** How long each kind of window lasts, so its start is its reset less this. */
+export const WINDOW_LENGTH: Record<string, number> = { "five-hour": 5 * HOUR, weekly: 7 * 24 * HOUR };
+
+/**
+ * Below this percent a window's estimate isn't shown: a point of rounding
+ * moves it too much, and so does use bb doesn't see early in a session.
+ */
+export const LEAST_SIZING_PERCENT: Record<string, number> = { "five-hour": 25, weekly: 10 };
+
+/**
+ * About how many tokens the whole window holds: the provider's tokens since
+ * the window began, divided by the share of it they used. The limit isn't
+ * counted purely in tokens, and use outside bb counts against it too, so
+ * this is an estimate. It reads the latest window with a reading of at least
+ * LEAST_SIZING_PERCENT, which is the current one once it gets there and the
+ * one before until then. Null while
+ * no window has such a reading; undefined for a window it can't size, one
+ * for a single model or of an unknown length, since tokens aren't recorded
+ * per model. `samples` are one window's, oldest first.
+ */
+export function sizeOf(
+  samples: readonly LimitSample[],
+  tokensBetween: (from: number, to: number) => number,
+): number | null | undefined {
+  const latest = samples.at(-1);
+  const length = latest === undefined ? undefined : WINDOW_LENGTH[latest.kind];
+  if (latest === undefined || latest.model !== null || length === undefined) return undefined;
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    const sample = samples[index]!;
+    if (sample.usedPercent < LEAST_SIZING_PERCENT[latest.kind]! || sample.usedPercent > 100) continue;
+    const tokens = tokensBetween(sample.resetsAt - length, sample.sampledAt);
+    if (tokens > 0) return tokens / (sample.usedPercent / 100);
+  }
+  return null;
+}
+
 /**
  * One view per window in the latest reading of each account, session first.
  * A window for one model shows only once it has been used, since most

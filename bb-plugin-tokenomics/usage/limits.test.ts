@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { limitViews, pacePerHour, samplesFromUsage, viewOf, type LimitSample } from "./limits.js";
+import { limitViews, pacePerHour, samplesFromUsage, sizeOf, viewOf, type LimitSample } from "./limits.js";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -128,5 +128,31 @@ describe("samplesFromUsage", () => {
       expect.objectContaining({ label: "Fable", model: "fable", kind: "weekly" }),
     ]);
     expect(samples[0]!.resetsAt).toBe(Date.parse("2026-10-20T15:50:00.040Z"));
+  });
+});
+
+describe("sizeOf", () => {
+  const start = SESSION_RESET - 5 * HOUR;
+  // 2M tokens a minute since the session began.
+  const tokens = (from: number, to: number) => (Math.max(0, to - Math.max(from, start)) / MIN) * 2e6;
+
+  it("divides the window's tokens by its share used", () => {
+    // 90 minutes in, 180M tokens at 60%: about 300M in all.
+    expect(sizeOf([sample(10, 50), sample(0, 60)], tokens)).toBeCloseTo(300e6);
+  });
+
+  it("falls back to the window before while this one is under 25%", () => {
+    const before = sample(400, 80, { resetsAt: NOW - 100 * MIN });
+    // 240M tokens in the window before, from its start to its reading at 80%.
+    const read = (from: number, to: number) => (from === before.resetsAt - 5 * HOUR && to === before.sampledAt ? 240e6 : 0);
+    expect(sizeOf([before, sample(0, 20)], read)).toBeCloseTo(300e6);
+  });
+
+  it("is null with no reading at 25% or more", () => {
+    expect(sizeOf([sample(10, 12), sample(0, 20)], tokens)).toBeNull();
+  });
+
+  it("can't size a window for one model", () => {
+    expect(sizeOf([sample(0, 40, { model: "fable" })], tokens)).toBeUndefined();
   });
 });
