@@ -669,31 +669,52 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   };
 
   /**
-   * While the tab shows the Generate button, checks for a Super Diff that
-   * arrived another way, such as an agent running `bb super-diff submit` on
-   * its own. Stops when the tab moves to another thread or target, leaves
-   * idle, or closes; sync starts it again when the tab comes back. Skips the
-   * request while the window is hidden.
+   * While the tab shows the Generate button or a Super Diff, checks for a
+   * newer one stored another way, such as an agent running `bb super-diff
+   * submit` on its own, and shows it. Each check asks only for timestamps;
+   * the Super Diff itself is fetched when one is newer. Stops when the tab
+   * moves to another thread or target, starts generating, or closes; sync
+   * starts it again when the tab comes back. Skips the request while the
+   * window is hidden.
    */
-  const idleWatching = new Set<string>();
-  const watchIdle = async (threadId: string, selection: string) => {
+  const storedWatching = new Set<string>();
+  const acceptedAtOf = (state: ThreadState | undefined) =>
+    state?.phase === "ready" ? state.stored.acceptedAt : state?.phase === "idle" ? null : undefined;
+  const watchStored = async (threadId: string, selection: string) => {
     const key = keyOf(threadId, selection);
-    if (idleWatching.has(key)) return;
-    idleWatching.add(key);
+    if (storedWatching.has(key)) return;
+    storedWatching.add(key);
     try {
       while (!signal.aborted) {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-        if (shownKey !== key || states.get(key)?.phase !== "idle") return;
+        if (shownKey !== key || acceptedAtOf(states.get(key)) === undefined) return;
         if (document.visibilityState === "hidden") continue;
         const context = await contextOf(threadId, selection);
         if (typeof context === "string") return;
+        // A failed request is tried again next time; the tab stays as it is.
+        const version = await callRpc<{ acceptedAt: string | null; requestedAt: string | null }>(pluginId, "superdiff_version", {
+          threadId,
+          target: context.target,
+        }).catch(() => null);
+        const known = acceptedAtOf(states.get(key));
+        if (version === null || known === undefined) continue;
+        const newer = version.acceptedAt !== null && version.acceptedAt !== known;
+        const asked = version.requestedAt !== null && (known === null || known < version.requestedAt);
+        if (!newer && !asked) continue;
         const result = await callRpc<GetResult>(pluginId, "superdiff_get", { threadId, target: context.target }).catch(() => null);
-        // A failed request is tried again next time; the button stays as it is.
-        if (result === null || states.get(key)?.phase !== "idle") continue;
-        if (result.stored !== null || result.requestedAt !== null) return apply(threadId, selection, result);
+        const latest = states.get(key);
+        if (result === null || acceptedAtOf(latest) !== known) continue;
+        const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
+        if (latest?.phase === "ready" && stored !== null && !asked) {
+          // Keeps the loaded diff and whichever view is on show.
+          states.set(key, { ...latest, stored, explaining: result.explaining });
+          schedule();
+          continue;
+        }
+        return apply(threadId, selection, result);
       }
     } finally {
-      idleWatching.delete(key);
+      storedWatching.delete(key);
     }
   };
 
@@ -883,7 +904,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       if (lastSummary !== undefined) void refresh(threadId, selection);
     }
     const state = states.get(key) ?? { phase: "checking" as const };
-    if (state.phase === "idle") void watchIdle(threadId, selection);
+    if (state.phase === "idle" || state.phase === "ready") void watchStored(threadId, selection);
     const fileCount = summary === "No changes" ? 0 : Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
     const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
     rowRoot?.render(

@@ -98,6 +98,11 @@ export const rpcContract = defineRpcContract({
       explaining: z.array(z.object({ path: z.string(), line: z.number(), requestedAt: z.string() })),
     }),
   },
+  /** Only when the stored Super Diff was accepted, and any Generate request for this diff, so the Diff tab can check often. */
+  superdiff_version: {
+    input: z.object({ threadId: z.string().min(1), target: targetSchema }),
+    output: z.object({ acceptedAt: z.string().nullable(), requestedAt: z.string().nullable() }),
+  },
   superdiff_explain: {
     input: z.object({
       threadId: z.string().min(1),
@@ -140,6 +145,9 @@ export default async function plugin(bb: BbPluginApi) {
 
   const selectStored = db.prepare<[string, string], { stored_json: string }>(
     "SELECT stored_json FROM super_diffs WHERE thread_id = ? AND target_key = ?",
+  );
+  const selectAcceptedAt = db.prepare<[string, string], { accepted_at: string | null }>(
+    "SELECT json_extract(stored_json, '$.acceptedAt') AS accepted_at FROM super_diffs WHERE thread_id = ? AND target_key = ?",
   );
   const upsertStored = db.prepare(
     `INSERT INTO super_diffs (thread_id, target_key, stored_json) VALUES (?, ?, ?)
@@ -233,6 +241,14 @@ export default async function plugin(bb: BbPluginApi) {
         .all(threadId, targetKey(target))
         .map((entry) => ({ path: entry.path, line: entry.line, requestedAt: entry.requested_at }));
       return { stored: row?.stored_json ?? null, requestedAt: forThis ? request.requested_at : null, explaining };
+    },
+    superdiff_version: async ({ threadId, target }) => {
+      const request = selectRequest.get(threadId);
+      const forThis = request !== undefined && targetKey(JSON.parse(request.target_json) as DiffTarget) === targetKey(target);
+      return {
+        acceptedAt: selectAcceptedAt.get(threadId, targetKey(target))?.accepted_at ?? null,
+        requestedAt: forThis ? request.requested_at : null,
+      };
     },
     superdiff_explain: async ({ threadId, target, path: filePath, line, text }) => {
       if (selectStored.get(threadId, targetKey(target)) === undefined) throw new Error("Generate a Super Diff for this diff first.");

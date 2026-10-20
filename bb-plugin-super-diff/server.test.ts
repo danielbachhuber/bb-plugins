@@ -105,3 +105,29 @@ describe("bb super-diff --target", () => {
     expect(result.stdout).toContain("### src/a.ts");
   });
 });
+
+describe("superdiff_version", () => {
+  const version = async (harness: Awaited<ReturnType<typeof start>>["harness"], target: object) =>
+    (await harness.behavior.callRpc("superdiff_version", { threadId: "thr_a", target })) as { acceptedAt: string | null; requestedAt: string | null };
+
+  it("moves when a submission from the command line replaces the stored one, so the Diff tab can pick it up", async () => {
+    const { cli, stored, harness } = await start();
+    expect(await version(harness, ALL)).toEqual({ acceptedAt: null, requestedAt: null });
+
+    await cli("submit", submissionFile());
+    const first = await version(harness, ALL);
+    expect(first.acceptedAt).toBe(((await stored(ALL)) as { acceptedAt?: string } | null)?.acceptedAt);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await cli("submit", submissionFile());
+    expect((await version(harness, ALL)).acceptedAt! > first.acceptedAt!).toBe(true);
+    expect(await version(harness, UNCOMMITTED)).toEqual({ acceptedAt: null, requestedAt: null });
+  });
+
+  it("reports a Generate request only for the diff it asked about", async () => {
+    const { harness } = await start();
+    await harness.behavior.callRpc("superdiff_generate", { threadId: "thr_a", target: ALL });
+    expect((await version(harness, ALL)).requestedAt).not.toBeNull();
+    expect((await version(harness, UNCOMMITTED)).requestedAt).toBeNull();
+  });
+});
