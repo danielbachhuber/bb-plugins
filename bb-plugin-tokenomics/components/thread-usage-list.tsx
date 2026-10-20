@@ -9,6 +9,7 @@ import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
 
 import { HoverTip, type TipPosition } from "./hover-tip";
+import { TokenPair } from "./token-pair";
 import { formatSpan } from "./thread-token-count";
 import { TurnDots, TurnDotsAxis, turnStats } from "./turn-dots";
 
@@ -226,17 +227,14 @@ export function ThreadUsageList({
                   <RowSpark totals={threadBars(thread, bars)} bars={bars} />
                 </span>
                 <span
-                  className={cn("w-[60px] shrink-0 whitespace-nowrap text-left tabular-nums", archived && "text-muted-foreground")}
+                  className="w-[60px] shrink-0"
                   title={
                     thread.lifetime !== undefined
                       ? `${total.toLocaleString()} tokens in this period, of ${thread.lifetime.toLocaleString()} in all`
                       : `${total.toLocaleString()} tokens`
                   }
                 >
-                  <span className="block">{formatTokens(total)}</span>
-                  {thread.lifetime !== undefined ? (
-                    <span className="block text-xs text-muted-foreground">of {formatTokens(thread.lifetime)}</span>
-                  ) : null}
+                  <TokenPair period={total} total={thread.lifetime ?? total} muted={archived} />
                 </span>
               </span>
               <span className={cn("hidden lg:block", archived && "opacity-50")}>

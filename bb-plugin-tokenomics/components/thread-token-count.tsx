@@ -10,6 +10,7 @@ import { totalOf, type Tokens } from "@/usage/breakdown";
 import type { TurnDetail, UsageAt } from "@/usage/contract";
 import { formatTokens, niceTicks, timeBuckets, type TimeBucket } from "@/usage/series";
 
+import { TokenPair } from "./token-pair";
 import { PARTS } from "./usage-chart";
 
 export interface ThreadTokens extends Tokens {
@@ -542,13 +543,8 @@ export function ThreadTokenCount({
               <Spark buckets={sparkBuckets(usage.recent)} width={40} height={14} gap={1} />
             </span>
           )}
-          {/* As the page's thread list shows it: the past day's tokens, and the thread's lifetime under them. */}
-          <span className="flex flex-col items-start text-left leading-none">
-            <span className="text-xs">
-              {formatTokens(pastDay)} <span className="text-muted-foreground">past day</span>
-            </span>
-            <span className="mt-0.5 text-[11px] text-muted-foreground">of {formatTokens(usage.total)}</span>
-          </span>
+          {/* As the page's thread list shows it: the past day's tokens over the thread's lifetime. */}
+          <TokenPair period={pastDay} total={usage.total} header />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[400px] p-4">

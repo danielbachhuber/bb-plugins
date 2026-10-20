@@ -45,8 +45,8 @@ reads their transcripts from disk (see [Subagents](#subagents)).
 ![A thread header with a sparkline and "28M tokens", its summary open below: tokens per 15 minutes on a scale, with one spike hovered and the message behind it, the three biggest turns, and the split into new input, cache reads, and output](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--header-open.png)
 
 Once a thread has recorded usage, its header shows a sparkline, its tokens in
-the past day, and its lifetime total under them, such as `12.4M past day`
-over `of 39.5M`, as the page's thread list does. The sparkline splits the
+the past day in bold, and its lifetime total under them, small, after
+Tokenomics' coin stack, as the page's thread list does. The sparkline splits the
 thread's life into up to 20 equal stretches, so a quiet stretch is a gap and a
 burst is a spike. In a narrow pane only the numbers show.
 
@@ -205,9 +205,9 @@ shows:
 - the thread's project, provider, turns, latest context size, and total. A
   thread archived before Tokenomics recorded context has no context size.
 - its tokens in the period, beside a sparkline of when it used them, on the
-  chart's hours or days and scaled to the thread's busiest one. Under the
-  number is the thread's lifetime total, such as "of 174M", which takes one
-  query of Tokenomics' own database per row. A thread still running when you
+  chart's hours or days and scaled to the thread's busiest one. The number is
+  bold, and under it, small and after Tokenomics' coin stack, is the thread's
+  lifetime total, which takes one query of Tokenomics' own database per row. A thread still running when you
   expected it to stop has bars at the right end.
 - how long its turns took, as one dot per turn on a log scale from 10 seconds
   to an hour, with a bar at the median. Most turns take under a minute and a
