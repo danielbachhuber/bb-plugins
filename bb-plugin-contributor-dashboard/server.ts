@@ -13,7 +13,7 @@ import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
-import { PAGE_SIZE, pageOf } from "./dashboard/paging.js";
+import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
 import { runSync } from "./mirror/sync.js";
@@ -186,7 +186,7 @@ export default async function plugin(bb: BbPluginApi) {
       const buckets = bucketsFor(range);
       const prs = store.readActivity(repository, buckets[0].start);
       const authored = authoredPullRequests(prs, login, buckets[0].start, now);
-      const paging = pageOf(authored.length, authoredPage);
+      const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
       return {
         repository,
         login,
@@ -196,7 +196,7 @@ export default async function plugin(bb: BbPluginApi) {
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
         awaiting: withThreads(awaitingReview(store.readActivity(repository, 0), login, now), "pull"),
-        authored: withThreads(authored.slice(paging.offset, paging.offset + PAGE_SIZE), "pull"),
+        authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: status(),
       };

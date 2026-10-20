@@ -4,7 +4,7 @@ import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
-import { PAGE_SIZE, pageOf } from "./dashboard/paging";
+import { AUTHORED_PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { ThreadStatusContext } from "./components/item-row";
@@ -495,7 +495,7 @@ function Person({
   const [selection, setSelection] = useState<Selection>(initial);
   const [authoredPage, setAuthoredPage] = useState(0);
   const page = fixture(selection);
-  const paging = pageOf(authored.length, authoredPage);
+  const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
   return (
     <PersonView
       login={login}
@@ -508,7 +508,7 @@ function Person({
         authorActivity: page.authors.find((person) => person.login === login) ?? null,
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
-        authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),
+        authored: authored.slice(paging.offset, paging.to),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: SYNCED,
       }}
@@ -528,7 +528,7 @@ export const PersonPage = () => (
   </WithThreads>
 );
 
-/** A prolific author: their pull requests page 25 at a time. */
+/** A prolific author: their pull requests page 10 at a time. */
 export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
 
 /** Nobody is waiting on them and they have opened nothing this period. */

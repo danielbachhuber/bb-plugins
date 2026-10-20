@@ -1,7 +1,13 @@
 // Where one page of a long list starts and ends.
 
-/** Rows per page of a person's pull requests. */
+/** Rows per page of a stage's list. */
 export const PAGE_SIZE = 25;
+
+/**
+ * Rows per page of a person's pull requests, fewer than a stage's so the
+ * reviews below them stay within reach.
+ */
+export const AUTHORED_PAGE_SIZE = 10;
 
 export interface Page {
   /** The page actually shown, clamped into range. */

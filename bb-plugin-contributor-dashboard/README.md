@@ -298,7 +298,7 @@ to the dashboard. It shows:
 - **Their pull requests**: the ones they opened that were touched in the
   period, newest first, each with the time to its first review, how many
   follow-up reviews it needed, and the time to merge or how long it has been
-  open. Twenty-five to a page, since an active author can have a few hundred
+  open. Ten to a page, since an active author can have a few hundred
   in a year; the server sends one page at a time.
 - **Reviews**, their two lines from Review Velocity drawn full width.
 - **Waiting on their review**: open pull requests whose latest review request
