@@ -563,6 +563,8 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   let rowHost: HTMLDivElement | null = null;
   let rowRoot: Root | null = null;
   let frame = 0;
+  /** The thread and target the Diff tab is showing, or null when no Diff tab is open. */
+  let shownKey: string | null = null;
 
   // What the list last reported for the row's list of concerns.
   let links: ConcernLink[] = [];
@@ -631,6 +633,28 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     schedule();
   };
 
+  type GetResult = { stored: string | null; requestedAt: string | null; explaining: Explaining[] };
+
+  /** Moves to whatever superdiff_get found: waiting on the agent, a stored Super Diff, or nothing yet. */
+  const apply = (threadId: string, selection: string, result: GetResult) => {
+    const key = keyOf(threadId, selection);
+    const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
+    // A request newer than what is stored means the agent is still working on it.
+    if (result.requestedAt !== null && (stored === null || stored.acceptedAt < result.requestedAt)) {
+      states.set(key, { phase: "generating", requestedAt: result.requestedAt });
+      void poll(threadId, selection, result.requestedAt);
+    } else {
+      // A stored Super Diff opens by default; Original is one click away.
+      states.set(
+        key,
+        stored === null ? { phase: "idle" } : { phase: "ready", showing: "original", stored, data: null, explaining: result.explaining },
+      );
+      if (result.explaining.length > 0) void watchExplains(threadId, selection);
+      if (stored !== null) void show(threadId, selection, "super");
+    }
+    schedule();
+  };
+
   /** Asks the server for a stored Super Diff, once per thread and target. */
   const check = async (threadId: string, selection: string) => {
     const key = keyOf(threadId, selection);
@@ -638,27 +662,38 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     try {
       const context = await contextOf(threadId, selection);
       if (typeof context === "string") return fail(key, context);
-      const result = await callRpc<{ stored: string | null; requestedAt: string | null; explaining: Explaining[] }>(pluginId, "superdiff_get", {
-        threadId,
-        target: context.target,
-      });
-      const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
-      // A request newer than what is stored means the agent is still working on it.
-      if (result.requestedAt !== null && (stored === null || stored.acceptedAt < result.requestedAt)) {
-        states.set(key, { phase: "generating", requestedAt: result.requestedAt });
-        void poll(threadId, selection, result.requestedAt);
-      } else {
-        // A stored Super Diff opens by default; Original is one click away.
-        states.set(
-          key,
-          stored === null ? { phase: "idle" } : { phase: "ready", showing: "original", stored, data: null, explaining: result.explaining },
-        );
-        if (result.explaining.length > 0) void watchExplains(threadId, selection);
-        if (stored !== null) void show(threadId, selection, "super");
-      }
-      schedule();
+      apply(threadId, selection, await callRpc<GetResult>(pluginId, "superdiff_get", { threadId, target: context.target }));
     } catch (cause) {
       fail(key, cause);
+    }
+  };
+
+  /**
+   * While the tab shows the Generate button, checks for a Super Diff that
+   * arrived another way, such as an agent running `bb super-diff submit` on
+   * its own. Stops when the tab moves to another thread or target, leaves
+   * idle, or closes; sync starts it again when the tab comes back. Skips the
+   * request while the window is hidden.
+   */
+  const idleWatching = new Set<string>();
+  const watchIdle = async (threadId: string, selection: string) => {
+    const key = keyOf(threadId, selection);
+    if (idleWatching.has(key)) return;
+    idleWatching.add(key);
+    try {
+      while (!signal.aborted) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        if (shownKey !== key || states.get(key)?.phase !== "idle") return;
+        if (document.visibilityState === "hidden") continue;
+        const context = await contextOf(threadId, selection);
+        if (typeof context === "string") return;
+        const result = await callRpc<GetResult>(pluginId, "superdiff_get", { threadId, target: context.target }).catch(() => null);
+        // A failed request is tried again next time; the button stays as it is.
+        if (result === null || states.get(key)?.phase !== "idle") continue;
+        if (result.stored !== null || result.requestedAt !== null) return apply(threadId, selection, result);
+      }
+    } finally {
+      idleWatching.delete(key);
     }
   };
 
@@ -813,13 +848,17 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     const threadId = threadIdFromPath(window.location.pathname);
     const panel = findPanel(document);
     if (threadId === null || panel === null) {
+      shownKey = null;
       if (listHost !== null && !listHost.isConnected) showOriginal();
       if (rowHost !== null && !rowHost.isConnected) removeRow();
       return;
     }
     const toolbarRoot = panel.root;
     const layout = toolbarRoot.querySelector<HTMLElement>(LAYOUT);
-    if (layout === null) return;
+    if (layout === null) {
+      shownKey = null;
+      return;
+    }
     const summaryEl = toolbarRoot.querySelector(SUMMARY);
     const summary = summaryEl?.getAttribute("title") ?? summaryEl?.textContent ?? "";
     const selection = readSelection(toolbarRoot);
@@ -836,6 +875,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       rowRoot = createRoot(rowHost);
     }
     const key = keyOf(threadId, selection);
+    shownKey = key;
     if (!states.has(key)) void check(threadId, selection);
     const lastSummary = summaries.get(key);
     if (summary !== "" && summary !== lastSummary) {
@@ -843,6 +883,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       if (lastSummary !== undefined) void refresh(threadId, selection);
     }
     const state = states.get(key) ?? { phase: "checking" as const };
+    if (state.phase === "idle") void watchIdle(threadId, selection);
     const fileCount = summary === "No changes" ? 0 : Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
     const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
     rowRoot?.render(

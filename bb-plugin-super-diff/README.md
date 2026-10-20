@@ -34,7 +34,7 @@ An agent can write a Super Diff without anyone pressing Generate, such as at the
 
 ## Requirements
 
-A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. Each Explain this forks the thread once, then checks for the note every 2 seconds until it is stored. Showing the Super Diff reads the diff from bb, and reads it again when bb's file or line counts change: one request for the file list and one per 50 files for patches. Nothing calls GitHub.
+A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. While the Diff tab shows the Generate button and the window is in front, it also checks every 2 seconds for a Super Diff an agent submitted from the command line, and stops when the tab closes or moves to another thread. Each Explain this forks the thread once, then checks for the note every 2 seconds until it is stored. Showing the Super Diff reads the diff from bb, and reads it again when bb's file or line counts change: one request for the file list and one per 50 files for patches. Nothing calls GitHub.
 
 ## Related plugins
 
