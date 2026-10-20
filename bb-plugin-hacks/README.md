@@ -131,12 +131,12 @@ minutes without a daemon it stops trying.
 
 ### Is the checkout behind origin
 
-Each project header in the sidebar shows whether the project's checkout is
-behind the branch it tracks on its remote, usually `origin/main`. An amber
-dot marks a checkout that is behind, has diverged, or failed to pull when you
-clicked, and stays visible, centered on the row. Hovering the row shows a
-sync icon beside bb's own buttons, with the dot moved to its corner and a
-tooltip saying how far behind or ahead the branch is.
+Hovering a project header in the sidebar shows a sync icon beside bb's own
+buttons, telling you whether the project's checkout is behind the branch it
+tracks on its remote, usually `origin/main`. An amber dot on the icon's
+corner marks a checkout that is behind, has diverged, or failed to pull when
+you clicked, and the tooltip says how far behind or ahead the branch is.
+Nothing shows until you hover.
 Clicking it fetches, and pulls when that is safe:
 
 | State | Dot | A click |
@@ -250,8 +250,8 @@ The checkout indicator finds the same project headers the same way, then:
 
 | Anchor | Used for |
 | --- | --- |
-| `data-sidebar-trailing-controls` | The header's trailing controls. The indicator goes before the hover actions inside them, so its dot shows without hovering |
-| `bb-sidebar-hover-actions` | bb's hover-reveal class, on the sync icon, and on the whole indicator when there is no dot |
+| `data-sidebar-trailing-controls` | The header's trailing controls. The indicator goes before the hover actions inside them, so the spinner can show without hovering |
+| `bb-sidebar-hover-actions` | bb's hover-reveal class, on the whole indicator except while a click is fetching |
 | `--warning`, `--warning-text`, `--sidebar` | bb's theme colors for the dot, the failure icon, and the ring around the dot |
 
 That card parsing is a trimmed copy of the same code in Diff Viewed. The two

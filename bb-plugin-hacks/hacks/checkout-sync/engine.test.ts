@@ -95,16 +95,15 @@ afterEach(() => {
 });
 
 describe("checkout sync", () => {
-  it("draws before the hover actions, with a dot that shows without hovering when behind", async () => {
+  it("draws before the hover actions, showing only on hover, with a dot when behind", async () => {
     const widgets = renderProject("proj_widgets", "widgets");
     start();
     await settle();
 
     const indicator = indicatorIn(widgets)!;
     expect(indicator.nextElementSibling?.hasAttribute("data-hover")).toBe(true);
-    expect(indicator.classList.contains("bb-sidebar-hover-actions")).toBe(false);
+    expect(indicator.classList.contains("bb-sidebar-hover-actions")).toBe(true);
     expect(indicator.querySelector("[data-checkout-sync-dot]")).not.toBeNull();
-    expect(indicator.querySelector("svg")!.classList.contains("bb-sidebar-hover-actions")).toBe(true);
     expect(indicator.getAttribute("aria-label")).toBe(
       "widgets: main is 3 commits behind origin/main. Click to pull.",
     );

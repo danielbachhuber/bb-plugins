@@ -4,8 +4,8 @@
 // in bb's `TopLevelSidebarSection.tsx`), before the hover actions rather than
 // inside them. The sync icon shows only while the row is hovered, like the
 // buttons beside it, using bb's own hover-actions class. A checkout that is
-// out of date, or whose last pull failed, also carries an amber dot, which
-// stays visible without hovering.
+// out of date, or whose last pull failed, also carries an amber dot at the
+// icon's corner.
 import type { CheckoutStatus, Indicator } from "./rules";
 
 /** Marks the indicator this hack adds, so a pass can find and remove its own. */
@@ -117,8 +117,6 @@ export function draw(
   const iconClass = newThread.querySelector("svg")?.getAttribute("class") ?? null;
   const flagged = needsDot(indicator.tone);
   const glyph = icon(doc, !busy && indicator.tone === "error" ? "triangle" : "sync", iconClass, busy);
-  // While fetching, the spinner shows without hovering, so a click is answered.
-  if (!busy) glyph.classList.add(HOVER_ONLY_CLASS);
   if (indicator.tone === "error") glyph.style.color = "var(--warning-text)";
   button.replaceChildren(glyph, ...(flagged && !busy ? [dot(doc)] : []));
 
@@ -128,9 +126,9 @@ export function draw(
   button.disabled = busy;
   button.setAttribute("data-tone", indicator.tone);
 
-  // With no dot and no spinner there is nothing to see at rest, so the whole
-  // button hides until hover, keeping the invisible button from taking clicks.
-  button.classList.toggle(HOVER_ONLY_CLASS, !flagged && !busy);
+  // The button shows only while the row is hovered, keeping the invisible
+  // button from taking clicks, except while fetching, so a click is answered.
+  button.classList.toggle(HOVER_ONLY_CLASS, !busy);
 }
 
 /** Whether a tone carries the out-of-date dot: behind, diverged, or a failed pull. */
@@ -138,40 +136,15 @@ export function needsDot(tone: Indicator["tone"]): boolean {
   return tone === "behind" || tone === "diverged" || tone === "error";
 }
 
-/**
- * Where the dot sits: centered on the row at rest, where it reads as a mark
- * beside the name, then at the sync icon's top right while the icon shows.
- * The hover rule matches bb's own for revealing row actions.
- */
-export const DOT_STYLE = `
-[data-checkout-sync-dot] {
-  top: 50%;
-  right: 50%;
-  transform: translate(50%, -50%);
-}
-.bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible)) [data-checkout-sync-dot] {
-  top: 5px;
-  right: 5px;
-  transform: none;
-}
-`;
-
-/** Adds DOT_STYLE to the document once. Returns a function that removes it. */
-export function installDotStyle(doc: Document): () => void {
-  const style = doc.createElement("style");
-  style.setAttribute(INDICATOR_ATTR, "");
-  style.textContent = DOT_STYLE;
-  doc.head.append(style);
-  return () => style.remove();
-}
-
-/** The amber dot, ringed in the sidebar's color. DOT_STYLE places it. */
+/** The amber dot, ringed in the sidebar's color, at the icon's top right. */
 function dot(doc: Document): HTMLSpanElement {
   const span = doc.createElement("span");
   span.setAttribute("data-checkout-sync-dot", "");
   span.setAttribute("aria-hidden", "true");
   Object.assign(span.style, {
     position: "absolute",
+    top: "5px",
+    right: "5px",
     width: "7px",
     height: "7px",
     borderRadius: "999px",
