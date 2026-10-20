@@ -5,13 +5,15 @@ isn't worth it. The goal is to weigh each thread's cost against the business
 value of the work it did. Today Tokenomics covers the cost. It doesn't record
 what a thread produced, so the weighing is up to you.
 
-It shows cost in four places:
+It shows cost in five places:
 
 - **A sparkline in each thread's header**, with the thread's total. Click it
   to see which of your messages used the most tokens and time.
 - **A context meter above the composer**, once a thread's context passes a
   size you set, with a button that compacts it. The sidebar counts these
   threads in amber and red.
+- **Your session in bb's title bar**, as a spark chart of its tokens and its
+  percent used, amber or red once it's headed for its limit.
 - **A Tokenomics page** in the sidebar, with your subscription's usage limits
   and where they're headed, tokens by hour or day, where turn time went, and
   the threads that used the most.
@@ -160,6 +162,21 @@ open: one request to bb, which asks each provider that reports usage. It
 keeps the readings for nine days. A provider no thread used this week shows
 only when it's close to a limit. With more than one subscription, each one's
 meters sit under its provider's name.
+
+### In the title bar
+
+![Five title-bar buttons for a session: calm at 10%, amber at 28% with hatched bars for the time left, red at 52% with the hatching turning red, used up at 100%, and 48% while measuring the pace](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--title-bar.png)
+
+After the other plugins' buttons in bb's title bar, the session shows as a
+spark chart of its tokens per 15 minutes, from its start to its reset, so the
+empty space on the right is the time left, then its percent used. Once the
+session is amber or red, the time left fills with hatched bars at the past
+hour's pace, red past the point it runs out, as on the page's chart. Hover it
+for the meters; click it to open the page. With two subscriptions, it shows
+the session closer to its limit.
+
+It reads the same limits as the page, again when a turn's usage is recorded,
+from Tokenomics' own database, so it makes no requests to a provider.
 
 ### Where turn time goes
 

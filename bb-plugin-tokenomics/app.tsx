@@ -15,7 +15,9 @@ import { SidebarLevels } from "@danielbachhuber/bb-plugin-component-library/side
 
 import { ContextMeter } from "@/components/context-meter";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
+import { TopBarLimits, urgentSession } from "@/components/limit-spark";
 import { UsageView, type UsageData } from "@/components/usage-view";
+import { TopBarSlot } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 
 import type { rpcContract } from "./server";
 import { contextLevel, type ContextThresholds } from "./usage/context.js";
@@ -67,7 +69,7 @@ function useUsage(range: RangeId) {
   return { data, error };
 }
 
-/** The subscriptions' usage limits, re-read after each reading the server stores. */
+/** The subscriptions' usage limits, re-read after each reading the server stores and each turn's usage. */
 function useLimits(): Limit[] {
   const rpc = useRpc<typeof rpcContract>();
   const [limits, setLimits] = useState<Limit[]>([]);
@@ -76,17 +78,57 @@ function useLimits(): Limit[] {
   }, [rpc]);
   useEffect(load, [load]);
   useRealtime(LIMITS_CHANNEL, load);
+  // The past hour's tokens and the session's spark change with each turn.
+  useRealtime(USAGE_CHANNEL, load);
   return limits;
+}
+
+function useProviderName() {
+  const providers = experimental_useProviders();
+  return (providerId: string) =>
+    providers.providers.find((provider) => provider.id === providerId)?.displayName ?? providerId;
+}
+
+/**
+ * The session in bb's title bar, after the other plugins' buttons: its spark
+ * chart and percent, the page's meters on hover, and the page on click. With
+ * two subscriptions it shows the one closer to its limit. Draws nothing
+ * until a provider reports a session.
+ */
+function LimitsTopBar() {
+  const limits = useLimits();
+  const providerName = useProviderName();
+  const navigate = useBbNavigate();
+  // The spark's empty slots are the time left, so it redraws as time passes.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  const session = urgentSession(limits);
+  if (session === null) return null;
+  const account = limits.filter(
+    (limit) => limit.providerId === session.providerId && limit.accountKey === session.accountKey,
+  );
+  return (
+    <TopBarSlot pluginId="tokenomics" order={4} activeOn={["/plugins/tokenomics/tokenomics"]}>
+      <TopBarLimits
+        session={session}
+        limits={account}
+        now={now}
+        providerName={providerName}
+        onOpen={() => navigate.toPluginPanel("tokenomics")}
+      />
+    </TopBarSlot>
+  );
 }
 
 function TokenomicsPage() {
   const [range, setRange] = useState<RangeId>("day");
   const { data, error } = useUsage(range);
   const limits = useLimits();
-  const providers = experimental_useProviders();
+  const providerName = useProviderName();
   const navigate = useBbNavigate();
-  const providerName = (providerId: string) =>
-    providers.providers.find((provider) => provider.id === providerId)?.displayName ?? providerId;
   return (
     <UsageView
       range={range}
@@ -271,6 +313,8 @@ export default definePluginApp((app) => {
     component: TokenomicsPage,
     experimental_sidebarAccessory: ContextLevelsAccessory,
   });
+
+  app.slots.experimental_appOverlay({ id: "limits-top-bar", component: LimitsTopBar });
 
   app.slots.experimental_threadHeaderAction({
     id: "thread-tokens",

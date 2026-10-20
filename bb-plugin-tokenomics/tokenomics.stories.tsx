@@ -10,6 +10,7 @@ import { INERT_TYPEAHEAD_COMMAND_CONFIG } from "@bb-app/components/promptbox/Pro
 import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 
 import { ContextMeter, type ContextMeterProps } from "./components/context-meter";
+import { TopBarLimits } from "./components/limit-spark";
 import {
   ThreadTokenCount,
   ThreadTokenSummary,
@@ -256,7 +257,7 @@ export const LimitMeasuring = () => (
   />
 );
 
-/** Two subscriptions: each meter names its provider. */
+/** Two subscriptions: each one's meters sit under its provider's name. */
 export const LimitTwoSubscriptions = () => (
   <Page
     initial="day"
@@ -637,4 +638,42 @@ export const ThreadWithMeter = () => (
     headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} />}
     stack={<ContextMeter {...METER} usedTokens={620_000} level="error" />}
   />
+);
+
+/** Tokens per 15 minutes since the session began 90 minutes before NOW: quiet stretches and spikes. */
+const SESSION_SLOTS = [2, 9, 4, 0, 12, 7].map((m) => m * 1_000_000);
+
+// A stand-in for the left end of bb's title bar: the sidebar toggle, then the button.
+function TitleBarRow({ label, session, weeklyLimit }: { label: string; session: Limit; weeklyLimit: Limit }) {
+  return (
+    <StoryRow label={label}>
+      <div className="flex h-10 w-80 items-center gap-1.5 bg-background px-3">
+        <span className="inline-block size-7" />
+        <TopBarLimits
+          session={session}
+          limits={[session, weeklyLimit]}
+          now={NOW.getTime()}
+          providerName={() => "Claude Code"}
+          onOpen={() => undefined}
+        />
+      </div>
+    </StoryRow>
+  );
+}
+
+/** The session in bb's title bar, after the other plugins' buttons: its tokens per 15 minutes from its start to its reset, so the empty space is the time left, and its percent. Once it's amber or red, the time left fills with hatched bars at the past hour's pace. Hovering shows the page's meters; clicking opens the page. */
+export const TitleBar = () => (
+  <div data-screenshot-frame className="w-[720px] p-4">
+  <StoryCard>
+    <TitleBarRow label="Calm" session={limit({ slots: SESSION_SLOTS.map((m) => m * 0.35) })} weeklyLimit={CALM[1]!} />
+    <TitleBarRow label="On pace for 95%" session={{ ...ON_PACE[0]!, slots: SESSION_SLOTS, lastHourTokens: 23_000_000 }} weeklyLimit={ON_PACE[1]!} />
+    <TitleBarRow label="Runs out first" session={{ ...RUNS_OUT[0]!, slots: SESSION_SLOTS.map((m) => m * 1.6), lastHourTokens: 37_000_000 }} weeklyLimit={RUNS_OUT[1]!} />
+    <TitleBarRow
+      label="Used up"
+      session={limit({ usedPercent: 100, runsOutAt: NOW.getTime(), tone: "error", projectedPercent: 205, slots: [...SESSION_SLOTS, 3, 11, 14, 6, 8, 13, 5, 10, 15, 9].map((m) => (m < 100 ? m * 1_000_000 : m)) })}
+      weeklyLimit={RUNS_OUT[1]!}
+    />
+    <TitleBarRow label="Measuring" session={limit({ usedPercent: 48, pacePerHour: null, projectedPercent: null, slots: SESSION_SLOTS })} weeklyLimit={weekly({ usedPercent: 5, pacePerHour: null, projectedPercent: null })} />
+  </StoryCard>
+  </div>
 );

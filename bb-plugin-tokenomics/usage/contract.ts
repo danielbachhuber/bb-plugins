@@ -83,6 +83,8 @@ export const limitSchema = z.object({
   tone: z.enum(["ok", "warning", "error"]),
   /** The provider's tokens in the past hour, for the chart's bars at this pace. */
   lastHourTokens: z.number(),
+  /** A session's tokens in each 15 minutes since it began, oldest first, for the title bar's spark chart. */
+  slots: z.array(z.number()).optional(),
 });
 
 export type Limit = z.infer<typeof limitSchema>;

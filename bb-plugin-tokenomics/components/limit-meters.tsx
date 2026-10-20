@@ -93,9 +93,11 @@ const accountOf = (limit: Limit) => `${limit.providerId}:${limit.accountKey ?? "
 export function LimitMeters({
   limits,
   providerName,
+  className = "mt-3",
 }: {
   limits: readonly Limit[];
   providerName: (providerId: string) => string;
+  className?: string;
 }) {
   if (limits.length === 0) return null;
   const accounts = new Map<string, Limit[]>();
@@ -107,9 +109,9 @@ export function LimitMeters({
       ))}
     </div>
   );
-  if (accounts.size === 1) return <div className="mt-3">{row(limits)}</div>;
+  if (accounts.size === 1) return <div className={className}>{row(limits)}</div>;
   return (
-    <div className="mt-3 space-y-3">
+    <div className={cn("space-y-3", className)}>
       {[...accounts.entries()].map(([key, group]) => (
         <section key={key} aria-label={providerName(group[0]!.providerId)}>
           <h3 className="mb-1 text-xs text-muted-foreground">{providerName(group[0]!.providerId)}</h3>

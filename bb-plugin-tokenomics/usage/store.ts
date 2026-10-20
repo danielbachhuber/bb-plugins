@@ -203,6 +203,16 @@ export function createStore(db: Database) {
      FROM limit_samples WHERE sampled_at >= ? ORDER BY sampled_at`,
   );
   const deleteLimitSamples = db.prepare(`DELETE FROM limit_samples WHERE sampled_at < ?`);
+  const selectProviderSlots = db.prepare(
+    // Bound numbers arrive as reals, so the slot is cast back to a whole number.
+    `SELECT CAST((u.created_at - ?) / ? AS INTEGER) AS slot, sum(u.input + u.cache_read + u.output) AS total
+     FROM (SELECT thread_id, created_at, input, cache_read, output FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output FROM subagent_calls) u
+       JOIN threads t ON t.thread_id = u.thread_id
+     WHERE t.provider_id = ? AND u.created_at >= ? AND u.created_at < ?
+     GROUP BY slot`,
+  );
   const recordLimits = db.transaction((samples: readonly LimitSample[]) => {
     for (const sample of samples) {
       insertLimitSample.run(
@@ -603,6 +613,15 @@ export function createStore(db: Database) {
 
     pruneLimitSamples(before: number): void {
       deleteLimitSamples.run(before);
+    },
+
+    /** One provider's tokens in each `size` slot from `from` up to `to`, oldest first, subagents included. */
+    providerSlots(providerId: string, from: number, to: number, size: number): number[] {
+      const count = Math.max(0, Math.ceil((to - from) / size));
+      const slots = Array.from({ length: count }, () => 0);
+      const rows = selectProviderSlots.all(from, size, providerId, from, to) as Array<{ slot: number; total: number }>;
+      for (const row of rows) if (row.slot >= 0 && row.slot < count) slots[row.slot] = row.total;
+      return slots;
     },
 
     /** Each provider's tokens in [from, to), subagents included. */

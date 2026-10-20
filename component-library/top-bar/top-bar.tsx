@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 
 import { SidebarCount } from "../sidebar-count/sidebar-count";
@@ -171,6 +171,46 @@ const CHIP =
   "inline-flex h-7 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md bg-transparent pl-2 pr-1 text-muted-foreground transition-colors duration-150 hover:bg-state-hover hover:text-foreground hover:duration-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring aria-[current=page]:bg-state-active aria-[current=page]:text-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
 
 /**
+ * A button in bb's top bar, drawn as the other plugins' buttons are, around
+ * whatever it shows. On the page it opens it shows as current, as
+ * `TopBarCount` does.
+ */
+export function TopBarButton({
+  label,
+  onClick,
+  active,
+  className = "",
+  children,
+  ref,
+  ...rest
+}: {
+  /** The button's name, such as "Open Tokenomics". */
+  label: string;
+  onClick: () => void;
+  /** Whether its page is open. Inside a `TopBarSlot`, the slot works this out from `activeOn`. */
+  active?: boolean;
+  className?: string;
+  children: ReactNode;
+  /** For a popover or tooltip trigger wrapped around it. */
+  ref?: Ref<HTMLButtonElement>;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "children" | "className">) {
+  const current = useContext(ActiveContext);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label={label}
+      aria-current={active ?? current ? "page" : undefined}
+      {...rest}
+      className={`${CHIP} ${className}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
  * A page's counts in bb's top bar, as a button that opens the page: its
  * icon, then the same counts `SidebarCount` draws beside its name in the
  * sidebar. At a total of zero only the icon shows. On the page it opens it
@@ -196,18 +236,10 @@ export function TopBarCount({
   soon?: number;
   soonLabel?: string;
 }) {
-  const current = useContext(ActiveContext);
   return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-current={active ?? current ? "page" : undefined}
-      title={label}
-      className={`${CHIP} ${counts.total === 0 ? "pr-2" : ""}`}
-      onClick={onClick}
-    >
+    <TopBarButton label={label} title={label} onClick={onClick} active={active} className={counts.total === 0 ? "pr-2" : ""}>
       {icon}
       <SidebarCount {...counts} />
-    </button>
+    </TopBarButton>
   );
 }

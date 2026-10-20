@@ -1,0 +1,138 @@
+// The session in bb's title bar: its tokens per 15 minutes from its start to
+// its reset, so the empty space on the right is the time left, and its
+// percent. Once the session is on pace for the warning or will run out, the
+// slots still to come fill with hatched bars at the past hour's pace, red past
+// the point it runs out, as the page's chart does. Hovering shows the page's
+// meters. Display only; app.tsx loads the limits.
+import { useState } from "react";
+
+import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import type { Limit } from "@/usage/contract";
+import { SLOT_MS } from "@/usage/limits";
+
+import { LimitMeters, paceText } from "./limit-meters";
+
+/** A session lasts five hours: 20 slots of 15 minutes. */
+const SLOTS = 20;
+const WIDTH = 80;
+const HEIGHT = 18;
+const AMBER = "#d97706";
+
+function toneColor(limit: Limit): string | undefined {
+  return limit.tone === "error" ? "var(--destructive)" : limit.tone === "warning" ? AMBER : undefined;
+}
+
+/** The hatched slots: which ones are still to come, and from which one the session has run out. */
+export function paceSlots(limit: Limit, now: number): { from: number; out: number | null } | null {
+  if (limit.tone === "ok" || limit.pacePerHour === null || limit.usedPercent >= 100) return null;
+  const start = limit.resetsAt - SLOTS * SLOT_MS;
+  const from = Math.min(SLOTS, Math.ceil((now - start) / SLOT_MS));
+  const out = limit.runsOutAt === null ? null : Math.floor((limit.runsOutAt - start) / SLOT_MS);
+  return { from, out };
+}
+
+export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
+  const slots = (limit.slots ?? []).slice(0, SLOTS);
+  const pace = paceSlots(limit, now);
+  const perSlot = limit.lastHourTokens / 4;
+  const most = Math.max(1, ...slots, pace === null ? 0 : perSlot);
+  const slot = WIDTH / SLOTS;
+  const bar = Math.max(1, slot - 1);
+  const color = toneColor(limit) ?? "currentColor";
+  const height = (tokens: number) => (tokens === 0 ? 0 : Math.max(1, (tokens / most) * HEIGHT));
+  return (
+    // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
+    <svg width={WIDTH} height={HEIGHT} aria-hidden className="shrink-0" style={{ width: WIDTH, height: HEIGHT }}>
+      {pace === null ? null : (
+        <defs>
+          <pattern id="tokenomics-spark-pace" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" strokeWidth="2" className="stroke-muted-foreground/60" />
+          </pattern>
+          <pattern id="tokenomics-spark-out" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" strokeWidth="2" className="stroke-destructive" />
+          </pattern>
+        </defs>
+      )}
+      <line x1={0} x2={WIDTH} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
+      {slots.map((tokens, index) =>
+        tokens === 0 ? null : (
+          <rect key={index} x={index * slot} y={HEIGHT - height(tokens)} width={bar} height={height(tokens)} rx={0.5} style={{ fill: color }} />
+        ),
+      )}
+      {pace === null
+        ? null
+        : Array.from({ length: SLOTS - pace.from }, (_, k) => {
+            const index = pace.from + k;
+            const out = pace.out !== null && index >= pace.out;
+            return (
+              <rect
+                key={index}
+                x={index * slot}
+                y={HEIGHT - height(perSlot)}
+                width={bar}
+                height={height(perSlot)}
+                fill={out ? "url(#tokenomics-spark-out)" : "url(#tokenomics-spark-pace)"}
+              />
+            );
+          })}
+    </svg>
+  );
+}
+
+/**
+ * The title bar's button: the session's spark chart and percent. Hovering
+ * opens the meters for every limit of the session's subscription; clicking
+ * opens the Tokenomics page.
+ */
+export function TopBarLimits({
+  session,
+  limits,
+  now,
+  providerName,
+  onOpen,
+}: {
+  session: Limit;
+  /** Every limit of the session's subscription, for the popover. */
+  limits: readonly Limit[];
+  now: number;
+  providerName: (providerId: string) => string;
+  onOpen: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const color = toneColor(session);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <TopBarButton
+          label={`${session.label}: ${Math.round(session.usedPercent)}% used. ${paceText(session)}. Open Tokenomics`}
+          onClick={() => {
+            setOpen(false);
+            onOpen();
+          }}
+          onPointerEnter={() => setOpen(true)}
+          onPointerLeave={() => setOpen(false)}
+          className="pr-2"
+        >
+          <SessionSpark limit={session} now={now} />
+          <span className={color === undefined ? "text-xs tabular-nums" : "text-xs font-semibold tabular-nums"} style={{ color }}>
+            {Math.round(session.usedPercent)}%
+          </span>
+        </TopBarButton>
+      </PopoverAnchor>
+      <PopoverContent align="start" className="pointer-events-none w-[440px] p-3" onOpenAutoFocus={(event) => event.preventDefault()}>
+        <LimitMeters limits={limits} providerName={providerName} className="" />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * The session the title bar shows: the most urgent one, then the most used,
+ * so with two subscriptions the one closer to its limit wins.
+ */
+export function urgentSession(limits: readonly Limit[]): Limit | null {
+  const rank = { error: 0, warning: 1, ok: 2 } as const;
+  const sessions = limits.filter((limit) => limit.kind === "five-hour");
+  return [...sessions].sort((a, b) => rank[a.tone] - rank[b.tone] || b.usedPercent - a.usedPercent)[0] ?? null;
+}

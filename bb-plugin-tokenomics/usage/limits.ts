@@ -48,6 +48,9 @@ const PACE_SPAN: Record<string, { lookback: number; least: number }> = {
   weekly: { lookback: 24 * HOUR, least: HOUR },
 };
 
+/** The width of each of a session's slots in the title bar's spark chart. */
+export const SLOT_MS = 15 * MINUTE;
+
 /** Past this projected percent a limit is amber. */
 export const WARNING_PERCENT = 80;
 

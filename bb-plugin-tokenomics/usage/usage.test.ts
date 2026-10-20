@@ -218,3 +218,15 @@ describe("archived threads", () => {
     ]);
   });
 });
+
+describe("providerSlots", () => {
+  it("sums a provider's tokens into 15-minute slots from the start", async () => {
+    const store = openStore();
+    const { source } = fakeSource([usageEvent(1, T0 + 5 * 60_000, 1_000, 1_000), usageEvent(2, T0 + 20 * 60_000, 2_000, 3_000)]);
+    await createSync(store, source).syncThread(thread);
+    // A start with a fraction, as a real reset time has, still lands on whole slots.
+    const slots = store.providerSlots("claude-code", T0 + 0.5, T0 + 40 * 60_000, 15 * 60_000);
+    expect(slots).toEqual([1_000, 2_000, 0]);
+    expect(store.providerSlots("codex", T0, T0 + 40 * 60_000, 15 * 60_000)).toEqual([0, 0, 0]);
+  });
+});
