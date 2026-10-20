@@ -146,11 +146,13 @@ with `git add bb-plugin-now` instead of by file.
   not change, with `git -C <screenshots dir> checkout -- <path>` and
   `git clean` for new files.
 
-## Screenshot the stories after you commit
+## Screenshot the stories after a visual change
 
 Every story is photographed into a separate repository,
 `danielbachhuber/bb-plugins-screenshots`, so the history of how each plugin
-looks lives there instead of bloating this one. After you push a commit here:
+looks lives there instead of bloating this one. After you push a commit that
+changes what a story draws, such as a component, a story, a stylesheet, or a
+fixture:
 
 ```sh
 npm run screenshots:isolated   # build, capture, list the images that changed
@@ -167,9 +169,10 @@ made from `origin/main`. Committing from that worktree rebases onto
 `origin/main`, pushes, and removes the worktree. A run that finds no changes,
 or fails, removes it too.
 
-Run it after every commit, not only visual ones: a change to a shared
-component alters stories that its commit never touched. The capture finds
-those itself. It photographs only the stories that import a file changed
+Skip it for a commit that changes nothing a story draws, such as server code,
+an RPC handler, tests, or prose. A change to a shared component still counts,
+even when your own plugin looks the same, because it alters other plugins'
+stories. The capture finds those itself. It photographs only the stories that import a file changed
 since the bb-plugins commit the screenshots repository last captured,
 following imports through the shared packages each plugin links, and leaves the other images as they are. A change to the
 capture's own setup (`.ladle/`, `scripts/ladle.mjs`, `scripts/screenshots.mjs`,
