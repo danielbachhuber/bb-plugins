@@ -9,7 +9,7 @@ import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/perio
 import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { FlowDiagram } from "./flow-diagram";
-import { FlowChart } from "./flow-chart";
+import { FlowChart, PullRequestFlowChart } from "./flow-chart";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
 import { ReleasesSection } from "./releases-section";
@@ -153,23 +153,11 @@ export function DashboardView({
               </p>
               <VelocitySection
                 overview={
-                  <FlowChart
+                  <PullRequestFlowChart
                     title="All pull requests"
                     flows={data.velocity.merge}
                     buckets={data.buckets}
                     unit={unitOfBuckets(data.buckets)}
-                    arrived="opened"
-                    finished="merged"
-                    finishedColor={AUTHOR_SERIES.second.color}
-                    // An open pull request is only waiting on someone once a reviewer is asked.
-                    openLines={(i) => [
-                      <>
-                        <tspan fontWeight={600}>{data.velocity.merge.open[i]}</tspan> open at its end
-                      </>,
-                      <>
-                        <tspan fontWeight={600}>{data.velocity.merge.asked?.[i] ?? 0}</tspan> with a reviewer asked
-                      </>,
-                    ]}
                   />
                 }
                 id="pr-velocity"

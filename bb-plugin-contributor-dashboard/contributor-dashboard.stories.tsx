@@ -481,6 +481,12 @@ function manyAuthored(total: number) {
   }));
 }
 
+/** One author's opened and merged counts, flowing as PR velocity's do. */
+function authorFlowsFor(author: { opened: number[]; merged: number[] } | undefined, length: number): BucketFlows {
+  if (author === undefined) return flowsFor(Array(length).fill(0), Array(length).fill(0), 0, 0.6, 0, 0);
+  return flowsFor(author.opened, author.merged, 3, 0.6, 0.8, 4.1);
+}
+
 function Person({
   initial = { kind: "preset", id: "6w" },
   awaiting = AWAITING,
@@ -505,7 +511,7 @@ function Person({
         repository: "acme/widgets",
         login,
         buckets: page.buckets,
-        authorActivity: page.authors.find((person) => person.login === login) ?? null,
+        authorFlows: authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length),
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
         authored: authored.slice(paging.offset, paging.to),

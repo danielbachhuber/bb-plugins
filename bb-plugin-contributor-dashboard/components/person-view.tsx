@@ -3,12 +3,13 @@
 // requests waiting on their review. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
-import { authorRow, reviewerRow } from "@/review/velocity";
+import { reviewerRow } from "@/review/velocity";
 
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
-import { AUTHOR_SERIES, PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
+import { PullRequestFlowChart } from "./flow-chart";
+import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 
 /**
  * A review that landed in 50 minutes is not "0.0d", so anything under a
@@ -106,21 +107,18 @@ export function PersonView({
         {data === null ? null : (
           <>
             <section className="mt-6" aria-labelledby="person-pull-requests">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="person-pull-requests" className="text-base font-semibold">
-                  Pull requests
-                </h2>
-                <SeriesLegend series={AUTHOR_SERIES} />
-              </div>
-              {data.authorActivity === null ? (
+              <h2 id="person-pull-requests" className="text-base font-semibold">
+                Pull requests
+              </h2>
+              {data.authorFlows.started.every((count) => count === 0) &&
+              data.authorFlows.finished.every((count) => count === 0) ? (
                 <p className="mt-3 text-sm text-muted-foreground">No pull requests opened or merged in this period.</p>
               ) : (
                 <div className="mt-3">
-                  <PersonChart
-                    person={authorRow(data.authorActivity)}
-                    series={AUTHOR_SERIES}
+                  <PullRequestFlowChart
+                    title={`${login}'s pull requests`}
+                    flows={data.authorFlows}
                     buckets={data.buckets}
-                    max={Math.max(1, ...data.authorActivity.opened, ...data.authorActivity.merged)}
                     unit={unitOfBuckets(data.buckets)}
                   />
                 </div>

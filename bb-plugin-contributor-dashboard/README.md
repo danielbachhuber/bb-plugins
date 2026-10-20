@@ -293,8 +293,10 @@ Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
 to the dashboard. It shows:
 
-- **Pull requests**, the pull requests they opened and the ones that merged,
-  their two lines from PR Velocity drawn full width.
+- **Pull requests**, PR Velocity's opening chart for only their pull
+  requests: what they opened and merged in each bucket, which merged in the
+  same bucket and which bled into a later one, and how many were open at each
+  bucket's end.
 - **Their pull requests**: the ones they opened that were touched in the
   period, newest first, each with the time to its first review, how many
   follow-up reviews it needed, and the time to merge or how long it has been

@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import type { BucketFlows } from "@/dashboard/contract";
 import type { Bucket, BucketUnit } from "@/dashboard/period";
 
+import { AUTHOR_SERIES } from "./person-chart";
 import { days } from "./stage-flow";
 
 // Colours are written out rather than set as Tailwind classes: bb's stylesheet
@@ -164,5 +165,42 @@ export function FlowChart({
         <line x1={LEFT} x2={W - RIGHT} y1={bottom} y2={bottom} stroke="currentColor" strokeOpacity={0.25} />
       </svg>
     </div>
+  );
+}
+
+/**
+ * Pull requests opened and merged, as PR velocity draws them for everyone and
+ * a person's page draws them for one author.
+ */
+export function PullRequestFlowChart({
+  title,
+  flows,
+  buckets,
+  unit,
+}: {
+  title: string;
+  flows: BucketFlows;
+  buckets: readonly Bucket[];
+  unit: BucketUnit;
+}) {
+  return (
+    <FlowChart
+      title={title}
+      flows={flows}
+      buckets={buckets}
+      unit={unit}
+      arrived="opened"
+      finished="merged"
+      finishedColor={AUTHOR_SERIES.second.color}
+      // An open pull request is only waiting on someone once a reviewer is asked.
+      openLines={(i) => [
+        <>
+          <tspan fontWeight={600}>{flows.open[i]}</tspan> open at its end
+        </>,
+        <>
+          <tspan fontWeight={600}>{flows.asked?.[i] ?? 0}</tspan> with a reviewer asked
+        </>,
+      ]}
+    />
   );
 }

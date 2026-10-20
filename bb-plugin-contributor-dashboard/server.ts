@@ -172,7 +172,7 @@ export default async function plugin(bb: BbPluginApi) {
           repository: null,
           login,
           buckets: [],
-          authorActivity: null,
+          authorFlows: NO_FLOWS,
           activity: null,
           awaiting: [],
           authored: [],
@@ -186,16 +186,19 @@ export default async function plugin(bb: BbPluginApi) {
       const buckets = bucketsFor(range);
       const prs = store.readActivity(repository, buckets[0].start);
       const authored = authoredPullRequests(prs, login, buckets[0].start, now);
+      // Every stored pull request, as PR velocity reads them, so one opened
+      // before the period still counts where it merged or stayed open.
+      const everything = store.readActivity(repository, 0);
       const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
       return {
         repository,
         login,
         buckets,
-        authorActivity: authorActivity(prs, buckets).find((person) => person.login === login) ?? null,
+        authorFlows: mergeFlows(everything.filter((pr) => pr.author?.login === login), buckets, now),
         activity: peopleActivity(prs, buckets).find((person) => person.login === login) ?? null,
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
-        awaiting: withThreads(awaitingReview(store.readActivity(repository, 0), login, now), "pull"),
+        awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         sync: status(),
