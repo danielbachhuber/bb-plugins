@@ -104,6 +104,23 @@ If what the user said leaves more than one of these possible, ask one
 question to settle it, and offer your best guess as the first answer. Do not
 ask about what you can see in the thread.
 
+Then write down three answers, in plain words, before looking for a fix.
+They open the view you show the user (see "Choose the fix"):
+
+- **What you expected:** what the user would have seen if Impromptu UI had
+  worked, such as "the commit question above the composer with Yes and No
+  buttons, as it was the last two times".
+- **What happened instead:** what they saw, with the reply's words quoted,
+  such as "the reply ended on \"Should I commit them and push the Doc?\" in
+  chat, with nothing above the composer".
+- **Why:** the cause, in terms of what the agent knew and did, such as "the
+  instructions already tell it to ask this question above the composer, and
+  it had them, but it skipped the check on a quick follow-up edit". If you
+  cannot tell why, say so rather than guessing.
+
+Leave out commit hashes, event and field names, and words like "steer" from
+these answers. They are for someone who saw the thread, not the code.
+
 ### 2. Look for a way that already works
 
 If the moment is still open in that thread and no view went up for it,
@@ -302,6 +319,12 @@ not replace the view the user is still working in, in one section titled
 **Ways to change it**, with `"dismissLabel": "Not this"`. Give each card one
 button, `{ "type": "message", "label": "Do this one", "text": "Do the
 Impromptu UI change \"<card title>\"" }`, and put your recommendation first.
+Set the view's `summary` to the three answers from "Work out what went
+wrong", each as its own bolded line (**What you expected**, **What happened
+instead**, **Why**), so the user knows what is being fixed before reading
+any option. Write each card the same way: what the user would see change,
+then what it costs, without naming events, fields, or files outside the
+card's `changes`.
 If Impromptu UI is not available or is what broke, list them in chat instead
 and ask which to do. The user may pick more than one; each filed issue links
 the others among its alternatives.
