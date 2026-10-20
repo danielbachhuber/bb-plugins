@@ -1,7 +1,8 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { CONTEXT_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { limitViews, samplesFromUsage } from "./usage/limits.js";
 import {
   formatCommands,
   formatThreads,
@@ -192,6 +193,43 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  // Every five minutes, one reading of each provider's usage limits: one
+  // request to bb, which asks each provider that reports usage. The pace the
+  // page shows comes from these readings, so they run whether or not the page
+  // is open.
+  const LIMITS_EVERY_MS = 5 * 60_000;
+  // A reading older than three polls means the provider stopped reporting.
+  const LIMITS_STALE_MS = 3 * LIMITS_EVERY_MS;
+  let limitsPolledAt: number | null = null;
+  let limitsError: string | null = null;
+  async function pollLimits(): Promise<void> {
+    const now = Date.now();
+    try {
+      store.recordLimitSamples(samplesFromUsage(await bb.sdk.system.usageLimits(), now));
+      store.pruneLimitSamples(now - MAX_WINDOW_MS);
+      limitsPolledAt = now;
+      limitsError = null;
+    } catch (error) {
+      limitsError = messageOf(error);
+      bb.log.warn(`reading usage limits failed: ${limitsError}`);
+    }
+    bb.realtime.publish(LIMITS_CHANNEL, {});
+  }
+  bb.background.service("limits", {
+    async start(signal) {
+      while (!signal.aborted) {
+        await pollLimits();
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, LIMITS_EVERY_MS);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      }
+    },
+  });
+
   async function contextThresholds(): Promise<ContextThresholds> {
     const { contextWarningAt, contextErrorAt } = await settings.get();
     return { warning: parseThreshold(contextWarningAt), error: parseThreshold(contextErrorAt) };
@@ -303,6 +341,25 @@ export default async function plugin(bb: BbPluginApi) {
   const TOP_COMMANDS = 3;
 
   bb.rpc.register(rpcContract, {
+    usage_limits: () => {
+      const now = Date.now();
+      // A weekly pace reads the past day, and its baseline the day before.
+      const samples = store.limitSamplesSince(now - 2 * 86_400_000);
+      const lastHour = store.providerTokens(now - 3_600_000, now);
+      // A subscription bb reports but no thread used this week, such as one
+      // signed in once, shows only when it's close to a limit.
+      const thisWeek = store.providerTokens(now - 7 * 86_400_000, now);
+      return {
+        limits: limitViews(samples, now, LIMITS_STALE_MS)
+          .filter((view) => thisWeek.has(view.providerId) || view.tone !== "ok")
+          .map((view) => ({
+          ...view,
+          lastHourTokens: lastHour.get(view.providerId) ?? 0,
+        })),
+        polledAt: limitsPolledAt,
+        error: limitsError,
+      };
+    },
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
       const [names, thresholds] = await Promise.all([projectNames(), contextThresholds()]);

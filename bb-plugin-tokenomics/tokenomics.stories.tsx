@@ -17,7 +17,7 @@ import {
   type ThreadTokens,
 } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
-import type { ThreadUsage, TurnDetail, TurnTimeBreakdown } from "./usage/contract";
+import type { Limit, ThreadUsage, TurnDetail, TurnTimeBreakdown } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
 export default {
@@ -171,14 +171,51 @@ function dataFor(range: RangeId, recordingSince?: number): UsageData {
   };
 }
 
+const MINUTE = 60_000;
+
+/** A subscription's limit as the server reports it, from the session that began 90 minutes before NOW. */
+function limit(over: Partial<Limit>): Limit {
+  return {
+    providerId: "claude-code",
+    accountKey: "acct_acme",
+    label: "Current session",
+    kind: "five-hour",
+    usedPercent: 10,
+    resetsAt: NOW.getTime() + 210 * MINUTE,
+    sampledAt: NOW.getTime() - 2 * MINUTE,
+    pacePerHour: 6,
+    projectedPercent: 31,
+    runsOutAt: null,
+    tone: "ok",
+    lastHourTokens: 6_000_000,
+    ...over,
+  };
+}
+
+function weekly(over: Partial<Limit>): Limit {
+  return limit({ label: "Weekly limit", kind: "weekly", resetsAt: NOW.getTime() + 6 * 24 * HOUR, ...over });
+}
+
+const CALM = [limit({}), weekly({ usedPercent: 1, pacePerHour: 0.2, projectedPercent: 34 })];
+const ON_PACE = [
+  limit({ usedPercent: 28, pacePerHour: 19, projectedPercent: 94.5, tone: "warning", lastHourTokens: 12_000_000 }),
+  weekly({ usedPercent: 3, pacePerHour: 0.43, projectedPercent: 75 }),
+];
+const RUNS_OUT = [
+  limit({ usedPercent: 52, pacePerHour: 30, projectedPercent: 157, runsOutAt: NOW.getTime() + 96 * MINUTE, tone: "error", lastHourTokens: 19_000_000 }),
+  weekly({ usedPercent: 6, pacePerHour: 0.5, projectedPercent: 78 }),
+];
+
 function Page({
   initial,
   recordingSince,
   initialHovered,
+  limits = CALM,
 }: {
   initial: RangeId;
   recordingSince?: number;
   initialHovered?: number;
+  limits?: Limit[];
 }) {
   const [range, setRange] = useState<RangeId>(initial);
   return (
@@ -190,6 +227,8 @@ function Page({
       onOpenThread={() => undefined}
       initialHovered={initialHovered}
       now={NOW.getTime()}
+      limits={limits}
+      providerName={(id) => (id === "codex" ? "Codex" : "Claude Code")}
     />
   );
 }
@@ -199,6 +238,35 @@ export const PastDay = () => <Page initial="day" />;
 // The plugin's README embeds this one.
 /** The past day with a busy hour hovered, so its tooltip shows. */
 export const PastDayHovered = () => <Page initial="day" initialHovered={20} />;
+
+/** A session on pace for 95% by its reset: the meter turns amber, and the chart runs on to the reset with hatched bars at the past hour's pace. */
+export const LimitOnPace = () => <Page initial="day" limits={ON_PACE} />;
+
+/** A session that runs out before it resets: red, with the hatched bars red past the point it runs out. */
+export const LimitRunsOut = () => <Page initial="day" limits={RUNS_OUT} />;
+
+/** Right after Tokenomics starts reading the limits, before there's a pace to project. */
+export const LimitMeasuring = () => (
+  <Page
+    initial="day"
+    limits={[
+      limit({ usedPercent: 48, pacePerHour: null, projectedPercent: null }),
+      weekly({ usedPercent: 5, pacePerHour: null, projectedPercent: null }),
+    ]}
+  />
+);
+
+/** Two subscriptions: each meter names its provider. */
+export const LimitTwoSubscriptions = () => (
+  <Page
+    initial="day"
+    limits={[
+      ...ON_PACE,
+      limit({ providerId: "codex", accountKey: "acct_gadgets", usedPercent: 4, pacePerHour: 1, projectedPercent: 8 }),
+      weekly({ providerId: "codex", accountKey: "acct_gadgets", usedPercent: 12, pacePerHour: 0.1, projectedPercent: 26 }),
+    ]}
+  />
+);
 
 export const PastThreeDays = () => <Page initial="three-days" />;
 

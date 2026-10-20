@@ -2,7 +2,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-export { CONTEXT_CHANNEL, USAGE_CHANNEL } from "./channels.js";
+export { CONTEXT_CHANNEL, LIMITS_CHANNEL, USAGE_CHANNEL } from "./channels.js";
 
 /** The page's longest range is a week; allow a little over for clock skew. */
 export const MAX_WINDOW_MS = 9 * 24 * 3_600_000;
@@ -68,7 +68,37 @@ export const turnTimeSchema = z.object({
 
 export type TurnTimeBreakdown = z.infer<typeof turnTimeSchema>;
 
+/** A subscription's usage limit window and where it's headed. See limits.ts. */
+export const limitSchema = z.object({
+  providerId: z.string(),
+  accountKey: z.string().nullable(),
+  label: z.string(),
+  kind: z.string(),
+  usedPercent: z.number(),
+  resetsAt: z.number(),
+  sampledAt: z.number(),
+  pacePerHour: z.number().nullable(),
+  projectedPercent: z.number().nullable(),
+  runsOutAt: z.number().nullable(),
+  tone: z.enum(["ok", "warning", "error"]),
+  /** The provider's tokens in the past hour, for the chart's bars at this pace. */
+  lastHourTokens: z.number(),
+});
+
+export type Limit = z.infer<typeof limitSchema>;
+
 export const rpcContract = defineRpcContract({
+  /** Each subscription's limits from the latest reading, for the meters above the chart. */
+  usage_limits: {
+    input: z.null(),
+    output: z.object({
+      limits: z.array(limitSchema),
+      /** When the providers were last read; null before the first reading. */
+      polledAt: z.number().nullable(),
+      /** Why the last reading failed, if it did. */
+      error: z.string().nullable(),
+    }),
+  },
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),
     output: z.object({

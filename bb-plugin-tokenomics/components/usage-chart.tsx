@@ -78,9 +78,12 @@ export function barLabel(bar: Bar, unit: "hour" | "day"): string {
 export function UsageLegend({
   hidden,
   onToggle,
+  pace = false,
 }: {
   hidden: ReadonlySet<PartKey>;
   onToggle: (key: PartKey) => void;
+  /** Adds the hatched bars' key, while the chart draws them. */
+  pace?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -102,8 +105,39 @@ export function UsageLegend({
           </button>
         );
       })}
+      {pace ? (
+        <span className="inline-flex items-center gap-1.5 px-1 py-0.5">
+          <svg className="size-2.5 rounded-sm" aria-hidden>
+            <rect width="10" height="10" fill="url(#tokenomics-pace)" />
+          </svg>
+          At the past hour's pace
+        </span>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * Hatched bars for the hours still to come, at the past hour's pace, until a
+ * limit resets. Red from the point the limit runs out.
+ */
+export interface Projection {
+  /** Now: the hatching starts here. */
+  from: number;
+  /** When the limit resets: the hatching stops here. */
+  until: number;
+  tokensPerHour: number;
+  runsOutAt: number | null;
+}
+
+/** The tokens the projection adds to a bar, for the part of it between `from` and `until`. */
+export function projectedTokens(bar: Bar, projection: Projection): number {
+  const overlap = Math.min(bar.end, projection.until) - Math.max(bar.start, projection.from);
+  return overlap <= 0 ? 0 : (projection.tokensPerHour * overlap) / 3_600_000;
+}
+
+function resetLabel(time: number): string {
+  return new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 export function UsageChart({
@@ -111,30 +145,45 @@ export function UsageChart({
   unit,
   hidden,
   initialHovered = null,
+  projection = null,
 }: {
   bars: readonly Bar[];
   unit: "hour" | "day";
   hidden: ReadonlySet<PartKey>;
   /** A bar to show hovered on first render, so a story can draw the tooltip. */
   initialHovered?: number | null;
+  projection?: Projection | null;
 }) {
   const { ref, width } = useWidth();
   const [hovered, setHovered] = useState<number | null>(initialHovered);
   const parts = PARTS.filter((part) => !hidden.has(part.key));
   const shownTotal = (bar: Bar) => parts.reduce((sum, part) => sum + bar[part.key], 0);
+  const ghost = (bar: Bar) => (projection === null ? 0 : projectedTokens(bar, projection));
 
-  const ticks = niceTicks(Math.max(0, ...bars.map(shownTotal)));
+  const ticks = niceTicks(Math.max(0, ...bars.map((bar) => shownTotal(bar) + ghost(bar))));
   const top = ticks.at(-1)!;
   const plotWidth = Math.max(0, width - AXIS_WIDTH);
   const slot = bars.length === 0 ? 0 : plotWidth / bars.length;
   const barWidth = Math.max(1, slot - Math.max(GAP, slot * 0.2));
   const y = (value: number) => TOP + (top === 0 ? PLOT_HEIGHT : PLOT_HEIGHT - (value / top) * PLOT_HEIGHT);
   const hoveredBar = hovered === null ? undefined : bars[hovered];
+  const span = bars.length === 0 ? 1 : bars.at(-1)!.end - bars[0]!.start;
+  const xAt = (time: number) => AXIS_WIDTH + ((time - (bars[0]?.start ?? 0)) / span) * plotWidth;
 
   return (
     <div ref={ref} className="relative w-full" onMouseLeave={() => setHovered(null)}>
       {width > 0 ? (
         <svg width={width} height={TOP + PLOT_HEIGHT + LABEL_HEIGHT} role="img" aria-label={`Tokens used per ${unit}`}>
+          {projection === null ? null : (
+            <defs>
+              <pattern id="tokenomics-pace" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" strokeWidth="3" className="stroke-muted-foreground/45" />
+              </pattern>
+              <pattern id="tokenomics-pace-out" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <line x1="0" y1="0" x2="0" y2="6" strokeWidth="3" className="stroke-destructive/70" />
+              </pattern>
+            </defs>
+          )}
           {ticks.map((tick) => (
             <g key={tick}>
               <line
@@ -181,6 +230,16 @@ export function UsageChart({
                     <rect key={part.key} x={x} y={yTop} width={barWidth} height={segmentHeight} className={part.fill} />
                   );
                 })}
+                {projection === null || ghost(bar) === 0 ? null : (
+                  <path
+                    d={roundedTop(x, y(shownTotal(bar) + ghost(bar)), barWidth, Math.max(0, y(shownTotal(bar)) - y(shownTotal(bar) + ghost(bar)) - (shownTotal(bar) > 0 ? GAP : 0)))}
+                    fill={
+                      projection.runsOutAt !== null && Math.max(bar.start, projection.from) >= projection.runsOutAt
+                        ? "url(#tokenomics-pace-out)"
+                        : "url(#tokenomics-pace)"
+                    }
+                  />
+                )}
                 {label === null ? null : (
                   <text
                     x={x + barWidth / 2}
@@ -202,6 +261,41 @@ export function UsageChart({
               </g>
             );
           })}
+          {projection === null ? null : (
+            <g className="pointer-events-none">
+              <line
+                x1={xAt(projection.until)}
+                x2={xAt(projection.until)}
+                y1={TOP}
+                y2={TOP + PLOT_HEIGHT}
+                strokeDasharray="3 2"
+                className="stroke-muted-foreground"
+              />
+              <text x={xAt(projection.until) - 4} y={TOP + 10} textAnchor="end" className="fill-muted-foreground text-[11px]">
+                resets {resetLabel(projection.until)}
+              </text>
+              {projection.runsOutAt === null ? null : (
+                <>
+                  <line
+                    x1={xAt(projection.runsOutAt)}
+                    x2={xAt(projection.runsOutAt)}
+                    y1={TOP}
+                    y2={TOP + PLOT_HEIGHT}
+                    strokeDasharray="3 2"
+                    className="stroke-destructive"
+                  />
+                  <text
+                    x={xAt(projection.runsOutAt) - 4}
+                    y={TOP + 26}
+                    textAnchor="end"
+                    className="fill-destructive text-[11px] font-medium"
+                  >
+                    runs out {resetLabel(projection.runsOutAt)}
+                  </text>
+                </>
+              )}
+            </g>
+          )}
         </svg>
       ) : (
         <div style={{ height: TOP + PLOT_HEIGHT + LABEL_HEIGHT }} />
@@ -224,6 +318,12 @@ export function UsageChart({
             <span className="flex-1">Total</span>
             <span className="tabular-nums">{formatTokens(totalOf(hoveredBar))}</span>
           </p>
+          {ghost(hoveredBar) === 0 ? null : (
+            <p className="flex text-muted-foreground">
+              <span className="flex-1">At this pace</span>
+              <span className="tabular-nums">+{formatTokens(ghost(hoveredBar))}</span>
+            </p>
+          )}
         </div>
       )}
       <table className="sr-only">

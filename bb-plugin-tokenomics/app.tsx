@@ -7,6 +7,7 @@ import {
   useComposerView,
   useRealtime,
   useRpc,
+  experimental_useProviders,
   type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 
@@ -18,8 +19,8 @@ import { UsageView, type UsageData } from "@/components/usage-view";
 
 import type { rpcContract } from "./server";
 import { contextLevel, type ContextThresholds } from "./usage/context.js";
-import { CONTEXT_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
-import type { TurnDetail } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, LIMITS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
+import type { Limit, TurnDetail } from "./usage/contract.js";
 import { fillBars, windowFor, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
@@ -66,10 +67,26 @@ function useUsage(range: RangeId) {
   return { data, error };
 }
 
+/** The subscriptions' usage limits, re-read after each reading the server stores. */
+function useLimits(): Limit[] {
+  const rpc = useRpc<typeof rpcContract>();
+  const [limits, setLimits] = useState<Limit[]>([]);
+  const load = useCallback(() => {
+    rpc.call("usage_limits", null).then((result) => setLimits(result.limits), () => undefined);
+  }, [rpc]);
+  useEffect(load, [load]);
+  useRealtime(LIMITS_CHANNEL, load);
+  return limits;
+}
+
 function TokenomicsPage() {
   const [range, setRange] = useState<RangeId>("day");
   const { data, error } = useUsage(range);
+  const limits = useLimits();
+  const providers = experimental_useProviders();
   const navigate = useBbNavigate();
+  const providerName = (providerId: string) =>
+    providers.providers.find((provider) => provider.id === providerId)?.displayName ?? providerId;
   return (
     <UsageView
       range={range}
@@ -77,6 +94,8 @@ function TokenomicsPage() {
       data={data}
       error={error}
       onOpenThread={(threadId) => navigate.toThread(threadId)}
+      limits={limits}
+      providerName={providerName}
     />
   );
 }

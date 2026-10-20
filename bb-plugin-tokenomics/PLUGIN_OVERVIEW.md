@@ -4,7 +4,7 @@ A sparkline and token total in **each thread's header**. Click it for the thread
 
 A **context meter above the composer** once a thread's context passes 300K tokens. It turns red past 550K. Every model call reads the whole context again, so at 500K a turn of 40 calls costs 20M tokens. **Compact** asks bb to compact the thread. The sidebar counts these threads in amber and red, so you can find them without opening each one.
 
-A **Tokenomics page** in the sidebar. It charts tokens per hour over the past day or three days, or per day over the past week, split into new input, cache reads, and output. **Where turn time goes** splits turns into the model's time, tools, and waiting on you, and names the slowest shell commands. The thread list ranks threads by tokens, with each one's context size, a sparkline, and a dot per turn showing its length.
+A **Tokenomics page** in the sidebar. Meters for your subscription's session and weekly limits say where each is headed at the current pace, such as "Runs out at 6:56 AM, 1h 54m before it resets", and the chart runs on to the reset with hatched bars once a session is close. It charts tokens per hour over the past day or three days, or per day over the past week, split into new input, cache reads, and output. **Where turn time goes** splits turns into the model's time, tools, and waiting on you, and names the slowest shell commands. The thread list ranks threads by tokens, with each one's context size, a sparkline, and a dot per turn showing its length.
 
 ## For scripts and agents
 
@@ -27,6 +27,7 @@ The goal is to weigh each thread's cost against the business value of the work i
 ## Requirements
 
 - Works with any provider that reports token usage to bb.
-- Counts tokens, not dollars. No cost estimates or quota view.
+- Counts tokens, not dollars. No cost estimates.
+- Usage limits need a provider that reports them to bb, such as Claude Code or Codex. Tokenomics reads them every five minutes.
 - Counts subagent tokens only for Claude Code threads that ran on the same machine as bb.
 - No account or outside service.

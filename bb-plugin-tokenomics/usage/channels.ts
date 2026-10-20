@@ -8,3 +8,6 @@ export const USAGE_CHANNEL = "usage-changed";
 
 /** Published with `{ threadIds }` after a thread's context size is recorded. */
 export const CONTEXT_CHANNEL = "context-changed";
+
+/** Published after a new reading of the subscriptions' usage limits is stored. */
+export const LIMITS_CHANNEL = "limits-changed";

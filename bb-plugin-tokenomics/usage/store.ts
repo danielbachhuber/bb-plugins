@@ -7,6 +7,7 @@
 import type { Database } from "better-sqlite3";
 
 import type { ContextRow } from "./context.js";
+import type { LimitSample } from "./limits.js";
 import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
@@ -116,6 +117,20 @@ export const MIGRATIONS = [
      PRIMARY KEY (thread_id, message_id)
    )`,
   `CREATE INDEX IF NOT EXISTS subagent_calls_created_at_idx ON subagent_calls (created_at)`,
+  // One row per reading of a subscription's usage limit window, polled from
+  // the providers, so the page can tell the pace each is used at.
+  `CREATE TABLE IF NOT EXISTS limit_samples (
+     provider_id TEXT NOT NULL,
+     account_key TEXT NOT NULL,
+     label TEXT NOT NULL,
+     kind TEXT NOT NULL,
+     model TEXT,
+     sampled_at INTEGER NOT NULL,
+     used_percent REAL NOT NULL,
+     resets_at INTEGER NOT NULL,
+     PRIMARY KEY (provider_id, account_key, label, sampled_at)
+   )`,
+  `CREATE INDEX IF NOT EXISTS limit_samples_sampled_at_idx ON limit_samples (sampled_at)`,
 ];
 
 export interface ThreadInfo {
@@ -177,6 +192,40 @@ export interface ThreadTotal {
 const HOUR_MS = 3_600_000;
 
 export function createStore(db: Database) {
+  const insertLimitSample = db.prepare(
+    `INSERT OR IGNORE INTO limit_samples
+       (provider_id, account_key, label, kind, model, sampled_at, used_percent, resets_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const selectLimitSamples = db.prepare(
+    `SELECT provider_id AS providerId, nullif(account_key, '') AS accountKey, label, kind, model,
+            sampled_at AS sampledAt, used_percent AS usedPercent, resets_at AS resetsAt
+     FROM limit_samples WHERE sampled_at >= ? ORDER BY sampled_at`,
+  );
+  const deleteLimitSamples = db.prepare(`DELETE FROM limit_samples WHERE sampled_at < ?`);
+  const recordLimits = db.transaction((samples: readonly LimitSample[]) => {
+    for (const sample of samples) {
+      insertLimitSample.run(
+        sample.providerId,
+        sample.accountKey ?? "",
+        sample.label,
+        sample.kind,
+        sample.model,
+        sample.sampledAt,
+        sample.usedPercent,
+        sample.resetsAt,
+      );
+    }
+  });
+  const selectProviderTokens = db.prepare(
+    `SELECT coalesce(t.provider_id, '') AS providerId, sum(u.input + u.cache_read + u.output) AS total
+     FROM (SELECT thread_id, created_at, input, cache_read, output FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output FROM subagent_calls) u
+       LEFT JOIN threads t ON t.thread_id = u.thread_id
+     WHERE u.created_at >= ? AND u.created_at < ?
+     GROUP BY t.provider_id`,
+  );
   const insertUsage = db.prepare(
     `INSERT OR IGNORE INTO usage
        (event_id, thread_id, created_at, input, cache_read, output, running_total)
@@ -541,6 +590,25 @@ export function createStore(db: Database) {
       insertMeta.run("started_at", String(now));
       const row = selectMeta.get("started_at") as { value: string };
       return Number(row.value);
+    },
+
+    /** Stores one reading of each limit window. */
+    recordLimitSamples(samples: readonly LimitSample[]): void {
+      recordLimits(samples);
+    },
+
+    limitSamplesSince(since: number): LimitSample[] {
+      return selectLimitSamples.all(since) as LimitSample[];
+    },
+
+    pruneLimitSamples(before: number): void {
+      deleteLimitSamples.run(before);
+    },
+
+    /** Each provider's tokens in [from, to), subagents included. */
+    providerTokens(from: number, to: number): Map<string, number> {
+      const rows = selectProviderTokens.all(from, to) as Array<{ providerId: string; total: number }>;
+      return new Map(rows.map((row) => [row.providerId, row.total]));
     },
 
     hoursSince(since: number): HourUsage[] {

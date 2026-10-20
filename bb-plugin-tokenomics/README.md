@@ -12,8 +12,9 @@ It shows cost in four places:
 - **A context meter above the composer**, once a thread's context passes a
   size you set, with a button that compacts it. The sidebar counts these
   threads in amber and red.
-- **A Tokenomics page** in the sidebar, with tokens by hour or day, where turn
-  time went, and the threads that used the most.
+- **A Tokenomics page** in the sidebar, with your subscription's usage limits
+  and where they're headed, tokens by hour or day, where turn time went, and
+  the threads that used the most.
 - **`bb tokenomics`**, which prints the same numbers for scripts and agents.
 
 Tokenomics counts tokens, not dollars. bb deletes old usage events, so the
@@ -138,6 +139,28 @@ other two.
 The page reloads when new usage is recorded and once a minute, so the newest
 bar fills in while a thread runs.
 
+### Usage limits
+
+![The Tokenomics page with a red Current session meter, 52% used, saying it runs out at 3:56 PM, 1h 54m before it resets, and the chart running on to the reset with hatched bars, red past the point it runs out](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/tokenomics/page--limit-runs-out.png)
+
+Above the chart, a meter for each of your subscription's limits, such as
+Claude Code's **Current session** and **Weekly limit**, shows the percent used
+and when it resets. A lighter fill and a sentence say where it lands at
+the current pace: "On pace for 95% by 8:50 AM", or "Runs out at 6:56 AM, 1h
+54m before it resets". A meter turns amber once a limit is on pace for 80%,
+and red once it will run out first.
+
+The session's pace is its past hour, and the weekly limit's is its past day.
+On **Past day**, once the session is amber or red, the chart runs on to its
+reset with hatched bars at the past hour's tokens, red past the point it runs
+out.
+
+Tokenomics reads the limits every five minutes, whether or not the page is
+open: one request to bb, which asks each provider that reports usage. It
+keeps the readings for nine days. A provider no thread used this week shows
+only when it's close to a limit. With more than one subscription, each one's
+meters sit under its provider's name.
+
 ### Where turn time goes
 
 Under the chart, the period's finished turns are split into the model's time,
@@ -240,8 +263,11 @@ tokenomics threads` to pick which ones to read.
 - **Receipts** (`receipts`) breaks token use and estimated cost down by model,
   project, and day. Tokenomics breaks it down by thread and by hour.
 - **Usage Bar** (`usage-bar`) shows provider quotas and reset times above the
-  sidebar footer, with daily and monthly token totals. Tokenomics has no quota
-  view.
+  sidebar footer, with daily and monthly token totals. **Usage Limits** shows
+  the same quota windows across connected hosts, and
+  **Provider usage**, bundled with bb, shows them in a sidebar card and in
+  settings. Tokenomics reads the same limits, and adds where each is headed
+  at the current pace, drawn on its token chart.
 - **Auto Compact** (`auto-compact`) compacts a thread on its own once its
   context reaches a percentage of the window. Tokenomics warns at a token
   count you set, counts those threads in the sidebar, and leaves compacting to

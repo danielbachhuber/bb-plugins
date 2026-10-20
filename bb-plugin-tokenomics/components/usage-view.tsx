@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { addTokens, totalOf, ZERO_TOKENS } from "@/usage/breakdown";
-import type { ThreadUsage, TurnTimeBreakdown as Breakdown } from "@/usage/contract";
+import type { Limit, ThreadUsage, TurnTimeBreakdown as Breakdown } from "@/usage/contract";
 import { formatTokens, RANGES, type Bar, type RangeId } from "@/usage/series";
 
 import { Segmented } from "@danielbachhuber/bb-plugin-component-library/segmented";
@@ -11,7 +11,8 @@ import type { ContextThresholds } from "@/usage/context";
 
 import { TurnTimeBreakdown } from "./turn-time-breakdown";
 import { LIFECYCLES, ThreadUsageList, threadsIn, type Lifecycle } from "./thread-usage-list";
-import { PARTS, UsageChart, UsageLegend, type PartKey } from "./usage-chart";
+import { LimitMeters } from "./limit-meters";
+import { PARTS, UsageChart, UsageLegend, type PartKey, type Projection } from "./usage-chart";
 
 export interface UsageData {
   since: number;
@@ -23,6 +24,44 @@ export interface UsageData {
   contextThresholds?: ContextThresholds;
   /** Where the period's turn time went, for the section under the chart. */
   turnTime?: Breakdown;
+}
+
+const HOUR = 3_600_000;
+/** A session lasts five hours, so its reset is at most this many bars ahead. */
+const MAX_AHEAD = 5;
+
+/**
+ * On the past day, once a session is on pace for the warning or will run
+ * out, the chart runs on to its reset with hatched bars at the past hour's
+ * pace. It drops as many of its oldest hours as it adds, so it keeps 24.
+ */
+export function withProjection(
+  bars: readonly Bar[],
+  unit: "hour" | "day",
+  limits: readonly Limit[],
+  now: number,
+): { bars: readonly Bar[]; projection: Projection | null } {
+  const session = limits.find((limit) => limit.kind === "five-hour" && limit.tone !== "ok" && limit.pacePerHour !== null);
+  const last = bars.at(-1);
+  if (unit !== "hour" || session === undefined || last === undefined || session.lastHourTokens === 0) {
+    return { bars, projection: null };
+  }
+  if (session.resetsAt <= now) return { bars, projection: null };
+  const ahead = Math.min(MAX_AHEAD, Math.max(0, Math.ceil((session.resetsAt - last.end) / HOUR)));
+  const future: Bar[] = Array.from({ length: ahead }, (_, index) => ({
+    start: last.end + index * HOUR,
+    end: last.end + (index + 1) * HOUR,
+    ...ZERO_TOKENS,
+  }));
+  return {
+    bars: [...bars.slice(ahead), ...future],
+    projection: {
+      from: now,
+      until: session.resetsAt,
+      tokensPerHour: session.lastHourTokens,
+      runsOutAt: session.usedPercent >= 100 ? null : session.runsOutAt,
+    },
+  };
 }
 
 function recordingNote(data: UsageData): string | null {
@@ -46,6 +85,8 @@ export function UsageView({
   initialHovered,
   initialLifecycle = "active",
   now = Date.now(),
+  limits = [],
+  providerName = (providerId) => providerId,
 }: {
   range: RangeId;
   onRange: (range: RangeId) => void;
@@ -57,6 +98,9 @@ export function UsageView({
   initialLifecycle?: Lifecycle;
   /** What "recently" is measured from; stories pin it. */
   now?: number;
+  /** The subscriptions' usage limits, for the meters and the chart's hatched bars. */
+  limits?: readonly Limit[];
+  providerName?: (providerId: string) => string;
 }) {
   const [lifecycle, setLifecycle] = useState<Lifecycle>(initialLifecycle);
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
@@ -69,6 +113,7 @@ export function UsageView({
 
   const sum = data === null ? ZERO_TOKENS : data.bars.reduce(addTokens, ZERO_TOKENS);
   const note = data === null ? null : recordingNote(data);
+  const chart = data === null ? null : withProjection(data.bars, data.unit, limits, now);
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -85,6 +130,7 @@ export function UsageView({
           </div>
           <Segmented label="Period" options={RANGES} value={range} onChange={onRange} />
         </div>
+        <LimitMeters limits={limits} providerName={providerName} />
 
         {error === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">
@@ -96,10 +142,16 @@ export function UsageView({
           {data === null ? (
             <div className="h-[230px]" role="status" aria-label="Loading usage" />
           ) : (
-            <UsageChart bars={data.bars} unit={data.unit} hidden={hidden} initialHovered={initialHovered} />
+            <UsageChart
+              bars={chart!.bars}
+              unit={data.unit}
+              hidden={hidden}
+              initialHovered={initialHovered}
+              projection={chart!.projection}
+            />
           )}
           <div className="mt-1 pl-[44px]">
-            <UsageLegend hidden={hidden} onToggle={toggle} />
+            <UsageLegend hidden={hidden} onToggle={toggle} pace={chart?.projection != null} />
           </div>
         </div>
         {note === null ? null : <p className="mt-2 text-xs text-muted-foreground">{note}</p>}

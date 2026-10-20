@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "Understand what your threads cost in tokens and time, so you can cut what isn't worth it. Each thread's header shows a sparkline of its token use that opens a summary of which of your messages used the most tokens and time. Once a thread's context passes a size you set, a meter above the composer offers to compact it, and the sidebar counts those threads. A Tokenomics page charts tokens by hour or day, shows where turn time went, and ranks threads by use. The bb tokenomics command prints the same numbers for scripts.",
+    "description": "See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.",
     "branding": {
       "icon": "./icons/tokenomics.svg",
       "experimental_icons": {
