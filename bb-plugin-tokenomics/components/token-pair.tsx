@@ -26,7 +26,7 @@ export function CoinsIcon({ className }: { className?: string }) {
 
 /**
  * The period's tokens over the lifetime total. `header` is the smaller size
- * that fits two lines in the 28px header button.
+ * that keeps two lines about as tall as the header's 16px icons.
  */
 export function TokenPair({
   period,
@@ -41,12 +41,12 @@ export function TokenPair({
   muted?: boolean;
 }) {
   return (
-    <span className="flex flex-col items-start gap-0.5 whitespace-nowrap leading-none tabular-nums">
-      <span className={cn("font-semibold", header ? "text-[11px]" : "text-[13px]", muted && "text-muted-foreground")}>
+    <span className={cn("flex flex-col items-start whitespace-nowrap leading-none tabular-nums", header ? "gap-px" : "gap-0.5")}>
+      <span className={cn("font-semibold", header ? "text-[10px]" : "text-[13px]", muted && "text-muted-foreground")}>
         {formatTokens(period)}
       </span>
-      <span className={cn("inline-flex items-center gap-0.5 text-muted-foreground", header ? "text-[9px]" : "text-[11px]")}>
-        <CoinsIcon className={header ? "size-[9px]" : "size-2.5"} />
+      <span className={cn("inline-flex items-center gap-0.5 text-muted-foreground", header ? "text-[8px]" : "text-[11px]")}>
+        <CoinsIcon className={header ? "size-2" : "size-2.5"} />
         {formatTokens(total)}
       </span>
     </span>
