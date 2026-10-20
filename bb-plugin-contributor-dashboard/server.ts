@@ -1,7 +1,7 @@
 // bb-plugin-contributor-dashboard — mirrors a repository's pull requests and reviews
 // from GitHub, and serves the Contributor Dashboard page from that mirror.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { createGhRunner, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/gh-shared/gh";
+import { createGhRunner, createSyncUsage, GhUnavailableError, REPO_SLUG_PATTERN } from "@danielb/gh-shared/gh";
 import { matchProjectForRepo, toProjectCandidates } from "@danielb/gh-shared/projects";
 
 import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
@@ -50,7 +50,10 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
-  const query = ghGraphql(createGhRunner(ghPath));
+  const gh = createGhRunner(ghPath);
+  // The past hour of syncs and what each cost, for the header's summary.
+  // Every GitHub call the plugin makes is inside a sync.
+  const syncUsage = createSyncUsage();
 
   const aborter = new AbortController();
   bb.onDispose(() => aborter.abort());
@@ -96,6 +99,7 @@ export default async function plugin(bb: BbPluginApi) {
       pullRequests: configured ? store.pullRequestCount(repository) : 0,
       issues: configured ? store.issueCount(repository) : 0,
       error: lastError,
+      usage: syncUsage.snapshot(),
     };
   }
 
@@ -103,13 +107,16 @@ export default async function plugin(bb: BbPluginApi) {
   function startSync(): void {
     if (!configured || running !== null) return;
     const started = Date.now();
-    running = runSync({
-      store,
-      query,
-      repository,
-      signal: aborter.signal,
-      onPage: () => bb.realtime.publish(DASHBOARD_CHANNEL, null),
-    })
+    running = syncUsage
+      .measure(gh, (counted) =>
+        runSync({
+          store,
+          query: ghGraphql(counted),
+          repository,
+          signal: aborter.signal,
+          onPage: () => bb.realtime.publish(DASHBOARD_CHANNEL, null),
+        }),
+      )
       .then((result) => {
         lastError = null;
         bb.log.info(

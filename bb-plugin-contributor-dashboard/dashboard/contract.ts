@@ -176,6 +176,13 @@ export const syncStatusSchema = z.object({
   issues: z.number(),
   /** Why the last sync failed, if it did. */
   error: z.string().nullable(),
+  /** The past hour of syncs and what each cost on GitHub's GraphQL budget. */
+  usage: z
+    .object({
+      syncs: z.array(z.object({ at: z.number(), points: z.number().nullable(), calls: z.number(), ms: z.number() })),
+      budget: z.object({ used: z.number(), limit: z.number(), resetAt: z.number() }).nullable(),
+    })
+    .optional(),
 });
 
 export const rpcContract = defineRpcContract({

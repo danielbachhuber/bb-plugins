@@ -103,7 +103,7 @@ function SyncHeader() {
   }, [rpc, reload]);
 
   if (data === null) return null;
-  return <SyncStatusBar syncedAt={data.syncedAt} busy={data.running} onRefresh={sync} />;
+  return <SyncStatusBar syncedAt={data.syncedAt} busy={data.running} onRefresh={sync} usage={data.usage} />;
 }
 
 function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {

@@ -356,6 +356,12 @@ The sync runs when the page opens and the mirror is more than 30 minutes old,
 and when you press **Refresh** in the title bar. Each run is GraphQL calls through `gh api
 graphql`:
 
+Hovering or clicking the "synced" label in the title bar opens the shared
+summary of the past hour: how many GitHub points each sync cost, in how many
+calls, and how much of the account's hourly budget is left. Measuring a sync
+reads the budget before and after it through `gh api rate_limit`, which costs
+no points.
+
 Pull requests and issues sync in two passes, each keeping its own high-water
 mark and backfill cursor, so finishing one does not affect the other.
 
