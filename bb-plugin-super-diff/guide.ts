@@ -10,7 +10,7 @@ that every changed file is placed exactly once before it stores them.
 
 When the Diff tab's Generate button asked for this Super Diff, every command
 works on the diff it asked for; pass no \`--target\`. When you are writing one
-on your own, such as at the end of your work, pass \`--target\` to \`files\`,
+on your own, such as at the end of your work, pass \`--target\` to \`read\`,
 \`patch\`, and \`submit\` alike, naming the diff the user will review:
 
 - \`uncommitted\`: changes not yet committed
@@ -22,13 +22,17 @@ stored for.
 
 ## Steps
 
-1. Run \`bb super-diff files\`. Its first line names the diff (such as "All changes
-   against origin/main"). Files marked [placed by rule] (lockfiles, snapshots,
-   binary files, files too large to show) go in a Generated files group by
-   themselves. Leave them out of your submission.
-2. Read every other file's patch with \`bb super-diff patch <path>...\`, several
-   paths per call. If it stops early to stay under the output limit, run it
-   again for the paths it lists.
+1. Read the diff with \`bb super-diff read\`. It prints this guide, then every
+   changed file, then the patches. If you are reading this guide from it, the
+   files and patches follow below; do not run it again. The file list's first
+   line names the diff (such as "All changes against origin/main"). Files
+   marked [placed by rule] (lockfiles, snapshots, binary files, files too large
+   to show) go in a Generated files group by themselves, so \`read\` prints no
+   patch for them. Leave them out of your submission.
+2. If \`read\` stops before the last patch, read the paths it lists with
+   \`bb super-diff patch <path>...\` in one call. Otherwise go straight to
+   writing the submission: read and submit should be the only commands you
+   need.
 3. Every request is a fresh Super Diff. Do not reuse, copy, or resubmit an
    earlier submission or its file, even when the diff has not changed: the
    user is asking for a new reading of it.

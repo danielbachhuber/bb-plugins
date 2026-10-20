@@ -20,9 +20,10 @@ Group the Diff tab by concern, with an explanation for each group and notes on t
 
 ## For agents
 
-The `super-diff` skill tells agents to run `bb super-diff guide` and follow it.
+The `super-diff` skill tells agents to run `bb super-diff read` and follow the guide it prints.
 
 ```sh
+bb super-diff read                  # the guide, every changed file, and their patches, in one go
 bb super-diff guide                 # how to write a Super Diff
 bb super-diff files                 # every changed file, and which ones the plugin places itself
 bb super-diff patch <path>...       # the patches for those paths
@@ -30,7 +31,7 @@ bb super-diff submit <file | json>  # check a Super Diff and store it if every f
 bb super-diff explain <file | json> # in an Explain this fork: store its one note
 ```
 
-An agent can write a Super Diff without anyone pressing Generate, such as at the end of its work. `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff, and the Diff tab shows the Super Diff when its picker is on that diff. Without `--target`, they use the diff Generate last asked for, or All changes.
+An agent can write a Super Diff without anyone pressing Generate, such as at the end of its work. `read`, `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff, and the Diff tab shows the Super Diff when its picker is on that diff. Without `--target`, they use the diff Generate last asked for, or All changes.
 
 ## Requirements
 

@@ -14,8 +14,8 @@ const SUBMISSION = {
 const ALL = { type: "all", mergeBaseBranch: "origin/main" } as const;
 const UNCOMMITTED = { type: "uncommitted" } as const;
 
-/** A host whose thread has one environment, based on origin/main, with one changed file in every diff. */
-async function start() {
+/** A host whose thread has one environment, based on origin/main, with one changed file in every diff unless given others. */
+async function start(files: object[] = [FILE], patchFor: (path: string) => string = () => PATCH) {
   const diffQueries: unknown[] = [];
   const host = createFakePluginHost({
     pluginId: "super-diff",
@@ -28,9 +28,9 @@ async function start() {
         get: async () => ({ id: "env_a", mergeBaseBranch: "origin/main" }),
         diffFiles: async (query: unknown) => {
           diffQueries.push(query);
-          return { outcome: "available", truncated: false, files: [FILE] };
+          return { outcome: "available", truncated: false, files };
         },
-        diffPatch: async ({ paths }: { paths: string[] }) => ({ patches: paths.map((path) => ({ path, patch: PATCH })) }),
+        diffPatch: async ({ paths }: { paths: string[] }) => ({ patches: paths.map((path) => ({ path, patch: patchFor(path) })) }),
       },
     } as never,
   });
@@ -103,6 +103,32 @@ describe("bb super-diff --target", () => {
     const result = await cli("patch", "--target", "all", "src/a.ts");
     expect(result).toMatchObject({ exitCode: 0 });
     expect(result.stdout).toContain("### src/a.ts");
+  });
+});
+
+describe("bb super-diff read", () => {
+  it("prints the guide, the file list, and every patch in one output", async () => {
+    const lockfile = { ...FILE, path: "package-lock.json" };
+    const { cli } = await start([FILE, lockfile]);
+    const result = await cli("read");
+    expect(result).toMatchObject({ exitCode: 0 });
+    expect(result.stdout).toMatch(/^# Write a Super Diff/);
+    expect(result.stdout).toContain("All changes against origin/main, 2 files");
+    expect(result.stdout).toContain("package-lock.json (modified, +1 -0) [placed by rule]");
+    expect(result.stdout).toContain(`### src/a.ts\n${PATCH}`);
+    // A file placed by rule needs no patch, since the agent leaves it out.
+    expect(result.stdout).not.toContain("### package-lock.json");
+    expect(result.stdout).toContain("That is every patch.");
+  });
+
+  it("stops before the output grows large and names the paths left, with the same target", async () => {
+    const files = ["src/a.ts", "src/b.ts", "src/c.ts"].map((path) => ({ ...FILE, path }));
+    const { cli } = await start(files, () => `@@ -1 +1 @@\n+${"x".repeat(80_000)}\n`);
+    const result = await cli("read", "--target", "uncommitted");
+    expect(result.stdout).toContain("### src/a.ts");
+    expect(result.stdout).toContain("### src/b.ts");
+    expect(result.stdout).not.toContain("### src/c.ts");
+    expect(result.stdout).toContain("Read the rest with: bb super-diff patch src/c.ts --target uncommitted");
   });
 });
 

@@ -19,6 +19,10 @@ import {
 
 const PATCH_BATCH = 50;
 const MAX_OUTPUT = 900_000;
+// How much of the diff `read` prints after the guide and file list. It goes
+// into a thread whose context may already be large, so it stops well short of
+// MAX_OUTPUT and leaves the rest to `patch`.
+const READ_PATCH_BUDGET = 200_000;
 
 // The id `super-diff` once belonged to v1, whose database still holds these
 // five migrations. bb rejects a changed or reused index, so they stay first,
@@ -121,13 +125,14 @@ export const rpcContract = defineRpcContract({
 
 const USAGE = [
   "Usage:",
-  "  bb super-diff guide                 How to write a Super Diff (read this first)",
+  "  bb super-diff read                  The guide, every changed file, and their patches, in one go",
+  "  bb super-diff guide                 How to write a Super Diff",
   "  bb super-diff files                 Every changed file, and which ones the plugin places itself",
   "  bb super-diff patch <path>...       The patches for those paths",
   "  bb super-diff submit <file | json>  Check a Super Diff and store it if it passes",
   "  bb super-diff explain <file | json> Store one annotation asked for with Explain this (in its fork only)",
   "",
-  "Options for files, patch, and submit:",
+  "Options for read, files, patch, and submit:",
   "  --target all|uncommitted|committed  The diff to read and store the Super Diff for. Without it,",
   "                                      the diff the Diff tab's Generate button last asked for, or",
   "                                      All changes when nobody has pressed it.",
@@ -287,7 +292,7 @@ export default async function plugin(bb: BbPluginApi) {
         input: [
           {
             type: "text",
-            text: `Write a new Super Diff for this thread's diff (${describe(target)}), from scratch: run \`bb super-diff guide\` and follow it, then submit with \`bb super-diff submit\`. Do not reuse or resubmit an earlier Super Diff, even if the diff has not changed; read the patches again and write a fresh grouping and fresh annotations.`,
+            text: `Write a new Super Diff for this thread's diff (${describe(target)}), from scratch: run \`bb super-diff read\` and follow the guide it prints, then submit with \`bb super-diff submit\`. Do not reuse or resubmit an earlier Super Diff, even if the diff has not changed; read the patches again and write a fresh grouping and fresh annotations.`,
             mentions: [],
           },
         ],
@@ -301,6 +306,7 @@ export default async function plugin(bb: BbPluginApi) {
     name: "super-diff",
     summary: "Group this thread's diff by concern, with notes on tricky code, for the Diff tab",
     commands: [
+      { name: "read", summary: "Print the guide, the changed files, and their patches", usage: "bb super-diff read [--target all|uncommitted|committed]" },
       { name: "guide", summary: "How to write a Super Diff", usage: "bb super-diff guide" },
       { name: "files", summary: "List every changed file", usage: "bb super-diff files [--target all|uncommitted|committed]" },
       { name: "patch", summary: "Print patches for the given paths", usage: "bb super-diff patch <path>... [--target all|uncommitted|committed]" },
@@ -334,28 +340,49 @@ export default async function plugin(bb: BbPluginApi) {
       const files = await listFiles(environmentId, target);
       if (typeof files === "string") return { exitCode: 1, stderr: files };
 
-      if (command === "files") {
-        const lines = files.map(
-          (file) =>
-            `${file.path}${file.previousPath && file.previousPath !== file.path ? ` (renamed from ${file.previousPath})` : ""} (${file.changeKind}, +${file.additions} -${file.deletions})${isPlacedByRule(file) ? " [placed by rule]" : ""}`,
+      const fileList = (): string =>
+        [
+          `${describe(target)}, ${files.length} files`,
+          "",
+          ...files.map(
+            (file) =>
+              `${file.path}${file.previousPath && file.previousPath !== file.path ? ` (renamed from ${file.previousPath})` : ""} (${file.changeKind}, +${file.additions} -${file.deletions})${isPlacedByRule(file) ? " [placed by rule]" : ""}`,
+          ),
+        ].join("\n");
+
+      /** Each path's patch under a heading, stopping before the output passes budget. */
+      const patchBlocks = async (paths: string[], budget: number): Promise<{ out: string; remaining: string[] }> => {
+        const patches = await loadPatches(environmentId, target, paths);
+        let out = "";
+        const remaining: string[] = [];
+        for (const filePath of paths) {
+          const block = `### ${filePath}\n${patches.get(filePath) ?? "(no patch)"}\n`;
+          if (remaining.length > 0 || out.length + block.length > budget) remaining.push(filePath);
+          else out += block;
+        }
+        return { out, remaining };
+      };
+
+      if (command === "files") return { exitCode: 0, stdout: fileList() };
+
+      if (command === "read") {
+        const { out, remaining } = await patchBlocks(
+          files.filter((file) => !isPlacedByRule(file)).map((file) => file.path),
+          READ_PATCH_BUDGET,
         );
-        return { exitCode: 0, stdout: [`${describe(target)}, ${files.length} files`, "", ...lines].join("\n") };
+        const rest =
+          remaining.length > 0
+            ? `\nStopped to keep this output small. Read the rest with: bb super-diff patch ${remaining.join(" ")}${targetValue ? ` --target ${targetValue}` : ""}\n`
+            : "\nThat is every patch. Write the submission now.\n";
+        return { exitCode: 0, stdout: [GUIDE, "# Files", "", fileList(), "", "# Patches", "", out + rest].join("\n") };
       }
 
       if (command === "patch") {
         const known = new Set(files.map((file) => file.path));
         const unknown = args.filter((arg) => !known.has(arg));
         if (unknown.length > 0) return { exitCode: 1, stderr: `Not in this diff: ${unknown.join(", ")}` };
-        const patches = await loadPatches(environmentId, target, args);
-        let out = "";
-        const remaining: string[] = [];
-        for (const arg of args) {
-          const block = `### ${arg}\n${patches.get(arg) ?? "(no patch)"}\n`;
-          if (remaining.length > 0 || out.length + block.length > MAX_OUTPUT) remaining.push(arg);
-          else out += block;
-        }
-        if (remaining.length > 0) out += `\nStopped to stay under the output limit. Run again for: ${remaining.join(" ")}`;
-        return { exitCode: 0, stdout: out };
+        const { out, remaining } = await patchBlocks(args, MAX_OUTPUT);
+        return { exitCode: 0, stdout: remaining.length > 0 ? `${out}\nStopped to stay under the output limit. Run again for: ${remaining.join(" ")}` : out };
       }
 
       if (command === "submit") {

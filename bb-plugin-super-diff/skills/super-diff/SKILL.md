@@ -5,6 +5,7 @@ description: Write a Super Diff for this thread's diff, grouping the changed fil
 
 # Write a Super Diff
 
-Run `bb super-diff guide` and follow it exactly. It explains how to read the
-diff with `bb super-diff files` and `bb super-diff patch`, what makes a good
-concern and annotation, and how to submit with `bb super-diff submit`.
+Run `bb super-diff read` and follow the guide it prints exactly. One call
+prints the guide, every changed file, and their patches, so you can write the
+submission straight away and store it with `bb super-diff submit`. The guide
+explains what makes a good concern and annotation.
