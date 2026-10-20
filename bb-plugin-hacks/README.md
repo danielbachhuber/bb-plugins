@@ -153,12 +153,45 @@ The pull is `git merge --ff-only`, so it never creates a merge commit, and
 git refuses it when an uncommitted change would be overwritten. That refusal
 shows as the warning until a later fetch or pull succeeds.
 
+#### Running the project's sync script
+
+When a click pulls new commits, the hack runs the project's sync script, so a
+checkout whose source changed can rebuild what it serves. bb-plugins' own
+`sync.sh` rebuilds and reloads each plugin the pull changed. The hack looks in
+these places, in order, and runs the first one that exists, from the
+checkout's root:
+
+1. `.bb/sync`
+2. `sync.sh`
+3. `scripts/sync.sh`
+
+A project with none of them behaves as above. A script that is not executable
+runs under bash.
+
+The script runs only after a pull that moved the branch. A click that pulls
+nothing leaves it alone, unless its last run failed, when the click runs it
+again. While it runs, the icon spins without hovering, and a click does not
+start a second copy. When it exits with an error, the icon is the warning
+triangle and the tooltip gives the exit code and where its output is. A run
+that succeeds changes nothing on the sidebar.
+
+Any project with a script in one of those places runs it after a pull, so a
+pull runs whatever its upstream put there.
+
+The script runs apart from the plugin's server, so it keeps going when it
+reloads Hacks itself, as `sync.sh` does after a pull that changes Hacks. Its
+output goes to one log per checkout under `bb-hacks-checkout-sync/` in the
+system's temporary directory, replaced on each run, next to a small file
+recording whether it is still running and how it exited. It runs with the
+environment of bb's server.
+
 A project whose checkout is on a detached HEAD, or on a branch that tracks
 nothing, shows nothing, and so does a project with no checkout on the machine
 running bb's server.
 
-Every window reads each project's status every minute, while it is visible,
-in one request for all the projects in the sidebar. The server answers with
+Every window reads each project's status every minute while it is visible,
+or every 3 seconds while a sync script is running, in one request for all the
+projects in the sidebar. The server answers with
 three local git commands per project. It runs `git fetch` for a checkout at
 most every five minutes, shared between windows, so most reads compare only
 the refs already on disk, and a push to origin from somewhere else shows up
@@ -291,12 +324,13 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/project-open-in-editor/engine.ts` | The sync loop: passes, observers, cleanup |
 | `hacks/checkout-sync/rules.ts` | Pure logic: what a checkout's position looks like, and whether a click pulls |
 | `hacks/checkout-sync/git.ts` | The git boundary, run by the server: status, a shared fetch, and the fast-forward |
+| `hacks/checkout-sync/script.ts` | The sync script boundary, run by the server: finding, starting, and reading back a run |
 | `hacks/checkout-sync/contract.ts` | The RPC contract, imported by the server only |
 | `hacks/checkout-sync/sidebar.ts` | Placing and drawing the indicator in bb's project headers |
 | `hacks/checkout-sync/engine.ts` | The sync loop: polling, passes, observers, cleanup |
 | `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff blocks and wrapping each once |
 | `app.tsx` | Wiring only: registers each hack's content script |
-| `server.ts` | The checkout indicator's RPC, which finds each project's checkout on this machine |
+| `server.ts` | The checkout indicator's RPC, which finds each project's checkout on this machine and runs its sync script after a pull |
 
 ## Development
 

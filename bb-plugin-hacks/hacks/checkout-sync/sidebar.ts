@@ -114,21 +114,23 @@ export function draw(
   button.dataset.drawn = key;
 
   const { project, status, indicator, busy } = drawn;
+  // Spinning while a click fetches, and while the sync script it started runs.
+  const spinning = busy || indicator.tone === "running";
   const iconClass = newThread.querySelector("svg")?.getAttribute("class") ?? null;
   const flagged = needsDot(indicator.tone);
-  const glyph = icon(doc, !busy && indicator.tone === "error" ? "triangle" : "sync", iconClass, busy);
+  const glyph = icon(doc, !busy && indicator.tone === "error" ? "triangle" : "sync", iconClass, spinning);
   if (indicator.tone === "error") glyph.style.color = "var(--warning-text)";
   button.replaceChildren(glyph, ...(flagged && !busy ? [dot(doc)] : []));
 
   const label = busy ? `${project}: fetching from ${status.upstream}…` : indicator.label;
   button.setAttribute("aria-label", label);
   button.title = label;
-  button.disabled = busy;
+  button.disabled = spinning;
   button.setAttribute("data-tone", indicator.tone);
 
   // The button shows only while the row is hovered, keeping the invisible
-  // button from taking clicks, except while fetching, so a click is answered.
-  button.classList.toggle(HOVER_ONLY_CLASS, !busy);
+  // button from taking clicks, except while spinning, so a click is answered.
+  button.classList.toggle(HOVER_ONLY_CLASS, !spinning);
 }
 
 /** Whether a tone carries the out-of-date dot: behind, diverged, or a failed pull. */

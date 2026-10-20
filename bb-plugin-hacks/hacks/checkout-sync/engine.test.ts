@@ -142,6 +142,37 @@ describe("checkout sync", () => {
     expect(indicatorIn(widgets)!.classList.contains("bb-sidebar-hover-actions")).toBe(true);
   });
 
+  it("keeps spinning while the sync script a pull started runs, and shows its failure", async () => {
+    const widgets = renderProject("proj_widgets", "widgets");
+    const log = "/tmp/widgets.log";
+    pull.mockResolvedValue({
+      name: "widgets",
+      status: status(),
+      run: { script: "sync.sh", state: "running", exitCode: null, log },
+    });
+    start();
+    await settle();
+
+    indicatorIn(widgets)!.click();
+    await settle();
+    expect(indicatorIn(widgets)!.disabled).toBe(true);
+    expect(indicatorIn(widgets)!.querySelector("svg")!.classList.contains("animate-spin")).toBe(true);
+    expect(indicatorIn(widgets)!.getAttribute("aria-label")).toBe(
+      `widgets: running sync.sh. Output: ${log}`,
+    );
+
+    checkouts.proj_widgets = {
+      name: "widgets",
+      status: status(),
+      run: { script: "sync.sh", state: "failed", exitCode: 1, log },
+    };
+    await engine.refresh();
+    await settle();
+    expect(indicatorIn(widgets)!.disabled).toBe(false);
+    expect(indicatorIn(widgets)!.getAttribute("data-tone")).toBe("error");
+    expect(indicatorIn(widgets)!.querySelector("[data-checkout-sync-dot]")).not.toBeNull();
+  });
+
   it("loads a project row that appears later, once", async () => {
     start();
     await settle();

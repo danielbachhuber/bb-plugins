@@ -39,6 +39,9 @@ export interface Engine {
  */
 export const POLL_MS = 60_000;
 
+/** How often the status is read while a sync script is running, so its end shows soon. */
+export const RUNNING_POLL_MS = 3_000;
+
 export function startEngine(deps: EngineDeps): Engine {
   const { signal, doc, defer } = deps;
 
@@ -51,6 +54,7 @@ export function startEngine(deps: EngineDeps): Engine {
   let writing = false;
   let cancel: (() => void) | null = null;
   let cancelPoll: (() => void) | null = null;
+  let disposed = false;
 
   function schedule(): void {
     if (signal.aborted || cancel !== null) return;
@@ -90,13 +94,22 @@ export function startEngine(deps: EngineDeps): Engine {
     return loading;
   }
 
+  function scriptRunning(): boolean {
+    for (const checkout of checkouts.values()) if (checkout.run?.state === "running") return true;
+    return false;
+  }
+
   function poll(): void {
-    if (signal.aborted) return;
-    cancelPoll = deps.wait(() => {
-      cancelPoll = null;
-      if (!deps.hidden()) void refresh();
-      poll();
-    }, POLL_MS);
+    if (signal.aborted || disposed) return;
+    if (cancelPoll !== null) cancelPoll();
+    cancelPoll = deps.wait(
+      () => {
+        cancelPoll = null;
+        if (deps.hidden()) poll();
+        else void refresh().then(poll);
+      },
+      scriptRunning() ? RUNNING_POLL_MS : POLL_MS,
+    );
   }
 
   function pullProject(projectId: string): void {
@@ -107,6 +120,8 @@ export function startEngine(deps: EngineDeps): Engine {
       .pull(projectId)
       .then((value) => {
         checkouts.set(projectId, value);
+        // A sync script the pull started is polled for more often.
+        if (value.run?.state === "running") poll();
       })
       .catch((error) => deps.warn(`could not pull ${projectId}`, error))
       .finally(() => {
@@ -138,7 +153,7 @@ export function startEngine(deps: EngineDeps): Engine {
         draw(doc, button, header.newThread, {
           project: checkout.name,
           status: checkout.status,
-          indicator: indicatorFor(checkout.name, checkout.status),
+          indicator: indicatorFor(checkout.name, checkout.status, checkout.run ?? null),
           busy: busy.has(header.projectId),
         });
         keep.add(button);
@@ -169,8 +184,9 @@ export function startEngine(deps: EngineDeps): Engine {
     attributeFilter: ["aria-label", "data-sidebar-project-id"],
   });
 
-  void refresh();
-  poll();
+  // The first load decides the first interval: a script already running, such
+  // as one that reloaded this plugin, is polled for at once.
+  void refresh().then(poll);
 
   return {
     syncNow,
@@ -179,6 +195,7 @@ export function startEngine(deps: EngineDeps): Engine {
       void refresh();
     },
     dispose() {
+      disposed = true;
       observer.disconnect();
       if (cancel !== null) cancel();
       cancel = null;

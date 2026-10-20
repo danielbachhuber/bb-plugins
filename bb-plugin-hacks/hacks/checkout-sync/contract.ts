@@ -16,7 +16,17 @@ const statusSchema = z
   })
   .nullable();
 
-const projectCheckoutSchema = z.object({ name: z.string(), status: statusSchema });
+const runSchema = z
+  .object({
+    script: z.string(),
+    state: z.enum(["running", "failed", "succeeded"]),
+    exitCode: z.number().nullable(),
+    log: z.string(),
+  })
+  .nullable()
+  .optional();
+
+const projectCheckoutSchema = z.object({ name: z.string(), status: statusSchema, run: runSchema });
 
 export const rpcContract = defineRpcContract({
   /** Each project's main checkout against its upstream, keyed by project id. */
@@ -24,7 +34,11 @@ export const rpcContract = defineRpcContract({
     input: z.object({ projectIds: z.array(projectIdSchema).max(200) }).strict(),
     output: z.record(z.string(), projectCheckoutSchema),
   },
-  /** Fetches the project's checkout, and fast-forwards it when it is only behind. */
+  /**
+   * Fetches the project's checkout and fast-forwards it when it is only
+   * behind, then starts its sync script if the pull brought in new commits or
+   * the script's last run failed.
+   */
   checkout_pull: {
     input: z.object({ projectId: projectIdSchema }).strict(),
     output: projectCheckoutSchema,
