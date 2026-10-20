@@ -49,7 +49,7 @@ The `refine-impromptu-ui` skill finds the moments a view should have appeared, o
 - **On one thread.** It offers two to four ways to change Impromptu UI, each with what it costs, and edits nothing until you press **Do this one**. It then shows the edit as a diff, with **Commit and push**.
 - **As a scan** of the threads active in the last 2 days, or a range you name. A subagent reads each batch of threads. Threads still waiting on an answer get **Show it there**, which asks that thread to publish its view. The rest become cards under **Ways to fix it**, each with what goes wrong, a real example, how many threads showed it, and the exact edit. ([See a scan](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--refine-scan-item-open.png).)
 
-Each fix lands in one of three places: the skill that should have published, the `impromptu-ui` guide, or an anonymized issue on this repository, drafted for you to confirm before it is filed.
+Each fix lands in one of three places: the skill that should have published, the `impromptu-ui` guide, or an anonymized issue on this repository, drafted for you to confirm before it is filed. A change to the instructions every thread gets is tested with the evals below first: the missed moment becomes a case, the real transcript is replayed when there is one, and the card shows the pass rates before and after.
 
 ## Settings
 

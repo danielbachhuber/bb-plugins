@@ -286,7 +286,7 @@ anything.
 | Place | When | What to do |
 |---|---|---|
 | **Another skill** | The thread ran a skill whose own steps end in a list or a question in chat, so the agent followed the skill instead of publishing. | Edit that skill: see "Editing another skill". |
-| **The guide** | No skill was involved, or the agent published but chose the wrong layout or missed a field the schema has. Includes the guide's description not matching the task. | Edit `skills/impromptu-ui/SKILL.md` in this repository, or the section every thread's instructions get, in `view/instructions.ts`, when the problem is that a thread never thought of a view. If you cannot write to the plugin's checkout, file it as an issue. |
+| **The guide** | No skill was involved, or the agent published but chose the wrong layout or missed a field the schema has. Includes the guide's description not matching the task. | Edit `skills/impromptu-ui/SKILL.md` in this repository, or the section every thread's instructions get, in `view/instructions.ts`, when the problem is that a thread never thought of a view; test that one with the evals (see "Testing a change to the thread instructions"). If you cannot write to the plugin's checkout, file it as an issue. |
 | **The view file** | The work needed a field, button type, or layout the schema does not have. | File an issue. |
 | **The panel or the list** | Something already supported looks or behaves wrong, or broke. | File an issue. |
 
@@ -312,6 +312,31 @@ After an edit, to another skill or the guide, publish the
 when asked, give that card a `message` button, `Commit and push`, and mark it
 `"complete": true` once the commit lands; otherwise mark it complete now. Do
 not ask about committing in chat.
+
+### Testing a change to the thread instructions
+
+A change to `view/instructions.ts` goes through the plugin's evals, in
+`evals/`, before and after the edit. They need the plugin's checkout and the
+`claude` CLI. Without either, say so on the card and skip this.
+
+1. Add the missed moment to `evals/cases.ts`: the request, the reply's
+   ending, the view it should have published, and the options that view
+   must offer. Prefer a task case, a small repository the agent works in,
+   to a draft case. This repository is public, so write the case from
+   scratch around the ending, with no names or text from the thread.
+2. If the thread ran on Claude Code, find its transcript with
+   `grep -rl "<a phrase from the reply>" ~/.claude/projects`, and replay it
+   with `node evals/replay.ts --session <file> --cut-before "<phrase>"`.
+   The transcript stays on this machine. A fresh case often passes when the
+   real thread missed, so the replay is what shows whether a fix works.
+3. Run the replay with the current text and with the edit
+   (`--instructions-at <commit>` runs an older version), then `npm run eval`
+   with the edit to catch a case it breaks. Put both on the card, such as
+   "Replay: 0/6 before, 4/6 after. All 11 cases pass."
+4. Offer the edit only if it does better on the replay and breaks no case.
+   If no wording does, say so on the card: that points to a fix that does
+   not depend on the agent remembering a rule, such as the plugin checking
+   how a turn ended.
 
 ### Editing another skill
 
