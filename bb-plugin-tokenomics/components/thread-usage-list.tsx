@@ -3,7 +3,7 @@
 import { useState, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
-import { totalOf, usedBefore } from "@/usage/breakdown";
+import { totalOf } from "@/usage/breakdown";
 import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage/context";
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
@@ -228,14 +228,14 @@ export function ThreadUsageList({
                 <span
                   className={cn("w-[60px] shrink-0 whitespace-nowrap text-left tabular-nums", archived && "text-muted-foreground")}
                   title={
-                    usedBefore(total, thread.lifetime)
-                      ? `${total.toLocaleString()} tokens in this period, of ${thread.lifetime!.toLocaleString()} in all`
+                    thread.lifetime !== undefined
+                      ? `${total.toLocaleString()} tokens in this period, of ${thread.lifetime.toLocaleString()} in all`
                       : `${total.toLocaleString()} tokens`
                   }
                 >
                   <span className="block">{formatTokens(total)}</span>
-                  {usedBefore(total, thread.lifetime) ? (
-                    <span className="block text-xs text-muted-foreground">of {formatTokens(thread.lifetime!)}</span>
+                  {thread.lifetime !== undefined ? (
+                    <span className="block text-xs text-muted-foreground">of {formatTokens(thread.lifetime)}</span>
                   ) : null}
                 </span>
               </span>

@@ -87,6 +87,7 @@ function thread(
       ms: Math.round(12_000 * 150 ** (((index * 7919 + threadId.length * 31) % 97) / 97)),
     })),
     hours: busyHoursAgo.map((ago, index) => ({ hour: hourAgo(ago), total: Math.round((total * weights[index]!) / sum) })),
+    lifetime: total,
     input,
     cacheRead,
     output,
@@ -98,7 +99,7 @@ const range = (from: number, to: number) => Array.from({ length: from - to + 1 }
 const THREADS: ThreadUsage[] = [
   // Busy all day and still going in the latest hour.
   // Its context has grown past the 550K error setting, so its row is red.
-  // It also ran the day before, so its row shows its lifetime total under the period's.
+  // It also ran the day before, so its lifetime total is larger than the period's.
   { ...thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 620_000), lifetime: 92_300_000 },
   // Past the 300K warning setting, so its row is amber.
   thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2), null, 340_000),
