@@ -78,3 +78,24 @@ npx tsc --noEmit
 npm test
 bb plugin build . && bb plugin reload impromptu-ui
 ```
+
+`npm run eval` checks the section every thread gets, in
+`view/instructions.ts`, against the turn endings in `evals/cases.ts`. Each
+case comes from a commit that changed that section after a thread ended a
+turn in chat when it should have published a view. A task case gives Claude
+Code a small repository to work in. A draft case hands it a finished reply.
+Each case also lists the options its view must offer, such as "Commit and
+push" and "Still wrong", as patterns matched against the view's titles and
+buttons. The eval runs `claude -p` with a stand-in `bb` that records
+`publish`, and reports how many runs published a view with every option. Each run is one model
+session, so it is not part of `npm test`. Run it after changing the section,
+and add `--without-instructions` to confirm a new case fails without it.
+
+The cases start fresh, and agents get them right. A real thread reaches the
+same ending after a long session, which is when agents miss it.
+`node evals/replay.ts --session <transcript.jsonl> --cut-before "<reply
+text>"` resumes a real Claude Code transcript just before the reply that
+missed a view, with the system prompt the thread recorded and the current
+section swapped in (or `--instructions-at <commit>`, or `--as-recorded`),
+and lets the model write that reply again in Claude Code's sandbox. The
+transcript stays on your machine and out of this repository.
