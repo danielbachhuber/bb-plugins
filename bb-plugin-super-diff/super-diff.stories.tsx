@@ -131,6 +131,13 @@ export const NotGenerated = () => (
   </Frame>
 );
 
+/** The thread has no changes yet, so Generate Super Diff waits, greyed out, until it does. */
+export const NoDiff = () => (
+  <Frame>
+    <Row state={{ phase: "idle" }} fileCount={0} />
+  </Frame>
+);
+
 /** While the thread's agent reads the diff and writes the Super Diff. */
 export const Generating = () => (
   <Frame>

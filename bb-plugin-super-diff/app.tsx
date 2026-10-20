@@ -25,6 +25,7 @@ const ROW_ATTR = "data-super-diff-row";
 const TOOLBAR = '[data-testid="git-diff-toolbar-actions"]';
 const SELECTOR_SLOT = '[data-testid="git-diff-toolbar-selector-slot"]';
 const SUMMARY = '[data-testid="git-diff-toolbar-summary"]';
+const LAYOUT = '[data-testid="git-diff-toolbar-layout"]';
 const TIMELINE = "[data-timeline-file-diff]";
 const PATCH_BATCH = 50;
 const POLL_MS = 2000;
@@ -513,13 +514,17 @@ function FilesProps({ children }: { files: FileEntry[]; target: Target; children
 /**
  * bb's list scrolls inside `div.overflow-y-auto > div.relative.w-full`, with
  * no attribute of its own. Walk up from the toolbar to the first ancestor that
- * holds one, outside the timeline.
+ * holds one, outside the timeline. `list` is null while bb shows a message in
+ * its place, such as "No diff to display.", and `root` is then the nearest
+ * ancestor holding the whole toolbar.
  */
-function findPanel(doc: Document): { toolbar: HTMLElement; list: HTMLElement; root: HTMLElement } | null {
+function findPanel(doc: Document): { toolbar: HTMLElement; list: HTMLElement | null; root: HTMLElement } | null {
   const toolbar = doc.querySelector<HTMLElement>(TOOLBAR);
   if (toolbar === null) return null;
+  let root: HTMLElement | null = null;
   let node: HTMLElement | null = toolbar.parentElement;
   while (node !== null) {
+    if (root === null && node.querySelector(LAYOUT) !== null) root = node;
     for (const candidate of node.querySelectorAll<HTMLElement>("div.overflow-y-auto")) {
       if (candidate.hasAttribute(HOST_ATTR) || candidate.closest(TIMELINE) !== null) continue;
       const inner = candidate.firstElementChild;
@@ -529,7 +534,7 @@ function findPanel(doc: Document): { toolbar: HTMLElement; list: HTMLElement; ro
     }
     node = node.parentElement;
   }
-  return null;
+  return root === null ? null : { toolbar, list: null, root };
 }
 
 function mount(pluginId: string, signal: AbortSignal): () => void {
@@ -813,7 +818,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       return;
     }
     const toolbarRoot = panel.root;
-    const layout = toolbarRoot.querySelector<HTMLElement>('[data-testid="git-diff-toolbar-layout"]');
+    const layout = toolbarRoot.querySelector<HTMLElement>(LAYOUT);
     if (layout === null) return;
     const summaryEl = toolbarRoot.querySelector(SUMMARY);
     const summary = summaryEl?.getAttribute("title") ?? summaryEl?.textContent ?? "";
@@ -838,7 +843,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       if (lastSummary !== undefined) void refresh(threadId, selection);
     }
     const state = states.get(key) ?? { phase: "checking" as const };
-    const fileCount = Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
+    const fileCount = summary === "No changes" ? 0 : Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
     const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
     rowRoot?.render(
       <SuperDiffRow
@@ -855,7 +860,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       />,
     );
 
-    if (state.phase !== "ready" || state.showing !== "super" || state.data === null) {
+    if (panel.list === null || state.phase !== "ready" || state.showing !== "super" || state.data === null) {
       if (listHost !== null) showOriginal();
       return;
     }

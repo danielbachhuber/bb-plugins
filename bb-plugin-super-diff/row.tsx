@@ -142,6 +142,8 @@ export function SuperDiffRow({
     </button>
   );
   const files = fileCount === null ? "the" : `the ${fileCount}`;
+  // Nothing to group until the diff has a file in it.
+  const empty = fileCount === 0 && state.phase !== "ready" && state.phase !== "generating";
   const concerns = state.phase === "ready" ? state.stored.submission.concerns.length : 0;
   const notes = state.phase === "ready" ? state.stored.submission.annotations.length : 0;
   return (
@@ -187,7 +189,7 @@ export function SuperDiffRow({
               Generate Super Diff
             </>,
             onGenerate,
-            { primary: true, disabled: state.phase === "checking" },
+            { primary: true, disabled: empty || state.phase === "checking" },
           )
         )}
         {stale ? (
@@ -196,10 +198,11 @@ export function SuperDiffRow({
           </span>
         ) : null}
         <span className={`min-w-0 flex-1 line-clamp-2 ${stale || state.phase === "error" ? "text-foreground" : ""}`} title={stale ?? undefined}>
-          {(state.phase === "idle" || state.phase === "checking") && `Group ${files} files by concern, with a note on what each part does.`}
+          {empty && "No diff to generate from yet. Once this thread changes a file, Generate groups it by concern."}
+          {!empty && (state.phase === "idle" || state.phase === "checking") && `Group ${files} files by concern, with a note on what each part does.`}
           {state.phase === "generating" &&
             `The thread's agent is reading ${files} files and writing the Super Diff (asked ${ago(Date.parse(state.requestedAt), Date.now())}; it waits its turn if the agent is busy).`}
-          {state.phase === "error" && state.message}
+          {!empty && state.phase === "error" && state.message}
           {state.phase === "ready" &&
             (stale ??
               `${concerns} ${concerns === 1 ? "concern" : "concerns"} · ${notes} ${notes === 1 ? "annotation" : "annotations"} · generated ${ago(Date.parse(state.stored.acceptedAt), Date.now())}`)}
