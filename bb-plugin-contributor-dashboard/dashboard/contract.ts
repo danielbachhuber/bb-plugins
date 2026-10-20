@@ -197,6 +197,8 @@ export const rpcContract = defineRpcContract({
       repository: z.string().nullable(),
       login: z.string(),
       buckets: z.array(bucketSchema),
+      /** Null when the person opened and merged nothing in the period. */
+      authorActivity: authorActivitySchema.nullable(),
       /** Null when the person has no review activity in the period. */
       activity: personActivitySchema.nullable(),
       awaiting: z.array(awaitingReviewSchema),

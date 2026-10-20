@@ -172,6 +172,7 @@ export default async function plugin(bb: BbPluginApi) {
           repository: null,
           login,
           buckets: [],
+          authorActivity: null,
           activity: null,
           awaiting: [],
           authored: [],
@@ -190,6 +191,7 @@ export default async function plugin(bb: BbPluginApi) {
         repository,
         login,
         buckets,
+        authorActivity: authorActivity(prs, buckets).find((person) => person.login === login) ?? null,
         activity: peopleActivity(prs, buckets).find((person) => person.login === login) ?? null,
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.

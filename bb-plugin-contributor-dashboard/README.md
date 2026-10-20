@@ -293,20 +293,22 @@ Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
 to the dashboard. It shows:
 
-- **Reviews**, their two lines from the dashboard drawn full width.
-- **Waiting on their review**: open pull requests whose latest review request
-  naming them has not been withdrawn and which they have not reviewed since,
-  longest wait first. Only requests that name the person: a request made of a
-  team is waiting on the team, with no one to attribute it to until someone
-  reviews.
+- **Pull requests**, the pull requests they opened and the ones that merged,
+  their two lines from PR Velocity drawn full width.
 - **Their pull requests**: the ones they opened that were touched in the
   period, newest first, each with the time to its first review, how many
   follow-up reviews it needed, and the time to merge or how long it has been
   open. Twenty-five to a page, since an active author can have a few hundred
   in a year; the server sends one page at a time.
+- **Reviews**, their two lines from Review Velocity drawn full width.
+- **Waiting on their review**: open pull requests whose latest review request
+  naming them has not been withdrawn and which they have not reviewed since,
+  longest wait first. Only requests that name the person: a request made of a
+  team is waiting on the team, with no one to attribute it to until someone
+  reviews.
 
 Each row in both lists carries the actions **A row in a list** describes, and
-the first of them names the assignee as well.
+a row waiting on their review names the assignee as well.
 
 Times there are business days from when the pull request became ready for
 review, which is when it left draft, or when it opened if it never was one.

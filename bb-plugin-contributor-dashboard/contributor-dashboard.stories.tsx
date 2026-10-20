@@ -505,6 +505,7 @@ function Person({
         repository: "acme/widgets",
         login,
         buckets: page.buckets,
+        authorActivity: page.authors.find((person) => person.login === login) ?? null,
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
         authored: authored.slice(paging.offset, paging.offset + PAGE_SIZE),

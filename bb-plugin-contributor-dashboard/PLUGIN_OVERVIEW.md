@@ -6,8 +6,8 @@ you pick. **PR velocity** charts for each person the pull requests they opened
 and the ones that merged, and **Review velocity** charts the reviews requested
 of them and the reviews they gave. A short span is drawn by day, a medium one
 by week, and a long one by month. Clicking a name opens that
-person's page: their review lines, the pull requests waiting on their review,
-and how their own pull requests fared in review.
+person's page: the pull requests they opened and merged, how each fared in
+review, then their review lines and the pull requests waiting on their review.
 
 ## How it works
 

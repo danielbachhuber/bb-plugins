@@ -1,13 +1,14 @@
-// One person's page: their review lines full width, the pull requests waiting
-// on their review, and how their own pull requests fared. Display only.
+// One person's page: their own pull requests, as opened and merged lines and
+// then the list of how each fared, followed by their review lines and the pull
+// requests waiting on their review. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
-import { reviewerRow } from "@/review/velocity";
+import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
-import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
+import { AUTHOR_SERIES, PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 
 /**
  * A review that landed in 50 minutes is not "0.0d", so anything under a
@@ -104,55 +105,25 @@ export function PersonView({
 
         {data === null ? null : (
           <>
-            <section className="mt-6" aria-labelledby="person-reviews">
+            <section className="mt-6" aria-labelledby="person-pull-requests">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="person-reviews" className="text-base font-semibold">
-                  Reviews
+                <h2 id="person-pull-requests" className="text-base font-semibold">
+                  Pull requests
                 </h2>
-                <SeriesLegend series={REVIEW_SERIES} />
+                <SeriesLegend series={AUTHOR_SERIES} />
               </div>
-              {data.activity === null ? (
-                <p className="mt-3 text-sm text-muted-foreground">No review requests or reviews in this period.</p>
+              {data.authorActivity === null ? (
+                <p className="mt-3 text-sm text-muted-foreground">No pull requests opened or merged in this period.</p>
               ) : (
                 <div className="mt-3">
                   <PersonChart
-                    person={reviewerRow(data.activity)}
-                    series={REVIEW_SERIES}
+                    person={authorRow(data.authorActivity)}
+                    series={AUTHOR_SERIES}
                     buckets={data.buckets}
-                    max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
+                    max={Math.max(1, ...data.authorActivity.opened, ...data.authorActivity.merged)}
                     unit={unitOfBuckets(data.buckets)}
                   />
                 </div>
-              )}
-            </section>
-
-            <section className="mt-8" aria-labelledby="person-awaiting">
-              <h2 id="person-awaiting" className="text-base font-semibold">
-                Waiting on their review
-                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{data.awaiting.length}</span>
-              </h2>
-              {data.awaiting.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on a review from them.</p>
-              ) : (
-                <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
-                  {data.awaiting.map((row) => (
-                    <ItemRow
-                      key={row.number}
-                      number={row.number}
-                      title={row.title}
-                      url={row.url}
-                      assignees={row.assignees}
-                      threadId={row.threadId}
-                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting` }, row.threadId)}
-                      facts={
-                        <span>
-                          {row.author === null ? "" : `${row.author} · `}
-                          asked {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
-                        </span>
-                      }
-                    />
-                  ))}
-                </ul>
               )}
             </section>
 
@@ -210,6 +181,58 @@ export function PersonView({
                     />
                   </span>
                 </div>
+              )}
+            </section>
+
+            <section className="mt-10" aria-labelledby="person-reviews">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="person-reviews" className="text-base font-semibold">
+                  Reviews
+                </h2>
+                <SeriesLegend series={REVIEW_SERIES} />
+              </div>
+              {data.activity === null ? (
+                <p className="mt-3 text-sm text-muted-foreground">No review requests or reviews in this period.</p>
+              ) : (
+                <div className="mt-3">
+                  <PersonChart
+                    person={reviewerRow(data.activity)}
+                    series={REVIEW_SERIES}
+                    buckets={data.buckets}
+                    max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
+                    unit={unitOfBuckets(data.buckets)}
+                  />
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8" aria-labelledby="person-awaiting">
+              <h2 id="person-awaiting" className="text-base font-semibold">
+                Waiting on their review
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{data.awaiting.length}</span>
+              </h2>
+              {data.awaiting.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on a review from them.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
+                  {data.awaiting.map((row) => (
+                    <ItemRow
+                      key={row.number}
+                      number={row.number}
+                      title={row.title}
+                      url={row.url}
+                      assignees={row.assignees}
+                      threadId={row.threadId}
+                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting` }, row.threadId)}
+                      facts={
+                        <span>
+                          {row.author === null ? "" : `${row.author} · `}
+                          asked {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
+                        </span>
+                      }
+                    />
+                  ))}
+                </ul>
               )}
             </section>
           </>
