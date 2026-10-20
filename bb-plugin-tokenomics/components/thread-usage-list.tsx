@@ -155,7 +155,7 @@ export function ThreadUsageList({
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="hidden items-end gap-3 border-b border-border px-4 py-1.5 text-[11px] text-muted-foreground sm:flex">
         <span className="flex-1" />
-        <span className="w-[188px] shrink-0 text-right">Tokens</span>
+        <span className="w-[188px] shrink-0">Tokens</span>
         <span className="hidden shrink-0 lg:block" title="One dot per turn, on a log scale; the bar marks the median">
           <TurnDotsAxis />
         </span>
@@ -226,7 +226,7 @@ export function ThreadUsageList({
                   <RowSpark totals={threadBars(thread, bars)} bars={bars} />
                 </span>
                 <span
-                  className={cn("w-[60px] shrink-0 whitespace-nowrap text-right tabular-nums", archived && "text-muted-foreground")}
+                  className={cn("w-[60px] shrink-0 whitespace-nowrap text-left tabular-nums", archived && "text-muted-foreground")}
                   title={
                     usedBefore(total, thread.lifetime)
                       ? `${total.toLocaleString()} tokens in this period, of ${thread.lifetime!.toLocaleString()} in all`
