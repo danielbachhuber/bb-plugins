@@ -1,6 +1,6 @@
 // The session in bb's title bar: its tokens per 15 minutes from its start to
-// its reset, so the empty space on the right is the time left, and its
-// percent. Once the session is on pace for the warning or will run out, the
+// its reset, so the empty space on the right is the time left, and two rings
+// for the percent used: the session inside, the week outside. Once the session is on pace for the warning or will run out, the
 // slots still to come fill with hatched bars at the past hour's pace, red past
 // the point it runs out, as the page's chart does. Hovering shows the page's
 // meters. Display only; app.tsx loads the limits.
@@ -80,8 +80,53 @@ export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
   );
 }
 
+const RING_SIZE = 18;
+
+/** One ring of the donut: a faint track, then an arc clockwise from the top for the percent used. */
+function Ring({ limit, radius }: { limit: Limit; radius: number }) {
+  const center = RING_SIZE / 2;
+  const circumference = 2 * Math.PI * radius;
+  const used = Math.max(0, Math.min(100, limit.usedPercent)) / 100;
+  const color = toneColor(limit) ?? "currentColor";
+  return (
+    <>
+      <circle cx={center} cy={center} r={radius} fill="none" stroke="currentColor" strokeWidth={2.5} opacity={0.15} />
+      {used === 0 ? null : (
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          strokeWidth={2.5}
+          strokeDasharray={`${used * circumference} ${circumference}`}
+          transform={`rotate(-90 ${center} ${center})`}
+          style={{ stroke: color }}
+        />
+      )}
+    </>
+  );
+}
+
+/** The percent used as two rings: the session inside, the weekly limit outside when there is one. */
+export function LimitDonut({ session, weekly }: { session: Limit; weekly: Limit | null }) {
+  return (
+    // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
+    <svg width={RING_SIZE} height={RING_SIZE} aria-hidden className="shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
+      {weekly === null ? null : <Ring limit={weekly} radius={7.75} />}
+      <Ring limit={session} radius={weekly === null ? 7.75 : 4.25} />
+    </svg>
+  );
+}
+
+/** The weekly limit beside a session: the account's limit named "weekly", else its first other one. */
+export function weeklyLimit(limits: readonly Limit[]): Limit | null {
+  const others = limits.filter((limit) => limit.kind !== "five-hour");
+  return others.find((limit) => limit.kind === "weekly") ?? others[0] ?? null;
+}
+
 /**
- * The title bar's button: the session's spark chart and percent. Hovering
+ * The title bar's button: the session's spark chart and the rings for the
+ * session's and the week's percent used. Hovering
  * opens the meters for every limit of the session's subscription; clicking
  * opens the Tokenomics page.
  */
@@ -100,12 +145,14 @@ export function TopBarLimits({
   onOpen: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const color = toneColor(session);
+  const weekly = weeklyLimit(limits);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
         <TopBarButton
-          label={`${session.label}: ${Math.round(session.usedPercent)}% used. ${paceText(session)}. Open Tokenomics`}
+          label={`${session.label}: ${Math.round(session.usedPercent)}% used. ${paceText(session)}.${
+            weekly === null ? "" : ` ${weekly.label}: ${Math.round(weekly.usedPercent)}% used.`
+          } Open Tokenomics`}
           onClick={() => {
             setOpen(false);
             onOpen();
@@ -115,9 +162,7 @@ export function TopBarLimits({
           className="pr-2"
         >
           <SessionSpark limit={session} now={now} />
-          <span className={color === undefined ? "text-xs tabular-nums" : "text-xs font-semibold tabular-nums"} style={{ color }}>
-            {Math.round(session.usedPercent)}%
-          </span>
+          <LimitDonut session={session} weekly={weekly} />
         </TopBarButton>
       </PopoverAnchor>
       <PopoverContent align="start" className="pointer-events-none w-[440px] p-3" onOpenAutoFocus={(event) => event.preventDefault()}>

@@ -13,8 +13,9 @@ It shows cost in five places:
 - **A context meter above the composer**, once a thread's context passes a
   size you set, with a button that compacts it. The sidebar counts these
   threads in amber and red.
-- **Your session in bb's title bar**, as a spark chart of its tokens and its
-  percent used, amber or red once it's headed for its limit.
+- **Your session in bb's title bar**, as a spark chart of its tokens and two
+  rings for the percent used, the session inside and the week outside, amber
+  or red once either is headed for its limit.
 - **A Tokenomics page** in the sidebar, with your subscription's usage limits
   and where they're headed, tokens by hour or day, where turn time went, and
   the threads that used the most.
@@ -182,7 +183,8 @@ meters sit under its provider's name.
 
 After the other plugins' buttons in bb's title bar, the session shows as a
 spark chart of its tokens per 15 minutes, from its start to its reset, so the
-empty space on the right is the time left, then its percent used. Once the
+empty space on the right is the time left, then two rings for the percent
+used: the session's inner ring and the weekly limit's outer one. Once the
 session is amber or red, the time left fills with hatched bars at the past
 hour's pace, red past the point it runs out, as on the page's chart. Hover it
 for the meters; click it to open the page. With two subscriptions, it shows
