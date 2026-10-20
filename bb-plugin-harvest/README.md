@@ -5,22 +5,15 @@ without leaving the app.
 
 ## What it adds
 
-A Track time control in the bb thread header. It shows a clock when idle and
-the running timer's elapsed time when one is going, and opens a picker for
-choosing a project and task, writing a note, and starting a timer. A running
-timer can be stopped from the same control.
+A connection to Harvest that other bb plugins start and stop timers through.
+It adds no control of its own beyond a settings section that shows which
+Harvest account the credentials reach.
 
-The control distinguishes a timer running for this thread from one left running
-somewhere else. When bb can resolve the thread's branch to a pull request, the
-timer is this thread's work only if it carries that pull request's reference;
-anything else is amber and named "running elsewhere", and its popover offers to
-stop it above a picker prefilled for this thread. A thread with no pull request
-has nothing to compare against, so any running timer reads as its own.
-
-The plugin also exposes a generic RPC surface (`assignments`, `runningTimer`,
+The plugin exposes a generic RPC surface (`assignments`, `runningTimer`,
 `trackedHours`, `startTimer`, `stopTimer`, `lastSelection`) that knows nothing
-about any particular tool, so another bb plugin can start timers through it.
-The Issue Sweep plugin uses this to put a clock on each GitHub issue row.
+about any particular tool, along with a shared picker and row clock. The GH
+Context banner uses them to show a Harvest timer for the thread's pull request,
+and the sweep plugins use them to put a clock on each GitHub row.
 
 Timers started here carry the same `external_reference` convention the Harvest
 Chrome extension uses for GitHub, so hours tracked in either tool add up to one
@@ -68,8 +61,7 @@ rest**, against a ceiling of 24,000 an hour.
 The minute poll is the price of noticing timers started outside bb. The Harvest
 web app and the Chrome extension write to the same account, so the plugin
 cannot treat its own writes as the only source of truth. Anything it observes
-is broadcast on a realtime channel, which is how the thread-header control
-updates without polling of its own.
+is stored and broadcast on the `harvest:timer` realtime channel.
 
 Schedules only run while the plugin is loaded. Disable it and the requests stop.
 
@@ -274,8 +266,7 @@ after the fetch. Without it, every repository's `#42` is summed together.
 **The running timer is not pushed to you.** `bb.realtime` signals are scoped to
 the plugin that publishes them, so your plugin cannot subscribe to this one's
 broadcast. Read `runningReference()` with your own data and refresh after
-starting a timer. Only this plugin's own thread-header control follows the
-timer live.
+starting a timer.
 
 **Starting a timer stops the running one.** Harvest permits one running timer
 per user. That is Harvest's behavior, not this plugin's, and the previous entry

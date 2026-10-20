@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Harvest",
-    "description": "Track time in Harvest from the thread header.",
+    "description": "Connects bb to Harvest so other plugins can start and stop timers on GitHub issues and pull requests.",
     "branding": {
       "icon": "Clock"
     },
