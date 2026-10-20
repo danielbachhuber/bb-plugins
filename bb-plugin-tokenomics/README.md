@@ -202,8 +202,10 @@ shows:
 
 - the thread's project, provider, turns, latest context size, and total. A
   thread archived before Tokenomics recorded context has no context size.
-- a sparkline of when the thread used its tokens, on the chart's hours or
-  days and scaled to the thread's busiest one. A thread still running when you
+- its tokens in the period, beside a sparkline of when it used them, on the
+  chart's hours or days and scaled to the thread's busiest one. A thread that
+  also ran before the period shows its lifetime total under the number, such
+  as "of 174M", which takes one query of Tokenomics' own database per row. A thread still running when you
   expected it to stop has bars at the right end.
 - how long its turns took, as one dot per turn on a log scale from 10 seconds
   to an hour, with a bar at the median. Most turns take under a minute and a

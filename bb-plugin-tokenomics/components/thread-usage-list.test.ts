@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { ThreadUsage } from "@/usage/contract";
 
+import { usedBefore } from "@/usage/breakdown";
+
 import { splitArchived, threadBars, threadContextLevel } from "./thread-usage-list";
 import { logPosition, nearestDot, turnStats } from "./turn-dots";
 
@@ -88,5 +90,13 @@ describe("nearestDot", () => {
     expect(nearestDot([10, 40, 44], 43)).toBe(2);
     expect(nearestDot([10, 40, 44], 39)).toBe(1);
     expect(nearestDot([10, 40], 25)).toBeNull();
+  });
+});
+
+describe("usedBefore", () => {
+  it("shows the lifetime total only once it's clearly more than the period's", () => {
+    expect(usedBefore(131_600_000, 174_200_000)).toBe(true);
+    expect(usedBefore(50_000_000, 51_000_000)).toBe(false);
+    expect(usedBefore(50_000_000, undefined)).toBe(false);
   });
 });

@@ -383,6 +383,8 @@ export default async function plugin(bb: BbPluginApi) {
           context: contexts.get(thread.threadId) ?? null,
           turnTimes: turnTimes.get(thread.threadId) ?? [],
           hours: hoursByThread.get(thread.threadId) ?? [],
+          // One local query per listed thread, the same total its header shows.
+          lifetime: store.threadTotal(thread.threadId).total,
         })),
         recordingSince,
         contextThresholds: thresholds,

@@ -98,7 +98,8 @@ const range = (from: number, to: number) => Array.from({ length: from - to + 1 }
 const THREADS: ThreadUsage[] = [
   // Busy all day and still going in the latest hour.
   // Its context has grown past the 550K error setting, so its row is red.
-  thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 620_000),
+  // It also ran the day before, so its row shows its lifetime total under the period's.
+  { ...thread("thr_a1", "Add a CSV export to the widgets report", "widgets", 42, 58_400_000, [...range(23, 18), ...range(6, 0)], null, 620_000), lifetime: 92_300_000 },
   // Past the 300K warning setting, so its row is amber.
   thread("thr_a2", "Fix the flaky gadgets checkout test", "gadgets", 27, 31_900_000, range(5, 2), null, 340_000),
   thread("thr_a3x", "Review the widgets API pagination change", "widgets", 12, 12_700_000, range(22, 19), 2),

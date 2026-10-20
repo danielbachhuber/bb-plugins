@@ -3,7 +3,7 @@
 import { useState, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
-import { totalOf } from "@/usage/breakdown";
+import { totalOf, usedBefore } from "@/usage/breakdown";
 import { contextLevel, type ContextLevel, type ContextThresholds } from "@/usage/context";
 import type { ThreadUsage } from "@/usage/contract";
 import { formatTokens, type Bar } from "@/usage/series";
@@ -155,8 +155,7 @@ export function ThreadUsageList({
     <div className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="hidden items-end gap-3 border-b border-border px-4 py-1.5 text-[11px] text-muted-foreground sm:flex">
         <span className="flex-1" />
-        <span className="w-[120px] shrink-0">Tokens over time</span>
-        <span className="w-16 shrink-0 text-right">Tokens</span>
+        <span className="w-[188px] shrink-0 text-right">Tokens</span>
         <span className="hidden shrink-0 lg:block" title="One dot per turn, on a log scale; the bar marks the median">
           <TurnDotsAxis />
         </span>
@@ -222,14 +221,23 @@ export function ThreadUsageList({
                   )}
                 </span>
               </span>
-              <span className={cn("hidden sm:block", archived ? "text-muted-foreground/60" : "text-foreground/60")}>
-                <RowSpark totals={threadBars(thread, bars)} bars={bars} />
-              </span>
-              <span
-                className={cn("w-16 shrink-0 text-right tabular-nums", archived && "text-muted-foreground")}
-                title={`${total.toLocaleString()} tokens`}
-              >
-                {formatTokens(total)}
+              <span className="flex shrink-0 items-center justify-end gap-2 sm:w-[188px]">
+                <span className={cn("hidden sm:block", archived ? "text-muted-foreground/60" : "text-foreground/60")}>
+                  <RowSpark totals={threadBars(thread, bars)} bars={bars} />
+                </span>
+                <span
+                  className={cn("w-[60px] shrink-0 whitespace-nowrap text-right tabular-nums", archived && "text-muted-foreground")}
+                  title={
+                    usedBefore(total, thread.lifetime)
+                      ? `${total.toLocaleString()} tokens in this period, of ${thread.lifetime!.toLocaleString()} in all`
+                      : `${total.toLocaleString()} tokens`
+                  }
+                >
+                  <span className="block">{formatTokens(total)}</span>
+                  {usedBefore(total, thread.lifetime) ? (
+                    <span className="block text-xs text-muted-foreground">of {formatTokens(thread.lifetime!)}</span>
+                  ) : null}
+                </span>
               </span>
               <span className={cn("hidden lg:block", archived && "opacity-50")}>
                 <TurnDots turns={turnTimes} />

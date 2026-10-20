@@ -52,3 +52,11 @@ export function addTokens(a: Tokens, b: Tokens): Tokens {
     output: a.output + b.output,
   };
 }
+
+/**
+ * Whether a thread used enough before a period that its lifetime total is
+ * worth showing beside the period's. Within 5%, the two read as the same.
+ */
+export function usedBefore(period: number, lifetime: number | undefined): lifetime is number {
+  return lifetime !== undefined && period < lifetime * 0.95;
+}

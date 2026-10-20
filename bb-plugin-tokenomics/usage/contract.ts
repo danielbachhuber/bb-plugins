@@ -30,6 +30,8 @@ export const threadUsageSchema = z.object({
   turnTimes: z.array(z.object({ at: z.number(), ms: z.number() })).optional(),
   /** Its tokens per hour in the window, for its sparkline. */
   hours: z.array(z.object({ hour: z.number(), total: z.number() })),
+  /** Its tokens over its whole life, as its header counts them; more than the window's when it ran before it. */
+  lifetime: z.number().optional(),
   ...tokens,
 });
 
