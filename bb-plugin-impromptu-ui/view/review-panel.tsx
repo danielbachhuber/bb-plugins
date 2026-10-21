@@ -2,14 +2,15 @@
 // per screen with the original first, each with a pick toggle and a note box,
 // and one Send feedback button for all of it. With a single alternative there
 // is nothing to pick between, so it shows as Before and After in one place
-// instead, and asks whether to build it. Kept free of RPC so a story can
+// instead, and asks whether to build it, or, for work already built, whether
+// it looks good. Kept free of RPC so a story can
 // render it with fixture images.
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { feedbackLabel, hasFeedback, isBeforeAfter, type Feedback } from "./review.js";
+import { approveLabel, feedbackLabel, hasFeedback, isBeforeAfter, type Feedback } from "./review.js";
 import type { Item } from "./schema.js";
 import type { ItemRecord } from "./store.js";
 
@@ -124,8 +125,9 @@ function Filmstrip({
 
 /**
  * The original and one proposed change, in the same place: a cut between the
- * two makes what changed jump out. The decision is whether to build it, with
- * an optional note either way.
+ * two makes what changed jump out. The decision is whether to build it (or,
+ * when it is already built, whether it looks good), with an optional note
+ * either way.
  */
 function BeforeAfterPanel({ item, record, imageUrl, busy, onSubmit, initial }: ReviewPanelProps) {
   const sent = record?.state === "done" ? record.result?.feedback : undefined;
@@ -189,7 +191,7 @@ function BeforeAfterPanel({ item, record, imageUrl, busy, onSubmit, initial }: R
       {locked && note.trim() === "" ? null : (
         <textarea
           aria-label="Note"
-          placeholder="Note (optional): what to change before building it"
+          placeholder={item.built ? "Note (optional): what to change" : "Note (optional): what to change before building it"}
           className={noteClass}
           rows={2}
           value={note}
@@ -202,10 +204,10 @@ function BeforeAfterPanel({ item, record, imageUrl, busy, onSubmit, initial }: R
       ) : (
         <div className="flex items-center gap-2">
           <Button size="sm" disabled={busy} onClick={() => send(1)}>
-            {busy ? "Sending…" : "Build it"}
+            {busy ? "Sending…" : approveLabel(item)}
           </Button>
           <Button size="sm" variant="outline" disabled={busy || note.trim() === ""} onClick={() => send(null)}>
-            Send note only
+            {item.built ? "Send note" : "Send note only"}
           </Button>
         </div>
       )}

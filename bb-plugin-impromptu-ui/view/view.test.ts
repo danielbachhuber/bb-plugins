@@ -475,6 +475,11 @@ describe("visual review", () => {
     expect(() => parseView(JSON.stringify(one))).toThrow(/at least two variations/);
   });
 
+  it("lets only a before and after be marked built", () => {
+    const three = { ...review, sections: [{ items: [{ ...review.sections[0]!.items[0]!, built: true }] }] };
+    expect(() => parseView(JSON.stringify(three))).toThrow(/exactly two variations/);
+  });
+
   it("shortens labels for the filmstrip", () => {
     expect(shortLabel("A. Sections")).toBe("A");
     expect(shortLabel("B) Dates right")).toBe("B");
@@ -522,6 +527,14 @@ describe("visual review", () => {
     expect(feedbackLabel(pair, { pick: 1, notes: [], overall: "" })).toBe("Build it");
     expect(feedbackLabel(pair, { pick: null, notes: [], overall: "x" })).toBe("Note sent");
     expect(feedbackLabel(item(), { pick: 2, notes: [], overall: "" })).toBe("Picked B. Dates right");
+  });
+
+  it("asks whether work already built looks good, rather than whether to build it", () => {
+    const built = { ...item(), title: "The week", variations: item().variations.slice(0, 2), built: true };
+    expect(feedbackMessage(built, { pick: 1, notes: ["", ""], overall: "" })).toBe(
+      ['Before and after feedback on "The week":', "", "Decision: **looks good** (A. Sections)"].join("\n"),
+    );
+    expect(feedbackLabel(built, { pick: 1, notes: [], overall: "" })).toBe("Looks good");
   });
 
   it("has nothing to send until something is picked or written", () => {

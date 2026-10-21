@@ -43,9 +43,14 @@ export function isBeforeAfter(item: Pick<Item, "variations">): boolean {
   return item.variations.length === 2;
 }
 
-/** What a sent review says on its row: "Build it" for a before and after, "Picked A. Sections" otherwise. */
+/** A before and after's go-ahead button: "Build it" for a proposed change, "Looks good" for work already built. */
+export function approveLabel(item: Pick<Item, "built">): string {
+  return item.built ? "Looks good" : "Build it";
+}
+
+/** What a sent review says on its row: the go-ahead for a before and after, "Picked A. Sections" otherwise. */
 export function feedbackLabel(item: Item, feedback: Feedback): string {
-  if (isBeforeAfter(item)) return feedback.pick === 1 ? "Build it" : "Note sent";
+  if (isBeforeAfter(item)) return feedback.pick === 1 ? approveLabel(item) : "Note sent";
   return feedback.pick === null ? "Feedback sent" : `Picked ${item.variations[feedback.pick]?.label ?? "one"}`;
 }
 
@@ -53,7 +58,8 @@ export function feedbackLabel(item: Item, feedback: Feedback): string {
 export function feedbackMessage(item: Item, feedback: Feedback): string {
   if (isBeforeAfter(item)) {
     const lines = [`Before and after feedback on "${item.title}":`, ""];
-    lines.push(feedback.pick === 1 ? `Decision: **build it** (${item.variations[1]!.label})` : "Decision: not yet, see the note.");
+    const yes = approveLabel(item).toLowerCase();
+    lines.push(feedback.pick === 1 ? `Decision: **${yes}** (${item.variations[1]!.label})` : "Decision: not yet, see the note.");
     if (feedback.overall.trim() !== "") lines.push("", `Note: ${feedback.overall.trim()}`);
     return lines.join("\n");
   }

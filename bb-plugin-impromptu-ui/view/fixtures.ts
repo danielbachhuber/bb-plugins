@@ -376,6 +376,29 @@ export const reviewView: View = viewSchema.parse({
   ],
 });
 
+/** Work already built, against the placeholder it replaced: Before and After, asking whether it looks good. */
+export const builtBeforeAfterView: View = viewSchema.parse({
+  title: "Task rows: built",
+  summary: "",
+  sections: [
+    {
+      title: "",
+      items: [
+        {
+          id: "rows-built",
+          title: "Rows grouped under Overdue and Today",
+          summary: "Built in the story, with sample tasks.",
+          built: true,
+          variations: [
+            { label: "Before", description: "The rows as they were.", image: "shots/original.png" },
+            { label: "Now", description: "Overdue and Today headings, with grey outline icons.", image: "shots/a.png" },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
 /** One proposed change and the screen as it is: shown as Before and After, with a choice to build it. */
 export const beforeAfterView: View = viewSchema.parse({
   title: "Suggestions: task rows",

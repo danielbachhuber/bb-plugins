@@ -469,6 +469,10 @@ export const itemSchema = z
       .max(6)
       .default([])
       .describe("Makes the item a visual review: the original first, then at least one alternative. The user picks one, notes on any, and sends it all back as one message. Needs the cards layout."),
+    built: z
+      .boolean()
+      .default(false)
+      .describe("Marks a before and after (two variations) as work already done, for screenshots of what you built rather than a change you propose: its buttons read Looks good and Send note instead of Build it and Send note only."),
     closing: z
       .boolean()
       .default(false)
@@ -645,6 +649,13 @@ export const viewSchema = z
             code: "custom",
             path: ["sections", s, "items", i, "variations"],
             message: "a visual review needs at least two variations: the original and an alternative",
+          });
+        }
+        if (item.built && item.variations.length !== 2) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["sections", s, "items", i, "built"],
+            message: "built needs a before and after: exactly two variations",
           });
         }
         if (seen.has(item.id)) {

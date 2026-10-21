@@ -19,7 +19,7 @@ import nowRound1 from "./view/now-round/now-summary-1.webp?url";
 import nowRound2 from "./view/now-round/now-summary-2.webp?url";
 import nowRound3 from "./view/now-round/now-summary-3.webp?url";
 import nowRound4 from "./view/now-round/now-summary-4.webp?url";
-import { inlineTwoView, inlineView, configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, reviewWithVerdictView, selfImproveView, refineScanView, threePrsView, staplesView, triageView } from "./view/fixtures";
+import { inlineTwoView, inlineView, configAuditView, milestoneTriageView, dependabotConflictView, dependabotView, grantSectionThreads, grantSectionThreadsView, grantQuestionView, grantView, nowRoundView, reviewImages, reviewView, beforeAfterView, builtBeforeAfterView, reviewWithVerdictView, selfImproveView, refineScanView, threePrsView, staplesView, triageView } from "./view/fixtures";
 import type { Feedback } from "./view/review";
 import type { Item, View } from "./view/schema";
 import { applyStatus, viewFor, type ItemRecord, type StoredView } from "./view/store";
@@ -585,6 +585,17 @@ const beforeAfterTurns: Turn[] = [
 /** One proposed change: Before and After in the same place, flipped with the tabs or the arrow keys, and Build it to go ahead. */
 export function BeforeAfter() {
   return <ThreadStage turns={beforeAfterTurns} view={stored(beforeAfterView)} />;
+}
+
+const builtTurns: Turn[] = [
+  { kind: "user", text: "Group the rows under Overdue and Today." },
+  { kind: "work", text: "Built the headings in the story and took a screenshot before and after" },
+  { kind: "assistant", text: "The rows are grouped now. The screen as it was and as it is now are above the composer." },
+];
+
+/** Work already built, against the screen it replaced: Looks good to accept it, or a note on what to change. */
+export function BeforeAfterBuilt() {
+  return <ThreadStage turns={builtTurns} view={stored(builtBeforeAfterView)} initialFocus="rows-built" />;
 }
 
 /** After Build it: the row says so, and the panel keeps the note that went with it. */
