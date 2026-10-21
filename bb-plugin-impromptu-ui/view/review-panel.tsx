@@ -347,7 +347,8 @@ function VariationsPanel({ item, record, imageUrl, busy, onSubmit, initial }: Re
         />
       )}
       {locked ? null : (
-        <div className="flex items-center gap-2">
+        // Pinned to the panel's bottom edge: a tall image would otherwise push it out of view.
+        <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-2 border-t border-border bg-card px-4 py-2">
           <Button size="sm" disabled={busy || !hasFeedback(feedback)} onClick={() => onSubmit(feedback)}>
             {busy ? "Sending…" : "Send feedback"}
           </Button>
