@@ -141,10 +141,14 @@ with `git add bb-plugin-now` instead of by file.
 - The same goes for screenshots. A capture photographs every story affected
   by changes in this checkout since the last capture, including another
   thread's commits and uncommitted changes (though not the `explore/` stories,
-  which it leaves out unless run with `-- --explore`). Before
-  `screenshots:commit`, restore the images and READMEs that your commit did
-  not change, with `git -C <screenshots dir> checkout -- <path>` and
-  `git clean` for new files.
+  which it leaves out unless run with `-- --explore`). When your commit
+  changed only one plugin, run the capture with `-- --plugin <name>`, such as
+  `-- --plugin tokenomics`, and it photographs and rewrites only that
+  plugin's images and README. Otherwise, before `screenshots:commit`, restore
+  the images and READMEs that your commit did not change, with
+  `git -C <screenshots dir> checkout -- <path>` and `git clean` for new
+  files. A change to a shared package changes other plugins' stories, so do
+  not limit that capture to your plugin.
 
 ## Screenshot the stories after a visual change
 

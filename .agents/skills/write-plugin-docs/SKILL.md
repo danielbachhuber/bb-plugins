@@ -70,7 +70,8 @@ write, list that directory and look at the images:
 - If a surface the README describes has no capture, or the capture is
   clipped or does not show the point, add or fix the story. A taller stage,
   a different starting state, or a more realistic fixture usually does it.
-- Commit the stories, push, and run `npm run screenshots:isolated`. Read
+- Commit the stories, push, and run
+  `npm run screenshots:isolated -- --plugin <name>`. Read
   every image it lists, then commit them with `screenshots:commit`, before
   you link any of them.
 

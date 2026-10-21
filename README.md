@@ -163,7 +163,10 @@ to include the `explore/` stories, for when you want pictures of design
 options; those images are not meant to be committed. A run captures only the
 stories that import a file changed since the bb-plugins commit that checkout
 last captured, and keeps the other images as they are; add `-- --all` to
-capture every story. It
+capture every story. Add `-- --plugin <name>`, such as `-- --plugin tokenomics`
+or `-- --plugin bb-plugin-tokenomics`, to capture only that plugin's stories and
+rewrite only its README and its row in the root README, leaving other plugins'
+changes for their own captures. Repeat it to name several. It
 needs `npm install`, which installs Playwright with everything else, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.
 

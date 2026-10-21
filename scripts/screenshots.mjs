@@ -13,6 +13,12 @@
 // photographs every story when the capture's own setup changed, when that
 // commit cannot be found, or when run with `-- --all`.
 //
+// Add `-- --plugin <name>` to photograph only one plugin's stories, named by
+// its directory (`bb-plugin-tokenomics`) or without the prefix (`tokenomics`).
+// The other plugins' images and READMEs stay as they are, even where other
+// commits changed them, so they are left for a capture with those changes.
+// Repeat it for several plugins.
+//
 // Add `-- --explore` to either capture command to include the stories in
 // explore/ directories, which are left out otherwise.
 //
@@ -67,6 +73,11 @@ const commitMode = process.argv.includes("--commit");
 const isolated = process.argv.includes("--isolated");
 const includeExplore = process.argv.includes("--explore");
 const captureAll = process.argv.includes("--all");
+const onlyPlugins = process.argv.flatMap((arg, index) => (arg === "--plugin" ? [process.argv[index + 1]] : []));
+if (onlyPlugins.some((name) => !name || name.startsWith("--"))) {
+  console.error("--plugin needs a plugin's name, such as `--plugin tokenomics`.");
+  process.exit(1);
+}
 
 /** KEY=value lines only, the same reader scripts/ladle.mjs uses. */
 function readDotEnv(path) {
@@ -230,6 +241,22 @@ function storySource(id) {
   return { sourceDir, file: join(repoRoot, sourceDir, filePath.split(`${sourceDir}/`)[1]) };
 }
 
+/** Whether `name`, given to `--plugin`, names the plugin a story belongs to, by its output or source directory. */
+function namesPlugin(name, id) {
+  const { sourceDir } = storySource(id);
+  return [id.split("--")[0], sourceDir].includes(name) || sourceDir === `bb-plugin-${name}`;
+}
+
+const inScope = (id) => !onlyPlugins.length || onlyPlugins.some((name) => namesPlugin(name, id));
+const unmatched = onlyPlugins.filter((name) => !stories.some((id) => namesPlugin(name, id)));
+if (unmatched.length) {
+  const known = [...new Set(stories.map((id) => id.split("--")[0]))].sort();
+  console.error(`No stories for --plugin ${unmatched.join(", ")}. The plugins with stories: ${known.join(", ")}.`);
+  process.exit(1);
+}
+// The output directories this run may change. The others keep their images and READMEs.
+const scopeDirs = new Set(stories.filter(inScope).map((id) => id.split("--")[0]));
+
 /** Every module that imports one of `changed`, directly or through others, by absolute path. */
 function modulesImporting(changed) {
   const importers = JSON.parse(readFileSync(graphPath, "utf8"));
@@ -267,19 +294,23 @@ function modulesImporting(changed) {
   return new Set([...reached].map((id) => id.split("?")[0]));
 }
 
-let toCapture = stories;
+const candidates = stories.filter(inScope);
+const scopeLabel = onlyPlugins.length ? ` of ${[...scopeDirs].join(", ")}` : "";
+let toCapture = candidates;
 if (captureEverything || !existsSync(graphPath)) {
-  console.log(`Capturing all ${stories.length} stories: ${captureEverything ?? "the build wrote no module graph"}.`);
+  console.log(
+    `Capturing all ${candidates.length} stories${scopeLabel}: ${captureEverything ?? "the build wrote no module graph"}.`,
+  );
 } else {
   const affected = modulesImporting(changedFiles);
   // Explore stories are never committed, so with --explore they are all captured.
   // A story with no image yet, such as one in a new, untracked file, is captured too.
-  toCapture = stories.filter(
+  toCapture = candidates.filter(
     (id) =>
       (includeExplore && isExplore(id)) || affected.has(storySource(id).file) || !existsSync(outputPath(id)),
   );
   console.log(
-    `Capturing ${toCapture.length} of ${stories.length} stories, the ones that import a file changed since ${baseSha.slice(0, 7)}.`,
+    `Capturing ${toCapture.length} of ${candidates.length} stories${scopeLabel}, the ones that import a file changed since ${baseSha.slice(0, 7)}.`,
   );
 }
 
@@ -359,11 +390,16 @@ if (failures.length) {
   process.exit(1);
 }
 
+/** Whether this run may change an output directory, including one whose plugin `--plugin` names but has no stories left. */
+function inScopeDir(dir) {
+  return !onlyPlugins.length || scopeDirs.has(dir) || onlyPlugins.some((name) => [dir, `bb-plugin-${dir}`].includes(name));
+}
+
 // A story that was removed or renamed takes its old image with it. The images
 // of stories this run did not capture stay as they were.
 const storyImages = new Set(stories.map(outputPath));
 for (const entry of readdirSync(outDir, { withFileTypes: true })) {
-  if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+  if (!entry.isDirectory() || entry.name.startsWith(".") || !inScopeDir(entry.name)) continue;
   for (const name of readdirSync(join(outDir, entry.name))) {
     const file = join(outDir, entry.name, name);
     if (name.endsWith(".png") && !storyImages.has(file)) rmSync(file);
@@ -427,6 +463,7 @@ for (const id of stories) {
 const GENERATED = "<!-- Written by `npm run screenshots` in bb-plugins. Edit the stories there, not this file. -->";
 
 for (const plugin of plugins.values()) {
+  if (!inScopeDir(plugin.dir)) continue;
   plugin.stories.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
   const lines = [
     GENERATED,
@@ -453,19 +490,25 @@ for (const plugin of plugins.values()) {
 
 // A plugin whose stories are all gone takes its README with it.
 for (const entry of readdirSync(outDir, { withFileTypes: true })) {
-  if (!entry.isDirectory() || entry.name.startsWith(".") || plugins.has(entry.name)) continue;
+  if (!entry.isDirectory() || entry.name.startsWith(".") || plugins.has(entry.name) || !inScopeDir(entry.name)) continue;
   rmSync(join(outDir, entry.name, "README.md"), { force: true });
 }
 
+// With --plugin, the other plugins keep the rows they have, so a description
+// another commit changed waits for the capture of that plugin.
+const rootReadme = join(outDir, "README.md");
+const existingRows = existsSync(rootReadme) ? readFileSync(rootReadme, "utf8").split("\n") : [];
 const pluginRows = [...plugins.values()]
   .sort((a, b) => a.name.localeCompare(b.name))
   .map((plugin) => {
+    if (!inScopeDir(plugin.dir)) return existingRows.find((row) => row.includes(`](${plugin.dir}/README.md) |`));
     const count = plugin.stories.length;
     return `| [${plugin.name}](${plugin.dir}/README.md) | ${firstSentence(plugin.description)} | ${count} ${count === 1 ? "story" : "stories"} |`;
-  });
+  })
+  .filter(Boolean);
 
 writeFileSync(
-  join(outDir, "README.md"),
+  rootReadme,
   `${GENERATED}
 
 # bb-plugins-screenshots
