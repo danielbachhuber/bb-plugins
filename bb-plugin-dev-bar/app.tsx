@@ -4,6 +4,8 @@ import { definePluginApp, useBbNavigate, useComposer, useRpc } from "@get-bb/plu
 import { ServicesStrip, targetKey } from "./components/services-strip";
 import type { Failure, RunTarget, Strip, rpcContract } from "./services/contract";
 
+declare const __BB_PLUGIN_ID__: string | undefined;
+
 /** How often status runs while the thread is on screen. */
 const POLL_INTERVAL_MS = 5_000;
 /** After a button, services take a moment to come up or go down; watch closely. */
@@ -24,6 +26,9 @@ function useContainerUnderComposer(): [(element: HTMLSpanElement | null) => void
     if (!shell) return setContainer(null);
     const element = document.createElement("div");
     element.dataset.devBarStrip = "";
+    // The plugin's stylesheet applies only inside its own root, and this container sits in bb's footer.
+    element.dataset.bbPluginRoot = "";
+    element.dataset.bbPlugin = typeof __BB_PLUGIN_ID__ === "string" ? __BB_PLUGIN_ID__ : "dev-bar";
     shell.appendChild(element);
     setContainer(element);
   }, []);
