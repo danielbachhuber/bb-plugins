@@ -56,6 +56,7 @@ function Story(props: Partial<ServicesStripProps>) {
         onRun={noop}
         onOpen={noop}
         onDismissFailure={noop}
+        onStartThread={noop}
         {...props}
       />
     </UnderComposer>
@@ -97,3 +98,16 @@ export const StatusFailed = () => (
 
 /** Before the first status arrives. */
 export const Loading = () => <Story services={[]} actions={[]} loaded={false} />;
+
+/** The status command calls a program the checkout has not installed, as in a new worktree before its first install. */
+export const NotSetUp = () => (
+  <Story
+    services={[]}
+    failure={{
+      title: "Status",
+      command: "pnpm status --json",
+      output:
+        "> widgets@0.1.0 status /Users/octocat/projects/widgets\n> tsx scripts/launch/cli.ts status --json\n\nsh: tsx: command not found\n ELIFECYCLE  Command failed.",
+    }}
+  />
+);

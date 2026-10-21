@@ -13,6 +13,7 @@ import {
   type Manifest,
   type ManifestSource,
 } from "./services/manifest";
+import { threadRequest } from "./services/failure";
 import { readCheckoutManifests, readText, runCommand } from "./services/shell";
 
 const STATUS_TIMEOUT_MS = 20_000;
@@ -36,6 +37,15 @@ type Loaded =
 const projectKey = (projectId: string) => `manifest:${projectId}`;
 
 export default async function plugin(bb: BbPluginApi) {
+  const settings = bb.settings.define({
+    providerId: {
+      type: "string",
+      label: "Provider for threads that fix a failure",
+      // The thread follows the dev-bar skill, and skills belong to one provider.
+      default: "claude-code",
+    },
+  });
+
   /** The checkout a thread runs in and its bb project; root is null when it has no checkout on this machine. */
   async function checkoutFor(threadId: string): Promise<{ root: string | null; projectId: string | null }> {
     const thread = (await bb.sdk.threads.get({ threadId })) as unknown as ThreadLike;
@@ -143,6 +153,18 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     strip: ({ threadId }) => strip(threadId),
     run: async ({ threadId, target }) => ({ failure: await run(threadId, target) }),
+    startThread: async ({ threadId, failure }) => {
+      const thread = (await bb.sdk.threads.get({ threadId })) as unknown as ThreadLike;
+      if (!thread.projectId || !thread.environmentId) throw new Error("This thread has no checkout to start a thread in.");
+      const providerId = (await settings.get()).providerId.trim();
+      const started = await bb.sdk.threads.spawn({
+        projectId: thread.projectId,
+        environment: { type: "reuse", environmentId: thread.environmentId },
+        ...(providerId === "" ? {} : { providerId }),
+        ...threadRequest(failure),
+      });
+      return { threadId: started.id };
+    },
   });
   /** The project a manifest command acts on: `--project`, or the thread or project it runs in. */
   async function projectFor(option: string | undefined, ctx: { projectId?: string; threadId?: string }): Promise<string> {

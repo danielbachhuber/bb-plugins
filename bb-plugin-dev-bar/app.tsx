@@ -103,6 +103,23 @@ function Strip() {
     [rpc, threadId],
   );
 
+  const startThread = useCallback(
+    async (shown: Failure) => {
+      if (!threadId) return;
+      try {
+        const started = await rpc.call("startThread", { threadId, failure: shown });
+        navigate.toThread(started.threadId);
+      } catch (error) {
+        setActionFailure({
+          title: "Start thread",
+          command: "",
+          output: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+    [navigate, rpc, threadId],
+  );
+
   const probe = <span ref={probeRef} hidden />;
   if (!threadId || !container || strip?.kind === "none") return probe;
 
@@ -125,6 +142,7 @@ function Strip() {
           onRun={(target) => void run(target)}
           onOpen={(url) => navigate.openUrl(url)}
           onDismissFailure={() => (actionFailure ? setActionFailure(null) : setDismissedStatus(statusKey))}
+          onStartThread={(shown) => void startThread(shown)}
         />,
         container,
       )}

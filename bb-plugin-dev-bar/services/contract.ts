@@ -51,6 +51,11 @@ export const rpcContract = defineRpcContract({
     input: runInput,
     output: z.object({ failure: failureSchema.nullable() }),
   },
+  /** Starts a thread in the same checkout to fix a failure. */
+  startThread: {
+    input: z.object({ threadId: z.string(), failure: failureSchema }).strict(),
+    output: z.object({ threadId: z.string() }),
+  },
 });
 
 export type Strip = z.infer<typeof stripSchema>;

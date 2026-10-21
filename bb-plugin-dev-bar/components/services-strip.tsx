@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Failure, RunTarget, StripAction, StripService } from "../services/contract";
 import type { ServiceState, ServiceVerb } from "../services/manifest";
+import { diagnose } from "../services/failure";
 import { cn } from "../lib/utils";
 import { Icon } from "./ui/icon";
 import {
@@ -143,28 +144,91 @@ function ActionButton({ action, busy, onRun }: { action: StripAction; busy: bool
   );
 }
 
-function FailureNote({ failure, onDismiss }: { failure: Failure; onDismiss: () => void }) {
+function StartThreadButton({ label, primary, onClick }: { label: string; primary: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-xs font-medium",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        primary
+          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+          : "border border-border bg-background text-foreground hover:bg-accent",
+      )}
+    >
+      <Icon name="MessageSquarePlus" className="size-3.5" />
+      {label}
+    </button>
+  );
+}
+
+function FailureNote({
+  failure,
+  onDismiss,
+  onStartThread,
+}: {
+  failure: Failure;
+  onDismiss: () => void;
+  onStartThread: () => void;
+}) {
+  const diagnosis = diagnose(failure.output);
+  const [showOutput, setShowOutput] = useState(false);
+  const output = failure.output ? (
+    <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-muted-foreground">
+      {failure.output}
+    </pre>
+  ) : null;
   return (
     <div role="alert" className="mx-2 mb-1.5 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-xs">
       <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <span className="font-medium text-destructive-text">{failure.title} failed</span>
-          {failure.command ? <code className="ml-2 font-mono text-muted-foreground">{failure.command}</code> : null}
+        <div className="min-w-0 flex-1 py-0.5">
+          {diagnosis ? (
+            <>
+              <span className="font-medium text-destructive-text">This checkout isn't set up for Dev Bar</span>
+              <div className="mt-0.5 text-muted-foreground">
+                <code className="font-mono text-foreground">{failure.command}</code> needs{" "}
+                <code className="font-mono text-foreground">{diagnosis.program}</code>, which isn't installed here.
+                Its dependencies may not be installed yet.
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="font-medium text-destructive-text">{failure.title} failed</span>
+              {failure.command ? <code className="ml-2 font-mono text-muted-foreground">{failure.command}</code> : null}
+            </>
+          )}
         </div>
+        <StartThreadButton
+          label={diagnosis ? "Set up in a thread" : "Start thread"}
+          primary={diagnosis !== null}
+          onClick={onStartThread}
+        />
         <button
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="-m-0.5 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Icon name="X" className="size-3.5" />
         </button>
       </div>
-      {failure.output ? (
-        <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-muted-foreground">
-          {failure.output}
-        </pre>
-      ) : null}
+      {diagnosis && failure.output ? (
+        <>
+          <button
+            type="button"
+            aria-expanded={showOutput}
+            onClick={() => setShowOutput(!showOutput)}
+            className="mt-1 inline-flex items-center gap-0.5 rounded text-muted-foreground hover:text-foreground"
+          >
+            <Icon name="ChevronRight" className={cn("size-3 transition-transform", showOutput && "rotate-90")} />
+            Output
+          </button>
+          {showOutput ? output : null}
+        </>
+      ) : (
+        output
+      )}
     </div>
   );
 }
@@ -181,6 +245,8 @@ export interface ServicesStripProps {
   onRun: (target: RunTarget) => void;
   onOpen: (url: string) => void;
   onDismissFailure: () => void;
+  /** Starts a thread in this checkout to fix the failure. */
+  onStartThread: (failure: Failure) => void;
 }
 
 /** The status bar along the bottom of the thread pane: one item per service, then the repo's actions. */
@@ -194,13 +260,14 @@ export function ServicesStrip({
   onRun,
   onOpen,
   onDismissFailure,
+  onStartThread,
 }: ServicesStripProps) {
   const running = services.filter((service) => service.state === "running").length;
   return (
     <section aria-label="Dev Bar" className="border-t border-border bg-muted/40">
       {failure ? (
         <div className="pt-1.5">
-          <FailureNote failure={failure} onDismiss={onDismissFailure} />
+          <FailureNote failure={failure} onDismiss={onDismissFailure} onStartThread={() => onStartThread(failure)} />
         </div>
       ) : null}
       <div className="flex h-7 items-center gap-1 px-2">
