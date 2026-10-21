@@ -33,7 +33,7 @@ const STATE_LABEL: Record<ServiceState, string> = {
 const VERB: Record<ServiceVerb, { label: string; icon: string }> = {
   start: { label: "Start", icon: "Play" },
   stop: { label: "Stop", icon: "Square" },
-  restart: { label: "Restart", icon: "RotateCw" },
+  restart: { label: "Restart", icon: "RotateCcw" },
 };
 
 /** Which verbs make sense for a service in its current state. */
@@ -54,7 +54,7 @@ function shortUrl(url: string): string {
 }
 
 function Spinner() {
-  return <Icon name="LoaderCircle" className="size-3 animate-spin text-muted-foreground" />;
+  return <Icon name="Spinner" className="size-3 animate-spin text-muted-foreground" />;
 }
 
 function ServiceChip({
