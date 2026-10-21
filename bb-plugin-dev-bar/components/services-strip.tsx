@@ -3,6 +3,7 @@ import type { Failure, RunTarget, StripAction, StripService } from "../services/
 import type { ServiceState, ServiceVerb } from "../services/manifest";
 import { diagnose } from "../services/failure";
 import { cn } from "../lib/utils";
+import { Glyph, glyphForLabel, type GlyphName } from "./glyph";
 import { Icon } from "./ui/icon";
 import {
   DropdownMenu,
@@ -31,11 +32,21 @@ const STATE_LABEL: Record<ServiceState, string> = {
   failed: "Failed",
 };
 
-const VERB: Record<ServiceVerb, { label: string; icon: string }> = {
-  start: { label: "Start", icon: "Play" },
-  stop: { label: "Stop", icon: "Square" },
-  restart: { label: "Restart", icon: "RotateCcw" },
+const PILL_CLASS: Record<ServiceState, string> = {
+  running: "bg-success/15 text-foreground",
+  starting: "bg-amber-500/15 text-foreground",
+  stopped: "bg-muted text-muted-foreground",
+  failed: "bg-destructive/15 text-destructive-text",
 };
+
+const VERB: Record<ServiceVerb, { label: string; glyph: GlyphName }> = {
+  start: { label: "Start", glyph: "play" },
+  stop: { label: "Stop", glyph: "stop" },
+  restart: { label: "Restart", glyph: "restart" },
+};
+
+/** Lines the bar up under the thread, a little wider than the composer's column. */
+const COLUMN_CLASS = "mx-auto w-full max-w-[1080px]";
 
 /** Which verbs make sense for a service in its current state. */
 function verbsFor(service: StripService): ServiceVerb[] {
@@ -81,13 +92,14 @@ function ServiceChip({
           title={hint}
           aria-label={`${service.label}: ${hint}`}
           className={cn(
-            "inline-flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5 text-xs text-foreground",
-            "hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent",
-            service.state === "failed" && "text-destructive-text",
+            "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-xs",
+            "hover:brightness-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "data-[state=open]:ring-1 data-[state=open]:ring-border",
+            PILL_CLASS[service.state],
           )}
         >
-          {busy ? <Spinner /> : <span className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[service.state])} />}
-          <span className={cn(service.state === "stopped" && "text-muted-foreground")}>{service.label}</span>
+          {busy ? <Spinner /> : <span className={cn("size-1.5 shrink-0 rounded-full", DOT_CLASS[service.state])} />}
+          {service.label}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-44">
@@ -97,14 +109,14 @@ function ServiceChip({
         </div>
         {service.url ? (
           <DropdownMenuItem onSelect={() => onOpen(service.url!)} disabled={service.state !== "running"}>
-            <Icon name="ExternalLink" className="size-3.5" />
+            <Glyph name="external" className="size-3.5" />
             Open {shortUrl(service.url)}
           </DropdownMenuItem>
         ) : null}
         {service.url && verbs.length > 0 ? <DropdownMenuSeparator /> : null}
         {verbs.map((verb) => (
           <DropdownMenuItem key={verb} disabled={busy} onSelect={() => onRun(verb)}>
-            <Icon name={VERB[verb].icon} className="size-3.5" />
+            <Glyph name={VERB[verb].glyph} className="size-3.5" />
             {VERB[verb].label}
           </DropdownMenuItem>
         ))}
@@ -114,32 +126,52 @@ function ServiceChip({
 }
 
 /** A button whose command asks first: the first click arms it, the second runs it. */
-function ActionButton({ action, busy, onRun }: { action: StripAction; busy: boolean; onRun: () => void }) {
+function ActionButton({
+  action,
+  busy,
+  primary,
+  onRun,
+}: {
+  action: StripAction;
+  busy: boolean;
+  /** Filled, for the button the user most likely wants next. */
+  primary: boolean;
+  onRun: () => void;
+}) {
+  const glyph = glyphForLabel(action.label);
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
     const timer = setTimeout(() => setArmed(false), 4000);
     return () => clearTimeout(timer);
   }, [armed]);
+  // In a narrow bar, a button with an icon drops its label, unless it is the filled one or asking to confirm.
+  const compact = glyph !== null && !primary && !armed;
   return (
     <button
       type="button"
       disabled={busy}
-      title={armed ? undefined : (action.confirm ?? undefined)}
+      title={armed ? undefined : (action.confirm ?? action.label)}
+      aria-label={armed ? `${action.label}?` : action.label}
       onClick={() => {
         if (action.confirm && !armed) return setArmed(true);
         setArmed(false);
         onRun();
       }}
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground",
-        "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "inline-flex h-6 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 text-xs",
+        compact && "@max-[760px]:w-6 @max-[760px]:px-0",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "disabled:pointer-events-none disabled:opacity-60",
-        armed && "bg-destructive/10 text-destructive-text hover:bg-destructive/15 hover:text-destructive-text",
+        armed
+          ? "border border-destructive/40 bg-destructive/10 text-destructive-text hover:bg-destructive/15"
+          : primary
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "border border-border bg-background text-foreground hover:bg-accent",
       )}
     >
-      {busy ? <Spinner /> : null}
-      {armed ? `${action.label}?` : action.label}
+      {busy ? <Spinner /> : glyph ? <Glyph name={glyph} /> : null}
+      <span className={cn(compact && "@max-[760px]:sr-only")}>{armed ? `${action.label}?` : action.label}</span>
     </button>
   );
 }
@@ -150,7 +182,7 @@ function StartThreadButton({ label, primary, onClick }: { label: string; primary
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-xs font-medium",
+        "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded px-2 text-xs font-medium",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         primary
           ? "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -208,7 +240,7 @@ function FailureNote({
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="cursor-pointer rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Icon name="X" className="size-3.5" />
         </button>
@@ -219,7 +251,7 @@ function FailureNote({
             type="button"
             aria-expanded={showOutput}
             onClick={() => setShowOutput(!showOutput)}
-            className="mt-1 inline-flex items-center gap-0.5 rounded text-muted-foreground hover:text-foreground"
+            className="mt-1 inline-flex cursor-pointer items-center gap-0.5 rounded text-muted-foreground hover:text-foreground"
           >
             <Icon name="ChevronRight" className={cn("size-3 transition-transform", showOutput && "rotate-90")} />
             Output
@@ -247,6 +279,9 @@ export interface ServicesStripProps {
   onDismissFailure: () => void;
   /** Starts a thread in this checkout to fix the failure. */
   onStartThread: (failure: Failure) => void;
+  /** Runs the status command again, after it failed. */
+  onRetry: () => void;
+  retrying: boolean;
 }
 
 /** The status bar along the bottom of the thread pane: one item per service, then the repo's actions. */
@@ -261,20 +296,43 @@ export function ServicesStrip({
   onOpen,
   onDismissFailure,
   onStartThread,
+  onRetry,
+  retrying,
 }: ServicesStripProps) {
   const running = services.filter((service) => service.state === "running").length;
+  // With nothing up, the first button that starts things is the likely next step.
+  const primaryIndex =
+    loaded && running === 0 ? actions.find((action) => glyphForLabel(action.label) === "play")?.index : undefined;
   return (
-    <section aria-label="Dev Bar" className="border-t border-border bg-muted/40">
+    <section aria-label="Dev Bar" className="@container border-t border-border bg-muted/40">
       {failure ? (
-        <div className="pt-1.5">
+        <div className={cn(COLUMN_CLASS, "pt-1.5")}>
           <FailureNote failure={failure} onDismiss={onDismissFailure} onStartThread={() => onStartThread(failure)} />
         </div>
       ) : null}
-      <div className="flex h-7 items-center gap-1 px-2">
-        <span title={source ?? undefined} className="shrink-0 cursor-default px-1.5 text-xs text-muted-foreground">
-          {!loaded ? "Dev services…" : services.length > 0 ? `${running}/${services.length} running` : "Dev services"}
-        </span>
-        <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
+      <div className={cn(COLUMN_CLASS, "flex h-9 items-center gap-1.5 px-3")}>
+        {loaded && services.length === 0 ? (
+          <span title={source ?? undefined} className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+            Couldn't read services
+            <button
+              type="button"
+              disabled={retrying}
+              onClick={onRetry}
+              className={cn(
+                "inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border border-border bg-background px-2.5 text-foreground",
+                "hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
+              )}
+            >
+              {retrying ? <Spinner /> : <Glyph name="restart" />}
+              Retry
+            </button>
+          </span>
+        ) : (
+          <span title={source ?? undefined} className="shrink-0 cursor-default pr-1 text-xs font-medium text-muted-foreground">
+            {loaded ? `${running} of ${services.length} running` : "Reading services…"}
+          </span>
+        )}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
           {services.map((service) => (
             <ServiceChip
               key={service.id}
@@ -290,6 +348,7 @@ export function ServicesStrip({
             key={action.index}
             action={action}
             busy={busy.has(targetKey({ kind: "action", index: action.index }))}
+            primary={action.index === primaryIndex}
             onRun={() => onRun({ kind: "action", index: action.index })}
           />
         ))}

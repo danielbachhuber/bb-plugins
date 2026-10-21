@@ -1,6 +1,6 @@
 ## What you get
 
-- A status bar along the bottom of a thread listing the checkout's dev services, each with a dot for whether it is running.
+- A status bar along the bottom of a thread listing the checkout's dev services, each as a pill colored by whether it is running.
 - A menu on each service to open the service's URL, or start, stop, or restart it.
 - Buttons for the repository's own commands, such as Start all or Reset database, with an optional confirmation.
 - The last lines a failed command printed, above the bar, with a button that starts a thread in the same checkout to fix it. A checkout missing its dependencies gets a Set up in a thread button.

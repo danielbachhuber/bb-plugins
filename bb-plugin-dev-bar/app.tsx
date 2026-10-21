@@ -45,6 +45,7 @@ function Strip() {
   const [actionFailure, setActionFailure] = useState<Failure | null>(null);
   const [dismissedStatus, setDismissedStatus] = useState<string | null>(null);
   const [fastUntil, setFastUntil] = useState(0);
+  const [retrying, setRetrying] = useState(false);
 
   const currentThreadId = useRef(threadId);
   currentThreadId.current = threadId;
@@ -143,6 +144,13 @@ function Strip() {
           onOpen={(url) => navigate.openUrl(url)}
           onDismissFailure={() => (actionFailure ? setActionFailure(null) : setDismissedStatus(statusKey))}
           onStartThread={(shown) => void startThread(shown)}
+          retrying={retrying}
+          onRetry={() => {
+            // A failure that persists shows its note again, even if it was dismissed.
+            setDismissedStatus(null);
+            setRetrying(true);
+            void load().finally(() => setRetrying(false));
+          }}
         />,
         container,
       )}

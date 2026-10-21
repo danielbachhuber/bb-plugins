@@ -21,15 +21,16 @@ const services: StripService[] = [
 
 const actions: StripAction[] = [
   { index: 0, label: "Start all", confirm: null },
-  { index: 1, label: "Stop all", confirm: null },
-  { index: 2, label: "Reset database", confirm: "Replace this worktree's database with seeded data?" },
+  { index: 1, label: "Start with sync", confirm: null },
+  { index: 2, label: "Stop all", confirm: null },
+  { index: 3, label: "Reset database", confirm: "Replace this worktree's database with seeded data?" },
 ];
 
-/** The bottom of a thread pane, wide and then narrow (as with a side panel open): the composer, then the bar edge to edge. */
+/** The bottom of a thread pane, wide and then narrow (as with a side panel open): the composer, then the bar, whose contents stop a little wider than the composer. */
 function UnderComposer({ children }: { children: ReactNode }) {
   return (
     <div data-screenshot-frame className="space-y-4 p-4">
-      {[1000, 540].map((width) => (
+      {[1360, 540].map((width) => (
         <div key={width} style={{ width }} className="overflow-hidden rounded-lg border border-border bg-background">
           <div className="mx-auto max-w-[760px] px-4 pb-4 pt-4">
             <div className="h-20 rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
@@ -57,6 +58,8 @@ function Story(props: Partial<ServicesStripProps>) {
         onOpen={noop}
         onDismissFailure={noop}
         onStartThread={noop}
+        onRetry={noop}
+        retrying={false}
         {...props}
       />
     </UnderComposer>
@@ -66,7 +69,7 @@ function Story(props: Partial<ServicesStripProps>) {
 /** Four of six services up, one still starting, with the repository's own buttons at the end. */
 export const Running = () => <Story />;
 
-/** Every service stopped, as in a fresh worktree. */
+/** Every service stopped, as in a fresh worktree, so Start all is the filled button. */
 export const AllStopped = () => (
   <Story services={services.map((service) => ({ ...service, state: "stopped" as const }))} />
 );
@@ -88,7 +91,7 @@ export const ActionFailed = () => (
   />
 );
 
-/** The status command failed, so there are no services to show. */
+/** The status command failed, so the bar offers Retry in place of the services. */
 export const StatusFailed = () => (
   <Story
     services={[]}
@@ -111,3 +114,6 @@ export const NotSetUp = () => (
     }}
   />
 );
+
+/** The status command's failure was dismissed; the bar still says it couldn't read services and offers Retry. */
+export const FailureDismissed = () => <Story services={[]} />;
