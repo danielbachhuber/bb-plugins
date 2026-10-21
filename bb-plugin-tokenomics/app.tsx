@@ -110,7 +110,8 @@ function useProviderName() {
  * The session in bb's title bar, after the other plugins' buttons: its spark
  * chart, rings for the session's and the week's percent used, the page's
  * meters and the past day's chart on hover, and the page on click. With two
- * subscriptions it shows the one closer to its limit. Draws nothing until a provider reports a session.
+ * subscriptions it shows the one closer to its limit. Draws nothing until a
+ * provider reports a session.
  */
 function LimitsTopBar() {
   const limits = useLimits();
