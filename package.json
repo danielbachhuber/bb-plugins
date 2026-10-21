@@ -5,6 +5,7 @@
   "workspaces": [
     "bb-plugin-automation-palette",
     "bb-plugin-contributor-dashboard",
+    "bb-plugin-dev-bar",
     "bb-plugin-diff-comment",
     "bb-plugin-diff-viewed",
     "bb-plugin-gh-context",

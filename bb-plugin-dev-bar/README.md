@@ -1,0 +1,75 @@
+# Dev Bar
+
+A status bar along the bottom of a thread that shows which of the checkout's dev services are running, and starts, stops, or restarts them.
+
+![A thin bar along the bottom of a thread, under the composer, in a wide and a narrow pane: "3/6 running", then each service with a green, amber, or hollow dot, and Start all, Stop all, and Reset database on the right](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/dev-bar/strip--running.png)
+
+## Use
+
+- Open a thread whose checkout has a `.bb/dev-bar.json`. The bar appears along the bottom of the thread, under the composer, with each service and a dot for its state: green is running, amber is starting, a hollow ring is stopped, red has failed.
+- Click a service to **Open** the service's URL, or to **Start**, **Stop**, or **Restart** it.
+- Click a button at the right end of the bar, such as **Start all**, to run a command the repository declares. A button with a question asks it first; click again to confirm.
+- When a command fails, the last lines it printed show above the bar.
+
+![The bar with Web in red, and above it a note reading "Start web failed" with the command and the error it printed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/dev-bar/strip--action-failed.png)
+
+## Add it to a repository
+
+The plugin knows nothing about any app. A repository opts in by committing `.bb/dev-bar.json`, which names the commands to run in the checkout:
+
+```json
+{
+  "status": "pnpm status --json",
+  "start": "pnpm launch start {id}",
+  "stop": "pnpm launch stop {id}",
+  "actions": [
+    { "label": "Start all", "command": "pnpm launch" },
+    { "label": "Stop all", "command": "pnpm stop" },
+    { "label": "Reset database", "command": "pnpm reset", "confirm": "Replace this checkout's database with seeded data?" }
+  ]
+}
+```
+
+The status command prints JSON listing each service:
+
+```json
+{
+  "services": [
+    { "id": "web", "label": "Web", "state": "running", "url": "http://localhost:5174" },
+    { "id": "db", "label": "Database", "state": "running", "actions": ["start"] },
+    { "id": "desktop", "label": "Desktop app", "state": "stopped" }
+  ]
+}
+```
+
+For a repository that commits no manifest, put the same file at `.bb/dev-bar.local.json` in one checkout and keep it out of git, or save it for every checkout of a bb project with `bb dev-bar manifest set <file>`. The bar uses the first it finds, in that order, and says which on hover over the count.
+
+The `dev-bar` skill in [`skills/dev-bar/SKILL.md`](skills/dev-bar/SKILL.md) is the full contract: every field, and what the commands must do.
+
+## For agents
+
+The `dev-bar` skill tells agents how to write a manifest and status command for a repository.
+
+```sh
+bb dev-bar manifest set <file> [--project <id>]   # save a manifest for a bb project
+bb dev-bar manifest show [--project <id>]         # print the saved manifest
+bb dev-bar manifest clear [--project <id>]        # remove it
+```
+
+## Requirements
+
+A checkout on the machine bb runs on. Commands run in the checkout through your login shell. While a thread is on screen, the plugin runs the status command every 5 seconds, and every second for 15 seconds after you click a button.
+
+## Related plugins
+
+- **Worktree Ports** (`worktree-ports`): lists the ports each worktree is listening on and can stop the process holding one. It finds services on its own, while Dev Bar shows the services a repository declares and can start them.
+- **GitHub Context** (`gh-context`): the banner above the composer from this repository. Dev Bar sits along the bottom of the thread, under the composer, so the two can run together.
+
+## Develop
+
+```sh
+npm install
+npx tsc --noEmit
+npm test
+node ../scripts/link-workspace-deps.mjs && bb plugin build . && bb plugin reload dev-bar
+```
