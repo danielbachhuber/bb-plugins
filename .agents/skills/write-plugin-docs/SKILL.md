@@ -11,7 +11,7 @@ A plugin has three texts, each for a different reader:
 | --- | --- | --- |
 | `bb.description` | Someone scanning the plugin list or a marketplace card | One sentence, under 140 characters |
 | `PLUGIN_OVERVIEW.md` | Someone on the store page deciding whether to install | 600 to 1500 characters |
-| `README.md` | Someone on GitHub who wants to see it and try it | 40 to 120 lines |
+| `README.md` | Someone on GitHub who wants to see it and try it | 40 to 140 lines |
 
 All three make the same claim at different lengths. Write `bb.description`
 first, then the overview, then the README, and change all three in the same
@@ -60,8 +60,10 @@ Template: [overview-template.md](overview-template.md).
 
 Every plugin has captures in the screenshots repository
 (`../bb-plugins-screenshots/<id>/`, or wherever `BB_PLUGINS_SCREENSHOTS_DIR`
-points), and the README and the marketplace entry use only those. Before you
-write, list that directory and look at the images:
+points), and the README and the marketplace entry use only those. The README
+links each one from the plugin's own `screenshots/` directory, by the name the
+capture gives it, and the marketplace entry uses the same files. Before you
+write, list the screenshots repository's directory and look at the images:
 
 - If it is missing, the plugin has no stories. Write one for each surface
   the README will describe, as the Stories section of AGENTS.md says:
@@ -72,8 +74,10 @@ write, list that directory and look at the images:
   a different starting state, or a more realistic fixture usually does it.
 - Commit the stories, push, and run
   `npm run screenshots:isolated -- --plugin <name>`. Read
-  every image it lists, then commit them with `screenshots:commit`, before
-  you link any of them.
+  every image it lists, then commit them with `screenshots:commit`.
+- Once the README links an image as `screenshots/<story>.png`, each capture
+  copies the story's image into the plugin's `screenshots/` directory and
+  lists it. Commit those copies with the README.
 
 ## README.md
 
@@ -84,21 +88,34 @@ Template: [readme-template.md](readme-template.md).
   showing the same content, each introduced by a sentence. The contrast
   explains the plugin faster than a list of features.
 - Put a screenshot directly under the one-line description. Every README has
-  at least one. Use the images the story capture already published, by URL:
-  `https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/<id>/<story>.png`.
+  at least one. Link it as `screenshots/<story>.png`, where `<story>` is the
+  file name the capture gives it, such as `page--header-open.png`.
   Read the image before linking it, and describe what it shows in the alt
   text.
-- Add a second or third screenshot only for a surface the first does not show,
-  placed next to the bullet it illustrates. Three at most.
-- `## Use` is three to seven bullets, each one thing the user does or sees,
-  with UI labels in bold.
+- `## Key features` has one `###` subhead per feature, two to five of them.
+  Name each subhead for what the user gets and where they meet it, such as
+  "A context meter above the composer". Under it, put a screenshot of that
+  feature, then a paragraph of two to five sentences on what the user sees and
+  does there, with UI labels in bold. A plugin with one feature skips the
+  subheads and puts that paragraph under the lead screenshot.
+- A feature's screenshot shows that feature closer up or in a different state
+  than the lead image, not the lead image again. Pick the story that shows it
+  in use, not one that lays out every state; the states belong in tests.
 - Every README has `## Related plugins`. Search with
   `bb plugin search <keywords>`, trying several phrasings of what the plugin
   does, and list the plugins a reader would weigh against this one, including
   the ones bundled with bb. For each, say in one or two sentences what it does
-  and how this plugin is similar or different. Name it by display name and
-  entry id, such as **Markdown PRO** (`md-editor`), without its author or
-  repository link. When nothing similar exists, say so in one line.
+  and how this plugin is similar or different. Name it by display name,
+  linked to its marketplace page, and entry id, such as
+  **[Markdown PRO](https://getbb.app/marketplace/md-editor)** (`md-editor`),
+  without its author or repository link. The page is
+  `https://getbb.app/marketplace/<entry-id>`. Check that the page's title
+  names the plugin (`curl -sL <url> | grep -o '<title>[^<]*'`), because an
+  unknown id still returns 200 with the marketplace's own title. When nothing
+  similar exists, say so in one line.
+  Directly under the heading, put `_As of <Month D, YYYY>_`, the date you
+  last searched, such as `_As of October 21, 2026_`, and change it whenever
+  you search again.
 - Include `## For agents`, `## Settings`, and `## Requirements` only when the
   plugin has them. `## For agents` lists
   the commands, one per line, and names the skill. Requirements name every
@@ -112,8 +129,9 @@ Template: [readme-template.md](readme-template.md).
       README table matches it.
 - [ ] The screenshots repository has a directory for the plugin, with a
       capture of every surface the README describes.
-- [ ] The README is under 120 lines and opens with a screenshot you have
-      looked at, and every image URL loads (`curl -sI <url>` returns 200).
+- [ ] The README is under 140 lines and opens with a screenshot you have
+      looked at, and every image it links is in the plugin's `screenshots/`
+      directory.
 - [ ] No paragraph explains an edge case, a failure, or an earlier version.
 - [ ] The overview has no `#` title, image, or table, does not repeat
       `bb.description`, and is under 1500 characters
