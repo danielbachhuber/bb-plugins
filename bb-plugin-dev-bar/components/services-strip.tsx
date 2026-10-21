@@ -3,6 +3,7 @@ import type { Failure, RunTarget, StripAction, StripService } from "../services/
 import type { ServiceState, ServiceVerb } from "../services/manifest";
 import { diagnose } from "../services/failure";
 import { cn } from "../lib/utils";
+import { ServicesDonut } from "./donut";
 import { Glyph, glyphForLabel, type GlyphName } from "./glyph";
 import { Icon } from "./ui/icon";
 import {
@@ -328,9 +329,18 @@ export function ServicesStrip({
             </button>
           </span>
         ) : (
-          <span title={source ?? undefined} className="shrink-0 cursor-default pr-1 text-xs font-medium text-muted-foreground">
-            {loaded ? `${running} of ${services.length} running` : "Reading services…"}
-          </span>
+          loaded ? (
+            <span
+              role="img"
+              aria-label={`${running} of ${services.length} running`}
+              title={[`${running} of ${services.length} running`, source].filter(Boolean).join("\n")}
+              className="inline-flex shrink-0 cursor-default items-center px-0.5"
+            >
+              <ServicesDonut states={services.map((service) => service.state)} />
+            </span>
+          ) : (
+            <span className="shrink-0 cursor-default pr-1 text-xs font-medium text-muted-foreground">Reading services…</span>
+          )
         )}
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
           {services.map((service) => (

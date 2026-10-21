@@ -2,11 +2,11 @@
 
 A status bar along the bottom of a thread that shows which of the checkout's dev services are running, and starts, stops, or restarts them.
 
-![A thin bar along the bottom of a thread, under the composer, in a wide and a narrow pane: "3 of 6 running", then each service as a green, amber, or grey pill, and Start all, Start with sync, Stop all, and Reset database buttons on the right, shown as icons in the narrow pane](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/dev-bar/strip--running.png)
+![A thin bar along the bottom of a thread, under the composer, in a wide and a narrow pane: a small ring with one green, amber, or grey slice per service, then each service as a green, amber, or grey pill, and Start all, Start with sync, Stop all, and Reset database buttons on the right, shown as icons in the narrow pane](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/dev-bar/strip--running.png)
 
 ## Use
 
-- Open a thread whose checkout has a `.bb/dev-bar.json`. The bar appears along the bottom of the thread, under the composer, with each service as a pill tinted by its state: green is running, amber is starting, grey is stopped, red has failed.
+- Open a thread whose checkout has a `.bb/dev-bar.json`. The bar appears along the bottom of the thread, under the composer, with each service as a pill tinted by its state: green is running, amber is starting, grey is stopped, red has failed. The ring at the left end has one slice per service in the same colors; hover it for the count.
 - Click a service to **Open** the service's URL, or to **Start**, **Stop**, or **Restart** it.
 - Click a button at the right end of the bar, such as **Start all**, to run a command the repository declares. When nothing is running, the first button that starts things is filled. A button with a question asks it first; click again to confirm.
 - A failed command's last lines show above the bar. Click **Start thread** to have an agent fix it in the same checkout, or **Set up in a thread** when the checkout is missing a program the command needs, such as before its dependencies are installed. When the bar couldn't read the services, **Retry** runs the status command again.
