@@ -17,7 +17,7 @@ biggest turns.
 
 ### A context meter above the composer
 
-![A thread with a sparkline and 28M tokens in its header, and a red meter above its composer: 620K context against a 1M window, 22.4M tokens in the last turn, and a Compact button](screenshots/page--thread-with-meter.png)
+![A thread's last exchange, then an amber meter above its composer: 510K context against a 1M window, with ticks at 300K and 550K, 22.4M tokens in the last turn, and a Compact button](screenshots/page--context-meter-in-thread.png)
 
 Every model call reads the whole context again, so a large context makes
 every turn expensive. Once a thread's context passes 300K tokens, a meter

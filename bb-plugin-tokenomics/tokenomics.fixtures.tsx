@@ -361,10 +361,12 @@ export function ThreadFrame({
   headerAction,
   stack,
   height = "h-[900px]",
+  conversation = CONVERSATION,
 }: {
   headerAction: ReactNode;
   stack?: ReactNode;
   height?: string;
+  conversation?: typeof CONVERSATION;
 }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
@@ -378,7 +380,7 @@ export function ThreadFrame({
       />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6">
-          {CONVERSATION.map((turn, index) =>
+          {conversation.map((turn, index) =>
             turn.from === "work" ? (
               <div key={index} className="text-sm text-muted-foreground">
                 {turn.text}

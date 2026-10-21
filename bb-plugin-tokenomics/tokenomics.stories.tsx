@@ -20,6 +20,7 @@ import { windowFor } from "./usage/series";
 import {
   AfterComposerFocus,
   CALM,
+  CONVERSATION,
   dataFor,
   HOUR,
   limit,
@@ -364,5 +365,21 @@ export const TitleBarInWindow = () => (
         initialOpen
       />
     </WindowTitleBar>
+  </div>
+);
+
+// The README's image for the context meter, and the store's.
+/**
+ * A thread whose context has passed the warning setting: its last exchange,
+ * then the amber meter above the composer, with Compact.
+ */
+export const ContextMeterInThread = () => (
+  <div data-screenshot-frame className="w-[1400px]" style={{ height: 480 }}>
+    <ThreadFrame
+      height="h-full"
+      headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+      stack={<ContextMeter {...METER} />}
+      conversation={CONVERSATION.slice(-3)}
+    />
   </div>
 );
