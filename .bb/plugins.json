@@ -12,6 +12,10 @@
       "source": "./bb-plugin-contributor-dashboard"
     },
     {
+      "name": "dev-bar",
+      "source": "./bb-plugin-dev-bar"
+    },
+    {
       "name": "diff-comment",
       "source": "./bb-plugin-diff-comment"
     },
