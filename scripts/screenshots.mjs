@@ -47,6 +47,7 @@
 // and defaults to a sibling directory named bb-plugins-screenshots.
 import { execFileSync, spawnSync } from "node:child_process";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -544,6 +545,34 @@ AGENTS.md describes.
 );
 
 writeFileSync(capturePath, JSON.stringify({ sha, subject, dirty }));
+
+// A plugin's README embeds its images from the plugin's own screenshots/
+// directory, named as the capture names them, so the README shows them on
+// GitHub and in a marketplace install. Copy each one it links from this
+// capture, so they stay current with the stories.
+const readmeCopies = [];
+for (const plugin of plugins.values()) {
+  if (!inScopeDir(plugin.dir)) continue;
+  const readme = join(repoRoot, plugin.sourceDir, "README.md");
+  if (!existsSync(readme)) continue;
+  const linked = new Set([...readFileSync(readme, "utf8").matchAll(/\]\(screenshots\/([^)\s]+\.png)\)/g)].map((match) => match[1]));
+  for (const name of linked) {
+    const from = join(outDir, plugin.dir, name);
+    if (!existsSync(from)) {
+      console.error(`${plugin.sourceDir}/README.md links screenshots/${name}, which no story captures.`);
+      continue;
+    }
+    const to = join(repoRoot, plugin.sourceDir, "screenshots", name);
+    if (existsSync(to) && readFileSync(to).equals(readFileSync(from))) continue;
+    mkdirSync(dirname(to), { recursive: true });
+    copyFileSync(from, to);
+    readmeCopies.push(relative(repoRoot, to));
+  }
+}
+if (readmeCopies.length) {
+  console.log(`\nCopied into this checkout for the plugins' READMEs, to commit here with the README:`);
+  for (const file of readmeCopies) console.log(`  ${file}`);
+}
 
 // -uall so a new plugin's images are listed one by one, not as a directory.
 // Not through git(), whose trim would take the leading space of the first

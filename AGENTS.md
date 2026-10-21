@@ -200,7 +200,11 @@ machine. A story that throws stops the capture, so fix the story rather than
 working around it.
 
 Do not add a `screenshots/` directory to a plugin for design history. The
-screenshots a README embeds are the exception, because the README needs them.
+images a plugin's README embeds are the exception: they live in its
+`screenshots/` directory, named as the capture names them, such as
+`screenshots/page--header-open.png`, so the README and the marketplace listing
+can use them. A capture copies each image a README links there from the
+story's new image and lists the copies. Commit them here with the plugin.
 
 ## Anything personal is a setting, never a constant
 
