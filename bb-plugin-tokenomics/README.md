@@ -187,11 +187,12 @@ empty space on the right is the time left, then two rings for the percent
 used: the session's outer ring and the weekly limit's inner one. Once the
 session is amber or red, the time left fills with hatched bars at the past
 hour's pace, red past the point it runs out, as on the page's chart. Hover it
-for the meters; click it to open the page. With two subscriptions, it shows
+for the meters and the past day's tokens per hour; click it to open the page. With two subscriptions, it shows
 the session closer to its limit.
 
 It reads the same limits as the page, again when a turn's usage is recorded,
-from Tokenomics' own database, so it makes no requests to a provider.
+and the past day's hours each time you hover it, both from Tokenomics' own
+database, so it makes no requests to a provider.
 
 ### Where turn time goes
 

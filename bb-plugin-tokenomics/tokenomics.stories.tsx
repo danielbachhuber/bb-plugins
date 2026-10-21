@@ -666,3 +666,21 @@ export const TitleBar = () => (
   </StoryCard>
   </div>
 );
+
+/** Hovering the title bar's button: the meters for the session and the weekly limit, then the past day's tokens per hour, running on to the session's reset with hatched bars once it's amber or red. */
+export const TitleBarHovered = () => (
+  <div className="h-[460px] w-[720px] p-4">
+    <div className="flex h-10 items-center gap-1.5 bg-background px-3">
+      <span className="inline-block size-7" />
+      <TopBarLimits
+        session={{ ...ON_PACE[0]!, slots: SESSION_SLOTS, lastHourTokens: 12_000_000 }}
+        limits={ON_PACE}
+        now={NOW.getTime()}
+        providerName={() => "Claude Code"}
+        onOpen={() => undefined}
+        bars={dataFor("day").bars}
+        initialOpen
+      />
+    </div>
+  </div>
+);

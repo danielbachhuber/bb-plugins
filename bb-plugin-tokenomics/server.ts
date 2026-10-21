@@ -370,6 +370,7 @@ export default async function plugin(bb: BbPluginApi) {
         error: limitsError,
       };
     },
+    usage_hours: ({ since }) => ({ hours: store.hoursSince(Math.max(since, Date.now() - MAX_WINDOW_MS)) }),
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
       const [names, thresholds] = await Promise.all([projectNames(), contextThresholds()]);

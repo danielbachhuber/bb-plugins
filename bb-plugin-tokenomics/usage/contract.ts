@@ -105,6 +105,11 @@ export const rpcContract = defineRpcContract({
       error: z.string().nullable(),
     }),
   },
+  /** Tokens per hour since `since`, without the page's thread list, for the title bar's chart. */
+  usage_hours: {
+    input: z.object({ since: z.number().int().nonnegative() }),
+    output: z.object({ hours: z.array(hourUsageSchema) }),
+  },
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),
     output: z.object({

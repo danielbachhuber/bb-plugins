@@ -3,15 +3,19 @@
 // for the percent used: the session outside, the week inside. Once the
 // session is on pace for the warning or will run out, the slots still to come
 // fill with hatched bars at the past hour's pace, red past the point it runs
-// out, as the page's chart does. Hovering shows the page's meters. Display only; app.tsx loads the limits.
+// out, as the page's chart does. Hovering shows the page's meters and its
+// chart of the past day. Display only; app.tsx loads the limits and the bars.
 import { useState } from "react";
 
 import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import type { Limit } from "@/usage/contract";
 import { SLOT_MS } from "@/usage/limits";
+import type { Bar } from "@/usage/series";
 
 import { LimitMeters, paceText } from "./limit-meters";
+import { UsageChart, UsageLegend } from "./usage-chart";
+import { withProjection } from "./usage-view";
 
 /** A session lasts five hours: 20 slots of 15 minutes. */
 const SLOTS = 20;
@@ -81,6 +85,7 @@ export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
 }
 
 const RING_SIZE = 18;
+const NONE_HIDDEN: ReadonlySet<never> = new Set();
 
 /** One ring of the donut: a faint track, then an arc clockwise from the top for the percent used. */
 function Ring({ limit, radius }: { limit: Limit; radius: number }) {
@@ -127,8 +132,8 @@ export function weeklyLimit(limits: readonly Limit[]): Limit | null {
 /**
  * The title bar's button: the session's spark chart and the rings for the
  * session's and the week's percent used. Hovering
- * opens the meters for every limit of the session's subscription; clicking
- * opens the Tokenomics page.
+ * opens the meters for every limit of the session's subscription and the
+ * past day's tokens per hour; clicking opens the Tokenomics page.
  */
 export function TopBarLimits({
   session,
@@ -136,6 +141,9 @@ export function TopBarLimits({
   now,
   providerName,
   onOpen,
+  bars = null,
+  onHover,
+  initialOpen = false,
 }: {
   session: Limit;
   /** Every limit of the session's subscription, for the popover. */
@@ -143,8 +151,15 @@ export function TopBarLimits({
   now: number;
   providerName: (providerId: string) => string;
   onOpen: () => void;
+  /** The past day's hourly bars for the popover's chart; null until loaded. */
+  bars?: readonly Bar[] | null;
+  /** Called each time the popover opens, so app.tsx can load the bars then. */
+  onHover?: () => void;
+  /** Opens the popover on first render, so a story can draw it. */
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
+  const chart = bars === null ? null : withProjection(bars, "hour", limits, now);
   const weekly = weeklyLimit(limits);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -157,7 +172,10 @@ export function TopBarLimits({
             setOpen(false);
             onOpen();
           }}
-          onPointerEnter={() => setOpen(true)}
+          onPointerEnter={() => {
+            setOpen(true);
+            onHover?.();
+          }}
           onPointerLeave={() => setOpen(false)}
           className="pr-2"
         >
@@ -167,6 +185,15 @@ export function TopBarLimits({
       </PopoverAnchor>
       <PopoverContent align="start" className="pointer-events-none w-[440px] p-3" onOpenAutoFocus={(event) => event.preventDefault()}>
         <LimitMeters limits={limits} providerName={providerName} className="" />
+        {chart === null ? null : (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="mb-1 text-xs font-medium">Past day</p>
+            <UsageChart bars={chart.bars} unit="hour" hidden={NONE_HIDDEN} projection={chart.projection} plotHeight={96} />
+            <div className="pl-[44px]">
+              <UsageLegend hidden={NONE_HIDDEN} onToggle={() => undefined} pace={chart.projection !== null} />
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

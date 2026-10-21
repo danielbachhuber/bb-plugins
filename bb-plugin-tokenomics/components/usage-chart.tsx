@@ -15,7 +15,7 @@ export const PARTS: ReadonlyArray<{ key: PartKey; label: string; fill: string; s
   { key: "output", label: "Output", fill: "fill-[#1baf7a] dark:fill-[#199e70]", swatch: "bg-[#1baf7a] dark:bg-[#199e70]" },
 ];
 
-const PLOT_HEIGHT = 200;
+const DEFAULT_PLOT_HEIGHT = 200;
 /** Room above the plot for the top axis label. */
 const TOP = 12;
 const TOOLTIP_WIDTH = 192;
@@ -146,6 +146,7 @@ export function UsageChart({
   hidden,
   initialHovered = null,
   projection = null,
+  plotHeight = DEFAULT_PLOT_HEIGHT,
 }: {
   bars: readonly Bar[];
   unit: "hour" | "day";
@@ -153,6 +154,8 @@ export function UsageChart({
   /** A bar to show hovered on first render, so a story can draw the tooltip. */
   initialHovered?: number | null;
   projection?: Projection | null;
+  /** The bars' tallest height in pixels; the title bar's popover draws a shorter chart. */
+  plotHeight?: number;
 }) {
   const { ref, width } = useWidth();
   const [hovered, setHovered] = useState<number | null>(initialHovered);
@@ -165,7 +168,7 @@ export function UsageChart({
   const plotWidth = Math.max(0, width - AXIS_WIDTH);
   const slot = bars.length === 0 ? 0 : plotWidth / bars.length;
   const barWidth = Math.max(1, slot - Math.max(GAP, slot * 0.2));
-  const y = (value: number) => TOP + (top === 0 ? PLOT_HEIGHT : PLOT_HEIGHT - (value / top) * PLOT_HEIGHT);
+  const y = (value: number) => TOP + (top === 0 ? plotHeight : plotHeight - (value / top) * plotHeight);
   const hoveredBar = hovered === null ? undefined : bars[hovered];
   const span = bars.length === 0 ? 1 : bars.at(-1)!.end - bars[0]!.start;
   const xAt = (time: number) => AXIS_WIDTH + ((time - (bars[0]?.start ?? 0)) / span) * plotWidth;
@@ -173,7 +176,7 @@ export function UsageChart({
   return (
     <div ref={ref} className="relative w-full" onMouseLeave={() => setHovered(null)}>
       {width > 0 ? (
-        <svg width={width} height={TOP + PLOT_HEIGHT + LABEL_HEIGHT} role="img" aria-label={`Tokens used per ${unit}`}>
+        <svg width={width} height={TOP + plotHeight + LABEL_HEIGHT} role="img" aria-label={`Tokens used per ${unit}`}>
           {projection === null ? null : (
             <defs>
               <pattern id="tokenomics-pace" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -212,7 +215,7 @@ export function UsageChart({
             return (
               <g key={bar.start}>
                 {hovered === index ? (
-                  <rect x={AXIS_WIDTH + index * slot} y={TOP} width={slot} height={PLOT_HEIGHT} className="fill-muted/60" />
+                  <rect x={AXIS_WIDTH + index * slot} y={TOP} width={slot} height={plotHeight} className="fill-muted/60" />
                 ) : null}
                 {drawn.map((part, stackIndex) => {
                   const value = bar[part.key];
@@ -243,7 +246,7 @@ export function UsageChart({
                 {label === null ? null : (
                   <text
                     x={x + barWidth / 2}
-                    y={TOP + PLOT_HEIGHT + 15}
+                    y={TOP + plotHeight + 15}
                     textAnchor="middle"
                     className="fill-muted-foreground text-[11px]"
                   >
@@ -254,7 +257,7 @@ export function UsageChart({
                   x={AXIS_WIDTH + index * slot}
                   y={0}
                   width={slot}
-                  height={TOP + PLOT_HEIGHT + LABEL_HEIGHT}
+                  height={TOP + plotHeight + LABEL_HEIGHT}
                   fill="transparent"
                   onMouseEnter={() => setHovered(index)}
                 />
@@ -267,7 +270,7 @@ export function UsageChart({
                 x1={xAt(projection.until)}
                 x2={xAt(projection.until)}
                 y1={TOP}
-                y2={TOP + PLOT_HEIGHT}
+                y2={TOP + plotHeight}
                 strokeDasharray="3 2"
                 className="stroke-muted-foreground"
               />
@@ -280,7 +283,7 @@ export function UsageChart({
                     x1={xAt(projection.runsOutAt)}
                     x2={xAt(projection.runsOutAt)}
                     y1={TOP}
-                    y2={TOP + PLOT_HEIGHT}
+                    y2={TOP + plotHeight}
                     strokeDasharray="3 2"
                     className="stroke-destructive"
                   />
@@ -298,7 +301,7 @@ export function UsageChart({
           )}
         </svg>
       ) : (
-        <div style={{ height: TOP + PLOT_HEIGHT + LABEL_HEIGHT }} />
+        <div style={{ height: TOP + plotHeight + LABEL_HEIGHT }} />
       )}
       {hoveredBar === undefined || hovered === null ? null : (
         <div

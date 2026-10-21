@@ -23,7 +23,7 @@ import type { rpcContract } from "./server";
 import { contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, LIMITS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { Limit, TurnDetail } from "./usage/contract.js";
-import { fillBars, windowFor, type RangeId } from "./usage/series.js";
+import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
@@ -83,6 +83,23 @@ function useLimits(): Limit[] {
   return limits;
 }
 
+/**
+ * The past day's tokens per hour for the title bar's popover, read from
+ * Tokenomics' own database each time the popover opens.
+ */
+function usePastDayBars() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [bars, setBars] = useState<Bar[] | null>(null);
+  const load = useCallback(() => {
+    const span = windowFor("day", new Date());
+    rpc.call("usage_hours", { since: span.since }).then(
+      (result) => setBars(fillBars(span.bars, result.hours)),
+      () => undefined,
+    );
+  }, [rpc]);
+  return { bars, load };
+}
+
 function useProviderName() {
   const providers = experimental_useProviders();
   return (providerId: string) =>
@@ -92,13 +109,14 @@ function useProviderName() {
 /**
  * The session in bb's title bar, after the other plugins' buttons: its spark
  * chart, rings for the session's and the week's percent used, the page's
- * meters on hover, and the page on click. With two subscriptions it shows the
- * one closer to its limit. Draws nothing until a provider reports a session.
+ * meters and the past day's chart on hover, and the page on click. With two
+ * subscriptions it shows the one closer to its limit. Draws nothing until a provider reports a session.
  */
 function LimitsTopBar() {
   const limits = useLimits();
   const providerName = useProviderName();
   const navigate = useBbNavigate();
+  const pastDay = usePastDayBars();
   // The spark's empty slots are the time left, so it redraws as time passes.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -118,6 +136,8 @@ function LimitsTopBar() {
         now={now}
         providerName={providerName}
         onOpen={() => navigate.toPluginPanel("tokenomics")}
+        bars={pastDay.bars}
+        onHover={pastDay.load}
       />
     </TopBarSlot>
   );
