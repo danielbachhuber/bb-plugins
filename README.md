@@ -2,7 +2,11 @@
 
 Plugins for [bb](https://getbb.app), the agentic IDE.
 
-For why I use bb, read [bb is the bee's knees](https://danielbachhuber.com/bb-is-the-bees-knees/).
+> bb's secret power is that it's nailed the ergonomics of authoring
+> customizations (inline agents and plugin architecture). You can modify bb
+> just as easily as modifying whatever codebase you're working in!
+>
+> From [bb is the bee's knees](https://danielbachhuber.com/bb-is-the-bees-knees/)
 
 ## ⚠️ This repository is public
 
@@ -19,15 +23,47 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 ### Published plugins
 
 These are in the bb-community marketplace, released from a `<id>/vX.Y.Z` tag.
-Move a plugin's row here when it is first published.
+Move a plugin here when it is first published.
 
-| Directory | bb id | What it does |
-| --- | --- | --- |
-| `bb-plugin-automation-palette` | `automation-palette` | Run any bb automation from the quick palette, without opening the Automations page. |
-| `bb-plugin-diff-viewed` | `diff-viewed` | Use a Viewed checkbox on each file to keep track of what you've read in a long diff, synced with GitHub on the thread's pull request. |
-| `bb-plugin-impromptu-ui` | `impromptu-ui` | Turns your agent's walls of text into interfaces you can click. |
-| `bb-plugin-markdown-editor` | `markdown-editor` | Edit markdown files in the tab bb opens them in, preview the result, and save with Cmd+S without overwriting an agent's edits. |
-| `bb-plugin-tokenomics` | `tokenomics` | See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset. |
+#### [Automation Palette](https://getbb.app/marketplace/automation-palette)
+
+Run any bb automation from the quick palette, without opening the Automations page.
+
+Source: [`bb-plugin-automation-palette`](bb-plugin-automation-palette)
+
+![bb's quick palette searching for automation, listing a Run automation row for each automation with its project](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/automation-palette/quick-palette--with-the-plugin.png)
+
+#### [Diff Viewed](https://getbb.app/marketplace/diff-viewed)
+
+Use a Viewed checkbox on each file to keep track of what you've read in a long diff, synced with GitHub on the thread's pull request.
+
+Source: [`bb-plugin-diff-viewed`](bb-plugin-diff-viewed)
+
+![The changes panel with a Viewed checkbox on each file and 3/6 viewed at the top, the viewed files folded away](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--viewed.png)
+
+#### [Impromptu UI](https://getbb.app/marketplace/impromptu-ui)
+
+Turns your agent's walls of text into interfaces you can click.
+
+Source: [`bb-plugin-impromptu-ui`](bb-plugin-impromptu-ui)
+
+![A milestone triage shown above a thread's composer, with each issue's evidence, drafted comment, and Post and close button beside the chat](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--triage.png)
+
+#### [Markdown Editor](https://getbb.app/marketplace/markdown-editor)
+
+Edit markdown files in the tab bb opens them in, preview the result, and save with Cmd+S without overwriting an agent's edits.
+
+Source: [`bb-plugin-markdown-editor`](bb-plugin-markdown-editor)
+
+![A markdown file open in bb's Raw view with unsaved changes, and Discard and Save buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--raw-with-unsaved-changes.png)
+
+#### [Tokenomics](https://getbb.app/marketplace/tokenomics)
+
+See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.
+
+Source: [`bb-plugin-tokenomics`](bb-plugin-tokenomics)
+
+![Tokenomics' title bar button open over a thread, showing the session's token use and when it is on pace to run out](bb-plugin-tokenomics/screenshots/page--window-with-limits.png)
 
 ### Unpublished plugins
 
