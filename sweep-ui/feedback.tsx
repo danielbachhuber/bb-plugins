@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import { Icon } from "./icons";
 import type { SweepLinkProps } from "./row";
@@ -7,7 +7,8 @@ import type { SweepLinkProps } from "./row";
  * The drawer a row's comment count opens: what people left on the pull
  * request, each entry a link to it on GitHub, oldest first. An inline comment
  * sits in a card headed by its file and line; reviews and top-level comments
- * do not. Yours and bots' carry a "you" or "bot" label. Resolved threads wait
+ * do not. Yours and bots' carry a "you" or "bot" label. A body longer than
+ * three lines is cut there, with Show more under it. Resolved threads wait
  * behind a toggle at the end. A long list opens on its newest entries, with
  * the earlier ones behind a button at the top.
  */
@@ -108,35 +109,77 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
   );
 }
 
-/** An inline comment in a card headed by its file and line; anything else as a plain row. */
+/**
+ * Whether a body runs past its three lines, checked in a ResizeObserver
+ * callback, which runs after layout and so reads sizes without making the
+ * page lay out again. Showing the toggle does not change the body's size.
+ */
+function useClamped(open: boolean) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [clamped, setClamped] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null || open || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setClamped(element.scrollHeight > element.clientHeight + 1));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [open]);
+  return { ref, clamped };
+}
+
+/**
+ * An inline comment in a card headed by its file and line; anything else as a
+ * plain row. Show more sits outside the link, so it opens the body in place
+ * rather than going to GitHub.
+ */
 function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) => string; Link: ComponentType<SweepLinkProps> }) {
+  const [open, setOpen] = useState(false);
+  const { ref, clamped } = useClamped(open);
   const content = (
     <>
       <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
         <Who entry={entry} />
         <Context entry={entry} age={age} />
       </span>
-      {entry.body ? <span className="mt-0.5 line-clamp-3 text-xs whitespace-pre-line text-foreground">{entry.body}</span> : null}
+      {entry.body ? (
+        <span ref={ref} className={`mt-0.5 text-xs whitespace-pre-line text-foreground ${open ? "block" : "line-clamp-3"}`}>
+          {entry.body}
+        </span>
+      ) : null}
     </>
   );
+  const toggle =
+    open || clamped ? (
+      <button
+        type="button"
+        className="mx-1 mb-1 rounded px-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? "Show less" : "Show more"}
+      </button>
+    ) : null;
   if (entry.kind !== "thread") {
     return (
       <li>
         <Link href={entry.url} className="block rounded px-2 py-1.5 hover:bg-accent">
           {content}
         </Link>
+        {toggle}
       </li>
     );
   }
   return (
     <li className="py-0.5">
-      <Link href={entry.url} className="block overflow-hidden rounded border border-border bg-background hover:bg-accent">
-        <span className="block border-b border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-          {entry.path}
-          {entry.line !== null ? `:${entry.line}` : ""}
-        </span>
-        <span className="block px-2 py-1.5">{content}</span>
-      </Link>
+      <div className="overflow-hidden rounded border border-border bg-background">
+        <Link href={entry.url} className="block hover:bg-accent">
+          <span className="block border-b border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+            {entry.path}
+            {entry.line !== null ? `:${entry.line}` : ""}
+          </span>
+          <span className="block px-2 py-1.5">{content}</span>
+        </Link>
+        {toggle}
+      </div>
     </li>
   );
 }

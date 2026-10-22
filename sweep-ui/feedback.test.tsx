@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { FeedbackList, type FeedbackEntry } from "./feedback";
 import { PlainLink } from "./row";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const url = "https://github.com/acme/widgets/pull/512";
 const comment = (index: number): FeedbackEntry => ({
@@ -56,5 +59,46 @@ describe("FeedbackList", () => {
     draw([...Array.from({ length: 5 }, (_, index) => resolvedThread(index)), ...Array.from({ length: 12 }, (_, index) => comment(10 + index))]);
     expect(screen.getByRole("button", { name: "Show 2 earlier" })).toBeInTheDocument();
     expect(bodies()).toHaveLength(10);
+  });
+
+  it("offers Show more only on a body cut at three lines, and opens it in place", () => {
+    // jsdom lays out nothing, so report every body as taller than it is drawn, and fire the observer at once.
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private callback: () => void) {}
+        observe() {
+          this.callback();
+        }
+        disconnect() {}
+      },
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", { configurable: true, get: () => 100 });
+    try {
+      draw([comment(1)]);
+    } finally {
+      delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+    }
+    const body = screen.getByText("Comment 1");
+    expect(body).toHaveClass("line-clamp-3");
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(body).not.toHaveClass("line-clamp-3");
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(body).toHaveClass("line-clamp-3");
+  });
+
+  it("offers no Show more on a body that fits", () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private callback: () => void) {}
+        observe() {
+          this.callback();
+        }
+        disconnect() {}
+      },
+    );
+    draw([comment(1)]);
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
   });
 });

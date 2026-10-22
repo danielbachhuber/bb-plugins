@@ -477,6 +477,33 @@ const FEEDBACK: FeedbackEntry[] = [
   },
 ];
 
+/** A review too long for three lines, and a short comment that fits. */
+const LONG_BODY_FEEDBACK: FeedbackEntry[] = [
+  {
+    kind: "review",
+    author: "hubber",
+    avatarUrl: avatarFor("hubber"),
+    state: "commented",
+    body: [
+      "The export shape works: rows stream in order, owners resolve once per page, and the header row matches the import format.",
+      "",
+      "Two things before this merges. The retry on a failed page starts over from the first page, so a flaky connection can write the early rows twice. And the file name uses the local time zone, which sorts badly next to exports from the scheduled job.",
+      "",
+      "Neither blocks a follow-up, but the duplicate rows will confuse anyone who opens the file in a spreadsheet.",
+    ].join("\n"),
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 26 * HOUR,
+  },
+  {
+    kind: "comment",
+    author: "octocat",
+    avatarUrl: avatarFor("octocat"),
+    body: "Agreed on the retry.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 25 * HOUR,
+  },
+];
+
 /** A long design review: 40 earlier comments before #487's, so the drawer opens on its newest 10. */
 const LONG_FEEDBACK: FeedbackEntry[] = [
   ...Array.from({ length: 40 }, (_, index): FeedbackEntry => ({
@@ -618,7 +645,8 @@ export function Rows() {
  * The drawer a row's comment count opens. The review that requested changes
  * comes first, then the threads still open, unanswered ones marked in red,
  * then general comments. Resolved threads wait behind "1 resolved". Each entry
- * opens on GitHub. Then a long list, which opens on its newest 10 under
+ * opens on GitHub. A comment longer than three lines is cut there, with Show
+ * more under it to read the rest in place. Then a long list, which opens on its newest 10 under
  * "Show 37 earlier", the drawer while it reads, when GitHub fails, and with
  * nothing open.
  */
@@ -632,6 +660,9 @@ export function CommentsDrawer() {
     <StoryCard>
       <StoryRow label="Open" hint="What reviewers left on #487.">
         {box(<FeedbackList entries={FEEDBACK} age={age} url={url} Link={PlainLink} />)}
+      </StoryRow>
+      <StoryRow label="Long comment" hint="Cut at three lines, with Show more.">
+        {box(<FeedbackList entries={LONG_BODY_FEEDBACK} age={age} url={url} Link={PlainLink} />)}
       </StoryRow>
       <StoryRow label="Long" hint="More than 10 entries: the newest 10, the rest behind Show earlier.">
         {box(<FeedbackList entries={LONG_FEEDBACK} age={age} url={url} Link={PlainLink} />)}
