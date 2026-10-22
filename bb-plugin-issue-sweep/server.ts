@@ -282,7 +282,13 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function sweepNow(): Promise<{ ok: boolean; error: string | null }> {
+  /**
+   * `signal` is the background service's: once it aborts, the gh call in
+   * flight is killed and the rest of the sweep is skipped, so a reload never
+   * waits on a sweep. bb degrades a plugin whose service misses its stop
+   * window, and a degraded plugin answers no RPC until it is reloaded again.
+   */
+  async function sweepNow(signal?: AbortSignal): Promise<{ ok: boolean; error: string | null }> {
     const { ghPath, projectBoard } = await settings.get();
     try {
       const scope = await repoFilter();
@@ -290,16 +296,22 @@ export default async function plugin(bb: BbPluginApi) {
       // here can call GitHub. Only runSweep and absorbOwnComments go through
       // the counting runner, so the call count leaves out the board's calls,
       // but the points include them.
-      const result = await syncUsage.measure(createGhRunner(ghPath), async (gh) => {
+      const result = await syncUsage.measure(createGhRunner(ghPath, signal), async (gh) => {
         const swept = await runSweep(gh, () => Date.now(), projectBoard, scope);
+        // A stopped sweep's repositories all read as failed. Keep the last
+        // listing rather than storing that.
+        signal?.throwIfAborted();
         store.replaceAll(swept);
         // Every row's count on first sight, so a row is never "N new" just
         // because this is the first sweep to list it.
         store.recordFirstSeen(swept.rows, swept.sweptAt);
         await absorbOwnComments(gh, swept.rows);
+        // The board steps make their own gh calls, outside the signal.
+        signal?.throwIfAborted();
         // Before the publish, so the panel's reload finds the options already
         // there and renders pickers on its first paint rather than its second.
         await warmBoards(swept.rows);
+        signal?.throwIfAborted();
         // Also before the publish. The rows it works from are the ones just
         // stored, so a promotion patches the stored row too and the moved cards
         // show their new status on this sweep rather than the next one.
@@ -334,6 +346,7 @@ export default async function plugin(bb: BbPluginApi) {
       unavailableRuns = 0;
       return { ok: true, error: null };
     } catch (error) {
+      if (signal?.aborted) return { ok: false, error: "Sweep stopped." };
       const message = error instanceof Error ? error.message : String(error);
       // The last good rows stay in the store, so a broken sweep degrades to a
       // stale panel with a banner rather than an empty one.
@@ -940,7 +953,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.background.service("sweep", {
     async start(signal) {
       while (!signal.aborted) {
-        await sweepNow();
+        await sweepNow(signal);
         if (signal.aborted) return;
 
         const { syncIntervalMinutes } = await settings.get();
