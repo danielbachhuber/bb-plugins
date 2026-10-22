@@ -12,8 +12,10 @@ import {
   type Listing,
   type Row,
 } from "./issues/list-view";
-import { CommentsDrawer, CommentsList } from "./issues/comments-drawer";
+import { FeedbackDrawer, FeedbackList } from "sweep-ui/feedback";
+import { Markdown } from "@get-bb/plugin-sdk/app";
 import type { IssueComment } from "./issues/comments";
+import { relativeTime } from "./issues/format";
 import { PlainLink } from "sweep-ui/row";
 
 export default {
@@ -265,7 +267,7 @@ function Frame({
             onOpen={noop}
             onNoteSave={async () => true}
             onOpenLink={noop}
-            loadComments={async () => ({ comments: COMMENTS, total: COMMENTS.length, error: null })}
+            loadComments={async () => ({ entries: COMMENTS, total: COMMENTS.length, error: null })}
             threadStatus={threadStatus}
           />
         </div>
@@ -277,6 +279,7 @@ function Frame({
 /** The conversation on #42, as the comments drawer reads it. */
 const COMMENTS: IssueComment[] = [
   {
+    kind: "comment",
     author: "octocat",
     avatarUrl: "",
     body: "Reproduced on a 1280px window: the widget turns a few degrees further each time the window is resized.",
@@ -284,13 +287,15 @@ const COMMENTS: IssueComment[] = [
     at: now - 3 * DAY,
   },
   {
+    kind: "comment",
     author: "hubber",
     avatarUrl: "",
-    body: "Could this be the rounding in the layout pass? It only shows up at fractional zoom levels for me.\n\nSteps that reproduce it here:\n1. Set the browser zoom to 110%.\n2. Open a board with at least one widget.\n3. Resize the window narrower, then wider again.\n\nThe widget ends up a degree or two off each time, and it never snaps back.",
+    body: "Could this be the rounding in the layout pass? It only shows up at **fractional zoom levels** for me.\n\nSteps that reproduce it here:\n1. Set the browser zoom to 110%.\n2. Open a board with at least one widget.\n3. Resize the window narrower, then wider again.\n\nThe widget ends up a degree or two off each time, and it never snaps back.",
     url: "https://github.com/acme/widgets/issues/42",
     at: now - 2 * DAY,
   },
   {
+    kind: "comment",
     author: "hubber",
     avatarUrl: "",
     body: "Confirmed: at 100% zoom it holds steady. At 110% it drifts on every second resize.",
@@ -544,7 +549,8 @@ const long: Listing = {
 /**
  * The drawer a row's comment count opens: the issue's latest comments, oldest
  * first, with the ones that arrived since it was last seen marked new. Each
- * opens on GitHub. Then the drawer while it reads, when GitHub fails, and when
+ * is drawn as the Markdown it was written in, and one longer than three lines
+ * is cut there, with Show more under it. Then the drawer while it reads, when GitHub fails, and when
  * the issue has more comments than the drawer reads.
  */
 export function CommentsDrawerStates() {
@@ -552,25 +558,26 @@ export function CommentsDrawerStates() {
     <div className="w-full max-w-3xl rounded-md border border-border bg-muted/40 px-3 py-2">{children}</div>
   );
   const url = "https://github.com/acme/widgets/issues/42";
+  const age = (at: number) => relativeTime(at, now);
   return (
     <StoryCard>
       <StoryRow label="Open" hint="Three comments on #42, the latest one new.">
-        {box(<CommentsList comments={COMMENTS} total={COMMENTS.length} newCount={1} now={now} url={url} Link={PlainLink} />)}
+        {box(<FeedbackList entries={COMMENTS} total={COMMENTS.length} newCount={1} age={age} url={url} Link={PlainLink} Markdown={Markdown} />)}
       </StoryRow>
       <StoryRow label="Reading" hint="While the one request to GitHub runs.">
-        <CommentsDrawer load={() => new Promise(() => {})} newCount={0} now={now} url={url} Link={PlainLink} />
+        <FeedbackDrawer load={() => new Promise(() => {})} age={age} url={url} Link={PlainLink} Markdown={Markdown} />
       </StoryRow>
       <StoryRow label="Failed" hint="GitHub could not be reached.">
-        <CommentsDrawer
-          load={async () => ({ comments: [], total: 0, error: "Could not read the comments from GitHub." })}
-          newCount={0}
-          now={now}
+        <FeedbackDrawer
+          load={async () => ({ entries: [], total: 0, error: "Could not read the comments from GitHub." })}
+          age={age}
           url={url}
           Link={PlainLink}
+          Markdown={Markdown}
         />
       </StoryRow>
       <StoryRow label="More than it reads" hint="The latest of 80 comments, with a link to the rest.">
-        {box(<CommentsList comments={COMMENTS} total={80} newCount={0} now={now} url={url} Link={PlainLink} />)}
+        {box(<FeedbackList entries={COMMENTS} total={80} age={age} url={url} Link={PlainLink} Markdown={Markdown} />)}
       </StoryRow>
     </StoryCard>
   );

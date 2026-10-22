@@ -312,16 +312,20 @@ export const rpcContract = defineRpcContract({
   listComments: {
     input: z.object({ repo: z.string(), number: z.number() }).strict(),
     output: z.object({
-      comments: z.array(
+      entries: z.array(
         z.object({
+          kind: z.literal("comment"),
           author: z.string(),
           avatarUrl: z.string(),
+          bot: z.boolean().optional(),
+          you: z.boolean().optional(),
+          /** Markdown, as written. */
           body: z.string(),
           url: z.string(),
           at: z.number(),
         }),
       ),
-      /** Every comment the issue has, of which `comments` is the latest. */
+      /** Every comment the issue has, of which `entries` is the latest. */
       total: z.number(),
       error: z.string().nullable(),
     }),

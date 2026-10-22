@@ -123,7 +123,7 @@ const REVIEW_STATE: Record<string, "changes_requested" | "approved" | "commented
 };
 
 /** The author's login to show, and whether it is a bot or you. Null without a login. */
-function person(
+export function feedbackPerson(
   author: RawAuthor | null | undefined,
   viewer: string | undefined,
 ): { author: string; avatarUrl: string; bot?: true; you?: true } | null {
@@ -146,7 +146,7 @@ const HTML_TAG =
  * tags, which bb's Markdown would show as text. The text inside a tag stays.
  * Code is left alone, so `<summary>` in backticks still reads as written.
  */
-function markdown(body: string | undefined): string {
+export function commentMarkdown(body: string | undefined): string {
   return (body ?? "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .split(CODE)
@@ -172,10 +172,10 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
 
   const entries: FeedbackEntry[] = [];
   for (const review of pr.reviews?.nodes ?? []) {
-    const who = review && person(review.author, viewer);
+    const who = review && feedbackPerson(review.author, viewer);
     const state = review?.state ? REVIEW_STATE[review.state] : undefined;
     if (!who || !state) continue;
-    const body = markdown(review!.body);
+    const body = commentMarkdown(review!.body);
     // An approval or a comment with no words says nothing the reviewer avatars do not.
     if (!body && state !== "changes_requested") continue;
     entries.push({
@@ -191,7 +191,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
   for (const thread of pr.reviewThreads?.nodes ?? []) {
     const first = thread?.first?.nodes?.[0];
     if (!thread || !first) continue;
-    const who = person(first.author, viewer);
+    const who = feedbackPerson(first.author, viewer);
     if (!who) continue;
     const last = thread.last?.nodes?.[0]?.author?.login;
     const replies = Math.max(0, (thread.last?.totalCount ?? 1) - 1);
@@ -208,15 +208,15 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
       status,
       outdated: thread.isOutdated === true,
       replies,
-      body: markdown(first.body),
+      body: commentMarkdown(first.body),
       url: first.url ?? "",
       at: time(first.createdAt),
     });
   }
 
   for (const comment of pr.comments?.nodes ?? []) {
-    const who = comment && person(comment.author, viewer);
-    const body = markdown(comment?.body);
+    const who = comment && feedbackPerson(comment.author, viewer);
+    const body = commentMarkdown(comment?.body);
     if (!who || !body) continue;
     entries.push({
       kind: "comment",

@@ -619,9 +619,9 @@ describe("seen comments", () => {
       listComments: (input: unknown) => {
         commentCalls.push(input);
         return {
-          comments: [
-            { author: "octocat", avatarUrl: "", body: "Seen this one before.", url: "u1", at: Date.now() - 5 * HOUR },
-            { author: "hubber", avatarUrl: "", body: "It drifts on every second resize.", url: "u2", at: Date.now() - HOUR },
+          entries: [
+            { kind: "comment", author: "octocat", avatarUrl: "", body: "Seen this one before.", url: "u1", at: Date.now() - 5 * HOUR },
+            { kind: "comment", author: "hubber", avatarUrl: "", body: "It drifts on every second resize.", url: "u2", at: Date.now() - HOUR },
           ],
           total: 2,
           error: null,
@@ -637,9 +637,9 @@ describe("seen comments", () => {
 
     fireEvent.click(within(row).getByRole("button", { name: "Show 2 comments" }));
     const newest = await within(row).findByText("It drifts on every second resize.");
-    expect(within(newest.closest("a")!).getByText("new")).toBeInTheDocument();
+    expect(within(newest.closest("li")!).getByText("new")).toBeInTheDocument();
     const older = within(row).getByText("Seen this one before.");
-    expect(within(older.closest("a")!).queryByText("new")).toBeNull();
+    expect(within(older.closest("li")!).queryByText("new")).toBeNull();
     expect(commentCalls).toEqual([{ repo: "acme/widgets", number: 42 }]);
     await waitFor(() => expect(seenCalls).toEqual([{ repo: "acme/widgets", number: 42 }]));
 
@@ -650,7 +650,7 @@ describe("seen comments", () => {
   it("says so in the drawer when GitHub could not be read, and leaves the issue unseen", async () => {
     const seenCalls: unknown[] = [];
     const slot = render(listing({ rows: [nowRow({ newComments: 1 })] }), {
-      listComments: () => ({ comments: [], total: 0, error: "Could not read the comments from GitHub." }),
+      listComments: () => ({ entries: [], total: 0, error: "Could not read the comments from GitHub." }),
       markSeen: (input: unknown) => {
         seenCalls.push(input);
         return { ok: true };

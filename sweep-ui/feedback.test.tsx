@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { FeedbackList, type FeedbackEntry } from "./feedback";
 import { PlainLink } from "./row";
@@ -102,5 +102,27 @@ describe("FeedbackList", () => {
     );
     draw([comment(1)]);
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("marks the last newCount entries new", () => {
+    render(
+      <FeedbackList entries={[comment(1), comment(2), comment(3)]} newCount={2} age={() => "1d ago"} url={url} Link={PlainLink} Markdown={Markdown} />,
+    );
+    const isNew = (text: string) => within(screen.getByText(text).closest("li")!).queryByText("new") !== null;
+    expect([isNew("Comment 1"), isNew("Comment 2"), isNew("Comment 3")]).toEqual([false, true, true]);
+  });
+
+  it("links to all of them when the conversation has more than it read", () => {
+    render(<FeedbackList entries={[comment(1)]} total={80} age={() => "1d ago"} url={url} Link={PlainLink} Markdown={Markdown} />);
+    expect(screen.getByRole("link", { name: /Open all 80 on GitHub/ })).toBeInTheDocument();
+  });
+
+  it("says there are no comments, or nothing open when every thread is resolved", () => {
+    draw([]);
+    expect(screen.getByText("No comments yet.")).toBeInTheDocument();
+    cleanup();
+    draw([resolvedThread(1)]);
+    expect(screen.getByText("Nothing open.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open the conversation on GitHub/ })).toBeInTheDocument();
   });
 });

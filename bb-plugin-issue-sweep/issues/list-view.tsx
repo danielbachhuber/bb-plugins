@@ -1,6 +1,6 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useState, type ReactNode } from "react";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
-import { CommentsDrawer, type CommentsResult } from "./comments-drawer.js";
+import { FeedbackDrawer, type FeedbackResult } from "sweep-ui/feedback";
 import { stagesOnBoard } from "./board.js";
 import { relativeTime } from "./format.js";
 import {
@@ -545,7 +545,7 @@ export interface IssueListViewProps {
    * Reads the issue's latest comments, when its comment count is clicked.
    * Once it has read them, the row's "N new" is marked seen.
    */
-  loadComments: (row: Row) => Promise<CommentsResult>;
+  loadComments: (row: Row) => Promise<FeedbackResult>;
   /**
    * What a row's thread is doing, from bb's sidebar. Left out, a row with a
    * thread still draws its thread line, without the status.
@@ -685,11 +685,12 @@ export function IssueListView({
                 const row = rowsByKey.get(item.key);
                 if (!row) return null;
                 return (
-                  <CommentsDrawer
+                  <FeedbackDrawer
                     url={row.url}
-                    now={now}
+                    age={(at) => relativeTime(at, now)}
                     newCount={row.newComments}
                     Link={UrlLink}
+                    Markdown={Markdown}
                     load={async () => {
                       const result = await loadComments(row);
                       if (!result.error && row.newComments > 0) onOpenLink(row);

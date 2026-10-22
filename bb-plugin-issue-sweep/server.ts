@@ -911,7 +911,7 @@ export default async function plugin(bb: BbPluginApi) {
         return { ...(await fetchComments(createGhRunner(ghPath), repo, number)), error: null };
       } catch (error) {
         bb.log.warn(`could not read the comments on ${repo}#${number}: ${String(error)}`);
-        return { comments: [], total: 0, error: "Could not read the comments from GitHub." };
+        return { entries: [], total: 0, error: "Could not read the comments from GitHub." };
       }
     },
 

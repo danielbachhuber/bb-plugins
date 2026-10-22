@@ -131,10 +131,12 @@ thread reads "No project here" and is disabled when no bb project is checked
 out for the repository.
 
 Clicking the comment count opens the issue's latest comments in a drawer under
-the action line, oldest first, with the ones that are new marked in blue. Each
-comment shows in full and opens on GitHub. The drawer reads
-the latest 50, and when the issue has more, the link at the bottom says how many
-there are in all. Opening the drawer makes one GitHub GraphQL request for that
+the action line, oldest first, with the ones that are new marked in blue, and
+yours and bots' labelled "you" and "bot". Each comment is drawn as the Markdown
+it was written in, cut at three lines with Show more under it, and its author
+line opens it on GitHub. The drawer reads the latest 50 and shows the newest
+10, with the rest behind "Show N earlier", and when the issue has more than 50,
+the link at the bottom says how many there are in all. Opening the drawer makes one GitHub GraphQL request for that
 issue, and none is made until you click; once it has read the comments, the
 row's "N new" clears. Clicking the count again closes it.
 
