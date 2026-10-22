@@ -251,6 +251,11 @@ function Panel() {
             return;
           }
           box.open({ key, row, seed: result.seed, draftKey: `pr-sweep:${key}` });
+        } catch (error) {
+          // Most often the plugin itself is down, and a click that does
+          // nothing is the only other evidence of it.
+          const message = error instanceof Error ? error.message : String(error);
+          toast.error(`Could not start a thread: ${message}`);
         } finally {
           setStarting((current) => {
             const next = new Set(current);

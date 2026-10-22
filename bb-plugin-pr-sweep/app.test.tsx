@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
+const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
+
 const app = await loadPluginApp(() => import("./app.js"));
 
 const HOUR = 60 * 60_000;
@@ -602,6 +605,19 @@ describe("thread action", () => {
     expect(slot.inspection.rpcCalls.filter((call) => call.method === "workOnThisDraft")).toHaveLength(1);
 
     release?.();
+  });
+
+  it("says so when the draft cannot be fetched, rather than doing nothing", async () => {
+    const slot = render(listing(), {
+      workOnThisDraft: () => {
+        throw new Error('plugin "pr-sweep" is not running');
+      },
+    });
+    fireEvent.click(await slot.findByRole("button", { name: "Start thread" }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Could not start a thread: plugin "pr-sweep" is not running'),
+    );
+    expect(await slot.findByRole("button", { name: "Start thread" })).toBeEnabled();
   });
 
   it("opens the box under the row with the suggested skills, rather than spawning", async () => {
