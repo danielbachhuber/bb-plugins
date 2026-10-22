@@ -58,7 +58,8 @@ and nothing else:
   reason as `stacks`. `isBotLogin` matches the logins whose comments are not a
   question waiting on anyone. `fetchFeedback` reads what people left on one
   pull request in one GraphQL call: reviews, inline threads, and general
-  comments, in reading order, bots left out. PR Sweep leaves your own out too,
+  comments, in reading order, bots left out, each body the Markdown it was
+  written in. PR Sweep leaves your own out too,
   since on your own pull request they are not feedback for you; Review Sweep
   passes `includeViewer`, since on one you are reviewing they are half the
   conversation. Both draw the result with `sweep-ui/feedback`.

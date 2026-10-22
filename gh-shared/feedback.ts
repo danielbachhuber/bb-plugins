@@ -18,6 +18,7 @@ export type FeedbackEntry =
       /** Written by you. */
       you?: boolean;
       state: "changes_requested" | "approved" | "commented";
+      /** Markdown, as written. */
       body: string;
       url: string;
       at: number;
@@ -41,6 +42,7 @@ export type FeedbackEntry =
       outdated: boolean;
       /** Comments after the first. */
       replies: number;
+      /** Markdown, as written. */
       body: string;
       url: string;
       at: number;
@@ -53,6 +55,7 @@ export type FeedbackEntry =
       bot?: boolean;
       /** Written by you. */
       you?: boolean;
+      /** Markdown, as written. */
       body: string;
       url: string;
       at: number;
@@ -64,7 +67,7 @@ query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       reviews(last: 50) {
-        nodes { author { __typename login avatarUrl } state bodyText url submittedAt }
+        nodes { author { __typename login avatarUrl } state body url submittedAt }
       }
       reviewThreads(first: 100) {
         nodes {
@@ -73,12 +76,12 @@ query($owner: String!, $name: String!, $number: Int!) {
           path
           line
           originalLine
-          first: comments(first: 1) { nodes { author { __typename login avatarUrl } bodyText url createdAt } }
+          first: comments(first: 1) { nodes { author { __typename login avatarUrl } body url createdAt } }
           last: comments(last: 1) { totalCount nodes { author { login } } }
         }
       }
       comments(last: 50) {
-        nodes { author { __typename login avatarUrl } bodyText url createdAt }
+        nodes { author { __typename login avatarUrl } body url createdAt }
       }
     }
   }
@@ -92,7 +95,7 @@ interface RawAuthor {
 
 interface RawComment {
   author?: RawAuthor | null;
-  bodyText?: string;
+  body?: string;
   url?: string;
   createdAt?: string;
 }
@@ -130,6 +133,14 @@ function person(
   return { author: login, avatarUrl: author?.avatarUrl ?? "", ...(bot ? { bot: true } : {}), ...(login === viewer ? { you: true } : {}) };
 }
 
+/**
+ * The Markdown a comment was written in, without the HTML comments bots hide
+ * metadata in, so a body that is only those counts as empty.
+ */
+function markdown(body: string | undefined): string {
+  return (body ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
+}
+
 function time(iso: string | undefined): number {
   const parsed = iso ? Date.parse(iso) : NaN;
   return Number.isNaN(parsed) ? 0 : parsed;
@@ -149,7 +160,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
     const who = review && person(review.author, viewer);
     const state = review?.state ? REVIEW_STATE[review.state] : undefined;
     if (!who || !state) continue;
-    const body = review!.bodyText?.trim() ?? "";
+    const body = markdown(review!.body);
     // An approval or a comment with no words says nothing the reviewer avatars do not.
     if (!body && state !== "changes_requested") continue;
     entries.push({
@@ -182,7 +193,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
       status,
       outdated: thread.isOutdated === true,
       replies,
-      body: first.bodyText?.trim() ?? "",
+      body: markdown(first.body),
       url: first.url ?? "",
       at: time(first.createdAt),
     });
@@ -190,7 +201,7 @@ export function parseFeedback(raw: string): FeedbackEntry[] {
 
   for (const comment of pr.comments?.nodes ?? []) {
     const who = comment && person(comment.author, viewer);
-    const body = comment?.bodyText?.trim();
+    const body = markdown(comment?.body);
     if (!who || !body) continue;
     entries.push({
       kind: "comment",

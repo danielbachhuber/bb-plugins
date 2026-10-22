@@ -7,13 +7,14 @@ import type { SweepLinkProps } from "./row";
  * The drawer a row's comment count opens: what people left on the pull
  * request, each entry a link to it on GitHub, oldest first. An inline comment
  * sits in a card headed by its file and line; reviews and top-level comments
- * do not. Yours and bots' carry a "you" or "bot" label. A body longer than
- * three lines is cut there, with Show more under it. Resolved threads wait
+ * do not. Yours and bots' carry a "you" or "bot" label. Each body is drawn as
+ * the Markdown it was written in, cut at three lines with Show more under it
+ * when it runs longer. Resolved threads wait
  * behind a toggle at the end. A long list opens on its newest entries, with
  * the earlier ones behind a button at the top.
  */
 
-/** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. */
+/** One entry, as `fetchFeedback` in `@danielb/gh-shared/gh` reads it. Each `body` is Markdown. */
 export type FeedbackEntry =
   | {
       kind: "review";
@@ -112,47 +113,68 @@ function Context({ entry, age }: { entry: FeedbackEntry; age: (at: number) => st
 /**
  * Whether a body runs past its three lines, checked in a ResizeObserver
  * callback, which runs after layout and so reads sizes without making the
- * page lay out again. Showing the toggle does not change the body's size.
+ * page lay out again. It watches the clamped box and the content inside it,
+ * which grows when bb's Markdown finishes rendering while the box does not.
+ * Showing the toggle changes neither.
  */
 function useClamped(open: boolean) {
-  const ref = useRef<HTMLSpanElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [clamped, setClamped] = useState(false);
   useEffect(() => {
     const element = ref.current;
     if (element === null || open || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => setClamped(element.scrollHeight > element.clientHeight + 1));
     observer.observe(element);
+    if (element.firstElementChild) observer.observe(element.firstElementChild);
     return () => observer.disconnect();
   }, [open]);
   return { ref, clamped };
 }
 
+/** bb's `Markdown` from `@get-bb/plugin-sdk/app`, which this package cannot import itself. */
+export type FeedbackMarkdown = ComponentType<{ content: string; className?: string }>;
+
+/** Compact Markdown, in the drawer's own text size. */
+const MARKDOWN_CLASS =
+  "text-xs leading-normal text-foreground [&_:is(p,ul,ol,pre,blockquote,h1,h2,h3,h4,h5,h6,table)]:mb-1.5 [&_:is(p,ul,ol,li,h1,h2,h3,h4,h5,h6,td,th)]:text-xs [&_li]:mb-0 [&>*:last-child]:mb-0";
+
 /**
  * An inline comment in a card headed by its file and line; anything else as a
- * plain row. Show more sits outside the link, so it opens the body in place
- * rather than going to GitHub.
+ * plain row. The heading links to GitHub. The body is the Markdown it was
+ * written in, outside the link, so its own links work and its text can be
+ * selected, and Show more opens it in place.
  */
-function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) => string; Link: ComponentType<SweepLinkProps> }) {
+function Entry({
+  entry,
+  age,
+  Link,
+  Markdown,
+}: {
+  entry: FeedbackEntry;
+  age: (at: number) => string;
+  Link: ComponentType<SweepLinkProps>;
+  Markdown: FeedbackMarkdown;
+}) {
   const [open, setOpen] = useState(false);
   const { ref, clamped } = useClamped(open);
-  const content = (
-    <>
-      <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-        <Who entry={entry} />
-        <Context entry={entry} age={age} />
-      </span>
-      {entry.body ? (
-        <span ref={ref} className={`mt-0.5 text-xs whitespace-pre-line text-foreground ${open ? "block" : "line-clamp-3"}`}>
-          {entry.body}
-        </span>
-      ) : null}
-    </>
+  const heading = (
+    <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+      <Who entry={entry} />
+      <Context entry={entry} age={age} />
+    </span>
   );
+  const body = entry.body ? (
+    <div ref={ref} className={open ? "mt-0.5" : "mt-0.5 line-clamp-3"}>
+      <div>
+        <Markdown content={entry.body} className={MARKDOWN_CLASS} />
+      </div>
+    </div>
+  ) : null;
   const toggle =
     open || clamped ? (
       <button
         type="button"
-        className="mx-1 mb-1 rounded px-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="-mx-1 mt-0.5 rounded px-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         onClick={() => setOpen(!open)}
       >
         {open ? "Show less" : "Show more"}
@@ -160,10 +182,11 @@ function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) =
     ) : null;
   if (entry.kind !== "thread") {
     return (
-      <li>
-        <Link href={entry.url} className="block rounded px-2 py-1.5 hover:bg-accent">
-          {content}
+      <li className="px-2 py-1.5">
+        <Link href={entry.url} className="block rounded hover:underline">
+          {heading}
         </Link>
+        {body}
         {toggle}
       </li>
     );
@@ -176,9 +199,12 @@ function Entry({ entry, age, Link }: { entry: FeedbackEntry; age: (at: number) =
             {entry.path}
             {entry.line !== null ? `:${entry.line}` : ""}
           </span>
-          <span className="block px-2 py-1.5">{content}</span>
+          <span className="block px-2 pt-1.5">{heading}</span>
         </Link>
-        {toggle}
+        <div className="px-2 pb-1.5">
+          {body}
+          {toggle}
+        </div>
       </div>
     </li>
   );
@@ -191,6 +217,8 @@ export interface FeedbackListProps {
   /** The pull request, for the link at the bottom. */
   url: string;
   Link: ComponentType<SweepLinkProps>;
+  /** Draws each body: pass bb's `Markdown` from `@get-bb/plugin-sdk/app`. */
+  Markdown: FeedbackMarkdown;
 }
 
 /** How many of the newest entries show before "Show N earlier". */
@@ -200,7 +228,7 @@ export const RECENT_FEEDBACK = 10;
  * The entries as they come, with resolved threads folded behind a toggle and
  * all but the newest `RECENT_FEEDBACK` behind "Show N earlier".
  */
-export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
+export function FeedbackList({ entries, age, url, Link, Markdown }: FeedbackListProps) {
   const [showResolved, setShowResolved] = useState(false);
   const [showEarlier, setShowEarlier] = useState(false);
   const resolved = entries.filter((entry) => entry.kind === "thread" && entry.status === "resolved");
@@ -223,7 +251,7 @@ export function FeedbackList({ entries, age, url, Link }: FeedbackListProps) {
       {shown.length > 0 ? (
         <ul className="-mx-2 space-y-0.5">
           {shown.map((entry, index) => (
-            <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} />
+            <Entry key={`${entry.url}-${index}`} entry={entry} age={age} Link={Link} Markdown={Markdown} />
           ))}
         </ul>
       ) : (
@@ -254,10 +282,11 @@ export interface FeedbackDrawerProps {
   age: (at: number) => string;
   url: string;
   Link: ComponentType<SweepLinkProps>;
+  Markdown: FeedbackMarkdown;
 }
 
 /** Loads the entries when it mounts, then draws them. */
-export function FeedbackDrawer({ load, age, url, Link }: FeedbackDrawerProps) {
+export function FeedbackDrawer({ load, age, url, Link, Markdown }: FeedbackDrawerProps) {
   const [result, setResult] = useState<FeedbackResult | null>(null);
   useEffect(() => {
     let live = true;
@@ -281,7 +310,7 @@ export function FeedbackDrawer({ load, age, url, Link }: FeedbackDrawerProps) {
       ) : result.error ? (
         <p className="py-1 text-xs text-destructive-text">{result.error}</p>
       ) : (
-        <FeedbackList entries={result.entries} age={age} url={url} Link={Link} />
+        <FeedbackList entries={result.entries} age={age} url={url} Link={Link} Markdown={Markdown} />
       )}
     </div>
   );

@@ -7,10 +7,10 @@ const author = (login: string, typename = "User") => ({ __typename: typename, lo
 const response = (pullRequest: unknown) =>
   JSON.stringify({ data: { viewer: { login: "octocat" }, repository: { pullRequest } } });
 
-const review = (login: string, state: string, bodyText: string, submittedAt = "2026-01-02T00:00:00Z") => ({
+const review = (login: string, state: string, body: string, submittedAt = "2026-01-02T00:00:00Z") => ({
   author: author(login),
   state,
-  bodyText,
+  body,
   url: `https://github.com/acme/widgets/pull/12#review-${login}-${state}`,
   submittedAt,
 });
@@ -29,7 +29,7 @@ const thread = (
     nodes: [
       {
         author: author(opener),
-        bodyText: `${opener} on a line`,
+        body: `${opener} on a line`,
         url: `https://github.com/acme/widgets/pull/12#discussion-${opener}`,
         createdAt: extra.createdAt ?? "2026-01-03T00:00:00Z",
       },
@@ -38,14 +38,32 @@ const thread = (
   last: { totalCount: extra.total ?? 1, nodes: [{ author: { login: last } }] },
 });
 
-const comment = (login: string, bodyText: string, typename = "User") => ({
+const comment = (login: string, body: string, typename = "User") => ({
   author: author(login, typename),
-  bodyText,
+  body,
   url: `https://github.com/acme/widgets/pull/12#comment-${login}`,
   createdAt: "2026-01-04T00:00:00Z",
 });
 
 describe("parseFeedback", () => {
+  it("keeps the Markdown, without the HTML comments bots hide metadata in", () => {
+    const entries = parseFeedback(
+      response({
+        comments: {
+          nodes: [
+            comment("hubber", "Two points:\n\n1. `toCsv` drops rows.\n2. See [the docs](https://example.test)."),
+            comment("acme-ci", "<!-- preview:4f2c9e1 -->", "Bot"),
+            comment("acme-ci", "<!-- preview -->\nPreview deployed.", "Bot"),
+          ],
+        },
+      }),
+    );
+    expect(entries.map((entry) => entry.body)).toEqual([
+      "Two points:\n\n1. `toCsv` drops rows.\n2. See [the docs](https://example.test).",
+      "Preview deployed.",
+    ]);
+  });
+
   it("puts reviews, threads, and comments in one list, oldest first", () => {
     const entries = parseFeedback(
       response({

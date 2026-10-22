@@ -34,8 +34,10 @@ const resolvedThread = (index: number): FeedbackEntry => ({
   at: index,
 });
 
+const Markdown = ({ content }: { content: string }) => <p>{content}</p>;
+
 function draw(entries: FeedbackEntry[]) {
-  render(<FeedbackList entries={entries} age={() => "1d ago"} url={url} Link={PlainLink} />);
+  render(<FeedbackList entries={entries} age={() => "1d ago"} url={url} Link={PlainLink} Markdown={Markdown} />);
 }
 const bodies = () => screen.queryAllByText(/^(Comment|Resolved) \d+$/).map((node) => node.textContent);
 
@@ -79,7 +81,7 @@ describe("FeedbackList", () => {
     } finally {
       delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
     }
-    const body = screen.getByText("Comment 1");
+    const body = screen.getByText("Comment 1").parentElement!.parentElement!;
     expect(body).toHaveClass("line-clamp-3");
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
     expect(body).not.toHaveClass("line-clamp-3");

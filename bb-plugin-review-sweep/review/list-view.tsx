@@ -8,7 +8,7 @@ import {
   nextMonday,
   type DayChoice,
 } from "@danielbachhuber/bb-plugin-component-library/day-menu";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { StatusBanner } from "sweep-ui/banner";
@@ -659,6 +659,7 @@ export function ReviewListView({
                     url={row.url}
                     age={(at) => relativeTime(at, now)}
                     Link={UrlLink}
+                    Markdown={Markdown}
                     load={async () => {
                       const result = await loadFeedback(row);
                       if (!result.error && row.newComments > 0) onOpenLink(row);
