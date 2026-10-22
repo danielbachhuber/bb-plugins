@@ -27,6 +27,8 @@ const DAY = 24 * HOUR;
 const noop = () => {};
 
 const STATUS_OPTIONS = ["Backlog", "Ready", "In Progress", "In Review", "Done"];
+/** A second board's columns, for the stories with more than one board. */
+const OCTOCAT_OPTIONS = ["Todo", "In Progress", "Done"];
 
 function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
   const repo = overrides.repo ?? "acme/widgets";
@@ -36,6 +38,8 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
     labels: [],
     boardStatus: "Ready",
     onBoard: true,
+    board: "Acme Board",
+    statusOptions: STATUS_OPTIONS,
     blockedBy: 0,
     closingPr: null,
     subtasks: null,
@@ -89,9 +93,7 @@ const baseline: Listing = {
   boardStages: ["Backlog", "Ready", "In Progress", "In Review"],
   staleAfterDays: 7,
   reviewStatus: "In Review",
-  statusOptions: STATUS_OPTIONS,
   countedStatuses: ["Ready", "In Progress"],
-  boardName: "Acme Board",
   sweptAt: now - 3 * 60_000,
   skippedRepos: [],
   truncated: false,
@@ -316,6 +318,58 @@ export function Baseline() {
 }
 
 /**
+ * Project boards set to "Acme Board, Octocat's Board", two boards with
+ * different columns. Each row draws only the stages its own board has: the
+ * Acme row shows Backlog, Ready, In Progress, and In Review, and the Octocat
+ * rows show Todo and In Progress. The row on neither board shows the stages
+ * of the board it would be added to.
+ */
+export function TwoBoards() {
+  return (
+    <StoryCard>
+      <StoryRow
+        label="Two boards"
+        hint="Board stages list both boards' columns. #214 is on Acme Board; #8 is on Octocat's Board, which has Todo, In Progress, and Done; #9 is on neither and would be added to Octocat's Board."
+      >
+        <Frame
+          listing={{
+            ...baseline,
+            boardStages: ["Backlog", "Todo", "Ready", "In Progress", "In Review"],
+            rows: [
+              row({
+                number: 214,
+                title: "Let a widget remember its last export format",
+                boardStatus: "In Progress",
+                threadId: "thr_story_1",
+              }),
+              row({
+                repo: "octocat/notes",
+                number: 8,
+                title: "Sort the reading list by date added",
+                board: "Octocat's Board",
+                boardStatus: "Todo",
+                statusOptions: OCTOCAT_OPTIONS,
+                threadId: "thr_story_2",
+              }),
+              row({
+                repo: "octocat/notes",
+                number: 9,
+                title: "Archive notes older than a year",
+                board: null,
+                onBoard: false,
+                boardStatus: null,
+                statusOptions: OCTOCAT_OPTIONS,
+                threadId: "thr_story_3",
+              }),
+            ],
+          }}
+        />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
+/**
  * Every run the list can draw: new comments, stale, working, and to start
  * under Needs you, then two issues on hold at its bottom, one with a note
  * and one without; waiting on review, later, and blocked grouped by status
@@ -441,9 +495,13 @@ export function Warnings() {
         <Frame
           listing={{
             ...baseline,
-            boardName: "",
-            statusOptions: [],
-            rows: baselineRows.map((r) => ({ ...r, boardStatus: null, onBoard: false })),
+            rows: baselineRows.map((r) => ({
+              ...r,
+              boardStatus: null,
+              onBoard: false,
+              board: null,
+              statusOptions: [],
+            })),
           }}
         />
       </StoryRow>

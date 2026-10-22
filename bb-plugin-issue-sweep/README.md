@@ -110,10 +110,10 @@ count and the sub-issue or task progress bar are at the end of the action
 line instead, the bar first. A sub-issue shows its parent as a chip at the end of its title. The
 repository joins the line only when more than one is in play.
 
-An open row has a button for each of the "Board stages, in order", with the
-current stage filled. Pressing a stage moves the issue to it on the board,
-adding the issue to the board first if it is not on it. The last segment opens
-a menu of every status the board has, and names the status when it is not a
+An open row has a button for each of the "Board stages, in order" that its
+board has, with the current stage filled. Pressing a stage moves the issue to
+it on the board, adding the issue to the board first if it is not on it. The
+last segment opens a menu of every status the board has, and names the status when it is not a
 stage: "Stalled", say, "No status", or "Not on board". In the left column the
 buttons sit beside the title, with no label saying why the issue needs you:
 the squares above the column name each run. In the narrower right column the
@@ -183,11 +183,20 @@ starts it over. The measured span runs through the comment-author reads, the boa
 - **Also sweep these repositories** — comma or newline separated `owner/name`,
   for a repository worth watching without a checkout here. Ignored when the
   filter is off.
-- **Project board** — the board whose status each issue is read from. Blank
-  takes the first status found on any board.
+- **Project boards** — the boards each issue's status is read from, separated
+  by commas, such as `Team Board, Personal`. An issue on more than one reads
+  the first one listed, even when it has no status there. A row on none of
+  them is added to the first board listed that its repository's owner has. A
+  row on a listed board its owner does not have, such as an org's issue on a
+  personal board, shows its status but cannot be moved from here. Blank reads
+  the status from any board and offers no moves. Resolving the boards costs
+  one `gh project list` per repository owner and one `gh project field-list`
+  per board found, once per reload or change to this setting.
 - **Board stages, in order** — the stage buttons on each open row, and the
   order of the status groups in the right column, drawn furthest along first. Default
-  `Backlog,Ready,In Progress,In Review`.
+  `Backlog,Ready,In Progress,In Review`. With boards whose columns differ,
+  list them all, such as `Backlog,Todo,Ready,In Progress,In Review`, and each
+  row shows only the ones its own board has.
 - **Statuses counted in the sidebar** — the statuses the sidebar count and "to
   start" are made of. Default `In Progress,Ready`.
 - **Stale after (days)** — how long a counted issue can go without an update

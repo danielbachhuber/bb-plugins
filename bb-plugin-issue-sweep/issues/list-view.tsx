@@ -19,6 +19,7 @@ import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { timerDefaultsForItem } from "bb-plugin-harvest/github";
 import { CommentsDrawer, type CommentsResult } from "./comments-drawer.js";
+import { stagesOnBoard } from "./board.js";
 import { relativeTime } from "./format.js";
 import {
   ISSUE_RUNS,
@@ -47,9 +48,7 @@ export type Listing = {
   boardStages: string[];
   staleAfterDays: number;
   reviewStatus: string;
-  statusOptions: string[];
   countedStatuses: string[];
-  boardName: string;
   sweptAt: number | null;
   skippedRepos: string[];
   truncated: boolean;
@@ -202,6 +201,9 @@ function StageButtons({
   if (options.length === 0) {
     return <StatusCell row={row} options={options} busy={busy} onPick={onPick} />;
   }
+  // Only the stages this row's board has: with several boards, one board's
+  // columns are not another's, and a stage the board lacks would refuse the move.
+  stages = stagesOnBoard(stages, options);
   const stage = stageOf(row, stages);
   const offStage = stage !== null ? null : row.onBoard ? (row.boardStatus ?? NO_STATUS) : "Not on board";
   const placeholder = row.onBoard ? NO_STATUS : ADD_TO_BOARD;
@@ -665,7 +667,7 @@ export function IssueListView({
                 <StageButtons
                   row={row}
                   stages={listing.boardStages}
-                  options={listing.statusOptions}
+                  options={row.statusOptions ?? []}
                   busy={busyKeys.has(keyOf(row))}
                   stretch={stretch}
                   onPick={(status) => onPick(row, status)}

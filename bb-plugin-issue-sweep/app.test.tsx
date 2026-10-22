@@ -24,6 +24,8 @@ function rowFixture(overrides: Record<string, unknown> = {}) {
     commentsCount: 2,
     boardStatus: "Ready",
     onBoard: true,
+    board: "Acme Board",
+    statusOptions: OPTIONS,
     blockedBy: 0,
     closingPr: null,
     subtasks: null,
@@ -46,9 +48,7 @@ function listing(overrides: Record<string, unknown> = {}) {
     boardStages: OPTIONS,
     staleAfterDays: 7,
     reviewStatus: "In Review",
-    statusOptions: OPTIONS,
     countedStatuses: ["Ready", "In Progress"],
-    boardName: "Acme Board",
     sweptAt: 1_700_000_000_000,
     skippedRepos: [],
     truncated: false,
@@ -412,7 +412,7 @@ describe("status picker", () => {
 
   it("offers every status the board has behind the last segment", async () => {
     const calls: unknown[] = [];
-    const slot = render(listing({ statusOptions: [...OPTIONS, "Stalled"] }), {
+    const slot = render(listing({ rows: [rowFixture({ statusOptions: [...OPTIONS, "Stalled"] })] }), {
       setBoardStatus: (input: unknown) => {
         calls.push(input);
         return { ok: true, added: false, error: null };
@@ -458,6 +458,19 @@ describe("status picker", () => {
     expect(calls[0]).toEqual({ repo: "acme/widgets", number: 42, status: "Ready" });
   });
 
+  it("draws only the stages the row's own board has", async () => {
+    // A second board with its own columns: In Progress is shared, the rest are not.
+    const slot = render(
+      listing({
+        rows: [nowRow({ board: "Octocat's Board", statusOptions: ["Todo", "In Progress", "Done"], boardStatus: "Todo" })],
+      }),
+    );
+    const stages = await slot.findByRole("group", { name: "Stages for #42" });
+    expect(within(stages).getByRole("button", { name: "In Progress" })).toBeInTheDocument();
+    expect(within(stages).queryByRole("button", { name: "Ready" })).toBeNull();
+    expect(within(stages).queryByRole("button", { name: "In Review" })).toBeNull();
+  });
+
   it("does not offer to add an issue already on the board with no status", async () => {
     // Adding it again would be a no-op, and the label would be a lie.
     const slot = render(listing({ rows: [rowFixture({ onBoard: true, boardStatus: null })] }));
@@ -467,7 +480,7 @@ describe("status picker", () => {
   });
 
   it("falls back to plain text when the board could not be read", async () => {
-    const slot = render(listing({ statusOptions: [], rows: [rowFixture({ onBoard: false, boardStatus: null })] }));
+    const slot = render(listing({ rows: [rowFixture({ statusOptions: [], onBoard: false, boardStatus: null })] }));
     await expandAll(slot);
     expect(await slot.findByText("Add to board")).toBeInTheDocument();
     expect(slot.queryByLabelText("Board status for #42")).toBeNull();

@@ -15,6 +15,14 @@ export interface ListedIssue {
   labels: string[];
   boardStatus: string | null;
   onBoard: boolean;
+  /** The first configured board the issue is on, or null. */
+  board?: string | null;
+  /**
+   * The Status options of the board this row's moves go to: the board it is
+   * on, or the one it would be added to. Empty when that board could not be
+   * read, which draws the status as text with nothing to move.
+   */
+  statusOptions?: string[];
   blockedBy: number;
   closingPr: number | null;
   subtasks?: { completed: number; total: number; source: "sub-issues" | "tasks" } | null;
