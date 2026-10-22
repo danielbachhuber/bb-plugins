@@ -188,7 +188,7 @@ describe("panel", () => {
 
   it("still names held-back repositories alongside rows that did match", async () => {
     const slot = render(listing({ skippedRepos: ["acme/gadgets"] }));
-    expect(await slot.findByText(/Not swept: acme\/gadgets/)).toBeInTheDocument();
+    expect(await slot.findByRole("note", { name: /Not swept: acme\/gadgets/ })).toBeInTheDocument();
   });
 
   it("surfaces the last sweep error above the list", async () => {

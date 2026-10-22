@@ -239,7 +239,7 @@ describe("panel", () => {
 
   it("names held-back repositories below the list, alongside rows that did match", async () => {
     const slot = render(listing({ skippedRepos: ["acme/gadgets"] }));
-    const notice = await slot.findByText(/Not shown: acme\/gadgets/);
+    const notice = await slot.findByRole("note", { name: /Not shown: acme\/gadgets/ });
     const list = (await rowFor(slot, /Add the widget endpoint/)).closest("ul")!;
     expect(list.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

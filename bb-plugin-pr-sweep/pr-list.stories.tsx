@@ -686,7 +686,7 @@ export function States() {
       </StoryRow>
       <StoryRow
         label="Repositories not swept"
-        hint="A repository with no project checked out here, named below the list."
+        hint="A repository with no project checked out here, counted at the bottom of the panel, named on hover."
       >
         <Frame listing={{ ...baseline, skippedRepos: ["acme/gadgets"] }} />
       </StoryRow>

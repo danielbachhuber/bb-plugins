@@ -408,7 +408,7 @@ export function Warnings() {
     <StoryCard>
       <StoryRow
         label="Sweep failed"
-        hint="The error, the 100 issue ceiling, and a skipped repository, above the last good rows."
+        hint="The error and the 100 issue ceiling above the last good rows, and a skipped repository counted at the bottom of the panel."
       >
         <Frame
           listing={{

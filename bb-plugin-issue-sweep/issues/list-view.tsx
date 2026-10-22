@@ -4,6 +4,7 @@ import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { CopyLinkAction, LINE_ACTION } from "sweep-ui/actions";
 import { SweepRow } from "sweep-ui/row";
+import { SkippedReposFooter } from "sweep-ui/skipped-repos";
 import { SummarySquares } from "sweep-ui/summary";
 import type { Flag, Run, RunTone, Stage, SweepItem } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
@@ -613,143 +614,145 @@ export function IssueListView({
   });
 
   return (
-    <div className="h-full overflow-auto p-4 md:p-5">
-      <div className="mx-auto w-full max-w-7xl space-y-5">
-        {listing.lastError ? (
-          <p className="rounded-lg border border-border p-3 text-sm text-destructive">
-            {listing.lastError}
-          </p>
-        ) : null}
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-auto p-4 md:p-5">
+        <div className="mx-auto w-full max-w-7xl space-y-5">
+          {listing.lastError ? (
+            <p className="rounded-lg border border-border p-3 text-sm text-destructive">
+              {listing.lastError}
+            </p>
+          ) : null}
 
-        {listing.truncated ? (
-          <p className="text-xs text-muted-foreground">
-            The sweep hit the 100 issue ceiling, so this list may be
-            incomplete.
-          </p>
-        ) : null}
+          {listing.truncated ? (
+            <p className="text-xs text-muted-foreground">
+              The sweep hit the 100 issue ceiling, so this list may be
+              incomplete.
+            </p>
+          ) : null}
 
-        {listing.rows.length > 0 && listing.skippedRepos.length ? (
-          <p className="text-xs break-words text-muted-foreground">
-            Not swept: {listing.skippedRepos.join(", ")} — no project checked out here.
-          </p>
-        ) : null}
-
-        {listing.rows.length === 0 ? (
-          <EmptyGraphic
-            graphic={<NoIssuesGraphic />}
-            // The headline moves with the reason. "No issues assigned to
-            // you" is untrue on a machine that simply cannot see them.
-            headline={
-              listing.skippedRepos.length
-                ? "Nothing from the repositories checked out here."
-                : "No issues assigned to you."
-            }
-          >
-            {listing.skippedRepos.length ? (
-              <>
-                Not swept: {listing.skippedRepos.join(", ")} — no project checked out here. Add
-                the project, or list the repository in this plugin's "Also sweep these
-                repositories" setting.
-              </>
-            ) : (
-              "Anything assigned to you shows up here."
-            )}
-          </EmptyGraphic>
-        ) : (
-          <SplitList
-            items={items}
-            rowsByKey={rowsByKey}
-            groups={statusGroups(
-              listing.rows.filter((row) => !needsYou(row, inputs)),
-              inputs,
-            )}
-            stages={stages}
-            busyKeys={busyKeys}
-            renderStatus={(row, stretch) => (
-              <StageButtons
-                row={row}
-                stages={listing.boardStages}
-                options={listing.statusOptions}
-                busy={busyKeys.has(keyOf(row))}
-                stretch={stretch}
-                onPick={(status) => onPick(row, status)}
-              />
-            )}
-            onNoteSave={(item, body, onHold) => {
-              const row = rowsByKey.get(item.key);
-              return row ? onNoteSave(row, body, onHold) : Promise.resolve(false);
-            }}
-            onOpenLink={(item) => {
-              const row = rowsByKey.get(item.key);
-              if (row) onOpenLink(row);
-            }}
-            renderComments={(item) => {
-              const row = rowsByKey.get(item.key);
-              if (!row) return null;
-              return (
-                <CommentsDrawer
-                  url={row.url}
-                  now={now}
-                  newCount={row.newComments}
-                  Link={UrlLink}
-                  load={async () => {
-                    const result = await loadComments(row);
-                    if (!result.error && row.newComments > 0) onOpenLink(row);
-                    return result;
-                  }}
-                />
-              );
-            }}
-            renderStartThread={(item) => {
-              const row = rowsByKey.get(item.key);
-              return row ? renderStartThread?.(row) : null;
-            }}
-            renderThreadLine={(item) => {
-              const row = rowsByKey.get(item.key);
-              if (row && !row.threadId && isThreadStarting(item.key)) {
-                return <StartingThreadLine title={`${row.title} (#${row.number})`} />;
+          {listing.rows.length === 0 ? (
+            <EmptyGraphic
+              graphic={<NoIssuesGraphic />}
+              // The headline moves with the reason. "No issues assigned to
+              // you" is untrue on a machine that simply cannot see them.
+              headline={
+                listing.skippedRepos.length
+                  ? "Nothing from the repositories checked out here."
+                  : "No issues assigned to you."
               }
-              if (!row?.threadId) return null;
-              return <ThreadLine status={threadStatus?.(row.threadId) ?? null} onOpen={() => onOpen(row)} />;
-            }}
-            // The timer sits at the bottom right of the row, apart from the actions.
-            renderTrailing={(item) => {
-              const row = rowsByKey.get(item.key);
-              if (!row || !harvest.available) return null;
-              return (
-                <HarvestRowClock
-                  surface="issues"
-                  row={row}
-                  running={isRunningFor(harvest.running, row) ? harvest.running : null}
-                  client={harvest.client}
-                  onChanged={harvest.onStarted}
-                />
-              );
-            }}
-            renderActions={(item) => {
-              const row = rowsByKey.get(item.key);
-              if (!row) return null;
-              return (
+            >
+              {listing.skippedRepos.length ? (
                 <>
-                  <ThreadAction
-                    row={row}
-                    isStarting={starting.has(item.key)}
-                    isThreadStarting={isThreadStarting(item.key)}
-                    isOpen={Boolean(renderStartThread?.(row))}
-                    onStart={onStart}
-                    onOpen={onOpen}
-                  />
-                  <CopyLinkAction
-                    text={`${row.title} (#${row.number})`}
-                    url={row.url}
-                    write={writeLinkToClipboard}
-                  />
+                  Not swept: {listing.skippedRepos.join(", ")} — no project checked out here. Add
+                  the project, or list the repository in this plugin's "Also sweep these
+                  repositories" setting.
                 </>
-              );
-            }}
-          />
-        )}
+              ) : (
+                "Anything assigned to you shows up here."
+              )}
+            </EmptyGraphic>
+          ) : (
+            <SplitList
+              items={items}
+              rowsByKey={rowsByKey}
+              groups={statusGroups(
+                listing.rows.filter((row) => !needsYou(row, inputs)),
+                inputs,
+              )}
+              stages={stages}
+              busyKeys={busyKeys}
+              renderStatus={(row, stretch) => (
+                <StageButtons
+                  row={row}
+                  stages={listing.boardStages}
+                  options={listing.statusOptions}
+                  busy={busyKeys.has(keyOf(row))}
+                  stretch={stretch}
+                  onPick={(status) => onPick(row, status)}
+                />
+              )}
+              onNoteSave={(item, body, onHold) => {
+                const row = rowsByKey.get(item.key);
+                return row ? onNoteSave(row, body, onHold) : Promise.resolve(false);
+              }}
+              onOpenLink={(item) => {
+                const row = rowsByKey.get(item.key);
+                if (row) onOpenLink(row);
+              }}
+              renderComments={(item) => {
+                const row = rowsByKey.get(item.key);
+                if (!row) return null;
+                return (
+                  <CommentsDrawer
+                    url={row.url}
+                    now={now}
+                    newCount={row.newComments}
+                    Link={UrlLink}
+                    load={async () => {
+                      const result = await loadComments(row);
+                      if (!result.error && row.newComments > 0) onOpenLink(row);
+                      return result;
+                    }}
+                  />
+                );
+              }}
+              renderStartThread={(item) => {
+                const row = rowsByKey.get(item.key);
+                return row ? renderStartThread?.(row) : null;
+              }}
+              renderThreadLine={(item) => {
+                const row = rowsByKey.get(item.key);
+                if (row && !row.threadId && isThreadStarting(item.key)) {
+                  return <StartingThreadLine title={`${row.title} (#${row.number})`} />;
+                }
+                if (!row?.threadId) return null;
+                return <ThreadLine status={threadStatus?.(row.threadId) ?? null} onOpen={() => onOpen(row)} />;
+              }}
+              // The timer sits at the bottom right of the row, apart from the actions.
+              renderTrailing={(item) => {
+                const row = rowsByKey.get(item.key);
+                if (!row || !harvest.available) return null;
+                return (
+                  <HarvestRowClock
+                    surface="issues"
+                    row={row}
+                    running={isRunningFor(harvest.running, row) ? harvest.running : null}
+                    client={harvest.client}
+                    onChanged={harvest.onStarted}
+                  />
+                );
+              }}
+              renderActions={(item) => {
+                const row = rowsByKey.get(item.key);
+                if (!row) return null;
+                return (
+                  <>
+                    <ThreadAction
+                      row={row}
+                      isStarting={starting.has(item.key)}
+                      isThreadStarting={isThreadStarting(item.key)}
+                      isOpen={Boolean(renderStartThread?.(row))}
+                      onStart={onStart}
+                      onOpen={onOpen}
+                    />
+                    <CopyLinkAction
+                      text={`${row.title} (#${row.number})`}
+                      url={row.url}
+                      write={writeLinkToClipboard}
+                    />
+                  </>
+                );
+              }}
+            />
+          )}
+        </div>
       </div>
+      {listing.rows.length > 0 ? (
+        <SkippedReposFooter
+          repos={listing.skippedRepos}
+          hint={'Add the project, or list the repository in the "Also sweep these repositories" setting.'}
+        />
+      ) : null}
     </div>
   );
 }

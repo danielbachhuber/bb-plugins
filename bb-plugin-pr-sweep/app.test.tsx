@@ -259,7 +259,7 @@ describe("panel", () => {
     // A standing fact about this machine, not news. Above the list it would
     // push the work down the page on every load.
     const slot = render(listing({ skippedRepos: ["acme/gadgets"] }));
-    const notice = await slot.findByText(/Not swept: acme\/gadgets/);
+    const notice = await slot.findByRole("note", { name: /Not swept: acme\/gadgets/ });
     const list = (await rowFor(slot, /Add the widget endpoint/)).closest("ul")!;
     expect(list.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
