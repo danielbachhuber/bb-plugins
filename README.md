@@ -2,6 +2,8 @@
 
 Plugins for [bb](https://getbb.app), the agentic IDE.
 
+For why I use bb, read [bb is the bee's knees](https://danielbachhuber.com/bb-is-the-bees-knees/).
+
 ## ⚠️ This repository is public
 
 Nothing here may contain a credential, a real private repository or project
