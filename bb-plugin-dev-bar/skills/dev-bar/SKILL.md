@@ -88,6 +88,9 @@ Services appear in the order listed. Unknown fields are ignored.
   command after 20 seconds.
 - Exit non-zero on failure, with the reason in the last few lines of output.
   The bar shows the last 6 lines.
+- Stop a service without asking, for `stop`. When the last thread in a
+  checkout is archived, the bar stops every service that is `running` or
+  `starting` and can be stopped, with no one watching.
 - Be safe to run every 5 seconds, for `status`. It runs that often while the
   thread is on screen, and every second for 15 seconds after a button.
 
