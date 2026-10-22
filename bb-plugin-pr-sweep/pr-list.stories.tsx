@@ -478,7 +478,7 @@ const FEEDBACK: FeedbackEntry[] = [
   },
 ];
 
-/** A review in Markdown, too long for three lines, and a short comment that fits. */
+/** A review in Markdown, too long for three lines, a short comment that fits, and a bot's report. */
 const LONG_BODY_FEEDBACK: FeedbackEntry[] = [
   {
     kind: "review",
@@ -500,6 +500,16 @@ const LONG_BODY_FEEDBACK: FeedbackEntry[] = [
     author: "octocat",
     avatarUrl: avatarFor("octocat"),
     body: "Agreed on the retry.",
+    url: "https://github.com/acme/widgets/pull/487",
+    at: now - 25 * HOUR,
+  },
+  {
+    kind: "comment",
+    author: "acme-ci",
+    avatarUrl: "",
+    bot: true,
+    // As fetchFeedback returns it, with the bot's <details> and <sub> tags taken out.
+    body: "### Preview\n\nVisit the [preview](https://example.test/preview) for 4f2c9e1.\n\nBuild log\n\nBuilt in 42s.",
     url: "https://github.com/acme/widgets/pull/487",
     at: now - 25 * HOUR,
   },

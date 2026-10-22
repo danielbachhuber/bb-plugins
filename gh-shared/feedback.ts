@@ -133,12 +133,27 @@ function person(
   return { author: login, avatarUrl: author?.avatarUrl ?? "", ...(bot ? { bot: true } : {}), ...(login === viewer ? { you: true } : {}) };
 }
 
+/** Code, whose text stays exactly as written: a fenced block or an inline span. */
+const CODE = /(```[\s\S]*?(?:```|$)|`[^`\n]*`)/;
+
+/** The HTML that bots and GitHub's templates wrap Markdown in. */
+const HTML_TAG =
+  /<\/?(?:a|b|br|code|dd|details|div|dl|dt|em|h[1-6]|hr|i|img|kbd|li|ol|p|picture|pre|source|span|strong|sub|summary|sup|table|tbody|td|th|thead|tr|ul)\b[^>]*>/gi;
+
 /**
  * The Markdown a comment was written in, without the HTML comments bots hide
- * metadata in, so a body that is only those counts as empty.
+ * metadata in, so a body that is only those counts as empty, and without HTML
+ * tags, which bb's Markdown would show as text. The text inside a tag stays.
+ * Code is left alone, so `<summary>` in backticks still reads as written.
  */
 function markdown(body: string | undefined): string {
-  return (body ?? "").replace(/<!--[\s\S]*?-->/g, "").trim();
+  return (body ?? "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .split(CODE)
+    .map((part, index) => (index % 2 === 1 ? part : part.replace(/<br\s*\/?>/gi, "\n").replace(HTML_TAG, "")))
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function time(iso: string | undefined): number {

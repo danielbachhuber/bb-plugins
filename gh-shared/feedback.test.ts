@@ -46,7 +46,7 @@ const comment = (login: string, body: string, typename = "User") => ({
 });
 
 describe("parseFeedback", () => {
-  it("keeps the Markdown, without the HTML comments bots hide metadata in", () => {
+  it("keeps the Markdown, without HTML comments or tags outside code", () => {
     const entries = parseFeedback(
       response({
         comments: {
@@ -54,6 +54,12 @@ describe("parseFeedback", () => {
             comment("hubber", "Two points:\n\n1. `toCsv` drops rows.\n2. See [the docs](https://example.test)."),
             comment("acme-ci", "<!-- preview:4f2c9e1 -->", "Bot"),
             comment("acme-ci", "<!-- preview -->\nPreview deployed.", "Bot"),
+            comment(
+              "acme-ci",
+              "Deployed.\n\n<details>\n<summary>Build log</summary>\n\nBuilt in 42s.<br/>No warnings.\n</details>\n\n<sub>For 4f2c9e1</sub>",
+              "Bot",
+            ),
+            comment("hubber", "Wrap it in `<details>` like the others:\n\n```html\n<details><summary>Log</summary></details>\n```"),
           ],
         },
       }),
@@ -61,6 +67,8 @@ describe("parseFeedback", () => {
     expect(entries.map((entry) => entry.body)).toEqual([
       "Two points:\n\n1. `toCsv` drops rows.\n2. See [the docs](https://example.test).",
       "Preview deployed.",
+      "Deployed.\n\nBuild log\n\nBuilt in 42s.\nNo warnings.\n\nFor 4f2c9e1",
+      "Wrap it in `<details>` like the others:\n\n```html\n<details><summary>Log</summary></details>\n```",
     ]);
   });
 
