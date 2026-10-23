@@ -43,6 +43,8 @@ The status command prints JSON listing each service:
 }
 ```
 
+Each worktree of a repository runs its own services, so a dev server or Storybook on a fixed port collides with the same server in another worktree. When the skill sets up the bar, it suggests running each checkout's services on ports of their own, saved in the checkout, and leaving a service every checkout shares, such as a database, on its fixed port.
+
 For a repository that commits no manifest, put the same file at `.bb/dev-bar.local.json` in one checkout and keep it out of git, or save it for every checkout of a bb project with `bb dev-bar manifest set <file>`. The bar uses the first it finds, in that order, and says which on hover over the count.
 
 The `dev-bar` skill in [`skills/dev-bar/SKILL.md`](skills/dev-bar/SKILL.md) is the full contract: every field, and what the commands must do.
