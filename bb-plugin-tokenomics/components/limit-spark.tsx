@@ -1,10 +1,8 @@
 // The session in bb's title bar: its tokens per 15 minutes from its start to
-// its reset, so the empty space on the right is the time left, and two rings
-// for the percent used: the session outside, the week inside. Once the
-// session is on pace for the warning or will run out, the slots still to come
-// fill with hatched bars at the past hour's pace, red past the point it runs
-// out, as the page's chart does. Hovering shows the page's meters and its
-// chart of the past day. Display only; app.tsx loads the limits and the bars.
+// its reset, with a dot for each 15 minutes still to come, and two rings for
+// the percent used: the session outside, the week inside. Hovering shows the
+// page's meters and its chart of the past day. Display only; app.tsx loads
+// the limits and the bars.
 import { useState } from "react";
 
 import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
@@ -27,59 +25,38 @@ function toneColor(limit: Limit): string | undefined {
   return limit.tone === "error" ? "var(--destructive)" : limit.tone === "warning" ? AMBER : undefined;
 }
 
-/** The hatched slots: which ones are still to come, and from which one the session has run out. */
-export function paceSlots(limit: Limit, now: number): { from: number; out: number | null } | null {
-  if (limit.tone === "ok" || limit.pacePerHour === null || limit.usedPercent >= 100) return null;
-  const start = limit.resetsAt - SLOTS * SLOT_MS;
-  const from = Math.min(SLOTS, Math.ceil((now - start) / SLOT_MS));
-  const out = limit.runsOutAt === null ? null : Math.floor((limit.runsOutAt - start) / SLOT_MS);
-  return { from, out };
-}
-
+/** The session's tokens per 15 minutes from its start to its reset, with a dot for each slot still to come. */
 export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
   const slots = (limit.slots ?? []).slice(0, SLOTS);
-  const pace = paceSlots(limit, now);
-  const perSlot = limit.lastHourTokens / 4;
-  const most = Math.max(1, ...slots, pace === null ? 0 : perSlot);
+  const most = Math.max(1, ...slots);
   const slot = WIDTH / SLOTS;
   const bar = Math.max(1, slot - 1);
   const color = toneColor(limit) ?? "currentColor";
   const height = (tokens: number) => (tokens === 0 ? 0 : Math.max(1, (tokens / most) * HEIGHT));
+  // The baseline runs to now; each slot still to come is a dot, so the empty
+  // right side reads as time not yet reached rather than missing usage.
+  const start = limit.resetsAt - SLOTS * SLOT_MS;
+  const nowX = Math.min(WIDTH, Math.max(0, ((now - start) / (SLOTS * SLOT_MS)) * WIDTH));
   return (
     // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
     <svg width={WIDTH} height={HEIGHT} aria-hidden className="shrink-0" style={{ width: WIDTH, height: HEIGHT }}>
-      {pace === null ? null : (
-        <defs>
-          <pattern id="tokenomics-spark-pace" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="4" strokeWidth="2" className="stroke-muted-foreground/60" />
-          </pattern>
-          <pattern id="tokenomics-spark-out" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="4" strokeWidth="2" className="stroke-destructive" />
-          </pattern>
-        </defs>
-      )}
-      <line x1={0} x2={WIDTH} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
+      <line x1={0} x2={nowX} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
+      {Array.from({ length: Math.max(0, SLOTS - slots.length) }, (_, k) => (
+        <rect
+          key={`dot-${k}`}
+          x={(slots.length + k) * slot + bar / 2 - 0.75}
+          y={HEIGHT - 1.5}
+          width={1.5}
+          height={1.5}
+          fill="currentColor"
+          opacity={0.35}
+        />
+      ))}
       {slots.map((tokens, index) =>
         tokens === 0 ? null : (
           <rect key={index} x={index * slot} y={HEIGHT - height(tokens)} width={bar} height={height(tokens)} rx={0.5} style={{ fill: color }} />
         ),
       )}
-      {pace === null
-        ? null
-        : Array.from({ length: SLOTS - pace.from }, (_, k) => {
-            const index = pace.from + k;
-            const out = pace.out !== null && index >= pace.out;
-            return (
-              <rect
-                key={index}
-                x={index * slot}
-                y={HEIGHT - height(perSlot)}
-                width={bar}
-                height={height(perSlot)}
-                fill={out ? "url(#tokenomics-spark-out)" : "url(#tokenomics-spark-pace)"}
-              />
-            );
-          })}
     </svg>
   );
 }

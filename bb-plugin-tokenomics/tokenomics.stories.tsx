@@ -253,7 +253,7 @@ function TitleBarRow({ label, session, weeklyLimit }: { label: string; session: 
   );
 }
 
-/** The session in bb's title bar, after the other plugins' buttons: its tokens per 15 minutes from its start to its reset, so the empty space is the time left, and two rings for the percent used: the session outside, the week inside. Once it's amber or red, the time left fills with hatched bars at the past hour's pace. Hovering shows the page's meters; clicking opens the page. */
+/** The session in bb's title bar, after the other plugins' buttons: its tokens per 15 minutes from its start to its reset, with a dot for each 15 minutes still to come, and two rings for the percent used: the session outside, the week inside. Hovering shows the page's meters; clicking opens the page. */
 export const TitleBar = () => (
   <div data-screenshot-frame className="w-[720px] p-4">
   <StoryCard>

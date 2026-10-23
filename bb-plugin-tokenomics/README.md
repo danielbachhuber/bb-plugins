@@ -28,9 +28,10 @@ have bb compact the thread. The sidebar counts these threads in amber and red.
 
 ![bb's title bar across the full window: the window controls, back and forward, the sidebar toggle, then Tokenomics' spark chart and rings in amber, with its limits open below: the current session 28% of about 300M tokens and on pace for 95% by 5:50 PM, the weekly limit, and the past day's tokens per hour running on to the reset with hatched bars](screenshots/page--title-bar-in-window.png)
 
-bb's title bar shows your session as a spark chart of its tokens from its
-start to its reset, and two rings for the percent used, the session outside
-and the week inside. It turns amber or red once either is headed for its
+bb's title bar shows your session as a spark chart of its tokens per 15
+minutes from its start to its reset, with a dot for each 15 minutes still to
+come, and two rings for the percent used, the session outside and the week
+inside. It turns amber or red once either is headed for its
 limit. Hover it for the limits and the past day's tokens per hour, or click it
 to open the page.
 
