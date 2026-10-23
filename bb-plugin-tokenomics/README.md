@@ -79,7 +79,9 @@ outside service.
   starting when you install it.
 - Claude Code subagents report no usage to bb, so Tokenomics reads their
   transcripts from disk. It counts them only for threads that ran on the
-  machine bb runs on.
+  machine bb runs on. It reads them when the parent thread records usage,
+  and every 15 seconds while they are still writing, which is a directory
+  listing with no request to bb.
 - It reads the usage limits from bb every five minutes, one request that bb
   passes to each provider. Opening a thread's summary reads that thread's
   turn events from bb. The page, title bar, and meter read the plugin's own
