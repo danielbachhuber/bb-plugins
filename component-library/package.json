@@ -37,6 +37,7 @@
     "./parse-day": "./day-menu/parse-day.ts",
     "./copy-link": "./copy-link/copy-link.ts",
     "./top-bar": "./top-bar/top-bar.tsx",
+    "./nav-badge": "./nav-badge/nav-badge.tsx",
     "./start-thread": "./start-thread/start-thread.tsx",
     "./thread-status": "./thread-status/thread-status.tsx",
     "./last-value": "./last-value/last-value.ts"
