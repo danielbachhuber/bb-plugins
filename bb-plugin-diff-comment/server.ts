@@ -15,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, relative, resolve } from "node:path";
 import { createGhRunner, GhUnavailableError, type GhRunner } from "@danielb/gh-shared/gh";
+import { environmentPullRequest } from "@danielb/gh-shared/pr-status";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, MAX_BODY, rpcShape } from "./comment/contract";
 import { anchorFromFile, parseLocation } from "./comment/add";
@@ -114,7 +115,7 @@ export default async function plugin(bb: BbPluginApi) {
     const thread = await bb.sdk.threads.get({ threadId });
     const environmentId = (thread as { environmentId?: string | null }).environmentId;
     if (!environmentId) return null;
-    const result = await bb.sdk.environments.pullRequest({ environmentId });
+    const result = await environmentPullRequest(bb.sdk, environmentId);
     if (result.outcome !== "available") return null;
     const { state, url } = result.pullRequest;
     return state === "open" || state === "draft" ? url : null;
