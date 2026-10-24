@@ -32,8 +32,8 @@ bb's title bar shows your session as a spark chart of its tokens per 15
 minutes from its start to its reset, with a dot for each 15 minutes still to
 come, and two rings for the percent used, the session outside and the week
 inside. It sits at the right edge of the sidebar column while the sidebar
-is open. When the sidebar is too narrow for the chart, or closed, only the
-rings show, beside the sidebar toggle. It turns amber or red once either is
+is open. When the sidebar is too narrow for the chart, only the rings show.
+While the sidebar is closed, it is hidden. It turns amber or red once either is
 headed for its limit. Hover it for the limits and the past day's tokens per hour, or click it
 to open the page.
 

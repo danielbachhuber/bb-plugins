@@ -146,12 +146,13 @@ function LimitsTopBar() {
 
 /**
  * The title bar button with its spark chart while the open sidebar has room
- * for it, and the rings alone otherwise, so it never reaches past the
- * sidebar's edge into the page title. Outside the desktop title bar there is
- * no edge, so the chart always shows.
+ * for it, the rings alone while it is narrower, and nothing while it is
+ * closed, so it never reaches past the sidebar's edge into the page title.
+ * Outside the desktop title bar there is no edge, so the chart always shows.
  */
 function FittedLimits(props: ComponentProps<typeof TopBarLimits>) {
   const room = useTopBarRoom();
+  if (room !== null && room < 0) return null;
   return <TopBarLimits {...props} compact={room !== null && room < TOP_BAR_LIMITS_WIDTH} />;
 }
 
