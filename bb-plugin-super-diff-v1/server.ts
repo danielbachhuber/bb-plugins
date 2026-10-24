@@ -7,6 +7,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createGhRunner, type GhRunner } from "@danielb/gh-shared/gh";
+import { environmentPullRequest } from "@danielb/gh-shared/pr-status";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { changesPanelFiles, changesPanelMark } from "./review/changes-panel";
@@ -84,7 +85,7 @@ export default async function plugin(bb: BbPluginApi) {
     const { syncGithub, ghPath } = await settings.get();
     if (syncGithub !== "on") return null;
     try {
-      const result = await bb.sdk.environments.pullRequest({ environmentId });
+      const result = await environmentPullRequest(bb.sdk, environmentId);
       if (result.outcome !== "available") return null;
       const { state, url } = result.pullRequest;
       if (state !== "open" && state !== "draft") return null;
