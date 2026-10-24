@@ -81,9 +81,9 @@ title. It comes from bb's mergeability for the thread's branch, or from the
 same `gh pr view` call that reads a linked pull request's checks, so it costs
 no extra request.
 
-The pull request is bb's own lookup for the thread's branch. For a thread that
-is not on the branch, such as a review, it is the pull request a sweep linked
-the thread to. Its checks come from `gh` instead, counted the same way, and it
+The pull request comes from bb's GitHub PR Status plugin, which looks it up
+for the thread's branch. For a thread that is not on the branch, such as a
+review, it is the pull request a sweep linked the thread to. Its checks come from `gh` instead, counted the same way, and it
 cannot be merged from the banner.
 
 ## Hiding bb's banner

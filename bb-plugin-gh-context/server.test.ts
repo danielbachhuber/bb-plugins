@@ -38,25 +38,6 @@ async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived
       },
       environments: {
         get: async () => ({ id: "env_one", path: null, defaultBranch: "main", mergeBaseBranch: null }),
-        pullRequest: async () =>
-          pullRequest
-            ? {
-                outcome: "available",
-                pullRequest: {
-                  number: 128,
-                  title: "Promote widgets into core",
-                  url: "https://github.com/acme/widgets/pull/128",
-                  state: "open",
-                  baseRefName: "main",
-                  headRefName: "bb/promote-widgets",
-                  updatedAt: "2026-09-23T11:24:23Z",
-                  attention: "checks_pending",
-                  checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
-                  review: { state: "approved", reviewRequestCount: 0 },
-                  mergeability: { state: "mergeable", mergeStateStatus: "UNSTABLE", mergeable: "MERGEABLE" },
-                },
-              }
-            : { outcome: "absent" },
         status: async () => ({
           outcome: "available",
           workspace: {
@@ -77,13 +58,34 @@ async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived
             },
           },
         }),
-        mergePullRequest: async () => ({}),
-        markPullRequestReady: async () => ({}),
       },
       plugins: {
-        // No Harvest plugin installed.
-        callRpc: async () => {
-          throw new Error("plugin not found");
+        // GitHub PR Status answers; no Harvest plugin is installed.
+        callRpc: async (args: { pluginId: string; method: string; outputSchema: { parse(value: unknown): unknown } }) => {
+          if (args.pluginId !== "bb--github-pr-status") throw new Error("plugin not found");
+          if (args.method !== "pullRequests") return args.outputSchema.parse({ message: "Done" });
+          return args.outputSchema.parse({
+            env_one: pullRequest
+              ? {
+                  outcome: "available",
+                  pullRequest: {
+                    number: 128,
+                    title: "Promote widgets into core",
+                    url: "https://github.com/acme/widgets/pull/128",
+                    state: "open",
+                    baseRefName: "main",
+                    headRefName: "bb/promote-widgets",
+                    updatedAt: "2026-09-23T11:24:23Z",
+                    autoMerge: false,
+                    inMergeQueue: false,
+                    attention: "checks_pending",
+                    checks: { state: "pending", totalCount: 13, passedCount: 10, failedCount: 0, pendingCount: 3 },
+                    review: { state: "approved", reviewRequestCount: 0 },
+                    mergeability: { state: "mergeable", mergeStateStatus: "UNSTABLE", mergeable: "MERGEABLE" },
+                  },
+                }
+              : { outcome: "absent" },
+          });
         },
       },
     } as never,
@@ -151,7 +153,7 @@ describe("threadContext", () => {
     const { harness } = await setup({ archived: true, pullRequest: true });
     const context = await harness.behavior.callRpc("threadContext", { threadId: "thr_one" });
     expect(context).toMatchObject({ archived: true, pullRequest: null, issues: [], changes: null });
-    expect(harness.inspection.sdk.callsTo("environments.pullRequest")).toHaveLength(0);
+    expect(harness.inspection.sdk.callsTo("plugins.callRpc")).toHaveLength(0);
   });
 
   it("has no pull request or changes for a thread with no environment", async () => {
@@ -215,12 +217,23 @@ describe("links", () => {
 });
 
 describe("actions", () => {
-  it("merges through bb with the chosen method", async () => {
+  it("merges through GitHub PR Status with the chosen method", async () => {
     const { harness } = await setup({ pullRequest: true });
     await harness.behavior.callRpc("mergePullRequest", { threadId: "thr_one", method: "squash" });
-    expect(harness.inspection.sdk.callsTo("environments.mergePullRequest")[0]![0]).toEqual({
-      environmentId: "env_one",
-      method: "squash",
+    expect(harness.inspection.sdk.callsTo("plugins.callRpc")[0]![0]).toMatchObject({
+      pluginId: "bb--github-pr-status",
+      method: "merge",
+      input: { environmentId: "env_one", method: "squash" },
+    });
+  });
+
+  it("marks ready through GitHub PR Status", async () => {
+    const { harness } = await setup({ pullRequest: true });
+    await harness.behavior.callRpc("markPullRequestReady", { threadId: "thr_one" });
+    expect(harness.inspection.sdk.callsTo("plugins.callRpc")[0]![0]).toMatchObject({
+      pluginId: "bb--github-pr-status",
+      method: "markReady",
+      input: { environmentId: "env_one" },
     });
   });
 

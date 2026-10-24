@@ -53,9 +53,9 @@ export function timerDefaultsForItem(row: GitHubItem): IssueTimerDefaults {
 /**
  * The GitHub item a bb thread is about, from the host's pull-request lookup.
  *
- * `experimental_useSidebarThreadPullRequest` resolves a thread's branch to its
- * pull request but carries no repository, so the url is the only place the
- * owner and name can come from. Parsing it keeps the whole association inside
+ * bb's GitHub PR Status plugin resolves a thread's branch to its pull request
+ * but carries no repository, so the url is the only place the owner and name
+ * can come from. Parsing it keeps the whole association inside
  * the plugin: nothing has to be registered from a GitHub panel, and a thread
  * started by hand is understood as well as one a panel spawned.
  *

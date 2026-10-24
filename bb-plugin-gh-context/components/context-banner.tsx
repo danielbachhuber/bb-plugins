@@ -59,6 +59,7 @@ const ATTENTION_LABEL: Record<ContextPullRequest["attention"], string> = {
   draft: "Draft",
   merged: "Merged",
   none: "Open",
+  queued: "In merge queue",
   ready_to_merge: "Ready to merge",
   review_requested: "Review requested",
 };

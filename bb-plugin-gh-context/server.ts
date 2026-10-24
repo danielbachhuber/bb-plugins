@@ -1,5 +1,6 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { createGhRunner, readGitRemoteUrls } from "@danielb/gh-shared/gh";
+import { environmentPullRequest, markPullRequestReady, mergePullRequest } from "@danielb/gh-shared/pr-status";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
 import {
   rpcContract,
@@ -198,7 +199,7 @@ export default async function plugin(bb: BbPluginApi) {
   ): Promise<{ pullRequest: ContextPullRequest; baseRefName: string | null } | null> {
     if (environment) {
       try {
-        const result = await bb.sdk.environments.pullRequest({ environmentId: environment.id });
+        const result = await environmentPullRequest(bb.sdk, environment.id);
         if (result.outcome === "available") {
           const pr = result.pullRequest;
           const ref = refFromUrl(pr.url);
@@ -350,6 +351,7 @@ export default async function plugin(bb: BbPluginApi) {
       return {
         archived: true,
         hide,
+        environmentId: null,
         pullRequest: null,
         issues: [],
         changes: null,
@@ -366,7 +368,15 @@ export default async function plugin(bb: BbPluginApi) {
       environment ? changesFor(environment, found?.baseRefName ?? null) : Promise.resolve(null),
       harvestState(),
     ]);
-    return { archived: false, hide, pullRequest, issues, changes, harvest: harvestNow };
+    return {
+      archived: false,
+      hide,
+      environmentId: environment?.id ?? null,
+      pullRequest,
+      issues,
+      changes,
+      harvest: harvestNow,
+    };
   }
 
   async function environmentIdFor(threadId: string): Promise<string> {
@@ -381,18 +391,13 @@ export default async function plugin(bb: BbPluginApi) {
     },
 
     async mergePullRequest({ threadId, method }) {
-      await bb.sdk.environments.mergePullRequest({
-        environmentId: await environmentIdFor(threadId),
-        method,
-      });
+      await mergePullRequest(bb.sdk, await environmentIdFor(threadId), method);
       publish(threadId);
       return null;
     },
 
     async markPullRequestReady({ threadId }) {
-      await bb.sdk.environments.markPullRequestReady({
-        environmentId: await environmentIdFor(threadId),
-      });
+      await markPullRequestReady(bb.sdk, await environmentIdFor(threadId));
       publish(threadId);
       return null;
     },

@@ -17,6 +17,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
   return {
     archived: false,
     hide: true,
+    environmentId: "env_one",
     pullRequest: {
       repo: "acme/widgets",
       number: 128,
@@ -40,7 +41,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
 function render(value: ThreadContext) {
   const banner = app.composerCustomizations.find((entry) => entry.id === "context")!.banners![0]!;
   mounted = renderSlot(banner, {}, {
-    rpc: { threadContext: () => value },
+    rpc: { threadContext: () => value, pullRequests: () => ({ env_one: { outcome: "absent" } }) },
     composer: { scope: { kind: "thread", threadId: "thr_one" } },
   });
   return mounted;

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
-  experimental_useSidebarThreadPullRequest as useSidebarThreadPullRequest,
-  useComposerView,
+  experimental_useRpcKeyedQuery as useRpcKeyedQuery,
+  useComposer,
   useRealtime,
   useRpc,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
 import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
+import { GITHUB_PR_STATUS_PLUGIN_ID, githubPrStatusContract } from "@danielb/gh-shared/pr-status";
 import { timerDefaultsForItem, type GitHubItem } from "bb-plugin-harvest/github";
 import { ContextBanner } from "./components/context-banner";
 import type { MergeMethod, RunningReference, ThreadContext, rpcContract } from "./context/contract";
@@ -77,8 +78,8 @@ function useCompactWidth(): [(element: HTMLSpanElement | null) => void, boolean]
 const lastContext = new Map<string, ThreadContext>();
 
 function Banner() {
-  const view = useComposerView();
-  const threadId = view.scope.kind === "thread" ? view.scope.threadId : null;
+  const composer = useComposer();
+  const threadId = composer.scope.kind === "thread" ? composer.scope.threadId : null;
   const rpc = useRpc<typeof rpcContract>();
   const harvestClient = useHarvestClient(rpc);
   const [context, setContext] = useState<ThreadContext | null>(() =>
@@ -104,14 +105,24 @@ function Banner() {
     }
   }, [rpc, threadId]);
 
-  // bb's own lookup of the thread's pull request is live, and it changes when
-  // a PR opens, its checks move, or it merges, none of which bb announces to
-  // plugin servers. Its identity is the cue to ask for the full picture again.
-  const { pullRequest: hostPullRequest } = useSidebarThreadPullRequest(threadId ?? "");
+  // GitHub PR Status's read of the thread's pull request is live, and it
+  // changes when a PR opens, its checks move, or it merges, none of which bb
+  // announces to plugin servers. Its identity is the cue to ask for the full
+  // picture again. The environment id comes from the first load.
+  const environmentId = context?.environmentId ?? null;
+  const { data: hostPullRequests } = useRpcKeyedQuery({
+    pluginId: GITHUB_PR_STATUS_PLUGIN_ID,
+    contract: githubPrStatusContract,
+    method: "pullRequests",
+    keys: environmentId ? [environmentId] : [],
+    enabled: environmentId !== null,
+  });
+  const hostRow = environmentId ? hostPullRequests?.[environmentId] : undefined;
+  const hostPullRequest = hostRow?.outcome === "available" ? hostRow.pullRequest : null;
   const hostPullRequestKey = hostPullRequest
     ? `${hostPullRequest.number}:${hostPullRequest.state}:${hostPullRequest.attention}`
     : "none";
-  const isRunning = view.run.isRunning;
+  const isRunning = composer.isRunning;
 
   useEffect(() => {
     void load();

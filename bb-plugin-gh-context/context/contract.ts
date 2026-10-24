@@ -49,6 +49,7 @@ const pullRequestSchema = z.object({
     "draft",
     "merged",
     "none",
+    "queued",
     "ready_to_merge",
     "review_requested",
   ]),
@@ -63,7 +64,8 @@ const pullRequestSchema = z.object({
     .nullable(),
   /**
    * Whether the banner can merge it: only a mergeable pull request on the
-   * thread's own branch, because merging goes through bb's environment API.
+   * thread's own branch, because merging goes through bb's GitHub PR Status
+   * plugin, which acts on the environment's branch.
    */
   canMerge: z.boolean(),
   /** True when it conflicts with its base branch, drawn as a warning after the changes. */
@@ -116,6 +118,8 @@ export const threadContextSchema = z.object({
   archived: z.boolean(),
   /** Whether bb's own banner should be hidden: the `hideDefaultBanner` setting. */
   hide: z.boolean(),
+  /** The thread's environment, which the app watches GitHub PR Status by; null without one. */
+  environmentId: z.string().nullable(),
   pullRequest: pullRequestSchema.nullable(),
   issues: z.array(issueSchema),
   changes: changesSchema.nullable(),

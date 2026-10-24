@@ -19,6 +19,7 @@ function context(overrides: Partial<ThreadContext>): ThreadContext {
   return {
     archived: false,
     hide: true,
+    environmentId: null,
     pullRequest: null,
     issues: [],
     changes: null,
