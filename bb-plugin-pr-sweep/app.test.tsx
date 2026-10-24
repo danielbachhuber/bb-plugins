@@ -995,19 +995,20 @@ describe("sync header", () => {
   });
 });
 
-describe("sidebar count", () => {
+describe("navigation badge", () => {
+  const listRows = vi.fn();
+
   function renderBadge(result: Record<string, unknown>) {
     const panel = app.navPanels.find((entry) => entry.path === "prs")!;
-    const slot = renderSlot(
-      { component: panel.experimental_sidebarAccessory! },
-      {},
-      { rpc: { listRows: () => result } },
-    );
+    const useBadge = panel.experimental_useBadge!;
+    const Badge = () => <span data-testid="badge">{JSON.stringify(useBadge())}</span>;
+    listRows.mockReset().mockReturnValue(result);
+    const slot = renderSlot({ component: Badge }, {}, { rpc: { listRows } });
     mounted = slot;
     return slot;
   }
 
-  it("counts every open pull request, with the ones that need you in a red circle", async () => {
+  it("counts the pull requests that need you in red", async () => {
     const slot = renderBadge(
       listing({
         rows: [
@@ -1020,18 +1021,19 @@ describe("sidebar count", () => {
         ],
       }),
     );
-    expect(await slot.findByTitle("5 open")).toHaveTextContent("5");
-    expect(slot.getByTitle("1 need you")).toHaveClass("bg-red-600");
+    await waitFor(() =>
+      expect(JSON.parse(slot.getByTestId("badge").textContent!)).toEqual({ count: 1, tone: "critical", label: "1 need you" }),
+    );
   });
 
-  it("takes a row out of the red circle once a thread is running on it", async () => {
+  it("drops the badge once a thread is running on the only row that needed you", async () => {
     const slot = renderBadge(
       listing({
         rows: [rowFixture({ flags: ["conflict"], group: "needs-action", threadId: "thr_1" })],
       }),
     );
-    expect(await slot.findByTitle("1 open")).toHaveTextContent("1");
-    expect(slot.queryByTitle("1 need you")).toBeNull();
+    await waitFor(() => expect(listRows).toHaveBeenCalled());
+    expect(slot.getByTestId("badge")).toHaveTextContent("null");
   });
 });
 

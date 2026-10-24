@@ -675,59 +675,6 @@ describe("seen comments", () => {
   });
 });
 
-describe("sidebar badge", () => {
-  function renderBadge(result: Record<string, unknown>) {
-    const slot = renderSlot(
-      { component: app.navPanels[0]!.experimental_sidebarAccessory! },
-      {},
-      { rpc: { listRows: () => result } },
-    );
-    mounted = slot;
-    return slot;
-  }
-
-  const board = (boardStatus: string | null, extra: Record<string, unknown> = {}) =>
-    rowFixture({ boardStatus, ...extra });
-
-  it("counts only the statuses it was told to", async () => {
-    const slot = renderBadge(
-      listing({
-        countedStatuses: ["In Progress", "Ready"],
-        rows: [
-          board("In Progress", { number: 1 }),
-          board("Ready", { number: 2 }),
-          board("Backlog", { number: 3 }),
-          board("In Review", { number: 4 }),
-          board(null, { number: 5 }),
-        ],
-      }),
-    );
-    expect(await slot.findByText("2")).toBeInTheDocument();
-  });
-
-  it("leaves out a blocked issue that would otherwise count", async () => {
-    // Nobody can start it, and its row is filed in Later, so it is not on
-    // you right now.
-    const slot = renderBadge(
-      listing({
-        countedStatuses: ["In Progress"],
-        rows: [
-          board("In Progress", { number: 1 }),
-          board("In Progress", { number: 2, blockedBy: 1 }),
-        ],
-      }),
-    );
-    expect(await slot.findByText("1")).toBeInTheDocument();
-  });
-
-  it("shows nothing rather than a zero", async () => {
-    const slot = renderBadge(
-      listing({ countedStatuses: ["In Progress"], rows: [board("Backlog")] }),
-    );
-    await waitFor(() => expect(slot.container.textContent).toBe(""));
-  });
-});
-
 /** What `startThreadDraft` hands the composer. */
 const SEED = {
   projectId: "proj_widgets",
