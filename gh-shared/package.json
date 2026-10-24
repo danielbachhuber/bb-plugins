@@ -5,7 +5,11 @@
   "type": "module",
   "exports": {
     "./gh": "./gh.ts",
-    "./projects": "./projects.ts"
+    "./projects": "./projects.ts",
+    "./pr-status": "./pr-status.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
