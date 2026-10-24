@@ -130,9 +130,9 @@ export default async function plugin(bb: BbPluginApi) {
     },
     countedStatuses: {
       type: "string",
-      label: "Statuses counted in the sidebar",
-      // The badge answers "how much is on me right now", which is a smaller
-      // question than "how much is assigned to me". Blank counts everything.
+      label: "Statuses that are on you",
+      // "What is on me right now" is a smaller question than "what is
+      // assigned to me". Blank counts everything.
       default: "In Progress,Ready",
     },
     statusOnStart: {

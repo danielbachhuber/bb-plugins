@@ -55,7 +55,7 @@ them all.
   yours is never new, and neither is anything before it, since you read the
   thread to reply. The first sweep to see an issue records its count, so
   nothing is new on the first sync.
-- **Stale**: in one of the "Statuses counted in the sidebar", not blocked, not
+- **Stale**: in one of the "Statuses that are on you", not blocked, not
   a parent, and not updated for "Stale after (days)". Flagged in red. A parent
   is never stale, because its sub-issues are the work. A board move does not
   change the issue's updated time on GitHub, so the plugin counts the moves it
@@ -193,8 +193,8 @@ starts it over. The measured span runs through the comment-author reads, the boa
   `Backlog,Ready,In Progress,In Review`. With boards whose columns differ,
   list them all, such as `Backlog,Todo,Ready,In Progress,In Review`, and each
   row shows only the ones its own board has.
-- **Statuses counted in the sidebar** — the statuses the sidebar count and "to
-  start" are made of. Default `In Progress,Ready`.
+- **Statuses that are on you** — the statuses "to start" and stale are made
+  of. Default `In Progress,Ready`.
 - **Stale after (days)** — how long a counted issue can go without an update
   before it is flagged stale. Default 7; anything but a positive whole number
   is read as 7.

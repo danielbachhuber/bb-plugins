@@ -117,7 +117,7 @@ export function boardStatus(
 
 /**
  * A comma-separated list of status names from a setting, such as the board
- * stages or the statuses the sidebar counts.
+ * stages or the statuses that are on you.
  */
 export function parseStatusOrder(raw: string): string[] {
   return raw
@@ -152,24 +152,4 @@ export function shouldAutoApply(
   if ((current ?? "").trim().toLowerCase() === wanted) return false;
   if ((alreadyApplied ?? "").trim().toLowerCase() === wanted) return false;
   return true;
-}
-
-/**
- * The rows the sidebar badge counts.
- *
- * Blocked rows never count, whatever their status says. The panel files them
- * in Later, so counting one would put a number on the badge for an issue
- * nobody can start.
- *
- * An empty `counted` counts everything, which is what a board-less setup wants.
- */
-export function countedRows<T extends { boardStatus: string | null; blockedBy: number }>(
-  rows: readonly T[],
-  counted: readonly string[],
-): T[] {
-  const actionable = rows.filter((row) => row.blockedBy === 0);
-  if (counted.length === 0) return actionable;
-
-  const wanted = new Set(counted.map((status) => status.trim().toLowerCase()));
-  return actionable.filter((row) => wanted.has((row.boardStatus ?? "").trim().toLowerCase()));
 }

@@ -47,7 +47,7 @@ export interface ListedIssue {
 }
 
 export interface TierInputs {
-  /** "Statuses counted in the sidebar": what Next is made of. */
+  /** "Statuses that are on you": what Next is made of. */
   countedStatuses: string[];
   /** "Board status when a closing pull request opens": waiting on a reviewer. */
   reviewStatus: string;
