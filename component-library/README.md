@@ -388,7 +388,26 @@ stylesheet to elements under `data-bb-plugin="<id>"`, and the slot sits in
 bb's own header, outside the plugin's root. Without it the pill's colors are
 missing.
 
-Tokenomics uses the slot, with its own button through `TopBarButton`.
+**Aligning to the sidebar's edge.** With `alignEnd`, the slot moves to the
+right edge of the sidebar column (`[data-sidebar="gap"]`), 8px in, while the
+sidebar is open, and stays beside the toggle when the sidebar is closed and
+only the rail is left. A ResizeObserver on the column and the slot keeps it
+there as the sidebar is dragged wider, and the slot aligns again each time
+it moves. Only the desktop title bar does this; in a browser the slot stays
+where it goes.
+
+Inside the slot, `useTopBarRoom()` gives the pixels from where the slot
+starts beside the toggle to that edge, so a button can draw a narrower form
+when the sidebar is too narrow for its full one. The number does not change
+with the slot's own width, so drawing less does not flip it back. It is
+negative with the sidebar closed, and null outside the desktop title bar.
+Tokenomics drops its spark chart and keeps the rings below 120px.
+
+bb's title bar takes no pointer events except around its own buttons, so
+the slot turns them back on for itself.
+
+Tokenomics uses the slot with `alignEnd`, with its own button through
+`TopBarButton`.
 No plugin uses `TopBarCount`. A page's counts go in a [Nav badge](#nav-badge)
 instead, since several chips in the title bar run past the sidebar's edge and
 over the page title.
