@@ -33,13 +33,13 @@ Source: [`bb-plugin-automation-palette`](bb-plugin-automation-palette)
 
 ![bb's quick palette searching for automation, listing a Run automation row for each automation with its project](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/automation-palette/quick-palette--with-the-plugin.png)
 
-#### [Diff Viewed](https://getbb.app/marketplace/diff-viewed)
+#### [Diff Viewed Enhanced](https://getbb.app/marketplace/diff-viewed)
 
-Use a Viewed checkbox on each file to keep track of what you've read in a long diff, synced with GitHub on the thread's pull request.
+Adds a viewed count and GitHub sync to bb's own Viewed checkboxes, so you can see how much of a long diff you've read.
 
 Source: [`bb-plugin-diff-viewed`](bb-plugin-diff-viewed)
 
-![The changes panel with a Viewed checkbox on each file and 3/6 viewed at the top, the viewed files folded away](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--viewed.png)
+![The changes panel with bb's Viewed checkbox on each file and 3/6 viewed at the top, the viewed files folded away](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--viewed.png)
 
 #### [Impromptu UI](https://getbb.app/marketplace/impromptu-ui)
 
