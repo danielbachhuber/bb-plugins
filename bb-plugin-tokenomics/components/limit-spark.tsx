@@ -106,9 +106,12 @@ export function weeklyLimit(limits: readonly Limit[]): Limit | null {
   return others.find((limit) => limit.kind === "weekly") ?? others[0] ?? null;
 }
 
+/** The title bar button's width with its spark chart: padding, the chart, the gap, and the rings. */
+export const TOP_BAR_LIMITS_WIDTH = 8 + WIDTH + 6 + RING_SIZE + 8;
+
 /**
  * The title bar's button: the session's spark chart and the rings for the
- * session's and the week's percent used. Hovering
+ * session's and the week's percent used, or the rings alone when `compact`. Hovering
  * opens the meters for every limit of the session's subscription and the
  * past day's tokens per hour; clicking opens the Tokenomics page.
  */
@@ -121,6 +124,7 @@ export function TopBarLimits({
   bars = null,
   onHover,
   initialOpen = false,
+  compact = false,
 }: {
   session: Limit;
   /** Every limit of the session's subscription, for the popover. */
@@ -134,6 +138,8 @@ export function TopBarLimits({
   onHover?: () => void;
   /** Opens the popover on first render, so a story can draw it. */
   initialOpen?: boolean;
+  /** Leaves the spark chart out, for a sidebar too narrow for the whole button. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(initialOpen);
   const chart = bars === null ? null : withProjection(bars, "hour", limits, now);
@@ -156,7 +162,7 @@ export function TopBarLimits({
           onPointerLeave={() => setOpen(false)}
           className="pr-2"
         >
-          <SessionSpark limit={session} now={now} />
+          {compact ? null : <SessionSpark limit={session} now={now} />}
           <LimitDonut session={session} weekly={weekly} />
         </TopBarButton>
       </PopoverAnchor>
