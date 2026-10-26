@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.41",
+    "bb": ">=0.47",
     "bbPluginSdk": ">=0.4.34"
   },
   "bb": {
