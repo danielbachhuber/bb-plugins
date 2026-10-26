@@ -9,7 +9,7 @@
   },
   "bb": {
     "name": "Super Diff",
-    "description": "Group the Diff tab by concern, with an explanation for each group and notes on tricky code, plus a note on any line you ask about.",
+    "description": "Group a thread's diff by concern in the Diff tab, with an explanation for each group and notes under the lines that need them.",
     "branding": {
       "icon": "Layers"
     },

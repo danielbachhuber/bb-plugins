@@ -1,26 +1,38 @@
 # Super Diff
 
-Group the Diff tab by concern, with an explanation for each group and notes on tricky code, plus a note on any line you ask about.
+Group a thread's diff by concern in the Diff tab, with an explanation for each group and notes under the lines that need them.
 
-![A Super Diff of a 57-file rename: the Super Diff | Original row listing all six concerns with their viewed counts, then the first concern's numbered heading, a line on what each of its files' change is, its one annotation, and one of its files in bb's diff with that annotation's card under the line it explains](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
+![A Super Diff of a 57-file rename: the row listing six concerns with how many of each one's files are viewed, then the first concern's heading, a line on what each of its files' change does, and one of its files with a note under line 19 explaining why the layout reads the currency itself](screenshots/super-diff--overview.png)
 
-## Use
+## Key features
 
-- Open a thread's **Diff** tab. A row under the picker offers **Generate Super Diff**; until you click it, the tab shows bb's own list.
-- **Generate Super Diff** asks the thread's agent to read the diff and write the Super Diff. Each click asks for a fresh one.
-- The grouped list replaces bb's file list in the same tab: each concern's numbered title and explanation, a list of its files saying what each one's change does, then the files as bb's own diff cards. Clicking a file in the list scrolls to its card. Lockfiles, snapshots, binary files, and files too large to show go in **Generated files**.
-- Once a thread has a Super Diff, its Diff tab opens on it. **Super Diff | Original** switches between the grouped list and bb's list. Under it, the row lists every concern, highlights the one you are reading, and jumps to one when you click it. The row stays put while the list scrolls. The Super Diff is kept for each thread and picker choice, so it is still there after a reload.
-- Notes on the trickier lines sit in cards under the lines they explain. Each concern lists its annotations under its files, with each one's file and line, and clicking one jumps to its card.
-- **Explain this**, the sparkle beside Diff Comment's button when you hover a line, asks for a note on that line, including a removed one. A card says it is being written, and a minute or two later it fills in, marked as one you asked for. The note is written by a hidden fork of the thread, as bb's side chat is, so it knows the thread's work and does not interrupt its agent.
+### Concerns in place of the file list
 
-![An annotation card, numbered 2: "Feeds the cache key, so the value must not change", with two sentences on why](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--annotation-card.png)
+![The row above the grouped list: Super Diff and Original toggle, "6 concerns · 4 annotations · generated 2 min ago", and the six concerns with viewed counts such as 0/4 and 19/33, the first one highlighted](screenshots/super-diff--showing-super-diff.png)
 
-- When files join or leave the diff after generating, or a file is edited, the row turns amber and offers **Regenerate**. New files show under **Not yet grouped**, and an edited file is marked **changed** in its concern's list, since its summary may no longer be right. When the thread's base branch changes, the diff is a different one, and the row offers **Generate Super Diff** again; the earlier Super Diff comes back if the base changes back.
-- With Diff Viewed installed, each concern shows how many of its files are viewed, and its file list marks which ones. Viewed files start collapsed, as they do in bb's list, and stay that way when you switch to Original and back. Diff Comment's line comments work on the grouped list as they do on bb's.
+Open a thread's **Diff** tab and click **Generate Super Diff**. The thread's agent reads the diff and groups the changed files into concerns, each with a title and a short explanation, and the grouped list takes the place of bb's file list. The row above it lists every concern with how many of its files you have checked **Viewed**, and clicking one jumps to it. **Super Diff | Original** switches back to bb's own list at any time.
+
+### What each file's change does
+
+![Concern 5, "Tests and demos follow the rename", with 1 of 5 viewed, its explanation, and its files each followed by a line on what changed, the last two folded into "and 2 more files"](screenshots/super-diff--concern-file-list.png)
+
+Under each concern's explanation is a list of its files, each with one line on what its change does. Files that change the same mechanical way, such as an import rename, share a line. Clicking a file scrolls to its card, which has bb's **Viewed** checkbox and keeps the same marks as bb's own list.
+
+### Notes under the lines that need them
+
+![A note under the removed line 19, in the red half of the diff, titled "The hook read the provider, which is not mounted yet" and marked "you asked"](screenshots/super-diff--removed-line-note.png)
+
+The agent writes a note for each line a reviewer might misread, and the note sits in the diff under that line, removed lines included. Each concern lists its notes, and clicking one jumps to it. To ask about any other line, hover it and click **Explain this**, the sparkle beside the line number. A hidden side chat of the thread writes the note, so the thread's agent is not interrupted.
+
+### A warning when the diff moves on
+
+![The row tinted amber with "Out of date · 2 files added, 2 files changed" and a Regenerate button, and concern 1 marked "2 changed"](screenshots/super-diff--out-of-date.png)
+
+When files join the diff or are edited after the Super Diff was written, the row turns amber and offers **Regenerate**. New files show under **Not yet grouped**, and an edited file is marked **changed** in its concern.
 
 ## For agents
 
-The `super-diff` skill tells agents to run `bb super-diff read` and follow the guide it prints.
+The `super-diff` skill tells agents to run `bb super-diff read` and follow the guide it prints. An agent can also write a Super Diff at the end of its own work, without anyone pressing Generate.
 
 ```sh
 bb super-diff read                  # the guide, every changed file, and their patches, in one go
@@ -28,26 +40,30 @@ bb super-diff guide                 # how to write a Super Diff
 bb super-diff files                 # every changed file, and which ones the plugin places itself
 bb super-diff patch <path>...       # the patches for those paths
 bb super-diff submit <file | json>  # check a Super Diff and store it if every file is placed once
-bb super-diff explain <file | json> # in an Explain this fork: store its one note
+bb super-diff explain <file | json> # in an Explain this side chat: store its one note
 ```
 
-An agent can write a Super Diff without anyone pressing Generate, such as at the end of its work. `read`, `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff, and the Diff tab shows the Super Diff when its picker is on that diff. Without `--target`, they use the diff Generate last asked for, or All changes.
+`read`, `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff.
 
 ## Requirements
 
-A thread with a git environment. Generate sends one message to the thread's agent, then checks for its result every 2 seconds. While the Diff tab is open and the window is in front, it also checks every 2 seconds whether an agent stored a new Super Diff from the command line, and stops when the tab closes or moves to another thread. Each check reads only when the stored Super Diff was accepted; the Super Diff itself is fetched only when a newer one is there. Each Explain this forks the thread once, then checks for the note every 2 seconds until it is stored. Showing the Super Diff reads the diff from bb, and reads it again when bb's file or line counts change: one request for the file list and one per 50 files for patches. Nothing calls GitHub.
+A thread with a git environment, and bb 0.47 or later for the **Viewed** checkboxes. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
 
 ## Related plugins
 
-- **Diff Viewed** (`diff-viewed`): a Viewed checkbox on each file of the Diff tab. It works on Super Diff's cards too, and with it installed each concern shows how many of its files you have viewed.
-- **Diff Comment** (`diff-comment`): review comments on the lines of a thread's diff. Its comments sit beside Super Diff's notes on the same lines.
-- **Super Diff v1** (`super-diff-v1`), retired: grouped a branch's hunks into concerns in a separate panel, written as a narrative. This one keeps bb's own Diff tab and groups whole files.
-- **Code Review** (`code-review`): lists the pull requests waiting on your review, runs your review skills over one, and shows what it finds as comments beside the code. It reviews for you; Super Diff arranges a thread's diff so you can read it yourself.
+_As of October 26, 2026_
+
+- **[Guided Review](https://getbb.app/marketplace/guided-review)** (`guided-review`): organizes a GitHub pull request into chapters to read, with notes, an assistant, and a review to submit. Super Diff works on a thread's own diff in bb's Diff tab, before there is a pull request.
+- **[Diff Explorer](https://getbb.app/marketplace/diff-explorer)** (`diff-explorer`): every changed file in one scroll, with go to definition. It shows the diff in file order in its own view; Super Diff regroups it by concern in the Diff tab.
+- **[Diff Viewed Enhanced](https://getbb.app/marketplace/diff-viewed)** (`diff-viewed`): a viewed count and GitHub sync for bb's Viewed checkboxes. It counts and syncs the checkboxes on Super Diff's cards too.
+- **[Code Review](https://getbb.app/marketplace/code-review)** (`code-review`): runs your review skills over a pull request waiting on you and shows the findings beside the code. It reviews for you; Super Diff arranges a diff so you can read it yourself.
+- **Diff Comment** (`diff-comment`), in this repository: review comments on the lines of a thread's diff. Its comments work on Super Diff's cards as on bb's.
 
 ## Develop
 
 ```sh
 npm install
 npx tsc --noEmit
+npm test
 bb plugin build . && bb plugin reload super-diff
 ```
