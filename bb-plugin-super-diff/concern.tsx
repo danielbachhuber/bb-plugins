@@ -1,5 +1,5 @@
-// A concern's file list: each file with what its change does and, when Diff
-// Viewed is installed, whether it has been viewed. Files the agent describes
+// A concern's file list: each file with what its change does and whether it
+// has been viewed. Files the agent describes
 // together ("only the import is renamed") fold into one line.
 import type { ReactNode } from "react";
 import { Prose } from "./annotations";
@@ -61,7 +61,7 @@ export function ViewedCount({ viewed, total }: { viewed: number; total: number }
 }
 
 /**
- * `viewed` is null when Diff Viewed is not installed: the marks are left out.
+ * `viewed` is null until bb's Viewed marks are read: the marks are left out.
  * Clicking a file calls `onJump` with its path.
  */
 export function ConcernFiles({

@@ -25,13 +25,13 @@ export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileC
   return `Out of date · ${parts.filter(Boolean).join(", ")}`;
 }
 
-/** One line of the row's list of concerns. `viewed` is null when Diff Viewed is not installed. */
+/** One line of the row's list of concerns. `viewed` is null until bb's Viewed marks are read. */
 export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number; changed?: number };
 
 /** `side` is "old" for a removed line, whose `line` is its old-side number. */
 export type Explaining = { path: string; line: number; side: LineSide; requestedAt: string };
 
-export type Loaded = { files: FileEntry[]; patches: Map<string, string>; target: Target };
+export type Loaded = { environmentId: string; files: FileEntry[]; patches: Map<string, string>; target: Target };
 
 /** What Super Diff knows about one thread's diff target. Loaded from the server; the toggle is kept in memory. */
 export type ThreadState =

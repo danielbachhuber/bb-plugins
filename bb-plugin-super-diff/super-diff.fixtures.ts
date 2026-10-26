@@ -148,7 +148,7 @@ export const FIXTURE_NOTES: PlacedNote[] = FIXTURE.submission.annotations.map((n
   side: "new",
 }));
 
-/** Diff Viewed's marks: 32 of 57, none yet in the first two concerns. */
+/** bb's Viewed marks: 32 of 57, none yet in the first two concerns. */
 export const FIXTURE_VIEWED: ReadonlySet<string> = new Set([
   ...dataHooks.slice(0, 6),
   ...components.slice(0, 19),

@@ -92,11 +92,14 @@ async function resolveContext(threadId: string, selection: string): Promise<Diff
   return "The prototype can't group a single commit yet. Pick All changes.";
 }
 
+function diffQuery(target: Target): string {
+  return target.type === "uncommitted"
+    ? "target=uncommitted"
+    : `target=${target.type}&mergeBaseBranch=${encodeURIComponent(target.mergeBaseBranch)}`;
+}
+
 async function loadDiff({ environmentId, target }: DiffContext): Promise<Loaded> {
-  const query =
-    target.type === "uncommitted"
-      ? "target=uncommitted"
-      : `target=${target.type}&mergeBaseBranch=${encodeURIComponent(target.mergeBaseBranch)}`;
+  const query = diffQuery(target);
   const listing = await api<{ files: FileEntry[] }>(`/environments/${environmentId}/diff/files?${query}`);
   const patches = new Map<string, string>();
   const loadable = listing.files.filter((file) => file.loadMode !== "too_large").map((file) => file.path);
@@ -107,7 +110,69 @@ async function loadDiff({ environmentId, target }: DiffContext): Promise<Loaded>
     });
     for (const entry of result.patches) patches.set(entry.path, entry.patch);
   }
-  return { files: listing.files, patches, target };
+  return { environmentId, files: listing.files, patches, target };
+}
+
+/** bb's Viewed marks for a diff: each marked path and the revision it was marked at. */
+type Marks = ReadonlyMap<string, string>;
+
+async function readMarks({ environmentId, target }: Pick<Loaded, "environmentId" | "target">): Promise<Marks> {
+  const result = await api<{ files: { path: string; revision: string }[] }>(
+    `/environments/${environmentId}/diff/viewed?${diffQuery(target)}`,
+  );
+  return new Map(result.files.map((file) => [file.path, file.revision]));
+}
+
+/**
+ * bb's own Viewed marks, the ones its Viewed checkboxes read and write, so a
+ * file checked here is checked in Original and on bb's list, and back. Read
+ * when the list mounts and whenever the window regains focus. `marks` is null
+ * until the first read, and stays null if bb has no Viewed marks to read, so
+ * no checkboxes or counts show.
+ */
+function useViewedMarks(data: Loaded): {
+  marks: Marks | null;
+  setViewed: (file: FileEntry, viewed: boolean) => void;
+} {
+  const [marks, setMarks] = useState<Marks | null>(null);
+  useEffect(() => {
+    let live = true;
+    const read = () => {
+      readMarks(data)
+        .then((next) => {
+          if (live) setMarks(next);
+        })
+        .catch(() => {});
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", read);
+    };
+  }, [data]);
+
+  const setViewed = useCallback(
+    (file: FileEntry, viewed: boolean) => {
+      const revision = file.revision;
+      if (revision === undefined) return;
+      const apply = (on: boolean) =>
+        setMarks((previous) => {
+          const next = new Map(previous ?? []);
+          if (on) next.set(file.path, revision);
+          else next.delete(file.path);
+          return next;
+        });
+      apply(viewed);
+      const target = data.target;
+      api(`/environments/${data.environmentId}/diff/viewed`, {
+        method: viewed ? "PUT" : "DELETE",
+        body: JSON.stringify(viewed ? { target, path: file.path, revision } : { target, path: file.path }),
+      }).catch(() => apply(!viewed));
+    },
+    [data],
+  );
+  return { marks, setViewed };
 }
 
 /**
@@ -170,6 +235,35 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 /**
+ * bb's Viewed checkbox, drawn the way its DiffFileCard draws it: a Radix-style
+ * `role="checkbox"` button with `data-state`, labelled "Viewed <file>", inside
+ * a `<label>`. Diff Viewed finds bb's boxes by that shape, so it counts these
+ * and syncs them with GitHub too.
+ */
+function ViewedBox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="ml-1 flex shrink-0 cursor-pointer items-center gap-1.5 border-l border-border pl-3 whitespace-nowrap text-xs leading-none text-muted-foreground">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        aria-label={`Viewed ${label}`}
+        data-state={checked ? "checked" : "unchecked"}
+        onClick={() => onChange(!checked)}
+        className="peer flex size-4 shrink-0 items-center justify-center rounded-sm border border-input shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring data-[state=checked]:border-muted-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
+      >
+        {checked ? (
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        ) : null}
+      </button>
+      <span>Viewed</span>
+    </label>
+  );
+}
+
+/**
  * One file, in the DOM shape of bb's DiffFileCard: Diff Viewed resolves a card
  * from a `justify-between` row of exactly two children whose first child's
  * first child is the `aria-expanded` toggle, and Diff Comment walks up from
@@ -185,6 +279,8 @@ function FileCard({
   highlightId,
   collapsed,
   setCollapsed,
+  viewed,
+  onViewedChange,
   onExplain,
 }: {
   file: FileEntry;
@@ -196,6 +292,9 @@ function FileCard({
   highlightId: string | null;
   collapsed: boolean;
   setCollapsed: (path: string, collapsed: boolean) => void;
+  /** null when bb's Viewed marks are not available, so no checkbox shows. */
+  viewed: boolean | null;
+  onViewedChange: (file: FileEntry, viewed: boolean) => void;
   onExplain: (path: string, line: number, side: LineSide, text: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -230,6 +329,7 @@ function FileCard({
                 <span className="text-diff-added">+{file.additions}</span>{" "}
                 <span className="text-diff-removed">-{file.deletions}</span>
               </span>
+              {viewed !== null ? <ViewedBox label={label} checked={viewed} onChange={(value) => onViewedChange(file, value)} /> : null}
             </span>
           </div>
         </div>
@@ -327,36 +427,19 @@ function GroupedList({
     return lists;
   }, [groups, notes, stored]);
 
-  // Diff Viewed marks a viewed card's header row with data-diff-viewed="true".
-  // null while Diff Viewed is not decorating these cards, so no counts show.
-  const [viewed, setViewed] = useState<ReadonlySet<string> | null>(null);
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (wrapper === null) return;
-    const read = () => {
-      if (wrapper.querySelector("label[data-diff-viewed-owned]") === null) {
-        setViewed((previous) => (previous === null ? previous : null));
-        return;
-      }
-      const next = new Set<string>();
-      for (const row of wrapper.querySelectorAll("[data-index]")) {
-        if (row.querySelector('[data-diff-viewed="true"]') === null) continue;
-        const label = row.querySelector("button[aria-expanded]")?.getAttribute("aria-label") ?? "";
-        next.add(label.replace(/^(Collapse|Expand) /, ""));
-      }
-      setViewed((previous) =>
-        previous !== null && previous.size === next.size && [...next].every((path) => previous.has(path)) ? previous : next,
-      );
-    };
-    const observer = new MutationObserver(read);
-    observer.observe(wrapper, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-diff-viewed"] });
-    read();
-    return () => observer.disconnect();
-  }, []);
+  const { marks, setViewed } = useViewedMarks(data);
+  // A file counts as viewed while its mark matches its current revision, as
+  // on bb's list: an edit after marking it brings it back.
+  const viewed = useMemo<ReadonlySet<string> | null>(
+    () =>
+      marks === null
+        ? null
+        : new Set(data.files.filter((file) => file.revision !== undefined && marks.get(file.path) === file.revision).map((file) => file.path)),
+    [marks, data],
+  );
 
-  // Diff Viewed folds a viewed file once per thread by clicking its toggle,
-  // and never again, which leaves cards this list creates afterwards open.
-  // So the list folds a file itself the first time it shows as viewed.
+  // A viewed file starts folded, as on bb's list, the first time it shows as
+  // viewed. Checking a box folds its card and clearing one opens it.
   const [collapsed, setCollapsedState] = useState<ReadonlySet<string>>(() => new Set(memory.collapsed));
   const setCollapsed = (path: string, value: boolean) => {
     const file = data.files.find((entry) => entry.path === path);
@@ -380,6 +463,11 @@ function GroupedList({
     }
     if (changed) setCollapsedState(new Set(memory.collapsed));
   }, [viewed, data, memory]);
+  const toggleViewed = (file: FileEntry, value: boolean) => {
+    memory.autoCollapsed.add(cardKey(file));
+    setCollapsed(file.path, value);
+    setViewed(file, value);
+  };
 
   const changed = useMemo(() => changedPaths(stored, data.patches), [stored, data]);
 
@@ -502,6 +590,8 @@ function GroupedList({
                 highlightId={highlightId}
                 collapsed={collapsed.has(cardKey(file))}
                 setCollapsed={setCollapsed}
+                viewed={viewed === null || file.revision === undefined ? null : viewed.has(file.path)}
+                onViewedChange={toggleViewed}
                 onExplain={onExplain}
               />
             ))}

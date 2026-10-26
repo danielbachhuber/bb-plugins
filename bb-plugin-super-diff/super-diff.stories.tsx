@@ -115,7 +115,7 @@ export const Overview = () => (
   </Frame>
 );
 
-/** All six concerns of the same Super Diff, each with what its files' changes are, how many of them Diff Viewed has marked viewed, and its annotations. In bb, each concern's diff cards follow its heading. */
+/** All six concerns of the same Super Diff, each with what its files' changes are, how many of them are marked viewed, and its annotations. In bb, each concern's diff cards follow its heading. */
 export const AllConcerns = () => (
   <Frame>
     {FIXTURE.submission.concerns.map((concern, index) => (
@@ -235,7 +235,7 @@ export const RemovedLineNoteSplit = () => (
   </Frame>
 );
 
-/** A concern's heading with Diff Viewed installed: its viewed count, then each file and what its change does. Files that change the same mechanical way share one line. */
+/** A concern's heading: its viewed count, then each file and what its change does. Files that change the same mechanical way share one line. */
 export const ConcernFileList = () => {
   const concern = FIXTURE.submission.concerns[4]!;
   return (

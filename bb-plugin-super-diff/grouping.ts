@@ -14,6 +14,8 @@ export type DiffFile = {
   deletions: number;
   binary: boolean;
   loadMode: "auto" | "on_demand" | "too_large";
+  /** bb's id for this version of the file's change. A Viewed mark counts only while it matches. */
+  revision?: string;
 };
 
 export type Concern = {
