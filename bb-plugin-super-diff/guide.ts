@@ -72,9 +72,11 @@ stored for.
   non-obvious mechanism, coupling to another file or system, a subtle
   invariant, a behavior change hidden in a small edit, something easy to get
   wrong. Never restate what the code plainly says. Many diffs need 0 to 5.
-- path: the file. anchor: text copied exactly from ONE added or unchanged line
-  of that file's patch (not a removed line), long enough to match only that
-  line. The note shows directly under it.
+- path: the file. anchor: text copied exactly from ONE line of that file's
+  patch, long enough to match only that line. The note shows directly under
+  it. Prefer an added or unchanged line. To explain a removal, anchor on a
+  removed line with text that is on no added or unchanged line, since those
+  are matched first.
 - title: at most about 60 characters, saying the point ("Falls back to the default
   currency when a store has none").
 - body: one to three sentences explaining what the reader would otherwise have

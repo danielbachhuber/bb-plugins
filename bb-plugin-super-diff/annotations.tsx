@@ -10,6 +10,7 @@
 // under the host, where bb's stylesheet reaches it.
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { anchorLines, type LineSide } from "./grouping";
 
 export type Note = {
   id: string;
@@ -24,38 +25,19 @@ export type Note = {
   pending?: boolean;
 };
 
-/** A note with its place in the diff: `n` is its number in reading order, `line` its new-side line. */
-export type PlacedNote = Note & { n: number; line: number | null };
+/** A note with its place in the diff: `n` is its number in reading order, `line` its line number on `side`. */
+export type PlacedNote = Note & { n: number; line: number | null; side: LineSide };
 
 const NOTE_ATTR = "data-super-diff-note";
 const OLD_SIDE_TYPES = new Set(["deletion", "change-deletion"]);
-
-/** The new-side line number of the first added or context line containing `anchor`. */
-export function lineForAnchor(patch: string, anchor: string): number | null {
-  let line = 0;
-  let inHunk = false;
-  for (const raw of patch.split("\n")) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
-    if (hunk) {
-      line = Number(hunk[1]);
-      inHunk = true;
-      continue;
-    }
-    if (!inHunk || raw.startsWith("-") || raw.startsWith("\\")) continue;
-    if (raw.startsWith("+") || raw.startsWith(" ")) {
-      if (raw.slice(1).includes(anchor)) return line;
-      line++;
-    }
-  }
-  return null;
-}
 
 /** Numbers notes in reading order: by the order files appear in the Super Diff, then by line. */
 export function placeNotes(notes: Note[], fileOrder: readonly string[], patches: Map<string, string>): PlacedNote[] {
   return notes
     .map((note) => {
       const patch = patches.get(note.path);
-      return { ...note, line: patch === undefined ? null : lineForAnchor(patch, note.anchor) };
+      const found = patch === undefined ? null : anchorLines(patch, note.anchor);
+      return { ...note, line: found?.lines[0] ?? null, side: found?.side ?? "new" };
     })
     .sort(
       (a, b) =>
@@ -67,7 +49,8 @@ export function placeNotes(notes: Note[], fileOrder: readonly string[], patches:
 
 function where(note: PlacedNote): string {
   const name = note.path.split("/").pop() ?? note.path;
-  return note.line === null ? name : `${name}:${note.line}`;
+  if (note.line === null) return name;
+  return note.side === "old" ? `${name}:${note.line} (removed)` : `${name}:${note.line}`;
 }
 
 function Badge({ n }: { n: number }) {
@@ -190,12 +173,18 @@ function slotName(id: string): string {
   return `super-diff-note-${id}`;
 }
 
-/** Adds the note's row under `line`, once. Pierre re-rendering drops it, and the observer calls this again. */
-/** True once the note's row is in the diff; false while the line is not drawn yet. */
-function ensureRow(root: ShadowRoot, line: number, id: string): boolean {
+/**
+ * Adds the note's row under `line` on `side`, once. Pierre re-rendering drops
+ * it, and the observer calls this again. True once the note's row is in the
+ * diff; false while the line is not drawn yet.
+ */
+function ensureRow(root: ShadowRoot, line: number, side: LineSide, id: string): boolean {
   if (root.querySelector(`[${NOTE_ATTR}="${id}"]`) !== null) return true;
   const columns = Array.from(root.querySelectorAll<HTMLElement>("[data-code]"));
-  const column = columns.find((c) => c.hasAttribute("data-additions")) ?? columns.find((c) => c.hasAttribute("data-unified")) ?? columns[0];
+  const column =
+    columns.find((c) => c.hasAttribute(side === "old" ? "data-deletions" : "data-additions")) ??
+    columns.find((c) => c.hasAttribute("data-unified")) ??
+    columns[0];
   if (column === undefined) return false;
   const gutter = childWith(column, "data-gutter");
   const content = childWith(column, "data-content");
@@ -204,7 +193,9 @@ function ensureRow(root: ShadowRoot, line: number, id: string): boolean {
   const cells = Array.from(gutter.children);
   if (rows.length !== cells.length) return false;
   const index = rows.findIndex(
-    (row) => row.getAttribute("data-line") === String(line) && !OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? ""),
+    (row) =>
+      row.getAttribute("data-line") === String(line) &&
+      OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? "") === (side === "old"),
   );
   if (index === -1) return false;
 
@@ -264,7 +255,7 @@ export function NoteRows({
   highlightId: string | null;
 }): ReactNode {
   const [holders, setHolders] = useState<Map<string, HTMLElement>>(new Map());
-  const key = notes.map((note) => `${note.id}@${note.line}`).join("|");
+  const key = notes.map((note) => `${note.id}@${note.side}:${note.line}`).join("|");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -315,7 +306,7 @@ export function NoteRows({
           host.append(holder);
         }
         next.set(note.id, holder);
-        if (!ensureRow(root, note.line, note.id)) missing = true;
+        if (!ensureRow(root, note.line, note.side, note.id)) missing = true;
       }
       if (missing) retry();
       setHolders((previous) =>
@@ -409,16 +400,16 @@ function adoptExplainSheet(root: ShadowRoot): void {
 }
 
 /**
- * Puts an Explain this button on the gutter of the line under the pointer, on
- * added and unchanged lines only, since notes anchor to the new side.
- * `onExplain` gets the line number and its text.
+ * Puts an Explain this button on the gutter of the line under the pointer.
+ * `onExplain` gets the line number, which side of the diff it is on (removed
+ * lines are numbered on the old side), and its text.
  */
 export function ExplainTrigger({
   containerRef,
   onExplain,
 }: {
   containerRef: RefObject<HTMLElement | null>;
-  onExplain: (line: number, text: string) => void;
+  onExplain: (line: number, side: LineSide, text: string) => void;
 }): null {
   useEffect(() => {
     const container = containerRef.current;
@@ -429,7 +420,7 @@ export function ExplainTrigger({
     button.setAttribute("aria-label", "Explain this line");
     button.title = "Explain this line";
     button.innerHTML = SPARKLES_SVG;
-    let target: { line: number; text: string } | null = null;
+    let target: { line: number; side: LineSide; text: string } | null = null;
     const hide = () => {
       target = null;
       button.remove();
@@ -439,7 +430,7 @@ export function ExplainTrigger({
     const press = (event: Event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (target !== null) onExplain(target.line, target.text);
+      if (target !== null) onExplain(target.line, target.side, target.text);
       hide();
     };
     button.addEventListener("pointerdown", press);
@@ -451,7 +442,7 @@ export function ExplainTrigger({
     const over = (event: Event) => {
       const node = (event.target as Element | null)?.closest?.("[data-line], [data-column-number]");
       const column = node?.closest("[data-code]");
-      if (!node || !column || column.hasAttribute("data-deletions")) return;
+      if (!node || !column) return;
       const gutter = childWith(column, "data-gutter");
       const content = childWith(column, "data-content");
       if (gutter === null || content === null) return;
@@ -461,10 +452,10 @@ export function ExplainTrigger({
       const row = rows[index];
       const cell = cells[index];
       if (!row || !cell || !row.hasAttribute("data-line")) return;
-      if (OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? "")) return hide();
+      const side: LineSide = OLD_SIDE_TYPES.has(row.getAttribute("data-line-type") ?? "") ? "old" : "new";
       const line = Number(row.getAttribute("data-line"));
       if (!Number.isInteger(line)) return;
-      target = { line, text: row.textContent ?? "" };
+      target = { line, side, text: row.textContent ?? "" };
       if (button.parentElement !== cell) cell.append(button);
     };
 

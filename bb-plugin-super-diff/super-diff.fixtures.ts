@@ -145,6 +145,7 @@ export const FIXTURE_NOTES: PlacedNote[] = FIXTURE.submission.annotations.map((n
   id: `note-${index}`,
   n: index + 1,
   line: LINES[note.path] ?? null,
+  side: "new",
 }));
 
 /** Diff Viewed's marks: 32 of 57, none yet in the first two concerns. */

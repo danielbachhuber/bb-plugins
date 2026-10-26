@@ -17,6 +17,7 @@ import {
   type DiffFile as FileEntry,
   type DiffTarget as Target,
   type StoredSuperDiff,
+  type LineSide,
 } from "./grouping";
 
 const REPLACED_ATTR = "data-super-diff-replaced";
@@ -195,10 +196,13 @@ function FileCard({
   highlightId: string | null;
   collapsed: boolean;
   setCollapsed: (path: string, collapsed: boolean) => void;
-  onExplain: (path: string, line: number, text: string) => void;
+  onExplain: (path: string, line: number, side: LineSide, text: string) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const explain = useCallback((line: number, text: string) => onExplain(file.path, line, text), [onExplain, file.path]);
+  const explain = useCallback(
+    (line: number, side: LineSide, text: string) => onExplain(file.path, line, side, text),
+    [onExplain, file.path],
+  );
   const label = file.previousPath && file.previousPath !== file.path ? `${file.previousPath} -> ${file.path}` : file.path;
   return (
     <div data-index={index} style={{ paddingBottom: 8 }}>
@@ -250,13 +254,14 @@ function FileCard({
 /** The card shown under a line while an Explain this fork writes its note. */
 function explainingNote(entry: Explaining): PlacedNote {
   return {
-    id: `explaining-${entry.line}`,
+    id: `explaining-${entry.side}-${entry.line}`,
     n: 0,
     path: entry.path,
     anchor: "",
     line: entry.line,
+    side: entry.side,
     pending: true,
-    title: `Explaining line ${entry.line}…`,
+    title: entry.side === "old" ? `Explaining removed line ${entry.line}…` : `Explaining line ${entry.line}…`,
     body: "A hidden side chat of this thread is reading the change. The note appears here when it is written, usually within a couple of minutes.",
   };
 }
@@ -295,7 +300,7 @@ function GroupedList({
   nav: Nav;
   memory: CardMemory;
   explaining: Explaining[];
-  onExplain: (path: string, line: number, text: string) => void;
+  onExplain: (path: string, line: number, side: LineSide, text: string) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -588,9 +593,10 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   };
   const memories = new Map<string, CardMemory>();
   // One stable callback per key, so the list's hover buttons are not rewired on every render.
-  const explainers = new Map<string, (path: string, line: number, text: string) => void>();
+  const explainers = new Map<string, (path: string, line: number, side: LineSide, text: string) => void>();
   const setExplainer = (key: string, threadId: string, selection: string) => {
-    const handler = (path: string, line: number, text: string) => void explain(threadId, selection, path, line, text);
+    const handler = (path: string, line: number, side: LineSide, text: string) =>
+      void explain(threadId, selection, path, line, side, text);
     explainers.set(key, handler);
     return handler;
   };
@@ -753,11 +759,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   };
 
   /** Asks a fork of the thread to explain one line, and shows its card at once. */
-  const explain = async (threadId: string, selection: string, path: string, line: number, text: string) => {
+  const explain = async (threadId: string, selection: string, path: string, line: number, side: LineSide, text: string) => {
     const key = keyOf(threadId, selection);
     const current = states.get(key);
     if (current?.phase !== "ready") return;
-    if (current.explaining?.some((entry) => entry.path === path && entry.line === line)) return;
+    if (current.explaining?.some((entry) => entry.path === path && entry.line === line && entry.side === side)) return;
     try {
       const context = await contextOf(threadId, selection);
       if (typeof context === "string") return fail(key, context);
@@ -766,11 +772,12 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         target: context.target,
         path,
         line,
+        side,
         text: text.trimEnd(),
       });
       const latest = states.get(key);
       if (latest?.phase !== "ready") return;
-      states.set(key, { ...latest, explaining: [...(latest.explaining ?? []), { path, line, requestedAt }] });
+      states.set(key, { ...latest, explaining: [...(latest.explaining ?? []), { path, line, side, requestedAt }] });
       schedule();
       void watchExplains(threadId, selection);
     } catch (cause) {

@@ -1,7 +1,7 @@
 // The row under bb's Diff tab picker: Generate Super Diff, then the
 // Super Diff | Original toggle, the status line, and Regenerate when out of date.
 import type { ReactNode } from "react";
-import type { DiffFile as FileEntry, DiffTarget as Target, StoredSuperDiff } from "./grouping";
+import type { DiffFile as FileEntry, DiffTarget as Target, LineSide, StoredSuperDiff } from "./grouping";
 
 /**
  * "Out of date · 2 files added, 1 file removed, 3 files changed" from the
@@ -28,7 +28,8 @@ export function staleText(stored: StoredSuperDiff, paths: string[] | null, fileC
 /** One line of the row's list of concerns. `viewed` is null when Diff Viewed is not installed. */
 export type ConcernLink = { number: number | null; title: string; viewed: number | null; total: number; changed?: number };
 
-export type Explaining = { path: string; line: number; requestedAt: string };
+/** `side` is "old" for a removed line, whose `line` is its old-side number. */
+export type Explaining = { path: string; line: number; side: LineSide; requestedAt: string };
 
 export type Loaded = { files: FileEntry[]; patches: Map<string, string>; target: Target };
 

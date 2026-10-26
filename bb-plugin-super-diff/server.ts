@@ -8,6 +8,7 @@ import { z } from "zod";
 import { GUIDE } from "./guide";
 import {
   anchorLines,
+  type LineSide,
   isPlacedByRule,
   patchHash,
   targetKey,
@@ -82,6 +83,8 @@ const MIGRATIONS = [
     line INTEGER NOT NULL,
     requested_at TEXT NOT NULL
   )`,
+  // "old" when the line is a removed one, numbered on the old side.
+  `ALTER TABLE explain_requests ADD COLUMN side TEXT NOT NULL DEFAULT 'new'`,
 ];
 
 /** An Explain this request older than this is treated as lost: its card goes, and the line can be asked again. */
@@ -99,7 +102,7 @@ export const rpcContract = defineRpcContract({
       stored: z.string().nullable(),
       requestedAt: z.string().nullable(),
       /** Explain this requests still being written, for this diff. */
-      explaining: z.array(z.object({ path: z.string(), line: z.number(), requestedAt: z.string() })),
+      explaining: z.array(z.object({ path: z.string(), line: z.number(), side: z.enum(["new", "old"]), requestedAt: z.string() })),
     }),
   },
   /** Only when the stored Super Diff was accepted, and any Generate request for this diff, so the Diff tab can check often. */
@@ -113,6 +116,8 @@ export const rpcContract = defineRpcContract({
       target: targetSchema,
       path: z.string().min(1),
       line: z.number().int().positive(),
+      /** "old" for a removed line, whose number is on the old side. */
+      side: z.enum(["new", "old"]).default("new"),
       text: z.string(),
     }),
     output: z.object({ requestedAt: z.string() }),
@@ -166,14 +171,14 @@ export default async function plugin(bb: BbPluginApi) {
      ON CONFLICT (thread_id) DO UPDATE SET target_json = excluded.target_json, requested_at = excluded.requested_at`,
   );
 
-  type ExplainRow = { fork_thread_id: string; thread_id: string; target_key: string; target_json: string; path: string; line: number; requested_at: string };
+  type ExplainRow = { fork_thread_id: string; thread_id: string; target_key: string; target_json: string; path: string; line: number; side: LineSide; requested_at: string };
   const selectExplainByFork = db.prepare<[string], ExplainRow>("SELECT * FROM explain_requests WHERE fork_thread_id = ?");
   const selectExplains = db.prepare<[string, string], ExplainRow>(
     "SELECT * FROM explain_requests WHERE thread_id = ? AND target_key = ? ORDER BY requested_at",
   );
   const insertExplain = db.prepare(
-    `INSERT INTO explain_requests (fork_thread_id, thread_id, target_key, target_json, path, line, requested_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO explain_requests (fork_thread_id, thread_id, target_key, target_json, path, line, side, requested_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const deleteExplain = db.prepare("DELETE FROM explain_requests WHERE fork_thread_id = ?");
   const deleteStaleExplains = db.prepare("DELETE FROM explain_requests WHERE requested_at < ?");
@@ -244,7 +249,7 @@ export default async function plugin(bb: BbPluginApi) {
       deleteStaleExplains.run(new Date(Date.now() - EXPLAIN_TIMEOUT_MS).toISOString());
       const explaining = selectExplains
         .all(threadId, targetKey(target))
-        .map((entry) => ({ path: entry.path, line: entry.line, requestedAt: entry.requested_at }));
+        .map((entry) => ({ path: entry.path, line: entry.line, side: entry.side, requestedAt: entry.requested_at }));
       return { stored: row?.stored_json ?? null, requestedAt: forThis ? request.requested_at : null, explaining };
     },
     superdiff_version: async ({ threadId, target }) => {
@@ -255,33 +260,34 @@ export default async function plugin(bb: BbPluginApi) {
         requestedAt: forThis ? request.requested_at : null,
       };
     },
-    superdiff_explain: async ({ threadId, target, path: filePath, line, text }) => {
+    superdiff_explain: async ({ threadId, target, path: filePath, line, side, text }) => {
       if (selectStored.get(threadId, targetKey(target)) === undefined) throw new Error("Generate a Super Diff for this diff first.");
       const requestedAt = new Date().toISOString();
+      const which = side === "old" ? `removed line ${line}` : `line ${line}`;
       // A hidden fork has the thread's whole conversation, so it knows why
       // the code changed, and it runs beside the thread's agent rather than
       // queueing behind it. bb's side chat forks the same way.
       const fork = await bb.sdk.threads.fork({
         sourceThreadId: threadId,
         visibility: "hidden",
-        title: `Explain ${filePath.split("/").pop()}:${line}`,
+        title: `Explain ${filePath.split("/").pop()}:${line}${side === "old" ? " (removed)" : ""}`,
         input: [
           {
             type: "text",
             text: [
-              `The reviewer is reading this thread's Super Diff and pressed Explain this on line ${line} of ${filePath}:`,
+              `The reviewer is reading this thread's Super Diff and pressed Explain this on ${which} of ${filePath}:`,
               "",
               "```",
               text,
               "```",
               "",
-              `Write one annotation explaining that line: run \`bb super-diff guide\` and follow its rules for annotations, read the patch with \`bb super-diff patch ${filePath}\` and whatever code you need, then store it with \`bb super-diff explain\`, passing JSON like {"title": "...", "body": "...", "anchor": "..."}. The anchor is text from line ${line} (or the line you explain, if it is a better place) that appears once in the file's patch. Explain why the code is the way it is, from what you know of this thread's work, not only what it does. Then stop; do not change any files.`,
+              `Write one annotation explaining that line: run \`bb super-diff guide\` and follow its rules for annotations, read the patch with \`bb super-diff patch ${filePath}\` and whatever code you need, then store it with \`bb super-diff explain\`, passing JSON like {"title": "...", "body": "...", "anchor": "..."}. The anchor is text from ${which} (or the line you explain, if it is a better place) that appears once in the file's patch${side === "old" ? "; text that is also on an added or unchanged line puts the note there instead" : ""}. Explain why ${side === "old" ? "it was removed" : "the code is the way it is"}, from what you know of this thread's work, not only what it does. Then stop; do not change any files.`,
             ].join("\n"),
             mentions: [],
           },
         ],
       });
-      insertExplain.run(fork.id, threadId, targetKey(target), JSON.stringify(target), filePath, line, requestedAt);
+      insertExplain.run(fork.id, threadId, targetKey(target), JSON.stringify(target), filePath, line, side, requestedAt);
       return { requestedAt };
     },
     superdiff_generate: async ({ threadId, target }) => {
@@ -428,8 +434,8 @@ export default async function plugin(bb: BbPluginApi) {
         if (typeof note?.anchor !== "string" || note.anchor.trim() === "") problems.push("Give it an anchor.");
         const patch = (await loadPatches(environmentId, target, [explain.path])).get(explain.path) ?? "";
         if (typeof note?.anchor === "string" && note.anchor.trim() !== "") {
-          const lines = anchorLines(patch, note.anchor);
-          if (lines.length === 0) problems.push(`The anchor is not on an added or unchanged line of ${explain.path}.`);
+          const { lines } = anchorLines(patch, note.anchor);
+          if (lines.length === 0) problems.push(`The anchor is on no line of ${explain.path}'s patch.`);
           if (lines.length > 1) problems.push(`The anchor appears on ${lines.length} lines (${lines.join(", ")}); add more of the line so it appears once.`);
         }
         const row = selectStored.get(threadId, explain.target_key);

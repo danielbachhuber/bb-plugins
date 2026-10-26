@@ -17,12 +17,18 @@ const UNCOMMITTED = { type: "uncommitted" } as const;
 /** A host whose thread has one environment, based on origin/main, with one changed file in every diff unless given others. */
 async function start(files: object[] = [FILE], patchFor: (path: string) => string = () => PATCH) {
   const diffQueries: unknown[] = [];
+  const forks: { input: { text: string }[]; title: string }[] = [];
   const host = createFakePluginHost({
     pluginId: "super-diff",
     sdk: {
       threads: {
         get: async () => makeThreadResponse({ id: "thr_a", environmentId: "env_a" }),
         send: async () => ({}),
+        fork: async (request: { input: { text: string }[]; title: string }) => {
+          forks.push(request);
+          return { id: `thr_fork${forks.length}` };
+        },
+        archive: async () => ({}),
       },
       environments: {
         get: async () => ({ id: "env_a", mergeBaseBranch: "origin/main" }),
@@ -40,7 +46,7 @@ async function start(files: object[] = [FILE], patchFor: (path: string) => strin
     const result = (await host.harness.behavior.callRpc("superdiff_get", { threadId: "thr_a", target })) as { stored: string | null };
     return result.stored === null ? null : (JSON.parse(result.stored) as { target: unknown });
   };
-  return { ...host, cli, stored, diffQueries };
+  return { ...host, cli, stored, diffQueries, forks };
 }
 
 function submissionFile(): string {
@@ -155,5 +161,29 @@ describe("superdiff_version", () => {
     await harness.behavior.callRpc("superdiff_generate", { threadId: "thr_a", target: ALL });
     expect((await version(harness, ALL)).requestedAt).not.toBeNull();
     expect((await version(harness, UNCOMMITTED)).requestedAt).toBeNull();
+  });
+});
+
+describe("Explain this", () => {
+  const REMOVAL = "@@ -1,2 +1 @@\n export const a = 1;\n-export const old = 2;\n";
+
+  it("explains a removed line and stores a note anchored on it", async () => {
+    const { cli, harness, forks } = await start([FILE], () => REMOVAL);
+    await cli("submit", submissionFile());
+    await harness.behavior.callRpc("superdiff_explain", { threadId: "thr_a", target: ALL, path: "src/a.ts", line: 2, side: "old", text: "export const old = 2;" });
+    expect(forks[0]!.title).toBe("Explain a.ts:2 (removed)");
+    expect(forks[0]!.input[0]!.text).toContain("pressed Explain this on removed line 2 of src/a.ts");
+
+    const pending = (await harness.behavior.callRpc("superdiff_get", { threadId: "thr_a", target: ALL })) as { explaining: unknown[] };
+    expect(pending.explaining).toEqual([expect.objectContaining({ path: "src/a.ts", line: 2, side: "old" })]);
+
+    const note = JSON.stringify({ title: "Drops old", body: "Nothing reads it.", anchor: "const old" });
+    const result = await harness.behavior.runCli(["explain", note], { threadId: "thr_fork1" } as never);
+    expect(result).toMatchObject({ exitCode: 0 });
+    const after = (await harness.behavior.callRpc("superdiff_get", { threadId: "thr_a", target: ALL })) as { stored: string; explaining: unknown[] };
+    expect(after.explaining).toEqual([]);
+    expect(JSON.parse(after.stored).submission.annotations).toEqual([
+      { path: "src/a.ts", anchor: "const old", title: "Drops old", body: "Nothing reads it.", asked: true },
+    ]);
   });
 });

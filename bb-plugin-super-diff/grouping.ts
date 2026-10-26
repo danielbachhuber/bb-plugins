@@ -80,25 +80,44 @@ export function isPlacedByRule(file: DiffFile): boolean {
   return LOCKFILES.has(name) || name.endsWith(".snap") || file.binary || file.loadMode === "too_large";
 }
 
-/** New-side line numbers of every added or unchanged line containing `anchor`. Removed lines never count. */
-export function anchorLines(patch: string, anchor: string): number[] {
-  const found: number[] = [];
-  let line = 0;
+/** Which half of the diff a line belongs to: "new" for added and unchanged lines, "old" for removed ones. */
+export type LineSide = "new" | "old";
+
+/**
+ * Where `anchor` is in a patch. Added and unchanged lines come first, with
+ * their new-side line numbers; only when none contains it are removed lines
+ * searched, with their old-side numbers. So a note on a removed line needs
+ * text that is gone from the new side, and an anchor that matched before
+ * removed lines counted still finds the same line.
+ */
+export function anchorLines(patch: string, anchor: string): { side: LineSide; lines: number[] } {
+  const found: Record<LineSide, number[]> = { new: [], old: [] };
+  let oldLine = 0;
+  let newLine = 0;
   let inHunk = false;
   for (const raw of patch.split("\n")) {
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+    const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
     if (hunk) {
-      line = Number(hunk[1]);
+      oldLine = Number(hunk[1]);
+      newLine = Number(hunk[2]);
       inHunk = true;
       continue;
     }
-    if (!inHunk || raw.startsWith("-") || raw.startsWith("\\")) continue;
-    if (raw.startsWith("+") || raw.startsWith(" ")) {
-      if (raw.slice(1).includes(anchor)) found.push(line);
-      line++;
+    if (!inHunk) continue;
+    const has = raw.slice(1).includes(anchor);
+    if (raw.startsWith("-")) {
+      if (has) found.old.push(oldLine);
+      oldLine++;
+    } else if (raw.startsWith("+")) {
+      if (has) found.new.push(newLine);
+      newLine++;
+    } else if (raw.startsWith(" ")) {
+      if (has) found.new.push(newLine);
+      oldLine++;
+      newLine++;
     }
   }
-  return found;
+  return found.new.length > 0 ? { side: "new", lines: found.new } : { side: "old", lines: found.old };
 }
 
 function isString(value: unknown): value is string {
@@ -185,8 +204,8 @@ export function validateSubmission(
       problems.push(`${label}: ${note.path} is not in this diff.`);
       return;
     }
-    const lines = anchorLines(patch, note.anchor);
-    if (lines.length === 0) problems.push(`${label}: anchor "${note.anchor}" is not on an added or unchanged line of ${note.path}.`);
+    const { lines } = anchorLines(patch, note.anchor);
+    if (lines.length === 0) problems.push(`${label}: anchor "${note.anchor}" is on no line of ${note.path}'s patch.`);
     else if (lines.length > 1) problems.push(`${label}: anchor "${note.anchor}" matches ${lines.length} lines of ${note.path}; make it longer.`);
     else annotations.push({ path: note.path, anchor: note.anchor, title: note.title.trim(), body: note.body.trim() });
   });

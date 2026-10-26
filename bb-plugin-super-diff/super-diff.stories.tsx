@@ -6,7 +6,7 @@ import { useRef, type ReactNode } from "react";
 import type { DiffFileEntry } from "@bb/server-contract";
 import { DiffFileCard } from "@bb-app/components/secondary-panel/git-diff/DiffFileCard";
 import { DEFAULT_CODE_OVERFLOW_MODE } from "@bb-app/lib/code-overflow-mode";
-import { NoteCard, NoteRows, NotesBox } from "./annotations";
+import { NoteCard, NoteRows, NotesBox, type PlacedNote } from "./annotations";
 import { ConcernHeader } from "./concern";
 import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED, LAYOUT_PATCH, LAYOUT_PATH } from "./super-diff.fixtures";
 import { SuperDiffRow, type ConcernLink, type ThreadState } from "./row";
@@ -86,21 +86,21 @@ const LAYOUT_ENTRY: DiffFileEntry = {
   loadMode: "auto",
 };
 
-/** bb's own file card, with note 1 placed under its line the way the panel places it. */
-function LayoutDiff() {
+/** bb's own file card, with notes placed under their lines the way the panel places them: note 1 on line 19 unless given others. */
+function LayoutDiff({ notes = [{ ...FIXTURE_NOTES[0]!, line: 19 }], view = "unified" }: { notes?: PlacedNote[]; view?: "unified" | "split" }) {
   const ref = useRef<HTMLDivElement | null>(null);
   return (
     <div ref={ref}>
       <DiffFileCard
         entry={LAYOUT_ENTRY}
-        presentation={{ view: "unified", overflow: DEFAULT_CODE_OVERFLOW_MODE, showLineNumbers: true }}
+        presentation={{ view, overflow: DEFAULT_CODE_OVERFLOW_MODE, showLineNumbers: true }}
         isCollapsed={false}
         onToggleCollapsed={() => {}}
         patchState={{ status: "loaded", patch: LAYOUT_PATCH }}
         onLoadPatch={() => {}}
         onRetry={() => {}}
       />
-      <NoteRows containerRef={ref} notes={[{ ...FIXTURE_NOTES[0]!, line: 19 }]} highlightId={null} />
+      <NoteRows containerRef={ref} notes={notes} highlightId={null} />
     </div>
   );
 }
@@ -207,6 +207,31 @@ export const ExplainThis = () => (
       highlighted={false}
       note={{ ...FIXTURE_NOTES[0]!, id: "asked", n: 5, asked: true, title: "Reads the host so checkout and pricing agree", body: "This layout renders before `PricingProvider` exists, so it cannot ask the provider. `currencyFromHost()` is the same lookup the provider makes, which keeps the region check and the prices on one currency." }}
     />
+  </Frame>
+);
+
+const REMOVED_NOTE: PlacedNote = {
+  ...FIXTURE_NOTES[0]!,
+  id: "removed",
+  n: 1,
+  side: "old",
+  line: 19,
+  asked: true,
+  title: "The hook read the provider, which is not mounted yet",
+  body: "`useStoreCurrency()` reads `PricingProvider`, which renders below this layout, so here it always returned the `'USD'` default.",
+};
+
+/** A note on a removed line sits under that line, in red, rather than under the line that replaced it. Explain this works on removed lines too. */
+export const RemovedLineNote = () => (
+  <Frame>
+    <LayoutDiff notes={[REMOVED_NOTE]} />
+  </Frame>
+);
+
+/** The same note in split view: it sits in the left half, under the removed line, and the right half gets a blank row so the two stay level. */
+export const RemovedLineNoteSplit = () => (
+  <Frame>
+    <LayoutDiff notes={[REMOVED_NOTE]} view="split" />
   </Frame>
 );
 
