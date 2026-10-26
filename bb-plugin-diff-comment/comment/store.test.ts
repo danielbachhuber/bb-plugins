@@ -131,11 +131,18 @@ describe("markAsked", () => {
     expect(comment.state).toBe("open");
   });
 
+  it("keeps the subthread answering it", () => {
+    const comment = markAsked(seed(), "c1", NOW, "thr_2").find((c) => c.id === "c1")!;
+    expect(comment.askThreadId).toBe("thr_2");
+  });
+
   it("is cleared by reopening, so the comment can be asked again", () => {
-    let comments = markAsked(seed(), "c1", NOW);
+    let comments = markAsked(seed(), "c1", NOW, "thr_2");
     comments = applyReply(comments, "c1", "renamed it", NOW);
     comments = setState(comments, "c1", "open", NOW);
-    expect(comments.find((c) => c.id === "c1")!.askedAt).toBeNull();
+    const comment = comments.find((c) => c.id === "c1")!;
+    expect(comment.askedAt).toBeNull();
+    expect(comment.askThreadId).toBeNull();
   });
 
   it("is kept when the comment is resolved", () => {

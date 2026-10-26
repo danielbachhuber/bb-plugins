@@ -1,6 +1,6 @@
 ---
 name: diff-comments
-description: Answer or act on the review comments left inline on this thread's diff, using the `bb diff-comment` CLI. Use when a message asks you to answer diff comment #n (sent by the Ask agent button), when the user asks you to address, work through, or act on their diff comments, inline comments, or review notes, or when a thread is started to answer them.
+description: Answer or act on the review comments left inline on this thread's diff, using the `bb diff-comment` CLI. Use when a message asks you to answer diff comment #n (sent by the Ask agent button, usually as the first message of a subthread), when the user asks you to address, work through, or act on their diff comments, inline comments, or review notes, or when a thread is started to answer them.
 ---
 
 # Diff comments
@@ -29,7 +29,11 @@ output drives code rather than your reading.
 ## One comment: "Answer diff comment #n"
 
 The author's **Ask agent** button sends that message for one comment, as
-soon as they write it. Answer that comment and no other.
+soon as they write it. It usually starts a subthread forked from the thread
+whose diff the comment is on, so you have that thread's conversation above
+you. In the subthread, `bb diff-comment` acts on that thread's comments, with
+no flag needed. Answer that comment and no other, and do not carry on with the
+work in the conversation above.
 
 1. `bb diff-comment show #n` to read it and the code it sits on. Open the file.
 2. If it asks a question, answer it. Do not change code unless the comment

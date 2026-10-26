@@ -327,6 +327,8 @@ export interface CommentCardProps {
    * sent; rejects with the reason it could not be sent.
    */
   onAsk?: () => Promise<void>;
+  /** Where the subthread answering the comment opens. */
+  subthreadHref?: (threadId: string) => string;
   /**
    * Posts the comment as a draft review comment, with the agent's answer when
    * it has one. Offered until the comment is on GitHub or resolved.
@@ -341,6 +343,7 @@ export function CommentCard({
   onEdit,
   onRemove,
   onAsk,
+  subthreadHref,
   github,
 }: CommentCardProps) {
   const [busy, setBusy] = useState(false);
@@ -424,7 +427,14 @@ export function CommentCard({
             Ask agent
           </Button>
         ) : null}
-        {asked ? (
+        {asked && comment.askThreadId != null && subthreadHref !== undefined ? (
+          <a
+            href={subthreadHref(comment.askThreadId)}
+            className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
+          >
+            Answering in a subthread
+          </a>
+        ) : asked ? (
           <span className="text-muted-foreground text-xs">Asked the agent</span>
         ) : null}
         {comment.state === "resolved" ? (

@@ -5,7 +5,7 @@ about each one as you write it.
 
 You read the changes panel the way you read a pull request: hover a line, press
 `+`, and write a question or the change you want. Press **Ask agent** and the
-comment sits inline under that line while the agent answers it in the thread.
+comment sits inline under that line while a subthread answers it.
 Its reply shows on the comment. You resolve the ones you accept.
 
 ## How a comment is anchored
@@ -30,13 +30,15 @@ where you get to read what it actually did before the comment goes away.
 
 ## Asking the agent
 
-**Ask agent** in the comment box saves the comment and sends this thread one
-message naming it: "Answer diff comment #3 on this thread's diff, using the
-diff-comments skill." If the agent is in the middle of a turn, the message
-waits in the queue until the turn ends. The comment then reads **Asked the
-agent** until the reply arrives. A comment that is open and not yet asked, such
-as one the agent suggested or one you reopened, has its own **Ask agent**
-button, on the diff and in the **Diff comments** panel tab.
+**Ask agent** in the comment box saves the comment and starts a subthread to
+answer it, so the answer starts now even while the thread's agent is busy. The
+subthread is a fork of the thread: it has the whole conversation, works in the
+same checkout, and shows nested under the thread. Its reply shows on the
+comment, which links to the subthread (**Answering in a subthread**) for a
+follow-up. A comment that is open and not yet asked, such as one the agent
+suggested or one you reopened, has its own **Ask agent** button, on the diff
+and in the **Diff comments** panel tab. A thread whose provider cannot fork
+gets the question as a message instead, sent after its current turn.
 
 Under that, the agent uses `bb diff-comment` inside the thread. It needs no
 arguments to find the right comments, because comments belong to the thread

@@ -57,6 +57,8 @@ export interface Comment {
    * it is reopened, so it can be asked again. Absent on older comments.
    */
   askedAt?: string | null;
+  /** The subthread Ask agent started to answer it, when it started one. */
+  askThreadId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

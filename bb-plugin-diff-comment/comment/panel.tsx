@@ -4,6 +4,7 @@
 // reading code. This is the other view: what is still open, what the agent
 // said it did, and the ones whose code has moved out from under them and are
 // therefore invisible on the diff.
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { GithubSection, useGithubReview } from "@/github/section";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ function Row({
   onAsk: () => void;
 }) {
   const asked = comment.askedAt != null;
+  const navigate = useBbNavigate();
   return (
     <li className="border-b px-3 py-3 last:border-b-0">
       <div className="flex items-baseline gap-2">
@@ -50,7 +52,11 @@ function Row({
             Ask agent
           </Button>
         ) : null}
-        {comment.state === "open" && asked ? (
+        {comment.state === "open" && asked && comment.askThreadId != null ? (
+          <Button size="sm" variant="ghost" onClick={() => navigate.toThread(comment.askThreadId!)}>
+            Open subthread
+          </Button>
+        ) : comment.state === "open" && asked ? (
           <span className="text-muted-foreground self-center px-2 text-xs">Asked the agent</span>
         ) : null}
         {comment.state === "resolved" ? (

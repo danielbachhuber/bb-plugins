@@ -179,6 +179,22 @@ describe("Ask agent", () => {
     expect(onAsk).toHaveBeenCalledOnce();
   });
 
+  it("links to the subthread answering it", async () => {
+    const view = await render(
+      <CommentCard
+        comment={{ ...open, askedAt: "2026-09-14T00:01:00.000Z", askThreadId: "thr_2" }}
+        onSetState={() => {}}
+        onEdit={() => {}}
+        onRemove={() => {}}
+        onAsk={vi.fn(async () => {})}
+        subthreadHref={(id) => `/threads/${id}`}
+      />,
+    );
+    expect(button(view, "Ask agent")).toBeNull();
+    const link = Array.from(view.querySelectorAll("a")).find((a) => a.textContent === "Answering in a subthread")!;
+    expect(link.getAttribute("href")).toBe("/threads/thr_2");
+  });
+
   it("says the agent was asked instead of offering it twice", async () => {
     const view = await render(card({ ...open, askedAt: "2026-09-14T00:01:00.000Z" }));
     expect(button(view, "Ask agent")).toBeNull();

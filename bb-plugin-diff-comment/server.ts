@@ -20,7 +20,7 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, MAX_BODY, rpcShape } from "./comment/contract";
 import { anchorFromFile, parseLocation } from "./comment/add";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
-import { askPrompt } from "./comment/prompt";
+import { askPrompt, forkPrompt } from "./comment/prompt";
 import {
   addComment,
   applyReply,
@@ -41,6 +41,11 @@ export const rpcContract = defineRpcContract(rpcShape);
 /** kv keys are namespaced per thread; nothing reads across threads. */
 function keyFor(threadId: string): string {
   return `comments:${threadId}`;
+}
+
+/** Which thread's comments an Ask agent subthread answers. */
+function askKeyFor(forkThreadId: string): string {
+  return `ask:${forkThreadId}`;
 }
 
 /**
@@ -242,18 +247,42 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
-   * Send one comment to the agent in its thread. A thread mid-turn queues the
-   * message for when the turn ends rather than steering the turn, since the
-   * question may have nothing to do with what the agent is doing.
+   * Answer one comment in a subthread, so the answer starts now rather than
+   * after the thread's current turn. A fork carries the thread's conversation,
+   * so it knows why the code is the way it is, and it works in the same
+   * checkout. It is made a child of the thread so it shows as a subthread. A
+   * thread that cannot be forked, such as one whose provider does not support
+   * it, gets the question as a queued message instead.
    */
   async function ask(threadId: string, comment: Comment): Promise<Comment> {
-    await bb.sdk.threads.send({
-      threadId,
-      mode: "queue-if-active",
-      input: [{ type: "text", text: askPrompt(comment.seq), mentions: [] }],
-    });
+    let forkId: string | null = null;
+    try {
+      const fork = await bb.sdk.threads.fork({
+        sourceThreadId: threadId,
+        visibility: "visible",
+        title: `Diff comment #${comment.seq}: ${comment.path.split("/").pop()}:${comment.line}`,
+        input: [{ type: "text", text: forkPrompt(comment.seq), mentions: [] }],
+      });
+      forkId = fork.id;
+      await bb.storage.kv.set(askKeyFor(fork.id), { threadId });
+    } catch (error) {
+      bb.log.warn(`Couldn't fork ${threadId}, asking in the thread: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (forkId !== null) {
+      // bb never reports a fork's turns to its parent, so nesting it does not
+      // start a turn in the thread; the answer is on the comment.
+      await bb.sdk.threads.update({ threadId: forkId, parentThreadId: threadId }).catch((error: unknown) => {
+        bb.log.warn(`Couldn't nest ${forkId} under ${threadId}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    } else {
+      await bb.sdk.threads.send({
+        threadId,
+        mode: "queue-if-active",
+        input: [{ type: "text", text: askPrompt(comment.seq), mentions: [] }],
+      });
+    }
     const updated = await mutate(threadId, comment.id, (comments) =>
-      markAsked(comments, comment.id, new Date().toISOString()),
+      markAsked(comments, comment.id, new Date().toISOString(), forkId),
     );
     return updated ?? comment;
   }
@@ -427,10 +456,15 @@ export default async function plugin(bb: BbPluginApi) {
         return { exitCode: 0, stdout: usage };
       }
 
-      // Every subcommand is about the diff of the thread the command ran in.
-      // Without a thread there is nothing to talk about, and silently falling
-      // back to "some other thread's comments" would be worse than saying so.
-      const threadId = ctx.threadId;
+      // Every subcommand is about the diff of the thread the command ran in,
+      // or, in an Ask agent subthread, the thread it was forked from. Without
+      // a thread there is nothing to talk about, and silently falling back to
+      // "some other thread's comments" would be worse than saying so.
+      const asked =
+        ctx.threadId === undefined
+          ? null
+          : await bb.storage.kv.get<{ threadId: string }>(askKeyFor(ctx.threadId));
+      const threadId = asked?.threadId ?? ctx.threadId;
       if (threadId === undefined) {
         return {
           exitCode: 1,

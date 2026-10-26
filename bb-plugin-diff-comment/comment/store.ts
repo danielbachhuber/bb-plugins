@@ -91,14 +91,22 @@ export function setState(
   return update(comments, id, (comment) => ({
     ...comment,
     state,
-    ...(state === "open" ? { askedAt: null } : {}),
+    ...(state === "open" ? { askedAt: null, askThreadId: null } : {}),
     updatedAt: now,
   }));
 }
 
-/** Record that the comment was sent to the agent, so it is not sent twice. */
-export function markAsked(comments: Comment[], id: string, now: string): Comment[] {
-  return update(comments, id, (comment) => ({ ...comment, askedAt: now, updatedAt: now }));
+/**
+ * Record that the comment was sent to the agent, so it is not sent twice, and
+ * the subthread answering it when there is one.
+ */
+export function markAsked(
+  comments: Comment[],
+  id: string,
+  now: string,
+  askThreadId: string | null = null,
+): Comment[] {
+  return update(comments, id, (comment) => ({ ...comment, askedAt: now, askThreadId, updatedAt: now }));
 }
 
 /** The comment the agent should pick up next, or null when the queue is empty. */

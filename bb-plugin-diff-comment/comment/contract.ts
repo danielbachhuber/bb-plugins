@@ -28,6 +28,7 @@ export const commentSchema = z.object({
   seq: z.number().int(),
   github: z.object({ url: z.string() }).nullable().optional(),
   askedAt: z.string().nullable().optional(),
+  askThreadId: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -98,7 +99,7 @@ export const rpcShape = {
     }),
     output: commentSchema,
   },
-  /** Send one comment to the agent in this thread, now or after its turn. */
+  /** Start a subthread that answers one comment. */
   comments_ask: {
     input: z.object({ threadId: z.string().min(1), id: z.string().min(1) }),
     output: commentSchema,

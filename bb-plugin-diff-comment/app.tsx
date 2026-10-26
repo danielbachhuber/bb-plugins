@@ -7,7 +7,7 @@
 // comments and bb's diff the same diff. A thread panel lists the same comments
 // for reading and resolving. The thread's pull request review threads are
 // drawn on the same diff, read-only, beside the local comments. Ask agent, on
-// the composer and on an open comment, sends that one comment to the agent.
+// the composer and on an open comment, starts a subthread answering it.
 //
 // The wiring lives here; the behaviour lives in diff/ and comment/ so it can
 // be tested under jsdom. See diff/dom.ts for every DOM assumption in one
@@ -181,6 +181,12 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
           onAsk={() =>
             rpc("comments_ask", { threadId: comment.threadId, id: comment.id }).then(() =>
               engine?.refresh(),
+            )
+          }
+          subthreadHref={(threadId) =>
+            window.location.pathname.replace(
+              /\/threads\/[^/?#]+/,
+              `/threads/${encodeURIComponent(threadId)}`,
             )
           }
           github={{
