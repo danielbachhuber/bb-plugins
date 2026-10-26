@@ -378,6 +378,8 @@ type Nav = {
  * `autoCollapsed` holds the viewed files already folded once, so a viewed
  * file you reopen stays open. Keys carry the file's line counts, so a file
  * that changes since is folded again once it is marked viewed again.
+ * Switching to another thread clears `autoCollapsed`, so coming back folds
+ * every viewed file again.
  */
 type CardMemory = { collapsed: Set<string>; autoCollapsed: Set<string> };
 
@@ -686,6 +688,8 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   let frame = 0;
   /** The thread and target the Diff tab is showing, or null when no Diff tab is open. */
   let shownKey: string | null = null;
+  /** The last thread the page showed, to notice switching threads. */
+  let lastThreadId: string | null = null;
 
   // What the list last reported for the row's list of concerns.
   let links: ConcernLink[] = [];
@@ -990,6 +994,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     frame = 0;
     if (signal.aborted) return;
     const threadId = threadIdFromPath(window.location.pathname);
+    if (threadId !== null && threadId !== lastThreadId) {
+      lastThreadId = threadId;
+      // Viewed files start folded again on each visit to a thread.
+      for (const memory of memories.values()) memory.autoCollapsed.clear();
+    }
     const panel = findPanel(document);
     if (threadId === null || panel === null) {
       shownKey = null;
