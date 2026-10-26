@@ -1084,18 +1084,21 @@ export default async function plugin(bb: BbPluginApi) {
 
     setNote({ repo, number, body }) {
       store.setNote(repo, number, body, Date.now());
+      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       return { ok: true };
     },
 
     dismissChecks({ repo, number, dismissed }) {
       if (!dismissed) {
         store.setDismissal(repo, number, null, Date.now());
+        bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
         return { ok: true };
       }
       const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
       const fingerprint = row ? checksFingerprint(row) : null;
       if (fingerprint === null) return { ok: false };
       store.setDismissal(repo, number, fingerprint, Date.now());
+      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
       bb.log.info(`dismissed failing checks on ${repo}#${number}: ${row!.failingChecks!.join(", ")}`);
       return { ok: true };
     },
@@ -1111,12 +1114,15 @@ export default async function plugin(bb: BbPluginApi) {
       }
     },
 
-        markSeen({ repo, number }) {
+    markSeen({ repo, number }) {
       const row = store.readRows().find((entry) => entry.repo === repo && entry.number === number);
       if (!row) return { ok: false };
       // A row stored before counts were kept has none to record. Recording 0
       // would make every comment read as new once the sweep stores the count.
-      if (row.commentsCount !== undefined) store.markSeen(repo, number, row.commentsCount, Date.now());
+      if (row.commentsCount !== undefined) {
+        store.markSeen(repo, number, row.commentsCount, Date.now());
+        bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
+      }
       return { ok: true };
     },
 
