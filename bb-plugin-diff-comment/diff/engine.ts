@@ -13,6 +13,7 @@ import {
   insertRow,
   readLines,
   removeOwned,
+  sideOfRow,
   slotNameFor,
   OWNED_ATTR,
   TRIGGER_ATTR,
@@ -220,7 +221,12 @@ export function startEngine(deps: EngineDeps): Engine {
     removeOwned(host);
 
     for (const placement of placements) {
-      if (!insertRow(placement.column, placement.line, slotNameFor(placement.comment.id))) {
+      if (!insertRow(
+          placement.column,
+          placement.line,
+          placement.comment.side,
+          slotNameFor(placement.comment.id),
+        )) {
         continue;
       }
       const holder = cardHolder(host, placement.comment.id);
@@ -233,7 +239,7 @@ export function startEngine(deps: EngineDeps): Engine {
     // the line, pushing earlier ones down.
     for (const placement of threadPlacements) {
       const id = githubSlotId(placement.thread);
-      if (!insertRow(placement.column, placement.line, slotNameFor(id))) continue;
+      if (!insertRow(placement.column, placement.line, placement.thread.side, slotNameFor(id))) continue;
       const holder = cardHolder(host, id);
       deps.mountThread(holder, placement.thread, review!);
       mounted.add(holder);
@@ -245,7 +251,7 @@ export function startEngine(deps: EngineDeps): Engine {
           (line) => line.line === draft!.line && line.side === draft!.side,
         ),
       );
-      if (column !== undefined && insertRow(column.element, draft!.line, slotNameFor(DRAFT_ID))) {
+      if (column !== undefined && insertRow(column.element, draft!.line, draft!.side, slotNameFor(DRAFT_ID))) {
         const holder = cardHolder(host, DRAFT_ID);
         deps.mountComposer(holder, draft!);
         mounted.add(holder);
@@ -341,10 +347,11 @@ export function startEngine(deps: EngineDeps): Engine {
         const line = Number(raw);
         if (!Number.isInteger(line)) return;
 
-        const side = readLines(column).find((candidate) => candidate.line === line)?.side;
-        if (side === undefined) return;
+        // From the hovered row itself, not looked up by number: a deletion and
+        // an addition can share a number in unified view.
+        const side = sideOfRow(column, node);
 
-        const cell = gutterCellForLine(column, line);
+        const cell = gutterCellForLine(column, line, side);
         if (cell === null) return;
 
         target = { column, line, side };

@@ -70,6 +70,27 @@ function sideOf(code: Element, lineType: string | null): Side {
 }
 
 /**
+ * The side of one row or gutter cell in this column. Pierre puts the line type
+ * on both, so a hover over either can tell a deletion from an addition.
+ */
+export function sideOfRow(code: Element, row: Element): Side {
+  return sideOf(code, row.getAttribute("data-line-type"));
+}
+
+/**
+ * The index of `line` on `side` among a column's content rows, or -1.
+ *
+ * The number alone is not enough. In unified view a deletion and an addition
+ * can carry the same number, old 331 removed and new 331 added, and matching
+ * on the number finds whichever comes first: the deletion.
+ */
+function rowIndex(code: Element, rows: Element[], line: number, side: Side): number {
+  return rows.findIndex(
+    (row) => row.getAttribute("data-line") === String(line) && sideOfRow(code, row) === side,
+  );
+}
+
+/**
  * The code text of one line, ignoring anything this plugin put inside it.
  *
  * `row.textContent` is not good enough: the hover affordance is appended into
@@ -217,7 +238,12 @@ function insertSpacer(code: Element, index: number): boolean {
  * rendered here, which is the caller's cue to treat the comment as detached
  * rather than to force it somewhere.
  */
-export function insertRow(code: Element, line: number, slotName: string): boolean {
+export function insertRow(
+  code: Element,
+  line: number,
+  side: Side,
+  slotName: string,
+): boolean {
   const gutter = gutterOf(code);
   const content = contentOf(code);
   if (gutter === null || content === null) return false;
@@ -228,7 +254,7 @@ export function insertRow(code: Element, line: number, slotName: string): boolea
   // disagree, something else has edited this DOM and guessing makes it worse.
   if (rows.length !== cells.length) return false;
 
-  const index = rows.findIndex((row) => row.getAttribute("data-line") === String(line));
+  const index = rowIndex(code, rows, line, side);
   if (index === -1) return false;
 
   const row = contentRow(slotName);
@@ -283,14 +309,12 @@ export function removeOwned(scope: ParentNode): number {
  * bb's own `+` lives in this cell, and putting ours anywhere else would leave
  * two unrelated controls for the same line in two different places.
  */
-export function gutterCellForLine(code: Element, line: number): HTMLElement | null {
+export function gutterCellForLine(code: Element, line: number, side: Side): HTMLElement | null {
   const gutter = gutterOf(code);
   const content = contentOf(code);
   if (gutter === null || content === null) return null;
 
-  const index = Array.from(content.children).findIndex(
-    (row) => row.getAttribute("data-line") === String(line),
-  );
+  const index = rowIndex(code, Array.from(content.children), line, side);
   if (index === -1) return null;
 
   const cell = gutter.children[index];

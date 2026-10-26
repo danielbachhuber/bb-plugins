@@ -58,7 +58,7 @@ describe("insertRow", () => {
         { line: 3, text: "c" },
       ],
     });
-    expect(insertRow(columns[0]!, 2, SLOT)).toBe(true);
+    expect(insertRow(columns[0]!, 2, "new", SLOT)).toBe(true);
     expect(shape(columns)).toEqual([[4, 4]]);
   });
 
@@ -70,7 +70,7 @@ describe("insertRow", () => {
         { line: 2, text: "b" },
       ],
     });
-    insertRow(columns[0]!, 1, SLOT);
+    insertRow(columns[0]!, 1, "new", SLOT);
     const code = columns[0]!;
     expect(spanOf(code.querySelector("[data-gutter]")!)).toBe(3);
     expect(spanOf(code.querySelector("[data-content]")!)).toBe(3);
@@ -85,7 +85,7 @@ describe("insertRow", () => {
         { line: 3, text: "c" },
       ],
     });
-    insertRow(columns[0]!, 2, SLOT);
+    insertRow(columns[0]!, 2, "new", SLOT);
     const rows = Array.from(columns[0]!.querySelector("[data-content]")!.children);
     expect(rows[1]!.getAttribute("data-line")).toBe("2");
     expect(rows[2]!.hasAttribute("data-line-annotation")).toBe(true);
@@ -108,7 +108,7 @@ describe("insertRow", () => {
         { line: 2, text: "b2" },
       ],
     });
-    insertRow(columns[0]!, 1, SLOT);
+    insertRow(columns[0]!, 1, "old", SLOT);
     expect(shape(columns)).toEqual([
       [3, 3],
       [3, 3],
@@ -130,15 +130,29 @@ describe("insertRow", () => {
         { line: 3, text: "c" },
       ],
     });
-    insertRow(columns[0]!, 2, SLOT);
+    insertRow(columns[0]!, 2, "old", SLOT);
     const right = Array.from(columns[1]!.querySelector("[data-content]")!.children);
     expect(right[2]!.hasAttribute("data-line-annotation")).toBe(true);
     expect(right[3]!.getAttribute("data-line")).toBe("3");
   });
 
+  it("goes under the line on the comment's side when two lines share a number", () => {
+    const { columns } = buildDiff({
+      view: "unified",
+      lines: [
+        { line: 2, text: "old", type: "deletion" },
+        { line: 2, text: "new", type: "addition" },
+      ],
+    });
+    insertRow(columns[0]!, 2, "new", SLOT);
+    const rows = Array.from(columns[0]!.querySelector("[data-content]")!.children);
+    expect(rows[1]!.getAttribute("data-line-type")).toBe("addition");
+    expect(rows[2]!.querySelector("slot")!.getAttribute("name")).toBe(SLOT);
+  });
+
   it("refuses a line that is not in the column", () => {
     const { columns } = buildDiff({ view: "unified", lines: [{ line: 1, text: "a" }] });
-    expect(insertRow(columns[0]!, 99, SLOT)).toBe(false);
+    expect(insertRow(columns[0]!, 99, "new", SLOT)).toBe(false);
     expect(shape(columns)).toEqual([[1, 1]]);
   });
 
@@ -156,9 +170,9 @@ describe("insertRow", () => {
         { line: 3, text: "c" },
       ],
     });
-    insertRow(columns[0]!, 1, SLOT);
-    insertRow(columns[1]!, 3, slotNameFor("c2"));
-    insertRow(columns[0]!, 3, slotNameFor("c3"));
+    insertRow(columns[0]!, 1, "old", SLOT);
+    insertRow(columns[1]!, 3, "new", slotNameFor("c2"));
+    insertRow(columns[0]!, 3, "old", slotNameFor("c3"));
     expect(shape(columns)).toEqual([
       [6, 6],
       [6, 6],
@@ -180,7 +194,7 @@ describe("removeOwned", () => {
       ],
     });
     const before = shape(columns);
-    insertRow(columns[0]!, 1, SLOT);
+    insertRow(columns[0]!, 1, "old", SLOT);
     expect(removeOwned(root)).toBe(4); // comment row + gutter cell, spacer row + gutter cell
     expect(shape(columns)).toEqual(before);
     expect(spanOf(columns[0]!.querySelector("[data-content]")!)).toBe(2);
@@ -196,7 +210,7 @@ describe("removeOwned", () => {
 describe("cardHolder", () => {
   it("creates a light-DOM holder on the host, matching the row's slot", () => {
     const { host, columns } = buildDiff({ view: "unified", lines: [{ line: 1, text: "a" }] });
-    insertRow(columns[0]!, 1, slotNameFor("c1"));
+    insertRow(columns[0]!, 1, "new", slotNameFor("c1"));
     const holder = cardHolder(host, "c1");
     expect(holder.getAttribute("slot")).toBe(slotNameFor("c1"));
     expect(holder.parentElement).toBe(host);
@@ -221,7 +235,7 @@ describe("cardHolder", () => {
         { line: 2, text: "b" },
       ],
     });
-    insertRow(columns[0]!, 1, slotNameFor("c1"));
+    insertRow(columns[0]!, 1, "new", slotNameFor("c1"));
     cardHolder(host, "c1");
     // Passing the host cleans both sides of the shadow boundary: the card
     // holder in the light DOM and the row and gutter cell inside.

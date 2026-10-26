@@ -472,6 +472,40 @@ describe("the hover affordance", () => {
     engine.dispose();
   });
 
+  it("lands on the hovered line when a deletion and an addition share its number", async () => {
+    // Unified view puts old 2 and new 2 one above the other with the same
+    // number. Hovering the addition put the button on the deletion.
+    const { host } = buildCard("src/a.ts", {
+      view: "unified",
+      lines: [
+        { line: 1, text: "const a = 1;" },
+        { line: 2, text: "const b = 2;", type: "deletion" },
+        { line: 2, text: "const b = 3;", type: "addition" },
+      ],
+    });
+    const h = harness([]);
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    const root = host.shadowRoot!;
+    const added = root.querySelector<HTMLElement>('[data-line="2"][data-line-type="addition"]')!;
+    added.dispatchEvent(new window.Event("pointerover", { bubbles: true }));
+    const cell = root.querySelector<HTMLElement>(
+      '[data-column-number="2"][data-line-type="addition"]',
+    )!;
+    expect(cell.querySelector(`[${TRIGGER_ATTR}]`)).not.toBeNull();
+
+    press(cell);
+    const [, draft] = h.mountComposer.mock.calls[0]! as [HTMLElement, Draft];
+    expect(draft).toMatchObject({ side: "new", line: 2, anchor: { text: "const b = 3;" } });
+
+    // And the composer opens under the addition, not the deletion above it.
+    const rows = Array.from(root.querySelector("[data-content]")!.children);
+    expect(rows[2]!.getAttribute("data-line-type")).toBe("addition");
+    expect(rows[3]!.querySelector("slot")!.getAttribute("name")).toBe(slotNameFor(DRAFT_ID));
+    engine.dispose();
+  });
+
   it("takes the press before Pierre can start a line selection on it", async () => {
     const { host } = buildCard("src/a.ts", { view: "unified", lines: LINES });
     const h = harness([]);
