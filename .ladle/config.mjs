@@ -15,6 +15,10 @@ export default {
     // package could carry stories, and two copies of one story is an error
     // that blanks every story.
     `!${fromBbApp}/**/node_modules/**`,
+    // A capture without --explore leaves out the stories in explore/
+    // directories, which git ignores and nobody keeps building against bb's
+    // latest components, so a stale one cannot stop the build.
+    ...(process.env.BB_PLUGINS_SKIP_EXPLORE ? [`!${fromBbApp}/**/explore/**`] : []),
   ],
   defaultStory: "",
   outDir: `${fromBbApp}/build`,

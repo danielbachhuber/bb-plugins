@@ -214,7 +214,11 @@ const graphPath = join(mkdtempSync(join(tmpdir(), "bb-plugins-graph-")), "import
 process.on("exit", () => rmSync(dirname(graphPath), { recursive: true, force: true }));
 const build = spawnSync("node", [join(repoRoot, "scripts/ladle.mjs"), "build", "--outDir", buildDir], {
   cwd: repoRoot,
-  env: { ...process.env, BB_PLUGINS_MODULE_GRAPH: graphPath },
+  env: {
+    ...process.env,
+    BB_PLUGINS_MODULE_GRAPH: graphPath,
+    ...(includeExplore ? {} : { BB_PLUGINS_SKIP_EXPLORE: "1" }),
+  },
   encoding: "utf8",
   // Rollup's warnings run to megabytes, past spawnSync's 1 MB default.
   maxBuffer: 256 * 1024 * 1024,
