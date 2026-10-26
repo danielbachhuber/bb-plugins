@@ -68,6 +68,18 @@ describe("findCards", () => {
     expect(findCards(document)[0]?.isViewed).toBe(true);
   });
 
+  it("reads a checked Viewed box in the header as viewed", () => {
+    for (const state of ["checked", "unchecked"]) {
+      document.body.innerHTML = "";
+      const host = renderCard("src/read.ts", { collapsed: true });
+      host.querySelector(".shrink-0")!.insertAdjacentHTML(
+        "beforeend",
+        `<label><button type="button" role="checkbox" aria-label="Viewed src/read.ts" data-state="${state}"></button><span>Viewed</span></label>`,
+      );
+      expect(findCards(document)[0]?.isViewed).toBe(state === "checked");
+    }
+  });
+
   it("keeps diff-viewed's checkbox out of the stats reading", () => {
     // Otherwise "Viewed" lands in the text the deletion test reads.
     renderCard("src/a.ts", { stats: "-40", withViewedCheckbox: true });

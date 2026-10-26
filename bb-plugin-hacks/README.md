@@ -73,9 +73,10 @@ collapses on `fileCount > GIT_DIFF_AUTO_COLLAPSE_FILE_THRESHOLD`, a hardcoded
 you have not read along with the ones you have, which is the one distinction
 worth keeping.
 
-This hack opens them again. A file is opened only if it is folded, not marked
-read by [Diff Viewed](../bb-plugin-diff-viewed), and not a deletion — bb's
-reason for folding those is its own and worth keeping.
+This hack opens them again. A file is opened only if it is folded, its Viewed
+box is not checked (bb's own, or Super Diff's on its cards), it is not marked
+read by [Diff Viewed](../bb-plugin-diff-viewed), and it is not a deletion. bb's
+reason for folding deletions is its own and worth keeping.
 
 Each file is opened at most once per path and stat count. A file already seen
 open, whether bb or this hack opened it, is left alone, so a file you collapse
@@ -263,6 +264,7 @@ The expand-unviewed hack anchors on the card headers instead:
 | `aria-label="Collapse <path>"` / `"Expand <path>"` | Reading each card's file path |
 | `aria-expanded` | Reading and driving collapse |
 | `[data-timeline-file-diff]` | Skipping timeline diffs |
+| `[role="checkbox"][aria-label^="Viewed "][data-state="checked"]` in the header | Leaving a file whose Viewed box is checked folded |
 | `data-diff-viewed="true"` | Leaving a file Diff Viewed has marked read folded |
 | `data-diff-viewed-owned` | Keeping Diff Viewed's own checkbox out of the stat reading |
 | `[data-testid="git-diff-toolbar-selector-slot"] button` text, and the page path | Which diff is showing, to forget what was seen open when bb resets |

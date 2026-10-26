@@ -13,6 +13,12 @@
 
 /** The attribute bb-plugin-diff-viewed sets on a viewed file's header row. */
 export const VIEWED_ATTR = "data-diff-viewed";
+/**
+ * The Viewed checkbox bb draws on each card header, a Radix checkbox labelled
+ * "Viewed <file>". Super Diff draws its cards' boxes the same way.
+ */
+const VIEWED_CHECKBOX_SELECTOR =
+  '[role="checkbox"][aria-label^="Viewed "][data-state="checked"]';
 /** The attribute marking diff-viewed's own injected nodes. */
 const VIEWED_OWNED_ATTR = "data-diff-viewed-owned";
 /** Timeline diffs, which are deliberately out of scope. */
@@ -24,7 +30,7 @@ export interface DiffCard {
   stats: string;
   toggle: HTMLButtonElement;
   isCollapsed: boolean;
-  /** Whether diff-viewed has marked this file read. */
+  /** Whether the file's Viewed box is checked, or diff-viewed has marked it read. */
   isViewed: boolean;
 }
 
@@ -61,7 +67,9 @@ export function resolveCard(toggle: Element): DiffCard | null {
     stats: readStats(actions),
     toggle,
     isCollapsed: expanded === "false",
-    isViewed: headerRow.getAttribute(VIEWED_ATTR) === "true",
+    isViewed:
+      headerRow.getAttribute(VIEWED_ATTR) === "true" ||
+      headerRow.querySelector(VIEWED_CHECKBOX_SELECTOR) !== null,
   };
 }
 
