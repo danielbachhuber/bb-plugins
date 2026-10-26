@@ -1,17 +1,16 @@
-// The message that hands the comments to the agent.
+// The message Ask agent sends to the thread for one comment.
 //
-// One function, used by both the thread-header button and the panel, so the
-// two cannot drift into asking for slightly different things.
+// One function, used by the composer, the comment card, and the panel, so
+// they cannot drift into asking for slightly different things.
 
 /**
  * Routes to the skill rather than restating the procedure. A prompt that
- * re-explains how to work the queue only contradicts the skill that owns it
+ * re-explains how to answer a comment only contradicts the skill that owns it
  * the first time either one changes.
  */
-export function agentPrompt(open: number): string {
-  const count = open === 1 ? "comment" : "comments";
+export function askPrompt(seq: number): string {
   return (
-    `Work through the ${open} open ${count} on this diff, one at a time, ` +
-    `using the diff-comments skill.`
+    `Answer diff comment #${seq} on this thread's diff, using the diff-comments skill. ` +
+    `Work on that comment only.`
   );
 }

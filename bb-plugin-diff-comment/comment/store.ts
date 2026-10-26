@@ -81,13 +81,24 @@ export function applyReply(
   }));
 }
 
+/** Reopening clears `askedAt`, so a reopened comment can be asked again. */
 export function setState(
   comments: Comment[],
   id: string,
   state: CommentState,
   now: string,
 ): Comment[] {
-  return update(comments, id, (comment) => ({ ...comment, state, updatedAt: now }));
+  return update(comments, id, (comment) => ({
+    ...comment,
+    state,
+    ...(state === "open" ? { askedAt: null } : {}),
+    updatedAt: now,
+  }));
+}
+
+/** Record that the comment was sent to the agent, so it is not sent twice. */
+export function markAsked(comments: Comment[], id: string, now: string): Comment[] {
+  return update(comments, id, (comment) => ({ ...comment, askedAt: now, updatedAt: now }));
 }
 
 /** The comment the agent should pick up next, or null when the queue is empty. */

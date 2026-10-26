@@ -117,7 +117,7 @@ export const ComposerWithPullRequest = () => (
     <CommentComposer
       location="src/sprocket.ts:18"
       initialBody={QUESTION}
-      onSave={noop}
+      onAsk={noop}
       onCancel={noop}
       github={{ check: checked({ state: "ready", number: 42 }), post: never }}
     />
@@ -130,7 +130,7 @@ export const ComposerWithoutPullRequest = () => (
     <CommentComposer
       location="src/sprocket.ts:18"
       initialBody={QUESTION}
-      onSave={noop}
+      onAsk={noop}
       onCancel={noop}
       github={{
         check: checked({ state: "blocked", reason: "Open a pull request to add review comments." }),

@@ -1,6 +1,6 @@
 ---
 name: diff-comments
-description: Work through the review comments left inline on this thread's diff, using the `bb diff-comment` CLI. Use when the user asks you to address, work through, or act on their diff comments, inline comments, or review notes, or when a thread is started to answer them.
+description: Answer or act on the review comments left inline on this thread's diff, using the `bb diff-comment` CLI. Use when a message asks you to answer diff comment #n (sent by the Ask agent button), when the user asks you to address, work through, or act on their diff comments, inline comments, or review notes, or when a thread is started to answer them.
 ---
 
 # Diff comments
@@ -26,16 +26,28 @@ diff without being told which one.
 `<ref>` is the `#n` from the listing, or a comment id. Add `--json` when the
 output drives code rather than your reading.
 
-## Procedure
+## One comment: "Answer diff comment #n"
 
-Work the queue one comment at a time. Do not read them all and make one big
+The author's **Ask agent** button sends that message for one comment, as
+soon as they write it. Answer that comment and no other.
+
+1. `bb diff-comment show #n` to read it and the code it sits on. Open the file.
+2. If it asks a question, answer it. Do not change code unless the comment
+   asks for a change. If it asks for a change, make it.
+3. `bb diff-comment reply #n "<answer or what you did>"`. For a question, the
+   reply is the answer itself, as long as it needs to be.
+4. Stop. Other open comments wait until the author asks about them.
+
+## Every open comment
+
+When asked to work through all the comments, work the queue one comment at a time. Do not read them all and make one big
 change — the comments were left separately and are reviewed separately.
 
 1. `bb diff-comment next` to get the next open comment.
 2. Read the code it points at. The snippet in the output is context, not the
    whole file; open the file.
 3. Make the change, or work out the answer.
-4. `bb diff-comment reply #n "<what you did>"` — one or two sentences, concrete.
+4. `bb diff-comment reply #n "<what you did>"`: one or two sentences, concrete.
    "Renamed it to `activeCount`" is useful. "Done" is not.
 5. Go back to step 1. Stop when `next` says there are no open comments.
 6. Finish with a short summary: how many you addressed, and anything you chose

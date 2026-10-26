@@ -27,6 +27,7 @@ export const commentSchema = z.object({
   reply: z.string().nullable(),
   seq: z.number().int(),
   github: z.object({ url: z.string() }).nullable().optional(),
+  askedAt: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -92,7 +93,14 @@ export const rpcShape = {
       line: z.number().int().positive(),
       anchor: anchorSchema,
       body: z.string().trim().min(1).max(MAX_BODY),
+      /** Send the new comment to the agent as well, as Ask agent does. */
+      ask: z.boolean().optional(),
     }),
+    output: commentSchema,
+  },
+  /** Send one comment to the agent in this thread, now or after its turn. */
+  comments_ask: {
+    input: z.object({ threadId: z.string().min(1), id: z.string().min(1) }),
     output: commentSchema,
   },
   comments_edit: {

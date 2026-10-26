@@ -6,7 +6,8 @@
 // that then drifts from bb's. Decorating what bb rendered keeps this plugin's
 // comments and bb's diff the same diff. A thread panel lists the same comments
 // for reading and resolving. The thread's pull request review threads are
-// drawn on the same diff, read-only, beside the local comments.
+// drawn on the same diff, read-only, beside the local comments. Ask agent, on
+// the composer and on an open comment, sends that one comment to the agent.
 //
 // The wiring lives here; the behaviour lives in diff/ and comment/ so it can
 // be tested under jsdom. See diff/dom.ts for every DOM assumption in one
@@ -15,7 +16,6 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { CommentCard, CommentComposer, type GithubTarget } from "@/comment/cards";
-import { CommentHeaderAction } from "@/comment/header";
 import { CommentPanel } from "@/comment/panel";
 import type { Comment, CommentState } from "@/comment/types";
 import { OVERLAY_CSS } from "@/diff/style";
@@ -178,6 +178,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
           onRemove={() =>
             write("comments_remove", { threadId: comment.threadId, id: comment.id })
           }
+          onAsk={() =>
+            rpc("comments_ask", { threadId: comment.threadId, id: comment.id }).then(() =>
+              engine?.refresh(),
+            )
+          }
           github={{
             check: () =>
               rpc<GithubTarget>("github_target", {
@@ -217,9 +222,9 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
           location={`${draft.path}:${draft.line}${draft.side === "old" ? " (old)" : ""}`}
           initialBody={draft.body}
           onCancel={() => engine?.refresh()}
-          onSave={(body) => {
+          onAsk={(body) => {
             if (location === null) return;
-            write("comments_add", { ...location, body });
+            write("comments_add", { ...location, body, ask: true });
           }}
           github={
             location === null
@@ -273,14 +278,6 @@ export default definePluginApp((app) => {
     mount({ pluginId, signal }) {
       return mount(pluginId, signal);
     },
-  });
-
-  // Where the comments reach the agent. The panel tab is a place you have to
-  // know to open; this is in the header while you read the diff.
-  app.slots.experimental_threadHeaderAction({
-    id: "send-to-agent",
-    title: "Diff comments",
-    component: CommentHeaderAction,
   });
 
   app.slots.threadPanelAction({

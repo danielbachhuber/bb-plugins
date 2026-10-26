@@ -1,7 +1,7 @@
 // This thread's comments, kept current.
 //
-// Shared by the panel and the thread-header button so both read one source and
-// both refresh on the same signal — including a write from `bb diff-comment`
+// Read by the panel, which refreshes on the same signal the overlay writes
+// publish — including a write from `bb diff-comment`
 // in an agent's shell, which is the case that matters while it works.
 import { useCallback, useEffect, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";

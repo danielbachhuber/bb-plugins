@@ -52,6 +52,11 @@ export interface Comment {
    * posting existed.
    */
   github?: { url: string } | null;
+  /**
+   * When the comment was last sent to the agent with Ask agent. Cleared when
+   * it is reopened, so it can be asked again. Absent on older comments.
+   */
+  askedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

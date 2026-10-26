@@ -46,7 +46,7 @@ function composer(target: GithubTarget, post = vi.fn(async () => {})) {
   return (
     <CommentComposer
       location="src/a.ts:2"
-      onSave={() => {}}
+      onAsk={() => {}}
       onCancel={() => {}}
       github={{ check: async () => target, post }}
     />
@@ -130,5 +130,74 @@ describe("CommentCard's Post to GitHub", () => {
     const view = await render(card({ ...base, github: { url: "https://github.com/acme/widgets/pull/7#discussion_r1" } }));
     expect(button(view, "Post to GitHub")).toBeNull();
     expect(view.querySelector("a")!.getAttribute("href")).toContain("discussion_r1");
+  });
+});
+
+describe("Ask agent", () => {
+  const open: Comment = {
+    id: "c1",
+    threadId: "thr_1",
+    path: "src/a.ts",
+    side: "new",
+    line: 2,
+    anchor: { text: "b", before: null, after: null },
+    body: "Why b?",
+    state: "open",
+    reply: null,
+    seq: 1,
+    createdAt: "2026-09-14T00:00:00.000Z",
+    updatedAt: "2026-09-14T00:00:00.000Z",
+  };
+  const card = (comment: Comment, onAsk = vi.fn(async () => {})) => (
+    <CommentCard
+      comment={comment}
+      onSetState={() => {}}
+      onEdit={() => {}}
+      onRemove={() => {}}
+      onAsk={onAsk}
+    />
+  );
+
+  it("is the composer's submit button, and ⌘↵ does the same", async () => {
+    const onAsk = vi.fn();
+    const view = await render(
+      <CommentComposer location="src/a.ts:2" onAsk={onAsk} onCancel={() => {}} />,
+    );
+    expect(button(view, "Comment")).toBeNull();
+    const box = view.querySelector("textarea")!;
+    await type(box, "Why four?");
+    await act(async () => {
+      box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }));
+    });
+    expect(onAsk).toHaveBeenCalledWith("Why four?");
+  });
+
+  it("is offered on an open comment that has not been asked", async () => {
+    const onAsk = vi.fn(async () => {});
+    const view = await render(card(open, onAsk));
+    await act(async () => button(view, "Ask agent")!.click());
+    expect(onAsk).toHaveBeenCalledOnce();
+  });
+
+  it("says the agent was asked instead of offering it twice", async () => {
+    const view = await render(card({ ...open, askedAt: "2026-09-14T00:01:00.000Z" }));
+    expect(button(view, "Ask agent")).toBeNull();
+    expect(view.textContent).toContain("Asked the agent");
+  });
+
+  it("is not offered once the agent has answered", async () => {
+    const view = await render(card({ ...open, state: "addressed", reply: "Because." }));
+    expect(button(view, "Ask agent")).toBeNull();
+  });
+
+  it("shows why the message could not be sent", async () => {
+    const view = await render(
+      card(open, vi.fn(async () => {
+        throw new Error("thread is archived");
+      })),
+    );
+    await act(async () => button(view, "Ask agent")!.click());
+    expect(view.textContent).toContain("thread is archived");
+    expect(button(view, "Ask agent")!.disabled).toBe(false);
   });
 });

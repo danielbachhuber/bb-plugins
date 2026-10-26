@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addComment, applyReply, nextOpen, ordered, setState, summarize } from "./store";
+import { addComment, applyReply, markAsked, nextOpen, ordered, setState, summarize } from "./store";
 import type { Comment } from "./types";
 
 const NOW = "2026-09-14T10:00:00.000Z";
@@ -120,6 +120,28 @@ describe("setState", () => {
     const later = "2026-09-14T11:00:00.000Z";
     const comments = setState(seed(), "c1", "resolved", later);
     expect(comments.find((c) => c.id === "c1")!.updatedAt).toBe(later);
+  });
+});
+
+describe("markAsked", () => {
+  it("records when the comment was sent to the agent, and leaves it open", () => {
+    const later = "2026-09-14T11:00:00.000Z";
+    const comment = markAsked(seed(), "c1", later).find((c) => c.id === "c1")!;
+    expect(comment.askedAt).toBe(later);
+    expect(comment.state).toBe("open");
+  });
+
+  it("is cleared by reopening, so the comment can be asked again", () => {
+    let comments = markAsked(seed(), "c1", NOW);
+    comments = applyReply(comments, "c1", "renamed it", NOW);
+    comments = setState(comments, "c1", "open", NOW);
+    expect(comments.find((c) => c.id === "c1")!.askedAt).toBeNull();
+  });
+
+  it("is kept when the comment is resolved", () => {
+    let comments = markAsked(seed(), "c1", NOW);
+    comments = setState(comments, "c1", "resolved", NOW);
+    expect(comments.find((c) => c.id === "c1")!.askedAt).toBe(NOW);
   });
 });
 

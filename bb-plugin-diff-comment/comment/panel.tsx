@@ -4,12 +4,9 @@
 // reading code. This is the other view: what is still open, what the agent
 // said it did, and the ones whose code has moved out from under them and are
 // therefore invisible on the diff.
-import { useState } from "react";
-import { useComposer } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { GithubSection, useGithubReview } from "@/github/section";
 import { cn } from "@/lib/utils";
-import { agentPrompt } from "./prompt";
 import { relativeTime } from "./time";
 import { useThreadComments } from "./useComments";
 import type { Comment, CommentState } from "./types";
@@ -24,11 +21,14 @@ function Row({
   comment,
   onSetState,
   onRemove,
+  onAsk,
 }: {
   comment: Comment;
   onSetState: (state: CommentState) => void;
   onRemove: () => void;
+  onAsk: () => void;
 }) {
+  const asked = comment.askedAt != null;
   return (
     <li className="border-b px-3 py-3 last:border-b-0">
       <div className="flex items-baseline gap-2">
@@ -45,6 +45,14 @@ function Row({
         <p className="mt-2 border-l-2 pl-2 text-xs">{comment.reply}</p>
       ) : null}
       <div className="mt-2 flex gap-1">
+        {comment.state === "open" && !asked ? (
+          <Button size="sm" variant="ghost" onClick={onAsk}>
+            Ask agent
+          </Button>
+        ) : null}
+        {comment.state === "open" && asked ? (
+          <span className="text-muted-foreground self-center px-2 text-xs">Asked the agent</span>
+        ) : null}
         {comment.state === "resolved" ? (
           <Button size="sm" variant="ghost" onClick={() => onSetState("open")}>
             Reopen
@@ -93,42 +101,6 @@ function Empty() {
   );
 }
 
-/**
- * Hands the open comments to the agent by filling this thread's composer.
- *
- * It stops at filling the draft rather than sending it. The SDK has no
- * "submit now" — `experimental_submit` only schedules — and that is a
- * deliberate limit rather than a gap to work around: sending a message on your
- * behalf is your affordance, not a plugin's. So this writes the prompt and you
- * press Enter.
- *
- * The prompt routes to the skill instead of restating the procedure. A prompt
- * that re-explains how to work the queue only contradicts the skill that owns
- * it the first time either one changes.
- */
-function SendToAgent({ open }: { open: number }) {
-  const composer = useComposer();
-  const [sent, setSent] = useState(false);
-
-  if (open === 0) return null;
-
-  const send = () => {
-    composer.setText(agentPrompt(open));
-    setSent(true);
-  };
-
-  return (
-    <div className="ml-auto flex items-center gap-2">
-      {sent ? (
-        <span className="text-muted-foreground text-[11px]">In the composer — press ↵</span>
-      ) : null}
-      <Button size="sm" variant="outline" onClick={send}>
-        Send to agent
-      </Button>
-    </div>
-  );
-}
-
 export function CommentPanel({ threadId }: { threadId: string }) {
   const { comments, counts, error, refetch, rpc } = useThreadComments(threadId);
   const review = useGithubReview(threadId);
@@ -139,6 +111,9 @@ export function CommentPanel({ threadId }: { threadId: string }) {
   };
   const remove = (id: string) => {
     rpc.call("comments_remove", { threadId, id }).then(refetch, refetch);
+  };
+  const ask = (id: string) => {
+    rpc.call("comments_ask", { threadId, id }).then(refetch, refetch);
   };
 
   if (error !== null) {
@@ -154,12 +129,9 @@ export function CommentPanel({ threadId }: { threadId: string }) {
   return (
     <div>
       {comments.length > 0 ? (
-        <div className="flex items-center gap-2 px-3 py-2">
-          <p className="text-muted-foreground text-xs">
-            {counts.open} open · {counts.addressed} addressed · {counts.resolved} resolved
-          </p>
-          <SendToAgent open={counts.open} />
-        </div>
+        <p className="text-muted-foreground px-3 py-2 text-xs">
+          {counts.open} open · {counts.addressed} addressed · {counts.resolved} resolved
+        </p>
       ) : null}
       {GROUPS.map((group) => {
         const rows = comments.filter((comment) => comment.state === group.state);
@@ -181,6 +153,7 @@ export function CommentPanel({ threadId }: { threadId: string }) {
                   comment={comment}
                   onSetState={(state) => setState(comment.id, state)}
                   onRemove={() => remove(comment.id)}
+                  onAsk={() => ask(comment.id)}
                 />
               ))}
             </ul>

@@ -272,7 +272,7 @@ function BodyEditor({
           ref={box}
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          // Cmd/Ctrl+Enter saves, matching how the composer behaves elsewhere
+          // Cmd/Ctrl+Enter submits, matching how the composer behaves elsewhere
           // in bb; plain Enter has to stay available for writing prose.
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -306,7 +306,9 @@ function BodyEditor({
         <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-        <span className="text-muted-foreground ml-auto text-[11px]">⌘↵ to save</span>
+        <span className="text-muted-foreground ml-auto text-[11px]">
+          ⌘↵ to {submitLabel.toLowerCase()}
+        </span>
       </Footer>
       <PostError message={error} />
     </>
@@ -321,6 +323,11 @@ export interface CommentCardProps {
   onEdit: (body: string) => void;
   onRemove: () => void;
   /**
+   * Sends the comment to the agent. Offered while it is open and has not been
+   * sent; rejects with the reason it could not be sent.
+   */
+  onAsk?: () => Promise<void>;
+  /**
    * Posts the comment as a draft review comment, with the agent's answer when
    * it has one. Offered until the comment is on GitHub or resolved.
    */
@@ -333,6 +340,7 @@ export function CommentCard({
   onSetState,
   onEdit,
   onRemove,
+  onAsk,
   github,
 }: CommentCardProps) {
   const [busy, setBusy] = useState(false);
@@ -350,6 +358,17 @@ export function CommentCard({
       setBusy(false);
     });
   };
+
+  const askAgent = () => {
+    if (onAsk === undefined) return;
+    setBusy(true);
+    setError(null);
+    onAsk().catch((cause: unknown) => {
+      setError(errorText(cause));
+      setBusy(false);
+    });
+  };
+  const asked = comment.state === "open" && comment.askedAt != null;
 
   const act = (run: () => void) => () => {
     setBusy(true);
@@ -400,6 +419,14 @@ export function CommentCard({
       ) : null}
 
       <Footer>
+        {onAsk !== undefined && comment.state === "open" && !asked ? (
+          <Button size="sm" disabled={busy} onClick={askAgent}>
+            Ask agent
+          </Button>
+        ) : null}
+        {asked ? (
+          <span className="text-muted-foreground text-xs">Asked the agent</span>
+        ) : null}
         {comment.state === "resolved" ? (
           <Button size="sm" variant="outline" disabled={busy} onClick={act(() => onSetState("open"))}>
             Reopen
@@ -458,16 +485,17 @@ export interface CommentComposerProps {
   location: string;
   /** What the box opens with — a quote of the selected code, or nothing. */
   initialBody?: string;
-  onSave: (body: string) => void;
+  onAsk: (body: string) => void;
   onCancel: () => void;
-  /** Adds "Add to GitHub review", which posts instead of saving locally. */
+  /** Adds "Add to GitHub review", which posts instead of asking the agent. */
   github?: GithubAction;
 }
 
+/** Saves the comment and sends it to the agent in one step. */
 export function CommentComposer({
   location,
   initialBody,
-  onSave,
+  onAsk,
   onCancel,
   github,
 }: CommentComposerProps) {
@@ -478,8 +506,8 @@ export function CommentComposer({
       </Header>
       <BodyEditor
         initialBody={initialBody ?? ""}
-        submitLabel="Comment"
-        onSubmit={onSave}
+        submitLabel="Ask agent"
+        onSubmit={onAsk}
         onCancel={onCancel}
         github={github}
       />

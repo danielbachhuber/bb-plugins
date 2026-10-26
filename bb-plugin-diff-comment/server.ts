@@ -20,9 +20,11 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, MAX_BODY, rpcShape } from "./comment/contract";
 import { anchorFromFile, parseLocation } from "./comment/add";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
+import { askPrompt } from "./comment/prompt";
 import {
   addComment,
   applyReply,
+  markAsked,
   nextOpen,
   ordered,
   setState,
@@ -239,10 +241,27 @@ export default async function plugin(bb: BbPluginApi) {
     return after.find((comment) => comment.id === id) ?? null;
   }
 
+  /**
+   * Send one comment to the agent in its thread. A thread mid-turn queues the
+   * message for when the turn ends rather than steering the turn, since the
+   * question may have nothing to do with what the agent is doing.
+   */
+  async function ask(threadId: string, comment: Comment): Promise<Comment> {
+    await bb.sdk.threads.send({
+      threadId,
+      mode: "queue-if-active",
+      input: [{ type: "text", text: askPrompt(comment.seq), mentions: [] }],
+    });
+    const updated = await mutate(threadId, comment.id, (comments) =>
+      markAsked(comments, comment.id, new Date().toISOString()),
+    );
+    return updated ?? comment;
+  }
+
   bb.rpc.register(rpcContract, {
     comments_list: async ({ threadId }) => ({ comments: ordered(await read(threadId)) }),
 
-    comments_add: async ({ threadId, path, side, line, anchor, body }) => {
+    comments_add: async ({ threadId, path, side, line, anchor, body, ask: send }) => {
       const comments = addComment(await read(threadId), {
         threadId,
         path,
@@ -254,7 +273,15 @@ export default async function plugin(bb: BbPluginApi) {
         id: randomUUID().slice(0, 8),
       });
       await write(threadId, comments);
-      return comments[comments.length - 1]!;
+      const added = comments[comments.length - 1]!;
+      return send === true ? ask(threadId, added) : added;
+    },
+
+    comments_ask: async ({ threadId, id }) => {
+      const comment = (await read(threadId)).find((candidate) => candidate.id === id);
+      if (comment === undefined) throw new Error(`No comment with id ${id}`);
+      if (comment.state !== "open") throw new Error(`Comment #${comment.seq} is ${comment.state}. Reopen it to ask again.`);
+      return ask(threadId, comment);
     },
 
     comments_edit: async ({ threadId, id, body }) => {
