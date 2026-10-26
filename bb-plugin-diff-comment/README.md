@@ -33,9 +33,8 @@ where you get to read what it actually did before the comment goes away.
 **Ask agent** in the comment box saves the comment and starts a subthread to
 answer it, so the answer starts now even while the thread's agent is busy. The
 subthread is a fork of the thread: it has the whole conversation, works in the
-same checkout, and shows nested under the thread. Its reply shows on the
-comment, which links to the subthread (**Answering in a subthread**) for a
-follow-up. A comment that is open and not yet asked, such as one the agent
+same checkout, and shows nested under the thread while it works. Its reply
+shows on the comment, and the subthread archives itself once that turn ends. A comment that is open and not yet asked, such as one the agent
 suggested or one you reopened, has its own **Ask agent** button, on the diff
 and in the **Diff comments** panel tab. A thread whose provider cannot fork
 gets the question as a message instead, sent after its current turn.

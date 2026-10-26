@@ -287,6 +287,21 @@ export default async function plugin(bb: BbPluginApi) {
     return updated ?? comment;
   }
 
+  /**
+   * Archive an Ask agent subthread once the turn that answered its comment
+   * has ended. Archiving mid-turn would cut the turn off, so this waits for
+   * the subthread to go idle first. The answer is on the comment, and the
+   * subthread is still there under Archived for a follow-up.
+   */
+  function archiveWhenIdle(forkThreadId: string): void {
+    void bb.sdk.threads
+      .wait({ threadId: forkThreadId, status: "idle", timeoutMs: 10 * 60_000 })
+      .then(() => bb.sdk.threads.archive({ threadId: forkThreadId }))
+      .catch((error: unknown) => {
+        bb.log.warn(`Couldn't archive ${forkThreadId}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+  }
+
   bb.rpc.register(rpcContract, {
     comments_list: async ({ threadId }) => ({ comments: ordered(await read(threadId)) }),
 
@@ -540,6 +555,15 @@ export default async function plugin(bb: BbPluginApi) {
           const updated = await mutate(threadId, found.comment.id, (list) =>
             applyReply(list, found.comment!.id, text, new Date().toISOString()),
           );
+          if (asked !== null && ctx.threadId !== undefined) {
+            archiveWhenIdle(ctx.threadId);
+            return {
+              exitCode: 0,
+              stdout: json
+                ? JSON.stringify(updated)
+                : `${formatRow(updated!)}\n\nThe reply is on the comment. This subthread is archived when this turn ends, so stop here.`,
+            };
+          }
           return reply(updated, formatRow(updated!));
         }
 

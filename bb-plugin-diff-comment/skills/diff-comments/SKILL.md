@@ -40,7 +40,8 @@ work in the conversation above.
    asks for a change. If it asks for a change, make it.
 3. `bb diff-comment reply #n "<answer or what you did>"`. For a question, the
    reply is the answer itself, as long as it needs to be.
-4. Stop. Other open comments wait until the author asks about them.
+4. Stop. Other open comments wait until the author asks about them. A
+   subthread is archived once the turn that replied ends.
 
 ## Every open comment
 
