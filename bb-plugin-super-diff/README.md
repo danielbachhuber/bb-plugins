@@ -8,7 +8,7 @@ Group a thread's diff by concern in the Diff tab, with an explanation for each g
 
 ### Concerns in place of the file list
 
-![The row above the grouped list: Super Diff and Original toggle, "6 concerns · 4 annotations · generated 2 min ago", and the six concerns with viewed counts such as 0/4 and 19/33, the first one highlighted](screenshots/super-diff--showing-super-diff.png)
+![The row under the Diff tab's picker before anything is generated: a Generate Super Diff button and "Group the 57 files by concern, with a note on what each part does."](screenshots/super-diff--not-generated.png)
 
 Open a thread's **Diff** tab and click **Generate Super Diff**. The thread's agent reads the diff and groups the changed files into concerns, each with a title and a short explanation, and the grouped list takes the place of bb's file list. The row above it lists every concern with how many of its files you have checked **Viewed**, and clicking one jumps to it. **Super Diff | Original** switches back to bb's own list at any time.
 
@@ -22,7 +22,7 @@ Under each concern's explanation is a list of its files, each with one line on w
 
 ![A note under the removed line 19, in the red half of the diff, titled "The hook read the provider, which is not mounted yet" and marked "you asked"](screenshots/super-diff--removed-line-note.png)
 
-The agent writes a note for each line a reviewer might misread, and the note sits in the diff under that line, removed lines included. Each concern lists its notes, and clicking one jumps to it. To ask about any other line, hover it and click **Explain this**, the sparkle beside the line number. A hidden side chat of the thread writes the note, so the thread's agent is not interrupted.
+The agent writes a note for each line a reviewer might misread, and the note sits in the diff under that line, removed lines included. Each concern lists its notes, and clicking one jumps to it. To ask about any other line, hover it and click the sparkle beside its line number, **Explain this line**. A hidden side chat of the thread writes the note, so the thread's agent is not interrupted.
 
 ### A warning when the diff moves on
 
@@ -47,7 +47,7 @@ bb super-diff explain <file | json> # in an Explain this side chat: store its on
 
 ## Requirements
 
-A thread with a git environment, and bb 0.47 or later for the **Viewed** checkboxes. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
+A thread with a git environment, and bb 0.47 or later for the **Viewed** checkboxes. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open and the window is in front, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
 
 ## Related plugins
 
