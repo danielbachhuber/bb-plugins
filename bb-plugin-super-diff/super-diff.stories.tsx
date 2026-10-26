@@ -15,9 +15,6 @@ export default {
   title: "super-diff/Super Diff",
 };
 
-const SEGMENT_CLASS = "inline-flex items-center gap-1 rounded-lg border border-border p-0.5";
-const SEGMENT_BUTTON_CLASS =
-  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground text-xs h-7 rounded-md px-2.5 text-muted-foreground";
 
 const FILE_COUNT = FIXTURE.paths.length;
 const READY: ThreadState = { phase: "ready", showing: "super", stored: FIXTURE, data: null };
@@ -44,8 +41,6 @@ function Row({ state, fileCount = FILE_COUNT, changed = false }: { state: Thread
     <SuperDiffRow
       state={state}
       fileCount={fileCount}
-      segmentClass={SEGMENT_CLASS}
-      segmentButtonClass={SEGMENT_BUTTON_CLASS}
       onGenerate={() => {}}
       onShow={() => {}}
       concernLinks={state.phase === "ready" ? LINKS.map((link, index) => (changed && index === 0 ? { ...link, changed: CHANGED.size } : link)) : []}

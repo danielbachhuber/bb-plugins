@@ -97,16 +97,18 @@ function ago(since: number, now: number): string {
   return `${Math.floor(hours / 24)} days ago`;
 }
 
+// The Super Diff | Original toggle, drawn as bb's own segmented controls are.
+const SEGMENT_CLASS = "inline-flex items-center gap-1 rounded-lg border border-border p-0.5";
+const SEGMENT_BUTTON_CLASS =
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 hover:bg-state-hover hover:text-foreground aria-pressed:bg-state-active aria-pressed:text-foreground text-xs h-7 rounded-md px-2.5 text-muted-foreground";
+
 /**
  * The row under bb's diff picker: Generate Super Diff on the left at first,
- * then a Super Diff | Original toggle in its place. The toggle copies bb's own
- * Stacked/Split control's classes, read from the page, so it matches it.
+ * then a Super Diff | Original toggle in its place.
  */
 export function SuperDiffRow({
   state,
   fileCount,
-  segmentClass,
-  segmentButtonClass,
   onGenerate,
   onShow,
   concernLinks = [],
@@ -116,8 +118,6 @@ export function SuperDiffRow({
 }: {
   state: ThreadState;
   fileCount: number | null;
-  segmentClass: string;
-  segmentButtonClass: string;
   onGenerate: () => void;
   onShow: (showing: "super" | "original") => void;
   /** Every section of the Super Diff on show, listed under the toggle; empty while bb's list shows. */
@@ -161,12 +161,12 @@ export function SuperDiffRow({
     >
       <div className="flex items-center gap-3">
         {state.phase === "ready" ? (
-          <div className={`${segmentClass} shrink-0 bg-background`} role="tablist" aria-label="Super Diff view">
+          <div className={`${SEGMENT_CLASS} shrink-0 bg-background`} role="tablist" aria-label="Super Diff view">
             {(["super", "original"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
-                className={segmentButtonClass}
+                className={SEGMENT_BUTTON_CLASS}
                 aria-pressed={state.showing === value}
                 onClick={() => onShow(value)}
               >

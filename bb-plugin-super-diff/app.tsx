@@ -612,6 +612,27 @@ function FilesProps({ children }: { files: FileEntry[]; target: Target; children
 }
 
 /**
+ * bb's Unified/Split and Wrap lines settings. They live in the Diff settings
+ * menu, which is not in the page until it opens, so they are read from the
+ * props of bb's GitDiffToolbar, found by walking React's fibers up from the
+ * toolbar's layout row. Fiber fields are React internals; when the walk finds
+ * no such props, the list shows unified and unwrapped.
+ */
+function readViewSettings(layout: Element): { split: boolean; wrap: boolean } {
+  const key = Object.keys(layout).find((name) => name.startsWith("__reactFiber$"));
+  type Fiber = { memoizedProps?: unknown; return?: Fiber | null };
+  let fiber = key === undefined ? null : ((layout as unknown as Record<string, Fiber | undefined>)[key] ?? null);
+  for (let depth = 0; fiber !== null && depth < 12; depth++) {
+    const props = fiber.memoizedProps as { displayMode?: unknown; lineOverflowMode?: unknown } | null | undefined;
+    if (typeof props === "object" && props !== null && "displayMode" in props) {
+      return { split: props.displayMode === "split", wrap: props.lineOverflowMode === "wrap" };
+    }
+    fiber = fiber.return ?? null;
+  }
+  return { split: false, wrap: false };
+}
+
+/**
  * bb's list scrolls inside `div.overflow-y-auto > div.relative.w-full`, with
  * no attribute of its own. Walk up from the toolbar to the first ancestor that
  * holds one, outside the timeline. `list` is null while bb shows a message in
@@ -985,15 +1006,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     const summaryEl = toolbarRoot.querySelector(SUMMARY);
     const summary = summaryEl?.getAttribute("title") ?? summaryEl?.textContent ?? "";
     const selection = readSelection(toolbarRoot);
-    const split =
-      toolbarRoot.querySelector('button[aria-label="Split diff view"]')?.getAttribute("aria-pressed") === "true";
-    // bb's wrap toggle renames itself, so match either label and read aria-pressed.
-    const wrap =
-      toolbarRoot
-        .querySelector('button[aria-label="Wrap diff lines"], button[aria-label="Disable diff line wrap"]')
-        ?.getAttribute("aria-pressed") === "true";
-    const mode = toolbarRoot.querySelector<HTMLElement>('[aria-label="Diff view mode"]');
-    const segmentButton = mode?.querySelector("button");
+    const { split, wrap } = readViewSettings(layout);
 
     if (rowHost === null || !rowHost.isConnected || rowHost.previousElementSibling !== layout) {
       removeRow();
@@ -1018,8 +1031,6 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       <SuperDiffRow
         state={state}
         fileCount={Number.isFinite(fileCount) ? fileCount : null}
-        segmentClass={mode?.className ?? ""}
-        segmentButtonClass={(segmentButton?.className ?? "").replace(/\bw-7\b/, "").replace(/\bp-0\b/, "px-2.5")}
         onGenerate={() => void generate(threadId, selection)}
         onShow={(showing) => void show(threadId, selection, showing)}
         concernLinks={showingSuper ? links : []}
