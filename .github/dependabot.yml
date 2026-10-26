@@ -18,6 +18,10 @@ updates:
       # its engines.bbPluginSdk minimum. `bb plugin types` moves the two
       # together; a bump to the pin alone would leave them disagreeing.
       - dependency-name: "@get-bb/plugin-sdk"
+      # `bb plugin build` swaps @pierre/diffs for bb's own copy, so each
+      # plugin's pin follows the version bb runs, as `bb plugin types` sets
+      # it. A bump here would type the plugins against a version bb lacks.
+      - dependency-name: "@pierre/diffs"
       # @testing-library/jest-dom's matcher types do not merge with Vitest 5's,
       # which fails bb-plugin-super-diff-v1's typecheck. Lift this once jest-dom
       # ships a fix: https://github.com/danielbachhuber/bb-plugins/issues/74
