@@ -48,10 +48,6 @@
       "source": "./bb-plugin-markdown-editor"
     },
     {
-      "name": "new-issue",
-      "source": "./bb-plugin-new-issue"
-    },
-    {
       "name": "now",
       "source": "./bb-plugin-now"
     },

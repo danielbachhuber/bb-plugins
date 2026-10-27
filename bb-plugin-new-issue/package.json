@@ -62,5 +62,9 @@
     "build": "bb plugin build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "bbPlugins": {
+    "status": "retired",
+    "note": "Not in active use. Kept for reference."
   }
 }
