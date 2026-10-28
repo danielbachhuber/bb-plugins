@@ -5,6 +5,9 @@ import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
 import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import { BatchDialog } from "./components/batch-dialog";
+import { describeFilters } from "./components/list-toolbar";
+import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -715,12 +718,28 @@ function openRows(kind: "issue" | "pull", total: number) {
     threadId: index === 1 ? "thr_demo" : null,
     isDraft: kind === "pull" && index % 4 === 2,
     createdAt: new Date(NOW - (total - index) * 3 * 86_400_000).toISOString(),
+    // Every fourth one has gone quiet; the rest moved in the past week.
+    updatedAt: new Date(NOW - (index % 4 === 1 ? 40 + index : index % 7) * 86_400_000).toISOString(),
+    size: kind === "pull" ? [120, 2400, 36, 610, 9, 1880][index % 6] : null,
   }));
 }
 
-function OpenList({ kind, total }: { kind: "issue" | "pull"; total: number }) {
+function OpenList({
+  kind,
+  total,
+  initialQuery = DEFAULT_QUERY,
+  batchOpen = false,
+}: {
+  kind: "issue" | "pull";
+  total: number;
+  initialQuery?: OpenQuery;
+  batchOpen?: boolean;
+}) {
   const [page, setPage] = useState(0);
-  const rows = openRows(kind, total);
+  const [query, setQuery] = useState(initialQuery);
+  const [batch, setBatch] = useState(batchOpen);
+  const open = openRows(kind, total);
+  const rows = queryOpen(open, query, NOW);
   const paging = pageOf(rows.length, page);
   return (
     <OpenItemsView
@@ -729,6 +748,8 @@ function OpenList({ kind, total }: { kind: "issue" | "pull"; total: number }) {
         repository: "acme/widgets",
         kind,
         rows: rows.slice(paging.offset, paging.offset + PAGE_SIZE),
+        totalOpen: open.length,
+        facets: openFacets(open, query, NOW),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
         everyone: EVERYONE,
         sync: SYNCED,
@@ -738,6 +759,25 @@ function OpenList({ kind, total }: { kind: "issue" | "pull"; total: number }) {
       onOpenPerson={() => undefined}
       onPage={setPage}
       onThread={() => undefined}
+      query={query}
+      onQuery={(next) => {
+        setPage(0);
+        setQuery(next);
+      }}
+      onBatch={() => setBatch(true)}
+      batch={
+        <BatchDialog
+          kind={kind}
+          open={batch}
+          heading={describeFilters(kind, query)}
+          rows={rows}
+          error={null}
+          projectId={null}
+          limit={50}
+          onClose={() => setBatch(false)}
+          onStart={async () => setBatch(false)}
+        />
+      }
       now={NOW}
     />
   );
@@ -752,3 +792,17 @@ export const OpenPullRequests = () => (
 
 /** Every open issue, reached from the Issues heading. */
 export const OpenIssues = () => <OpenList kind="issue" total={6} />;
+
+/** The toolbar narrowed to drafts nobody is assigned to: the count reads "of" every open one, and the line under the title says what is shown. */
+export const OpenPullRequestsFiltered = () => (
+  <WithThreads>
+    <OpenList kind="pull" total={31} initialQuery={{ ...DEFAULT_QUERY, assignee: "", state: "draft" }} />
+  </WithThreads>
+);
+
+/** Batch, from the toolbar: every row the filters match, on every page, to tick, copy, open, or start a main thread with a subthread for each. */
+export const OpenPullRequestsBatch = () => (
+  <WithThreads>
+    <OpenList kind="pull" total={31} initialQuery={{ ...DEFAULT_QUERY, assignee: "" }} batchOpen />
+  </WithThreads>
+);

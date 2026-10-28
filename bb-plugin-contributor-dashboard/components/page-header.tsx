@@ -16,6 +16,7 @@ export function PageHeader({
   period = null,
   title = null,
   subtitle = null,
+  actions = null,
 }: {
   /** Null before the repository is set, or while the page loads. */
   repository: string | null;
@@ -31,6 +32,8 @@ export function PageHeader({
   /** The page's own title. Null on the dashboard, where the repository is it. */
   title?: ReactNode;
   subtitle?: ReactNode;
+  /** Controls at the right of the title, such as a list's toolbar. */
+  actions?: ReactNode;
 }) {
   const home = (
     <>
@@ -60,9 +63,12 @@ export function PageHeader({
         </div>
       </div>
       {title === null ? null : (
-        <div className="mt-3">
-          <h1 className="text-lg font-semibold">{title}</h1>
-          {subtitle === null ? null : <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold">{title}</h1>
+            {subtitle === null ? null : <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+          {actions}
         </div>
       )}
     </header>

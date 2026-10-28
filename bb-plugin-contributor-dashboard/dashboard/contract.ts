@@ -5,6 +5,9 @@ import { z } from "zod";
 /** Published while a sync stores pages and when it finishes; the open dashboard re-reads. */
 export const DASHBOARD_CHANNEL = "dashboard-changed";
 
+/** The most rows one Batch starts subthreads for. */
+export const BATCH_LIMIT = 50;
+
 /** The span a page is reading: inclusive start, exclusive end, epoch ms. */
 export const rangeSchema = z.object({ from: z.number(), to: z.number() });
 
@@ -65,6 +68,32 @@ export const openItemSchema = z.object({
   ...rowOwnershipSchema,
   isDraft: z.boolean(),
   createdAt: z.string(),
+  updatedAt: z.string(),
+  /** Lines added and removed, for a pull request; null for an issue. */
+  size: z.number().nullable(),
+});
+
+/** How the open lists' toolbar narrows and orders them. See review/open-items.ts. */
+export const openQuerySchema = z.object({
+  sort: z.enum(["opened", "activity", "size", "author"]).default("opened"),
+  direction: z.enum(["asc", "desc"]).default("asc"),
+  author: z.string().max(100).nullable().default(null),
+  /** Null for anyone, "" for nobody, or a login. */
+  assignee: z.string().max(100).nullable().default(null),
+  state: z.enum(["draft", "ready"]).nullable().default(null),
+  quiet: z.boolean().default(false),
+});
+
+const loginCountsSchema = z.array(z.object({ login: z.string(), count: z.number() }));
+
+/** What each of the toolbar's choices would leave, under the other filters. */
+export const openFacetsSchema = z.object({
+  authors: loginCountsSchema,
+  assignees: loginCountsSchema,
+  nobody: z.number(),
+  drafts: z.number(),
+  ready: z.number(),
+  quiet: z.number(),
 });
 
 export const stageKeySchema = z.enum(["triage", "ownership", "implement", "prepare", "review", "decision"]);
@@ -294,11 +323,15 @@ export const rpcContract = defineRpcContract({
     input: z.object({
       kind: z.enum(["issue", "pull"]),
       page: z.number().int().min(0).max(10_000).default(0),
+      query: openQuerySchema.default(openQuerySchema.parse({})),
     }),
     output: z.object({
       repository: z.string().nullable(),
       kind: z.enum(["issue", "pull"]),
       rows: z.array(openItemSchema),
+      /** Everything open of the kind, before the query narrows it. */
+      totalOpen: z.number(),
+      facets: openFacetsSchema,
       paging: z.object({
         page: z.number(),
         pages: z.number(),
@@ -309,6 +342,32 @@ export const rpcContract = defineRpcContract({
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
       sync: syncStatusSchema,
+    }),
+  },
+  /**
+   * Every row the query matches, on every page, for Batch to tick from. Read
+   * when Batch opens, not with each page.
+   */
+  open_items_matching: {
+    input: z.object({ kind: z.enum(["issue", "pull"]), query: openQuerySchema }),
+    output: z.object({ rows: z.array(openItemSchema) }),
+  },
+  /**
+   * Starts one main thread from the composer's request, then a subthread
+   * under it for each row, with the same provider, model, and environment,
+   * and remembers each subthread on its row as start_thread does.
+   */
+  start_batch: {
+    input: z.object({
+      kind: z.enum(["issue", "pull"]),
+      title: z.string().max(300),
+      rows: z.array(z.object({ number: z.number(), title: z.string(), url: z.string() })).min(1).max(BATCH_LIMIT),
+      request: z.record(z.string(), z.unknown()),
+    }),
+    output: z.object({
+      threadId: z.string(),
+      subthreads: z.array(z.object({ number: z.number(), threadId: z.string() })),
+      failed: z.array(z.object({ number: z.number(), error: z.string() })),
     }),
   },
   /**
@@ -343,3 +402,7 @@ export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["ou
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;
 
 export type OpenItemsResult = z.infer<(typeof rpcContract)["open_items"]["output"]>;
+export type OpenItem = z.infer<typeof openItemSchema>;
+export type OpenQuery = z.infer<typeof openQuerySchema>;
+export type OpenFacets = z.infer<typeof openFacetsSchema>;
+export type StartBatchResult = z.infer<(typeof rpcContract)["start_batch"]["output"]>;

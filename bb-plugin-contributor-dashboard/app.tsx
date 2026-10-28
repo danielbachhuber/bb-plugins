@@ -15,11 +15,16 @@ import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
 import { StageView } from "@/components/stage-view";
 import { OpenItemsView } from "@/components/open-items-view";
+import { BatchDialog } from "@/components/batch-dialog";
+import { describeFilters } from "@/components/list-toolbar";
 
 import type { rpcContract } from "./server";
 import {
+  BATCH_LIMIT,
   DASHBOARD_CHANNEL,
+  type OpenItem,
   type OpenItemsResult,
+  type OpenQuery,
   type PeopleActivityResult,
   type PersonActivityResult,
   STAGE_KEYS,
@@ -28,7 +33,8 @@ import {
   type SyncStatus,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
-import { useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
+import { announceStartedThread, useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
+import { DEFAULT_QUERY } from "./review/open-items.js";
 import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedScreen, rememberedSelection, rememberScreen, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -150,6 +156,14 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const stage = stageFrom(shown);
   const list = listFrom(shown);
   const [listPage, setListPage] = useState(0);
+  const [listQuery, setListQuery] = useState<OpenQuery>(DEFAULT_QUERY);
+  // A changed filter or sort starts the list over from its first page.
+  const query = useCallback((next: OpenQuery) => {
+    setListPage(0);
+    setListQuery(next);
+  }, []);
+  // Batch reads every matching row when it opens, not with each page.
+  const [batch, setBatch] = useState<{ rows: OpenItem[] | null; error: string | null } | null>(null);
   const { projectId: openedFrom } = useBbContext();
   // The project checked out from the repository comes first, so a thread
   // starts where the code is, whichever project the page was opened from.
@@ -210,8 +224,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [rpc, range, login, stage, list],
   );
   const openList = useDashboardData<OpenItemsResult | null>(
-    () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage })),
-    [rpc, list, listPage],
+    () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage, query: listQuery })),
+    [rpc, list, listPage, listQuery],
   );
   const stageDetail = useDashboardData<StageDetailResult | null>(
     () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage })),
@@ -239,6 +253,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const openItemsList = useCallback(
     (kind: "issue" | "pull") => {
       setListPage(0);
+      setListQuery(DEFAULT_QUERY);
       navigate.toPluginPanel(PANEL_PATH, { subPath: kind === "issue" ? "issues" : "pulls" });
     },
     [navigate],
@@ -253,6 +268,14 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [box],
   );
   if (list !== null) {
+    const openBatch = () => {
+      setBatch({ rows: null, error: null });
+      rpc.call("open_items_matching", { kind: list, query: listQuery }).then(
+        ({ rows }) => setBatch((current) => (current === null ? null : { rows, error: null })),
+        (cause) => setBatch((current) => (current === null ? null : { rows: [], error: messageOf(cause) })),
+      );
+    };
+    const heading = describeFilters(list, listQuery);
     return (
       <StartThreadContext.Provider value={startRows}>
         <OpenItemsView
@@ -263,6 +286,32 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           onOpenPerson={openPerson}
           onPage={setListPage}
           onThread={onThread}
+          query={listQuery}
+          onQuery={query}
+          onBatch={openBatch}
+          batch={
+            <BatchDialog
+              kind={list}
+              open={batch !== null}
+              heading={heading}
+              rows={batch?.rows ?? null}
+              error={batch?.error ?? null}
+              projectId={projectId}
+              limit={BATCH_LIMIT}
+              onClose={() => setBatch(null)}
+              onStart={async (rows, request) => {
+                const started = await rpc.call("start_batch", {
+                  kind: list,
+                  title: `${heading}: ${rows.length} ${list === "issue" ? "issues" : "pull requests"}`,
+                  rows: rows.map(({ number, title, url }) => ({ number, title, url })),
+                  request: request as unknown as Record<string, unknown>,
+                });
+                setBatch(null);
+                const failed = started.failed.length === 0 ? "" : `; ${started.failed.length} could not start`;
+                announceStartedThread(navigate, started.threadId, `Started a main thread and ${started.subthreads.length} subthreads${failed}`);
+              }}
+            />
+          }
         />
       </StartThreadContext.Provider>
     );

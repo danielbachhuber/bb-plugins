@@ -14,7 +14,8 @@ import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
-import { openItems } from "./review/open-items.js";
+import { openFacets, openItems, queryOpen } from "./review/open-items.js";
+import { subthreadRequest } from "./components/thread-seed.js";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
@@ -269,24 +270,64 @@ export default async function plugin(bb: BbPluginApi) {
       bb.realtime.publish(DASHBOARD_CHANNEL, { startedAt: Date.now() });
       return { threadId: thread.id };
     },
-    open_items: ({ kind, page }) => {
+    /**
+     * Starts the main thread as start_thread would, then each subthread with
+     * the same request: the provider, model, permission mode, and environment
+     * the user chose in the composer, not bb's defaults. Only the prompt,
+     * title, and parent differ. One at a time, so bb's concurrency limit
+     * queues them in list order; a row that fails is reported, not retried.
+     */
+    start_batch: async ({ kind, title, rows, request }) => {
+      const composed = request as unknown as Parameters<typeof bb.sdk.threads.spawn>[0];
+      const main = await bb.sdk.threads.spawn({ ...composed, title });
+      bb.log.info(`started ${main.id} for a batch of ${rows.length} ${kind}s in ${repository}`);
+      const subthreads: Array<{ number: number; threadId: string }> = [];
+      const failed: Array<{ number: number; error: string }> = [];
+      for (const row of rows) {
+        try {
+          const thread = await bb.sdk.threads.spawn(
+            subthreadRequest(request, kind, row, rows.length, main.id) as unknown as Parameters<typeof bb.sdk.threads.spawn>[0],
+          );
+          store.linkThread(repository, kind, row.number, thread.id);
+          subthreads.push({ number: row.number, threadId: thread.id });
+        } catch (error) {
+          bb.log.warn(`could not start a subthread for ${kind} #${row.number}: ${messageOf(error)}`);
+          failed.push({ number: row.number, error: messageOf(error) });
+        }
+      }
+      bb.realtime.publish(DASHBOARD_CHANNEL, { startedAt: Date.now() });
+      return { threadId: main.id, subthreads, failed };
+    },
+    open_items: ({ kind, page, query }) => {
       if (!configured) {
-        return { repository: null, kind, rows: [], paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, everyone: [], sync: status() };
+        return {
+          repository: null, kind, rows: [], totalOpen: 0, facets: openFacets([], query, Date.now()),
+          paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, everyone: [], sync: status(),
+        };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
       // The finder in the header reads every pull request, whichever kind is listed.
       const prs = store.readActivity(repository, 0);
-      const rows = openItems(kind === "issue" ? store.readIssues(repository, 0) : prs);
+      const now = Date.now();
+      const open = openItems(kind === "issue" ? store.readIssues(repository, 0) : prs);
+      const rows = queryOpen(open, query, now);
       const paging = pageOf(rows.length, page);
       return {
         repository,
         kind,
         rows: withThreads(rows.slice(paging.offset, paging.to), kind),
+        totalOpen: open.length,
+        facets: openFacets(open, query, now),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
         everyone: everyone(prs),
         sync: status(),
       };
+    },
+    open_items_matching: ({ kind, query }) => {
+      if (!configured) return { rows: [] };
+      const open = openItems(kind === "issue" ? store.readIssues(repository, 0) : store.readActivity(repository, 0));
+      return { rows: withThreads(queryOpen(open, query, Date.now()), kind) };
     },
     /**
      * Read on each open rather than cached, so a project added or removed

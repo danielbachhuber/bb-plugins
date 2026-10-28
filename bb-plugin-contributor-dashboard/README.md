@@ -150,8 +150,39 @@ kind open now, at `contributor-dashboard/issues` or
 `contributor-dashboard/pulls`, oldest first, twenty-five to a page. The span
 does not apply there, and the page has no span picker: what is open is open
 today. Each row says who opened it and when, and marks a draft pull request,
-with the actions **A row in a list** describes. It reads the local mirror and
-makes no GitHub calls.
+with the actions **A row in a list** describes.
+
+A toolbar beside the title narrows and orders the list:
+
+- **Sort** by when it was opened, its last activity, its size in lines changed
+  (pull requests only), or its author. Picking the sort already chosen turns
+  it around.
+- **Author** and **Assigned**, each listing the people with a count of what
+  picking them would leave. Assigned also offers **Nobody**.
+- **State**, for pull requests: drafts or ready for review.
+- **Quiet 30+ days**: only the ones with no activity for thirty days.
+
+The server applies all of them, since the list is paged, and any change goes
+back to the first page. The count by the title reads "46 of 132" once a
+filter is on, and the line under the title says in words what is shown and in
+what order.
+
+**Batch**, at the end of the toolbar, opens a dialog with every row the
+filters match, on every page, to tick; shift-click ticks a range. From there,
+**Copy links** writes them as a markdown list, **Open on GitHub** opens the
+first ten in new tabs, and **Start a thread** goes on to bb's composer for one
+main thread, with the ticked rows written into its prompt. Starting it starts
+that thread, then a subthread under it for each row, at most fifty, with the
+row's own Start thread prompt and a line saying to report back to the main
+thread. Each subthread gets the provider, model, permission mode, and
+environment chosen in the composer, so a new worktree gives each its own and
+a project checkout puts them all in the same one. Each subthread is remembered
+on its row, which then shows it as a row's own thread does.
+
+All of it reads the local mirror and makes no GitHub calls. Opening Batch
+reads the matching rows from the server once; starting a batch makes one bb
+thread start for the main thread and one per row, one after another, so bb's
+limit on threads running at once queues the rest.
 
 ### A row in a list
 
@@ -446,7 +477,7 @@ needs no new sync.
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
-| `review/open-items.ts` | The pure read of what is open now, oldest first |
+| `review/open-items.ts` | The pure read of what is open now, and the toolbar's filters, sorts, and counts over it |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
 | `review/trend.ts` | The pure moving average drawn over a person's review bars, and whether the last bucket is still under way |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
@@ -461,14 +492,16 @@ needs no new sync.
 | `components/releases-section.tsx` | The Releases section: one release in full and the rest as rows |
 | `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
-| `components/open-items-view.tsx` | Every open issue or pull request, oldest first |
+| `components/open-items-view.tsx` | Every open issue or pull request, with the toolbar |
+| `components/list-toolbar.tsx` | The open lists' Sort, filter menus, and Batch button, and the line saying what they show |
+| `components/batch-dialog.tsx` | Batch: tick the matching rows, then copy, open, or start a main thread with a subthread for each |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
 | `components/review-chart.tsx` | A person's review bars, their moving averages, and the legend |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
-| `components/thread-seed.ts` | The row a thread starts from, and the prompt it is seeded with |
+| `components/thread-seed.ts` | The row a thread starts from, the prompt it is seeded with, and a batch's main thread and subthreads |
 | `components/person-finder.tsx` | The **Find a person** box in a page's header |
 | `components/period-picker.tsx` | The presets and the date range, which every page shares |
 | `dashboard/remember.ts` | The chosen span and the last screen, kept across opens |
@@ -476,7 +509,7 @@ needs no new sync.
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `person-finder.stories.tsx` | The person finder focused, typed in, on a person's page, and matching nobody |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, a stage's page busy and clear, and the open pull requests and open issues |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, a stage's page busy and clear, and the open pull requests, filtered and in Batch, and open issues |
 
 ## Working on it
 

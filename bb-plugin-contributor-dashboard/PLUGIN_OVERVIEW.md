@@ -9,7 +9,9 @@ by week, and a long one by month. Clicking a name, or finding one in the
 search box at the top, opens that person's page: the pull requests they opened and merged, how each fared in
 review, then their reviews requested and given, as bars with a trend line, and the pull requests waiting on their review.
 Clicking the **Issues** or **Pull requests** heading lists every one open now,
-oldest first, whatever the span.
+whatever the span, to sort and filter by author, assignee, draft, or quiet
+for 30 days. **Batch** ticks rows from everything the filters match and copies
+their links, opens them, or starts one main thread with a subthread for each.
 
 ## How it works
 

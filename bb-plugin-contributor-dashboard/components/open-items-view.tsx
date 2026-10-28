@@ -1,9 +1,12 @@
-// Every open issue or pull request, oldest first, reached from the Issues and
-// Pull requests headings. The period does not apply: open is open now.
-// Display only.
-import type { OpenItemsResult } from "@/dashboard/contract";
+// Every open issue or pull request, reached from the Issues and Pull requests
+// headings, oldest first until the toolbar says otherwise. The period does not
+// apply: open is open now. Display only.
+import type { ReactNode } from "react";
+
+import type { OpenItemsResult, OpenQuery } from "@/dashboard/contract";
 
 import { ItemRow } from "./item-row";
+import { describeQuery, ListToolbar } from "./list-toolbar";
 import { PageHeader } from "./page-header";
 import type { ThreadSeed } from "./thread-seed";
 
@@ -41,6 +44,10 @@ export function OpenItemsView({
   onOpenPerson,
   onPage,
   onThread,
+  query,
+  onQuery,
+  onBatch,
+  batch = null,
   now = Date.now(),
 }: {
   kind: "issue" | "pull";
@@ -51,6 +58,13 @@ export function OpenItemsView({
   onPage: (page: number) => void;
   /** Opens the row's thread, or the composer that starts one. */
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
+  /** How the toolbar narrows and orders the list; the server applies it. */
+  query: OpenQuery;
+  onQuery: (next: OpenQuery) => void;
+  /** Opens Batch over every row the query matches. */
+  onBatch: () => void;
+  /** The Batch dialog, drawn by the page. */
+  batch?: ReactNode;
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
@@ -69,11 +83,18 @@ export function OpenItemsView({
             <>
               {HEADINGS[kind]}
               {shown === null ? null : (
-                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{shown.paging.total}</span>
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
+                  {shown.paging.total === shown.totalOpen ? shown.totalOpen : `${shown.paging.total} of ${shown.totalOpen}`}
+                </span>
               )}
             </>
           }
-          subtitle="Oldest first, whatever span the dashboard shows."
+          subtitle={describeQuery(kind, query)}
+          actions={
+            shown === null ? null : (
+              <ListToolbar kind={kind} query={query} facets={shown.facets} onQuery={onQuery} onBatch={onBatch} batchCount={shown.paging.total} />
+            )
+          }
         />
 
         {message === null ? null : (
@@ -85,7 +106,7 @@ export function OpenItemsView({
         {shown === null ? null : (
           <section className="mt-4" aria-label={HEADINGS[kind]}>
             {shown.rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{EMPTY[kind]}</p>
+              <p className="text-sm text-muted-foreground">{shown.totalOpen === 0 ? EMPTY[kind] : "Nothing open matches the filters."}</p>
             ) : (
               <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                 {shown.rows.map((row) => (
@@ -111,7 +132,8 @@ export function OpenItemsView({
                           </>
                         ) : null}
                         {row.author === null ? "" : `${row.author} · `}
-                        opened {ago(row.createdAt, now)}
+                        {query.sort === "activity" ? `active ${ago(row.updatedAt, now)}` : `opened ${ago(row.createdAt, now)}`}
+                        {query.sort === "size" && row.size !== null ? ` · ${row.size.toLocaleString()} lines` : ""}
                       </span>
                     }
                   />
@@ -135,6 +157,7 @@ export function OpenItemsView({
             )}
           </section>
         )}
+        {batch}
       </div>
     </div>
   );
