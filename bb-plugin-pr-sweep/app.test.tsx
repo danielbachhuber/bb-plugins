@@ -556,10 +556,10 @@ describe("thread action", () => {
     expect(await slot.findByRole("button", { name: "Start thread" })).toHaveAttribute("title", "Review and merge");
   });
 
-  it("offers no start on a row only waiting for a run to finish", async () => {
-    const slot = render(listing({ rows: [rowFixture({ flags: ["ci-pending"], group: "needs-action" })] }));
-    await slot.findAllByRole("link");
-    expect(slot.queryByRole("button", { name: "Start thread" })).toBeNull();
+  it("offers a start on a minimized row with nothing flagged", async () => {
+    const slot = render(listing({ rows: [rowFixture({ flags: [], group: "clean" })] }));
+    fireEvent.click(await slot.findByRole("button", { name: "Expand" }));
+    expect(await slot.findByRole("button", { name: "Start thread" })).toHaveAttribute("title", "Work on this");
   });
 
   it("still offers one when that row is carrying comments", async () => {

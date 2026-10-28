@@ -33,7 +33,7 @@ import {
   usePrefersReducedMotion,
 } from "@/components/ui/loading-graphic";
 import { EmptyGraphic } from "@/components/ui/empty-graphic";
-import { actionSummary, commentsToRead, hasNothingToDo } from "./actions.js";
+import { actionSummary, commentsToRead } from "./actions.js";
 import { relativeTime } from "./format.js";
 import { bannerFor, blockedStageOf, diffOf, reviewersFor } from "./row-status.js";
 import {
@@ -147,7 +147,6 @@ function ThreadAction({
   if (isThreadStarting) return <OpenThreadAction disabled />;
 
   const toRead = commentsToRead(row);
-  if (hasNothingToDo(row.group, row.flags, toRead)) return null;
 
   // Which work the click starts, such as "Resolve conflict", is the title,
   // so the sentence survives for anyone who hovers.

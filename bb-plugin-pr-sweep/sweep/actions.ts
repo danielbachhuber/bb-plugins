@@ -305,19 +305,6 @@ export function isOnlyWaitingOnCi(flags: readonly string[], commentsToRead = 0):
   return commentsToRead === 0 && flags.length === 1 && flags[0] === "ci-pending";
 }
 
-/**
- * True when a row asks nothing of you: no flag worth acting on, and nothing
- * left to read.
- */
-export function hasNothingToDo(
-  group: string,
-  flags: readonly string[],
-  commentsToRead = 0,
-): boolean {
-  if (commentsToRead > 0) return false;
-  return group === "clean" || isOnlyWaitingOnCi(flags);
-}
-
 export function displaySection(
   group: string,
   hasThread: boolean,

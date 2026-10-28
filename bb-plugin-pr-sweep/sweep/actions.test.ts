@@ -8,7 +8,6 @@ import {
   actionSummary,
   commentsToRead,
   displaySection,
-  hasNothingToDo,
   hasOnlyPassiveFlags,
   isOnlyWaitingOnCi,
   worstFlag,
@@ -463,21 +462,6 @@ describe("statusTone", () => {
 
   it("treats an unflagged row as informational", () => {
     expect(statusTone(null)).toBe("info");
-  });
-});
-
-describe("hasNothingToDo", () => {
-  it("is true only when no flag and no reading is left", () => {
-    expect(hasNothingToDo("clean", [], 0)).toBe(true);
-    expect(hasNothingToDo("needs-action", ["ci-pending"], 0)).toBe(true);
-    expect(hasNothingToDo("needs-action", ["conflict"], 0)).toBe(false);
-  });
-
-  it("is false for anything still carrying comments", () => {
-    // #5914: the button was hidden on a row with an open thread and a nit in
-    // the review body, because the only flag was ci-pending.
-    expect(hasNothingToDo("needs-action", ["ci-pending"], 2)).toBe(false);
-    expect(hasNothingToDo("clean", [], 1)).toBe(false);
   });
 });
 
