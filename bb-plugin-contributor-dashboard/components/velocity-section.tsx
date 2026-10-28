@@ -29,7 +29,7 @@ export function VelocitySection({
   rows: readonly VelocityRow[];
   series: SeriesPair;
   buckets: readonly Bucket[];
-  /** What one point counts, which names the peak and the fold. */
+  /** What one bucket counts, which names the peak, the trend, and the fold. */
   unit: BucketUnit;
   /** What to say when nobody did anything in the period. */
   emptyNote: string;
@@ -55,7 +55,7 @@ export function VelocitySection({
           {title}
           <span className="ml-2 font-normal text-muted-foreground">{note}</span>
         </h3>
-        <SeriesLegend series={series} />
+        <SeriesLegend series={series} unit={unit} />
       </div>
 
       {rows.length === 0 ? (

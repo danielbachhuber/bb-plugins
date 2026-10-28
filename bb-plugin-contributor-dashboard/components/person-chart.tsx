@@ -1,10 +1,14 @@
-// One person's small multiple: two lines, a point per day, week, or month,
-// named by the section that draws it. Every card in a section shares one y
-// scale, so people compare honestly, and the card's own peak is written beside
-// the name for the people whose line sits close to the axis on that scale.
+// One person's small multiple: a pair of bars per day, week, or month, with
+// a moving average over each series, named by the section that draws it. The
+// person page's ReviewChart draws the same at full width, with a count on
+// every bar; a card is too narrow for those, so hovering a bucket shows them.
+// Every card in a section shares one y scale, so people compare honestly, and
+// the card's own peak is written beside the name for the people whose bars
+// sit close to the axis on that scale.
 import { useState } from "react";
 
 import type { Bucket, BucketUnit } from "@/dashboard/period";
+import { lastBucketPartial, movingAverage, TREND_LABEL, TREND_WINDOW } from "@/review/trend";
 import { peakOf, type VelocityRow } from "@/review/velocity";
 
 export interface SeriesPair {
@@ -34,15 +38,19 @@ const WIDTH = 240;
 const HEIGHT = 72;
 const PAD_Y = 4;
 
-export function SeriesLegend({ series }: { series: SeriesPair }) {
+export function SeriesLegend({ series, unit }: { series: SeriesPair; unit: BucketUnit }) {
   return (
-    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
       {[series.first, series.second].map((line) => (
         <span key={line.label} className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-3 rounded" style={{ background: line.color }} />
+          <span className="inline-block rounded-sm opacity-60" style={{ width: 9, height: 9, background: line.color }} />
           {line.label}
         </span>
       ))}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block w-3.5 border-t-2 border-current" />
+        {TREND_LABEL[unit]}
+      </span>
     </div>
   );
 }
@@ -56,6 +64,7 @@ export function PersonChart({
   peak = false,
   initialHovered,
   onOpenPerson,
+  now = Date.now(),
 }: {
   person: VelocityRow;
   series: SeriesPair;
@@ -69,16 +78,23 @@ export function PersonChart({
   initialHovered?: number;
   /** Opens their page. Left out on their own page, where the name is a heading. */
   onOpenPerson?: (login: string) => void;
+  /** Decides whether the last bucket is still under way. */
+  now?: number;
 }) {
   const [hovered, setHovered] = useState<number | null>(initialHovered ?? null);
-  const step = buckets.length > 1 ? WIDTH / (buckets.length - 1) : 0;
-  const x = (index: number) => index * step;
-  const y = (value: number) => HEIGHT - PAD_Y - (value / Math.max(1, max)) * (HEIGHT - 2 * PAD_Y);
-  const path = (values: readonly number[]) => values.map((value, index) => `${index ? "L" : "M"}${x(index)},${y(value)}`).join("");
+  const n = buckets.length;
+  const slot = WIDTH / Math.max(1, n);
+  const center = (index: number) => slot * index + slot / 2;
+  const bar = slot * 0.34;
+  const base = HEIGHT - PAD_Y;
+  const y = (value: number) => base - (value / Math.max(1, max)) * (HEIGHT - 2 * PAD_Y);
+  // The bucket under way is faded and left out of the average, as on the person page.
+  const partial = lastBucketPartial(buckets, now);
+  const complete = partial ? n - 1 : n;
   const lines = [
-    { ...series.first, values: person.first, total: person.firstTotal },
-    { ...series.second, values: person.second, total: person.secondTotal },
-  ];
+    { ...series.first, values: person.first, total: person.firstTotal, x: (index: number) => center(index) - bar - slot * 0.02 },
+    { ...series.second, values: person.second, total: person.secondTotal, x: (index: number) => center(index) + slot * 0.02 },
+  ].map((line) => ({ ...line, trend: movingAverage(line.values, TREND_WINDOW[unit], complete) }));
   const counts = lines.map((line) => `${line.total} ${line.label.toLowerCase()}`).join(" · ");
 
   return (
@@ -107,21 +123,38 @@ export function PersonChart({
       <div className="text-xs tabular-nums text-muted-foreground">{counts}</div>
       <div className="relative mt-1.5">
         <svg
-          viewBox={`-3 0 ${WIDTH + 6} ${HEIGHT}`}
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="block h-[72px] w-full overflow-visible"
           preserveAspectRatio="none"
           role="img"
           aria-label={`${person.login}: ${counts}`}
           onMouseLeave={() => setHovered(null)}
         >
-          <line x1={0} x2={WIDTH} y1={HEIGHT - PAD_Y} y2={HEIGHT - PAD_Y} className="stroke-border" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           {hovered === null ? null : (
-            <line x1={x(hovered)} x2={x(hovered)} y1={0} y2={HEIGHT} className="stroke-muted-foreground/40" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            <rect x={slot * hovered} y={0} width={slot} height={HEIGHT} fill="currentColor" fillOpacity={0.06} />
           )}
+          {buckets.map((bucket, index) => (
+            <g key={bucket.start} opacity={index >= complete ? 0.45 : 1}>
+              {lines.map((line) => (
+                <rect
+                  key={line.label}
+                  x={line.x(index)}
+                  y={y(line.values[index])}
+                  width={bar}
+                  height={base - y(line.values[index])}
+                  fill={line.color}
+                  opacity={0.45}
+                />
+              ))}
+            </g>
+          ))}
+          <line x1={0} x2={WIDTH} y1={base} y2={base} className="stroke-border" strokeWidth={1} vectorEffect="non-scaling-stroke" />
           {lines.map((line) => (
             <path
               key={line.label}
-              d={path(line.values)}
+              d={line.trend
+                .map((value, index) => (value === null ? "" : `${index ? "L" : "M"}${line.x(index) + bar / 2},${y(value)}`))
+                .join("")}
               fill="none"
               stroke={line.color}
               strokeWidth={2}
@@ -133,9 +166,9 @@ export function PersonChart({
           {buckets.map((bucket, index) => (
             <rect
               key={bucket.start}
-              x={x(index) - step / 2}
+              x={slot * index}
               y={0}
-              width={Math.max(step, 1)}
+              width={slot}
               height={HEIGHT}
               fill="transparent"
               onMouseEnter={() => setHovered(index)}
@@ -145,10 +178,11 @@ export function PersonChart({
         {hovered === null ? null : (
           <div
             className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm"
-            style={{ left: `${(x(hovered) / WIDTH) * 100}%` }}
+            style={{ left: `${(center(hovered) / WIDTH) * 100}%` }}
           >
             <div className="text-muted-foreground">
               {TOOLTIP_PREFIX[unit]} {buckets[hovered].label}
+              {hovered === n - 1 && partial ? ", so far" : ""}
             </div>
             <div className="tabular-nums">
               {lines.map((line) => `${line.values[hovered]} ${line.label.toLowerCase()}`).join(" · ")}

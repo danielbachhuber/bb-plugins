@@ -249,9 +249,13 @@ more than the words around the buttons.
 At the end of the Pull requests section, two sets of small multiples, one card per person, busiest first. **PR
 velocity** draws the pull requests each person **opened** and the ones that
 **merged**; **Review velocity** draws the reviews **requested** of them and the
-ones they **gave**. Both totals for the period sit beneath the name, and the
-card's busiest bucket is written beside it as its peak. Hovering a point shows
-its counts.
+ones they **gave**. Each card draws a pair of bars per day, week, or month,
+one for each count, with a moving average over each pair's bars: over seven
+days, or three weeks or months. Both totals for the period sit beneath the
+name, and the card's busiest bucket is written beside it as its peak. A card
+is too narrow for a count on every bar, so hovering a bucket shows its counts.
+The bucket under way is faded, says "so far" when hovered, and is left out of
+the averages, so its short count does not bend them down.
 
 Each section opens with one chart for everyone together. Time runs left to
 right, and each day, week, or month has two bars, as tall as their counts:
@@ -283,7 +287,8 @@ team counts for whoever picked it up; a team request nobody picked up counts
 for no one. The bucket under way says "so far". With more than ten buckets,
 such as two weeks drawn by day, the lines under the buckets are left out.
 
-The legend for each person's two lines sits beside the per-person heading.
+The legend for each person's bars and averages sits beside the per-person
+heading.
 
 Neither pair of totals is a share of the other. A person can review a pull
 request nobody asked them to, so reviews given often outnumber reviews
@@ -291,11 +296,12 @@ requested, and a pull request counts as merged in the bucket it merged in
 rather than the one it was opened in, so a bucket can merge more than it
 opened.
 
-Every card in a section shares one scale, so a busy person's lines sit higher
+Every card in a section shares one scale, so a busy person's bars stand taller
 than a quiet one's. That leaves a problem on a repository where three people do
-most of the work: a line under a tenth of the scale is a few pixels off the
-axis whatever its shape. Those people fold into rows of names and counts under
-the cards, still clickable, and **Show all** draws everyone.
+most of the work: a person whose busiest bucket is under a tenth of the scale
+has bars a few pixels high whatever their shape. Those people fold into rows
+of names and counts under the cards, still clickable, and **Show all** draws
+everyone.
 
 What counts in PR velocity:
 
