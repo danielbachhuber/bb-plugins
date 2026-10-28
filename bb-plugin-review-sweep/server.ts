@@ -96,9 +96,10 @@ export default async function plugin(bb: BbPluginApi) {
     providerId: {
       type: "string",
       label: "Provider for spawned threads",
-      // `code-review` is a Claude Code command, so it is invisible to a thread
-      // running on any other provider, which would improvise a review instead
-      // of following it. Blank falls back to bb's default.
+      // `review-pull-request` is a Claude Code user skill, in ~/.claude/skills,
+      // so it is invisible to a thread running on any other provider, which
+      // would improvise a review instead of following it. Blank falls back to
+      // bb's default.
       default: "claude-code",
     },
   });

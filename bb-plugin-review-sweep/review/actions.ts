@@ -5,14 +5,13 @@ import { ageInDays, sizeBucket, type ChangeSize, type ReviewState } from "./type
  * there is nothing to route: every row is "read this diff and tell me what you
  * find".
  *
- * Naming it is not enough on its own. Two commands answer to `code-review` on
- * this machine — the built-in one, which posts only when passed `--comment`,
- * and the claude-plugins-official one, whose last step posts a `gh pr comment`
- * unconditionally. Which one a spawned thread resolves is not something this
- * plugin controls, so `buildPrompt` states the no-posting constraint outright
- * rather than relying on picking the right skill.
+ * `review-pull-request` loads `review-code`, which ranks the findings and
+ * offers a choice per finding: file an issue, add it to my pending review as a
+ * draft inline comment, or fix it in a pull request against this one. It never
+ * submits a review itself, and `buildPrompt` still states the no-posting rule
+ * outright, so the rule holds whatever a later version of the skill does.
  */
-export const REVIEW_SKILL = "code-review";
+export const REVIEW_SKILL = "review-pull-request";
 
 export const ACTION_LABELS: Record<ReviewState, string> = {
   "first-look": "Review",
