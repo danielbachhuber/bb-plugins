@@ -327,7 +327,12 @@ already shown and switches to anyone else. It shows:
   follow-up reviews it needed, and the time to merge or how long it has been
   open. Ten to a page, since an active author can have a few hundred
   in a year; the server sends one page at a time.
-- **Reviews**, their two lines from Review Velocity drawn full width.
+- **Reviews**: a pair of bars per bucket, the reviews requested of them and
+  the reviews they gave, on the same buckets as the chart above. A line over
+  each pair of bars is its moving average over the last 7 days, 3 weeks, or 3
+  months, by bucket size, averaging fewer at the start of the span. The bucket
+  still under way is drawn faded and left out of the average, since its count
+  is short.
 - **Waiting on their review**: open pull requests whose latest review request
   naming them has not been withdrawn and which they have not reviewed since,
   longest wait first. Only requests that name the person: a request made of a
@@ -436,6 +441,7 @@ needs no new sync.
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, oldest first |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
+| `review/trend.ts` | The pure moving average drawn over a person's review bars, and whether the last bucket is still under way |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
 | `review/reviews.ts` | Which reviews count, and how a reviewer's replies in one day collapse into one round |
 | `review/business-time.ts` | Elapsed time with weekends left out |
@@ -452,6 +458,7 @@ needs no new sync.
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
+| `components/review-chart.tsx` | A person's review bars, their moving averages, and the legend |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
 | `components/thread-seed.ts` | The row a thread starts from, and the prompt it is seeded with |

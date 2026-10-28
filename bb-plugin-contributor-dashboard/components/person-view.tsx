@@ -1,16 +1,15 @@
 // One person's page: their own pull requests, as opened and merged lines and
-// then the list of how each fared, followed by their review lines and the pull
+// then the list of how each fared, followed by their review bars and the pull
 // requests waiting on their review. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
-import { reviewerRow } from "@/review/velocity";
 
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
 import { PullRequestFlowChart } from "./flow-chart";
-import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
+import { ReviewChart, ReviewLegend } from "./review-chart";
 
 /**
  * A review that landed in 50 minutes is not "0.0d", so anything under a
@@ -202,18 +201,19 @@ export function PersonView({
                 <h2 id="person-reviews" className="text-base font-semibold">
                   Reviews
                 </h2>
-                <SeriesLegend series={REVIEW_SERIES} />
+                <ReviewLegend unit={unitOfBuckets(data.buckets)} />
               </div>
               {data.activity === null ? (
                 <p className="mt-3 text-sm text-muted-foreground">No review requests or reviews in this period.</p>
               ) : (
                 <div className="mt-3">
-                  <PersonChart
-                    person={reviewerRow(data.activity)}
-                    series={REVIEW_SERIES}
+                  <ReviewChart
+                    login={login}
+                    requested={data.activity.requested}
+                    given={data.activity.given}
                     buckets={data.buckets}
-                    max={Math.max(1, ...data.activity.requested, ...data.activity.given)}
                     unit={unitOfBuckets(data.buckets)}
+                    now={now}
                   />
                 </div>
               )}
