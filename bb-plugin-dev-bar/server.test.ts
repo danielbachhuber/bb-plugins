@@ -6,6 +6,7 @@ import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/tes
 import plugin from "./server";
 
 const ARCHIVED = makeThreadResponse({ id: "thr_one", environmentId: "env_one", archivedAt: 1_700_000_000_000 });
+const DELETED = makeThreadResponse({ id: "thr_one", environmentId: "env_one", deletedAt: 1_700_000_000_000 });
 
 /** A checkout whose stop command appends each id it stops to stopped.log. */
 function checkout(): string {
@@ -28,12 +29,17 @@ function checkout(): string {
   return root;
 }
 
-async function archive(root: string, liveThreads: string[]) {
+async function end(event: "thread.archived" | "thread.deleted", root: string, liveThreads: string[]) {
+  const thread = event === "thread.archived" ? ARCHIVED : DELETED;
   const { bb, harness } = createFakePluginHost({
     pluginId: "dev-bar",
     sdk: {
       threads: {
-        get: async () => ARCHIVED,
+        // bb answers 404 for a deleted thread, so the plugin has to use the event's copy.
+        get: async () => {
+          if (event === "thread.deleted") throw new Error("Thread not found");
+          return thread;
+        },
         list: async () => liveThreads.map((id) => makeThreadResponse({ id, environmentId: "env_one" })),
       },
       environments: {
@@ -42,20 +48,23 @@ async function archive(root: string, liveThreads: string[]) {
     },
   });
   await plugin(bb);
-  return harness.emitThreadEvent("thread.archived", { thread: ARCHIVED });
+  return harness.emitThreadEvent(event, { thread });
 }
 
-describe("archiving a thread", () => {
+describe.each([
+  ["archiving", "thread.archived"],
+  ["deleting", "thread.deleted"],
+] as const)("%s a thread", (_, event) => {
   it("stops the running services when it was the checkout's last live thread", async () => {
     const root = checkout();
-    const { errors } = await archive(root, []);
+    const { errors } = await end(event, root, []);
     expect(errors).toEqual([]);
     expect(readFileSync(join(root, "stopped.log"), "utf8")).toBe("web\nworker\n");
   });
 
   it("leaves them running while another thread uses the checkout", async () => {
     const root = checkout();
-    await archive(root, ["thr_two"]);
+    await end(event, root, ["thr_two"]);
     expect(existsSync(join(root, "stopped.log"))).toBe(false);
   });
 });

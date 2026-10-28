@@ -25,6 +25,9 @@ interface ThreadLike {
   environmentId?: string | null;
 }
 
+/** A thread, or its id when the caller does not have the thread. */
+type ThreadRef = string | ThreadLike;
+
 interface EnvironmentLike {
   path?: string | null;
 }
@@ -47,9 +50,16 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  /** The checkout a thread runs in and its bb project; root is null when it has no checkout on this machine. */
-  async function checkoutFor(threadId: string): Promise<{ root: string | null; projectId: string | null }> {
-    const thread = (await bb.sdk.threads.get({ threadId })) as unknown as ThreadLike;
+  /**
+   * The checkout a thread runs in and its bb project; root is null when it has
+   * no checkout on this machine. Takes the thread itself when the caller has
+   * it, since bb no longer returns a deleted thread by id.
+   */
+  async function checkoutFor(threadRef: ThreadRef): Promise<{ root: string | null; projectId: string | null }> {
+    const thread =
+      typeof threadRef === "string"
+        ? ((await bb.sdk.threads.get({ threadId: threadRef })) as unknown as ThreadLike)
+        : threadRef;
     const projectId = thread.projectId ?? null;
     if (!thread.environmentId) return { root: null, projectId };
     try {
@@ -62,8 +72,8 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  async function load(threadId: string): Promise<Loaded> {
-    const { root, projectId } = await checkoutFor(threadId);
+  async function load(thread: ThreadRef): Promise<Loaded> {
+    const { root, projectId } = await checkoutFor(thread);
     if (!root) return { kind: "none" };
     const inCheckout = await readCheckoutManifests(root).catch(() => ({ committed: null, local: null }));
     const saved = projectId ? ((await bb.storage.kv.get<string>(projectKey(projectId))) ?? null) : null;
@@ -85,8 +95,8 @@ export default async function plugin(bb: BbPluginApi) {
    */
   const inFlight = new Map<string, Promise<Strip>>();
 
-  async function strip(threadId: string): Promise<Strip> {
-    const loaded = await load(threadId);
+  async function strip(thread: ThreadRef): Promise<Strip> {
+    const loaded = await load(thread);
     if (loaded.kind === "none") return { kind: "none" };
     if (loaded.kind === "failed") {
       return { kind: "services", source: loaded.source, services: [], actions: [], failure: loaded.failure };
@@ -118,8 +128,8 @@ export default async function plugin(bb: BbPluginApi) {
     return pending;
   }
 
-  async function run(threadId: string, target: RunTarget): Promise<Failure | null> {
-    const loaded = await load(threadId);
+  async function run(thread: ThreadRef, target: RunTarget): Promise<Failure | null> {
+    const loaded = await load(thread);
     if (loaded.kind === "none") throw new Error("This thread's checkout has no Dev Bar manifest.");
     if (loaded.kind === "failed") return loaded.failure;
     const { root, manifest } = loaded;
@@ -151,37 +161,42 @@ export default async function plugin(bb: BbPluginApi) {
     return null;
   }
 
-  /** Environments whose services are being stopped, so a cascade archive stops them once. */
+  /** Environments whose services are being stopped, so a cascade archive or delete stops them once. */
   const stopping = new Set<string>();
 
   /**
    * Stops the checkout's running services once its last live thread is
-   * archived. Threads still working in the checkout may be using them, so
-   * archiving one of several leaves them running.
+   * archived or deleted. Threads still working in the checkout may be using
+   * them, so archiving one of several leaves them running.
    */
-  async function stopOnArchive(thread: { id: string; environmentId?: string | null }): Promise<void> {
+  async function stopWhenLastThreadEnds(thread: { id: string; environmentId?: string | null }, ended: string): Promise<void> {
     const environmentId = thread.environmentId;
     if (!environmentId || stopping.has(environmentId)) return;
     stopping.add(environmentId);
     try {
       const live = await bb.sdk.threads.list({ environmentId, archived: false, includeHidden: true, limit: 1 });
       if (live.length > 0) return;
-      const current = await strip(thread.id);
+      const current = await strip(thread);
       if (current.kind !== "services" || current.failure) return;
       for (const id of servicesToStop(current.services)) {
-        const failure = await run(thread.id, { kind: "service", verb: "stop", id });
-        if (failure) bb.log.warn(`stop ${id} after archiving ${thread.id} failed: ${failure.output}`);
+        const failure = await run(thread, { kind: "service", verb: "stop", id });
+        if (failure) bb.log.warn(`stop ${id} after ${ended} ${thread.id} failed: ${failure.output}`);
       }
     } finally {
       stopping.delete(environmentId);
     }
   }
 
-  bb.events.on("thread.archived", async ({ thread }) => {
-    await stopOnArchive(thread).catch((error) =>
-      bb.log.warn(`stopping services after archiving ${thread.id} failed: ${error instanceof Error ? error.message : String(error)}`),
-    );
-  });
+  for (const [event, ended] of [
+    ["thread.archived", "archiving"],
+    ["thread.deleted", "deleting"],
+  ] as const) {
+    bb.events.on(event, async ({ thread }) => {
+      await stopWhenLastThreadEnds(thread, ended).catch((error) =>
+        bb.log.warn(`stopping services after ${ended} ${thread.id} failed: ${error instanceof Error ? error.message : String(error)}`),
+      );
+    });
+  }
 
   bb.rpc.register(rpcContract, {
     strip: ({ threadId }) => strip(threadId),
