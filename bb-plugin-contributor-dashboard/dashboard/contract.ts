@@ -16,8 +16,11 @@ export const bucketSchema = z.object({ start: z.number(), end: z.number(), label
 export const personActivitySchema = z.object({
   login: z.string(),
   requested: z.array(z.number()),
+  /** The part of `requested` made of a team they then reviewed for. */
+  pickedUp: z.array(z.number()),
   given: z.array(z.number()),
   requestedTotal: z.number(),
+  pickedUpTotal: z.number(),
   givenTotal: z.number(),
 });
 
@@ -43,6 +46,31 @@ export const awaitingReviewSchema = z.object({
   ...rowOwnershipSchema,
   requestedAt: z.string(),
   waitingDays: z.number(),
+});
+
+/** An open pull request waiting on a team the person is in, nobody started. See review/teams.ts. */
+export const teamAwaitingSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  ...rowOwnershipSchema,
+  teams: z.array(z.string()),
+  /** People asked by name who have not reviewed yet. */
+  named: z.array(z.string()),
+  requestedAt: z.string(),
+  waitingDays: z.number(),
+});
+
+/** One team's review requests over the period, and who picked them up. */
+export const teamActivitySchema = z.object({
+  slug: z.string(),
+  requested: z.number(),
+  pickedUp: z.number(),
+  median: z.number(),
+  p90: z.number(),
+  waiting: z.number(),
+  pickups: z.array(z.object({ login: z.string(), count: z.number() })),
 });
 
 export const authoredPullRequestSchema = z.object({
@@ -126,6 +154,15 @@ export const stageKeySchema = z.enum(["triage", "ownership", "implement", "prepa
 /** Every stage key, in flow order; `app.tsx` matches sub-paths against these. */
 export const STAGE_KEYS = stageKeySchema.options;
 
+export const stagePartSchema = z.object({
+  left: z.number(),
+  waiting: z.number(),
+  median: z.number(),
+  p75: z.number(),
+  p90: z.number(),
+  weekly: z.array(z.number()),
+});
+
 export const stageSummarySchema = z.object({
   key: stageKeySchema,
   label: z.string(),
@@ -137,6 +174,10 @@ export const stageSummarySchema = z.object({
   p75: z.number(),
   p90: z.number(),
   weekly: z.array(z.number()),
+  /** Code review only: the same measures where only a team was asked, and where someone was asked by name. */
+  byAsked: z
+    .object({ team: stagePartSchema, person: stagePartSchema })
+    .optional(),
 });
 
 export const stageSpanSchema = z.object({
@@ -253,6 +294,10 @@ export const rpcContract = defineRpcContract({
       velocity: z.object({ merge: bucketFlowsSchema, review: bucketFlowsSchema }),
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
+      /** Every team asked for a review in the period, most asked first. */
+      teams: z.array(teamActivitySchema),
+      /** The organization the team slugs belong to, for their names. */
+      organization: z.string().nullable(),
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
       sync: syncStatusSchema,
@@ -276,6 +321,10 @@ export const rpcContract = defineRpcContract({
       /** Null when the person has no review activity in the period. */
       activity: personActivitySchema.nullable(),
       awaiting: z.array(awaitingReviewSchema),
+      /** Open pull requests waiting on a team they are in, with no review since, longest wait first. */
+      teamAwaiting: z.array(teamAwaitingSchema),
+      /** The organization the team slugs belong to, for their names. */
+      organization: z.string().nullable(),
       /** One page of their pull requests, as the toolbar narrows and orders them. */
       authored: z.array(authoredPullRequestSchema),
       /** All of their pull requests in the period, before the state filter. */
@@ -437,6 +486,8 @@ export type MinorRelease = z.infer<typeof minorReleaseSchema>;
 export type OlderReleases = z.infer<(typeof rpcContract)["older_releases"]["output"]>;
 export type FlowCounts = z.infer<typeof flowCountsSchema>;
 export type StageSummary = z.infer<typeof stageSummarySchema>;
+export type TeamAwaiting = z.infer<typeof teamAwaitingSchema>;
+export type TeamActivity = z.infer<typeof teamActivitySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;

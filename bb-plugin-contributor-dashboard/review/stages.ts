@@ -5,7 +5,7 @@
 // inside the period contributes a duration; one still inside the stage is
 // waiting, and contributes its age instead. Durations are business days, so a
 // weekend does not read as two days of delay.
-import type { IssueWithActivity, PullRequestWithActivity, TimelineItem } from "../mirror/github.js";
+import { isBot, type IssueWithActivity, type PullRequestWithActivity, type TimelineItem } from "../mirror/github.js";
 
 import { businessDaysBetween } from "./business-time.js";
 import { countedReviews } from "./reviews.js";
@@ -77,6 +77,11 @@ export interface StageSpan {
   endedAt: string | null;
   /** Business days from `startedAt` to `endedAt`, or to now while it waits. */
   days: number;
+  /**
+   * Code review only: whether anyone was asked by name before the review, or
+   * only a team was.
+   */
+  askedOf?: "team" | "person";
 }
 
 type RequestEvent = Extract<TimelineItem, { __typename: "ReviewRequestedEvent" | "ReviewRequestRemovedEvent" }>;
@@ -111,6 +116,24 @@ function firstRequestAfter(pr: PullRequestWithActivity, from: string): string | 
     (item): item is RequestEvent => item.__typename === "ReviewRequestedEvent" && item.createdAt >= from,
   );
   return asked?.createdAt ?? null;
+}
+
+/**
+ * Whether a person was asked by name between the first request and the
+ * review, or until now while it waits. A bot asked by name does not count:
+ * it is not who the team request is waiting on.
+ */
+function askedOf(pr: PullRequestWithActivity, from: string, to: string | null): "team" | "person" {
+  const named = pr.timelineItems.some(
+    (item) =>
+      item.__typename === "ReviewRequestedEvent" &&
+      item.createdAt >= from &&
+      (to === null || item.createdAt < to) &&
+      item.requestedReviewer !== null &&
+      "login" in item.requestedReviewer &&
+      !isBot(item.requestedReviewer),
+  );
+  return named ? "person" : "team";
 }
 
 /** The first approval that was not later dismissed, oldest first. */
@@ -226,6 +249,7 @@ export function stageSpans(stage: StageKey, input: StageInput, now: number): Sta
             ? null
             : (countedReviews(pr).find((review) => review.submittedAt! > asked)?.submittedAt ?? null);
         made = span(pr, asked, reviewed, now, pr.state === "OPEN" && !pr.isDraft && reviewed === null);
+        if (made !== null) made.askedOf = askedOf(pr, made.startedAt, reviewed);
         break;
       }
       case "decision": {
@@ -301,6 +325,21 @@ export interface StageSummary extends StageDefinition {
   p90: number;
   /** The median of what left in each bucket; 0 where nothing did. */
   weekly: number[];
+  /**
+   * Code review only: the same measures for pull requests where only a team
+   * was asked, and where someone was asked by name.
+   */
+  byAsked?: { team: StagePart; person: StagePart };
+}
+
+/** A stage's measures over a subset of its spans. */
+export interface StagePart {
+  left: number;
+  waiting: number;
+  median: number;
+  p75: number;
+  p90: number;
+  weekly: number[];
 }
 
 /** What the stage's own page shows. */
@@ -324,17 +363,12 @@ interface Window {
 const endedIn = (span: StageSpan, from: number, to: number) =>
   span.endedAt !== null && Date.parse(span.endedAt) >= from && Date.parse(span.endedAt) < to;
 
-function summarise(
-  definition: StageDefinition,
-  spans: readonly StageSpan[],
-  buckets: readonly Window[],
-): StageSummary & { finished: StageSpan[]; waitingSpans: StageSpan[] } {
+function part(spans: readonly StageSpan[], buckets: readonly Window[]): StagePart & { finished: StageSpan[]; waitingSpans: StageSpan[] } {
   const from = buckets[0]?.start ?? 0;
   const to = buckets.at(-1)?.end ?? Infinity;
   const finished = spans.filter((span) => endedIn(span, from, to));
   const waitingSpans = spans.filter((span) => span.endedAt === null);
   return {
-    ...definition,
     ...percentilesOf(finished.map((span) => span.days)),
     left: finished.length,
     waiting: waitingSpans.length,
@@ -346,6 +380,24 @@ function summarise(
     ),
     finished,
     waitingSpans,
+  };
+}
+
+function summarise(
+  definition: StageDefinition,
+  spans: readonly StageSpan[],
+  buckets: readonly Window[],
+): StageSummary & { finished: StageSpan[]; waitingSpans: StageSpan[] } {
+  const whole = part(spans, buckets);
+  if (definition.key !== "review") return { ...definition, ...whole };
+  const strip = ({ finished: _f, waitingSpans: _w, ...measures }: ReturnType<typeof part>): StagePart => measures;
+  return {
+    ...definition,
+    ...whole,
+    byAsked: {
+      team: strip(part(spans.filter((span) => span.askedOf === "team"), buckets)),
+      person: strip(part(spans.filter((span) => span.askedOf === "person"), buckets)),
+    },
   };
 }
 

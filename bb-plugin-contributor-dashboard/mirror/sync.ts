@@ -12,9 +12,11 @@ import {
   MORE_TIMELINE_QUERY,
   PULL_REQUESTS_QUERY,
   RELEASES_QUERY,
+  TEAMS_QUERY,
   type Connection,
   type IssueNode,
   type IssueTimelineItem,
+  type OrganizationTeam,
   type PullRequestNode,
   type PullRequestReview,
   type Release,
@@ -45,6 +47,8 @@ export interface SyncResult {
   issues: number;
   /** Releases stored in this run, new or changed. */
   releases: number;
+  /** Teams read, or null when the repository's owner is not an organization this login can read. */
+  teams: number | null;
   /** GraphQL calls made. */
   calls: number;
 }
@@ -55,6 +59,10 @@ interface PullRequestsPage {
 
 interface ReleasesPage {
   repository: { releases: Connection<Release> } | null;
+}
+
+interface TeamsPage {
+  organization: { teams: Connection<OrganizationTeam> } | null;
 }
 
 interface IssuesPage {
@@ -74,7 +82,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const pageSize = options.pageSize ?? 50;
   const [owner, name] = repository.split("/");
   const state: SyncState = store.syncState(repository);
-  const result: SyncResult = { pullRequests: 0, issues: 0, releases: 0, calls: 0 };
+  const result: SyncResult = { pullRequests: 0, issues: 0, releases: 0, teams: null, calls: 0 };
 
   async function call(text: string, variables: Record<string, string | number | null>) {
     signal?.throwIfAborted();
@@ -160,6 +168,32 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
     }
   }
 
+  /**
+   * Every team in the owner's organization, with its members, replaced whole
+   * each sync: one call for up to 100 teams. A repository owned by a person,
+   * or a login without permission to read the organization's teams, keeps
+   * whatever was stored and leaves team requests unattributed rather than
+   * failing the sync.
+   */
+  async function syncTeams() {
+    const teams = new Map<string, string[]>();
+    try {
+      for (let after: string | null = null; ; ) {
+        const data = (await call(TEAMS_QUERY, { owner, after })) as TeamsPage;
+        if (data.organization === null) return;
+        const { nodes, pageInfo } = data.organization.teams;
+        for (const team of nodes) teams.set(team.slug, team.members.nodes.map((member) => member.login));
+        if (!pageInfo.hasNextPage) break;
+        after = pageInfo.endCursor;
+      }
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      return;
+    }
+    store.replaceTeams(repository, teams);
+    result.teams = teams.size;
+  }
+
   const newest = <T extends { updatedAt: string }>(nodes: readonly T[], floor: string | null) =>
     nodes.reduce<string | null>((max, node) => (max === null || node.updatedAt > max ? node.updatedAt : max), floor);
 
@@ -204,6 +238,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   await run<PullRequestNode>({ state, page, keep });
   await run<IssueNode>({ state: state.issues, page: issuePage, keep: keepIssues });
   await syncReleases();
+  await syncTeams();
 
   state.syncedAt = now();
   store.saveSyncState(repository, state);

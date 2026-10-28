@@ -93,6 +93,14 @@ export const MIGRATIONS = [
   // Pull requests gained size, merge commit, body, and closing issues. Running
   // the backfill again gives the rows already stored those fields too.
   `UPDATE sync_state SET backfill_done = 0, backfill_cursor = NULL`,
+  // The organization's teams and their members, replaced whole on each sync,
+  // so a review request made of a team can be shown to the people on it.
+  `CREATE TABLE IF NOT EXISTS teams (
+     repository TEXT NOT NULL,
+     slug TEXT NOT NULL,
+     members TEXT NOT NULL,
+     PRIMARY KEY (repository, slug)
+   )`,
 ];
 
 /** One object type's progress through the repository. */
@@ -204,6 +212,9 @@ export function createStore(db: Database) {
   );
   const selectReleases = db.prepare(`SELECT data FROM releases WHERE repository = ? ORDER BY created_at DESC`);
   const countReleases = db.prepare(`SELECT COUNT(*) AS n FROM releases WHERE repository = ?`);
+  const deleteTeams = db.prepare(`DELETE FROM teams WHERE repository = ?`);
+  const insertTeam = db.prepare(`INSERT INTO teams (repository, slug, members) VALUES (?, ?, ?)`);
+  const selectTeams = db.prepare(`SELECT slug, members FROM teams WHERE repository = ?`);
 
   const writeIssueItems = (issueId: string, items: readonly IssueTimelineItem[]) => {
     for (const item of items) upsertIssueItem.run(item.id, issueId, JSON.stringify(item));
@@ -355,6 +366,18 @@ export function createStore(db: Database) {
         },
         syncedAt: row?.synced_at ?? null,
       };
+    },
+
+    /** Replaces the repository's teams with these. */
+    replaceTeams: db.transaction((repository: string, teams: ReadonlyMap<string, readonly string[]>) => {
+      deleteTeams.run(repository);
+      for (const [slug, members] of teams) insertTeam.run(repository, slug, JSON.stringify(members));
+    }),
+
+    /** Each team's members by slug; empty until a sync has read them. */
+    readTeams(repository: string): Map<string, string[]> {
+      const rows = selectTeams.all(repository) as Array<{ slug: string; members: string }>;
+      return new Map(rows.map((row) => [row.slug, JSON.parse(row.members) as string[]]));
     },
 
     saveSyncState(repository: string, state: SyncState): void {

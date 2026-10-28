@@ -278,3 +278,25 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
     }
   }
 }`;
+
+/** A team in the repository's organization, and everyone on it. */
+export interface OrganizationTeam {
+  slug: string;
+  members: { nodes: Actor[] };
+}
+
+/**
+ * One page of the organization's teams, each with its members, including the
+ * members of its child teams, since a review request to a parent team reaches
+ * them too. One call covers 100 teams of up to 100 people each; a member past
+ * the hundredth is left out.
+ */
+export const TEAMS_QUERY = `
+query($owner: String!, $after: String) {
+  organization(login: $owner) {
+    teams(first: 100, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      nodes { slug members(first: 100, membership: ALL) { nodes { login } } }
+    }
+  }
+}`;

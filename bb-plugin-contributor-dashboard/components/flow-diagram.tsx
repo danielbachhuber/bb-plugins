@@ -29,6 +29,13 @@ const COLUMNS = [
 const HEIGHT = 360;
 const BOX = 58;
 
+/**
+ * Pull requests in Code review where only a team was asked, which nobody is
+ * named for. Drawn as a fourth line in the box, so the box grows to hold it.
+ */
+const teamOnly = (stage: StageSummary | undefined): number => stage?.byAsked?.team.waiting ?? 0;
+const TEAM_LINE = 16;
+
 function StepBox({
   x,
   y,
@@ -43,18 +50,19 @@ function StepBox({
   onOpen: (key: StageKey) => void;
 }) {
   if (stage === undefined) return null;
+  const onTeam = teamOnly(stage);
   return (
     <g
       role="button"
       tabIndex={0}
-      aria-label={`${stage.label}: ${stage.waiting} waiting, half within ${days(stage.median)}`}
+      aria-label={`${stage.label}: ${stage.waiting} waiting${onTeam === 0 ? "" : `, ${onTeam} asked of a team only`}, half within ${days(stage.median)}`}
       onClick={() => onOpen(stage.key)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") onOpen(stage.key);
       }}
       className="cursor-pointer [&:hover>rect]:stroke-[#2a78d6]"
     >
-      <rect x={x} y={y} width={w} height={BOX} rx={7} fill={CARD} stroke={INK} strokeOpacity={0.2} />
+      <rect x={x} y={y} width={w} height={BOX + (onTeam === 0 ? 0 : TEAM_LINE)} rx={7} fill={CARD} stroke={INK} strokeOpacity={0.2} />
       <text x={x + 9} y={y + 16} fontSize={11.5} fontWeight={600} fill={INK}>
         {stage.label}
       </text>
@@ -76,6 +84,11 @@ function StepBox({
           </>
         )}
       </text>
+      {onTeam === 0 ? null : (
+        <text x={x + 9} y={y + 66} fontSize={10.5} fontWeight={600} fill={AMBER}>
+          {onTeam} on a team only
+        </text>
+      )}
     </g>
   );
 }
@@ -152,6 +165,8 @@ export function FlowDiagram({
 }) {
   const stage = (key: StageKey) => stages.find((candidate) => candidate.key === key);
   const { issues, pullRequests: prs } = flow;
+  // Code review's box grows by a line when some of it waits on a team only.
+  const reviewGrows = teamOnly(stage("review")) === 0 ? 0 : TEAM_LINE;
   // One scale for both rows, so a line's width compares across them.
   const scale = Math.max(issues.opened, prs.opened);
   const issuesClosed = issues.closedAssigned + issues.closedPlanned + issues.closedUntriaged;
@@ -278,7 +293,7 @@ export function FlowDiagram({
           ly={180}
         />
         <Edge
-          d="M 610 283 C 610 330, 370 330, 366 283"
+          d={`M 610 ${283 + reviewGrows} C 610 330, 370 330, 366 283`}
           count={prs.changesRequested}
           scale={scale}
           tone={AMBER}

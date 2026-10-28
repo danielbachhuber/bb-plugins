@@ -8,6 +8,10 @@ of them and the reviews they gave. A short span is drawn by day, a medium one
 by week, and a long one by month. Clicking a name, or finding one in the
 search box at the top, opens that person's page: the pull requests they opened and merged, how each fared in
 review, then their reviews requested and given, as bars with a trend line, and the pull requests waiting on their review.
+Reviews requested of a team, as a CODEOWNERS file asks for them, show where
+nobody has picked them up: on the overview's Code review step, in a row per
+team under Review velocity with who on it picks up its reviews, and on a
+person's page as the pull requests waiting on their teams.
 Clicking the **Issues** or **Pull requests** heading lists every one open now,
 whatever the span, to sort and filter by author, assignee, draft, or quiet
 for 30 days. **Batch** ticks rows from everything the filters match and copies

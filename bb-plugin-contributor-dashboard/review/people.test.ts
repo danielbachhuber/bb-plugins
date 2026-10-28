@@ -128,3 +128,14 @@ describe("peopleActivity", () => {
     expect(logins).toEqual(["Hubber", "mona", "yeti"]);
   });
 });
+
+describe("peopleActivity, picked up for a team", () => {
+  it("counts a team request someone picked up as requested of them, and as picked up", () => {
+    const people = byLogin([
+      pr([review("hubber", "2026-10-01T15:00:00Z")], [requested({ slug: "reviewers" }, "2026-10-01T09:00:00Z")]),
+      pr([review("hubber", "2026-10-01T15:00:00Z")], [requested({ login: "hubber" }, "2026-10-01T09:00:00Z")]),
+    ]);
+    expect(people.hubber).toMatchObject({ requestedTotal: 2, pickedUpTotal: 1 });
+    expect(people.hubber.pickedUp.at(-2)).toBe(1);
+  });
+});

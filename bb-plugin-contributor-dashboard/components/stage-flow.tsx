@@ -1,10 +1,13 @@
 // The flow of stages at the top of the dashboard: one row per stage, how many
 // are in it now, how long it takes, and which way that is moving.
+import { Fragment } from "react";
+
 import type { StageKey, StageSummary } from "@/dashboard/contract";
 import type { BucketUnit } from "@/dashboard/period";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const NUMBER = "text-[#2a78d6] dark:text-[#3987e5]";
+const WARN = "text-[#b4530a] dark:text-[#e59a3a]";
 
 /** Hours under a day and minutes under an hour, so nothing reads as "0.0d". */
 export function days(value: number): string {
@@ -54,8 +57,69 @@ const GROUPS: ReadonlyArray<{ source: StageSummary["source"]; title: string; cov
 ];
 
 /** How long the longest p90 in a group is, rounded up to a readable figure. */
+type StagePart = NonNullable<StageSummary["byAsked"]>["team"];
+
 function scaleOf(stages: readonly StageSummary[]): number {
-  return Math.max(0.5, ...stages.map((stage) => stage.p90));
+  return Math.max(
+    0.5,
+    ...stages.flatMap((stage) => [stage.p90, stage.byAsked?.team.p90 ?? 0, stage.byAsked?.person.p90 ?? 0]),
+  );
+}
+
+/** One line of the table: a stage, or the part of Code review asked of a team only or of a person. */
+function StageRow({
+  label,
+  measures,
+  part,
+  scale,
+  onOpen,
+  sub = false,
+  warn = false,
+}: {
+  label: string;
+  measures: string;
+  part: StagePart;
+  scale: number;
+  onOpen: () => void;
+  /** Drawn indented under the stage it divides. */
+  sub?: boolean;
+  /** Its waiting count is drawn amber while anything waits. */
+  warn?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <span className={`w-44 shrink-0 ${sub ? "pl-3" : ""}`}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className={`block cursor-pointer text-left hover:underline ${sub ? "" : "font-medium"}`}
+        >
+          {label}
+        </button>
+        <span className="block text-[11px] leading-tight text-muted-foreground">{measures}</span>
+      </span>
+      <span
+        className={`w-16 shrink-0 text-right tabular-nums ${warn && part.waiting > 0 ? `font-semibold ${WARN}` : "text-muted-foreground"}`}
+      >
+        {part.waiting}
+      </span>
+      <span className="relative flex h-5 min-w-0 flex-1 items-center">
+        <span className="absolute inset-x-0 h-px bg-border" />
+        <span
+          className={`absolute rounded-sm ${BAR}`}
+          style={{ width: `${(part.median / scale) * 100}%`, height: sub ? 6 : 8 }}
+        />
+        <Mark at={part.p75 / scale} className="text-muted-foreground" />
+        <Mark at={part.p90 / scale} className="text-destructive" />
+      </span>
+      <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>{days(part.median)}</span>
+      <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">{days(part.p75)}</span>
+      <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(part.p90)}</span>
+      <span className="w-14 shrink-0">
+        <Trend points={part.weekly} />
+      </span>
+    </div>
+  );
 }
 
 /** What the trend column counts, one point per bucket. */
@@ -98,34 +162,30 @@ export function StageTable({
       </div>
       <div className="mt-1.5 space-y-2">
         {stages.map((stage) => (
-          <div key={stage.key} className="flex items-center gap-3 text-xs">
-            <span className="w-44 shrink-0">
-              <button
-                type="button"
-                onClick={() => onOpenStage(stage.key)}
-                className="block cursor-pointer text-left font-medium hover:underline"
-              >
-                {stage.label}
-              </button>
-              <span className="block text-[11px] leading-tight text-muted-foreground">{stage.measures}</span>
-            </span>
-            <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{stage.waiting}</span>
-            <span className="relative flex h-5 min-w-0 flex-1 items-center">
-              <span className="absolute inset-x-0 h-px bg-border" />
-              <span
-                className={`absolute rounded-sm ${BAR}`}
-                style={{ width: `${(stage.median / scale) * 100}%`, height: 8 }}
-              />
-              <Mark at={stage.p75 / scale} className="text-muted-foreground" />
-              <Mark at={stage.p90 / scale} className="text-destructive" />
-            </span>
-            <span className={`w-14 shrink-0 text-right font-medium tabular-nums ${NUMBER}`}>{days(stage.median)}</span>
-            <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">{days(stage.p75)}</span>
-            <span className="w-12 shrink-0 text-right tabular-nums text-destructive">{days(stage.p90)}</span>
-            <span className="w-14 shrink-0">
-              <Trend points={stage.weekly} />
-            </span>
-          </div>
+          <Fragment key={stage.key}>
+            <StageRow label={stage.label} measures={stage.measures} part={stage} scale={scale} onOpen={() => onOpenStage(stage.key)} />
+            {stage.byAsked === undefined ? null : (
+              <>
+                <StageRow
+                  label="Asked of a team only"
+                  measures="no one named, until anyone reviews"
+                  part={stage.byAsked.team}
+                  scale={scale}
+                  onOpen={() => onOpenStage(stage.key)}
+                  sub
+                  warn
+                />
+                <StageRow
+                  label="Asked of a person"
+                  measures="someone named, until anyone reviews"
+                  part={stage.byAsked.person}
+                  scale={scale}
+                  onOpen={() => onOpenStage(stage.key)}
+                  sub
+                />
+              </>
+            )}
+          </Fragment>
         ))}
       </div>
     </div>

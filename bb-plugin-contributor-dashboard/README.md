@@ -46,7 +46,8 @@ Two things are drawn, and they answer different questions:
 
 - **A box is a step's queue now:** how many are waiting in it, and how long
   half of those that left it in the period took. Clicking a box opens the
-  step's page.
+  step's page. Code review's box adds an amber line, such as "5 on a team
+  only", when pull requests are waiting on a team review with no one named.
 - **A line is what moved in the period:** every issue and pull request opened
   in it, and where each one has got to, the line thicker for more. Both rows
   share one scale, so a line's width compares across them.
@@ -94,6 +95,14 @@ model it comes from, each saying in a line what its clock measures:
 | Prepare pull request | pull requests | ready for review | a reviewer is asked |
 | Code review | pull requests | a reviewer asked | they leave a review |
 | Merge decision | pull requests | approved | merged |
+
+Code review has two more rows under it, dividing it by who was asked before
+the first review. **Asked of a team only** is a pull request whose review was
+requested of a team, such as one a CODEOWNERS file names, with no person
+asked by name; its waiting count is amber, since nobody in particular is
+responsible for it. **Asked of a person** is one where someone was asked by
+name, alone or with a team. Both rows time to the first review from anyone,
+as Code review does. A bot asked by name does not count as a person.
 
 The mirror also times Implement change, from a draft to ready for review, but
 the page leaves it out: most pull requests never open as drafts, so it
@@ -323,6 +332,23 @@ What counts in Review velocity:
   so a burst of replies to comments is one review. Pending reviews, reviews by
   the pull request's author, and bots are left out.
 
+Under Review velocity's people, **Reviews per team** has a row for each team
+asked for a review in the period, most asked first, the first six shown until
+**Show all teams**:
+
+- how many requests were made of it, how many someone picked up, and how long
+  that took, as the median and the p90 in business days
+- how many open pull requests are waiting on it now with no review since, in
+  amber
+- a bar divided by who picked its requests up, darkest for the most, with each
+  person's count and share; clicking a name opens their page
+- members who picked up none, by name, and the share the two busiest took
+
+Picking up follows the per-person count: the first review after the request
+from someone not also asked by name in the meantime. Who is on a team comes
+from the sync; until it has read the teams, members who picked up none are
+missing.
+
 ### Releases
 
 The repository's GitHub releases published in the period, read from the
@@ -388,18 +414,26 @@ already shown and switches to anyone else. It shows:
   in a year; the server sends one page at a time. Its toolbar sorts and
   narrows them by state, and the count reads "48 of 118" once it does.
 - **Reviews**: a pair of bars per bucket, the reviews requested of them and
-  the reviews they gave, on the same buckets as the chart above. A line over
+  the reviews they gave, on the same buckets as the chart above. When they
+  picked up reviews requested of a team, the requested bar is split: darker
+  for requests that named them, lighter for team requests they picked up,
+  and the line over the chart gives both counts. A line over
   each pair of bars is its moving average over the last 7 days, 3 weeks, or 3
   months, by bucket size, averaging fewer at the start of the span. The bucket
   still under way is drawn faded and left out of the average, since its count
   is short.
 - **Waiting on their review**: open pull requests whose latest review request
   naming them has not been withdrawn and which they have not reviewed since,
-  longest wait first. Only requests that name the person: a request made of a
-  team is waiting on the team, with no one to attribute it to until someone
-  reviews.
+  longest wait first. Only requests that name the person.
+- **Waiting on their team**: open pull requests waiting on a team they are in,
+  which nobody has reviewed since the team was asked, longest wait first. Each
+  row names the team and anyone also asked by name who has not reviewed, or
+  "no one named" in amber. Their own pull requests are left out, and so are
+  ones that ask for them by name, which the list above holds. It reads the
+  teams the sync stored, so it makes no GitHub calls; until a sync has read
+  them, the list is empty.
 
-Each row in both lists carries the actions **A row in a list** describes, and
+Each row in these lists carries the actions **A row in a list** describes, and
 a row waiting on their review names the assignee as well.
 
 Times there are business days from when the pull request became ready for
@@ -452,8 +486,8 @@ mark and backfill cursor, so finishing one does not affect the other.
   50 per call, and stops at the first one the last sync already saw, then does
   the same for issues. Any review
   or review request bumps a pull request's update time, so this picks up every
-  change. A sync after a quiet half hour is usually three calls: one each for
-  pull requests, issues, and releases.
+  change. A sync after a quiet half hour is usually four calls: one each for
+  pull requests, issues, releases, and teams.
 - **The first sync** reaches back two years, so a year can be compared with the
   year before. That is one call per 50 pull requests updated in those two
   years: about 100 calls, and about eight minutes, for a repository with 5,000,
@@ -465,6 +499,13 @@ mark and backfill cursor, so finishing one does not affect the other.
   three seconds apart, before the sync stops.
 - A pull request with more than 100 reviews or events costs one more call per
   extra 100.
+- **Teams**: every sync reads the owner organization's teams and their
+  members in one call per 100 teams, and replaces the stored ones, so a review
+  request made of a team can be shown to the people on it. A member of a child
+  team counts as a member of its parent, since a request to the parent
+  reaches them. A team past 100 members keeps only its first 100. When the
+  owner is a person rather than an organization, or the `gh` account cannot
+  read the organization's teams, the sync keeps what it had and carries on.
 - **Releases** have no update order to page by, and a repository publishes a
   few a week at most, so every sync reads the newest 100 again in one call.
   The first sync reads on back two years, one more call per 100. A release

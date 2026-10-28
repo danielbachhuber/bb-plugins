@@ -16,12 +16,23 @@ const BOTTOM = H - 30;
 
 const UNIT_LABEL: Record<BucketUnit, string> = { day: "", week: "week of ", month: "" };
 
-export function ReviewLegend({ unit }: { unit: BucketUnit }) {
+/** How strongly each part of a requested bar is drawn: asked by name, and picked up for a team. */
+const NAMED_OPACITY = 0.6;
+const PICKED_UP_OPACITY = 0.22;
+
+export function ReviewLegend({ unit, split = false }: { unit: BucketUnit; split?: boolean }) {
+  const swatches = split
+    ? [
+        { label: "Asked by name", color: REVIEW_SERIES.first.color, opacity: NAMED_OPACITY },
+        { label: "Picked up for a team", color: REVIEW_SERIES.first.color, opacity: PICKED_UP_OPACITY + 0.1 },
+        { label: REVIEW_SERIES.second.label, color: REVIEW_SERIES.second.color, opacity: 0.6 },
+      ]
+    : [REVIEW_SERIES.first, REVIEW_SERIES.second].map((series) => ({ ...series, opacity: 0.6 }));
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-      {[REVIEW_SERIES.first, REVIEW_SERIES.second].map((series) => (
+      {swatches.map((series) => (
         <span key={series.label} className="inline-flex items-center gap-1.5">
-          <span className="inline-block rounded-sm opacity-60" style={{ width: 9, height: 9, background: series.color }} />
+          <span className="inline-block rounded-sm" style={{ width: 9, height: 9, background: series.color, opacity: series.opacity }} />
           {series.label}
         </span>
       ))}
@@ -36,6 +47,7 @@ export function ReviewLegend({ unit }: { unit: BucketUnit }) {
 export function ReviewChart({
   login,
   requested,
+  pickedUp,
   given,
   buckets,
   unit,
@@ -43,6 +55,8 @@ export function ReviewChart({
 }: {
   login: string;
   requested: readonly number[];
+  /** The part of each requested bar made of a team they picked up, drawn lighter on top. */
+  pickedUp?: readonly number[];
   given: readonly number[];
   buckets: readonly Bucket[];
   unit: BucketUnit;
@@ -68,7 +82,14 @@ export function ReviewChart({
     total: line.values.reduce((sum, value) => sum + value, 0),
     trend: movingAverage(line.values, TREND_WINDOW[unit], complete),
   }));
-  const counts = series.map((line) => `${line.total} ${line.label.toLowerCase()}`).join(" · ");
+  const pickedUpTotal = (pickedUp ?? []).reduce((sum, value) => sum + value, 0);
+  const counts = series
+    .map((line, k) =>
+      k === 0 && pickedUpTotal > 0
+        ? `${line.total} ${line.label.toLowerCase()} (${line.total - pickedUpTotal} by name, ${pickedUpTotal} picked up for a team)`
+        : `${line.total} ${line.label.toLowerCase()}`,
+    )
+    .join(" · ");
 
   return (
     <div className="rounded-lg border border-border bg-card px-3 pb-2 pt-2.5">
@@ -81,9 +102,18 @@ export function ReviewChart({
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 block w-full text-foreground" role="img" aria-label={`${login}'s reviews: ${counts}`}>
         {buckets.map((bucket, i) => (
           <g key={bucket.start} opacity={i >= complete ? 0.45 : 1}>
-            {series.map((line) => (
-              <rect key={line.label} x={line.x(i)} y={y(line.values[i])} width={bw} height={BOTTOM - y(line.values[i])} fill={line.color} opacity={0.45} />
-            ))}
+            {series.map((line, k) => {
+              if (k !== 0 || pickedUp === undefined) {
+                return <rect key={line.label} x={line.x(i)} y={y(line.values[i])} width={bw} height={BOTTOM - y(line.values[i])} fill={line.color} opacity={0.45} />;
+              }
+              const named = line.values[i] - pickedUp[i];
+              return (
+                <g key={line.label}>
+                  <rect x={line.x(i)} y={y(named)} width={bw} height={BOTTOM - y(named)} fill={line.color} opacity={NAMED_OPACITY} />
+                  <rect x={line.x(i)} y={y(line.values[i])} width={bw} height={y(named) - y(line.values[i])} fill={line.color} opacity={PICKED_UP_OPACITY} />
+                </g>
+              );
+            })}
           </g>
         ))}
         {series.map((line) => (

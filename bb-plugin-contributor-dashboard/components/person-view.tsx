@@ -5,12 +5,24 @@ import type { AuthoredQuery, PersonActivityResult } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import type { BatchItem } from "./batch-dialog";
-import { AuthoredList, AwaitingList } from "./person-lists";
+import { ItemRow } from "./item-row";
+import { AuthoredList, AwaitingList, days } from "./person-lists";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
 import { PullRequestFlowChart } from "./flow-chart";
 import { ReviewChart, ReviewLegend } from "./review-chart";
+
+const WARN = "text-[#b4530a] dark:text-[#e59a3a]";
+
+/** A team as GitHub names it, `org/slug`, in a small outlined tag. */
+export function TeamName({ organization, slug }: { organization: string | null; slug: string }) {
+  return (
+    <span className="mr-1 inline-flex items-center rounded border border-border px-1 text-[11px] leading-4 last:mr-0">
+      {organization === null ? slug : `${organization}/${slug}`}
+    </span>
+  );
+}
 
 const count = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
@@ -130,7 +142,7 @@ export function PersonView({
                 <h2 id="person-reviews" className="text-base font-semibold">
                   Reviews
                 </h2>
-                <ReviewLegend unit={unitOfBuckets(data.buckets)} />
+                <ReviewLegend unit={unitOfBuckets(data.buckets)} split={(data.activity?.pickedUpTotal ?? 0) > 0} />
               </div>
               {data.activity === null ? (
                 <p className="mt-3 text-sm text-muted-foreground">No review requests or reviews in this period.</p>
@@ -139,6 +151,7 @@ export function PersonView({
                   <ReviewChart
                     login={login}
                     requested={data.activity.requested}
+                    pickedUp={data.activity.pickedUpTotal > 0 ? data.activity.pickedUp : undefined}
                     given={data.activity.given}
                     buckets={data.buckets}
                     unit={unitOfBuckets(data.buckets)}
@@ -149,6 +162,49 @@ export function PersonView({
             </section>
 
             <AwaitingList rows={data.awaiting} onBatch={(heading, rows) => onBatch("pull", heading, rows)} onThread={onThread} now={now} />
+
+            <section className="mt-8" aria-labelledby="person-team-awaiting">
+              <h2 id="person-team-awaiting" className="text-base font-semibold">
+                Waiting on their team
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{data.teamAwaiting.length}</span>
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Asked of a team they are in, and nobody has reviewed since. Their own pull requests are left out. Longest
+                wait first.
+              </p>
+              {data.teamAwaiting.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on their teams.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
+                  {data.teamAwaiting.map((row) => (
+                    <ItemRow
+                      key={row.number}
+                      number={row.number}
+                      title={row.title}
+                      url={row.url}
+                      assignees={row.assignees}
+                      threadId={row.threadId}
+                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting on ${row.teams.join(", ")}` }, row.threadId)}
+                      facts={
+                        <span>
+                          {row.author === null ? "" : `${row.author} · `}
+                          {row.teams.map((slug) => (
+                            <TeamName key={slug} organization={data.organization} slug={slug} />
+                          ))}
+                          {row.named.length === 0 ? (
+                            <span className={WARN}> · no one named</span>
+                          ) : (
+                            ` and ${row.named.join(", ")}`
+                          )}
+                          {" · "}
+                          <span className={row.waitingDays > 3 ? "text-destructive" : ""}>{days(row.waitingDays)} waiting</span>
+                        </span>
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
       </div>

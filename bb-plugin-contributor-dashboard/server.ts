@@ -12,6 +12,7 @@ import { everyone } from "./review/everyone.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
+import { awaitingTeamReview, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { openFacets, openItems, queryOpen } from "./review/open-items.js";
@@ -152,7 +153,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
           velocity: { merge: NO_FLOWS, review: NO_FLOWS },
-          authors: [], people: [], everyone: [], sync: status() };
+          authors: [], people: [], teams: [], organization: null, everyone: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -173,6 +174,8 @@ export default async function plugin(bb: BbPluginApi) {
         // so authoring reads them all rather than only the recently updated.
         authors: authorActivity(prs, buckets),
         people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
+        teams: teamActivity(prs, buckets, store.readTeams(repository)),
+        organization: repository.split("/")[0],
         everyone: everyone(prs),
         sync: status(),
       };
@@ -187,6 +190,8 @@ export default async function plugin(bb: BbPluginApi) {
           authorFlows: NO_FLOWS,
           activity: null,
           awaiting: [],
+          teamAwaiting: [],
+          organization: null,
           authored: [],
           authoredTotal: 0,
           authoredFacets: authoredFacets([]),
@@ -215,6 +220,8 @@ export default async function plugin(bb: BbPluginApi) {
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
         awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
+        teamAwaiting: withThreads(awaitingTeamReview(everything, login, store.readTeams(repository), now), "pull"),
+        organization: repository.split("/")[0],
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredTotal: all.length,
         authoredFacets: authoredFacets(all),

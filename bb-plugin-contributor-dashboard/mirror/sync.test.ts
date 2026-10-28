@@ -6,6 +6,7 @@ import {
   MORE_REVIEWS_QUERY,
   PULL_REQUESTS_QUERY,
   RELEASES_QUERY,
+  TEAMS_QUERY,
   type IssueNode,
   type PullRequestNode,
   type Release,
@@ -64,7 +65,13 @@ function issue(number: number, updatedAt: string, extra: Partial<IssueNode> = {}
  * `pageSize`, counting calls. `prCalls` leaves out the issues pass, which
  * makes one call of its own even when there are no issues.
  */
-function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[] = [], releases: Release[] = []) {
+function fakeGithub(
+  prs: PullRequestNode[],
+  pageSize: number,
+  issues: IssueNode[] = [],
+  releases: Release[] = [],
+  teams: Record<string, string[]> | null = {},
+) {
   const calls: Array<{ query: string; after: unknown }> = [];
   const query: GraphqlQuery = async (text, variables) => {
     calls.push({ query: text, after: variables.after });
@@ -123,6 +130,17 @@ function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[
         },
       };
     }
+    if (text === TEAMS_QUERY) {
+      if (teams === null) throw new Error("Could not resolve to an Organization with the login of 'acme'.");
+      return {
+        organization: {
+          teams: {
+            pageInfo: { hasNextPage: false, endCursor: null },
+            nodes: Object.entries(teams).map(([slug, logins]) => ({ slug, members: { nodes: logins.map((login) => ({ login })) } })),
+          },
+        },
+      };
+    }
     throw new Error(`unexpected query`);
   };
   return { query, calls, prCalls: () => calls.filter((call) => call.query === PULL_REQUESTS_QUERY) };
@@ -131,6 +149,21 @@ function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[
 const recent = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
 
 describe("runSync", () => {
+  it("stores the organization's teams and their members, replacing the last sync's", async () => {
+    const store = openStore();
+    await runSync({ store, query: fakeGithub([], 50, [], [], { reviewers: ["octocat", "hubber"], gone: ["mona"] }).query, repository: "acme/widgets", now: () => NOW });
+    await runSync({ store, query: fakeGithub([], 50, [], [], { reviewers: ["octocat", "hubber", "yeti"] }).query, repository: "acme/widgets", now: () => NOW });
+    expect([...store.readTeams("acme/widgets")]).toEqual([["reviewers", ["octocat", "hubber", "yeti"]]]);
+  });
+
+  it("finishes the sync and keeps the stored teams when the organization's teams cannot be read", async () => {
+    const store = openStore();
+    await runSync({ store, query: fakeGithub([], 50, [], [], { reviewers: ["octocat"] }).query, repository: "acme/widgets", now: () => NOW });
+    const result = await runSync({ store, query: fakeGithub([pr(1, recent(1))], 50, [], [], null).query, repository: "acme/widgets", now: () => NOW });
+    expect(result).toMatchObject({ pullRequests: 1, teams: null });
+    expect([...store.readTeams("acme/widgets")]).toEqual([["reviewers", ["octocat"]]]);
+  });
+
   it("asks for size, merge commit, body, and closing issues on the pull request page", () => {
     expect(PULL_REQUESTS_QUERY).toMatch(/\badditions deletions changedFiles mergeCommit \{ oid \} body\b/);
     expect(PULL_REQUESTS_QUERY).toMatch(/closingIssuesReferences\(first: 10\) \{ nodes \{ number \} \}/);
@@ -138,12 +171,13 @@ describe("runSync", () => {
 
   it("re-reads every stored pull request once the backfill is reset, keeping its high-water mark", async () => {
     const db = new Database(":memory:");
-    for (const statement of MIGRATIONS.slice(0, -1)) db.exec(statement);
+    const reset = MIGRATIONS.indexOf("UPDATE sync_state SET backfill_done = 0, backfill_cursor = NULL");
+    for (const statement of MIGRATIONS.filter((_, index) => index !== reset)) db.exec(statement);
     const store = createStore(db);
     await runSync({ store, query: fakeGithub([pr(2, recent(5)), pr(1, recent(6))], 50).query, repository: "acme/widgets", now: () => NOW });
     expect(store.readActivity("acme/widgets", 0)[0].additions).toBeUndefined();
 
-    db.exec(MIGRATIONS.at(-1)!);
+    db.exec(MIGRATIONS[reset]);
     expect(store.syncState("acme/widgets")).toMatchObject({ backfillDone: false, highWater: recent(5) });
     const sized = (n: number, days: number) => pr(n, recent(days), { additions: n * 10, deletions: 1, changedFiles: 1 });
     await runSync({ store, query: fakeGithub([sized(2, 5), sized(1, 6)], 50).query, repository: "acme/widgets", now: () => NOW });

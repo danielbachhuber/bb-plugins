@@ -4,7 +4,7 @@ import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
-import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { BatchDialog } from "./components/batch-dialog";
 import { describeFilters } from "./components/list-toolbar";
 import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
@@ -136,6 +136,11 @@ const STAGES: Array<Omit<StageSummary, "weekly"> & { weekly: number[] }> = [
     p75: 0.95,
     p90: 2.8,
     weekly: [0.7, 0.9, 0.9, 0.3, 0.1, 0.4],
+    // About half the requests go to a team alone, as on a real repository whose code owners are teams.
+    byAsked: {
+      team: { left: 262, waiting: 5, median: 0.3, p75: 0.9, p90: 3.1, weekly: [0.5, 0.6, 0.4, 0.3, 0.2, 0.4] },
+      person: { left: 286, waiting: 9, median: 0.4, p75: 1.1, p90: 2.6, weekly: [0.8, 1.0, 1.1, 0.4, 0.2, 0.5] },
+    },
   },
   {
     key: "decision",
@@ -360,8 +365,11 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
     return {
       login,
       requested: spread(requested, weights),
+      // Over half of what is requested of the busiest reviewers is picked up for a team.
+      pickedUp: spread(requested, weights).map((n, i) => Math.min(n, Math.round(n * (0.4 + 0.3 * ((i + seed) % 3) / 2)))),
       given: spread(given, lagged(weights)),
       requestedTotal: requested,
+      pickedUpTotal: 0,
       givenTotal: given,
     };
   });
@@ -389,11 +397,37 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
       review: flowsFor(bucketSums(people, "requested", buckets.length), bucketSums(people, "given", buckets.length), 40, null, 0.3, 2.9),
     },
     authors,
-    people,
+    people: people.map((person) => ({ ...person, pickedUpTotal: person.pickedUp.reduce((sum, n) => sum + n, 0) })),
+    teams: TEAMS,
+    organization: "acme",
     everyone: EVERYONE,
     sync,
   };
 }
+
+/**
+ * One team, shaped like a real one: two people pick up most of its requests,
+ * a few pick up a handful, and one member none.
+ */
+const TEAMS = [
+  {
+    slug: "reviewers",
+    requested: 117,
+    pickedUp: 108,
+    median: 0.4,
+    p90: 5.0,
+    waiting: 5,
+    pickups: [
+      { login: "octocat", count: 41 },
+      { login: "hubber", count: 33 },
+      { login: "mona", count: 17 },
+      { login: "monalisa", count: 9 },
+      { login: "webcat", count: 6 },
+      { login: "yeti", count: 2 },
+      { login: "spacecat", count: 0 },
+    ],
+  },
+];
 
 function Page({
   initial = { kind: "preset", id: "6w" },
@@ -455,7 +489,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], teams: [], organization: null, everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
@@ -475,6 +509,25 @@ const AWAITING = [
   { number: 1831, title: "Rename sprocket fields", url: "https://github.com/acme/widgets/pull/1831", author: "webcat", assignees: [], threadId: null, requestedAt: "2026-10-05T14:00:00Z", waitingDays: 1.9 },
   { number: 1828, title: "Cache avatar lookups", url: "https://github.com/acme/widgets/pull/1828", author: "yeti", assignees: [], threadId: null, requestedAt: "2026-10-06T10:00:00Z", waitingDays: 0.8 },
 ];
+
+/**
+ * Open pull requests waiting on the person's team that nobody has started:
+ * two over a week old, and half with no one named alongside the team.
+ */
+const TEAM_AWAITING: TeamAwaiting[] = [
+  { number: 1812, title: "Let a widget board be shared read-only", author: "mona", named: [], waitingDays: 9.6 },
+  { number: 1806, title: "Retry gadget sync once before reporting failure", author: "webcat", named: ["hubber", "yeti"], waitingDays: 9.4 },
+  { number: 1838, title: "Name both totals on a gadget card", author: "yeti", named: ["mona"], waitingDays: 1.4 },
+  { number: 1844, title: "Validate webhook payloads", author: "webcat", named: [], waitingDays: 0.6 },
+  { number: 1845, title: "Move sprocket pricing rules into one module so the importer and the editor agree", author: "monalisa", named: [], waitingDays: 0.4 },
+].map((row) => ({
+  ...row,
+  url: `https://github.com/acme/widgets/pull/${row.number}`,
+  assignees: row.number === 1845 ? ["monalisa"] : [],
+  threadId: null,
+  teams: ["reviewers"],
+  requestedAt: "2026-10-01T09:00:00Z",
+}));
 
 const AUTHORED = [
   { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", threadId: "thr_demo", state: "OPEN" as const, isDraft: false, mergedAt: null, size: 412, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
@@ -507,12 +560,14 @@ function authorFlowsFor(author: { opened: number[]; merged: number[] } | undefin
 function Person({
   initial = { kind: "preset", id: "6w" },
   awaiting = AWAITING,
+  teamAwaiting = TEAM_AWAITING,
   authored = AUTHORED,
   login = "octocat",
   initialAuthoredQuery = DEFAULT_AUTHORED_QUERY,
 }: {
   initial?: Selection;
   awaiting?: typeof AWAITING;
+  teamAwaiting?: TeamAwaiting[];
   authored?: typeof AUTHORED;
   login?: string;
   initialAuthoredQuery?: AuthoredQuery;
@@ -537,6 +592,8 @@ function Person({
         authorFlows: authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length),
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
+        teamAwaiting,
+        organization: "acme",
         authored: kept.slice(paging.offset, paging.to),
         authoredTotal: authored.length,
         authoredFacets: authoredFacets(authored),
@@ -589,7 +646,7 @@ export const PersonPageAuthoredFiltered = () => (
 );
 
 /** Nobody is waiting on them and they have opened nothing this period. */
-export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} authored={[]} />;
+export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} teamAwaiting={[]} authored={[]} />;
 
 const WAITING_NOW = [
   {

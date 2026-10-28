@@ -9,9 +9,12 @@ export interface PersonActivity {
   login: string;
   /** Review requests per bucket: made of them directly, or made of a team they then reviewed for. */
   requested: number[];
+  /** The part of `requested` made of a team they then reviewed for, per bucket. */
+  pickedUp: number[];
   /** Reviews submitted per bucket, counting a person's reviews on one pull request on one day once. */
   given: number[];
   requestedTotal: number;
+  pickedUpTotal: number;
   givenTotal: number;
 }
 
@@ -66,21 +69,22 @@ export function peopleActivity(prs: readonly PullRequestWithActivity[], buckets:
       entry = {
         login,
         requested: buckets.map(() => 0),
+        pickedUp: buckets.map(() => 0),
         given: buckets.map(() => 0),
         requestedTotal: 0,
+        pickedUpTotal: 0,
         givenTotal: 0,
       };
       people.set(login, entry);
     }
     return entry;
   };
-  const add = (login: string, field: "requested" | "given", at: string) => {
+  const add = (login: string, field: "requested" | "pickedUp" | "given", at: string) => {
     const index = bucketIndex(buckets, Date.parse(at));
     if (index < 0) return;
     const entry = person(login);
     entry[field][index] += 1;
-    if (field === "requested") entry.requestedTotal += 1;
-    else entry.givenTotal += 1;
+    entry[`${field}Total`] += 1;
   };
 
   for (const pr of prs) {
@@ -92,7 +96,10 @@ export function peopleActivity(prs: readonly PullRequestWithActivity[], buckets:
       const reviewer = event.requestedReviewer;
       if ("slug" in reviewer) {
         const winner = teamRequestWinner(event, events, reviews);
-        if (winner !== null) add(winner, "requested", event.createdAt);
+        if (winner !== null) {
+          add(winner, "requested", event.createdAt);
+          add(winner, "pickedUp", event.createdAt);
+        }
       } else if (!isBot(reviewer)) {
         add(reviewer.login, "requested", event.createdAt);
       }

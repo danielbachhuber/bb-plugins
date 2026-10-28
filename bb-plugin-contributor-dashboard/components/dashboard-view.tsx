@@ -15,6 +15,7 @@ import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
 import { ReleasesSection } from "./releases-section";
 import { StageTable } from "./stage-flow";
+import { TeamReviews } from "./team-reviews";
 import { VelocitySection } from "./velocity-section";
 
 /**
@@ -246,6 +247,7 @@ export function DashboardView({
                 }
                 onOpenPerson={onOpenPerson}
               />
+              <TeamReviews teams={data.teams} organization={data.organization} onOpenPerson={onOpenPerson} />
             </Section>
 
             <ReleasesSection
