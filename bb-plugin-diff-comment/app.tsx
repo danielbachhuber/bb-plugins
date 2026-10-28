@@ -14,8 +14,9 @@
 // place, and diff/engine.ts for the loop.
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRealtime } from "@get-bb/plugin-sdk/app";
 import { CommentCard, CommentComposer, type GithubTarget } from "@/comment/cards";
+import { COMMENTS_CHANGED } from "@/comment/contract";
 import { CommentPanel } from "@/comment/panel";
 import type { Comment, CommentState } from "@/comment/types";
 import { OVERLAY_CSS } from "@/diff/style";
@@ -227,6 +228,9 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         <CommentComposer
           location={`${draft.path}:${draft.line}${draft.side === "old" ? " (old)" : ""}`}
           initialBody={draft.body}
+          onChange={(body) => {
+            draft.body = body;
+          }}
           onCancel={() => engine?.refresh()}
           onAsk={(body) => {
             if (location === null) return;
@@ -260,14 +264,19 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     },
   });
 
-  // Another window may have commented, and an agent's `bb diff-comment reply`
-  // does not reach this window at all. Realtime is React-side only, so this
-  // settles for refetching when the window comes back to the front — the same
-  // trade bb-plugin-diff-viewed makes.
+  // An agent's `bb diff-comment reply`, or a comment from another window,
+  // arrives as a realtime signal. Realtime is React-side only, so the relay
+  // overlay below hears it and passes it here.
+  const onChanged = (threadId: string | undefined) => engine?.reload(threadId);
+  commentsChanged.add(onChanged);
+
+  // GitHub review threads have no signal, so they are refetched when the
+  // window comes back to the front.
   const onFocus = () => engine?.refresh();
   window.addEventListener("focus", onFocus);
 
   return () => {
+    commentsChanged.delete(onChanged);
     window.removeEventListener("focus", onFocus);
     dropSheet(document);
     engine?.dispose();
@@ -278,12 +287,34 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   };
 }
 
+/** The mounted overlays to tell when a thread's comments change. */
+const commentsChanged = new Set<(threadId: string | undefined) => void>();
+
+/**
+ * Draws nothing. It is mounted once per window with bb's realtime context,
+ * which the content script lacks, and relays the comments signal to it.
+ */
+function CommentsChangedRelay() {
+  useRealtime(COMMENTS_CHANGED, (payload) => {
+    const threadId = (payload as { threadId?: unknown } | null)?.threadId;
+    for (const listener of commentsChanged) {
+      listener(typeof threadId === "string" ? threadId : undefined);
+    }
+  });
+  return null;
+}
+
 export default definePluginApp((app) => {
   app.contentScripts.register({
     id: "diff-comment-overlay",
     mount({ pluginId, signal }) {
       return mount(pluginId, signal);
     },
+  });
+
+  app.slots.experimental_appOverlay({
+    id: "comments-changed-relay",
+    component: CommentsChangedRelay,
   });
 
   app.slots.threadPanelAction({

@@ -220,12 +220,14 @@ function BodyEditor({
   submitLabel,
   onSubmit,
   onCancel,
+  onChange,
   github,
 }: {
   initialBody: string;
   submitLabel: string;
   onSubmit: (body: string) => void;
   onCancel: () => void;
+  onChange?: (body: string) => void;
   /** Adds "Add to GitHub review" beside the submit button. */
   github?: GithubAction;
 }) {
@@ -271,7 +273,10 @@ function BodyEditor({
         <textarea
           ref={box}
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            setBody(event.target.value);
+            onChange?.(event.target.value);
+          }}
           // Cmd/Ctrl+Enter submits, matching how the composer behaves elsewhere
           // in bb; plain Enter has to stay available for writing prose.
           onKeyDown={(event) => {
@@ -497,6 +502,8 @@ export interface CommentComposerProps {
   initialBody?: string;
   onAsk: (body: string) => void;
   onCancel: () => void;
+  /** Called with the text on every keystroke. */
+  onChange?: (body: string) => void;
   /** Adds "Add to GitHub review", which posts instead of asking the agent. */
   github?: GithubAction;
 }
@@ -507,6 +514,7 @@ export function CommentComposer({
   initialBody,
   onAsk,
   onCancel,
+  onChange,
   github,
 }: CommentComposerProps) {
   return (
@@ -519,6 +527,7 @@ export function CommentComposer({
         submitLabel="Ask agent"
         onSubmit={onAsk}
         onCancel={onCancel}
+        onChange={onChange}
         github={github}
       />
     </Shell>

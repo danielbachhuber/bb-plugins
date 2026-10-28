@@ -585,4 +585,42 @@ describe("the hover affordance", () => {
     expect(ownedRows(host)).toBe(0);
     engine.dispose();
   });
+
+  it("keeps the draft, and its typed text, when another comment changes", async () => {
+    const { host } = buildCard("src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([]);
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    press(hover(host, 2));
+    const [, draft] = h.mountComposer.mock.calls[0]! as [HTMLElement, Draft];
+    draft.body = "half-written";
+
+    h.rpc.mockImplementation(async (method: string) =>
+      method === "comments_list"
+        ? { comments: [comment({ line: 3, reply: "done" })] }
+        : { review: null },
+    );
+    engine.reload("thr_1");
+    await settle(engine);
+
+    expect(h.mountCard).toHaveBeenCalled();
+    const [, redrawn] = h.mountComposer.mock.calls.at(-1)! as [HTMLElement, Draft];
+    expect(redrawn.body).toBe("half-written");
+    expect(ownedRows(host)).toBe(2);
+    engine.dispose();
+  });
+
+  it("ignores a change to another thread's comments", async () => {
+    buildCard("src/a.ts", { view: "unified", lines: LINES });
+    const h = harness([]);
+    const engine = startEngine(h.deps);
+    await settle(engine);
+    const calls = h.rpc.mock.calls.length;
+
+    engine.reload("thr_other");
+    await settle(engine);
+    expect(h.rpc.mock.calls.length).toBe(calls);
+    engine.dispose();
+  });
 });

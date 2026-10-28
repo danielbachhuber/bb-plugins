@@ -45,7 +45,11 @@ export interface Draft {
   side: Side;
   line: number;
   anchor: { text: string; before: string | null; after: string | null };
-  /** Text the composer opens with: a blockquote of whatever was selected. */
+  /**
+   * Text the composer opens with: a blockquote of whatever was selected at
+   * first, then whatever has been typed, so a redraw of the diff reopens the
+   * composer with the text intact.
+   */
   body: string;
 }
 
@@ -91,6 +95,12 @@ export interface Engine {
   schedule: () => void;
   /** Re-read comments from the server, then re-render. */
   refresh: () => void;
+  /**
+   * Re-read comments after a write somewhere else, such as an agent's reply,
+   * keeping any open composer. Ignored when `changedThreadId` is not the
+   * thread on screen.
+   */
+  reload: (changedThreadId?: string) => void;
   dispose: () => void;
 }
 
@@ -418,6 +428,11 @@ export function startEngine(deps: EngineDeps): Engine {
     void loadReview();
   }
 
+  function reload(changedThreadId?: string): void {
+    if (changedThreadId !== undefined && changedThreadId !== threadId) return;
+    void load();
+  }
+
   const observer = new MutationObserver(() => schedule());
   observer.observe(doc.body, { childList: true, subtree: true });
 
@@ -437,5 +452,5 @@ export function startEngine(deps: EngineDeps): Engine {
   deps.signal.addEventListener("abort", dispose);
   schedule();
 
-  return { syncNow, schedule, refresh, dispose };
+  return { syncNow, schedule, refresh, reload, dispose };
 }
