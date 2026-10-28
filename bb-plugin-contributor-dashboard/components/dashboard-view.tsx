@@ -12,7 +12,7 @@ import { FlowDiagram } from "./flow-diagram";
 import { FlowChart, PullRequestFlowChart } from "./flow-chart";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
-import { PersonFinder } from "./person-finder";
+import { PageHeader } from "./page-header";
 import { ReleasesSection } from "./releases-section";
 import { StageTable } from "./stage-flow";
 import { VelocitySection } from "./velocity-section";
@@ -112,18 +112,17 @@ export function DashboardView({
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {data?.repository ? <span className="text-sm font-medium text-foreground">{data.repository}</span> : null}
-            {data?.repository ? <PersonFinder everyone={data.everyone} onOpenPerson={onOpenPerson} /> : null}
-          </div>
-          <PeriodPicker selection={selection} onSelect={onSelect} />
-        </div>
+        <PageHeader
+          repository={data?.repository ?? null}
+          everyone={data?.everyone ?? []}
+          onOpenPerson={onOpenPerson}
+          period={<PeriodPicker selection={selection} onSelect={onSelect} />}
+        />
 
-        {/* Below the row rather than in it: the sentence is long enough to push
+        {/* Below the toolbar rather than in it: the sentence is long enough to push
             the span picker onto a line of its own. */}
         {backfill === null ? null : (
-          <p role="status" className="mt-1 text-xs text-muted-foreground">
+          <p role="status" className="mt-2 text-xs text-muted-foreground">
             {backfill}
           </p>
         )}

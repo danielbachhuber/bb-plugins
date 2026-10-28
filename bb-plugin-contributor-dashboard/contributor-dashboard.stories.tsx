@@ -644,6 +644,7 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
       ...overrides,
     },
     waitingPaging: { page: 0, pages: 3, from: 1, to: 5, total: 14 },
+    everyone: EVERYONE,
     sync: SYNCED,
   };
 }
@@ -657,6 +658,7 @@ function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
       data={data}
       error={null}
       onBack={() => undefined}
+      onOpenPerson={() => undefined}
       onWaitingPage={() => undefined}
       onThread={() => undefined}
       periodLabel={selectionWords(selection)}
@@ -728,10 +730,12 @@ function OpenList({ kind, total }: { kind: "issue" | "pull"; total: number }) {
         kind,
         rows: rows.slice(paging.offset, paging.offset + PAGE_SIZE),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
+        everyone: EVERYONE,
         sync: SYNCED,
       }}
       error={null}
       onBack={() => undefined}
+      onOpenPerson={() => undefined}
       onPage={setPage}
       onThread={() => undefined}
       now={NOW}

@@ -255,7 +255,15 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   if (list !== null) {
     return (
       <StartThreadContext.Provider value={startRows}>
-        <OpenItemsView kind={list} data={openList.data} error={openList.error} onBack={back} onPage={setListPage} onThread={onThread} />
+        <OpenItemsView
+          kind={list}
+          data={openList.data}
+          error={openList.error}
+          onBack={back}
+          onOpenPerson={openPerson}
+          onPage={setListPage}
+          onThread={onThread}
+        />
       </StartThreadContext.Provider>
     );
   }
@@ -268,6 +276,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           data={stageDetail.data}
           error={stageDetail.error}
           onBack={back}
+          onOpenPerson={openPerson}
           onWaitingPage={setWaitingPage}
           periodLabel={selectionWords(selection)}
           onThread={onThread}

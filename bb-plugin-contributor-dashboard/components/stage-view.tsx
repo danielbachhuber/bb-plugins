@@ -6,6 +6,7 @@ import { unitOfBuckets, type Selection } from "@/dashboard/period";
 import { days } from "./stage-flow";
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
+import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
@@ -140,6 +141,7 @@ export function StageView({
   data,
   error,
   onBack,
+  onOpenPerson,
   onWaitingPage,
   periodLabel,
   onThread,
@@ -150,6 +152,7 @@ export function StageView({
   data: StageDetailResult | null;
   error: string | null;
   onBack: () => void;
+  onOpenPerson: (login: string) => void;
   onWaitingPage: (page: number) => void;
   periodLabel: string;
   /** Opens the row's thread, or the dialog that starts one. */
@@ -164,20 +167,14 @@ export function StageView({
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <button
-              type="button"
-              onClick={onBack}
-              className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-            >
-              ← All stages
-            </button>
-            <h1 className="text-sm font-medium">{stage?.label ?? ""}</h1>
-            {data?.repository ? <span className="text-xs text-muted-foreground">{data.repository}</span> : null}
-          </div>
-          <PeriodPicker selection={selection} onSelect={onSelect} />
-        </div>
+        <PageHeader
+          repository={data?.repository ?? null}
+          onHome={onBack}
+          everyone={data?.everyone ?? []}
+          onOpenPerson={onOpenPerson}
+          period={<PeriodPicker selection={selection} onSelect={onSelect} />}
+          title={stage?.label ?? ""}
+        />
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">

@@ -7,8 +7,9 @@ repository's pull requests, reviews, and issues.
 ## The page
 
 The panel's title bar says when the mirror last synced and has the **Sync**
-button, where bb's other plugins put theirs. The top of the page itself names
-the repository, has a **Find a person** box, and has the span picker, which
+button, where bb's other plugins put theirs. Every page has the same header:
+the repository on the left, which goes back to the dashboard from any other
+page, and on the right a **Find a person** box and the span picker, which
 every section follows: 2 weeks,
 6 weeks (the default), 3 months, and a date range for the question the presets
 do not answer. The range offers the two years the mirror reaches back and
@@ -16,6 +17,8 @@ nothing later than today, the cross beside the dates drops it back to 6 weeks,
 and whatever is chosen is remembered for next time. So is the screen: opening
 the page again returns to the person, stage, or list last shown there.
 While the first sync is still reaching back, the page says how far it has got.
+On every page but the dashboard, the page's title sits under the header with a
+line saying what the page covers.
 
 **Find a person** opens anyone's page by name. Focusing it lists the eight
 people most recently active, and typing narrows the list to logins containing
@@ -126,7 +129,9 @@ problem, since it is blind to exactly those.
 #### A stage's page
 
 Clicking a stage name opens its page, at
-`contributor-dashboard/stage/<stage>`. It leads with two charts: **how long it
+`contributor-dashboard/stage/<stage>`. Under its title, a sentence says what
+the stage measures, how many left it over the span, and how long they took.
+It leads with two charts: **how long it
 took**, every pull request that left the stage in the period counted into
 bands, and **how long the queue has waited**, the ones in the stage now, with
 the bands past three days in red. Under them is the list of what is in the
@@ -308,8 +313,10 @@ A tag that is not a version stands as a minor of its own.
 
 Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
-to the dashboard. Its header has the same **Find a person** box, which marks
-the person already shown and switches to anyone else. It shows:
+to the dashboard. Its title is their login, with a line under it saying how
+many pull requests they opened and reviews they gave over the span, and a link
+to their GitHub profile. The header's **Find a person** box marks the person
+already shown and switches to anyone else. It shows:
 
 - **Pull requests**, PR Velocity's opening chart for only their pull
   requests: what they opened and merged in each bucket, which merged in the
@@ -435,7 +442,8 @@ needs no new sync.
 | `dashboard/period.ts` | The presets, the range each resolves to, and the days, weeks or months it is drawn in |
 | `dashboard/paging.ts` | Where one page of a long list starts and ends |
 | `dashboard/contract.ts` | The RPC contract and the realtime channel |
-| `components/dashboard-view.tsx` | The page and its shared header, drawn from props alone |
+| `components/dashboard-view.tsx` | The dashboard, drawn from props alone |
+| `components/page-header.tsx` | The header every page shares: the repository, the finder, the span picker, and the page's title |
 | `components/flow-diagram.tsx` | The overview: the flow diagram across the six stages |
 | `components/releases-section.tsx` | The Releases section: one release in full and the rest as rows |
 | `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |

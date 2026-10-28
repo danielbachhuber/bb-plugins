@@ -223,11 +223,10 @@ export default async function plugin(bb: BbPluginApi) {
     stage_detail: ({ stage, range, waitingPage }) => {
       const now = Date.now();
       const buckets = configured ? bucketsFor(range) : [];
+      const prs = configured ? store.readActivity(repository, 0) : [];
       const detail = stageDetail(
         stage,
-        configured
-          ? { pullRequests: store.readActivity(repository, 0), issues: store.readIssues(repository, 0) }
-          : { pullRequests: [], issues: [] },
+        { pullRequests: prs, issues: configured ? store.readIssues(repository, 0) : [] },
         buckets,
         now,
       );
@@ -251,6 +250,7 @@ export default async function plugin(bb: BbPluginApi) {
           to: paging.to,
           total: detail.waitingNow.length,
         },
+        everyone: everyone(prs),
         sync: status(),
       };
     },
@@ -271,17 +271,20 @@ export default async function plugin(bb: BbPluginApi) {
     },
     open_items: ({ kind, page }) => {
       if (!configured) {
-        return { repository: null, kind, rows: [], paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, sync: status() };
+        return { repository: null, kind, rows: [], paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, everyone: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
-      const rows = openItems(kind === "issue" ? store.readIssues(repository, 0) : store.readActivity(repository, 0));
+      // The finder in the header reads every pull request, whichever kind is listed.
+      const prs = store.readActivity(repository, 0);
+      const rows = openItems(kind === "issue" ? store.readIssues(repository, 0) : prs);
       const paging = pageOf(rows.length, page);
       return {
         repository,
         kind,
         rows: withThreads(rows.slice(paging.offset, paging.to), kind),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
+        everyone: everyone(prs),
         sync: status(),
       };
     },

@@ -2,13 +2,13 @@
 // then the list of how each fared, followed by their review lines and the pull
 // requests waiting on their review. Display only.
 import type { PersonActivityResult } from "@/dashboard/contract";
-import { unitOfBuckets, type Selection } from "@/dashboard/period";
+import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 import { reviewerRow } from "@/review/velocity";
 
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
-import { PersonFinder } from "./person-finder";
+import { PageHeader } from "./page-header";
 import { PullRequestFlowChart } from "./flow-chart";
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 
@@ -20,6 +20,15 @@ function days(value: number): string {
   if (value >= 1) return `${value.toFixed(1)}d`;
   const hours = value * 24;
   return hours >= 1 ? `${hours.toFixed(1)}h` : `${Math.max(1, Math.round(hours * 60))}m`;
+}
+
+const count = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+/** What the person did over the span, for the line under their name. */
+export function summary(data: PersonActivityResult, selection: Selection): string {
+  const opened = data.authorFlows.started.reduce((sum, n) => sum + n, 0);
+  const given = data.activity?.givenTotal ?? 0;
+  return `Opened ${count(opened, "pull request", "pull requests")} and gave ${count(given, "review", "reviews")} over ${selectionWords(selection)}`;
 }
 
 function ago(iso: string, now: number): string {
@@ -79,29 +88,30 @@ export function PersonView({
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <button
-              type="button"
-              onClick={onBack}
-              className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-            >
-              ← All people
-            </button>
-            <h1 className="text-sm font-medium">
-              {profile === null ? (
-                login
-              ) : (
-                <a href={profile} target="_blank" rel="noreferrer" className="hover:underline">
-                  {login}
-                </a>
-              )}
-            </h1>
-            {data?.repository ? <span className="text-xs text-muted-foreground">{data.repository}</span> : null}
-            {data?.repository ? <PersonFinder everyone={data.everyone} current={login} onOpenPerson={onOpenPerson} /> : null}
-          </div>
-          <PeriodPicker selection={selection} onSelect={onSelect} />
-        </div>
+        <PageHeader
+          repository={data?.repository ?? null}
+          onHome={onBack}
+          everyone={data?.everyone ?? []}
+          current={login}
+          onOpenPerson={onOpenPerson}
+          period={<PeriodPicker selection={selection} onSelect={onSelect} />}
+          title={login}
+          subtitle={
+            data === null ? null : (
+              <>
+                {summary(data, selection)}
+                {profile === null ? null : (
+                  <>
+                    {" · "}
+                    <a href={profile} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                      GitHub profile ↗
+                    </a>
+                  </>
+                )}
+              </>
+            )
+          }
+        />
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">

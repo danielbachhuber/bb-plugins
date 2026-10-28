@@ -4,6 +4,7 @@
 import type { OpenItemsResult } from "@/dashboard/contract";
 
 import { ItemRow } from "./item-row";
+import { PageHeader } from "./page-header";
 import type { ThreadSeed } from "./thread-seed";
 
 const DRAFT = "text-[#1baf7a] dark:text-[#199e70]";
@@ -37,6 +38,7 @@ export function OpenItemsView({
   data,
   error,
   onBack,
+  onOpenPerson,
   onPage,
   onThread,
   now = Date.now(),
@@ -45,6 +47,7 @@ export function OpenItemsView({
   data: OpenItemsResult | null;
   error: string | null;
   onBack: () => void;
+  onOpenPerson: (login: string) => void;
   onPage: (page: number) => void;
   /** Opens the row's thread, or the composer that starts one. */
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
@@ -57,22 +60,21 @@ export function OpenItemsView({
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-5xl px-4 pb-6 pt-3 md:px-5 md:pt-4">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <button
-            type="button"
-            onClick={onBack}
-            className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
-          >
-            ← Dashboard
-          </button>
-          <h1 className="text-sm font-medium">
-            {HEADINGS[kind]}
-            {shown === null ? null : (
-              <span className="ml-2 font-normal tabular-nums text-muted-foreground">{shown.paging.total}</span>
-            )}
-          </h1>
-          {shown?.repository ? <span className="text-xs text-muted-foreground">{shown.repository}</span> : null}
-        </div>
+        <PageHeader
+          repository={data?.repository ?? null}
+          onHome={onBack}
+          everyone={data?.everyone ?? []}
+          onOpenPerson={onOpenPerson}
+          title={
+            <>
+              {HEADINGS[kind]}
+              {shown === null ? null : (
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{shown.paging.total}</span>
+              )}
+            </>
+          }
+          subtitle="Oldest first, whatever span the dashboard shows."
+        />
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">
@@ -82,9 +84,8 @@ export function OpenItemsView({
 
         {shown === null ? null : (
           <section className="mt-4" aria-label={HEADINGS[kind]}>
-            <p className="text-xs text-muted-foreground">Oldest first, whatever span the dashboard shows.</p>
             {shown.rows.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">{EMPTY[kind]}</p>
+              <p className="text-sm text-muted-foreground">{EMPTY[kind]}</p>
             ) : (
               <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                 {shown.rows.map((row) => (
