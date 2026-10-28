@@ -843,6 +843,10 @@ export const StagePageClear = () => (
     data={{
       ...stageFixture({
         waiting: 0,
+        byAsked: {
+          team: { ...STAGES.find((stage) => stage.key === "review")!.byAsked!.team, waiting: 0 },
+          person: { ...STAGES.find((stage) => stage.key === "review")!.byAsked!.person, waiting: 0 },
+        },
         queue: [
           { label: "under 1d", count: 0, late: false },
           { label: "1–3d", count: 0, late: false },
