@@ -80,7 +80,7 @@ export function PersonFinder({
   const expanded = open && matches.length > 0;
 
   return (
-    <div className="relative">
+    <div className="relative w-fit">
       <Icon
         name="Search"
         className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
