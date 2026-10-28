@@ -478,7 +478,8 @@ export default async function plugin(bb: BbPluginApi) {
       const asked =
         ctx.threadId === undefined
           ? null
-          : await bb.storage.kv.get<{ threadId: string }>(askKeyFor(ctx.threadId));
+          : // A missing key reads as undefined, not null.
+            ((await bb.storage.kv.get<{ threadId: string }>(askKeyFor(ctx.threadId))) ?? null);
       const threadId = asked?.threadId ?? ctx.threadId;
       if (threadId === undefined) {
         return {
