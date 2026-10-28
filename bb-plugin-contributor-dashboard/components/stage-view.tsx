@@ -12,6 +12,9 @@ import { BatchButton, PeopleMenu, SortMenu, type SortOption } from "./list-toolb
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const DONE = "bg-[#1baf7a] dark:bg-[#199e70]";
+/** Code review asked of a team only, with no one named: the overview's amber. */
+const TEAM = "bg-[#d9820a]";
+const WARN = "text-[#b4530a] dark:text-[#e59a3a]";
 
 function Panel({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
   return (
@@ -25,7 +28,8 @@ function Panel({ title, note, children }: { title: string; note: string; childre
   );
 }
 
-function Bars({ bars }: { bars: ReadonlyArray<{ label: string; count: number; late?: boolean }> }) {
+/** A column per band; `team`, when given, is the part of the column drawn amber on top. */
+function Bars({ bars }: { bars: ReadonlyArray<{ label: string; count: number; late?: boolean; team?: number }> }) {
   const high = Math.max(1, ...bars.map((bar) => bar.count));
   return (
     <div>
@@ -33,10 +37,15 @@ function Bars({ bars }: { bars: ReadonlyArray<{ label: string; count: number; la
         {bars.map((bar) => (
           <span key={bar.label} className="flex flex-1 flex-col items-center gap-1">
             <span className="text-[10px] tabular-nums text-muted-foreground">{bar.count}</span>
-            <span
-              className={`w-full rounded-sm ${bar.late === true ? "bg-destructive" : bar.late === false ? DONE : BAR}`}
-              style={{ height: (bar.count / high) * 70 }}
-            />
+            <span className="flex w-full flex-col overflow-hidden rounded-sm">
+              {(bar.team ?? 0) === 0 ? null : (
+                <span className={`w-full ${TEAM}`} style={{ height: ((bar.team ?? 0) / high) * 70 }} />
+              )}
+              <span
+                className={`w-full ${bar.late === true ? "bg-destructive" : bar.late === false ? DONE : BAR}`}
+                style={{ height: ((bar.count - (bar.team ?? 0)) / high) * 70 }}
+              />
+            </span>
           </span>
         ))}
       </div>
@@ -138,7 +147,33 @@ const WAITING_SORTS: SortOption<WaitingQuery["sort"]>[] = [
 export function describeWaiting(label: string, query: WaitingQuery): string {
   const by = query.author === null ? "" : ` by ${query.author}`;
   const assigned = query.assignee === null ? "" : query.assignee === "" ? ", nobody assigned" : `, assigned to ${query.assignee}`;
-  return `Waiting in ${label}${by}${assigned}`;
+  const asked = query.askedOf === null ? "" : query.askedOf === "team" ? ", asked of a team only" : ", a person named";
+  return `Waiting in ${label}${asked}${by}${assigned}`;
+}
+
+/** Who a Code review row is still waiting on: its teams, and who is named, or that no one is. */
+function Asked({ span, organization }: { span: StageDetailResult["stage"]["waitingNow"][number]; organization: string | null }) {
+  const teams = span.teams ?? [];
+  const named = span.named ?? [];
+  return (
+    <>
+      {teams.map((slug) => (
+        <span key={slug} className="mr-1 inline-flex items-center rounded border border-border px-1 text-[11px] leading-4">
+          {organization === null ? slug : `${organization}/${slug}`}
+        </span>
+      ))}
+      {named.length > 0 ? (
+        `${teams.length > 0 ? "and " : "asked "}${named.join(", ")} · `
+      ) : span.askedOf === "team" ? (
+        <>
+          {teams.length > 0 ? "· " : ""}
+          <span className={WARN}>no one named</span> ·{" "}
+        </>
+      ) : teams.length > 0 ? (
+        "· "
+      ) : null}
+    </>
+  );
 }
 
 function ago(iso: string, now: number): string {
@@ -209,14 +244,34 @@ export function StageView({
               {sentence(stage.measures)}. <span className="tabular-nums text-foreground">{stage.left}</span> left this stage over{" "}
               {periodLabel}, <span className="tabular-nums text-foreground">{stage.waiting}</span> still in it. Half
               within {days(stage.median)}; 1 in 4 over {days(stage.p75)}, 1 in 10 over {days(stage.p90)}.
+              {stage.byAsked === undefined ? null : (
+                <>
+                  {" "}Asked of a team only: half within {days(stage.byAsked.team.median)}, 1 in 10 over{" "}
+                  {days(stage.byAsked.team.p90)}. Asked of a person: half within {days(stage.byAsked.person.median)}, 1
+                  in 10 over {days(stage.byAsked.person.p90)}.
+                </>
+              )}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
               <Panel title="How long it took" note={`${stage.left} left · ${periodLabel}`}>
                 <Bars bars={stage.spread} />
               </Panel>
-              <Panel title="How long the queue has waited" note={`${stage.waiting} in it now`}>
+              <Panel
+                title="How long the queue has waited"
+                note={
+                  stage.byAsked === undefined
+                    ? `${stage.waiting} in it now`
+                    : `${stage.waiting} in it now · ${stage.byAsked.team.waiting} on a team only`
+                }
+              >
                 <Bars bars={stage.queue} />
+                {stage.byAsked === undefined ? null : (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className={`inline-block h-2 w-2 rounded-sm ${TEAM}`} />
+                    asked of a team only, no one named
+                  </p>
+                )}
               </Panel>
             </div>
 
@@ -255,6 +310,28 @@ export function StageView({
                 </span>
               )}
             </div>
+            {stage.byAsked === undefined || stage.waiting === 0 ? null : (
+              <div className="mt-2 inline-flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Who was asked">
+                {(
+                  [
+                    [null, "All", stage.waiting],
+                    ["team", "On a team only", stage.byAsked.team.waiting],
+                    ["person", "A person named", stage.byAsked.person.waiting],
+                  ] as const
+                ).map(([key, label, n]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={waitingQuery.askedOf === key}
+                    onClick={() => onWaitingQuery({ ...waitingQuery, askedOf: key })}
+                    className={`cursor-pointer rounded px-2 py-0.5 ${waitingQuery.askedOf === key ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {label}{" "}
+                    <span className={`tabular-nums ${key === "team" && n > 0 ? WARN : ""}`}>{n}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {paging.total === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">
                 {stage.waiting === 0 ? "Nothing is in this stage." : "Nothing in this stage matches the filters."}
@@ -284,6 +361,7 @@ export function StageView({
                     facts={
                       <span>
                         {span.author === null ? "" : `${span.author} · `}
+                        {span.askedOf === undefined ? null : <Asked span={span} organization={data.organization} />}
                         since {ago(span.startedAt, now)} ·{" "}
                         <span className={span.days > 3 ? "text-destructive" : ""}>{days(span.days)} waiting</span>
                       </span>

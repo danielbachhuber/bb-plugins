@@ -58,8 +58,19 @@ describe("queryWaiting", () => {
   ];
 
   it("narrows by author and by nobody assigned, longest wait first", () => {
-    expect(queryWaiting(rows, { sort: "wait", direction: "desc", author: "mona", assignee: null }).map((row) => row.number)).toEqual([1, 3]);
-    expect(queryWaiting(rows, { sort: "wait", direction: "desc", author: null, assignee: NOBODY }).map((row) => row.number)).toEqual([2, 3]);
+    expect(queryWaiting(rows, { sort: "wait", direction: "desc", author: "mona", assignee: null, askedOf: null }).map((row) => row.number)).toEqual([1, 3]);
+    expect(queryWaiting(rows, { sort: "wait", direction: "desc", author: null, assignee: NOBODY, askedOf: null }).map((row) => row.number)).toEqual([2, 3]);
+  });
+
+  it("keeps only what was asked of a team alone, or of a named person", () => {
+    const asked = [
+      { ...rows[0], askedOf: "team" as const },
+      { ...rows[1], askedOf: "person" as const },
+      { ...rows[2], askedOf: "team" as const },
+    ];
+    const query = { sort: "wait" as const, direction: "desc" as const, author: null, assignee: null };
+    expect(queryWaiting(asked, { ...query, askedOf: "team" }).map((row) => row.number)).toEqual([1, 3]);
+    expect(queryWaiting(asked, { ...query, askedOf: "person" }).map((row) => row.number)).toEqual([2]);
   });
 
   it("counts each menu's choices under the other filter only", () => {

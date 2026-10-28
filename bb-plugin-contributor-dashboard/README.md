@@ -154,6 +154,14 @@ p90 drawn over them, so a slow one can be read against a busy one.
 The queue is what is in the stage now, whatever the period, since a pull
 request waiting three months is waiting today.
 
+Code review's page also says who was asked. The sentence under the title adds
+the median and p90 for pull requests asked of a team only and for those with
+a person named. The queue chart draws the part of each band asked of a team
+only in amber on top. Above the list, **All**, **On a team only**, and **A
+person named** narrow it to one or the other, and Batch takes the same
+narrowing. Each row names the teams still asked and anyone named who has not
+reviewed, or says "no one named" in amber.
+
 #### Everything open
 
 Clicking the **Issues** or **Pull requests** heading opens every one of that

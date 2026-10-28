@@ -346,8 +346,8 @@ export interface StagePart {
 export interface StageDetail extends StageSummary {
   /** Finished spans counted into bands, longest band last. */
   spread: Array<{ label: string; count: number }>;
-  /** Waiting spans counted into bands. */
-  queue: Array<{ label: string; count: number; late: boolean }>;
+  /** Waiting spans counted into bands, with how many of each were asked of a team only, for Code review. */
+  queue: Array<{ label: string; count: number; late: boolean; team?: number }>;
   /** How many left in each bucket, and the two marks for that bucket. */
   series: Array<{ label: string; count: number; median: number; p90: number }>;
   /** What is in the stage now, longest wait first. */
@@ -428,10 +428,18 @@ export function stageDetail(
       label,
       count,
     })),
-    queue: countIntoBands(QUEUE_BANDS, waitingSpans.map((span) => span.days)).map(({ label, count, late }) => ({
+    queue: countIntoBands(QUEUE_BANDS, waitingSpans.map((span) => span.days)).map(({ label, count, late }, index) => ({
       label,
       count,
       late,
+      ...(key === "review"
+        ? {
+            team: countIntoBands(
+              QUEUE_BANDS,
+              waitingSpans.filter((span) => span.askedOf === "team").map((span) => span.days),
+            )[index].count,
+          }
+        : {}),
     })),
     series: buckets.map((bucket) => {
       const inBucket = finished.filter((span) => endedIn(span, bucket.start, bucket.end)).map((span) => span.days);

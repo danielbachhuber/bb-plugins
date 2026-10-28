@@ -148,6 +148,8 @@ export const waitingQuerySchema = z.object({
   author: z.string().max(100).nullable().default(null),
   /** Null for anyone, "" for nobody, or a login. */
   assignee: z.string().max(100).nullable().default(null),
+  /** Code review only: null for everything, or only what was asked of a team alone or of a named person. */
+  askedOf: z.enum(["team", "person"]).nullable().default(null),
 });
 
 /** What each of a person menu's choices would leave, under the other filter. */
@@ -203,6 +205,11 @@ export const stageSpanSchema = z.object({
   startedAt: z.string(),
   endedAt: z.string().nullable(),
   days: z.number(),
+  /** Code review only: whether anyone was asked by name before the review, or only a team was. */
+  askedOf: z.enum(["team", "person"]).optional(),
+  /** Code review only: the teams and people still asked now, who have not reviewed since. */
+  teams: z.array(z.string()).optional(),
+  named: z.array(z.string()).optional(),
 });
 
 /** Where everything opened in the period has got to, by path. See review/flow.ts. */
@@ -378,7 +385,8 @@ export const rpcContract = defineRpcContract({
       buckets: z.array(bucketSchema),
       stage: stageSummarySchema.extend({
         spread: z.array(z.object({ label: z.string(), count: z.number() })),
-        queue: z.array(z.object({ label: z.string(), count: z.number(), late: z.boolean() })),
+        /** `team` is how many of `count` were asked of a team only, for Code review. */
+        queue: z.array(z.object({ label: z.string(), count: z.number(), late: z.boolean(), team: z.number().optional() })),
         series: z.array(
           z.object({ label: z.string(), count: z.number(), median: z.number(), p90: z.number() }),
         ),
@@ -386,6 +394,8 @@ export const rpcContract = defineRpcContract({
         waitingNow: z.array(stageSpanSchema),
       }),
       waitingFacets: peopleFacetsSchema,
+      /** The organization the team slugs belong to, for their names. */
+      organization: z.string().nullable(),
       waitingPaging: z.object({
         page: z.number(),
         pages: z.number(),

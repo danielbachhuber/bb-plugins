@@ -138,15 +138,19 @@ export type WaitingSort = "wait" | "author";
 export interface WaitingQuery extends PeopleFilter {
   sort: WaitingSort;
   direction: SortDirection;
+  /** Code review only: null for everything, or only what was asked of a team alone or of a named person. */
+  askedOf: "team" | "person" | null;
 }
 
-export const DEFAULT_WAITING_QUERY: WaitingQuery = { sort: "wait", direction: "desc", author: null, assignee: null };
+export const DEFAULT_WAITING_QUERY: WaitingQuery = { sort: "wait", direction: "desc", author: null, assignee: null, askedOf: null };
 
 interface WaitingLike extends WithPeople {
   days: number;
 }
 
 /** The rows the query keeps, in its order. They arrive longest wait first, which ties keep. */
-export function queryWaiting<T extends WaitingLike>(rows: readonly T[], query: WaitingQuery): T[] {
-  return sortBy(filterPeople(rows, query), query.sort === "wait" ? (row) => row.days : (row) => row.author ?? "", query.direction);
+export function queryWaiting<T extends WaitingLike & { askedOf?: "team" | "person" }>(rows: readonly T[], query: WaitingQuery): T[] {
+  const asked = query.askedOf ?? null;
+  const kept = asked === null ? rows : rows.filter((row) => row.askedOf === asked);
+  return sortBy(filterPeople(kept, query), query.sort === "wait" ? (row) => row.days : (row) => row.author ?? "", query.direction);
 }

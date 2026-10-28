@@ -12,7 +12,7 @@ import { everyone } from "./review/everyone.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
-import { awaitingTeamReview, teamActivity } from "./review/teams.js";
+import { awaitingTeamReview, openRequests, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { assignedIssues, closedAssignedIssues } from "./review/assigned-issues.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
@@ -22,6 +22,7 @@ import { subthreadRequest } from "./components/thread-seed.js";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
+import type { PullRequestWithActivity } from "./mirror/github.js";
 import { runSync } from "./mirror/sync.js";
 
 export { rpcContract };
@@ -147,6 +148,17 @@ export default async function plugin(bb: BbPluginApi) {
     return rows.map((row) => ({ ...row, threadId: threads.get(row.number) ?? null }));
   }
 
+  /** Adds who each Code review row is still waiting on: its teams, and anyone named who has not reviewed. */
+  function withRequests<T extends { number: number }>(spans: readonly T[], prs: readonly PullRequestWithActivity[]) {
+    const byNumber = new Map(prs.map((pr) => [pr.number, pr]));
+    return spans.map((span) => {
+      const pr = byNumber.get(span.number);
+      if (pr === undefined) return span;
+      const { teams, people } = openRequests(pr);
+      return { ...span, teams: [...teams.keys()].sort(), named: [...people.keys()].sort() };
+    });
+  }
+
   const NO_FLOWS = { started: [], finished: [], flows: [], fromEarlier: [], open: [], asked: null, median: 0, p90: 0 };
 
   bb.rpc.register(rpcContract, {
@@ -270,7 +282,8 @@ export default async function plugin(bb: BbPluginApi) {
         buckets,
         now,
       );
-      const waiting = queryWaiting(detail.waitingNow, waitingQuery);
+      const waitingNow = stage === "review" ? withRequests(detail.waitingNow, prs) : detail.waitingNow;
+      const waiting = queryWaiting(waitingNow, waitingQuery);
       const paging = pageOf(waiting.length, waitingPage);
       const kind: ThreadKind = stage === "triage" || stage === "ownership" ? "issue" : "pull";
       if (configured) {
@@ -284,7 +297,11 @@ export default async function plugin(bb: BbPluginApi) {
           ...detail,
           waitingNow: withThreads(waiting.slice(paging.offset, paging.offset + PAGE_SIZE), kind),
         },
-        waitingFacets: peopleFacets(detail.waitingNow, waitingQuery),
+        waitingFacets: peopleFacets(
+          waitingQuery.askedOf === null ? waitingNow : waitingNow.filter((span) => span.askedOf === waitingQuery.askedOf),
+          waitingQuery,
+        ),
+        organization: configured ? repository.split("/")[0] : null,
         waitingPaging: {
           page: paging.page,
           pages: paging.pages,

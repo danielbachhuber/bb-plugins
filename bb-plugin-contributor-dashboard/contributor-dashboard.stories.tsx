@@ -702,6 +702,9 @@ const WAITING_NOW = [
     startedAt: "2026-09-02T09:00:00Z",
     endedAt: null,
     days: 23.4,
+    askedOf: "team" as const,
+    teams: ["reviewers"],
+    named: [],
   },
   {
     number: 1812,
@@ -713,6 +716,9 @@ const WAITING_NOW = [
     startedAt: "2026-09-17T09:00:00Z",
     endedAt: null,
     days: 10.8,
+    askedOf: "person" as const,
+    teams: [],
+    named: ["hubber"],
   },
   {
     number: 1829,
@@ -724,6 +730,9 @@ const WAITING_NOW = [
     startedAt: "2026-09-30T09:00:00Z",
     endedAt: null,
     days: 5.6,
+    askedOf: "team" as const,
+    teams: ["reviewers"],
+    named: [],
   },
   {
     number: 1835,
@@ -735,6 +744,9 @@ const WAITING_NOW = [
     startedAt: "2026-10-02T09:00:00Z",
     endedAt: null,
     days: 4.1,
+    askedOf: "person" as const,
+    teams: ["reviewers"],
+    named: ["yeti"],
   },
   {
     number: 1841,
@@ -746,6 +758,9 @@ const WAITING_NOW = [
     startedAt: "2026-10-05T09:00:00Z",
     endedAt: null,
     days: 2.9,
+    askedOf: "team" as const,
+    teams: ["reviewers"],
+    named: [],
   },
 ];
 
@@ -771,10 +786,10 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
         { label: "over 5d", count: 6 },
       ],
       queue: [
-        { label: "under 1d", count: 5, late: false },
-        { label: "1–3d", count: 5, late: false },
-        { label: "3–7d", count: 2, late: true },
-        { label: "over 7d", count: 2, late: true },
+        { label: "under 1d", count: 5, late: false, team: 2 },
+        { label: "1–3d", count: 5, late: false, team: 1 },
+        { label: "3–7d", count: 2, late: true, team: 1 },
+        { label: "over 7d", count: 2, late: true, team: 1 },
       ],
       series: buckets.map((bucket, index) => ({
         label: bucket.label,
@@ -786,6 +801,7 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
       ...overrides,
     },
     waitingFacets: peopleFacets(WAITING_NOW, DEFAULT_WAITING_QUERY),
+    organization: "acme",
     waitingPaging: { page: 0, pages: 3, from: 1, to: 5, total: 14 },
     everyone: EVERYONE,
     sync: SYNCED,
