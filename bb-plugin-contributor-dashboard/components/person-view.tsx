@@ -8,6 +8,7 @@ import { reviewerRow } from "@/review/velocity";
 import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
+import { PersonFinder } from "./person-finder";
 import { PullRequestFlowChart } from "./flow-chart";
 import { PersonChart, REVIEW_SERIES, SeriesLegend } from "./person-chart";
 
@@ -53,6 +54,7 @@ export function PersonView({
   data,
   error,
   onBack,
+  onOpenPerson,
   onAuthoredPage,
   onThread,
   now = Date.now(),
@@ -63,6 +65,8 @@ export function PersonView({
   data: PersonActivityResult | null;
   error: string | null;
   onBack: () => void;
+  /** Switches to another person's page. */
+  onOpenPerson: (login: string) => void;
   /** Shows another page of their pull requests. */
   onAuthoredPage: (page: number) => void;
   /** Opens the row's thread, or the dialog that starts one. */
@@ -94,6 +98,7 @@ export function PersonView({
               )}
             </h1>
             {data?.repository ? <span className="text-xs text-muted-foreground">{data.repository}</span> : null}
+            {data?.repository ? <PersonFinder everyone={data.everyone} current={login} onOpenPerson={onOpenPerson} /> : null}
           </div>
           <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>

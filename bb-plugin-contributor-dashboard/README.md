@@ -8,13 +8,20 @@ repository's pull requests, reviews, and issues.
 
 The panel's title bar says when the mirror last synced and has the **Sync**
 button, where bb's other plugins put theirs. The top of the page itself names
-the repository and has the span picker, which every section follows: 2 weeks,
+the repository, has a **Find a person** box, and has the span picker, which
+every section follows: 2 weeks,
 6 weeks (the default), 3 months, and a date range for the question the presets
 do not answer. The range offers the two years the mirror reaches back and
 nothing later than today, the cross beside the dates drops it back to 6 weeks,
 and whatever is chosen is remembered for next time. So is the screen: opening
 the page again returns to the person, stage, or list last shown there.
 While the first sync is still reaching back, the page says how far it has got.
+
+**Find a person** opens anyone's page by name. Focusing it lists the eight
+people most recently active, and typing narrows the list to logins containing
+what you typed, those starting with it first. Arrow keys and Enter pick one.
+It offers everyone who opened, reviewed, or was asked to review a pull request
+in the mirror, bots and teams left out, read from rows the page already loads.
 
 A chart has one point per bucket, and how long a bucket is follows the span: a
 month or less is drawn by day, up to half a year by week starting on Monday,
@@ -301,7 +308,8 @@ A tag that is not a version stands as a minor of its own.
 
 Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
-to the dashboard. It shows:
+to the dashboard. Its header has the same **Find a person** box, which marks
+the person already shown and switches to anyone else. It shows:
 
 - **Pull requests**, PR Velocity's opening chart for only their pull
   requests: what they opened and merged in each bucket, which merged in the
@@ -418,6 +426,7 @@ needs no new sync.
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
+| `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, oldest first |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
@@ -438,10 +447,12 @@ needs no new sync.
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |
 | `components/item-row.tsx` | One row of a list: the assignee, the facts, and the two actions |
 | `components/thread-seed.ts` | The row a thread starts from, and the prompt it is seeded with |
+| `components/person-finder.tsx` | The **Find a person** box in a page's header |
 | `components/period-picker.tsx` | The presets and the date range, which every page shares |
 | `dashboard/remember.ts` | The chosen span and the last screen, kept across opens |
 | `server.ts` | Settings, starting syncs, and the RPCs |
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
+| `person-finder.stories.tsx` | The person finder focused, typed in, on a person's page, and matching nobody |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
 | `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, a stage's page busy and clear, and the open pull requests and open issues |
 

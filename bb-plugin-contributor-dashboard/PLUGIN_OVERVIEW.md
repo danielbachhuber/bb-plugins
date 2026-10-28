@@ -5,8 +5,8 @@ one GitHub repository, over 2 weeks, 6 weeks, 3 months, or any range of dates
 you pick. **PR velocity** charts for each person the pull requests they opened
 and the ones that merged, and **Review velocity** charts the reviews requested
 of them and the reviews they gave. A short span is drawn by day, a medium one
-by week, and a long one by month. Clicking a name opens that
-person's page: the pull requests they opened and merged, how each fared in
+by week, and a long one by month. Clicking a name, or finding one in the
+search box at the top, opens that person's page: the pull requests they opened and merged, how each fared in
 review, then their review lines and the pull requests waiting on their review.
 Clicking the **Issues** or **Pull requests** heading lists every one open now,
 oldest first, whatever the span.

@@ -199,6 +199,8 @@ export const rpcContract = defineRpcContract({
       velocity: z.object({ merge: bucketFlowsSchema, review: bucketFlowsSchema }),
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
+      /** Everyone the person finder offers, most recently active first. */
+      everyone: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },
@@ -229,6 +231,8 @@ export const rpcContract = defineRpcContract({
         to: z.number(),
         total: z.number(),
       }),
+      /** Everyone the person finder offers, most recently active first. */
+      everyone: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },

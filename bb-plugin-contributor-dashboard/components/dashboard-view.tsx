@@ -12,6 +12,7 @@ import { FlowDiagram } from "./flow-diagram";
 import { FlowChart, PullRequestFlowChart } from "./flow-chart";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
+import { PersonFinder } from "./person-finder";
 import { ReleasesSection } from "./releases-section";
 import { StageTable } from "./stage-flow";
 import { VelocitySection } from "./velocity-section";
@@ -114,6 +115,7 @@ export function DashboardView({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {data?.repository ? <span className="text-sm font-medium text-foreground">{data.repository}</span> : null}
+            {data?.repository ? <PersonFinder everyone={data.everyone} onOpenPerson={onOpenPerson} /> : null}
           </div>
           <PeriodPicker selection={selection} onSelect={onSelect} />
         </div>

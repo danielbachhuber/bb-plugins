@@ -285,6 +285,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           data={person.data}
           error={person.error}
           onBack={back}
+          onOpenPerson={openPerson}
           onAuthoredPage={setAuthoredPage}
           onThread={onThread}
         />

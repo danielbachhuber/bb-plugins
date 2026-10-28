@@ -50,6 +50,9 @@ const PEOPLE: Array<{ login: string; opened: number; merged: number; requested: 
   { login: "swagtocat", opened: 1, merged: 0, requested: 0, given: 0 },
 ];
 
+/** Who the person finder offers: the people above, and two who were only asked to review. */
+const EVERYONE = [...PEOPLE.map((person) => person.login), "privateinvestocat", "octobiwan"];
+
 /** A person's weekly rhythm: uneven, repeatable, and the same shape each period. */
 const rhythm = (seed: number, buckets: number): number[] =>
   Array.from(
@@ -383,6 +386,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
     },
     authors,
     people,
+    everyone: EVERYONE,
     sync,
   };
 }
@@ -447,7 +451,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
@@ -519,10 +523,12 @@ function Person({
         awaiting,
         authored: authored.slice(paging.offset, paging.to),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
+        everyone: EVERYONE,
         sync: SYNCED,
       }}
       error={null}
       onBack={() => undefined}
+      onOpenPerson={() => undefined}
       onAuthoredPage={setAuthoredPage}
       onThread={() => undefined}
       now={NOW}

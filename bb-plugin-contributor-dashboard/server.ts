@@ -8,6 +8,7 @@ import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/con
 import { ghGraphql } from "./mirror/gh.js";
 import { authorActivity } from "./review/authors.js";
 import { peopleActivity } from "./review/people.js";
+import { everyone } from "./review/everyone.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
@@ -149,7 +150,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
           velocity: { merge: NO_FLOWS, review: NO_FLOWS },
-          authors: [], people: [], sync: status() };
+          authors: [], people: [], everyone: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -170,6 +171,7 @@ export default async function plugin(bb: BbPluginApi) {
         // so authoring reads them all rather than only the recently updated.
         authors: authorActivity(prs, buckets),
         people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
+        everyone: everyone(prs),
         sync: status(),
       };
     },
@@ -185,6 +187,7 @@ export default async function plugin(bb: BbPluginApi) {
           awaiting: [],
           authored: [],
           authoredPaging: noPaging,
+          everyone: [],
           sync: status(),
         };
       }
@@ -209,6 +212,7 @@ export default async function plugin(bb: BbPluginApi) {
         awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
+        everyone: everyone(everything),
         sync: status(),
       };
     },
