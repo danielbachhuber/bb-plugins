@@ -16,6 +16,8 @@ function person(started: number[], givenTotal: number | null): PersonActivityRes
     activity: givenTotal === null ? null : { login: "octocat", requested: [], given: [], requestedTotal: 0, givenTotal },
     awaiting: [],
     authored: [],
+    authoredTotal: 0,
+    authoredFacets: { open: 0, draft: 0, merged: 0, closed: 0 },
     authoredPaging: { page: 0, pages: 1, from: 0, to: 0, total: 0 },
     everyone: [],
     sync: { syncedAt: 0, running: false, backfillDone: true, pullRequests: 0, issues: 0, error: null },

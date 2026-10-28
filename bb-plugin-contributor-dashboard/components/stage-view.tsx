@@ -1,6 +1,6 @@
 // One stage's page: what it measures, how long it took and how long the queue
 // has waited, what is in it now, and how the two move across the period.
-import type { StageDetailResult } from "@/dashboard/contract";
+import type { StageDetailResult, WaitingQuery } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
@@ -8,6 +8,7 @@ import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";
+import { BatchButton, PeopleMenu, SortMenu, type SortOption } from "./list-toolbar";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
 const DONE = "bg-[#1baf7a] dark:bg-[#199e70]";
@@ -128,6 +129,18 @@ function sentence(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+const WAITING_SORTS: SortOption<WaitingQuery["sort"]>[] = [
+  { key: "wait", label: "Wait", asc: "Shortest", desc: "Longest", start: "desc" },
+  { key: "author", label: "Author", asc: "A–Z", desc: "Z–A", start: "asc" },
+];
+
+/** What the queue's filters keep, as a phrase for Batch: "Waiting in Review by mona, nobody assigned". */
+export function describeWaiting(label: string, query: WaitingQuery): string {
+  const by = query.author === null ? "" : ` by ${query.author}`;
+  const assigned = query.assignee === null ? "" : query.assignee === "" ? ", nobody assigned" : `, assigned to ${query.assignee}`;
+  return `Waiting in ${label}${by}${assigned}`;
+}
+
 function ago(iso: string, now: number): string {
   const elapsed = Math.round((now - Date.parse(iso)) / 86_400_000);
   if (elapsed < 1) return "today";
@@ -145,6 +158,9 @@ export function StageView({
   onWaitingPage,
   periodLabel,
   onThread,
+  waitingQuery,
+  onWaitingQuery,
+  onBatch,
   now = Date.now(),
 }: {
   selection: Selection;
@@ -157,6 +173,11 @@ export function StageView({
   periodLabel: string;
   /** Opens the row's thread, or the dialog that starts one. */
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
+  /** How the toolbar narrows and orders the queue; the server applies it. */
+  waitingQuery: WaitingQuery;
+  onWaitingQuery: (next: WaitingQuery) => void;
+  /** Opens Batch over everything in the queue the filters match. */
+  onBatch: (kind: "issue" | "pull", heading: string) => void;
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
@@ -199,14 +220,45 @@ export function StageView({
               </Panel>
             </div>
 
-            <h2 className="mt-6 text-base font-semibold">
-              In this stage now
-              <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
-                {paging.total}
-              </span>
-            </h2>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">
+                In this stage now
+                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
+                  {paging.total === stage.waiting ? paging.total : `${paging.total} of ${stage.waiting}`}
+                </span>
+              </h2>
+              {stage.waiting === 0 ? null : (
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <SortMenu
+                    options={WAITING_SORTS}
+                    sort={waitingQuery.sort}
+                    direction={waitingQuery.direction}
+                    onSort={(sort, direction) => onWaitingQuery({ ...waitingQuery, sort, direction })}
+                  />
+                  <PeopleMenu
+                    label="Author"
+                    value={waitingQuery.author}
+                    counts={data.waitingFacets.authors}
+                    onPick={(author) => onWaitingQuery({ ...waitingQuery, author })}
+                  />
+                  <PeopleMenu
+                    label="Assigned"
+                    value={waitingQuery.assignee}
+                    counts={data.waitingFacets.assignees}
+                    nobody={data.waitingFacets.nobody}
+                    onPick={(assignee) => onWaitingQuery({ ...waitingQuery, assignee })}
+                  />
+                  <BatchButton
+                    count={paging.total}
+                    onBatch={() => onBatch(stage.source === "issue" ? "issue" : "pull", describeWaiting(stage.label, waitingQuery))}
+                  />
+                </span>
+              )}
+            </div>
             {paging.total === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">Nothing is in this stage.</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {stage.waiting === 0 ? "Nothing is in this stage." : "Nothing in this stage matches the filters."}
+              </p>
             ) : (
               <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
                 {stage.waitingNow.map((span) => (

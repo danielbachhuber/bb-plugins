@@ -7,7 +7,6 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import type { NewThreadRequest } from "@get-bb/plugin-sdk/app";
 import { StartThreadError, StartThreadForm } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 
-import type { OpenItem } from "@/dashboard/contract";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +17,16 @@ import { batchPrompt } from "./thread-seed";
 
 type Kind = "issue" | "pull";
 
+/** What Batch needs of a row, whichever list it came from. */
+export interface BatchItem {
+  number: number;
+  title: string;
+  url: string;
+  /** Shown beside the row; a person's own pull requests leave it out. */
+  author?: string | null;
+  threadId: string | null;
+}
+
 const NOUN = { issue: ["issue", "issues"], pull: ["pull request", "pull requests"] } as const;
 /** Browsers block a burst of new tabs past the first few, so Open stops here. */
 export const OPEN_LIMIT = 10;
@@ -27,7 +36,7 @@ function noun(kind: Kind, count: number): string {
 }
 
 /** A markdown list of the rows' links, one per line. */
-export function linksMarkdown(rows: readonly Pick<OpenItem, "number" | "title" | "url">[]): string {
+export function linksMarkdown(rows: readonly Pick<BatchItem, "number" | "title" | "url">[]): string {
   return rows.map((row) => `- [${row.title} (#${row.number})](${row.url})`).join("\n");
 }
 
@@ -61,7 +70,7 @@ function PickStep({
   onNext,
 }: {
   kind: Kind;
-  rows: readonly OpenItem[];
+  rows: readonly BatchItem[];
   ticked: ReadonlySet<number>;
   onTicked: (next: Set<number>) => void;
   limit: number;
@@ -165,13 +174,13 @@ export function BatchDialog({
   /** What the filters show, such as "Drafts nobody is assigned to". */
   heading: string;
   /** Every row the filters match; null while they load. */
-  rows: readonly OpenItem[] | null;
+  rows: readonly BatchItem[] | null;
   error: string | null;
   projectId: string | null;
   limit: number;
   onClose: () => void;
   /** Throw to keep the dialog open with the draft in it. */
-  onStart: (rows: OpenItem[], request: NewThreadRequest) => Promise<void>;
+  onStart: (rows: BatchItem[], request: NewThreadRequest) => Promise<void>;
 }) {
   const [step, setStep] = useState<"pick" | "compose">("pick");
   const [ticked, setTicked] = useState<ReadonlySet<number>>(new Set());

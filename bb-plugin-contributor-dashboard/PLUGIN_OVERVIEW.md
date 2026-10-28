@@ -12,6 +12,8 @@ Clicking the **Issues** or **Pull requests** heading lists every one open now,
 whatever the span, to sort and filter by author, assignee, draft, or quiet
 for 30 days. **Batch** ticks rows from everything the filters match and copies
 their links, opens them, or starts one main thread with a subthread for each.
+A person's lists and a stage's queue have the same toolbar and Batch, with the
+sorts and filters each list's rows support.
 
 ## How it works
 

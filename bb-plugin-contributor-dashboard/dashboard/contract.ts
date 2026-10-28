@@ -54,6 +54,9 @@ export const authoredPullRequestSchema = z.object({
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   isDraft: z.boolean(),
   createdAt: z.string(),
+  mergedAt: z.string().nullable(),
+  /** Lines added and removed; null when the mirror has not stored them. */
+  size: z.number().nullable(),
   firstReviewDays: z.number().nullable(),
   followUps: z.number(),
   mergeDays: z.number().nullable(),
@@ -85,6 +88,28 @@ export const openQuerySchema = z.object({
 });
 
 const loginCountsSchema = z.array(z.object({ login: z.string(), count: z.number() }));
+
+/** How the toolbar over a person's pull requests narrows and orders them. See review/list-query.ts. */
+export const authoredQuerySchema = z.object({
+  sort: z.enum(["opened", "merged", "firstReview", "mergeTime", "size"]).default("opened"),
+  direction: z.enum(["asc", "desc"]).default("desc"),
+  state: z.enum(["open", "draft", "merged", "closed"]).nullable().default(null),
+});
+
+/** How many of a person's pull requests are in each state, before the state filter. */
+export const authoredFacetsSchema = z.object({ open: z.number(), draft: z.number(), merged: z.number(), closed: z.number() });
+
+/** How the toolbar over a stage's queue narrows and orders it. See review/list-query.ts. */
+export const waitingQuerySchema = z.object({
+  sort: z.enum(["wait", "author"]).default("wait"),
+  direction: z.enum(["asc", "desc"]).default("desc"),
+  author: z.string().max(100).nullable().default(null),
+  /** Null for anyone, "" for nobody, or a login. */
+  assignee: z.string().max(100).nullable().default(null),
+});
+
+/** What each of a person menu's choices would leave, under the other filter. */
+export const peopleFacetsSchema = z.object({ authors: loginCountsSchema, assignees: loginCountsSchema, nobody: z.number() });
 
 /** What each of the toolbar's choices would leave, under the other filters. */
 export const openFacetsSchema = z.object({
@@ -240,6 +265,7 @@ export const rpcContract = defineRpcContract({
       range: rangeSchema,
       /** Which page of their pull requests; clamped into range by the server. */
       authoredPage: z.number().int().min(0).max(10_000).default(0),
+      authoredQuery: authoredQuerySchema.default(authoredQuerySchema.parse({})),
     }),
     output: z.object({
       repository: z.string().nullable(),
@@ -250,8 +276,11 @@ export const rpcContract = defineRpcContract({
       /** Null when the person has no review activity in the period. */
       activity: personActivitySchema.nullable(),
       awaiting: z.array(awaitingReviewSchema),
-      /** One page of their pull requests. */
+      /** One page of their pull requests, as the toolbar narrows and orders them. */
       authored: z.array(authoredPullRequestSchema),
+      /** All of their pull requests in the period, before the state filter. */
+      authoredTotal: z.number(),
+      authoredFacets: authoredFacetsSchema,
       /** The page that came back, and how the whole list divides into pages. */
       authoredPaging: z.object({
         page: z.number(),
@@ -271,6 +300,7 @@ export const rpcContract = defineRpcContract({
       range: rangeSchema,
       /** Which page of what is waiting; clamped into range by the server. */
       waitingPage: z.number().int().min(0).max(10_000).default(0),
+      waitingQuery: waitingQuerySchema.default(waitingQuerySchema.parse({})),
     }),
     output: z.object({
       repository: z.string().nullable(),
@@ -281,9 +311,10 @@ export const rpcContract = defineRpcContract({
         series: z.array(
           z.object({ label: z.string(), count: z.number(), median: z.number(), p90: z.number() }),
         ),
-        /** One page of what is in the stage now, longest wait first. */
+        /** One page of what is in the stage now, as the toolbar narrows and orders it. */
         waitingNow: z.array(stageSpanSchema),
       }),
+      waitingFacets: peopleFacetsSchema,
       waitingPaging: z.object({
         page: z.number(),
         pages: z.number(),
@@ -352,6 +383,16 @@ export const rpcContract = defineRpcContract({
     input: z.object({ kind: z.enum(["issue", "pull"]), query: openQuerySchema }),
     output: z.object({ rows: z.array(openItemSchema) }),
   },
+  /** Every one of a person's pull requests the query matches, on every page, for Batch. */
+  authored_matching: {
+    input: z.object({ login: z.string().min(1).max(100), range: rangeSchema, query: authoredQuerySchema }),
+    output: z.object({ rows: z.array(authoredPullRequestSchema) }),
+  },
+  /** Everything waiting in a stage that the query matches, on every page, for Batch. */
+  stage_waiting_matching: {
+    input: z.object({ stage: stageKeySchema, query: waitingQuerySchema }),
+    output: z.object({ rows: z.array(stageSpanSchema) }),
+  },
   /**
    * Starts one main thread from the composer's request, then a subthread
    * under it for each row, with the same provider, model, and environment,
@@ -405,4 +446,9 @@ export type OpenItemsResult = z.infer<(typeof rpcContract)["open_items"]["output
 export type OpenItem = z.infer<typeof openItemSchema>;
 export type OpenQuery = z.infer<typeof openQuerySchema>;
 export type OpenFacets = z.infer<typeof openFacetsSchema>;
+export type AuthoredQuery = z.infer<typeof authoredQuerySchema>;
+export type AuthoredFacets = z.infer<typeof authoredFacetsSchema>;
+export type AuthoredPullRequest = z.infer<typeof authoredPullRequestSchema>;
+export type WaitingQuery = z.infer<typeof waitingQuerySchema>;
+export type PeopleFacets = z.infer<typeof peopleFacetsSchema>;
 export type StartBatchResult = z.infer<(typeof rpcContract)["start_batch"]["output"]>;

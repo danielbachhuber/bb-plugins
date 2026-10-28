@@ -24,6 +24,9 @@ export interface AuthoredPullRequestRow {
   state: "OPEN" | "CLOSED" | "MERGED";
   isDraft: boolean;
   createdAt: string;
+  mergedAt: string | null;
+  /** Lines added and removed; null when the mirror has not stored them. */
+  size: number | null;
   /** Business days from ready for review to the first review; null with no review yet. */
   firstReviewDays: number | null;
   /** Reviews after the first, each reviewer counted once a day. */
@@ -118,6 +121,8 @@ export function authoredPullRequests(
       state: pr.state,
       isDraft: pr.isDraft,
       createdAt: pr.createdAt,
+      mergedAt: pr.mergedAt,
+      size: pr.additions === undefined ? null : pr.additions + (pr.deletions ?? 0),
       firstReviewDays: readyMs === null || first === null ? null : businessDaysBetween(readyMs, Date.parse(first)),
       followUps: Math.max(0, rounds.length - 1),
       mergeDays:

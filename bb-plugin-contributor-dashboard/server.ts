@@ -15,6 +15,7 @@ import { stageDetail, stageSummaries } from "./review/stages.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { openFacets, openItems, queryOpen } from "./review/open-items.js";
+import { authoredFacets, peopleFacets, queryAuthored, queryWaiting } from "./review/list-query.js";
 import { subthreadRequest } from "./components/thread-seed.js";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
@@ -176,7 +177,7 @@ export default async function plugin(bb: BbPluginApi) {
         sync: status(),
       };
     },
-    person_activity: ({ login, range, authoredPage }) => {
+    person_activity: ({ login, range, authoredPage, authoredQuery }) => {
       const noPaging = { page: 0, pages: 1, from: 0, to: 0, total: 0 };
       if (!configured) {
         return {
@@ -187,6 +188,8 @@ export default async function plugin(bb: BbPluginApi) {
           activity: null,
           awaiting: [],
           authored: [],
+          authoredTotal: 0,
+          authoredFacets: authoredFacets([]),
           authoredPaging: noPaging,
           everyone: [],
           sync: status(),
@@ -197,7 +200,8 @@ export default async function plugin(bb: BbPluginApi) {
       const now = Date.now();
       const buckets = bucketsFor(range);
       const prs = store.readActivity(repository, buckets[0].start);
-      const authored = authoredPullRequests(prs, login, buckets[0].start, now);
+      const all = authoredPullRequests(prs, login, buckets[0].start, now);
+      const authored = queryAuthored(all, authoredQuery);
       // Every stored pull request, as PR velocity reads them, so one opened
       // before the period still counts where it merged or stayed open.
       const everything = store.readActivity(repository, 0);
@@ -212,6 +216,8 @@ export default async function plugin(bb: BbPluginApi) {
         // reads every stored one rather than only the period's.
         awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
+        authoredTotal: all.length,
+        authoredFacets: authoredFacets(all),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         everyone: everyone(everything),
         sync: status(),
@@ -221,7 +227,26 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) return { minors: [], more: false };
       return olderReleases(store.readReleases(repository), store.readActivity(repository, 0), repository, before, count);
     },
-    stage_detail: ({ stage, range, waitingPage }) => {
+    authored_matching: ({ login, range, query }) => {
+      if (!configured) return { rows: [] };
+      const since = bucketsFor(range)[0].start;
+      const all = authoredPullRequests(store.readActivity(repository, since), login, since, Date.now());
+      return { rows: withThreads(queryAuthored(all, query), "pull") };
+    },
+    stage_waiting_matching: ({ stage, query }) => {
+      if (!configured) return { rows: [] };
+      // The queue is what is in the stage now, so no period applies.
+      const now = Date.now();
+      const detail = stageDetail(
+        stage,
+        { pullRequests: store.readActivity(repository, 0), issues: store.readIssues(repository, 0) },
+        bucketsFor({ from: now - 86_400_000, to: now }),
+        now,
+      );
+      const kind: ThreadKind = stage === "triage" || stage === "ownership" ? "issue" : "pull";
+      return { rows: withThreads(queryWaiting(detail.waitingNow, query), kind) };
+    },
+    stage_detail: ({ stage, range, waitingPage, waitingQuery }) => {
       const now = Date.now();
       const buckets = configured ? bucketsFor(range) : [];
       const prs = configured ? store.readActivity(repository, 0) : [];
@@ -231,7 +256,8 @@ export default async function plugin(bb: BbPluginApi) {
         buckets,
         now,
       );
-      const paging = pageOf(detail.waitingNow.length, waitingPage);
+      const waiting = queryWaiting(detail.waitingNow, waitingQuery);
+      const paging = pageOf(waiting.length, waitingPage);
       const kind: ThreadKind = stage === "triage" || stage === "ownership" ? "issue" : "pull";
       if (configured) {
         const { syncedAt } = store.syncState(repository);
@@ -242,14 +268,15 @@ export default async function plugin(bb: BbPluginApi) {
         buckets,
         stage: {
           ...detail,
-          waitingNow: withThreads(detail.waitingNow.slice(paging.offset, paging.offset + PAGE_SIZE), kind),
+          waitingNow: withThreads(waiting.slice(paging.offset, paging.offset + PAGE_SIZE), kind),
         },
+        waitingFacets: peopleFacets(detail.waitingNow, waitingQuery),
         waitingPaging: {
           page: paging.page,
           pages: paging.pages,
           from: paging.from,
           to: paging.to,
-          total: detail.waitingNow.length,
+          total: waiting.length,
         },
         everyone: everyone(prs),
         sync: status(),

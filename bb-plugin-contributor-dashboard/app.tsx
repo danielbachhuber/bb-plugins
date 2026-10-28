@@ -15,14 +15,14 @@ import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
 import { StageView } from "@/components/stage-view";
 import { OpenItemsView } from "@/components/open-items-view";
-import { BatchDialog } from "@/components/batch-dialog";
+import { BatchDialog, type BatchItem } from "@/components/batch-dialog";
 import { describeFilters } from "@/components/list-toolbar";
 
 import type { rpcContract } from "./server";
 import {
   BATCH_LIMIT,
   DASHBOARD_CHANNEL,
-  type OpenItem,
+  type AuthoredQuery,
   type OpenItemsResult,
   type OpenQuery,
   type PeopleActivityResult,
@@ -31,10 +31,12 @@ import {
   type StageDetailResult,
   type StageKey,
   type SyncStatus,
+  type WaitingQuery,
 } from "./dashboard/contract.js";
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
 import { announceStartedThread, useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { DEFAULT_QUERY } from "./review/open-items.js";
+import { DEFAULT_AUTHORED_QUERY, DEFAULT_WAITING_QUERY } from "./review/list-query.js";
 import { batchTitle, promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedScreen, rememberedSelection, rememberScreen, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -118,6 +120,17 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const [selection, setSelection] = useState<Selection>(rememberedSelection);
   const [authoredPage, setAuthoredPage] = useState(0);
   const [waitingPage, setWaitingPage] = useState(0);
+  const [authoredQuery, setAuthoredQuery] = useState<AuthoredQuery>(DEFAULT_AUTHORED_QUERY);
+  const [waitingQuery, setWaitingQuery] = useState<WaitingQuery>(DEFAULT_WAITING_QUERY);
+  // A changed filter or sort starts the list over from its first page.
+  const queryAuthored = useCallback((next: AuthoredQuery) => {
+    setAuthoredPage(0);
+    setAuthoredQuery(next);
+  }, []);
+  const queryWaiting = useCallback((next: WaitingQuery) => {
+    setWaitingPage(0);
+    setWaitingQuery(next);
+  }, []);
   // A shorter span has fewer pages; the server clamps, and this follows it
   // back to the first page rather than leaving a stale number in hand.
   const choose = useCallback((next: Selection) => {
@@ -162,8 +175,24 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     setListPage(0);
     setListQuery(next);
   }, []);
-  // Batch reads every matching row when it opens, not with each page.
-  const [batch, setBatch] = useState<{ rows: OpenItem[] | null; error: string | null } | null>(null);
+  // Batch reads every matching row when it opens, not with each page. Every
+  // list on every page opens the same dialog, saying which list it came from.
+  const [batch, setBatch] = useState<{
+    kind: "issue" | "pull";
+    heading: string;
+    rows: BatchItem[] | null;
+    error: string | null;
+  } | null>(null);
+  const openBatch = useCallback(
+    (kind: "issue" | "pull", heading: string, load: () => Promise<readonly BatchItem[]>) => {
+      setBatch({ kind, heading, rows: null, error: null });
+      load().then(
+        (rows) => setBatch((current) => (current === null ? null : { ...current, rows: [...rows] })),
+        (cause) => setBatch((current) => (current === null ? null : { ...current, rows: [], error: messageOf(cause) })),
+      );
+    },
+    [],
+  );
   const { projectId: openedFrom } = useBbContext();
   // The project checked out from the repository comes first, so a thread
   // starts where the code is, whichever project the page was opened from.
@@ -228,17 +257,18 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [rpc, list, listPage, listQuery],
   );
   const stageDetail = useDashboardData<StageDetailResult | null>(
-    () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage })),
-    [rpc, range, stage, waitingPage],
+    () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage, waitingQuery })),
+    [rpc, range, stage, waitingPage, waitingQuery],
   );
   const person = useDashboardData<PersonActivityResult | null>(
-    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, range, authoredPage })),
-    [rpc, range, login, authoredPage],
+    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, range, authoredPage, authoredQuery })),
+    [rpc, range, login, authoredPage, authoredQuery],
   );
 
   const openPerson = useCallback(
     (who: string) => {
       setAuthoredPage(0);
+      setAuthoredQuery(DEFAULT_AUTHORED_QUERY);
       navigate.toPluginPanel(PANEL_PATH, { subPath: `person/${encodeURIComponent(who)}` });
     },
     [navigate],
@@ -246,6 +276,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const openStage = useCallback(
     (which: StageKey) => {
       setWaitingPage(0);
+      setWaitingQuery(DEFAULT_WAITING_QUERY);
       navigate.toPluginPanel(PANEL_PATH, { subPath: `stage/${which}` });
     },
     [navigate],
@@ -267,14 +298,31 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     }),
     [box],
   );
+  const batchDialog = (
+    <BatchDialog
+      kind={batch?.kind ?? "pull"}
+      open={batch !== null}
+      heading={batch?.heading ?? ""}
+      rows={batch?.rows ?? null}
+      error={batch?.error ?? null}
+      projectId={projectId}
+      limit={BATCH_LIMIT}
+      onClose={() => setBatch(null)}
+      onStart={async (rows, request) => {
+        if (batch === null) return;
+        const started = await rpc.call("start_batch", {
+          kind: batch.kind,
+          title: batchTitle(batch.kind, rows.map((row) => row.number)),
+          rows: rows.map(({ number, title, url }) => ({ number, title, url })),
+          request: request as unknown as Record<string, unknown>,
+        });
+        setBatch(null);
+        const failed = started.failed.length === 0 ? "" : `; ${started.failed.length} could not start`;
+        announceStartedThread(navigate, started.threadId, `Started a main thread and ${started.subthreads.length} subthreads${failed}`);
+      }}
+    />
+  );
   if (list !== null) {
-    const openBatch = () => {
-      setBatch({ rows: null, error: null });
-      rpc.call("open_items_matching", { kind: list, query: listQuery }).then(
-        ({ rows }) => setBatch((current) => (current === null ? null : { rows, error: null })),
-        (cause) => setBatch((current) => (current === null ? null : { rows: [], error: messageOf(cause) })),
-      );
-    };
     const heading = describeFilters(list, listQuery);
     return (
       <StartThreadContext.Provider value={startRows}>
@@ -288,30 +336,10 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           onThread={onThread}
           query={listQuery}
           onQuery={query}
-          onBatch={openBatch}
-          batch={
-            <BatchDialog
-              kind={list}
-              open={batch !== null}
-              heading={heading}
-              rows={batch?.rows ?? null}
-              error={batch?.error ?? null}
-              projectId={projectId}
-              limit={BATCH_LIMIT}
-              onClose={() => setBatch(null)}
-              onStart={async (rows, request) => {
-                const started = await rpc.call("start_batch", {
-                  kind: list,
-                  title: batchTitle(list, rows.map((row) => row.number)),
-                  rows: rows.map(({ number, title, url }) => ({ number, title, url })),
-                  request: request as unknown as Record<string, unknown>,
-                });
-                setBatch(null);
-                const failed = started.failed.length === 0 ? "" : `; ${started.failed.length} could not start`;
-                announceStartedThread(navigate, started.threadId, `Started a main thread and ${started.subthreads.length} subthreads${failed}`);
-              }}
-            />
+          onBatch={() =>
+            openBatch(list, heading, () => rpc.call("open_items_matching", { kind: list, query: listQuery }).then(({ rows }) => rows))
           }
+          batch={batchDialog}
         />
       </StartThreadContext.Provider>
     );
@@ -329,7 +357,13 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           onWaitingPage={setWaitingPage}
           periodLabel={selectionWords(selection)}
           onThread={onThread}
+          waitingQuery={waitingQuery}
+          onWaitingQuery={queryWaiting}
+          onBatch={(kind, heading) =>
+            openBatch(kind, heading, () => rpc.call("stage_waiting_matching", { stage, query: waitingQuery }).then(({ rows }) => rows))
+          }
         />
+        {batchDialog}
       </StartThreadContext.Provider>
     );
   }
@@ -346,7 +380,16 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           onOpenPerson={openPerson}
           onAuthoredPage={setAuthoredPage}
           onThread={onThread}
+          authoredQuery={authoredQuery}
+          onAuthoredQuery={queryAuthored}
+          onBatchAuthored={(heading) =>
+            openBatch("pull", heading, () =>
+              rpc.call("authored_matching", { login, range, query: authoredQuery }).then(({ rows }) => rows),
+            )
+          }
+          onBatch={(kind, heading, rows) => openBatch(kind, heading, () => Promise.resolve(rows))}
         />
+        {batchDialog}
       </StartThreadContext.Provider>
     );
   }

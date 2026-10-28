@@ -136,7 +136,9 @@ took**, every pull request that left the stage in the period counted into
 bands, and **how long the queue has waited**, the ones in the stage now, with
 the bands past three days in red. Under them is the list of what is in the
 stage, longest wait first, twenty-five to a page, drawn as **A row in a list**
-describes below. Under that, **each day, week, or month**, whichever the period
+describes below, with the lists' toolbar (see **Sort, filter, and Batch on
+the other lists**): Sort by wait or author, Author, Assigned with Nobody, and
+Batch. Under that, **each day, week, or month**, whichever the period
 is drawn in: bars for how many left the stage in each one, with its median and
 p90 drawn over them, so a slow one can be read against a busy one.
 
@@ -185,6 +187,24 @@ All of it reads the local mirror and makes no GitHub calls. Opening Batch
 reads the matching rows from the server once; starting a batch makes one bb
 thread start for the main thread and one per row, one after another, so bb's
 limit on threads running at once queues the rest.
+
+#### Sort, filter, and Batch on the other lists
+
+Every other list of issues or pull requests has the same toolbar, with the
+sorts and filters its rows support, and the same Batch dialog:
+
+| List | Sort | Filters |
+| --- | --- | --- |
+| A stage's queue | Wait, Author | Author, Assigned (with Nobody) |
+| Their pull requests | Opened, Merged, Time to first review, Time to merge, Size | State: Open, Draft, Merged, Closed |
+| Waiting on their review | Wait, Author | Author |
+
+A stage's queue and a person's pull requests are paged on the server, so a
+change there asks the server again for one page, and Batch asks once for
+every matching row. Waiting on their review arrives whole with the person's
+page, a dozen or so rows at most, so its toolbar sorts and filters in the page
+and makes no request. Pull requests with no review or no merge yet sort last
+whichever way the sort runs. None of it makes a GitHub call.
 
 ### A row in a list
 
@@ -359,7 +379,8 @@ already shown and switches to anyone else. It shows:
   period, newest first, each with the time to its first review, how many
   follow-up reviews it needed, and the time to merge or how long it has been
   open. Ten to a page, since an active author can have a few hundred
-  in a year; the server sends one page at a time.
+  in a year; the server sends one page at a time. Its toolbar sorts and
+  narrows them by state, and the count reads "48 of 118" once it does.
 - **Reviews**: a pair of bars per bucket, the reviews requested of them and
   the reviews they gave, on the same buckets as the chart above. A line over
   each pair of bars is its moving average over the last 7 days, 3 weeks, or 3
@@ -480,6 +501,7 @@ needs no new sync.
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, and the toolbar's filters, sorts, and counts over it |
+| `review/list-query.ts` | The sorts, filters, and counts for a person's lists and a stage's queue |
 | `review/authors.ts` | The pure count of pull requests each person opened and merged, per bucket |
 | `review/trend.ts` | The pure moving average drawn over a person's review bars, and whether the last bucket is still under way |
 | `review/velocity.ts` | What the two velocity sections share: a person's two lines, and the rule for which of them keep a chart |
@@ -495,7 +517,9 @@ needs no new sync.
 | `components/stage-flow.tsx` | A section's rows of steps, with their times and trends |
 | `components/stage-view.tsx` | A stage's page: its two charts, what is in it now, and each day, week or month |
 | `components/open-items-view.tsx` | Every open issue or pull request, with the toolbar |
-| `components/list-toolbar.tsx` | The open lists' Sort, filter menus, and Batch button, and the line saying what they show |
+| `components/list-toolbar.tsx` | The lists' Sort, filter menus, and Batch button, and the line saying what the open lists show |
+| `components/person-lists.tsx` | A person's own pull requests and what is waiting on their review, each with the toolbar |
+| `components/local-list.ts` | Sort and the Author filter for a list the page holds whole |
 | `components/batch-dialog.tsx` | Batch: tick the matching rows, then copy, open, or start a main thread with a subthread for each |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
@@ -511,7 +535,7 @@ needs no new sync.
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `person-finder.stories.tsx` | The person finder focused, typed in, on a person's page, and matching nobody |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, and quiet, a stage's page busy and clear, and the open pull requests, filtered and in Batch, and open issues |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, filtered, and quiet, a stage's page busy and clear, and the open pull requests, filtered and in Batch, and open issues |
 
 ## Working on it
 

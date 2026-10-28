@@ -8,6 +8,7 @@ import type { FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Rel
 import { BatchDialog } from "./components/batch-dialog";
 import { describeFilters } from "./components/list-toolbar";
 import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
+import { authoredFacets, DEFAULT_AUTHORED_QUERY, DEFAULT_WAITING_QUERY, peopleFacets, queryAuthored, type AuthoredQuery, type WaitingQuery } from "./review/list-query";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -476,19 +477,25 @@ const AWAITING = [
 ];
 
 const AUTHORED = [
-  { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", threadId: "thr_demo", state: "OPEN" as const, isDraft: false, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
-  { number: 1822, title: "Validate webhook payloads", url: "https://github.com/acme/widgets/pull/1822", threadId: null, state: "MERGED" as const, isDraft: false, createdAt: "2026-09-29T09:00:00Z", firstReviewDays: 1.4, followUps: 2, mergeDays: 3.7, waitingDays: null },
-  { number: 1816, title: "Upgrade chart library", url: "https://github.com/acme/widgets/pull/1816", threadId: null, state: "MERGED" as const, isDraft: false, createdAt: "2026-09-24T09:00:00Z", firstReviewDays: 0.3, followUps: 0, mergeDays: 1.1, waitingDays: null },
-  { number: 1807, title: "Show empty state on list", url: "https://github.com/acme/widgets/pull/1807", threadId: null, state: "OPEN" as const, isDraft: true, createdAt: "2026-09-21T09:00:00Z", firstReviewDays: null, followUps: 0, mergeDays: null, waitingDays: null },
-  { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", threadId: null, state: "CLOSED" as const, isDraft: false, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
+  { number: 1837, title: "Paginate gadget search", url: "https://github.com/acme/widgets/pull/1837", threadId: "thr_demo", state: "OPEN" as const, isDraft: false, mergedAt: null, size: 412, createdAt: "2026-10-05T09:00:00Z", firstReviewDays: 0.6, followUps: 1, mergeDays: null, waitingDays: 2.1 },
+  { number: 1822, title: "Validate webhook payloads", url: "https://github.com/acme/widgets/pull/1822", threadId: null, state: "MERGED" as const, isDraft: false, mergedAt: "2026-10-03T15:00:00Z", size: 96, createdAt: "2026-09-29T09:00:00Z", firstReviewDays: 1.4, followUps: 2, mergeDays: 3.7, waitingDays: null },
+  { number: 1816, title: "Upgrade chart library", url: "https://github.com/acme/widgets/pull/1816", threadId: null, state: "MERGED" as const, isDraft: false, mergedAt: "2026-09-25T11:00:00Z", size: 1840, createdAt: "2026-09-24T09:00:00Z", firstReviewDays: 0.3, followUps: 0, mergeDays: 1.1, waitingDays: null },
+  { number: 1807, title: "Show empty state on list", url: "https://github.com/acme/widgets/pull/1807", threadId: null, state: "OPEN" as const, isDraft: true, mergedAt: null, size: 58, createdAt: "2026-09-21T09:00:00Z", firstReviewDays: null, followUps: 0, mergeDays: null, waitingDays: null },
+  { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", threadId: null, state: "CLOSED" as const, isDraft: false, mergedAt: null, size: 12, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
 ];
 
 /** Enough pull requests to page through, by repeating the five above. */
 function manyAuthored(total: number) {
-  return Array.from({ length: total }, (_, index) => ({
-    ...AUTHORED[index % AUTHORED.length],
-    number: 1837 - index * 3,
-  }));
+  return Array.from({ length: total }, (_, index) => {
+    const row = AUTHORED[index % AUTHORED.length];
+    return {
+      ...row,
+      number: 1837 - index * 3,
+      // Spread the dates and sizes so each sort moves the rows.
+      createdAt: new Date(Date.parse(row.createdAt) - index * 86_400_000).toISOString(),
+      size: (row.size * (index + 3)) % 2400,
+    };
+  });
 }
 
 /** One author's opened and merged counts, flowing as PR velocity's do. */
@@ -502,17 +509,23 @@ function Person({
   awaiting = AWAITING,
   authored = AUTHORED,
   login = "octocat",
+  initialAuthoredQuery = DEFAULT_AUTHORED_QUERY,
 }: {
   initial?: Selection;
   awaiting?: typeof AWAITING;
   authored?: typeof AUTHORED;
   login?: string;
+  initialAuthoredQuery?: AuthoredQuery;
 }) {
   const [selection, setSelection] = useState<Selection>(initial);
   const [authoredPage, setAuthoredPage] = useState(0);
+  const [authoredQuery, setAuthoredQuery] = useState(initialAuthoredQuery);
+  const [batch, setBatch] = useState<{ kind: "issue" | "pull"; heading: string; rows: readonly { number: number; title: string; url: string; threadId: string | null }[] } | null>(null);
   const page = fixture(selection);
-  const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
+  const kept = queryAuthored(authored, authoredQuery);
+  const paging = pageOf(kept.length, authoredPage, AUTHORED_PAGE_SIZE);
   return (
+    <>
     <PersonView
       login={login}
       selection={selection}
@@ -524,8 +537,10 @@ function Person({
         authorFlows: authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length),
         activity: page.people.find((person) => person.login === login) ?? null,
         awaiting,
-        authored: authored.slice(paging.offset, paging.to),
-        authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
+        authored: kept.slice(paging.offset, paging.to),
+        authoredTotal: authored.length,
+        authoredFacets: authoredFacets(authored),
+        authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: kept.length },
         everyone: EVERYONE,
         sync: SYNCED,
       }}
@@ -534,8 +549,27 @@ function Person({
       onOpenPerson={() => undefined}
       onAuthoredPage={setAuthoredPage}
       onThread={() => undefined}
+      authoredQuery={authoredQuery}
+      onAuthoredQuery={(next) => {
+        setAuthoredPage(0);
+        setAuthoredQuery(next);
+      }}
+      onBatchAuthored={(heading) => setBatch({ kind: "pull", heading, rows: kept })}
+      onBatch={(kind, heading, rows) => setBatch({ kind, heading, rows })}
       now={NOW}
     />
+    <BatchDialog
+      kind={batch?.kind ?? "pull"}
+      open={batch !== null}
+      heading={batch?.heading ?? ""}
+      rows={batch?.rows ?? null}
+      error={null}
+      projectId={null}
+      limit={50}
+      onClose={() => setBatch(null)}
+      onStart={async () => setBatch(null)}
+    />
+    </>
   );
 }
 
@@ -548,6 +582,11 @@ export const PersonPage = () => (
 
 /** A prolific author: their pull requests page 10 at a time. */
 export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
+
+/** Their pull requests narrowed to the merged ones, biggest first. The heading counts how many of the whole list are left. */
+export const PersonPageAuthoredFiltered = () => (
+  <Person authored={manyAuthored(118)} initialAuthoredQuery={{ sort: "size", direction: "desc", state: "merged" }} />
+);
 
 /** Nobody is waiting on them and they have opened nothing this period. */
 export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} authored={[]} />;
@@ -646,6 +685,7 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
       waitingNow: WAITING_NOW,
       ...overrides,
     },
+    waitingFacets: peopleFacets(WAITING_NOW, DEFAULT_WAITING_QUERY),
     waitingPaging: { page: 0, pages: 3, from: 1, to: 5, total: 14 },
     everyone: EVERYONE,
     sync: SYNCED,
@@ -654,6 +694,7 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
 
 function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
   const [selection, setSelection] = useState<Selection>({ kind: "preset", id: "6w" });
+  const [waitingQuery, setWaitingQuery] = useState<WaitingQuery>(DEFAULT_WAITING_QUERY);
   return (
     <StageView
       selection={selection}
@@ -664,6 +705,9 @@ function Stage({ data = stageFixture() }: { data?: StageDetailResult }) {
       onOpenPerson={() => undefined}
       onWaitingPage={() => undefined}
       onThread={() => undefined}
+      waitingQuery={waitingQuery}
+      onWaitingQuery={setWaitingQuery}
+      onBatch={() => undefined}
       periodLabel={selectionWords(selection)}
       now={NOW}
     />

@@ -1,7 +1,7 @@
-// The open lists' toolbar: Sort, a menu per filter, each saying what it is
-// set to and counting what each choice would leave, and Batch at the end.
-// The lists are paged on the server, so every change goes back there.
-// Display only.
+// The lists' toolbar: Sort, a menu per filter, each saying what it is set to
+// and counting what each choice would leave, and Batch at the end. The open
+// lists use ListToolbar; the person and stage pages build theirs from the
+// same pieces. Display only.
 import type { ReactNode } from "react";
 
 import type { OpenFacets, OpenQuery } from "@/dashboard/contract";
@@ -84,6 +84,155 @@ function Choice({ checked, count, trailing, onSelect, children }: { checked: boo
 /** Long lists of people scroll inside the menu rather than past the window. */
 const PEOPLE = "max-h-72 overflow-y-auto";
 
+/** One way a list can be ordered, and what its two directions are called. */
+export interface SortOption<S extends string> {
+  key: S;
+  label: string;
+  asc: string;
+  desc: string;
+  /** The direction it starts in when picked: whichever puts the ones to act on first. */
+  start: "asc" | "desc";
+}
+
+/** Sort: picking the current key again turns its direction around. */
+export function SortMenu<S extends string>({
+  options,
+  sort,
+  direction,
+  onSort,
+}: {
+  options: readonly SortOption<S>[];
+  sort: S;
+  direction: "asc" | "desc";
+  onSort: (sort: S, direction: "asc" | "desc") => void;
+}) {
+  const current = options.find((option) => option.key === sort) ?? options[0]!;
+  return (
+    <DropdownMenu>
+      <Trigger icon="ArrowUpDown" label="Sort" value={`${current.label} · ${current[direction]}`} active={false} />
+      <DropdownMenuContent align="end" className="w-56">
+        {options.map((option) => (
+          <Choice
+            key={option.key}
+            checked={option.key === sort}
+            trailing={option.key === sort ? <Icon name={direction === "asc" ? "ArrowUp" : "ArrowDown"} className="size-3.5" /> : null}
+            onSelect={() => onSort(option.key, option.key === sort ? (direction === "asc" ? "desc" : "asc") : option.start)}
+          >
+            {option.label}
+          </Choice>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * A menu of people, such as Author or Assigned, with Anyone first. With
+ * `nobody` set it offers Nobody too, which picks the empty string.
+ */
+export function PeopleMenu({
+  label,
+  value,
+  counts,
+  nobody,
+  onPick,
+}: {
+  label: string;
+  value: string | null;
+  counts: ReadonlyArray<{ login: string; count: number }>;
+  nobody?: number;
+  onPick: (login: string | null) => void;
+}) {
+  const shown = value === null ? (nobody === undefined ? "All" : "Anyone") : value === "" ? "Nobody" : value;
+  return (
+    <DropdownMenu>
+      <Trigger label={label} value={shown} active={value !== null} />
+      <DropdownMenuContent align="end" className={cn("w-56", PEOPLE)}>
+        <Choice checked={value === null} onSelect={() => onPick(null)}>
+          Anyone
+        </Choice>
+        {nobody === undefined ? null : (
+          <Choice checked={value === ""} count={nobody} onSelect={() => onPick("")}>
+            Nobody
+          </Choice>
+        )}
+        {counts.length === 0 ? null : <DropdownMenuSeparator />}
+        {counts.map(({ login, count }) => (
+          <Choice key={login} checked={value === login} count={count} onSelect={() => onPick(login)}>
+            {login}
+          </Choice>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** A menu of fixed choices, such as State, with All first counting every one. */
+export function ChoiceMenu<V extends string>({
+  label,
+  value,
+  choices,
+  onPick,
+}: {
+  label: string;
+  value: V | null;
+  choices: ReadonlyArray<{ key: V; label: string; count: number }>;
+  onPick: (value: V | null) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <Trigger label={label} value={choices.find((choice) => choice.key === value)?.label ?? "All"} active={value !== null} />
+      <DropdownMenuContent align="end" className="w-44">
+        <Choice checked={value === null} count={choices.reduce((sum, choice) => sum + choice.count, 0)} onSelect={() => onPick(null)}>
+          All
+        </Choice>
+        {choices.map((choice) => (
+          <Choice key={choice.key} checked={value === choice.key} count={choice.count} onSelect={() => onPick(choice.key)}>
+            {choice.label}
+          </Choice>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** A filter that is on or off, with how many it would keep. */
+export function ToggleChip({ label, title, on, count, onToggle }: { label: string; title: string; on: boolean; count: number; onToggle: () => void }) {
+  return (
+    <span title={title}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-pressed={on}
+        onClick={onToggle}
+        className={cn("h-7 gap-1.5 px-2 font-normal text-muted-foreground", on && "border-foreground/30 font-medium text-foreground")}
+      >
+        {label}
+        <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+      </Button>
+    </span>
+  );
+}
+
+/** Opens Batch over every row the filters match; disabled at none. */
+export function BatchButton({ count, onBatch }: { count: number; onBatch: () => void }) {
+  return (
+    <span title={count === 0 ? "Nothing matches the filters" : undefined}>
+      <Button variant="outline" size="sm" disabled={count === 0} onClick={onBatch} className="h-7 gap-1.5 px-2">
+        <Icon name="Layers" className="size-3.5" />
+        Batch
+      </Button>
+    </span>
+  );
+}
+
+const OPEN_SORTS: Record<Sort, SortOption<Sort>> = {
+  opened: { key: "opened", label: SORT_LABEL.opened, ...DIRECTION_LABEL.opened, start: startingDirection("opened") },
+  activity: { key: "activity", label: SORT_LABEL.activity, ...DIRECTION_LABEL.activity, start: startingDirection("activity") },
+  size: { key: "size", label: SORT_LABEL.size, ...DIRECTION_LABEL.size, start: startingDirection("size") },
+  author: { key: "author", label: SORT_LABEL.author, ...DIRECTION_LABEL.author, start: startingDirection("author") },
+};
+
 export function ListToolbar({
   kind,
   query,
@@ -104,98 +253,31 @@ export function ListToolbar({
   quietDays?: number;
 }) {
   const set = (fields: Partial<OpenQuery>) => onQuery({ ...query, ...fields });
-  const sortBy = (sort: Sort) =>
-    set(sort === query.sort ? { direction: query.direction === "asc" ? "desc" : "asc" } : { sort, direction: startingDirection(sort) });
-  const assigned = query.assignee === null ? "Anyone" : query.assignee === "" ? "Nobody" : query.assignee;
-  const state = query.state === null ? "All" : query.state === "draft" ? "Drafts" : "Ready";
 
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      <DropdownMenu>
-        <Trigger icon="ArrowUpDown" label="Sort" value={`${SORT_LABEL[query.sort]} · ${DIRECTION_LABEL[query.sort][query.direction]}`} active={false} />
-        <DropdownMenuContent align="end" className="w-52">
-          {SORTS[kind].map((sort) => (
-            <Choice
-              key={sort}
-              checked={sort === query.sort}
-              trailing={sort === query.sort ? <Icon name={query.direction === "asc" ? "ArrowUp" : "ArrowDown"} className="size-3.5" /> : null}
-              onSelect={() => sortBy(sort)}
-            >
-              {SORT_LABEL[sort]}
-            </Choice>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <Trigger label="Author" value={query.author ?? "All"} active={query.author !== null} />
-        <DropdownMenuContent align="end" className={cn("w-56", PEOPLE)}>
-          <Choice checked={query.author === null} onSelect={() => set({ author: null })}>
-            Anyone
-          </Choice>
-          <DropdownMenuSeparator />
-          {facets.authors.map(({ login, count }) => (
-            <Choice key={login} checked={query.author === login} count={count} onSelect={() => set({ author: login })}>
-              {login}
-            </Choice>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <Trigger label="Assigned" value={assigned} active={query.assignee !== null} />
-        <DropdownMenuContent align="end" className={cn("w-56", PEOPLE)}>
-          <Choice checked={query.assignee === null} onSelect={() => set({ assignee: null })}>
-            Anyone
-          </Choice>
-          <Choice checked={query.assignee === ""} count={facets.nobody} onSelect={() => set({ assignee: "" })}>
-            Nobody
-          </Choice>
-          {facets.assignees.length === 0 ? null : <DropdownMenuSeparator />}
-          {facets.assignees.map(({ login, count }) => (
-            <Choice key={login} checked={query.assignee === login} count={count} onSelect={() => set({ assignee: login })}>
-              {login}
-            </Choice>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
+      <SortMenu options={SORTS[kind].map((sort) => OPEN_SORTS[sort])} sort={query.sort} direction={query.direction} onSort={(sort, direction) => set({ sort, direction })} />
+      <PeopleMenu label="Author" value={query.author} counts={facets.authors} onPick={(author) => set({ author })} />
+      <PeopleMenu label="Assigned" value={query.assignee} counts={facets.assignees} nobody={facets.nobody} onPick={(assignee) => set({ assignee })} />
       {kind === "pull" ? (
-        <DropdownMenu>
-          <Trigger label="State" value={state} active={query.state !== null} />
-          <DropdownMenuContent align="end" className="w-44">
-            <Choice checked={query.state === null} count={facets.drafts + facets.ready} onSelect={() => set({ state: null })}>
-              All
-            </Choice>
-            <Choice checked={query.state === "draft"} count={facets.drafts} onSelect={() => set({ state: "draft" })}>
-              Drafts
-            </Choice>
-            <Choice checked={query.state === "ready"} count={facets.ready} onSelect={() => set({ state: "ready" })}>
-              Ready
-            </Choice>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ChoiceMenu
+          label="State"
+          value={query.state}
+          choices={[
+            { key: "draft", label: "Drafts", count: facets.drafts },
+            { key: "ready", label: "Ready", count: facets.ready },
+          ]}
+          onPick={(state) => set({ state })}
+        />
       ) : null}
-
-      <span title={`Only the ones with no activity for ${quietDays} days`}>
-        <Button
-          variant="outline"
-          size="sm"
-          aria-pressed={query.quiet}
-          onClick={() => set({ quiet: !query.quiet })}
-          className={cn("h-7 gap-1.5 px-2 font-normal text-muted-foreground", query.quiet && "border-foreground/30 font-medium text-foreground")}
-        >
-          Quiet {quietDays}+ days
-          <span className="font-normal tabular-nums text-muted-foreground">{facets.quiet}</span>
-        </Button>
-      </span>
-
-      <span title={batchCount === 0 ? "Nothing matches the filters" : undefined}>
-        <Button variant="outline" size="sm" disabled={batchCount === 0} onClick={onBatch} className="h-7 gap-1.5 px-2">
-          <Icon name="Layers" className="size-3.5" />
-          Batch
-        </Button>
-      </span>
+      <ToggleChip
+        label={`Quiet ${quietDays}+ days`}
+        title={`Only the ones with no activity for ${quietDays} days`}
+        on={query.quiet}
+        count={facets.quiet}
+        onToggle={() => set({ quiet: !query.quiet })}
+      />
+      <BatchButton count={batchCount} onBatch={onBatch} />
     </span>
   );
 }
