@@ -366,10 +366,13 @@ Settings are read when the plugin loads, so reload it after changing one.
 The plugin keeps a mirror of the repository's releases, its pull requests, their reviews,
 their review-request and ready-for-review events, and whoever each is assigned
 to, and of its issues with the events that milestone, add to a project, and
-assign them, in its own SQLite database. The assignees are one more field on a
-query the sync already makes, so they cost no extra call and no extra rate
-limit, but a row mirrored before the field was asked for only gains it the
-next time that row changes on GitHub. The page reads only the mirror, so opening it or switching periods
+assign them, in its own SQLite database. Each pull request also keeps its
+size (lines added and removed, files changed), its merge commit, its
+description, and the numbers of the issues it closes (up to 10), which no
+section reads yet. These, like the assignees, are fields on a query the sync
+already makes, so they cost no extra call. When the plugin starts asking for a
+new pull request field, it runs the two-year backfill once more so stored rows
+gain it too. The page reads only the mirror, so opening it or switching periods
 makes no request to GitHub.
 
 The sync runs when the page opens and the mirror is more than 30 minutes old,
@@ -393,11 +396,13 @@ mark and backfill cursor, so finishing one does not affect the other.
   pull requests, issues, and releases.
 - **The first sync** reaches back two years, so a year can be compared with the
   year before. That is one call per 50 pull requests updated in those two
-  years: about 100 calls, and about five minutes, for a repository with 5,000,
+  years: about 100 calls, and about eight minutes, for a repository with 5,000,
   and another call per 50 issues, which on a repository with 1,700 issues is
   about 36 calls and a little over a minute.
   It saves its place after every call and resumes there if it is interrupted,
-  and the page fills in as it goes.
+  and the page fills in as it goes. GitHub sometimes answers a page of pull
+  requests with a 502 or 504, so a call that gets one is tried twice more,
+  three seconds apart, before the sync stops.
 - A pull request with more than 100 reviews or events costs one more call per
   extra 100.
 - **Releases** have no update order to page by, and a repository publishes a
@@ -405,8 +410,10 @@ mark and backfill cursor, so finishing one does not affect the other.
   The first sync reads on back two years, one more call per 100. A release
   edited after a hundred newer ones were published keeps its older notes.
 
-Each call of 50 pull requests or issues, or of 100 releases, costs one point of GitHub's GraphQL rate limit of 5,000 an
-hour.
+A call of 50 pull requests costs two points of GitHub's GraphQL rate limit of
+5,000 an hour, and takes four to five seconds, most of it GitHub counting each
+pull request's changed lines. A call of 50 issues, or of 100 releases, costs
+one point.
 
 The tables follow GitHub's own objects: `pull_requests`,
 `pull_request_reviews`, `pull_request_timeline_items`, `issues`,

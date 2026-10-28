@@ -90,6 +90,9 @@ export const MIGRATIONS = [
      data TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS releases_repository_created_idx ON releases (repository, created_at)`,
+  // Pull requests gained size, merge commit, body, and closing issues. Running
+  // the backfill again gives the rows already stored those fields too.
+  `UPDATE sync_state SET backfill_done = 0, backfill_cursor = NULL`,
 ];
 
 /** One object type's progress through the repository. */
@@ -113,9 +116,14 @@ export type ThreadKind = "issue" | "pull";
 export type Store = ReturnType<typeof createStore>;
 
 function withoutConnections(node: PullRequestNode): PullRequest {
-  const { reviews: _reviews, timelineItems: _timelineItems, assignees, ...pullRequest } = node;
-  // Assignees arrive as a connection and are stored as the plain list a row draws.
-  return { ...pullRequest, assignees: assignees?.nodes ?? [] };
+  const { reviews: _reviews, timelineItems: _timelineItems, assignees, closingIssuesReferences, ...pullRequest } =
+    node;
+  // Connections arrive with their `nodes` wrapper and are stored as plain lists.
+  return {
+    ...pullRequest,
+    assignees: assignees?.nodes ?? [],
+    ...(closingIssuesReferences && { closingIssuesReferences: closingIssuesReferences.nodes }),
+  };
 }
 
 function issueWithoutConnections(node: IssueNode): Issue {

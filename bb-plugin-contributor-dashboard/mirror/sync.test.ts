@@ -131,6 +131,26 @@ function fakeGithub(prs: PullRequestNode[], pageSize: number, issues: IssueNode[
 const recent = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
 
 describe("runSync", () => {
+  it("asks for size, merge commit, body, and closing issues on the pull request page", () => {
+    expect(PULL_REQUESTS_QUERY).toMatch(/\badditions deletions changedFiles mergeCommit \{ oid \} body\b/);
+    expect(PULL_REQUESTS_QUERY).toMatch(/closingIssuesReferences\(first: 10\) \{ nodes \{ number \} \}/);
+  });
+
+  it("re-reads every stored pull request once the backfill is reset, keeping its high-water mark", async () => {
+    const db = new Database(":memory:");
+    for (const statement of MIGRATIONS.slice(0, -1)) db.exec(statement);
+    const store = createStore(db);
+    await runSync({ store, query: fakeGithub([pr(2, recent(5)), pr(1, recent(6))], 50).query, repository: "acme/widgets", now: () => NOW });
+    expect(store.readActivity("acme/widgets", 0)[0].additions).toBeUndefined();
+
+    db.exec(MIGRATIONS.at(-1)!);
+    expect(store.syncState("acme/widgets")).toMatchObject({ backfillDone: false, highWater: recent(5) });
+    const sized = (n: number, days: number) => pr(n, recent(days), { additions: n * 10, deletions: 1, changedFiles: 1 });
+    await runSync({ store, query: fakeGithub([sized(2, 5), sized(1, 6)], 50).query, repository: "acme/widgets", now: () => NOW });
+    expect(store.readActivity("acme/widgets", 0).map((p) => p.additions)).toEqual([10, 20]);
+    expect(store.syncState("acme/widgets")).toMatchObject({ backfillDone: true, highWater: recent(5) });
+  });
+
   it("backfills until pull requests are older than the backfill horizon", async () => {
     const store = openStore();
     const prs = [pr(5, recent(1)), pr(4, recent(2)), pr(3, recent(3)), pr(2, new Date(NOW - BACKFILL_MS - 1).toISOString()), pr(1, recent(900))];

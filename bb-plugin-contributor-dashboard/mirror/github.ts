@@ -57,12 +57,27 @@ export interface PullRequest {
   author: Actor | null;
   /** Who it is assigned to now. Empty for most rows: GitHub assigns nobody by default. */
   assignees: Actor[];
+  /**
+   * Lines added and removed, and files changed. These and the fields below
+   * are optional because rows mirrored before the sync asked for them lack
+   * them until the pull request updates again.
+   */
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+  /** The commit a merged pull request landed as; null until it merges. */
+  mergeCommit?: { oid: string } | null;
+  /** The description as GitHub's markdown. */
+  body?: string;
+  /** The issues it will close when it merges, or closed when it did. */
+  closingIssuesReferences?: Array<{ number: number }>;
 }
 
 /** A pull request as one page of the sync returns it, connections and all. */
-export interface PullRequestNode extends Omit<PullRequest, "assignees"> {
+export interface PullRequestNode extends Omit<PullRequest, "assignees" | "closingIssuesReferences"> {
   /** Optional, so a fixture or an older page without the field still parses. */
   assignees?: { nodes: Actor[] };
+  closingIssuesReferences?: { nodes: Array<{ number: number }> };
   reviews: Connection<PullRequestReview>;
   timelineItems: Connection<TimelineItem>;
 }
@@ -96,8 +111,9 @@ const TIMELINE_FIELDS = `
 
 /**
  * One page of pull requests, most recently updated first, each with its
- * reviews and review-request timeline. A page of 50 costs one point of
- * GitHub's GraphQL rate limit.
+ * reviews and review-request timeline. A page of 50 costs two points of
+ * GitHub's GraphQL rate limit and takes four to five seconds, most of it
+ * GitHub counting the changed lines.
  */
 export const PULL_REQUESTS_QUERY = `
 query($owner: String!, $name: String!, $first: Int!, $after: String) {
@@ -106,8 +122,10 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
       pageInfo { hasNextPage endCursor }
       nodes {
         id number title url state isDraft createdAt updatedAt closedAt mergedAt
+        additions deletions changedFiles mergeCommit { oid } body
         author { __typename login }
         assignees(first: 5) { nodes { login } }
+        closingIssuesReferences(first: 10) { nodes { number } }
         reviews(first: 100) {
           pageInfo { hasNextPage endCursor }
           nodes { ${REVIEW_FIELDS} }

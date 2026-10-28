@@ -74,6 +74,49 @@ describe("store", () => {
     expect(prs[0].reviews).toHaveLength(1);
   });
 
+  it("keeps size, merge commit, body, and closing issues, with closing issues as a plain list", () => {
+    const store = openStore();
+    store.upsertPullRequests("acme/widgets", [
+      node({
+        state: "MERGED",
+        additions: 120,
+        deletions: 30,
+        changedFiles: 4,
+        mergeCommit: { oid: "0123456789abcdef0123456789abcdef01234567" },
+        body: "Fixes #7 and #9.",
+        closingIssuesReferences: { nodes: [{ number: 7 }, { number: 9 }] },
+      }),
+    ]);
+    const [pr] = store.readActivity("acme/widgets", 0);
+    expect(pr).toMatchObject({
+      additions: 120,
+      deletions: 30,
+      changedFiles: 4,
+      mergeCommit: { oid: "0123456789abcdef0123456789abcdef01234567" },
+      body: "Fixes #7 and #9.",
+      closingIssuesReferences: [{ number: 7 }, { number: 9 }],
+    });
+  });
+
+  it("keeps an unmerged pull request's null merge commit and empty closing list", () => {
+    const store = openStore();
+    store.upsertPullRequests("acme/widgets", [node({ mergeCommit: null, body: "", closingIssuesReferences: { nodes: [] } })]);
+    const [pr] = store.readActivity("acme/widgets", 0);
+    expect(pr.mergeCommit).toBeNull();
+    expect(pr.body).toBe("");
+    expect(pr.closingIssuesReferences).toEqual([]);
+  });
+
+  it("leaves the newer fields out of a row mirrored before the sync asked for them", () => {
+    const store = openStore();
+    store.upsertPullRequests("acme/widgets", [node()]);
+    const [pr] = store.readActivity("acme/widgets", 0);
+    expect(pr.additions).toBeUndefined();
+    expect(pr.mergeCommit).toBeUndefined();
+    expect(pr.closingIssuesReferences).toBeUndefined();
+    expect("closingIssuesReferences" in JSON.parse(store.rawPullRequest("PR_1") ?? "{}")).toBe(false);
+  });
+
   it("adds reviews fetched separately to the pull request they belong to", () => {
     const store = openStore();
     store.upsertPullRequests("acme/widgets", [node()]);

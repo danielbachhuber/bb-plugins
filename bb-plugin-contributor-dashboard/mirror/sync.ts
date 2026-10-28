@@ -31,7 +31,7 @@ export interface SyncOptions {
   query: GraphqlQuery;
   repository: string;
   now?: () => number;
-  /** Pull requests per call. 50 costs one point of GitHub's rate limit. */
+  /** Pull requests per call. 50 costs two points of GitHub's rate limit. */
   pageSize?: number;
   /** After each stored page, with the running count; open pages re-read on it. */
   onPage?: (stored: number) => void;
