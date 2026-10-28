@@ -91,6 +91,20 @@ export const authoredPullRequestSchema = z.object({
   waitingDays: z.number().nullable(),
 });
 
+/** An open issue assigned to the person, with when it reached each step before it became theirs. */
+export const assignedIssueSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  author: z.string().nullable(),
+  threadId: z.string().nullable(),
+  openedAt: z.string(),
+  /** Null when it never reached a milestone or project. */
+  plannedAt: z.string().nullable(),
+  assignedAt: z.string(),
+  updatedAt: z.string(),
+});
+
 export const openItemSchema = z.object({
   number: z.number(),
   title: z.string(),
@@ -325,6 +339,14 @@ export const rpcContract = defineRpcContract({
       teamAwaiting: z.array(teamAwaitingSchema),
       /** The organization the team slugs belong to, for their names. */
       organization: z.string().nullable(),
+      /**
+       * Every open issue assigned to them now, longest held first. Sent whole,
+       * since one person holds a few dozen at most, and the line over the list
+       * reads the median across all of them.
+       */
+      assignedIssues: z.array(assignedIssueSchema),
+      /** Issues assigned to them that closed in the period. */
+      issuesClosed: z.number(),
       /** One page of their pull requests, as the toolbar narrows and orders them. */
       authored: z.array(authoredPullRequestSchema),
       /** All of their pull requests in the period, before the state filter. */
@@ -490,6 +512,7 @@ export type TeamAwaiting = z.infer<typeof teamAwaitingSchema>;
 export type TeamActivity = z.infer<typeof teamActivitySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;
+export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;
 

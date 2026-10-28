@@ -1,10 +1,12 @@
-// One person's page: their own pull requests, as opened and merged lines and
-// then the list of how each fared, followed by their review bars and the pull
-// requests waiting on their review. Display only.
+// One person's page: the open issues assigned to them, then their own pull
+// requests, as opened and merged lines and the list of how each fared,
+// followed by their review bars and the pull requests waiting on their review.
+// Display only.
 import type { AuthoredQuery, PersonActivityResult, TeamAwaiting } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import type { BatchItem } from "./batch-dialog";
+import { AssignedIssues } from "./issue-lifelines";
 import { ItemRow } from "./item-row";
 import { BatchButton, PeopleMenu, SortMenu } from "./list-toolbar";
 import { useLocalList } from "./local-list";
@@ -28,11 +30,24 @@ export function TeamName({ organization, slug }: { organization: string | null; 
 
 const count = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
-/** What the person did over the span, for the line under their name. */
+/**
+ * What the person holds now and did over the span, for the line under their
+ * name. GitHub does not record who closed an issue, so the closed count is
+ * of issues assigned to them, not issues they closed.
+ */
 export function summary(data: PersonActivityResult, selection: Selection): string {
   const opened = data.authorFlows.started.reduce((sum, n) => sum + n, 0);
   const given = data.activity?.givenTotal ?? 0;
-  return `Opened ${count(opened, "pull request", "pull requests")} and gave ${count(given, "review", "reviews")} over ${selectionWords(selection)}`;
+  const held = data.assignedIssues.length;
+  const did = [
+    ...(data.issuesClosed === 0 ? [] : [`closed ${count(data.issuesClosed, "issue", "issues")} assigned to them`]),
+    `opened ${count(opened, "pull request", "pull requests")}`,
+    `gave ${count(given, "review", "reviews")}`,
+  ];
+  const sentence = `${did.slice(0, -1).join(", ")} and ${did.at(-1)} over ${selectionWords(selection)}`;
+  return held === 0
+    ? sentence.charAt(0).toUpperCase() + sentence.slice(1)
+    : `Has ${count(held, "open issue", "open issues")} · ${sentence}`;
 }
 
 /** What is waiting on a team the person is in, with the lists' toolbar. Held whole, as the server sends it. */
@@ -181,7 +196,9 @@ export function PersonView({
 
         {data === null ? null : (
           <>
-            <section className="mt-6" aria-labelledby="person-pull-requests">
+            <AssignedIssues issues={data.assignedIssues} onThread={onThread} now={now} />
+
+            <section className="mt-8" aria-labelledby="person-pull-requests">
               <h2 id="person-pull-requests" className="text-base font-semibold">
                 Pull requests
               </h2>

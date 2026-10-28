@@ -400,10 +400,27 @@ A tag that is not a version stands as a minor of its own.
 Clicking a name, on a chart or in a folded row, opens that person's page, at
 `contributor-dashboard/person/<login>`, and the browser's back button returns
 to the dashboard. Its title is their login, with a line under it saying how
-many pull requests they opened and reviews they gave over the span, and a link
-to their GitHub profile. The header's **Find a person** box marks the person
-already shown and switches to anyone else. It shows:
+many open issues are assigned to them, how many issues assigned to them closed,
+how many pull requests they opened and reviews they gave over the span, and a
+link to their GitHub profile. GitHub records no one on an issue's close, so the
+closed count is of issues assigned to them, not issues they closed. The
+header's **Find a person** box marks the person already shown and switches to
+anyone else. It shows:
 
+- **Issues assigned to them**: every open issue assigned to them now, whatever
+  the span, longest held first. Each row carries a bar from when the issue was
+  opened to today: grey while it was in Triage, amber while it waited in Assign
+  ownership, blue once it was theirs, dashed grey when it never reached a
+  milestone or project, and a dot at GitHub's last change to it. Every bar
+  shares one time scale, back to the oldest issue. The row ends with how long
+  it has been theirs and the last change, or "nothing since" once it has been
+  theirs two weeks with no change; past three months the time is amber, and
+  bold amber with nothing since. A line over the list gives the median and p90
+  time held and how many have gone two weeks with nothing since. Times are
+  calendar days, counted from the last time it was assigned to them. The
+  server sends the whole list, since one person holds a few dozen at most, and
+  the page shows ten at a time. It reads the issues the dashboard already
+  reads from the local copy, so it makes no GitHub calls.
 - **Pull requests**, PR Velocity's opening chart for only their pull
   requests: what they opened and merged in each bucket, which merged in the
   same bucket and which bled into a later one, and how many were open at each
@@ -546,6 +563,7 @@ needs no new sync.
 | `review/flows.ts` | The pure count of what arrived and finished in each bucket and where each bucket's arrivals finished, for the charts that open the velocity sections |
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
+| `review/assigned-issues.ts` | The pure read of the open issues one person holds, with when each was opened, planned, and assigned, and how many of theirs closed in the period |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, and the toolbar's filters, sorts, and counts over it |
@@ -571,6 +589,7 @@ needs no new sync.
 | `components/batch-dialog.tsx` | Batch: tick the matching rows, then copy, open, or start a main thread with a subthread for each |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
+| `components/issue-lifelines.tsx` | The open issues a person holds, each row with its bar from opened to today and how long it has been theirs |
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
 | `components/review-chart.tsx` | A person's review bars, their moving averages, and the legend |
 | `components/person-chart.tsx` | One person's small chart, its peak, its hover, and the legend |

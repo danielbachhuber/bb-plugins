@@ -4,7 +4,7 @@ import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
-import type { TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { AssignedIssue, TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { BatchDialog } from "./components/batch-dialog";
 import { describeFilters } from "./components/list-toolbar";
 import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
@@ -537,6 +537,43 @@ const AUTHORED = [
   { number: 1801, title: "Remove unused flags", url: "https://github.com/acme/widgets/pull/1801", threadId: null, state: "CLOSED" as const, isDraft: false, mergedAt: null, size: 12, createdAt: "2026-09-18T09:00:00Z", firstReviewDays: 2.2, followUps: 1, mergeDays: null, waitingDays: null },
 ];
 
+const daysBefore = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
+
+/**
+ * Open issues assigned to one person, longest held first, shaped like a busy
+ * real one: several opened months before they became theirs, two never
+ * planned, and most with nothing since they were assigned.
+ */
+const ASSIGNED_ISSUES: AssignedIssue[] = (
+  [
+    [1530, "Sprocket settings page forgets the chosen unit after a reload", "octocat", 231, 130, 231, 214],
+    [1388, "Sprocket importer times out on files over 20 MB", "hubber", 268, 266, 101, 101],
+    [1651, "Gadget search ignores accents", "octocat", 65, 63, 63, 20],
+    [1634, "Show who last edited a widget", "octocat", 80, 80, 55, 55],
+    [1412, "Widget export drops the last row when the sheet has a frozen header and the gadget filter is on", "mona", 268, 268, 24, 24],
+    [1660, "Archive old sprocket revisions", "octocat", 22, 22, 22, 22],
+    [1668, "Empty state for a board with no widgets", "octocat", 16, null, 16, 16],
+    [1561, "Document the gadget import format", "hubber", 170, 170, 13, 13],
+    [1675, "Keyboard shortcut to duplicate a widget", "octocat", 13, null, 13, 13],
+    [1671, "Avatar cache never expires", "yeti", 15, 15, 12, 12],
+    [1680, "Rename gadget fields in the API response", "octocat", 11, 11, 8, 8],
+    [1692, "Link widget history from the activity feed", "octocat", 3, 3, 3, 3],
+    [1588, "Retry webhook deliveries that time out", "octocat", 98, 98, 2, 1],
+    [1602, "Widget list paging skips a row at page boundaries", "webcat", 86, 86, 2, 2],
+    [1684, "Flaky test in the sprocket importer", "octocat", 8, 8, 2, 2],
+  ] as const
+).map(([number, title, author, opened, planned, assigned, updated]) => ({
+  number,
+  title,
+  url: `https://github.com/acme/widgets/issues/${number}`,
+  author,
+  threadId: number === 1588 ? "thr_demo" : null,
+  openedAt: daysBefore(opened),
+  plannedAt: planned === null ? null : daysBefore(planned),
+  assignedAt: daysBefore(assigned),
+  updatedAt: daysBefore(updated),
+}));
+
 /** Enough pull requests to page through, by repeating the five above. */
 function manyAuthored(total: number) {
   return Array.from({ length: total }, (_, index) => {
@@ -562,6 +599,8 @@ function Person({
   awaiting = AWAITING,
   teamAwaiting = TEAM_AWAITING,
   authored = AUTHORED,
+  issues = ASSIGNED_ISSUES,
+  issuesClosed = 42,
   login = "octocat",
   initialAuthoredQuery = DEFAULT_AUTHORED_QUERY,
 }: {
@@ -569,6 +608,8 @@ function Person({
   awaiting?: typeof AWAITING;
   teamAwaiting?: TeamAwaiting[];
   authored?: typeof AUTHORED;
+  issues?: AssignedIssue[];
+  issuesClosed?: number;
   login?: string;
   initialAuthoredQuery?: AuthoredQuery;
 }) {
@@ -594,6 +635,8 @@ function Person({
         awaiting,
         teamAwaiting,
         organization: "acme",
+        assignedIssues: issues,
+        issuesClosed,
         authored: kept.slice(paging.offset, paging.to),
         authoredTotal: authored.length,
         authoredFacets: authoredFacets(authored),
@@ -630,7 +673,7 @@ function Person({
   );
 }
 
-/** One person's page, reached by clicking their name on the dashboard. */
+/** One person's page, reached by clicking their name on the dashboard. The open issues assigned to them come first, each with a bar from opened to today. */
 export const PersonPage = () => (
   <WithThreads>
     <Person />
@@ -645,8 +688,8 @@ export const PersonPageAuthoredFiltered = () => (
   <Person authored={manyAuthored(118)} initialAuthoredQuery={{ sort: "size", direction: "desc", state: "merged" }} />
 );
 
-/** Nobody is waiting on them and they have opened nothing this period. */
-export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} teamAwaiting={[]} authored={[]} />;
+/** Nobody is waiting on them, they hold no issues, and they have opened nothing this period. */
+export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} teamAwaiting={[]} authored={[]} issues={[]} issuesClosed={0} />;
 
 const WAITING_NOW = [
   {

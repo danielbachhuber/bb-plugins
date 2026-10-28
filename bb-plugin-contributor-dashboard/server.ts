@@ -14,6 +14,7 @@ import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { awaitingTeamReview, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
+import { assignedIssues, closedAssignedIssues } from "./review/assigned-issues.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { openFacets, openItems, queryOpen } from "./review/open-items.js";
 import { authoredFacets, peopleFacets, queryAuthored, queryWaiting } from "./review/list-query.js";
@@ -192,6 +193,8 @@ export default async function plugin(bb: BbPluginApi) {
           awaiting: [],
           teamAwaiting: [],
           organization: null,
+          assignedIssues: [],
+          issuesClosed: 0,
           authored: [],
           authoredTotal: 0,
           authoredFacets: authoredFacets([]),
@@ -211,6 +214,8 @@ export default async function plugin(bb: BbPluginApi) {
       // before the period still counts where it merged or stayed open.
       const everything = store.readActivity(repository, 0);
       const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
+      // Issues held now, whatever the period, so this reads every stored one.
+      const issues = store.readIssues(repository, 0);
       return {
         repository,
         login,
@@ -222,6 +227,8 @@ export default async function plugin(bb: BbPluginApi) {
         awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
         teamAwaiting: withThreads(awaitingTeamReview(everything, login, store.readTeams(repository), now), "pull"),
         organization: repository.split("/")[0],
+        assignedIssues: withThreads(assignedIssues(issues, login), "issue"),
+        issuesClosed: closedAssignedIssues(issues, login, buckets[0].start, buckets.at(-1)!.end),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredTotal: all.length,
         authoredFacets: authoredFacets(all),
