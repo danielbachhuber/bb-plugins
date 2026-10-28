@@ -66,6 +66,20 @@ describe("createSyncScripts", () => {
     expect(readFileSync(run.log, "utf8")).toBe("nope\n");
   });
 
+  it("never reads a run as missing while the wrapper writes its state", async () => {
+    writeFileSync(join(checkout, "sync.sh"), "exit 0\n");
+    const scripts = createSyncScripts(state);
+    for (let i = 0; i < 20; i++) {
+      scripts.start(checkout);
+      let run = scripts.state(checkout);
+      while (run?.state === "running") {
+        await new Promise((resolve) => setImmediate(resolve));
+        run = scripts.state(checkout);
+      }
+      expect(run).toMatchObject({ state: "succeeded" });
+    }
+  });
+
   it("reads a run started by an earlier server", async () => {
     writeFileSync(join(checkout, "sync.sh"), "exit 0\n");
     createSyncScripts(state).start(checkout);

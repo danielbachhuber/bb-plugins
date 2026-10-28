@@ -23,10 +23,12 @@ export type Launch = (args: {
 
 // $1 is the script, $2 the state file, $3 the log, $4 whether to exec the
 // script directly. A script that is not executable runs under bash, which is
-// what a `.sh` script usually expects.
-const WRAPPER = `printf 'running %s\\n' "$$" > "$2"
+// what a `.sh` script usually expects. Each state is written to a temporary
+// file and renamed over the state file, because `>` empties the file before
+// writing it, and a read in between would find no run at all.
+const WRAPPER = `printf 'running %s\\n' "$$" > "$2.tmp" && mv -f "$2.tmp" "$2"
 if [ "$4" = yes ]; then "$1"; else /bin/bash "$1"; fi > "$3" 2>&1 < /dev/null
-printf 'exit %s\\n' "$?" > "$2"`;
+printf 'exit %s\\n' "$?" > "$2.tmp" && mv -f "$2.tmp" "$2"`;
 
 export const launch: Launch = ({ cwd, script, executable, stateFile, logFile }) => {
   const child = spawn("/bin/sh", ["-c", WRAPPER, "sh", script, stateFile, logFile, executable ? "yes" : "no"], {
