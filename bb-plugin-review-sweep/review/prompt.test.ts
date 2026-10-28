@@ -20,15 +20,16 @@ describe("buildPrompt", () => {
     expect(prompt).toMatch(/without asking me first/);
   });
 
-  it("overrides a skill whose own last step posts a comment", () => {
-    // The claude-plugins-official /code-review ends with `gh pr comment` and has
-    // no flag to suppress it, and this plugin cannot control which code-review a
-    // spawned thread resolves. The instruction has to name that case.
-    expect(buildPrompt(rowFor(), NOW)).toMatch(/even if the skill .* ends with a step that posts/);
+  it("adds to the pending review and submits it only on my choice", () => {
+    // The skill's draft inline comments go to a pending review, which no one
+    // else sees until it is submitted. Submitting it is the step that posts.
+    const prompt = buildPrompt(rowFor(), NOW);
+    expect(prompt).toMatch(/pending review as a draft inline comment only when I choose/);
+    expect(prompt).toMatch(/submit the review only when I choose a verdict/);
   });
 
   it("names the skill that owns the work", () => {
-    expect(buildPrompt(rowFor(), NOW)).toContain("`code-review`");
+    expect(buildPrompt(rowFor(), NOW)).toContain("Use the `review-pull-request` skill.");
   });
 
   it("identifies the pull request and its author", () => {

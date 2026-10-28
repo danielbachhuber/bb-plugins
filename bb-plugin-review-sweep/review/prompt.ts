@@ -53,12 +53,11 @@ export type PromptRow = Pick<
  *
  * The no-posting paragraph is not decoration. Reviewing someone else's pull
  * request is outward-facing in a way pushing to your own branch is not: a wrong
- * finding lands publicly on a colleague's PR and cannot be quietly undone. It is
- * also load-bearing against the skill itself — the claude-plugins-official
- * `/code-review` ends by posting a `gh pr comment` with no flag to suppress it,
- * and this plugin cannot control which `code-review` a spawned thread resolves.
- * A direct user instruction outranks a skill's own steps, so the instruction is
- * what holds, not the routing.
+ * finding lands publicly on a colleague's PR and cannot be quietly undone. The
+ * skill adds a finding to my pending review only when I choose that for it,
+ * and a pending review is visible to no one else until it is submitted. The
+ * prompt says so as well, because a direct user instruction outranks a skill's
+ * own steps, and the skill can change.
  */
 export function buildPromptParts(row: PromptRow, now: number): PromptParts {
   const waited = ageInDays(row.requestedAt, now);
@@ -89,23 +88,20 @@ export function buildPromptParts(row: PromptRow, now: number): PromptParts {
       // prompt: it is the whole safety story for this action, and it is the
       // same sentence every time, which is what the trailer is for.
       //
-      // The view is asked for here, not left to the impromptu-ui guide:
-      // `code-review` forks and hands back prose, and with only "report your
-      // findings in this thread" to go on, the agent passes that prose along
-      // in chat.
-      "Report your findings in this thread. When `bb impromptu-ui` is available, publish them as a view rather than writing them in chat: one card per finding, laid out as the impromptu-ui skill's \"Code review findings\" section describes, with the verdict as the closing step. Do this after the review skill returns, even if its own report is prose. Do NOT post anything to GitHub — no review, no comment, no approval, no inline comments — without asking me first and showing me exactly what you intend to post. That holds even if the skill you are following ends with a step that posts a comment: skip that step and show me the comment instead.",
+      // The view is asked for here, not left to the impromptu-ui guide: the
+      // skill offers a choice per finding, and a view is where those choices
+      // become buttons instead of a list the user answers by typing.
+      "Report your findings in this thread. When `bb impromptu-ui` is available, publish them as a view rather than writing them in chat: one card per finding, with the skill's choices for that finding as its buttons, laid out as the impromptu-ui skill's \"Code review findings\" section describes, with the verdict as the closing step. Add a finding to my pending review as a draft inline comment only when I choose that for it, and submit the review only when I choose a verdict. Do NOT post anything to GitHub beyond that (no submitted review, no comment, no approval) without asking me first and showing me exactly what you intend to post.",
       "",
       // A review thread opens in its own worktree by default, so checking the
       // pull request out there is safe and saves asking for it afterwards.
       // The composer can still put the thread in the project checkout, which
       // is mine and must stay on whatever branch I left it on.
       //
-      // "Before you load the skill" is load-bearing: `code-review` runs as a
-      // forked subagent, which checks the branch out to read it and then
-      // switches back to leave the tree as it found it. Without the ordering
-      // the agent hands the whole job to the skill and the worktree ends up
-      // back on its own bb/ branch.
-      `If this thread runs in its own bb worktree, check the pull request out there yourself with \`gh pr checkout ${row.number}\` before you load the skill (add \`--detach\` if git says the branch is already checked out elsewhere). Leave it checked out when you finish, and if the skill switched the worktree back to another branch, check the pull request out again. If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
+      // "Before you load the skill": the skill checks each suggested fix with
+      // the pull request's head branch checked out, so the branch has to be
+      // there before the review starts, not after.
+      `If this thread runs in its own bb worktree, check the pull request out there yourself with \`gh pr checkout ${row.number}\` before you load the skill (add \`--detach\` if git says the branch is already checked out elsewhere). Leave it checked out when you finish. If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
     ].join("\n"),
   };
 }

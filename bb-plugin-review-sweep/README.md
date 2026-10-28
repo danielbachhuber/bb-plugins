@@ -246,33 +246,36 @@ starts it over.
 - **Model for review threads** — blank takes the provider's default. There is
   only one action here, so this is a single value rather than pr-sweep's
   model-by-action JSON.
-- **Provider for spawned threads** — defaults to `claude-code`, the provider
-  whose `code-review` command the prompt names. Blank uses bb's default.
+- **Provider for spawned threads** — defaults to `claude-code`. The prompt
+  names the `review-pull-request` skill, which is a Claude Code user skill in
+  `~/.claude/skills/`, so a thread on another provider cannot see it. Blank
+  uses bb's default.
 - **Permission mode for spawned threads** — defaults to `full`. Read the next
   section before changing it.
 
 ## What a spawned thread may do
 
-**It reports findings in the thread. It posts nothing to GitHub without asking.**
+**It reports findings in the thread. Nothing reaches GitHub until you choose
+it.**
+
+The prompt names the `review-pull-request` skill, which loads `review-code`.
+That ranks each finding from P0 (blocker) to P3 (nit), lists which of the
+changed behaviors the tests cover, and offers three choices per finding:
+draft an issue for it, add it as a draft inline comment to your pending review
+on the pull request, or start a thread that fixes it in a pull request against
+this one. A pending review is visible only to you until you submit it.
 
 When Impromptu UI is installed, the prompt asks for the findings as a view
-above the composer, one card per finding with the verdict last, rather than
-as a reply in chat.
+above the composer, one card per finding with those choices as its buttons and
+the verdict last, rather than as a reply in chat.
 
 Reviewing someone else's pull request is outward-facing in a way pushing to your
 own branch is not: a wrong finding lands publicly on a colleague's PR and cannot
 be quietly undone. So unlike pr-sweep, whose prompt authorizes its own commit
-and push, this prompt withholds that authorization and says so explicitly.
-
-Two things make that instruction load-bearing rather than decorative.
-
-**The skill may try to post on its own.** Two commands answer to `code-review`
-on this machine: the built-in one, which posts only when passed `--comment`, and
-the claude-plugins-official one, whose final step runs `gh pr comment` with no
-flag to suppress it. Which one a spawned thread resolves is not something this
-plugin controls. The prompt therefore names the skill *and* states the
-constraint, including the case where the skill's own last step posts a comment —
-a direct user instruction outranks a skill's steps.
+and push, this prompt says the thread adds to your pending review only for the
+findings you choose, submits it only when you choose a verdict, and posts
+nothing else without asking. The skill works the same way, and the prompt
+states it anyway, because a direct instruction outranks a skill's own steps.
 
 **The sandbox cannot enforce it.** `auto` keeps the workspace sandbox, which
 blocks network egress, so a thread in that mode cannot reach GitHub to read the
@@ -285,7 +288,7 @@ before trusting it unattended.
 
 "Start review" opens bb's composer under the row, where Add note opens its
 editor, and clicking it again closes it. Above the composer, the
-`code-review` skill is a chip, already picked, and it puts what this review is
+`review-pull-request` skill is a chip, already picked, and it puts what this review is
 and how it should read in the prompt. Unpick it to write your own prompt
 instead. Starting it leaves you on the page, with a toast whose **Go to
 thread** button opens the new thread. A thread started from a row is linked to its pull request in gh-context, and

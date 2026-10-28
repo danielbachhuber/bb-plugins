@@ -556,9 +556,9 @@ const SEED = {
   permissionMode: "full" as const,
   skills: [
     {
-      name: "code-review",
+      name: "review-pull-request",
       reason: "A review was requested of you",
-      instruction: "Review acme/widgets#42. Use the `code-review` skill.",
+      instruction: "Review acme/widgets#42. Use the `review-pull-request` skill.",
       selected: true,
     },
   ],
@@ -610,7 +610,7 @@ describe("thread action", () => {
     });
     fireEvent.click(await slot.findByRole("button", { name: "Start review" }));
     expect(await slot.findByRole("region", { name: "Start a thread" })).toBeInTheDocument();
-    expect(slot.getByRole("button", { name: "code-review" })).toHaveAttribute("aria-pressed", "true");
+    expect(slot.getByRole("button", { name: "review-pull-request" })).toHaveAttribute("aria-pressed", "true");
     expect(slot.getByRole("button", { name: "Start review", expanded: true })).toBeInTheDocument();
     const call = slot.inspection.rpcCalls.find((entry) => entry.method === "reviewThisDraft");
     expect(call?.input).toEqual({ repo: "acme/widgets", number: 42 });
@@ -696,7 +696,7 @@ describe("batch", () => {
       .filter((call) => call.method === "reviewBatchStart")
       .map((call) => call.input as { number: number; prompt: string });
     expect(inputs.find((input) => input.number === 2)?.prompt).toBe("Only the tests.");
-    expect(inputs.find((input) => input.number === 1)?.prompt).toMatch(/Use the `code-review` skill/);
+    expect(inputs.find((input) => input.number === 1)?.prompt).toMatch(/Use the `review-pull-request` skill/);
     await waitFor(() => expect(slot.queryByRole("checkbox", { name: "Pick #1" })).toBeNull());
   });
 

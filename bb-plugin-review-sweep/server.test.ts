@@ -303,7 +303,7 @@ describe("reviewThisSubmit is one thread per review", () => {
     expect(args.title.length).toBeLessThanOrEqual(40);
   });
 
-  it("pins the provider that can actually see the code-review skill", async () => {
+  it("pins the provider that can actually see the review-pull-request skill", async () => {
     const { harness } = await seededHost();
     await reviewThis(harness, { repo: "acme/widgets", number: 42 });
 
