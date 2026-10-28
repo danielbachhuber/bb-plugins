@@ -1,12 +1,14 @@
 // One person's page: their own pull requests, as opened and merged lines and
 // then the list of how each fared, followed by their review bars and the pull
 // requests waiting on their review. Display only.
-import type { AuthoredQuery, PersonActivityResult } from "@/dashboard/contract";
+import type { AuthoredQuery, PersonActivityResult, TeamAwaiting } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import type { BatchItem } from "./batch-dialog";
 import { ItemRow } from "./item-row";
-import { AuthoredList, AwaitingList, days } from "./person-lists";
+import { BatchButton, PeopleMenu, SortMenu } from "./list-toolbar";
+import { useLocalList } from "./local-list";
+import { AuthoredList, AwaitingList, Count, days, WAITING_KEYS, WAITING_SORTS } from "./person-lists";
 import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
@@ -31,6 +33,76 @@ export function summary(data: PersonActivityResult, selection: Selection): strin
   const opened = data.authorFlows.started.reduce((sum, n) => sum + n, 0);
   const given = data.activity?.givenTotal ?? 0;
   return `Opened ${count(opened, "pull request", "pull requests")} and gave ${count(given, "review", "reviews")} over ${selectionWords(selection)}`;
+}
+
+/** What is waiting on a team the person is in, with the lists' toolbar. Held whole, as the server sends it. */
+function TeamAwaitingList({
+  rows,
+  organization,
+  onBatch,
+  onThread,
+}: {
+  rows: readonly TeamAwaiting[];
+  organization: string | null;
+  onBatch: (heading: string, rows: readonly BatchItem[]) => void;
+  onThread: (seed: ThreadSeed, threadId: string | null) => void;
+}) {
+  const { query, setQuery, shown, authors } = useLocalList(rows, WAITING_KEYS, { sort: "wait", direction: "desc", author: null });
+  return (
+    <section className="mt-8" aria-labelledby="person-team-awaiting">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="person-team-awaiting" className="text-base font-semibold">
+          Waiting on their team
+          <Count shown={shown.length} total={rows.length} />
+        </h2>
+        {rows.length === 0 ? null : (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <SortMenu options={WAITING_SORTS} sort={query.sort} direction={query.direction} onSort={(sort, direction) => setQuery({ ...query, sort, direction })} />
+            <PeopleMenu label="Author" value={query.author} counts={authors} onPick={(author) => setQuery({ ...query, author })} />
+            <BatchButton
+              count={shown.length}
+              onBatch={() => onBatch(`Waiting on their team${query.author === null ? "" : ` by ${query.author}`}`, shown)}
+            />
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Asked of a team they are in, and nobody has reviewed since. Their own pull requests are left out.
+      </p>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on their teams.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
+          {shown.map((row) => (
+            <ItemRow
+              key={row.number}
+              number={row.number}
+              title={row.title}
+              url={row.url}
+              assignees={row.assignees}
+              threadId={row.threadId}
+              onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting on ${row.teams.join(", ")}` }, row.threadId)}
+              facts={
+                <span>
+                  {row.author === null ? "" : `${row.author} · `}
+                  {row.teams.map((slug) => (
+                    <TeamName key={slug} organization={organization} slug={slug} />
+                  ))}
+                  {row.named.length === 0 ? (
+                    <span className={WARN}> · no one named</span>
+                  ) : (
+                    ` and ${row.named.join(", ")}`
+                  )}
+                  {" · "}
+                  <span className={row.waitingDays > 3 ? "text-destructive" : ""}>{days(row.waitingDays)} waiting</span>
+                </span>
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 export function PersonView({
@@ -163,48 +235,12 @@ export function PersonView({
 
             <AwaitingList rows={data.awaiting} onBatch={(heading, rows) => onBatch("pull", heading, rows)} onThread={onThread} now={now} />
 
-            <section className="mt-8" aria-labelledby="person-team-awaiting">
-              <h2 id="person-team-awaiting" className="text-base font-semibold">
-                Waiting on their team
-                <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{data.teamAwaiting.length}</span>
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Asked of a team they are in, and nobody has reviewed since. Their own pull requests are left out. Longest
-                wait first.
-              </p>
-              {data.teamAwaiting.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on their teams.</p>
-              ) : (
-                <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
-                  {data.teamAwaiting.map((row) => (
-                    <ItemRow
-                      key={row.number}
-                      number={row.number}
-                      title={row.title}
-                      url={row.url}
-                      assignees={row.assignees}
-                      threadId={row.threadId}
-                      onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: `${days(row.waitingDays)} waiting on ${row.teams.join(", ")}` }, row.threadId)}
-                      facts={
-                        <span>
-                          {row.author === null ? "" : `${row.author} · `}
-                          {row.teams.map((slug) => (
-                            <TeamName key={slug} organization={data.organization} slug={slug} />
-                          ))}
-                          {row.named.length === 0 ? (
-                            <span className={WARN}> · no one named</span>
-                          ) : (
-                            ` and ${row.named.join(", ")}`
-                          )}
-                          {" · "}
-                          <span className={row.waitingDays > 3 ? "text-destructive" : ""}>{days(row.waitingDays)} waiting</span>
-                        </span>
-                      }
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
+            <TeamAwaitingList
+              rows={data.teamAwaiting}
+              organization={data.organization}
+              onBatch={(heading, rows) => onBatch("pull", heading, rows)}
+              onThread={onThread}
+            />
           </>
         )}
       </div>
