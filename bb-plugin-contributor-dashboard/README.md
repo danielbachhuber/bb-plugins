@@ -177,7 +177,9 @@ row's own Start thread prompt and a line saying to report back to the main
 thread. Each subthread gets the provider, model, permission mode, and
 environment chosen in the composer, so a new worktree gives each its own and
 a project checkout puts them all in the same one. Each subthread is remembered
-on its row, which then shows it as a row's own thread does.
+on its row, which then shows it as a row's own thread does. The main thread
+is titled with the numbers it covers, such as "Batch of 30 PRs: #1200, #1201,
+#1202 +27 more", and each subthread with its row's number and title.
 
 All of it reads the local mirror and makes no GitHub calls. Opening Batch
 reads the matching rows from the server once; starting a batch makes one bb

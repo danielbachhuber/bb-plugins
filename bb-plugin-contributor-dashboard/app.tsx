@@ -35,7 +35,7 @@ import {
 import { rangeOf, selectionWords, type Selection } from "./dashboard/period.js";
 import { announceStartedThread, useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { DEFAULT_QUERY } from "./review/open-items.js";
-import { promptFor, type ThreadSeed } from "./components/thread-seed.js";
+import { batchTitle, promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedScreen, rememberedSelection, rememberScreen, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { StartThreadContext, ThreadStatusContext } from "./components/item-row";
@@ -302,7 +302,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
               onStart={async (rows, request) => {
                 const started = await rpc.call("start_batch", {
                   kind: list,
-                  title: `${heading}: ${rows.length} ${list === "issue" ? "issues" : "pull requests"}`,
+                  title: batchTitle(list, rows.map((row) => row.number)),
                   rows: rows.map(({ number, title, url }) => ({ number, title, url })),
                   request: request as unknown as Record<string, unknown>,
                 });

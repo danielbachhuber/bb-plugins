@@ -27,6 +27,27 @@ export interface BatchRow {
 const PLURAL = { issue: "issues", pull: "pull requests" } as const;
 const SINGULAR = { issue: "issue", pull: "pull request" } as const;
 
+/** bb's sidebar shows about this many characters of a title; its own generated titles stop at 48. */
+const TITLE_WIDTH = 48;
+
+const SHORT_PLURAL = { issue: "issues", pull: "PRs" } as const;
+
+/**
+ * The main thread's title: the kind and the numbers it covers, such as
+ * "Batch of 3 PRs: #12, #34, #56". The verb is left out because the prompt
+ * is the user's to write. A long batch lists as many numbers as fit and
+ * counts the rest, such as "+27 more".
+ */
+export function batchTitle(kind: ThreadSeed["kind"], numbers: readonly number[]): string {
+  const head = `Batch of ${numbers.length} ${numbers.length === 1 ? SINGULAR[kind] : SHORT_PLURAL[kind]}: `;
+  const tags = numbers.map((number) => `#${number}`);
+  for (let shown = tags.length; ; shown--) {
+    const rest = tags.length - shown;
+    const title = `${head}${tags.slice(0, shown).join(", ")}${rest === 0 ? "" : ` +${rest} more`}`;
+    if (shown <= 1 || title.length <= TITLE_WIDTH) return title;
+  }
+}
+
 /** What a batch's main thread starts with, which the user can rewrite before sending. */
 export function batchPrompt(kind: ThreadSeed["kind"], rows: readonly BatchRow[]): string {
   const lines = rows.map((row) => `- #${row.number} ${row.title}\n  ${row.url}`);
@@ -57,7 +78,7 @@ export function subthreadRequest<R extends Record<string, unknown>>(
   return {
     ...(settings as Omit<R, "input" | "prompt" | "sendAt">),
     prompt: subthreadPrompt(kind, row, total),
-    title: `${row.title} (#${row.number})`,
+    title: `#${row.number} ${row.title}`,
     parentThreadId,
   };
 }
