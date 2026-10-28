@@ -196,7 +196,12 @@ export function PersonView({
 
         {data === null ? null : (
           <>
-            <AssignedIssues issues={data.assignedIssues} onThread={onThread} now={now} />
+            <AssignedIssues
+              issues={data.assignedIssues}
+              onThread={onThread}
+              onBatch={(heading, rows) => onBatch("issue", heading, rows)}
+              now={now}
+            />
 
             <section className="mt-8" aria-labelledby="person-pull-requests">
               <h2 id="person-pull-requests" className="text-base font-semibold">

@@ -205,15 +205,16 @@ sorts and filters its rows support, and the same Batch dialog:
 | List | Sort | Filters |
 | --- | --- | --- |
 | A stage's queue | Wait, Author | Author, Assigned (with Nobody) |
+| Issues assigned to them | Theirs for, Last change, Opened | Nothing since |
 | Their pull requests | Opened, Merged, Time to first review, Time to merge, Size | State: Open, Draft, Merged, Closed |
 | Waiting on their review | Wait, Author | Author |
 | Waiting on their team | Wait, Author | Author |
 
 A stage's queue and a person's pull requests are paged on the server, so a
 change there asks the server again for one page, and Batch asks once for
-every matching row. Waiting on their review and Waiting on their team arrive
-whole with the person's page, a dozen or so rows at most, so their toolbars
-sort and filter in the page and make no request. Pull requests with no review or no merge yet sort last
+every matching row. The other three arrive whole with the person's page, a
+dozen or so rows at most, so their toolbars sort and filter in the page and
+make no request. Pull requests with no review or no merge yet sort last
 whichever way the sort runs. None of it makes a GitHub call.
 
 ### A row in a list

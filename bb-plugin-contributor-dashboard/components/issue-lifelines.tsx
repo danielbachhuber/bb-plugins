@@ -3,11 +3,15 @@
 // once it was theirs, with a dot at its last change. Each row ends with how
 // long it has been theirs and whether anything has happened since. Display
 // only.
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import type { AssignedIssue } from "@/dashboard/contract";
 
+import { sortBy } from "@/review/list-query";
+
+import type { BatchItem } from "./batch-dialog";
 import { ItemRow } from "./item-row";
+import { BatchButton, SortMenu, ToggleChip, type SortOption } from "./list-toolbar";
 import type { ThreadSeed } from "./thread-seed";
 
 // Written out rather than set as Tailwind classes: bb's stylesheet is
@@ -190,6 +194,26 @@ function Axis({ span }: { span: number }) {
   );
 }
 
+type IssueSort = "held" | "changed" | "opened";
+
+const ISSUE_SORTS: SortOption<IssueSort>[] = [
+  { key: "held", label: "Theirs for", asc: "Shortest", desc: "Longest", start: "desc" },
+  { key: "changed", label: "Last change", asc: "Least recent", desc: "Most recent", start: "asc" },
+  { key: "opened", label: "Opened", asc: "Oldest", desc: "Newest", start: "asc" },
+];
+
+// Older timestamps sort first ascending, so "held" runs on how long ago it was assigned.
+const ISSUE_KEYS: Record<IssueSort, (issue: AssignedIssue) => number> = {
+  held: (issue) => -Date.parse(issue.assignedAt),
+  changed: (issue) => Date.parse(issue.updatedAt),
+  opened: (issue) => Date.parse(issue.openedAt),
+};
+
+/** Theirs for two weeks and nothing has happened since: the ones the line over the list counts. */
+function isStalled(issue: AssignedIssue, now: number): boolean {
+  return isQuiet(issue) && heldDays(issue, now) >= QUIET_AFTER_DAYS;
+}
+
 function PageButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
     <button
@@ -206,17 +230,34 @@ function PageButton({ label, onClick, disabled }: { label: string; onClick: () =
 export function AssignedIssues({
   issues,
   onThread,
+  onBatch,
   now,
 }: {
   /** Longest held first, as the server sends them. */
   issues: readonly AssignedIssue[];
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
+  /** Opens Batch over the issues the toolbar keeps. */
+  onBatch: (heading: string, rows: readonly BatchItem[]) => void;
   now: number;
 }) {
   const [page, setPage] = useState(0);
-  const pages = Math.max(1, Math.ceil(issues.length / PAGE));
+  const [query, setQuery] = useState<{ sort: IssueSort; direction: "asc" | "desc"; stalled: boolean }>({
+    sort: "held",
+    direction: "desc",
+    stalled: false,
+  });
+  const kept = useMemo(
+    () => sortBy(query.stalled ? issues.filter((issue) => isStalled(issue, now)) : issues, ISSUE_KEYS[query.sort], query.direction),
+    [issues, query, now],
+  );
+  // A changed sort or filter starts the list over from its first page.
+  const change = (next: Partial<typeof query>) => {
+    setPage(0);
+    setQuery({ ...query, ...next });
+  };
+  const pages = Math.max(1, Math.ceil(kept.length / PAGE));
   const current = Math.min(page, pages - 1);
-  const shown = issues.slice(current * PAGE, current * PAGE + PAGE);
+  const shown = kept.slice(current * PAGE, current * PAGE + PAGE);
   // Every bar shares one scale, back to the oldest issue on any page, and a month at least.
   const span = Math.max(30, ...issues.map((issue) => daysAgo(issue.openedAt, now)));
   const line = issues.length === 0 ? null : issuesLine(issues, now);
@@ -227,10 +268,34 @@ export function AssignedIssues({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="person-issues" className="text-base font-semibold">
           Issues assigned to them
-          <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">{issues.length}</span>
+          <span className="ml-2 text-sm font-normal tabular-nums text-muted-foreground">
+            {kept.length === issues.length ? issues.length : `${kept.length} of ${issues.length}`}
+          </span>
         </h2>
-        {issues.length === 0 ? null : <StageLegend />}
+        {issues.length === 0 ? null : (
+          <span className="flex flex-wrap items-center gap-1.5">
+            <SortMenu options={ISSUE_SORTS} sort={query.sort} direction={query.direction} onSort={(sort, direction) => change({ sort, direction })} />
+            {(line?.quiet ?? 0) === 0 ? null : (
+              <ToggleChip
+                label="Nothing since"
+                title={`Only the ones theirs for ${QUIET_AFTER_DAYS}+ days with nothing since`}
+                on={query.stalled}
+                count={line?.quiet ?? 0}
+                onToggle={() => change({ stalled: !query.stalled })}
+              />
+            )}
+            <BatchButton
+              count={kept.length}
+              onBatch={() => onBatch(`Issues assigned to them${query.stalled ? ", with nothing since" : ""}`, kept)}
+            />
+          </span>
+        )}
       </div>
+      {issues.length === 0 ? null : (
+        <div className="mt-1">
+          <StageLegend />
+        </div>
+      )}
       {line === null ? (
         <p className="mt-2 text-sm text-muted-foreground">No open issues are assigned to them.</p>
       ) : (
@@ -275,7 +340,7 @@ export function AssignedIssues({
           {pages < 2 ? null : (
             <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span className="tabular-nums">
-                {current * PAGE + 1}–{Math.min(issues.length, current * PAGE + PAGE)} of {issues.length}
+                {current * PAGE + 1}–{Math.min(kept.length, current * PAGE + PAGE)} of {kept.length}
               </span>
               <span className="flex items-center gap-1">
                 <PageButton label="Previous" onClick={() => setPage(current - 1)} disabled={current === 0} />

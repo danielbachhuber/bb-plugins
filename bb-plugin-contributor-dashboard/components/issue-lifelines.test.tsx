@@ -72,22 +72,33 @@ describe("axisMarks", () => {
 
 describe("AssignedIssues", () => {
   it("says so when no open issues are assigned", () => {
-    render(<AssignedIssues issues={[]} onThread={vi.fn()} now={NOW} />);
+    render(<AssignedIssues issues={[]} onThread={vi.fn()} onBatch={vi.fn()} now={NOW} />);
     expect(screen.getByText("No open issues are assigned to them.")).not.toBeNull();
   });
 
   it("pages ten at a time", () => {
     const issues = Array.from({ length: 12 }, (_, i) => issue(100 + i, 40 - i));
-    render(<AssignedIssues issues={issues} onThread={vi.fn()} now={NOW} />);
+    render(<AssignedIssues issues={issues} onThread={vi.fn()} onBatch={vi.fn()} now={NOW} />);
     expect(screen.getByText("1–10 of 12")).not.toBeNull();
     expect(screen.queryByText("Widget issue 111")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("Widget issue 111")).not.toBeNull();
   });
 
+  it("narrows to the ones with nothing since, and batches only those", () => {
+    const onBatch = vi.fn();
+    // 7 and 8 have had a change since they were assigned; 9 has had none for 20 days.
+    const busy = (number: number) => ({ ...issue(number, 30), updatedAt: new Date(NOW - 86_400_000).toISOString() });
+    render(<AssignedIssues issues={[busy(7), busy(8), issue(9, 20)]} onThread={vi.fn()} onBatch={onBatch} now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: /Nothing since/ }));
+    expect(screen.getByText("1 of 3")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Batch" }));
+    expect(onBatch).toHaveBeenCalledWith("Issues assigned to them, with nothing since", [expect.objectContaining({ number: 9 })]);
+  });
+
   it("starts a thread seeded with what the row says", () => {
     const onThread = vi.fn();
-    render(<AssignedIssues issues={[issue(7, 20)]} onThread={onThread} now={NOW} />);
+    render(<AssignedIssues issues={[issue(7, 20)]} onThread={onThread} onBatch={vi.fn()} now={NOW} />);
     fireEvent.click(screen.getByRole("button", { name: "Start a thread" }));
     expect(onThread).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "issue", number: 7, meta: "theirs 20 days, nothing since" }),
