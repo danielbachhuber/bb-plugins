@@ -1,0 +1,1 @@
+![Screencast feedback as cards above the composer: three changes from a recording, each with its quote and timestamp, and the first open beside the chat with an issue to file, Create issue, and Fix in a thread](images/local/screencast-window.png)

@@ -1,0 +1,105 @@
+/* A terminal in the style of an old BBS: a dark slate screen inside a yellow
+   double-line box, a zsh prompt above every heading, and screenshots with
+   a hard shadow. The Presentations plugin
+   applies this file to this deck's slides and nothing else. */
+
+.bbp-slide {
+  position: relative;
+  padding: 84px 104px !important;
+  background: #2a2e36 !important;
+  color: #e6e6e6 !important;
+  font-family: "SF Mono", Menlo, monospace !important;
+}
+
+/* The double-line box, with its title set into the top edge. */
+.bbp-slide::before {
+  content: "";
+  position: absolute;
+  inset: 22px;
+  border: 6px double #d3b46a;
+  pointer-events: none;
+}
+
+.bbp-slide::after {
+  content: " bb — 10-hacks ";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 12px;
+  background: #2a2e36;
+  color: #d3b46a;
+  font-size: 24px !important;
+  line-height: 1.2 !important;
+  white-space: pre;
+}
+
+.bbp-slide h1 {
+  font-family: inherit !important;
+  font-weight: 700 !important;
+  font-size: 60px !important;
+  letter-spacing: -0.02em;
+  color: #f2f2f2 !important;
+}
+
+/* The zsh prompt above every heading, one color per segment. The font is
+   monospace, so each color stop falls on a whole number of characters. */
+.bbp-slide h1::before {
+  content: "➜  10-hacks git:(main)";
+  display: block;
+  width: max-content;
+  white-space: pre;
+  margin-bottom: 0.35em;
+  font-size: 26px !important;
+  line-height: 1.2 !important;
+  font-weight: 700;
+  letter-spacing: 0;
+  background: linear-gradient(90deg, #e5787a 0 3ch, #a9c7d0 3ch 11ch, #8fa8c0 11ch 17ch, #e5787a 17ch 21ch, #8fa8c0 21ch);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bbp-slide :is(p, li) {
+  max-width: 50ch;
+  font-size: 31px !important;
+  line-height: 1.5 !important;
+  color: #d4d7dd !important;
+}
+
+/* Lists read as links in the terminal: a green check, then an underlined URL. */
+.bbp-slide ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+}
+
+.bbp-slide li {
+  color: #7fb3c9 !important;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.bbp-slide li::before {
+  content: "✔  ";
+  color: #b5cc7a;
+}
+
+/* Screenshot slides: the image centered with a hard shadow. */
+.bbp-slide:has(img) {
+  padding: 60px !important;
+  align-items: center !important;
+}
+
+.bbp-slide p:has(> img) {
+  position: relative;
+  margin: 0 !important;
+  padding: 0;
+  background: transparent;
+  box-shadow: 14px 14px 0 #121418;
+}
+
+.bbp-slide img {
+  display: block;
+  max-height: 540px !important;
+  border-radius: 0 !important;
+}

@@ -1,0 +1,1 @@
+![The Now page in bb: a square per row grouped into urgent, unread, today, and more, with overdue tasks, Google Docs comments, calendar invitations, and email below, and an email conversation open beside the list](images/local/now-window.png)
