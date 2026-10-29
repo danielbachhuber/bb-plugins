@@ -25,7 +25,9 @@ secrets, HTTP tokens, and `data.db` all live there and all stay there.
 These are in the bb-community marketplace, released from a `<id>/vX.Y.Z` tag.
 Move a plugin here when it is first published.
 
-#### [Automation Palette](https://getbb.app/marketplace/automation-palette)
+#### Automation Palette
+
+[View in the marketplace](https://getbb.app/marketplace/automation-palette)
 
 Run any bb automation from the quick palette, without opening the Automations page.
 
@@ -33,7 +35,9 @@ Source: [`bb-plugin-automation-palette`](bb-plugin-automation-palette)
 
 ![bb's quick palette searching for automation, listing a Run automation row for each automation with its project](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/automation-palette/quick-palette--with-the-plugin.png)
 
-#### [Diff Viewed Enhanced](https://getbb.app/marketplace/diff-viewed)
+#### Diff Viewed Enhanced
+
+[View in the marketplace](https://getbb.app/marketplace/diff-viewed)
 
 Adds a viewed count and GitHub sync to bb's own Viewed checkboxes, so you can see how much of a long diff you've read.
 
@@ -41,7 +45,9 @@ Source: [`bb-plugin-diff-viewed`](bb-plugin-diff-viewed)
 
 ![The changes panel with bb's Viewed checkbox on each file and 3/6 viewed at the top, the viewed files folded away](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/diff-viewed/changes-panel--viewed.png)
 
-#### [Impromptu UI](https://getbb.app/marketplace/impromptu-ui)
+#### Impromptu UI
+
+[View in the marketplace](https://getbb.app/marketplace/impromptu-ui)
 
 Turns your agent's walls of text into interfaces you can click.
 
@@ -49,7 +55,9 @@ Source: [`bb-plugin-impromptu-ui`](bb-plugin-impromptu-ui)
 
 ![A milestone triage shown above a thread's composer, with each issue's evidence, drafted comment, and Post and close button beside the chat](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/impromptu-ui/thread--triage.png)
 
-#### [Markdown Editor](https://getbb.app/marketplace/markdown-editor)
+#### Markdown Editor
+
+[View in the marketplace](https://getbb.app/marketplace/markdown-editor)
 
 Edit markdown files in the tab bb opens them in, preview the result, and save with Cmd+S without overwriting an agent's edits.
 
@@ -57,7 +65,9 @@ Source: [`bb-plugin-markdown-editor`](bb-plugin-markdown-editor)
 
 ![A markdown file open in bb's Raw view with unsaved changes, and Discard and Save buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--raw-with-unsaved-changes.png)
 
-#### [Super Diff](https://getbb.app/marketplace/super-diff)
+#### Super Diff
+
+[View in the marketplace](https://getbb.app/marketplace/super-diff)
 
 Group a thread's diff by concern in the Diff tab, with an explanation for each group and notes under the lines that need them.
 
@@ -65,7 +75,9 @@ Source: [`bb-plugin-super-diff`](bb-plugin-super-diff)
 
 ![A Super Diff listing six concerns with viewed counts, the first concern's explanation and file list, and a note under a changed line in its diff](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
 
-#### [Tokenomics](https://getbb.app/marketplace/tokenomics)
+#### Tokenomics
+
+[View in the marketplace](https://getbb.app/marketplace/tokenomics)
 
 See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.
 
