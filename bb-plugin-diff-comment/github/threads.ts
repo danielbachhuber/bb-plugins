@@ -22,6 +22,12 @@ export interface GithubComment {
   createdAt: string;
   /** A draft on a review the viewer has not submitted yet. Only they see it. */
   pending: boolean;
+  /**
+   * Whether the viewer wrote it and GitHub lets them change it. Authorship is
+   * checked too, because GitHub lets a repository admin update anyone's
+   * comment, and rewriting someone else's words is not what Edit is for.
+   */
+  editable: boolean;
 }
 
 export interface GithubThread {
@@ -68,6 +74,8 @@ export interface RawThread {
       state: string;
       author: { login: string } | null;
       diffHunk: string;
+      viewerCanUpdate?: boolean;
+      viewerDidAuthor?: boolean;
     }>;
   };
 }
@@ -120,6 +128,7 @@ export function toThread(raw: RawThread): GithubThread {
       body: node.body,
       createdAt: node.createdAt,
       pending: node.state === "PENDING",
+      editable: node.viewerCanUpdate === true && node.viewerDidAuthor === true,
     })),
   };
 }

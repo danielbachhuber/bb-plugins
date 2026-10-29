@@ -133,6 +133,7 @@ function thread(overrides: Partial<GithubThread> = {}): GithubThread {
         body: "Why three?",
         createdAt: "2026-09-14T00:00:00Z",
         pending: false,
+        editable: false,
       },
     ],
     ...overrides,

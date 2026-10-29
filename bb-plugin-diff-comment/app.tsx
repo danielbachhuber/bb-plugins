@@ -209,7 +209,21 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     },
 
     mountThread: (holder, thread, review) => {
-      renderInto(holder, <GithubThreadCard thread={thread} number={review.number} />);
+      const threadId = /\/threads\/([^/?#]+)/.exec(window.location.pathname)?.[1];
+      renderInto(holder, (
+        <GithubThreadCard
+          thread={thread}
+          number={review.number}
+          onEdit={
+            threadId === undefined
+              ? undefined
+              : (commentId, body) =>
+                  rpc("github_edit", { threadId: decodeURIComponent(threadId), commentId, body }).then(
+                    () => engine?.refresh(),
+                  )
+          }
+        />
+      ));
     },
 
     mountComposer: (holder, draft: Draft) => {

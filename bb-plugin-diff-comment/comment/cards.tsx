@@ -215,7 +215,7 @@ export function Footer({ children }: { children: ReactNode }) {
  * version of this had a separate textarea in each, already with different
  * keyboard handling.
  */
-function BodyEditor({
+export function BodyEditor({
   initialBody,
   submitLabel,
   onSubmit,
@@ -225,7 +225,8 @@ function BodyEditor({
 }: {
   initialBody: string;
   submitLabel: string;
-  onSubmit: (body: string) => void;
+  /** A returned promise that rejects keeps the text in the box, with the reason below. */
+  onSubmit: (body: string) => void | Promise<void>;
   onCancel: () => void;
   onChange?: (body: string) => void;
   /** Adds "Add to GitHub review" beside the submit button. */
@@ -252,7 +253,11 @@ function BodyEditor({
   const submit = () => {
     if (!ready) return;
     setBusy(true);
-    onSubmit(body.trim());
+    setError(null);
+    onSubmit(body.trim())?.catch((cause: unknown) => {
+      setError(errorText(cause));
+      setBusy(false);
+    });
   };
 
   // On failure the text stays in the box and the reason shows below, so

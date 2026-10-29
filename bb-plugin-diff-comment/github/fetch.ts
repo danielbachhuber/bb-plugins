@@ -2,7 +2,7 @@
 // review threads is one GraphQL query per 100 threads, each carrying its
 // first 50 comments. Reading its patches is one REST call per 100 files.
 // Posting a draft is two GraphQL calls, or three when a review has to be
-// started.
+// started. Editing a comment is one.
 import type { GhRunner } from "@danielb/gh-shared/gh";
 import type { PullFile } from "./patch";
 import { toThread, type GithubReview, type GithubThread, type RawThread } from "./threads";
@@ -24,7 +24,7 @@ const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!, $af
         nodes {
           id isResolved isOutdated path line originalLine diffSide subjectType
           comments(first: 50) {
-            nodes { id url body createdAt state author { login } diffHunk }
+            nodes { id url body createdAt state author { login } diffHunk viewerCanUpdate viewerDidAuthor }
           }
         }
       }
@@ -187,4 +187,26 @@ export async function addDraftComment(
   const posted = added.data?.addPullRequestReviewThread?.thread?.comments.nodes[0]?.url;
   if (posted === undefined) throw new Error("GitHub did not return the new comment");
   return posted;
+}
+
+const UPDATE_COMMENT = `mutation($id: ID!, $body: String!) {
+  updatePullRequestReviewComment(input: { pullRequestReviewCommentId: $id, body: $body }) {
+    pullRequestReviewComment { id }
+  }
+}`;
+
+/** Replace a review comment's text: one GraphQL call. */
+export async function editReviewComment(gh: GhRunner, id: string, body: string): Promise<void> {
+  const result = JSON.parse(
+    await gh.run(["api", "graphql", "-f", `query=${UPDATE_COMMENT}`, "-f", `id=${id}`, "-f", `body=${body}`]),
+  ) as {
+    data?: { updatePullRequestReviewComment?: { pullRequestReviewComment?: { id: string } | null } | null };
+    errors?: Array<{ message: string }>;
+  };
+  if (result.errors !== undefined && result.errors.length > 0) {
+    throw new Error(result.errors.map((error) => error.message).join("; "));
+  }
+  if (result.data?.updatePullRequestReviewComment?.pullRequestReviewComment == null) {
+    throw new Error("GitHub did not update the comment");
+  }
 }

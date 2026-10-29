@@ -32,7 +32,7 @@ import {
 } from "./comment/store";
 import type { Comment, CommentState } from "./comment/types";
 import type { Anchored } from "./comment/anchor";
-import { addDraftComment, fetchFiles, fetchReview, pullRequestRef } from "./github/fetch";
+import { addDraftComment, editReviewComment, fetchFiles, fetchReview, pullRequestRef } from "./github/fetch";
 import { exchangeBody, reviewTarget, type PullFile } from "./github/patch";
 import { githubPath, type GithubReview } from "./github/threads";
 
@@ -366,6 +366,14 @@ export default async function plugin(bb: BbPluginApi) {
     github_post: async ({ threadId, path, side, line, anchor, body }) => ({
       url: await post(threadId, path, { side, line, anchor }, body),
     }),
+
+    github_edit: async ({ threadId, commentId, body }) => {
+      const { showGithub, ghPath } = await settings.get();
+      if (showGithub !== "on") throw new Error("GitHub review comments are turned off.");
+      await editReviewComment(ghFor(ghPath), commentId, body);
+      reviews.forget(threadId);
+      return { ok: true as const };
+    },
 
     comments_post_to_github: async ({ threadId, id }) => {
       const comment = (await read(threadId)).find((candidate) => candidate.id === id);

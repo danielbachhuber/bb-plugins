@@ -80,7 +80,10 @@ When the thread has an open pull request, its unresolved review threads show
 on the diff too, under the lines they were left on, beside your own comments.
 Each card shows the conversation and links to it on GitHub, where you reply or
 resolve. A draft on your own review that you have not submitted yet is marked
-**Pending**, since only you can see it.
+**Pending**, since only you can see it. Each comment you wrote, pending or
+submitted, has an **Edit** button that rewrites it on GitHub in
+place. Saving makes one `gh api graphql` call. If GitHub refuses, the reason
+shows under the box and your text stays in it.
 
 A thread is placed by the text of its line and the line above, read from the
 diff hunk GitHub stores with the comment, the same way a local comment is. So

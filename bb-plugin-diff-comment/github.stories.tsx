@@ -18,6 +18,8 @@ function comment(id: number, author: string, body: string, hoursAgo: number, pen
     body,
     createdAt: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
     pending,
+    // Your own comment is the one you can edit.
+    editable: pending,
   };
 }
 
@@ -85,10 +87,10 @@ export const ThreadOnTheDiff = () => (
   </Frame>
 );
 
-/** A draft on your own unsubmitted review is marked Pending, since only you can see it. */
+/** A draft on your own unsubmitted review is marked Pending, since only you can see it, and has an Edit button. */
 export const PendingDraft = () => (
   <Frame>
-    <GithubThreadCard thread={draft} number={42} now={NOW} />
+    <GithubThreadCard thread={draft} number={42} now={NOW} onEdit={async () => {}} />
   </Frame>
 );
 

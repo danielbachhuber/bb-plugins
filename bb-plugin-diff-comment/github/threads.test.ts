@@ -93,6 +93,17 @@ describe("toThread", () => {
     expect(thread.comments[0]!.pending).toBe(true);
   });
 
+  it("marks a comment editable only when the viewer wrote it and can update it", () => {
+    const base = raw();
+    const node = base.comments.nodes[0]!;
+    const editable = (flags: { viewerCanUpdate?: boolean; viewerDidAuthor?: boolean }) =>
+      toThread({ ...base, comments: { nodes: [{ ...node, ...flags }] } }).comments[0]!.editable;
+    expect(editable({})).toBe(false);
+    // A repository admin can update anyone's comment.
+    expect(editable({ viewerCanUpdate: true, viewerDidAuthor: false })).toBe(false);
+    expect(editable({ viewerCanUpdate: true, viewerDidAuthor: true })).toBe(true);
+  });
+
   it("falls back to the original line when GitHub no longer places it", () => {
     expect(toThread(raw({ line: null, originalLine: 9, isOutdated: true })).line).toBe(9);
   });

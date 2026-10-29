@@ -40,6 +40,7 @@ export const githubCommentSchema = z.object({
   body: z.string(),
   createdAt: z.string(),
   pending: z.boolean(),
+  editable: z.boolean(),
 });
 
 export const githubThreadSchema = z.object({
@@ -137,6 +138,15 @@ export const rpcShape = {
   github_post: {
     input: locationSchema.extend({ body: z.string().trim().min(1).max(MAX_BODY) }),
     output: z.object({ url: z.string() }),
+  },
+  /** Replace the text of a review comment the viewer wrote. */
+  github_edit: {
+    input: z.object({
+      threadId: z.string().min(1),
+      commentId: z.string().min(1),
+      body: z.string().trim().min(1).max(MAX_BODY),
+    }),
+    output: z.object({ ok: z.literal(true) }),
   },
   /** Post a comment, and the agent's answer if any, as one draft, then resolve it. */
   comments_post_to_github: {
