@@ -39,6 +39,13 @@ suggested or one you reopened, has its own **Ask agent** button, on the diff
 and in the **Diff comments** panel tab. A thread whose provider cannot fork
 gets the question as a message instead, sent after its current turn.
 
+Once the agent has answered, **Reply** on the comment's card answers back. The
+comment reopens and your reply goes to the subthread that answered, which is
+unarchived for it, so the agent still has what it looked up the first time.
+A comment answered in the thread itself, or whose subthread was deleted, gets
+a new subthread instead, which reads the whole exchange. The card shows the
+conversation in order, and **Post to GitHub** posts all of it as one draft.
+
 Under that, the agent uses `bb diff-comment` inside the thread. It needs no
 arguments to find the right comments, because comments belong to the thread
 whose diff they were left on.

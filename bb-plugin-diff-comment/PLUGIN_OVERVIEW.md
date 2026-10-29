@@ -6,7 +6,8 @@ about each one as you write it.
 You read the changes panel the way you read a pull request: hover a line, press
 `+`, and write a question or the change you want. Press **Ask agent** and the
 comment sits inline under that line while a subthread answers it.
-Its reply shows on the comment. You resolve the ones you accept.
+Its reply shows on the comment, and **Reply** answers back in the same
+subthread. You resolve the ones you accept.
 
 ## How a comment is anchored
 

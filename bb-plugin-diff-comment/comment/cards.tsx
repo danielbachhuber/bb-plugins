@@ -10,6 +10,7 @@ import { Markdown } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "./time";
+import { conversation } from "./store";
 import type { Comment, CommentState } from "./types";
 
 /** Whether a line can take a draft review comment on the pull request. */
@@ -340,6 +341,11 @@ export interface CommentCardProps {
   /** Where the subthread answering the comment opens. */
   subthreadHref?: (threadId: string) => string;
   /**
+   * Replies to the agent's answer and sends the reply to it. Offered once the
+   * agent has answered; rejects with the reason it could not be sent.
+   */
+  onFollowUp?: (body: string) => Promise<void>;
+  /**
    * Posts the comment as a draft review comment, with the agent's answer when
    * it has one. Offered until the comment is on GitHub or resolved.
    */
@@ -354,10 +360,13 @@ export function CommentCard({
   onRemove,
   onAsk,
   subthreadHref,
+  onFollowUp,
   github,
 }: CommentCardProps) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [replying, setReplying] = useState(false);
+  const messages = conversation(comment);
   const [error, setError] = useState<string | null>(null);
   const offerGithub = github !== undefined && !comment.github && comment.state !== "resolved";
   const target = useGithubTarget(offerGithub ? github : undefined);
@@ -382,6 +391,11 @@ export function CommentCard({
     });
   };
   const asked = comment.state === "open" && comment.askedAt != null;
+  const canReply =
+    onFollowUp !== undefined &&
+    comment.state !== "resolved" &&
+    !asked &&
+    messages.some((message) => message.author === "agent");
 
   const act = (run: () => void) => () => {
     setBusy(true);
@@ -424,13 +438,28 @@ export function CommentCard({
         <Body text={comment.body} />
       </div>
 
-      {comment.reply !== null ? (
-        <div className="bg-muted/20 border-t px-3 py-2.5">
-          <p className="text-muted-foreground mb-1 text-xs font-medium">Agent replied</p>
-          <Body text={comment.reply} />
+      {messages.map((message, index) => (
+        <div
+          key={index}
+          className={cn("border-t px-3 py-2.5", message.author === "agent" && "bg-muted/20")}
+        >
+          <p className="text-muted-foreground mb-1 text-xs font-medium">
+            {message.author === "agent" ? "Agent replied" : "You replied"}
+          </p>
+          <Body text={message.body} />
         </div>
-      ) : null}
+      ))}
 
+      {replying ? (
+        <div className="border-t">
+          <BodyEditor
+            initialBody=""
+            submitLabel="Send"
+            onCancel={() => setReplying(false)}
+            onSubmit={(body) => onFollowUp!(body).then(() => setReplying(false))}
+          />
+        </div>
+      ) : (
       <Footer>
         {onAsk !== undefined && comment.state === "open" && !asked ? (
           <Button size="sm" disabled={busy} onClick={askAgent}>
@@ -446,6 +475,11 @@ export function CommentCard({
           </a>
         ) : asked ? (
           <span className="text-muted-foreground text-xs">Asked the agent</span>
+        ) : null}
+        {canReply ? (
+          <Button size="sm" disabled={busy} onClick={() => setReplying(true)}>
+            Reply
+          </Button>
         ) : null}
         {comment.state === "resolved" ? (
           <Button size="sm" variant="outline" disabled={busy} onClick={act(() => onSetState("open"))}>
@@ -493,6 +527,7 @@ export function CommentCard({
           Delete
         </Button>
       </Footer>
+      )}
       <PostError message={error} />
         </>
       )}

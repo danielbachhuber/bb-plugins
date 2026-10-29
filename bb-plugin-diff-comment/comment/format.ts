@@ -3,6 +3,7 @@
 // The agent's whole view of a comment is this output, so it carries the
 // reference to pass back, where the comment sits, the code it was left on, and
 // what was written. Nothing else.
+import { conversation } from "./store";
 import type { Comment } from "./types";
 
 /** How a comment is referred to on the command line. */
@@ -84,8 +85,11 @@ export function formatDetail(comment: Comment, options: RowOptions = {}): string
     "",
     comment.body.trim(),
   ];
-  if (comment.reply !== null) {
-    parts.push("", `Reply: ${comment.reply.trim()}`);
+  // The whole exchange, so an agent answering a reply to its answer sees
+  // both, and that the author's reply is the last word.
+  for (const message of conversation(comment)) {
+    const label = message.author === "agent" ? "Reply" : "Author replied";
+    parts.push("", `${label}: ${message.body.trim()}`);
   }
   return parts.join("\n");
 }

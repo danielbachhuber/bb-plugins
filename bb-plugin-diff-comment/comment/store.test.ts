@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addComment, applyReply, markAsked, nextOpen, ordered, setState, summarize } from "./store";
+import { addComment, addFollowUp, applyReply, conversation, markAsked, nextOpen, ordered, setState, summarize } from "./store";
 import type { Comment } from "./types";
 
 const NOW = "2026-09-14T10:00:00.000Z";
@@ -164,5 +164,38 @@ describe("summarize", () => {
     let comments = seed();
     comments = applyReply(comments, "c1", "x", NOW);
     expect(summarize(comments)).toEqual({ open: 1, addressed: 1, resolved: 0, total: 2 });
+  });
+});
+
+describe("addFollowUp", () => {
+  it("adds your reply after the answer and reopens the comment for the agent", () => {
+    let comments = markAsked(applyReply(seed(), "c1", "renamed it", NOW), "c1", NOW, "thr_2");
+    comments = addFollowUp(comments, "c1", "Why that name?", NOW);
+    const comment = comments.find((c) => c.id === "c1")!;
+    expect(comment.state).toBe("open");
+    expect(comment.askedAt).toBeNull();
+    // The subthread is kept, so the reply goes back to it.
+    expect(comment.askThreadId).toBe("thr_2");
+    expect(conversation(comment).map((m) => [m.author, m.body])).toEqual([
+      ["agent", "renamed it"],
+      ["you", "Why that name?"],
+    ]);
+  });
+
+  it("keeps the latest answer in reply as the conversation grows", () => {
+    let comments = applyReply(seed(), "c1", "first", NOW);
+    comments = addFollowUp(comments, "c1", "and?", NOW);
+    comments = applyReply(comments, "c1", "second", NOW);
+    const comment = comments.find((c) => c.id === "c1")!;
+    expect(comment.reply).toBe("second");
+    expect(comment.state).toBe("addressed");
+    expect(conversation(comment)).toHaveLength(3);
+  });
+});
+
+describe("conversation", () => {
+  it("reads a comment stored before messages existed from its reply", () => {
+    const legacy = { ...seed()[0]!, reply: "old answer", messages: undefined };
+    expect(conversation(legacy)).toEqual([{ author: "agent", body: "old answer", at: legacy.updatedAt }]);
   });
 });

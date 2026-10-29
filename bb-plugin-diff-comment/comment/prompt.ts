@@ -23,3 +23,15 @@ export function askPrompt(seq: number): string {
     `Work on that comment only.`
   );
 }
+
+/**
+ * Sent to the subthread that answered a comment when its author replies to
+ * the answer. The subthread already holds what it found the first time.
+ */
+export function followUpPrompt(seq: number): string {
+  return (
+    `The author replied to your answer on diff comment #${seq}. Read the reply with ` +
+    `\`bb diff-comment show #${seq}\` and answer it with \`bb diff-comment reply\`, ` +
+    `using the diff-comments skill. Work on that comment only, then stop.`
+  );
+}

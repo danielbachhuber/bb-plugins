@@ -30,6 +30,14 @@ export interface AnchorContext {
   after: string | null;
 }
 
+/** One turn after the comment itself: an answer, or your reply to one. */
+export interface CommentMessage {
+  author: "you" | "agent";
+  /** Markdown. */
+  body: string;
+  at: string;
+}
+
 export interface Comment {
   id: string;
   threadId: string;
@@ -42,8 +50,14 @@ export interface Comment {
   /** What you wrote. Markdown. */
   body: string;
   state: CommentState;
-  /** What the agent said it did. Markdown. Null until it replies. */
+  /** The agent's latest answer. Markdown. Null until it replies. */
   reply: string | null;
+  /**
+   * Every answer and every reply to one, oldest first, after `body`. Absent on
+   * a comment stored before replying to the agent existed, whose one answer
+   * is `reply`; `conversation()` reads either.
+   */
+  messages?: CommentMessage[];
   /** Monotonic per thread, so "work through them in order" is well defined. */
   seq: number;
   /**

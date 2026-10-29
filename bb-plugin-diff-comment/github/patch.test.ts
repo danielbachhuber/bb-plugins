@@ -88,13 +88,30 @@ describe("reviewTarget", () => {
 
 describe("exchangeBody", () => {
   it("credits the answer to the thread's provider", () => {
-    expect(exchangeBody("Why four?\n", " Because the gadget needs it. ", "claude-code")).toBe(
+    const answer = { author: "agent" as const, body: " Because the gadget needs it. " };
+    expect(exchangeBody("Why four?\n", [answer], "claude-code")).toBe(
       "Why four?\n\n**Answer** (from Claude Code):\n\nBecause the gadget needs it.",
     );
   });
 
   it("falls back to 'the agent' for a provider it does not know", () => {
-    expect(exchangeBody("Q", "A", "acp-custom")).toContain("(from the agent)");
-    expect(exchangeBody("Q", "A", null)).toContain("(from the agent)");
+    const answer = [{ author: "agent" as const, body: "A" }];
+    expect(exchangeBody("Q", answer, "acp-custom")).toContain("(from the agent)");
+    expect(exchangeBody("Q", answer, null)).toContain("(from the agent)");
+  });
+
+  it("includes your replies and the answers to them, in order", () => {
+    const body = exchangeBody(
+      "Why four?",
+      [
+        { author: "agent", body: "The gadget needs it." },
+        { author: "you", body: "Which gadget?" },
+        { author: "agent", body: "The sprocket's." },
+      ],
+      "codex",
+    );
+    expect(body).toBe(
+      "Why four?\n\n**Answer** (from Codex):\n\nThe gadget needs it.\n\n**Reply:**\n\nWhich gadget?\n\n**Answer** (from Codex):\n\nThe sprocket's.",
+    );
   });
 });

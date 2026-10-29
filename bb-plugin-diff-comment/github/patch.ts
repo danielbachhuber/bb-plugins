@@ -91,10 +91,19 @@ const PROVIDER_NAMES: Record<string, string> = {
 };
 
 /**
- * The body posted for a local question and the agent's answer, so the
- * exchange reads on GitHub as one comment with the answer credited.
+ * The body posted for a local question and the conversation after it, so the
+ * exchange reads on GitHub as one comment with each answer credited.
  */
-export function exchangeBody(question: string, answer: string, providerId: string | null): string {
+export function exchangeBody(
+  question: string,
+  messages: ReadonlyArray<{ author: "you" | "agent"; body: string }>,
+  providerId: string | null,
+): string {
   const from = (providerId !== null && PROVIDER_NAMES[providerId]) || "the agent";
-  return `${question.trim()}\n\n**Answer** (from ${from}):\n\n${answer.trim()}`;
+  const parts = [question.trim()];
+  for (const message of messages) {
+    const label = message.author === "agent" ? `**Answer** (from ${from}):` : "**Reply:**";
+    parts.push(label, message.body.trim());
+  }
+  return parts.join("\n\n");
 }

@@ -20,10 +20,12 @@ import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { COMMENTS_CHANGED, MAX_BODY, rpcShape } from "./comment/contract";
 import { anchorFromFile, parseLocation } from "./comment/add";
 import { formatDetail, formatRow, parseRef, resolveRef } from "./comment/format";
-import { askPrompt, forkPrompt } from "./comment/prompt";
+import { askPrompt, followUpPrompt, forkPrompt } from "./comment/prompt";
 import {
   addComment,
+  addFollowUp,
   applyReply,
+  conversation,
   markAsked,
   nextOpen,
   ordered,
@@ -288,6 +290,34 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   /**
+   * Send your reply to the agent's answer. It goes back to the subthread that
+   * answered, unarchived, so the agent keeps what it looked up the first
+   * time. A comment answered in the thread itself, or whose subthread is
+   * gone, gets a new subthread, which reads the whole exchange from
+   * `bb diff-comment show`.
+   */
+  async function followUp(threadId: string, comment: Comment): Promise<Comment> {
+    const forkId = comment.askThreadId ?? null;
+    if (forkId !== null) {
+      try {
+        await bb.sdk.threads.unarchive({ threadId: forkId }).catch(() => {});
+        await bb.sdk.threads.send({
+          threadId: forkId,
+          mode: "queue-if-active",
+          input: [{ type: "text", text: followUpPrompt(comment.seq), mentions: [] }],
+        });
+        const updated = await mutate(threadId, comment.id, (comments) =>
+          markAsked(comments, comment.id, new Date().toISOString(), forkId),
+        );
+        return updated ?? comment;
+      } catch (error) {
+        bb.log.warn(`Couldn't reach ${forkId}, starting a new subthread: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    return ask(threadId, comment);
+  }
+
+  /**
    * Archive an Ask agent subthread once the turn that answered its comment
    * has ended. Archiving mid-turn would cut the turn off, so this waits for
    * the subthread to go idle first. The answer is on the comment, and the
@@ -326,6 +356,18 @@ export default async function plugin(bb: BbPluginApi) {
       if (comment === undefined) throw new Error(`No comment with id ${id}`);
       if (comment.state !== "open") throw new Error(`Comment #${comment.seq} is ${comment.state}. Reopen it to ask again.`);
       return ask(threadId, comment);
+    },
+
+    comments_follow_up: async ({ threadId, id, body }) => {
+      const existing = (await read(threadId)).find((candidate) => candidate.id === id);
+      if (existing === undefined) throw new Error(`No comment with id ${id}`);
+      if (!conversation(existing).some((message) => message.author === "agent")) {
+        throw new Error(`The agent hasn't answered comment #${existing.seq} yet.`);
+      }
+      const comment = await mutate(threadId, id, (comments) =>
+        addFollowUp(comments, id, body, new Date().toISOString()),
+      );
+      return followUp(threadId, comment!);
     },
 
     comments_edit: async ({ threadId, id, body }) => {
@@ -387,7 +429,7 @@ export default async function plugin(bb: BbPluginApi) {
         comment,
         comment.reply === null
           ? comment.body
-          : exchangeBody(comment.body, comment.reply, providerId),
+          : exchangeBody(comment.body, conversation(comment), providerId),
       );
       const now = new Date().toISOString();
       const updated = await mutate(threadId, id, (comments) =>

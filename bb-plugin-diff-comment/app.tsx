@@ -184,6 +184,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
               engine?.refresh(),
             )
           }
+          onFollowUp={(body) =>
+            rpc("comments_follow_up", { threadId: comment.threadId, id: comment.id, body }).then(
+              () => engine?.refresh(),
+            )
+          }
           subthreadHref={(threadId) =>
             window.location.pathname.replace(
               /\/threads\/[^/?#]+/,

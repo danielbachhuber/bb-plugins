@@ -25,6 +25,9 @@ export const commentSchema = z.object({
   body: z.string(),
   state: stateSchema,
   reply: z.string().nullable(),
+  messages: z
+    .array(z.object({ author: z.enum(["you", "agent"]), body: z.string(), at: z.string() }))
+    .optional(),
   seq: z.number().int(),
   github: z.object({ url: z.string() }).nullable().optional(),
   askedAt: z.string().nullable().optional(),
@@ -103,6 +106,15 @@ export const rpcShape = {
   /** Start a subthread that answers one comment. */
   comments_ask: {
     input: z.object({ threadId: z.string().min(1), id: z.string().min(1) }),
+    output: commentSchema,
+  },
+  /** Reply to the agent's answer, and send the reply back to it. */
+  comments_follow_up: {
+    input: z.object({
+      threadId: z.string().min(1),
+      id: z.string().min(1),
+      body: z.string().trim().min(1).max(MAX_BODY),
+    }),
     output: commentSchema,
   },
   comments_edit: {

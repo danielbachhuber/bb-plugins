@@ -43,6 +43,15 @@ work in the conversation above.
 4. Stop. Other open comments wait until the author asks about them. A
    subthread is archived once the turn that replied ends.
 
+## A reply to your answer
+
+The author can reply to your answer from the comment's card. The reply
+reopens the comment and comes back to the subthread that answered it, as
+"The author replied to your answer on diff comment #n". `bb diff-comment show
+#n` prints the whole exchange, ending with `Author replied:`. Answer that
+reply with `bb diff-comment reply #n "<answer>"`, the same way as the first
+time, and stop.
+
 ## Every open comment
 
 When asked to work through all the comments, work the queue one comment at a time. Do not read them all and make one big

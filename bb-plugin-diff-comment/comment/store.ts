@@ -3,7 +3,7 @@
 // No storage, no clock, no ids of its own: the caller passes `now` and `id` in.
 // That is what makes the review loop testable without a server, and it is the
 // same split the sweeps use.
-import type { AnchorContext, Comment, CommentState, Side } from "./types";
+import type { AnchorContext, Comment, CommentMessage, CommentState, Side } from "./types";
 
 export interface NewComment {
   threadId: string;
@@ -63,6 +63,15 @@ function update(
 }
 
 /**
+ * The turns after the comment's body, oldest first. A comment stored before
+ * `messages` existed has at most its one answer, in `reply`.
+ */
+export function conversation(comment: Comment): CommentMessage[] {
+  if (comment.messages !== undefined) return comment.messages;
+  return comment.reply === null ? [] : [{ author: "agent", body: comment.reply, at: comment.updatedAt }];
+}
+
+/**
  * Record what the agent did and move the comment to `addressed`. This is the
  * only state change the agent makes — resolving stays with the person who
  * wrote the comment.
@@ -76,7 +85,27 @@ export function applyReply(
   return update(comments, id, (comment) => ({
     ...comment,
     reply,
+    messages: [...conversation(comment), { author: "agent", body: reply, at: now }],
     state: "addressed",
+    updatedAt: now,
+  }));
+}
+
+/**
+ * Add your reply to the agent's answer and reopen the comment, so it is the
+ * agent's turn again. The caller sends it on and marks it asked.
+ */
+export function addFollowUp(
+  comments: Comment[],
+  id: string,
+  body: string,
+  now: string,
+): Comment[] {
+  return update(comments, id, (comment) => ({
+    ...comment,
+    messages: [...conversation(comment), { author: "you", body, at: now }],
+    state: "open",
+    askedAt: null,
     updatedAt: now,
   }));
 }

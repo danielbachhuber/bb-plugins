@@ -217,3 +217,68 @@ describe("Ask agent", () => {
     expect(button(view, "Ask agent")!.disabled).toBe(false);
   });
 });
+
+describe("CommentCard's Reply", () => {
+  const answered: Comment = {
+    id: "c1",
+    threadId: "thr_1",
+    path: "src/a.ts",
+    side: "new",
+    line: 2,
+    anchor: { text: "b", before: null, after: null },
+    body: "Why b?",
+    state: "addressed",
+    reply: "Because the gadget needs it.",
+    seq: 1,
+    createdAt: "2026-09-14T00:00:00.000Z",
+    updatedAt: "2026-09-14T00:00:00.000Z",
+  };
+  const card = (comment: Comment, onFollowUp = vi.fn(async () => {})) => (
+    <CommentCard
+      comment={comment}
+      onSetState={() => {}}
+      onEdit={() => {}}
+      onRemove={() => {}}
+      onFollowUp={onFollowUp}
+    />
+  );
+
+  it("is offered once the agent has answered, and not before", async () => {
+    const view = await render(card({ ...answered, state: "open", reply: null }));
+    expect(button(view, "Reply")).toBeNull();
+    await act(async () => root!.render(card(answered)));
+    expect(button(view, "Reply")).not.toBeNull();
+  });
+
+  it("is not offered while the agent is answering a reply", async () => {
+    const view = await render(
+      card({
+        ...answered,
+        state: "open",
+        askedAt: "2026-09-14T01:00:00.000Z",
+        messages: [
+          { author: "agent", body: "Because the gadget needs it.", at: "2026-09-14T00:00:00.000Z" },
+          { author: "you", body: "Which gadget?", at: "2026-09-14T01:00:00.000Z" },
+        ],
+      }),
+    );
+    expect(button(view, "Reply")).toBeNull();
+    expect(view.textContent).toContain("You replied");
+    expect(view.textContent).toContain("Which gadget?");
+  });
+
+  it("sends the reply, and keeps it with the reason when it can't", async () => {
+    const onFollowUp = vi.fn(async () => {
+      throw new Error("thread is gone");
+    });
+    const view = await render(card(answered, onFollowUp));
+    await act(async () => button(view, "Reply")!.click());
+    const box = view.querySelector("textarea")!;
+    await type(box, "Which gadget?");
+    await act(async () => button(view, "Send")!.click());
+
+    expect(onFollowUp).toHaveBeenCalledWith("Which gadget?");
+    expect(box.value).toBe("Which gadget?");
+    expect(view.textContent).toContain("thread is gone");
+  });
+});
