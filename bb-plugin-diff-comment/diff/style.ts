@@ -66,8 +66,20 @@ export const OVERLAY_CSS = `
 }
 
 /* Our rows are Pierre annotation rows, which the host sheet already styles.
-   This only stops a card being squeezed to nothing in a narrow panel. */
+   The min-height only stops a card being squeezed to nothing in a narrow
+   panel.
+
+   With Wrap lines on, the code column is a grid track sized
+   \`minmax(auto, 1fr)\`, so it grows to the widest thing that cannot wrap.
+   Code lines wrap, but a card's code block or long inline code does not,
+   and it once pushed the column to several times the panel's width, taking
+   every card's prose off the right edge with it. \`contain: inline-size\`
+   leaves the card out of that sizing, so it takes the column's width
+   instead, and its code blocks scroll inside it. In scroll mode the card's
+   width comes from Pierre's sticky rule, which this leaves alone. */
 [data-diff-comment-owned][data-line-annotation] {
   min-height: 1lh;
+  contain: inline-size;
+  min-width: 0;
 }
 `;
