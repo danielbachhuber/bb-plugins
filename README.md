@@ -57,6 +57,14 @@ Source: [`bb-plugin-markdown-editor`](bb-plugin-markdown-editor)
 
 ![A markdown file open in bb's Raw view with unsaved changes, and Discard and Save buttons](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--raw-with-unsaved-changes.png)
 
+#### [Super Diff](https://getbb.app/marketplace/super-diff)
+
+Group a thread's diff by concern in the Diff tab, with an explanation for each group and notes under the lines that need them.
+
+Source: [`bb-plugin-super-diff`](bb-plugin-super-diff)
+
+![A Super Diff listing six concerns with viewed counts, the first concern's explanation and file list, and a note under a changed line in its diff](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/super-diff/super-diff--overview.png)
+
 #### [Tokenomics](https://getbb.app/marketplace/tokenomics)
 
 See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.
@@ -83,7 +91,6 @@ These are installed from this checkout only, not from the marketplace.
 | `bb-plugin-presentations` | `presentations` | Give a talk from a bb thread: the agent writes the slides as numbered markdown files, and a Present button shows them beside the chat with each file listed for editing, a full-screen mode, and a separate window for the projector, styled by the deck's own `style.css` when it has one. |
 | `bb-plugin-pr-sweep` | `pr-sweep` | Open pull requests you authored in one list, newest first with in-progress ones on top and those waiting on others closed to one line at the bottom, with local notes, new comment counts, review comments a click away, a Dismiss for failing checks you cannot fix, and where a stacked pull request sits in its stack. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its icon in bb's navigation shows how many need you, in red. Needs gh-context. |
 | `bb-plugin-review-sweep` | `review-sweep` | Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, comments a click away, and where a stacked pull request sits in its stack, a Snooze that sinks a request to one line until a day you pick, plus Batch to start reviews for several at once. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its icon in bb's navigation shows how many have waited too long, in red. Needs gh-context. |
-| `bb-plugin-super-diff` | `super-diff` | Group a thread's diff by concern in the Diff tab, with an explanation for each group and notes under the lines that need them. |
 | `bb-plugin-weekly-review` | `weekly-review` | One page of what you actually did this week, gathered at 7am and 1pm on weekdays, sorted into workstreams by rules you refine, and set against the priorities in last week's entry, to write the journal entry from. It sends those priorities to the Now page, with each one's hours, and shows which you checked off there. A skill writes up the work of any thread as a journal entry in the same format, and adds it to the doc once you have edited and accepted it. Another drafts last month's wins from the journal into your wins doc. |
 
 ### Retired plugins
