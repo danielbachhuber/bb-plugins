@@ -57,6 +57,11 @@ Each fix lands in one of three places: the skill that should have published, the
 | --- | --- | --- |
 | `providerId` | `claude-code` | Provider for threads a button starts. |
 | `threadInstructions` | `true` | Tell every thread when to publish a view. |
+| `keepArchivedDays` | `30` | Days to keep a view after its threads are archived. `0` keeps views forever. |
+
+## Storage
+
+Views, what you did with each item, and a visual review's images are kept in the plugin's own database on this machine. Once a day, and when the plugin starts, it deletes each view whose threads are all deleted or have been archived for longer than `keepArchivedDays`. That means the thread that published the view and every thread its items name. The run makes one `threads.get` request for each of those threads. A thread it cannot look up keeps its views until the next run. Once deleted views have freed at least 32 MB and a quarter of the file, the run compacts the database so the file gets smaller.
 
 ## Requirements
 

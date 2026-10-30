@@ -12,7 +12,8 @@
  */
 import type { Database } from "better-sqlite3";
 import type { Feedback } from "./review.js";
-import { dismissLabelOf, isQuiet, type Action, type Item, type View } from "./schema.js";
+import type { ViewThreads } from "./cleanup.js";
+import { dismissLabelOf, isQuiet, itemThreads, type Action, type Item, type View } from "./schema.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE views (
@@ -123,7 +124,16 @@ export interface Store {
   /** Replaces every image a view holds, as one publish's set. */
   putImages(viewId: number, images: Array<{ itemId: string; index: number } & StoredImage>): void;
   image(viewId: number, itemId: string, index: number): StoredImage | null;
+  /** Every view, with the threads it shows in. */
+  viewThreads(): ViewThreads[];
+  /** Deletes views with their item states, images, and hidden marks. */
+  remove(viewIds: number[]): void;
+  /** Gives freed pages back to the disk once there are enough to be worth a VACUUM. Returns the bytes given back. */
+  reclaim(): number;
 }
+
+/** Below this much free space, a VACUUM rewrites the file for too little. */
+const RECLAIM_MIN_BYTES = 32 * 1024 * 1024;
 
 /**
  * What an item is once one of its buttons went through. A failure leaves it
@@ -296,6 +306,31 @@ export function createStore(db: Database): Store {
         db.prepare("DELETE FROM images WHERE view_id = ?").run(viewId);
         for (const image of images) insert.run(viewId, image.itemId, image.index, image.mime, image.data);
       })();
+    },
+
+    viewThreads() {
+      return (db.prepare("SELECT id, thread_id, body FROM views").all() as Array<Pick<ViewRow, "id" | "thread_id" | "body">>).map(
+        (row) => ({ id: row.id, threads: [...new Set([row.thread_id, ...itemThreads(JSON.parse(row.body) as View)])] }),
+      );
+    },
+
+    remove(viewIds) {
+      const statements = ["linked_hidden", "item_states", "images", "views"].map((table) =>
+        db.prepare(`DELETE FROM ${table} WHERE ${table === "views" ? "id" : "view_id"} = ?`),
+      );
+      db.transaction(() => {
+        for (const id of viewIds) for (const statement of statements) statement.run(id);
+      })();
+    },
+
+    reclaim() {
+      const pageSize = db.pragma("page_size", { simple: true }) as number;
+      const free = (db.pragma("freelist_count", { simple: true }) as number) * pageSize;
+      const total = (db.pragma("page_count", { simple: true }) as number) * pageSize;
+      if (free < RECLAIM_MIN_BYTES || free < total / 4) return 0;
+      db.exec("VACUUM");
+      db.pragma("wal_checkpoint(TRUNCATE)");
+      return free;
     },
 
     image(viewId, itemId, index) {

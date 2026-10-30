@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { expandPatchFiles } from "./view/changes.js";
+import { DAY_MS, expiredViews, isNotFound, type ThreadState } from "./view/cleanup.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
 import { viewJsonSchema } from "./view/describe.js";
@@ -47,6 +48,13 @@ export default async function plugin(bb: BbPluginApi) {
       description: "Adds a short section to each thread's instructions on when to show results above the composer.",
       default: true,
     },
+    keepArchivedDays: {
+      type: "number",
+      label: "Days to keep views after their threads are archived",
+      description:
+        "A view and its images are deleted once every thread it shows in was deleted or archived this many days ago. 0 keeps them forever.",
+      default: 30,
+    },
   });
 
   // The instructions hook must answer synchronously, so keep the setting in hand.
@@ -60,6 +68,45 @@ export default async function plugin(bb: BbPluginApi) {
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db as never);
   const now = () => new Date().toISOString();
+
+  // Once a day, and once at start: one threads.get for each thread that
+  // published a view or that a view's items name, then the deletes.
+  async function cleanUp(): Promise<void> {
+    const days = (await settings.get()).keepArchivedDays;
+    if (!(days > 0)) return;
+    const views = store.viewThreads();
+    const states = new Map<string, ThreadState>();
+    for (const threadId of new Set(views.flatMap((view) => view.threads))) {
+      try {
+        states.set(threadId, { archivedAt: (await bb.sdk.threads.get({ threadId })).archivedAt });
+      } catch (error) {
+        states.set(threadId, isNotFound(error) ? "gone" : "unknown");
+      }
+    }
+    const expired = expiredViews(views, states, Date.now(), days * DAY_MS);
+    if (expired.length === 0) return;
+    store.remove(expired);
+    const freed = store.reclaim();
+    bb.log.info(`deleted ${expired.length} views${freed > 0 ? `, gave back ${Math.round(freed / 1048576)} MB` : ""}`);
+  }
+  bb.background.service("cleanup", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try {
+          await cleanUp();
+        } catch (error) {
+          bb.log.warn(`cleanup failed: ${String(error)}`);
+        }
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, DAY_MS);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      }
+    },
+  });
 
   /** projects.list leaves out the personal project; the sidebar bootstrap has it. */
   async function personalProjectId(): Promise<string | null> {

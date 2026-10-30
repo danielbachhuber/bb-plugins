@@ -7,7 +7,7 @@
 
 ## How it works
 
-Impromptu UI gives your agent a toolkit for generating interfaces on the fly. A skill publishes its results as numbered rows above the composer. Click one to open its card in the side panel, with its details, any diff, a draft you can edit, and the buttons that act on it. The agent reads back what you did. Views are stored in the plugin's own database on this machine.
+Impromptu UI gives your agent a toolkit for generating interfaces on the fly. A skill publishes its results as numbered rows above the composer. Click one to open its card in the side panel, with its details, any diff, a draft you can edit, and the buttons that act on it. The agent reads back what you did. Views are stored in the plugin's own database on this machine. A view is deleted 30 days after its threads are archived.
 
 ## For agents
 
