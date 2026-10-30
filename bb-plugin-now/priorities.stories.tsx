@@ -73,11 +73,11 @@ function Footer({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The box in bb's sidebar, on every page: closed, it counts the week's priorities beside a ring filled by those checked off; opened, it lists them. */
+/** The box in bb's sidebar, on every page: closed, it counts the week's priorities, with a ring beside the arrow filled by those checked off; opened, it lists them and the ring goes. */
 export function Default() {
   return (
     <StoryCard>
-      <StoryRow label="Closed" hint="One line, with a ring for the one priority checked off. The arrow opens the list, and the choice is remembered across reloads.">
+      <StoryRow label="Closed" hint="One line, with a ring beside the arrow for the one priority checked off, which goes while the list is open. The arrow opens the list, and the choice is remembered across reloads.">
         <Footer>
           <Box initial={week} initialOpen={false} />
         </Footer>

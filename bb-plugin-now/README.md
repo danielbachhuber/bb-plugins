@@ -107,8 +107,8 @@ priorities: the bullets under `Next:` in last week's journal entry, which
 [Weekly Review](../bb-plugin-weekly-review) writes into Now after each of its
 gathers and whenever you link a priority to a workstream.
 
-Closed, the box is one line, such as "5 priorities this week", beside a ring
-that fills as you check them off. Its arrow opens
+Closed, the box is one line, such as "5 priorities this week", with a ring
+beside its arrow that fills as you check them off. The arrow opens
 the priorities in full, each with a checkbox and its nested bullets, as a list
 that keeps the journal's levels. Whether the list is open is remembered across
 reloads. Past 320 pixels, bb's limit for the box, the list scrolls.

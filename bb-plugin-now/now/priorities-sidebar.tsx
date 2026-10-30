@@ -1,8 +1,8 @@
 // The week's priorities in bb's sidebar, on every page: one line saying how
-// many there are, with a ring for how many are done, which opens to each
-// priority with its checkbox, its nested bullets, and a button to start a
-// thread about it. Draws only; the slot loads the week, saves a check, and
-// starts the thread.
+// many there are, with a ring for how many are done while it is closed, which
+// opens to each priority with its checkbox, its nested bullets, and a button
+// to start a thread about it. Draws only; the slot loads the week, saves a
+// check, and starts the thread.
 import type * as React from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,8 +62,9 @@ export function PrioritiesSidebar({
         onClick={() => onOpenChange(!open)}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
-        <Donut done={doneCount(week.items)} total={week.items.length} label={progressLabel(week.items)} />
+        <Icon name="Target" className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-foreground">{countLabel(week.items)}</span>
+        {open ? null : <Donut done={doneCount(week.items)} total={week.items.length} label={progressLabel(week.items)} />}
         <Icon name={open ? "ChevronDown" : "ChevronUp"} className="size-3.5 shrink-0 text-muted-foreground" />
       </button>
       {open ? (
