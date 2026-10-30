@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Diff Viewed Enhanced",
-    "description": "Adds a viewed count and GitHub sync to bb's own Viewed checkboxes, so you can see how much of a long diff you've read.",
+    "description": "Counts the files you've checked Viewed in bb's changes panel, syncs them with GitHub, and keeps them folded when you expand all.",
     "branding": {
       "icon": "CircleCheck"
     },

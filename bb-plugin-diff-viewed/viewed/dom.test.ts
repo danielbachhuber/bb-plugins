@@ -7,6 +7,7 @@
 // viewed/dom.ts together.
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  findCollapseToggle,
   findToolbar,
   findViewedBoxes,
   paintSyncIcon,
@@ -50,6 +51,15 @@ function renderCard(options: CardOptions): HTMLElement {
 
 afterEach(() => {
   document.body.innerHTML = "";
+});
+
+describe("findCollapseToggle", () => {
+  it("finds the chevron on the checkbox's own card", () => {
+    renderCard({ label: "src/a.ts" });
+    renderCard({ label: "src/b.ts" });
+    const [, second] = findViewedBoxes(document);
+    expect(findCollapseToggle(second!)?.getAttribute("aria-label")).toBe("Collapse src/b.ts");
+  });
 });
 
 describe("findViewedBoxes", () => {

@@ -61,15 +61,21 @@ function addFile(path: string, additions = 2, deletions = 2): DiffFileEntry {
   return entry;
 }
 
+/** bb's response to a click on a card's chevron: the card folds or opens. */
+function setExpanded(toggle: Element, expanded: boolean, path: string): void {
+  toggle.setAttribute("aria-expanded", String(expanded));
+  toggle.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} ${path}`);
+}
+
 /** A card with bb's Viewed checkbox, and bb's response to a click on it. */
-function renderCard(path: string, checked = false): HTMLElement {
+function renderCard(path: string, checked = false, expanded = false): HTMLElement {
   if (!panel.files.some((file) => file.path === path)) addFile(path);
   const host = document.createElement("div");
   host.setAttribute("data-index", String(panel.files.length - 1));
   attachFiber(host);
   host.innerHTML = `
     <div class="flex w-full items-center justify-between gap-2">
-      <span class="flex min-w-0 items-center"><span>${path}</span></span>
+      <span class="flex min-w-0 items-center"><button type="button"></button><span>${path}</span></span>
       <span class="ml-auto flex shrink-0 items-center gap-2">
         <span>+2 -2</span>
         <label><button type="button" role="checkbox"
@@ -78,12 +84,28 @@ function renderCard(path: string, checked = false): HTMLElement {
       </span>
     </div>`;
   document.body.append(host);
+  const toggle = host.querySelector("button:not([role])")!;
+  setExpanded(toggle, expanded, path);
+  toggle.addEventListener("click", () => {
+    setExpanded(toggle, toggle.getAttribute("aria-expanded") !== "true", path);
+  });
   const box = host.querySelector('[role="checkbox"]') as HTMLElement;
   box.addEventListener("click", () => {
     const next = box.getAttribute("data-state") === "checked" ? "unchecked" : "checked";
     box.setAttribute("data-state", next);
   });
   return box;
+}
+
+function isExpanded(box: HTMLElement): boolean {
+  const toggle = box.closest("[data-index]")!.querySelector("button[aria-expanded]")!;
+  return toggle.getAttribute("aria-expanded") === "true";
+}
+
+/** bb's Expand all files: every card opens, viewed or not. */
+function clickExpandAll(): void {
+  const button = document.querySelector('[aria-label="Expand all files"]') as HTMLElement;
+  button.click();
 }
 
 function setChecked(box: HTMLElement, checked: boolean): void {
@@ -95,8 +117,19 @@ function renderToolbar(): void {
   details.setAttribute("data-testid", "git-diff-toolbar-details");
   details.innerHTML = `
     <span data-testid="git-diff-toolbar-summary">2 files, <span>+4 -4</span></span>
-    <div data-testid="git-diff-toolbar-actions"></div>`;
+    <div data-testid="git-diff-toolbar-actions">
+      <button type="button" aria-label="Expand all files"></button>
+    </div>`;
   document.body.prepend(details);
+  const button = details.querySelector("button")!;
+  button.addEventListener("click", () => {
+    const expand = button.getAttribute("aria-label") === "Expand all files";
+    for (const row of document.querySelectorAll("[data-index]")) {
+      const path = row.querySelector('[role="checkbox"]')!.getAttribute("aria-label")!.slice("Viewed ".length);
+      setExpanded(row.querySelector("button[aria-expanded]")!, expand, path);
+    }
+    button.setAttribute("aria-label", expand ? "Collapse all files" : "Expand all files");
+  });
 }
 
 function progress(): string | null {
@@ -323,6 +356,70 @@ describe("checking a file in bb", () => {
     expect(progress()).toBe("1/1 viewed");
     h.fireDelay();
     expect(h.syncs).toHaveLength(1);
+  });
+});
+
+describe("Expand all files", () => {
+  it("leaves viewed files folded and opens the rest", async () => {
+    renderToolbar();
+    const read = renderCard("a.ts", true);
+    const unread = renderCard("b.ts");
+    const h = start();
+    h.engine.syncNow();
+    await h.settle();
+    clickExpandAll();
+    h.engine.syncNow();
+    expect(isExpanded(read)).toBe(false);
+    expect(isExpanded(unread)).toBe(true);
+  });
+
+  it("folds a viewed card that renders later, as when scrolled to", async () => {
+    renderToolbar();
+    renderCard("a.ts");
+    const h = start();
+    h.engine.syncNow();
+    await h.settle();
+    clickExpandAll();
+    h.engine.syncNow();
+    // bb kept the expanded state for the card while it was out of view.
+    const later = renderCard("c.ts", true, true);
+    h.engine.syncNow();
+    expect(isExpanded(later)).toBe(false);
+  });
+
+  it("leaves a viewed file you open by hand open", async () => {
+    renderToolbar();
+    const read = renderCard("a.ts", true);
+    const h = start();
+    h.engine.syncNow();
+    await h.settle();
+    clickExpandAll();
+    h.engine.syncNow();
+    (read.closest("[data-index]")!.querySelector("button[aria-expanded]") as HTMLElement).click();
+    h.engine.syncNow();
+    expect(isExpanded(read)).toBe(true);
+  });
+
+  it("does nothing until Expand all files is clicked", async () => {
+    renderToolbar();
+    const read = renderCard("a.ts", true, true);
+    const h = start();
+    h.engine.syncNow();
+    await h.settle();
+    expect(isExpanded(read)).toBe(true);
+  });
+
+  it("stops after Collapse all files", async () => {
+    renderToolbar();
+    renderCard("a.ts");
+    const h = start();
+    h.engine.syncNow();
+    await h.settle();
+    clickExpandAll();
+    (document.querySelector('[aria-label="Collapse all files"]') as HTMLElement).click();
+    const read = renderCard("c.ts", true, true);
+    h.engine.syncNow();
+    expect(isExpanded(read)).toBe(true);
   });
 });
 

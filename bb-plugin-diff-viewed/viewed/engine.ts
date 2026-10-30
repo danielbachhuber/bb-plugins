@@ -11,8 +11,12 @@
 // does not: the count of viewed files in the toolbar, an icon on each file
 // saying whether its mark reaches GitHub, and the sync itself, which runs on
 // the server whenever the panel opens, the window regains focus, or a
-// checkbox changes.
+// checkbox changes. It also keeps viewed files folded when you click bb's
+// Expand all files.
 import {
+  COLLAPSE_ALL_LABEL,
+  EXPAND_ALL_LABEL,
+  findCollapseToggle,
   findToolbar,
   findViewedBoxes,
   paintSyncIcon,
@@ -97,6 +101,14 @@ export function startEngine(deps: EngineDeps): Engine {
    * stops that from asking again on every pass.
    */
   let askedFor = "";
+  /**
+   * Set by a click on Expand all files, until Collapse all files or another
+   * thread or range. bb opens every file, viewed ones included, and keeps that
+   * state for cards scrolled out of view too, so each viewed card is folded
+   * again as it renders. The set holds the cards already handled, by label and
+   * revision, so a viewed file you open by hand afterwards stays open.
+   */
+  let foldViewed: { scope: string; handled: Set<string> } | null = null;
   let running = false;
   let again = false;
   let cancelPass: (() => void) | null = null;
@@ -232,6 +244,9 @@ export function startEngine(deps: EngineDeps): Engine {
       requestSync();
     }
 
+    const scope = JSON.stringify([threadId, read.target]);
+    if (foldViewed !== null && foldViewed.scope !== scope) foldViewed = null;
+
     const current = answer?.key === key ? answer : null;
     const byLabel = new Map(read.files.map((file) => [labelForEntry(file), file]));
 
@@ -264,6 +279,7 @@ export function startEngine(deps: EngineDeps): Engine {
         const mode: ControlMode =
           current === null ? { kind: "pending" } : syncMode(current.github, entry);
         paintSyncIcon(box, mode);
+        if (foldViewed !== null) foldIfViewed(box, entry);
       }
       renderProgress(doc, {
         kind: "progress",
@@ -274,6 +290,37 @@ export function startEngine(deps: EngineDeps): Engine {
       writing = false;
     }
   }
+
+  /** Fold a viewed card the first time it is seen after Expand all files. */
+  function foldIfViewed(box: ViewedBox, entry: DiffFileEntry): void {
+    if (foldViewed === null || !box.checked || box.disabled) return;
+    const handled = `${box.label}\n${entry.revision}`;
+    if (foldViewed.handled.has(handled)) return;
+    const toggle = findCollapseToggle(box);
+    if (toggle === null) return;
+    foldViewed.handled.add(handled);
+    if (toggle.getAttribute("aria-expanded") === "true") toggle.click();
+  }
+
+  // Capture phase, so the label read is the one clicked, before bb re-renders
+  // the button with the opposite label. The fold itself waits for the next
+  // pass, once bb has opened the cards.
+  function onClick(event: Event): void {
+    const target = event.target;
+    if (!(target instanceof doc.defaultView!.Element)) return;
+    const label = target.closest("button")?.getAttribute("aria-label");
+    if (label === EXPAND_ALL_LABEL) {
+      const threadId = threadIdFromPath(pathname());
+      foldViewed =
+        threadId === null || panel === null
+          ? null
+          : { scope: JSON.stringify([threadId, panel.target]), handled: new Set() };
+      schedule();
+    } else if (label === COLLAPSE_ALL_LABEL) {
+      foldViewed = null;
+    }
+  }
+  doc.addEventListener("click", onClick, true);
 
   // bb re-renders constantly, so the decoration is re-applied from whatever the
   // DOM currently says rather than assumed to survive. Passes are deferred and
@@ -287,7 +334,7 @@ export function startEngine(deps: EngineDeps): Engine {
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["data-state", "aria-label", "disabled"],
+    attributeFilter: ["data-state", "aria-label", "aria-expanded", "disabled"],
   });
 
   schedule();
@@ -301,6 +348,7 @@ export function startEngine(deps: EngineDeps): Engine {
     },
     dispose() {
       observer.disconnect();
+      doc.removeEventListener("click", onClick, true);
       if (cancelPass !== null) cancelPass();
       if (cancelDelay !== null) cancelDelay();
       cancelPass = null;

@@ -39,7 +39,7 @@ Source: [`bb-plugin-automation-palette`](bb-plugin-automation-palette)
 
 [View in the marketplace](https://getbb.app/marketplace/diff-viewed)
 
-Adds a viewed count and GitHub sync to bb's own Viewed checkboxes, so you can see how much of a long diff you've read.
+Counts the files you've checked Viewed in bb's changes panel, syncs them with GitHub, and keeps them folded when you expand all.
 
 Source: [`bb-plugin-diff-viewed`](bb-plugin-diff-viewed)
 

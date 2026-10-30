@@ -2,6 +2,7 @@
 
 - A count in the changes panel toolbar, such as **3/6 viewed**, of the files you have checked with bb's own **Viewed** checkbox, across every file in the range.
 - On a thread with an open pull request, the same marks as GitHub's Viewed boxes, both ways. Check a file in bb and it is viewed on GitHub; mark it on GitHub and it is checked in bb.
+- Viewed files stay folded when you click **Expand all files**, so expanding opens only what you have not read yet.
 - A **Local** icon on a file whose diff differs from the pull request's, such as one with edits you have not pushed. Its mark goes to GitHub once a push makes the diffs match.
 
 ## How it works

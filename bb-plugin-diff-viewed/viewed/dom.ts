@@ -68,6 +68,30 @@ export function findViewedBoxes(root: ParentNode): ViewedBox[] {
   return boxes;
 }
 
+/** bb's toolbar button that opens every file, shown once every file is folded. */
+export const EXPAND_ALL_LABEL = "Expand all files";
+/** The same button while any file is open. */
+export const COLLAPSE_ALL_LABEL = "Collapse all files";
+
+/**
+ * The chevron that folds and opens the card a Viewed checkbox belongs to. bb
+ * labels it with the same file label as the checkbox, "Collapse <label>" while
+ * the card is open and "Expand <label>" while it is folded, so it is found by
+ * that label in the nearest ancestor holding one, which is the card header.
+ */
+export function findCollapseToggle(box: ViewedBox): HTMLButtonElement | null {
+  const labels = new Set([`Collapse ${box.label}`, `Expand ${box.label}`]);
+  for (let node = box.control.parentElement; node !== null; node = node.parentElement) {
+    for (const button of node.querySelectorAll("button[aria-expanded]")) {
+      if (button instanceof HTMLButtonElement && labels.has(button.getAttribute("aria-label") ?? "")) {
+        return button;
+      }
+    }
+    if (node.hasAttribute("data-index")) return null;
+  }
+  return null;
+}
+
 /**
  * Where a file's mark lives, or `pending` while the thread's pull request and
  * GitHub's Viewed state are still being fetched.
