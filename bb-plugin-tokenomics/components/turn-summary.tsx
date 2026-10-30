@@ -2,7 +2,7 @@
 // the conversation, and a strip above the composer that counts up while a
 // turn runs. Hovering or clicking either opens a card with the turn's whole
 // breakdown. Display only: the caller loads the card's commands.
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { TurnSummary, TurnWork } from "@/usage/contract";
 import { formatTokens } from "@/usage/series";
 
+import { useHoverOpen } from "./hover-open";
 import { formatSpan, TIME_PARTS } from "./thread-token-count";
 import { KINDS } from "./turn-time-breakdown";
 
@@ -240,10 +241,6 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
   );
 }
 
-/** How long the pointer rests before the card opens, and how long it may leave before it closes. */
-const OPEN_DELAY_MS = 300;
-const CLOSE_DELAY_MS = 150;
-
 interface TurnPopoverProps {
   turn: TurnSummary;
   running: boolean;
@@ -274,38 +271,9 @@ function TurnPopover({
   openCommand,
   children,
 }: TurnPopoverProps) {
-  const [open, setOpen] = useState(defaultOpen);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clear = () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-    timer.current = null;
-  };
-  useEffect(() => clear, []);
-  useEffect(() => {
-    if (open) onOpen?.();
-    // onOpen is a fresh closure each render; loading once per opening is enough.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-  const later = (next: boolean, delay: number) => {
-    clear();
-    timer.current = setTimeout(() => setOpen(next), delay);
-  };
-  const hover = {
-    onPointerEnter: (event: PointerEvent) => {
-      if (event.pointerType === "mouse") later(true, open ? 0 : OPEN_DELAY_MS);
-    },
-    onPointerLeave: (event: PointerEvent) => {
-      if (event.pointerType === "mouse") later(false, CLOSE_DELAY_MS);
-    },
-  };
+  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen });
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        clear();
-        setOpen(next);
-      }}
-    >
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button type="button" className={cn("min-w-0 cursor-pointer text-left", triggerClassName)} {...hover}>
           {children}

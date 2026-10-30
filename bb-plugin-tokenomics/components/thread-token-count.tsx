@@ -10,6 +10,7 @@ import { totalOf, type Tokens } from "@/usage/breakdown";
 import type { TurnDetail, UsageAt } from "@/usage/contract";
 import { formatTokens, niceTicks, timeBuckets, type TimeBucket } from "@/usage/series";
 
+import { useHoverOpen } from "./hover-open";
 import { TokenPair } from "./token-pair";
 import { PARTS } from "./usage-chart";
 
@@ -529,10 +530,12 @@ export function ThreadTokenCount({
   now?: number;
 }) {
   const pastDay = pastDayTokens(usage.recent, now);
+  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen });
   return (
-    <Popover defaultOpen={defaultOpen} onOpenChange={(open) => (open ? onOpen?.() : undefined)}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button
+          {...hover}
           variant="ghost"
           size="sm"
           className="h-7 cursor-pointer gap-1.5 px-2 tabular-nums"
@@ -547,7 +550,13 @@ export function ThreadTokenCount({
           <TokenPair period={pastDay} total={usage.total} header />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[400px] p-4">
+      <PopoverContent
+        align="end"
+        className="w-[400px] p-4"
+        // Opened by hover, it leaves focus where it was, such as in the composer.
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        {...hover}
+      >
         <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={onOpenPage} initialHovered={initialHovered} />
       </PopoverContent>
     </Popover>
