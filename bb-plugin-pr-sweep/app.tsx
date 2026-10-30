@@ -18,7 +18,7 @@ import {
 } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { sectionForRow } from "./sweep/actions.js";
-import { navBadgeRedContentScript, needsYouBadge } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
+import { navBadgeRedContentScript, needsYouBadge, useRailStrip } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
 import {
   PrListView,
   type HarvestPanelState,
@@ -315,11 +315,18 @@ function Panel() {
   );
 }
 
-/** Pull requests' badge in bb's sidebar and rail: the rows that need you, in red. */
+/**
+ * Pull requests' badge in bb's sidebar and rail: the rows that need you, in
+ * red. The rail also shows the rows with a thread working on them, in orange
+ * under the red.
+ */
 function usePrsBadge() {
   const { listing } = useListing();
-  const needYou = listing?.rows.filter((row) => sectionForRow(row) === "needs-action").length ?? 0;
-  return needsYouBadge({ urgent: needYou, urgentLabel: `${needYou} need you` });
+  const rows = listing?.rows ?? [];
+  const needYou = rows.filter((row) => sectionForRow(row) === "needs-action").length;
+  const working = rows.filter((row) => sectionForRow(row) === "in-progress").length;
+  useRailStrip("pr-sweep/prs", { urgent: needYou, second: working, secondTone: "working" });
+  return needsYouBadge({ urgent: needYou, urgentLabel: `${needYou} need you`, soon: working, soonLabel: `${working} working`, soonTone: "neutral" });
 }
 
 export default definePluginApp((app) => {

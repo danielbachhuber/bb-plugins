@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { NAV_BADGE_RED_CSS, navBadgeRedContentScript, needsYouBadge } from "./nav-badge";
+import { NAV_BADGE_RED_CSS, navBadgeRedContentScript, needsYouBadge, railStripCss, useRailStrip, type RailStrip } from "./nav-badge";
 
 describe("needsYouBadge", () => {
   it("counts the urgent rows in red, naming both counts", () => {
@@ -32,5 +33,50 @@ describe("navBadgeRedContentScript", () => {
     expect(document.head.querySelector("style[data-nav-badge-red]")?.textContent).toBe(NAV_BADGE_RED_CSS);
     controller.abort();
     expect(document.head.querySelector("style[data-nav-badge-red]")).toBeNull();
+  });
+});
+
+describe("railStripCss", () => {
+  it("draws urgent over the second count and hides bb's own rail badge", () => {
+    const css = railStripCss("now/now", { urgent: 4, second: 2, secondTone: "today" });
+    expect(css).toContain('[data-nav-rail-item="now/now"] [data-nav-rail-badge] { display: none; }');
+    expect(css).toMatch(/button::before \{[^}]*top: calc\(50% - 15px\)[^}]*content: "4"/);
+    expect(css).toMatch(/button::after \{[^}]*top: 50%;[^}]*content: "2"; background: var\(--attention\)/);
+  });
+
+  it("centers a lone count on the icon", () => {
+    const css = railStripCss("pr-sweep/prs", { urgent: 0, second: 2, secondTone: "working" });
+    expect(css).not.toContain("::before");
+    expect(css).toMatch(/button::after \{[^}]*top: calc\(50% - 7.5px\); border-radius: 3px;/);
+  });
+
+  it("draws 10 or more as a plus rather than two characters", () => {
+    const css = railStripCss("now/now", { urgent: 12, second: 0, secondTone: "today" });
+    expect(css).toContain('content: "";');
+    expect(css).toContain("center / 6px 1.5px no-repeat");
+    expect(css).not.toContain('"12"');
+  });
+
+  it("draws nothing when both counts are zero", () => {
+    expect(railStripCss("now/now", { urgent: 0, second: 0, secondTone: "today" })).toBe("");
+  });
+});
+
+describe("useRailStrip", () => {
+  afterEach(cleanup);
+
+  function Strip({ strip }: { strip: RailStrip | null }) {
+    useRailStrip("now/now", strip);
+    return null;
+  }
+
+  it("keeps one style element in the head, updated with the counts and removed on unmount", () => {
+    const { rerender, unmount } = render(<Strip strip={{ urgent: 1, second: 0, secondTone: "today" }} />);
+    rerender(<Strip strip={{ urgent: 3, second: 0, secondTone: "today" }} />);
+    const styles = document.head.querySelectorAll('style[data-rail-strip="now/now"]');
+    expect(styles).toHaveLength(1);
+    expect(styles[0]?.textContent).toContain('content: "3"');
+    unmount();
+    expect(document.head.querySelector("style[data-rail-strip]")).toBeNull();
   });
 });

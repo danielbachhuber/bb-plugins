@@ -1026,14 +1026,36 @@ describe("navigation badge", () => {
     );
   });
 
-  it("drops the badge once a thread is running on the only row that needed you", async () => {
+  it("counts a row in grey, not red, once a thread is running on it", async () => {
     const slot = renderBadge(
       listing({
         rows: [rowFixture({ flags: ["conflict"], group: "needs-action", threadId: "thr_1" })],
       }),
     );
     await waitFor(() => expect(listRows).toHaveBeenCalled());
-    expect(slot.getByTestId("badge")).toHaveTextContent("null");
+    await waitFor(() =>
+      expect(JSON.parse(slot.getByTestId("badge").textContent ?? "null")).toEqual({
+        count: 1,
+        tone: "neutral",
+        label: "1 working",
+      }),
+    );
+  });
+
+  it("draws the rail strip, need you over working", async () => {
+    renderBadge(
+      listing({
+        rows: [
+          rowFixture({ number: 1, flags: ["conflict"], group: "needs-action" }),
+          rowFixture({ number: 2, flags: ["conflict"], group: "needs-action", threadId: "thr_1" }),
+        ],
+      }),
+    );
+    await waitFor(() => {
+      const css = document.head.querySelector('style[data-rail-strip="pr-sweep/prs"]')?.textContent ?? "";
+      expect(css).toMatch(/::before \{[^}]*content: "1"/);
+      expect(css).toMatch(/::after \{[^}]*content: "1"/);
+    });
   });
 });
 

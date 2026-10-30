@@ -19,7 +19,7 @@ import { displaySection } from "./review/actions.js";
 import { describeDay } from "@danielbachhuber/bb-plugin-component-library/parse-day";
 import { runOf, sortReviews } from "./review/tiers.js";
 import { BatchDialog, type BatchStart } from "./review/batch-dialog.js";
-import { navBadgeRedContentScript, needsYouBadge } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
+import { navBadgeRedContentScript, needsYouBadge, useRailStrip } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
 import {
   ReviewListView,
   canBatch,
@@ -365,19 +365,28 @@ function Panel() {
 
 /**
  * Reviews' badge in bb's sidebar and rail: the requests still to review that
- * have waited too long, in red, as Now counts its urgent rows.
+ * have waited too long, in red, as Now counts its urgent rows. The rail also
+ * shows the reviews with a thread working on them, in orange under the red.
  */
 function useReviewsBadge() {
   const { listing } = useListing();
-  if (!listing) return null;
-  const inputs = { staleAfterDays: listing.staleAfterDays, now: Date.now() };
-  const overdue = listing.rows.filter(
+  const inputs = { staleAfterDays: listing?.staleAfterDays ?? 0, now: Date.now() };
+  const rows = listing?.rows ?? [];
+  const overdue = rows.filter(
     (row) =>
       !row.snoozedUntil &&
       displaySection(Boolean(row.threadId), row.isDraft) === "needs-review" &&
       runOf(row, inputs) === "overdue",
   ).length;
-  return needsYouBadge({ urgent: overdue, urgentLabel: `${overdue} waiting too long` });
+  const working = rows.filter((row) => displaySection(Boolean(row.threadId), row.isDraft) === "in-progress").length;
+  useRailStrip("review-sweep/reviews", listing ? { urgent: overdue, second: working, secondTone: "working" } : null);
+  if (!listing) return null;
+  return needsYouBadge({
+    urgent: overdue,
+    urgentLabel: `${overdue} waiting too long`,
+    soon: working,
+    soonLabel: `${working} working`, soonTone: "neutral",
+  });
 }
 
 export default definePluginApp((app) => {

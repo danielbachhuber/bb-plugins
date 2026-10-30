@@ -314,7 +314,10 @@ starts it over.
 A pull request with a thread attached moves to **working**, whatever its flags
 say, so needs you only ever holds work that is actually waiting on you. The
 Pull requests icon in bb's navigation follows the same rule: a red badge
-counts the rows in needs you, and with none there is no badge. It reads the
+counts the rows in needs you. On the rail, an orange count of the rows in
+working sits under the red one, in a narrow strip at the rail's right edge.
+In the sidebar list, the working count shows in grey when nothing needs you.
+With neither, there is no badge. It reads the
 stored list the page reads, so it adds no GitHub calls.
 
 A PR that is answered and awaiting re-review carries no flag: the ball is in the

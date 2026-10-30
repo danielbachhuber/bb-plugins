@@ -26,7 +26,7 @@ import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
 import { hideSidePanel } from "./now/side-panel.js";
-import { navBadgeRedContentScript, needsYouBadge } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
+import { navBadgeRedContentScript, needsYouBadge, useRailStrip } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
 import { useStartThreadBox, type StartThreadDraft } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 import { itemOrigin, threadPrompt } from "./now/thread-prompt.js";
 import type { Item, TodoistProject } from "./now/types.js";
@@ -611,12 +611,14 @@ function PrioritiesFooter({ dismiss }: ExperimentalSidebarFooterDisclosureProps)
 
 /**
  * Now's badge in bb's sidebar and rail: the urgent count in red, or else the
- * due today count in amber. It re-reads on the same signal as the page, so
- * completing or archiving a row lowers it at once.
+ * due today count in amber. The rail shows both, urgent over due today. It
+ * re-reads on the same signal as the page, so completing or archiving a row
+ * lowers it at once.
  */
 function useNowBadge() {
   const { listing } = useListing();
   const { urgent, today } = sidebarCounts(listing?.list?.items ?? [], new Date());
+  useRailStrip("now/now", { urgent, second: today, secondTone: "today" });
   return needsYouBadge({ urgent, urgentLabel: `${urgent} urgent`, soon: today, soonLabel: `${today} due today` });
 }
 

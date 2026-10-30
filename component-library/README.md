@@ -13,7 +13,7 @@ what not to do with it.
 | --- | --- | --- |
 | [Sync status](#sync-status) | `@danielbachhuber/bb-plugin-component-library/sync-status` | How long ago a page last synced, and a Refresh button, for the page's title bar, with what the past hour of syncs cost on GitHub behind the label |
 | [Sidebar count](#sidebar-count) | `@danielbachhuber/bb-plugin-component-library/sidebar-count` | The counts beside a page's name in bb's sidebar: urgent rows in a red circle, optionally rows due soon in amber beside it as one pill, then the total; or rows past a warning in amber and past an error in red |
-| [Nav badge](#nav-badge) | `@danielbachhuber/bb-plugin-component-library/nav-badge` | The badge on a page's icon in bb's navigation: urgent rows as a red count, or else rows due soon as an amber one, in the same red as Sidebar count |
+| [Nav badge](#nav-badge) | `@danielbachhuber/bb-plugin-component-library/nav-badge` | The badge on a page's icon in bb's navigation: urgent rows as a red count, or else rows due soon as an amber one, in the same red as Sidebar count, plus a rail strip that shows both counts |
 | [Segmented](#segmented) | `@danielbachhuber/bb-plugin-component-library/segmented` | A row of choices, one always on, and a toggle form for a filter that can be off |
 | [Calendar](#calendar) | `@danielbachhuber/bb-plugin-component-library/calendar` | A month grid, drawn the way bb draws one, for picking a day or a range |
 | [Date range](#date-range) | `@danielbachhuber/bb-plugin-component-library/date-range` | A button that opens two months of calendar to pick a span of days |
@@ -184,12 +184,15 @@ use a [Nav badge](#nav-badge). Tokenomics draws `SidebarLevels`.
 ## Nav badge
 
 ```tsx
-import { navBadgeRedContentScript, needsYouBadge } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
+import { navBadgeRedContentScript, needsYouBadge, useRailStrip } from "@danielbachhuber/bb-plugin-component-library/nav-badge";
 
 app.contentScripts.register(navBadgeRedContentScript);
 app.slots.navPanel({
   // ...
-  experimental_useBadge: () => needsYouBadge({ urgent, urgentLabel: `${urgent} urgent`, soon, soonLabel: `${soon} due today` }),
+  experimental_useBadge: () => {
+    useRailStrip("now/now", { urgent, second: soon, secondTone: "today" });
+    return needsYouBadge({ urgent, urgentLabel: `${urgent} urgent`, soon, soonLabel: `${soon} due today` });
+  },
 });
 ```
 
@@ -204,6 +207,18 @@ nothing is urgent, the due-soon count in amber, or nothing. The total is
 left out, so a badge always means something to do. bb shows a count over 9
 as "9+" on the rail and over 99 as "99+" in the list. The label, which bb puts in the
 tooltip and the accessible name, names both counts when both are above zero.
+`soonTone: "neutral"` draws the second count in grey, for rows that are not
+due, such as ones with a thread working on them.
+
+**The rail strip.** bb's badge holds one count, so the urgent count hides
+the rest. `useRailStrip` draws both on the rail as a 12px strip 1px inside
+the rail's right edge, centered on the icon: red on top, then amber for
+`"today"` or orange for `"working"`. Each count is one character, a plus for
+10 or more, and a lone count is a single cell. It keeps a style element in
+the document's head that hides bb's mark on that rail entry and draws the
+strip with the button's `::before` and `::after`, and removes it when the
+hook unmounts. It finds the entry by bb's `data-nav-rail-item`, which is
+`<plugin id>/<panel id>`. The sidebar list keeps bb's badge.
 
 **The red.** bb draws a critical badge in its own darker red.
 `navBadgeRedContentScript` adds a style rule to the document's head that

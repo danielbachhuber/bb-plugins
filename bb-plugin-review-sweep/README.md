@@ -118,7 +118,10 @@ opens it to the full row.
 
 The Reviews icon in bb's navigation carries a red badge counting the
 requests waiting too long that have no thread and are not drafts or snoozed,
-as Now counts its urgent rows. With none, there is no badge. It reads the
+as Now counts its urgent rows. On the rail, an orange count of the requests
+with a thread working on them sits under the red one, in a narrow strip at
+the rail's right edge. In the sidebar list, a working count shows in grey
+when nothing is waiting too long. With neither, there is no badge. It reads the
 stored list the page reads, so it adds no GitHub calls.
 
 ## Each row
