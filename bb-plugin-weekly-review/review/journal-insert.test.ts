@@ -137,6 +137,73 @@ describe("planInsert", () => {
       text: "October 16, 2026\n\nDone:\n\nWins/Highlights:\n\nNext:\n\n\n",
     });
   });
+
+  const TEMPLATED = doc([
+    ["Acme Journal", "TITLE"],
+    ["<template>", "HEADING_2"],
+    [""],
+    ["Done:"],
+    ["TBD", undefined, 0],
+    [""],
+    ["Next:"],
+    ["TBD", undefined, 0],
+    ["People:", undefined, 0],
+    ["Hubber:", undefined, 1],
+    [""],
+    ["October 9, 2026", "HEADING_2"],
+    [""],
+    ["Done:"],
+    ["Shipped the widget sync beta.", undefined, 0],
+  ]);
+
+  it("plans a new entry as a copy of the template, with its bullets at their levels", () => {
+    const plan = planInsert(TEMPLATED, { from: "2026-10-12", to: "2026-10-18" }, "Done", parseEntry("- x"));
+    expect(plan.kind).toBe("create");
+    const requests = plan.body.requests as any[];
+    const at = startOf("October 9, 2026", TEMPLATED);
+    expect(requests[0].insertText).toEqual({
+      location: { index: at },
+      text: "October 16, 2026\n\nDone:\nTBD\n\nNext:\nTBD\nPeople:\n\tHubber:\n\n",
+    });
+    const heading = "October 16, 2026\n\nDone:\n".length;
+    const next = "October 16, 2026\n\nDone:\nTBD\n\nNext:\n".length;
+    const bullets = requests.filter((request) => request.createParagraphBullets).map((request) => request.createParagraphBullets.range);
+    // Last list first, so making it does not move the one above.
+    expect(bullets).toEqual([
+      { startIndex: at + next, endIndex: at + next + "TBD\nPeople:\n\tHubber:\n".length },
+      { startIndex: at + heading, endIndex: at + heading + "TBD\n".length },
+    ]);
+  });
+
+  it("takes out the section's TBD bullet when adding the first real one", () => {
+    const week = doc([
+      ["October 9, 2026", "HEADING_2"],
+      ["Done:"],
+      ["TBD", undefined, 0],
+      [""],
+      ["Next:"],
+      ["TBD", undefined, 0],
+    ]);
+    const plan = planInsert(week, WEEK, "Done", parseEntry("- Paired with Hubber."));
+    const requests = plan.body.requests as any[];
+    const start = startOf("TBD", week);
+    expect(requests[0].insertText.location.index).toBe(start + "TBD".length);
+    expect(requests[requests.length - 1]).toEqual({
+      deleteContentRange: { range: { startIndex: start, endIndex: start + "TBD".length + 1 } },
+    });
+    expect(requests.filter((request) => request.deleteContentRange)).toHaveLength(2);
+  });
+
+  it("leaves a TBD bullet that has bullets nested under it", () => {
+    const week = doc([
+      ["October 9, 2026", "HEADING_2"],
+      ["Done:"],
+      ["TBD", undefined, 0],
+      ["Ask Octocat.", undefined, 1],
+    ]);
+    const requests = planInsert(week, WEEK, "Done", parseEntry("- x")).body.requests as any[];
+    expect(requests.filter((request) => request.deleteContentRange)).toHaveLength(1);
+  });
 });
 
 describe("planReplace", () => {
@@ -182,6 +249,27 @@ describe("planReplace", () => {
       ["Shipped two.", undefined, 0],
     ]);
     expect(() => planReplace(twice, WEEK, "Done", "Shipped", parseEntry("- x"))).toThrow("2 bullets under Done");
+  });
+
+  it("takes out a TBD bullet below the one it swaps before swapping, and one above after", () => {
+    const below = doc([
+      ["October 9, 2026", "HEADING_2"],
+      ["Done:"],
+      ["Shipped one.", undefined, 0],
+      ["TBD", undefined, 0],
+    ]);
+    const first = planReplace(below, WEEK, "Done", "Shipped", parseEntry("- x")).body.requests as any[];
+    expect(first[0].deleteContentRange.range.startIndex).toBe(startOf("TBD", below));
+
+    const above = doc([
+      ["October 9, 2026", "HEADING_2"],
+      ["Done:"],
+      ["TBD", undefined, 0],
+      ["Shipped one.", undefined, 0],
+    ]);
+    const second = planReplace(above, WEEK, "Done", "Shipped", parseEntry("- x")).body.requests as any[];
+    expect(second[0].deleteContentRange.range.startIndex).toBe(startOf("Shipped one.", above));
+    expect(second[second.length - 1].deleteContentRange.range.startIndex).toBe(startOf("TBD", above));
   });
 
   it("does not match a nested bullet", () => {

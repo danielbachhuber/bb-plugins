@@ -187,9 +187,12 @@ bb weekly-review entry add <monday> --section "Done" --file /tmp/journal-entry-<
 ```
 
 It goes at the end of that section in the week's entry, as bullets at the
-levels written, with the links kept. When the week has no entry yet, it adds
-one first, headed with the week's Friday and with the section labels of the
-entry below it. It prints the entry's heading and a link to it.
+levels written, with the links kept, and the section's `TBD` bullet comes
+out. When the week has no entry yet, it adds one first, headed with the
+week's Friday: a copy of the doc's `<template>` section, or without one, the
+section labels of the entry below it. It prints the entry's heading and a
+link to it. Do not draft around a `TBD` bullet or ask about it; it is only a
+placeholder.
 
 When the draft refines an existing bullet, replace that bullet instead:
 

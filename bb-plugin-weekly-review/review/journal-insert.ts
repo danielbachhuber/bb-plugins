@@ -5,7 +5,8 @@
  * so it can be tested without Google. `server.ts` makes the calls.
  *
  * The doc is newest first, one heading per week, and under it plain lines
- * ending in a colon (`Done:`, `Next:`) each followed by a bulleted list.
+ * ending in a colon (`Done:`, `Next:`) each followed by a bulleted list. A
+ * heading named `<template>` holds what a new week's entry starts as.
  */
 import { addDays, fromDay } from "./dates.js";
 import { parseHeadingDate } from "./meeting-notes.js";
@@ -147,9 +148,11 @@ export type Plan =
   | { kind: "insert"; body: BatchBody; heading: string; headingId: string | undefined };
 
 /**
- * The requests that put `lines` at the end of `section` in the week's entry.
- * When the week has no entry, the plan is to create one first, above the
- * newest older entry, with the section labels that entry has.
+ * The requests that put `lines` at the end of `section` in the week's entry,
+ * and take out the section's `TBD` bullet, which only holds the place until
+ * the first real one. When the week has no entry, the plan is to create one
+ * first, above the newest older entry: a copy of the doc's `<template>`
+ * section, or, without one, the section labels the older entry has.
  */
 export function planInsert(doc: DocsDocument, week: { from: Day; to: Day }, section: string, lines: EntryLine[]): Plan {
   if (lines.length === 0) throw new Error("The entry has no bullets.");
@@ -161,17 +164,35 @@ export function planInsert(doc: DocsDocument, week: { from: Day; to: Day }, sect
     const below = dated.find((heading) => heading.day < week.from);
     if (below === undefined) throw new Error(`There is no earlier entry to copy the sections of, so no entry for ${week.from} was added.`);
     const heading = headingFor(week.from);
-    return { kind: "create", heading, body: batch(doc, createEntry(paras, below.index, heading)) };
+    const template = templateLines(paras);
+    const requests = template === null ? createEntry(paras, below.index, heading) : copyTemplate(paras[below.index], heading, template);
+    return { kind: "create", heading, body: batch(doc, requests) };
   }
 
   const anchor = found.bullets.length === 0 ? found.labelAt : found.bullets[found.bullets.length - 1];
+  // The placeholder sits above where the new bullets go, so deleting it last
+  // leaves their indexes as planned.
+  const placeholder = placeholderAt(paras, found.bullets);
   return {
     kind: "insert",
     heading: found.heading.text,
     headingId: found.heading.headingId,
-    body: batch(doc, bulletRequests(paras[anchor].end - 1, lines)),
+    body: batch(doc, [
+      ...bulletRequests(paras[anchor].end - 1, lines),
+      ...(placeholder === null ? [] : [deleteParagraph(paras[placeholder])]),
+    ]),
   };
 }
+
+/** A top-level `TBD` bullet with nothing nested under it, or null. */
+function placeholderAt(paras: Para[], bullets: number[]): number | null {
+  const index = bullets.find(
+    (at) => paras[at].level === 0 && paras[at].text.trim().toUpperCase() === "TBD" && !(bullets.includes(at + 1) && paras[at + 1].level > 0),
+  );
+  return index ?? null;
+}
+
+const deleteParagraph = (para: Para) => ({ deleteContentRange: { range: { startIndex: para.start, endIndex: para.end } } });
 
 /**
  * The requests that swap one top-level bullet of `section`, with everything
@@ -203,6 +224,11 @@ export function planReplace(
   let last = first;
   while (found.bullets.includes(last + 1) && paras[last + 1].level > 0) last += 1;
 
+  // A placeholder below the bullet goes first and one above it goes last, so
+  // neither deletion moves the indexes the swap was planned with.
+  const placeholder = placeholderAt(paras, found.bullets);
+  const before = placeholder !== null && placeholder > last ? [deleteParagraph(paras[placeholder])] : [];
+  const after = placeholder !== null && placeholder < first ? [deleteParagraph(paras[placeholder])] : [];
   return {
     kind: "insert",
     heading: found.heading.text,
@@ -210,8 +236,10 @@ export function planReplace(
     // Deleting first leaves the paragraph above ending where the bullet began,
     // so the new bullets go in after it exactly as an insert would.
     body: batch(doc, [
+      ...before,
       { deleteContentRange: { range: { startIndex: paras[first].start, endIndex: paras[last].end } } },
       ...bulletRequests(paras[first].start - 1, lines),
+      ...after,
     ]),
   };
 }
@@ -338,5 +366,69 @@ function createEntry(paras: Para[], belowIndex: number, heading: string): object
         fields: "namedStyleType",
       },
     },
+  ];
+}
+
+/**
+ * The paragraphs under the doc's `<template>` heading, up to the next heading
+ * of the same rank or higher, or null when the doc has none.
+ */
+function templateLines(paras: Para[]): Para[] | null {
+  const at = paras.findIndex((para) => isHeading(para) && /^<\s*template\s*>$/i.test(para.text.trim()));
+  if (at === -1) return null;
+  const rank = headingRank(paras[at]);
+  const lines: Para[] = [];
+  for (let index = at + 1; index < paras.length; index++) {
+    if (isHeading(paras[index]) && headingRank(paras[index]) <= rank) break;
+    lines.push(paras[index]);
+  }
+  return lines;
+}
+
+/**
+ * A heading styled like the entry below, then the template's lines as they
+ * are: labels, blank lines, and bullets at their levels. Each run of bullets
+ * becomes a list of its own. The runs are made last to first, because making
+ * one removes the tabs that set its levels and moves everything after it.
+ */
+function copyTemplate(below: Para, heading: string, template: Para[]): object[] {
+  const at = below.start;
+  const text = [heading, ...template.map((para) => (para.bulleted ? "\t".repeat(para.level) : "") + para.text)].join("\n") + "\n";
+  const end = at + text.length;
+
+  const runs: Array<{ startIndex: number; endIndex: number }> = [];
+  let offset = at + heading.length + 1;
+  template.forEach((para, index) => {
+    const length = (para.bulleted ? para.level : 0) + para.text.length + 1;
+    if (para.bulleted) {
+      const run = runs[runs.length - 1];
+      if (run !== undefined && template[index - 1]?.bulleted) run.endIndex = offset + length;
+      else runs.push({ startIndex: offset, endIndex: offset + length });
+    }
+    offset += length;
+  });
+
+  return [
+    { insertText: { location: { index: at }, text } },
+    { deleteParagraphBullets: { range: { startIndex: at, endIndex: end } } },
+    {
+      updateParagraphStyle: {
+        range: { startIndex: at + heading.length + 1, endIndex: end },
+        paragraphStyle: {
+          namedStyleType: "NORMAL_TEXT",
+          indentStart: { magnitude: 0, unit: "PT" },
+          indentFirstLine: { magnitude: 0, unit: "PT" },
+        },
+        fields: "namedStyleType,indentStart,indentFirstLine",
+      },
+    },
+    {
+      updateParagraphStyle: {
+        range: { startIndex: at, endIndex: at + heading.length + 1 },
+        paragraphStyle: { namedStyleType: below.style },
+        fields: "namedStyleType",
+      },
+    },
+    ...runs.reverse().map((range) => ({ createParagraphBullets: { range, bulletPreset: "BULLET_DISC_CIRCLE_SQUARE" } })),
   ];
 }

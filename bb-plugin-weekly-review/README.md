@@ -344,9 +344,12 @@ claim. Edit it there, or send a note on what to change, and it comes back
 revised.
 
 Accept adds it to the doc with `bb weekly-review entry add`, at the end of its
-section in the week's entry, with its links and bullet levels. When the week
-has no entry yet, one is added first above the newest entry, headed with the
-week's Friday and with that entry's section labels. That is one Docs read and
+section in the week's entry, with its links and bullet levels, and takes out
+the section's `TBD` bullet, a placeholder with nothing nested under it. When
+the week has no entry yet, one is added first above the newest entry, headed
+with the week's Friday. It is a copy of the section under the doc's
+`<template>` heading, bullets included, or when the doc has no template, the
+newest entry's section labels. That is one Docs read and
 one write, or two of each when the entry is new. The write names the revision
 it read, so Google refuses it if the doc changed in between, and it is tried
 once more from a fresh read.
