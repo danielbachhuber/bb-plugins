@@ -125,8 +125,8 @@ export function ConcernFiles({
 }
 
 /**
- * A section's heading: number, title, file count and viewed count,
- * explanation, and (for a concern) its file list, then `children`, which is
+ * A section's heading: number, title, viewed count (or the file count until
+ * the Viewed marks are read), explanation, and (for a concern) its file list, then `children`, which is
  * where its annotations go. Every heading after the first has a rule above it.
  */
 export function ConcernHeader({
@@ -162,15 +162,13 @@ export function ConcernHeader({
       </h2>
       <div className="mt-1" style={{ paddingLeft: number !== null ? 32 : 0 }}>
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>
-            {files.length} {files.length === 1 ? "file" : "files"}
-          </span>
           {viewed !== null ? (
-            <>
-              <span>·</span>
-              <ViewedCount viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
-            </>
-          ) : null}
+            <ViewedCount viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
+          ) : (
+            <span>
+              {files.length} {files.length === 1 ? "file" : "files"}
+            </span>
+          )}
         </span>
         <p className="mt-1.5 text-sm text-muted-foreground">
           <Prose text={explanation} />
