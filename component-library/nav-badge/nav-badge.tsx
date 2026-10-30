@@ -79,18 +79,18 @@ const STRIP_ORANGE_DARK = "#f08a24";
 /** Each half of the strip is 12 by 15 pixels, 1px inside the rail's right edge. */
 const CELL_HEIGHT = 15;
 
-/** A count of 10 or more is a plus, drawn as two bars so it sits in the middle of its cell. */
+/** A count of 10 or more is a 5px dot, drawn as a gradient so it sits in the middle of its cell. */
 function cellFill(n: number, tone: { bg: string; fg: string }): string {
   if (n <= 9) return `content: "${n}"; background: ${tone.bg};`;
-  const bar = `linear-gradient(${tone.fg}, ${tone.fg})`;
-  return `content: ""; background: ${bar} center / 6px 1.5px no-repeat, ${bar} center / 1.5px 6px no-repeat, ${tone.bg};`;
+  const dot = `radial-gradient(circle, ${tone.fg} 2.5px, transparent 3px)`;
+  return `content: ""; background: ${dot} center / 6px 6px no-repeat, ${tone.bg};`;
 }
 
 /**
  * The stylesheet that draws a page's two counts on bb's rail as a narrow
  * strip at the rail's right edge, centered on the icon: urgent in red on top,
  * the second count in amber (due today) or orange (working) below. Each count
- * is one character, a plus for 10 or more. The tooltip keeps the exact
+ * is one character, a dot for 10 or more. The tooltip keeps the exact
  * numbers. bb's badge allows one count, so this hides bb's own mark on the
  * rail entry and draws the strip with the button's `::before` and `::after`.
  * The sidebar list keeps bb's badge. Returns "" when both counts are zero.

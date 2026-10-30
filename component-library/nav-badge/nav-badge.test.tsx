@@ -50,10 +50,10 @@ describe("railStripCss", () => {
     expect(css).toMatch(/button::after \{[^}]*top: calc\(50% - 7.5px\); border-radius: 3px;/);
   });
 
-  it("draws 10 or more as a plus rather than two characters", () => {
+  it("draws 10 or more as a dot rather than two characters", () => {
     const css = railStripCss("now/now", { urgent: 12, second: 0, secondTone: "today" });
     expect(css).toContain('content: "";');
-    expect(css).toContain("center / 6px 1.5px no-repeat");
+    expect(css).toContain("radial-gradient(circle, #fff 2.5px, transparent 3px) center / 6px 6px no-repeat");
     expect(css).not.toContain('"12"');
   });
 

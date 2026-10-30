@@ -9,7 +9,7 @@ Gmail inbox.
 A **Now** page in the left sidebar, whose icon carries a badge. On the rail
 it is a narrow strip at the rail's right edge: the Urgent run described below
 as a red count, over the Today run (tasks due today whose time has not
-passed) as an amber one, each one character, with a plus for 10 or more. In
+passed) as an amber one, each one character, with a dot for 10 or more. In
 the sidebar list it is bb's own badge: the red count, or the amber one when
 nothing is urgent. The tooltip names both. With neither, there is no badge. It reads the stored list the
 page reads, so it adds no calls to Todoist, Gmail, Calendar, or GitHub. The
