@@ -21,6 +21,7 @@ what not to do with it.
 | [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer under a row or in a dialog, with the plugin's suggested skills as chips, and the toast that links to the thread once it starts |
 | [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 | [Last value](#last-value) | `@danielbachhuber/bb-plugin-component-library/last-value` | State that opens on the value the page last read from its server, kept in `localStorage`, so a page draws its list at once instead of a loading screen |
+| [Viewed ring](#viewed-ring) | `@danielbachhuber/bb-plugin-component-library/viewed-ring` | A ring that fills as files are marked Viewed, turning green when all are, with "3/6 viewed" beside it, as the changes panel's toolbar shows it |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -564,6 +565,27 @@ The three sweeps use it for their listing and their Harvest state.
 
 **Don't** keep anything private to the server here, such as a token, or a
 value the page cannot draw while it is stale for a moment.
+
+## Viewed ring
+
+How many of a set of files have been marked Viewed, drawn the way the changes
+panel's toolbar draws it: a 12px ring that fills in bb's primary color and
+turns green once every file is viewed.
+
+```tsx
+import { ViewedProgress, ViewedRing } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
+
+<ViewedProgress viewed={3} total={6} />   // the ring and "3/6 viewed"
+<ViewedRing viewed={3} total={6} />       // the ring alone, beside a count you draw
+```
+
+`viewedRingSvg(viewed, total)` returns the same ring as SVG markup, for a
+plugin that writes into bb's DOM as a string. Diff Viewed Enhanced uses it in
+the toolbar, and Super Diff uses the components in its concern headings and
+table of contents.
+
+**Don't** draw the ring without a count beside it. It is hidden from screen
+readers.
 
 ## Working on it
 

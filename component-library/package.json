@@ -1,6 +1,6 @@
 {
   "name": "@danielbachhuber/bb-plugin-component-library",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "UI that several plugins draw the same way, starting with the sync status in a page's title bar.",
   "repository": {
     "type": "git",
@@ -40,7 +40,8 @@
     "./nav-badge": "./nav-badge/nav-badge.tsx",
     "./start-thread": "./start-thread/start-thread.tsx",
     "./thread-status": "./thread-status/thread-status.tsx",
-    "./last-value": "./last-value/last-value.ts"
+    "./last-value": "./last-value/last-value.ts",
+    "./viewed-ring": "./viewed-ring/viewed-ring.tsx"
   },
   "peerDependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",
