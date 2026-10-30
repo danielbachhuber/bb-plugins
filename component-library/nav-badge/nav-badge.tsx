@@ -41,10 +41,13 @@ export function needsYouBadge({
  * elements, so this goes in a style element in the document's head. bb marks
  * the badge with `data-nav-badge-tone` on both the rail and the sidebar list,
  * but not which page it belongs to, so bb's own critical badges turn this red
- * too.
+ * too. It also draws the amber badge's count in white, as every count in the
+ * rail strip is, where bb draws it in dark ink.
  */
-export const NAV_BADGE_RED_CSS =
-  '[data-nav-badge-tone="critical"] > span { background-color: oklch(57.7% 0.245 27.325); color: #fff; }';
+export const NAV_BADGE_RED_CSS = [
+  '[data-nav-badge-tone="critical"] > span { background-color: oklch(57.7% 0.245 27.325); color: #fff; }',
+  '[data-nav-badge-tone="warning"] > span { color: #fff; }',
+].join("\n");
 
 /**
  * Adds the red while the plugin runs: pass it to `app.contentScripts.register`.
@@ -68,7 +71,7 @@ export const navBadgeRedContentScript = {
 export type RailStrip = { urgent: number; second: number; secondTone: "today" | "working" };
 
 const STRIP_RED = { bg: "oklch(57.7% 0.245 27.325)", fg: "#fff" };
-const STRIP_AMBER = { bg: "var(--attention)", fg: "var(--attention-foreground)" };
+const STRIP_AMBER = { bg: "var(--attention)", fg: "#fff" };
 // The sweep pages' orange for rows with a thread working on them.
 const STRIP_ORANGE = { bg: "#ea7a0c", fg: "#fff" };
 const STRIP_ORANGE_DARK = "#f08a24";

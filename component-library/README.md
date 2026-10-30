@@ -213,7 +213,7 @@ due, such as ones with a thread working on them.
 **The rail strip.** bb's badge holds one count, so the urgent count hides
 the rest. `useRailStrip` draws both on the rail as a 12px strip 1px inside
 the rail's right edge, centered on the icon: red on top, then amber for
-`"today"` or orange for `"working"`. Each count is one character, a plus for
+`"today"` or orange for `"working"`, every count in white. Each count is one character, a plus for
 10 or more, and a lone count is a single cell. It keeps a style element in
 the document's head that hides bb's mark on that rail entry and draws the
 strip with the button's `::before` and `::after`, and removes it when the
@@ -223,8 +223,9 @@ hook unmounts. It finds the entry by bb's `data-nav-rail-item`, which is
 **The red.** bb draws a critical badge in its own darker red.
 `navBadgeRedContentScript` adds a style rule to the document's head that
 draws it in Tailwind's red-600 instead, the red Sidebar count and the pages
-use. bb marks the badge with `data-nav-badge-tone` but not with the page it
-belongs to, so every red badge in bb's navigation changes, bb's own
+use, and draws the amber badge's count in white instead of bb's dark ink.
+bb marks the badge with `data-nav-badge-tone` but not with the page it
+belongs to, so every red and amber badge in bb's navigation changes, bb's own
 included.
 
 Now, PR Sweep, and Review Sweep use it.
