@@ -6,7 +6,7 @@ you pick. **PR velocity** charts for each person the pull requests they opened
 and the ones that merged, and **Review velocity** charts the reviews requested
 of them and the reviews they gave. A short span is drawn by day, a medium one
 by week, and a long one by month. Clicking a name, or finding one in the
-search box at the top, opens that person's page: the open issues assigned to them, each a bar from when it was opened to today showing how long it waited for an owner, how long it has been theirs, and whether anything has happened since, then the pull requests they opened and merged, how each fared in
+search box at the top, opens that person's page: a row for each kind of activity, from pull requests opened and merged to reviews given and issues opened and closed, with a square per day of the span, then the open issues assigned to them, each a bar from when it was opened to today showing how long it waited for an owner, how long it has been theirs, and whether anything has happened since, then the pull requests they opened and merged, how each fared in
 review, then their reviews requested and given, as bars with a trend line, and the pull requests waiting on their review.
 Reviews requested of a team, as a CODEOWNERS file asks for them, show where
 nobody has picked them up: on the overview's Code review step, in a row per

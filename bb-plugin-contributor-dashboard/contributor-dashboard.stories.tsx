@@ -4,7 +4,7 @@ import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
-import type { AssignedIssue, TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { ActivityDay, AssignedIssue, TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { BatchDialog } from "./components/batch-dialog";
 import { describeFilters } from "./components/list-toolbar";
 import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
@@ -574,6 +574,53 @@ const ASSIGNED_ISSUES: AssignedIssue[] = (
   updatedAt: daysBefore(updated),
 }));
 
+/**
+ * What one person did each day of the period, shaped like a busy real one:
+ * most weekdays active, a dozen or so things on a typical day with a few far
+ * busier, a quiet stretch, and almost nothing at weekends. `busy` scales it
+ * down for a quieter person.
+ */
+function activityDaysFor(buckets: readonly { start: number; end: number }[], busy = 1): ActivityDay[] {
+  let seed = 11;
+  const noise = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const days: ActivityDay[] = [];
+  for (const day = new Date(buckets[0].start); day.getTime() < buckets.at(-1)!.end; day.setDate(day.getDate() + 1)) {
+    const weekend = day.getDay() === 0 || day.getDay() === 6;
+    const away = Math.abs(day.getTime() - (NOW - 24 * 86_400_000)) < 2.5 * 86_400_000;
+    const active = !away && (weekend ? noise() < 0.06 : noise() < 0.9 * Math.min(1, busy * 1.5));
+    const base = active ? Math.max(1, Math.round((weekend ? 2 : 4 + noise() * 12 + (noise() < 0.12 ? noise() * 18 : 0)) * busy)) : 0;
+    const share = (part: number) => Math.round(base * part * (0.6 + noise() * 0.8));
+    days.push({
+      start: day.getTime(),
+      reviewed: share(0.4),
+      opened: share(0.22),
+      merged: share(0.2),
+      issuesOpened: share(0.11),
+      issuesClosed: share(0.07),
+    });
+  }
+  return days;
+}
+
+/**
+ * Spreads `target` over the days in proportion to what each already holds, so
+ * a row's total matches what the rest of the page says.
+ */
+function fitTo(days: ActivityDay[], kind: Exclude<keyof ActivityDay, "start">, target: number): ActivityDay[] {
+  const weights = days.map((day) => day[kind]);
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (sum === 0) return days;
+  const exact = weights.map((w) => (w / sum) * target);
+  const counts = exact.map(Math.floor);
+  const order = exact.map((x, i) => [x - Math.floor(x), i] as const).sort((a, b) => b[0] - a[0]);
+  const short = target - counts.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < short; k++) counts[order[k][1]] += 1;
+  return days.map((day, i) => ({ ...day, [kind]: counts[i] }));
+}
+
 /** Enough pull requests to page through, by repeating the five above. */
 function manyAuthored(total: number) {
   return Array.from({ length: total }, (_, index) => {
@@ -601,6 +648,7 @@ function Person({
   authored = AUTHORED,
   issues = ASSIGNED_ISSUES,
   issuesClosed = 42,
+  busy = 1,
   login = "octocat",
   initialAuthoredQuery = DEFAULT_AUTHORED_QUERY,
 }: {
@@ -610,6 +658,8 @@ function Person({
   authored?: typeof AUTHORED;
   issues?: AssignedIssue[];
   issuesClosed?: number;
+  /** How much of a typical busy person's daily activity they have. */
+  busy?: number;
   login?: string;
   initialAuthoredQuery?: AuthoredQuery;
 }) {
@@ -620,6 +670,14 @@ function Person({
   const page = fixture(selection);
   const kept = queryAuthored(authored, authoredQuery);
   const paging = pageOf(kept.length, authoredPage, AUTHORED_PAGE_SIZE);
+  const authorFlows = authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length);
+  const activity = page.people.find((person) => person.login === login) ?? null;
+  const sumOf = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
+  let activityDays = activityDaysFor(page.buckets, busy);
+  activityDays = fitTo(activityDays, "opened", sumOf(authorFlows.started));
+  activityDays = fitTo(activityDays, "merged", sumOf(authorFlows.finished));
+  activityDays = fitTo(activityDays, "reviewed", activity?.givenTotal ?? 0);
+  activityDays = fitTo(activityDays, "issuesClosed", issuesClosed);
   return (
     <>
     <PersonView
@@ -630,13 +688,14 @@ function Person({
         repository: "acme/widgets",
         login,
         buckets: page.buckets,
-        authorFlows: authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length),
-        activity: page.people.find((person) => person.login === login) ?? null,
+        authorFlows,
+        activity,
         awaiting,
         teamAwaiting,
         organization: "acme",
         assignedIssues: issues,
         issuesClosed,
+        activityDays,
         authored: kept.slice(paging.offset, paging.to),
         authoredTotal: authored.length,
         authoredFacets: authoredFacets(authored),
@@ -673,12 +732,18 @@ function Person({
   );
 }
 
-/** One person's page, reached by clicking their name on the dashboard. The open issues assigned to them come first, each with a bar from opened to today. */
+/** One person's page, reached by clicking their name on the dashboard. A row per kind of activity comes first, a square per day of the six weeks, then the open issues assigned to them, each with a bar from opened to today. */
 export const PersonPage = () => (
   <WithThreads>
     <Person />
   </WithThreads>
 );
+
+/** Over two weeks there are few enough days to write each one's count in its square. */
+export const PersonPageTwoWeeks = () => <Person initial={{ kind: "preset", id: "2w" }} />;
+
+/** Over three months the squares narrow, and the dates under them name every other Monday. */
+export const PersonPageThreeMonths = () => <Person initial={{ kind: "preset", id: "3m" }} />;
 
 /** A prolific author: their pull requests page 10 at a time. */
 export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
@@ -689,7 +754,7 @@ export const PersonPageAuthoredFiltered = () => (
 );
 
 /** Nobody is waiting on them, they hold no issues, and they have opened nothing this period. */
-export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} teamAwaiting={[]} authored={[]} issues={[]} issuesClosed={0} />;
+export const PersonPageQuiet = () => <Person login="spacecat" awaiting={[]} teamAwaiting={[]} authored={[]} issues={[]} issuesClosed={0} busy={0.3} />;
 
 const WAITING_NOW = [
   {

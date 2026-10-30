@@ -1,10 +1,12 @@
-// One person's page: the open issues assigned to them, then their own pull
-// requests, as opened and merged lines and the list of how each fared,
-// followed by their review bars and the pull requests waiting on their review.
+// One person's page: what they did each day of the period, by kind, then the
+// open issues assigned to them, then their own pull requests, as opened and
+// merged lines and the list of how each fared, followed by their review bars
+// and the pull requests waiting on their review.
 // Display only.
 import type { AuthoredQuery, PersonActivityResult, TeamAwaiting } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
+import { ActivityStrips } from "./activity-strips";
 import type { BatchItem } from "./batch-dialog";
 import { AssignedIssues } from "./issue-lifelines";
 import { ItemRow } from "./item-row";
@@ -196,6 +198,8 @@ export function PersonView({
 
         {data === null ? null : (
           <>
+            {data.activityDays.length === 0 ? null : <ActivityStrips days={data.activityDays} span={selectionWords(selection)} />}
+
             <AssignedIssues
               issues={data.assignedIssues}
               onThread={onThread}

@@ -416,6 +416,17 @@ closed count is of issues assigned to them, not issues they closed. The
 header's **Find a person** box marks the person already shown and switches to
 anyone else. It shows:
 
+- **Activity by day**: a row each for pull requests they opened, their pull
+  requests that merged, reviews they gave, issues they opened, and issues
+  assigned to them that closed, with a square per day of the span, darker for
+  more. Each row has its own scale, so a quiet kind still shows its pattern,
+  and ends with its total for the span. Over two weeks each square has its
+  count written in it; hovering any square names the count and the day. A
+  range longer than about four months draws a square per week. Reviews count
+  once per pull request per day, as the review bars below do. The counts come
+  from the local copy, so commits, comments, and other repositories are left
+  out, and the strips say so rather than pass for GitHub's contribution count.
+  They make no GitHub calls.
 - **Issues assigned to them**: every open issue assigned to them now, whatever
   the span, longest held first. Each row carries a bar from when the issue was
   opened to today: grey while it was in Triage, amber while it waited in Assign
@@ -573,6 +584,7 @@ needs no new sync.
 | `review/stages.ts` | The pure stage model: each stage's spans over pull requests or issues, its percentiles, and the bands its page draws |
 | `review/people.ts` | The pure count of reviews requested and given per person per bucket |
 | `review/assigned-issues.ts` | The pure read of the open issues one person holds, with when each was opened, planned, and assigned, and how many of theirs closed in the period |
+| `review/activity-days.ts` | The pure count of what one person did on each day of the period, by kind |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, and the toolbar's filters, sorts, and counts over it |
@@ -598,6 +610,7 @@ needs no new sync.
 | `components/batch-dialog.tsx` | Batch: tick the matching rows, then copy, open, or start a main thread with a subthread for each |
 | `components/velocity-section.tsx` | A section of small multiples: the cards, the folded tail, and Show all |
 | `components/person-view.tsx` | A person's page, drawn from props alone |
+| `components/activity-strips.tsx` | The rows of daily squares at the top of a person's page, one per kind of activity |
 | `components/issue-lifelines.tsx` | The open issues a person holds, each row with its bar from opened to today and how long it has been theirs |
 | `components/flow-chart.tsx` | A velocity section's chart for everyone: arrivals, finishes, and the bands between |
 | `components/review-chart.tsx` | A person's review bars, their moving averages, and the legend |
@@ -611,7 +624,7 @@ needs no new sync.
 | `app.tsx` | Loads the page's data and re-reads it as the sync stores pages |
 | `person-finder.stories.tsx` | The person finder focused, typed in, on a person's page, and matching nobody |
 | `velocity-section.stories.tsx` | A section with its tail folded, with Show all pressed, and with nobody in the period |
-| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, paged, filtered, and quiet, a stage's page busy and clear, and the open pull requests, filtered and in Batch, and open issues |
+| `contributor-dashboard.stories.tsx` | Six weeks, a hovered week, three months, two weeks drawn by day, a custom range, the first sync, no repository set, a failed sync, a person's page busy, over two weeks and three months, paged, filtered, and quiet, a stage's page busy and clear, and the open pull requests, filtered and in Batch, and open issues |
 
 ## Working on it
 

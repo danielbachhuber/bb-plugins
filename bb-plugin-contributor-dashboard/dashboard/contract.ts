@@ -11,6 +11,15 @@ export const BATCH_LIMIT = 50;
 /** The span a page is reading: inclusive start, exclusive end, epoch ms. */
 export const rangeSchema = z.object({ from: z.number(), to: z.number() });
 
+export const activityDaySchema = z.object({
+  start: z.number(),
+  opened: z.number(),
+  merged: z.number(),
+  reviewed: z.number(),
+  issuesOpened: z.number(),
+  issuesClosed: z.number(),
+});
+
 export const bucketSchema = z.object({ start: z.number(), end: z.number(), label: z.string() });
 
 export const personActivitySchema = z.object({
@@ -354,6 +363,8 @@ export const rpcContract = defineRpcContract({
       assignedIssues: z.array(assignedIssueSchema),
       /** Issues assigned to them that closed in the period. */
       issuesClosed: z.number(),
+      /** What they did on each local day of the period, by kind, for the strips at the top. */
+      activityDays: z.array(activityDaySchema),
       /** One page of their pull requests, as the toolbar narrows and orders them. */
       authored: z.array(authoredPullRequestSchema),
       /** All of their pull requests in the period, before the state filter. */
@@ -523,6 +534,7 @@ export type TeamActivity = z.infer<typeof teamActivitySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;
 export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
+export type ActivityDay = z.infer<typeof activityDaySchema>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;
 

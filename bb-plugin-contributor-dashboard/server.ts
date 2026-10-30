@@ -14,6 +14,7 @@ import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { awaitingTeamReview, openRequests, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
+import { activityDays } from "./review/activity-days.js";
 import { assignedIssues, closedAssignedIssues } from "./review/assigned-issues.js";
 import { authoredPullRequests, awaitingReview } from "./review/person.js";
 import { openFacets, openItems, queryOpen } from "./review/open-items.js";
@@ -207,6 +208,7 @@ export default async function plugin(bb: BbPluginApi) {
           organization: null,
           assignedIssues: [],
           issuesClosed: 0,
+          activityDays: [],
           authored: [],
           authoredTotal: 0,
           authoredFacets: authoredFacets([]),
@@ -241,6 +243,7 @@ export default async function plugin(bb: BbPluginApi) {
         organization: repository.split("/")[0],
         assignedIssues: withThreads(assignedIssues(issues, login), "issue"),
         issuesClosed: closedAssignedIssues(issues, login, buckets[0].start, buckets.at(-1)!.end),
+        activityDays: activityDays(everything, issues, login, buckets[0].start, buckets.at(-1)!.end),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredTotal: all.length,
         authoredFacets: authoredFacets(all),

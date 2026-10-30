@@ -29,6 +29,7 @@ function person(started: number[], givenTotal: number | null, issues: { held?: n
       updatedAt: "2026-09-01T09:00:00Z",
     })),
     issuesClosed: issues.closed ?? 0,
+    activityDays: [],
     authored: [],
     authoredTotal: 0,
     authoredFacets: { open: 0, draft: 0, merged: 0, closed: 0 },
