@@ -357,6 +357,31 @@ and runs again on every open, sync, and remount. Before adding one:
 - When verifying, count the calls rather than assuming them, for example from
   the plugin's log or a counter in the runner.
 
+## Decide when a plugin's stored data is deleted
+
+bb never deletes rows from a plugin's `data.db`, and keeps the file after the
+plugin is uninstalled. A table that gains rows on every publish, sync, or turn
+grows until someone notices. Impromptu UI's database once reached 200 MB,
+almost all of it images from views whose threads had been archived for weeks.
+
+When a plugin stores something, decide in the same change when it stops being
+needed, and delete it then:
+
+- Tie it to what it describes. Data about a thread can usually go once the
+  thread is deleted, or has been archived for a while.
+- Make the retention period a setting, with `0` to keep everything.
+- Delete only when a lookup confirms the thing is gone. A failed request is
+  not a missing thread.
+- Store large blobs, such as images, only when they are needed, and delete
+  them with the row they belong to.
+- Deleting rows does not shrink the file. Run `VACUUM` once enough pages are
+  free to be worth rewriting the file, as Impromptu UI's `reclaim()` does.
+- Say in the README what is kept, for how long, and how many API calls the
+  cleanup makes.
+
+Data that only grows because the thing it mirrors grows, such as a list of
+pull requests, still needs a limit, such as an age or a row count.
+
 ## Use bb's components before building your own
 
 `@get-bb/plugin-sdk/app` exports bb's own version of most surfaces a plugin
