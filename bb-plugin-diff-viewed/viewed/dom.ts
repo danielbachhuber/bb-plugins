@@ -13,6 +13,7 @@
 //     </label>
 //     <span data-diff-viewed-owned>…</span>                   <- this plugin's icon
 //   </span>
+import { viewedRingSvg } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
 import type { SyncMode } from "./github";
 
 /** Marks a node this plugin created, so cleanup can find every one of them. */
@@ -240,24 +241,6 @@ export type ProgressView =
     }
   | { kind: "unavailable"; reason: string };
 
-const RING_RADIUS = 6;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
-function ringSvg(viewed: number, total: number): string {
-  const fraction = total === 0 ? 0 : viewed / total;
-  const complete = total > 0 && viewed === total;
-  const dash = (fraction * RING_CIRCUMFERENCE).toFixed(2);
-  const color = complete ? "var(--success)" : "var(--primary)";
-  return (
-    '<svg viewBox="0 0 16 16" class="h-3 w-3 shrink-0 -rotate-90" aria-hidden="true">' +
-    `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="2"/>` +
-    `<circle cx="8" cy="8" r="${RING_RADIUS}" fill="none" stroke="${color}" stroke-width="2" ` +
-    `stroke-linecap="round" stroke-dasharray="${dash} ${RING_CIRCUMFERENCE.toFixed(2)}"` +
-    (fraction === 0 ? ' stroke-opacity="0"' : "") +
-    "/></svg>"
-  );
-}
-
 function progressMarkup(view: ProgressView): { html: string; title: string } {
   if (view.kind === "unavailable") {
     return {
@@ -275,7 +258,7 @@ function progressMarkup(view: ProgressView): { html: string; title: string } {
   const counted = `${viewed} of ${total} file${total === 1 ? "" : "s"} viewed`;
   return {
     html:
-      ringSvg(viewed, total) +
+      viewedRingSvg(viewed, total) +
       `<span class="truncate${pending ? " animate-pulse" : ""}">` +
       `<span class="${number}">${viewed}</span>` +
       '<span class="text-muted-foreground">/</span>' +

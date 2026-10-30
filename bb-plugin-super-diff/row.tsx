@@ -1,6 +1,7 @@
 // The row under bb's Diff tab picker: Generate Super Diff, then the
 // Super Diff | Original toggle, the status line, and Regenerate when out of date.
 import type { ReactNode } from "react";
+import { ViewedRing } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
 import type { DiffFile as FileEntry, DiffTarget as Target, LineSide, StoredSuperDiff } from "./grouping";
 
 /**
@@ -258,8 +259,15 @@ export function SuperDiffRow({
                   {link.changed} changed
                 </span>
               ) : null}
-              <span className="shrink-0 tabular-nums">
-                {link.viewed !== null ? `${link.viewed}/${link.total}` : link.total}
+              <span className="inline-flex shrink-0 items-center gap-1.5 tabular-nums">
+                {link.viewed !== null ? (
+                  <>
+                    <ViewedRing viewed={link.viewed} total={link.total} />
+                    {`${link.viewed}/${link.total}`}
+                  </>
+                ) : (
+                  link.total
+                )}
               </span>
             </button>
           ))}

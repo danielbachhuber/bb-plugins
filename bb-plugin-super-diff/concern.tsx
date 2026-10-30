@@ -2,6 +2,7 @@
 // has been viewed. Files the agent describes
 // together ("only the import is renamed") fold into one line.
 import type { ReactNode } from "react";
+import { ViewedProgress } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
 import { Prose } from "./annotations";
 
 export type ConcernFile = { path: string; summary?: string };
@@ -34,28 +35,6 @@ function ChangedPill() {
       title="Edited since the Super Diff was written, so its summary may be out of date"
     >
       changed
-    </span>
-  );
-}
-
-/** "2 of 4 viewed" and a bar, for a concern heading. */
-export function ViewedCount({ viewed, total }: { viewed: number; total: number }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
-      {viewed} of {total} viewed
-      <span
-        aria-hidden
-        style={{ display: "inline-block", width: 48, height: 4, borderRadius: 2, background: "var(--border)", overflow: "hidden" }}
-      >
-        <span
-          style={{
-            display: "block",
-            height: "100%",
-            width: `${total === 0 ? 0 : (100 * viewed) / total}%`,
-            background: "var(--diff-added, #16a34a)",
-          }}
-        />
-      </span>
     </span>
   );
 }
@@ -163,7 +142,7 @@ export function ConcernHeader({
       <div className="mt-1" style={{ paddingLeft: number !== null ? 32 : 0 }}>
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           {viewed !== null ? (
-            <ViewedCount viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
+            <ViewedProgress viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
           ) : (
             <span>
               {files.length} {files.length === 1 ? "file" : "files"}
