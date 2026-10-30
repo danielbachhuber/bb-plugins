@@ -1,8 +1,9 @@
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { useState } from "react";
+import type * as React from "react";
 
 import { priorityThreadId, type PriorityWeek } from "./now/priorities";
-import { PrioritiesColumn, WithPriorities } from "./now/priorities-column";
+import { PrioritiesSidebar } from "./now/priorities-sidebar";
 
 export default {
   title: "now/Priorities",
@@ -39,13 +40,16 @@ const week: PriorityWeek = {
 /** One priority already has a thread, so its button opens it. */
 const threads = { [priorityThreadId("2026-10-05", "Review project plans with the team")]: "thread-1" };
 
-/** Checking a box here changes only the story. */
-function Column({ initial }: { initial: PriorityWeek | null }) {
+/** Checking a box or opening the list here changes only the story. */
+function Box({ initial, initialOpen }: { initial: PriorityWeek | null; initialOpen: boolean }) {
   const [current, setCurrent] = useState(initial);
+  const [open, setOpen] = useState(initialOpen);
   return (
-    <PrioritiesColumn
+    <PrioritiesSidebar
       week={current}
       now={now}
+      open={open}
+      onOpenChange={setOpen}
       threads={threads}
       onStartThread={() => {}}
       onOpenThread={() => {}}
@@ -60,66 +64,31 @@ function Column({ initial }: { initial: PriorityWeek | null }) {
   );
 }
 
-/** Stand-in rows, so the layout shows where the list goes. */
-function List() {
+/** bb's sidebar footer box: rounded and bordered, as wide as the sidebar, at most 320px tall. */
+function Footer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-2 px-4 py-3 md:px-5 md:py-4">
-      {["Submit the widget grant report", "Reply to octocat about the widget launch date", "Look into gadget insurance", "Review the gadgets pull request"].map((title) => (
-        <div key={title} className="rounded-md border border-border px-3 py-2 text-sm">
-          {title}
-        </div>
-      ))}
+    <div className="w-[268px] bg-sidebar p-2">
+      <div className="max-h-80 overflow-auto rounded-lg border border-sidebar-border bg-sidebar-accent/50">{children}</div>
     </div>
   );
 }
 
-/** The column beside Now's list: one priority checked off, one with no time yet, one not linked to any workstream, and one with bullets nested two levels deep. The icon after each priority starts a thread about it, or opens the one already started. */
+/** The box in bb's sidebar, on every page: closed, it counts the week's priorities beside a ring filled by those checked off; opened, it lists them. */
 export function Default() {
   return (
     <StoryCard>
+      <StoryRow label="Closed" hint="One line, with a ring for the one priority checked off. The arrow opens the list, and the choice is remembered across reloads.">
+        <Footer>
+          <Box initial={week} initialOpen={false} />
+        </Footer>
+      </StoryRow>
       <StoryRow
-        label="States"
-        hint="Checked: struck through, still showing its hours. No time yet: linked workstreams got no hours this week. No hours line: nothing linked to measure it. The third priority already has a thread, so its icon opens it."
+        label="Open"
+        hint="Checked: struck through, still showing its hours. No time yet: linked workstreams got no hours this week. No hours line: nothing linked to measure it. The icon after each priority starts a thread about it on bb's new-thread page; the third already has one, so its icon opens it."
       >
-        <div className="w-64 rounded-lg border border-border bg-background p-4">
-          <Column initial={week} />
-        </div>
-      </StoryRow>
-    </StoryCard>
-  );
-}
-
-/** Wide, the priorities sit to the right of the list, and dragging the column's left edge changes its width. Narrow, they move above it. */
-export function Layout() {
-  return (
-    <StoryCard>
-      <StoryRow label="Wide" hint="A column on the right, kept in view while the list scrolls.">
-        <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={<Column initial={week} />} initialWidth={256}>
-            <List />
-          </WithPriorities>
-        </div>
-      </StoryRow>
-      <StoryRow label="Wide, widened" hint="The column dragged wider. The width is remembered across visits; double-clicking the edge puts it back.">
-        <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={<Column initial={week} />} initialWidth={400}>
-            <List />
-          </WithPriorities>
-        </div>
-      </StoryRow>
-      <StoryRow label="Narrow" hint="Above the list, full width.">
-        <div className="w-[560px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={<Column initial={week} />} initialWidth={256}>
-            <List />
-          </WithPriorities>
-        </div>
-      </StoryRow>
-      <StoryRow label="No priorities" hint="A week with none written: no column, and the list keeps the full width.">
-        <div className="w-[1000px] overflow-hidden rounded-lg border border-border bg-background">
-          <WithPriorities priorities={null} initialWidth={256}>
-            <List />
-          </WithPriorities>
-        </div>
+        <Footer>
+          <Box initial={week} initialOpen />
+        </Footer>
       </StoryRow>
     </StoryCard>
   );

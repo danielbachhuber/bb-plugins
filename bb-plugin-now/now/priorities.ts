@@ -100,14 +100,14 @@ export function weekLabel(monday: string): string {
   return `Week of ${new Date(year, month - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-/** The column's width in pixels, when it sits beside the list. */
-export const COLUMN_WIDTH = { min: 192, max: 520, initial: 256, step: 16 } as const;
+/** "5 priorities this week", the sidebar box's one line. */
+export function countLabel(items: readonly StoredPriority[]): string {
+  return `${items.length} ${items.length === 1 ? "priority" : "priorities"} this week`;
+}
 
-/** A width the column can take: whole pixels, within its bounds, or the initial width for anything unreadable. */
-export function clampColumnWidth(value: unknown): number {
-  const number = typeof value === "string" ? Number(value) : value;
-  if (typeof number !== "number" || !Number.isFinite(number)) return COLUMN_WIDTH.initial;
-  return Math.round(Math.min(COLUMN_WIDTH.max, Math.max(COLUMN_WIDTH.min, number)));
+/** "1 of 5 done", what the donut beside that line says. */
+export function progressLabel(items: readonly StoredPriority[]): string {
+  return `${doneCount(items)} of ${items.length} done`;
 }
 
 const THREAD_ID = /^priority:(\d{4}-\d{2}-\d{2}):(.+)$/s;

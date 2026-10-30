@@ -63,10 +63,10 @@ row, which is the gap the page is there to show.
 The priorities come from the same copy of the journal doc as this week's
 entry, so they cost no extra request (see below).
 
-### On the Now page
+### In Now
 
 When the [Now](../bb-plugin-now) plugin is installed, Weekly Review writes the
-week's priorities into it, where they show in a column beside Now's list. Each
+week's priorities into it, where they show in a box in bb's sidebar. Each
 goes with the hours its linked workstreams have had this week: none for a
 priority with no link, and none either when its workstreams had activity but
 no hours, so Now does not report it as getting no time. It writes after each

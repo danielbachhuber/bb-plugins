@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  clampColumnWidth,
+  countLabel,
   doneCount,
   hoursAsOf,
   hoursLabel,
@@ -9,6 +9,7 @@ import {
   mondayOf,
   parsePriorityThreadId,
   priorityPrompt,
+  progressLabel,
   priorityThreadId,
   priorityWeekSchema,
   weekLabel,
@@ -119,13 +120,12 @@ test("a list stored with bare-string details reads them as one level deep", () =
   expect(week.items[0]!.details).toEqual([{ text: "1:1 prep for octocat", depth: 1 }]);
 });
 
-test("clampColumnWidth keeps the column within its bounds", () => {
-  expect(clampColumnWidth(300.4)).toBe(300);
-  expect(clampColumnWidth("320")).toBe(320);
-  expect(clampColumnWidth(40)).toBe(192);
-  expect(clampColumnWidth(4000)).toBe(520);
-  expect(clampColumnWidth(null)).toBe(256);
-  expect(clampColumnWidth("wide")).toBe(256);
+test("countLabel and progressLabel say how many priorities there are, and how many are checked off", () => {
+  const item = (doneAt: string | null) => ({ text: "x", details: [], hours: null, doneAt });
+  const three = [item("2026-10-06T11:00:00Z"), item(null), item(null)];
+  expect(countLabel(three)).toBe("3 priorities this week");
+  expect(countLabel([item(null)])).toBe("1 priority this week");
+  expect(progressLabel(three)).toBe("1 of 3 done");
 });
 
 describe("threads from a priority", () => {

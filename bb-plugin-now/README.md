@@ -102,17 +102,27 @@ good sync, with a note saying how many.
 
 ## Priorities
 
-A column to the right of the list shows the week's priorities: the bullets
-under `Next:` in last week's journal entry, which
+A box at the bottom of bb's sidebar, on every page, holds the week's
+priorities: the bullets under `Next:` in last week's journal entry, which
 [Weekly Review](../bb-plugin-weekly-review) writes into Now after each of its
-gathers and whenever you link a priority to a workstream. The bullets nested
-under a priority show beneath it as a list that keeps the journal's levels,
-each deeper level indented further.
+gathers and whenever you link a priority to a workstream.
 
-The small icon after each priority starts a thread about it, in bb's own
-composer under the priority, seeded with the priority and the bullets under
-it, as Start thread does for a row. Once a thread has been started from a priority, the icon opens
-that thread instead.
+Closed, the box is one line, such as "5 priorities this week", beside a ring
+that fills as you check them off. Its arrow opens
+the priorities in full, each with a checkbox and its nested bullets, as a list
+that keeps the journal's levels. Whether the list is open is remembered across
+reloads. Past 320 pixels, bb's limit for the box, the list scrolls.
+
+Now opens the box each time bb loads, since bb itself forgets an open box on
+reload. bb shows one plugin's box at a time, so opening another plugin's box
+replaces it, and pressing Escape anywhere in bb closes it. The target icon in
+the sidebar's footer row opens it again. A week with no priorities written
+closes the box.
+
+The small icon after each priority opens bb's new-thread page with a prompt
+seeded with the priority and the bullets under it. The thread is not linked
+back to the priority. A priority a thread was started from on the Now page,
+before the priorities moved to the sidebar, still shows Open thread.
 
 Check a priority off when it is finished. It is struck through and stays in
 place. When Weekly Review writes the list again, a priority whose text has not
@@ -120,21 +130,15 @@ changed keeps its check, and one you reworded in the journal comes back
 unchecked. Nothing is written back to the journal.
 
 Under each priority are the hours its linked workstreams have had this week,
-as of Weekly Review's last gather, which the column's heading names. A linked
-priority with no hours yet says "No time yet" in amber. A priority not linked
-to any workstream shows no hours, since nothing measures it; link it on Weekly
-Review's page.
+as of Weekly Review's last gather, which the line under the list names. A
+linked priority with no hours yet says "No time yet" in amber. A priority not
+linked to any workstream shows no hours, since nothing measures it; link it on
+Weekly Review's page.
 
-Drag the column's left edge to change its width, between 192 and 520 pixels.
-The width is remembered across visits, and double-clicking the edge puts it
-back to 256. With the edge focused, the left and right arrow keys widen and
-narrow it. On a narrow page the column moves above the list. A week with no
-priorities written shows no column.
-
-Opening the page makes one read of Now's own database for the column, and no
-request to Weekly Review or any outside service. The column reads it again when
-Weekly Review writes a new list. Another plugin can write and read the list
-through the `priorities_set` and `priorities_get` RPC methods.
+Loading bb makes one read of Now's own database for the box, and no request to
+Weekly Review or any outside service. The box reads it again when Weekly Review
+writes a new list. Another plugin can write and read the list through the
+`priorities_set` and `priorities_get` RPC methods.
 
 ## Row actions
 
@@ -499,9 +503,9 @@ list `server.ts` passes to `loadSources`.
 | `skills/now-cli/` | The skill that tells an agent how to use `bb now` |
 | `now/contract.ts` | The RPC contract: reading the stored list, syncing, the row actions, an email in full, and the week's priorities |
 | `now/store.ts` | The database tables: the stored list, the threads started from rows, and the week's priorities |
-| `now/priorities.ts` | The priorities' shape, keeping a check across a rewrite, this week's Monday, the column's labels, and its width bounds |
+| `now/priorities.ts` | The priorities' shape, keeping a check across a rewrite, this week's Monday, and the sidebar box's labels |
 | `now/priorities-store.ts` | Reading and writing a week's priorities and their checks |
-| `now/priorities-column.tsx` | The Priorities column with its nested bullets, and the page layout that puts it beside or above the list, with the edge that resizes it |
+| `now/priorities-sidebar.tsx` | The Priorities box in bb's sidebar: the line saying how many are done, and the list it opens to, with nested bullets |
 | `now/item-row.tsx` | One row: its details, state chips, buttons, and reply box |
 | `now/postpone-menu.tsx` | Postpone's menu on a Todoist row |
 | `now/task-edit.tsx` | A Todoist row's edit strip: the name, the description, the due date and deadline boxes, project picker, priority flags, and Delete |
@@ -539,7 +543,7 @@ list `server.ts` passes to `loadSources`.
 | `now/usage.ts` | Counting every call to Todoist, Gmail, Calendar, and GitHub by service, split into syncs and the calls between them, for the sync status |
 | `item-list.stories.tsx` | The page in every state, for `npm run storybook` at the root |
 | `email-reader.stories.tsx` | The Email tab beside the list, for `npm run storybook` at the root |
-| `priorities.stories.tsx` | The Priorities column and its wide, narrow, and empty layouts, for `npm run storybook` at the root |
+| `priorities.stories.tsx` | The Priorities box in bb's sidebar, closed and open, for `npm run storybook` at the root |
 | `server.ts` | The settings, the sync (shared between callers), the background service, and the RPC handlers |
 | `app.tsx` | The sidebar page, its title-bar sync control, its Email tab, and its navigation badge, which read the stored list and sync on open |
 

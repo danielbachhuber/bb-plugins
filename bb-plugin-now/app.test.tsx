@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 
-import { mondayOf, priorityThreadId } from "./now/priorities.js";
+import { mondayOf } from "./now/priorities.js";
 import type { Item } from "./now/types.js";
 
 // jsdom lays nothing out and has no ResizeObserver; the rows only measure
@@ -14,6 +14,19 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 } as unknown as typeof ResizeObserver;
+
+// This jsdom has no localStorage, and the sidebar remembers whether its list is open in it.
+if (window.localStorage === undefined) {
+  const values = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => void values.set(key, value),
+      removeItem: (key: string) => void values.delete(key),
+      clear: () => values.clear(),
+    },
+  });
+}
 
 const app = await loadPluginApp(() => import("./app.js"));
 
@@ -90,14 +103,6 @@ function render(extraRpc: Record<string, unknown> = {}) {
         items_list: () => listing(),
         items_sync: () => ({ synced: false, error: null }),
         todoist_projects: () => ({ projects: [], error: null }),
-        priorities_get: () => ({
-          monday: MONDAY,
-          source: "weekly-review",
-          heading: null,
-          hoursAt: null,
-          writtenAt: new Date().toISOString(),
-          items: [{ text: PRIORITY, details: [], hours: null, doneAt: null }],
-        }),
         items_start_thread: () => ({ threadId: "thr_new", existing: false, error: null }),
         ...extraRpc,
       },
@@ -117,7 +122,6 @@ async function settled(slot: Slot) {
   await waitFor(() => {
     const methods = slot.inspection.rpcCalls.map((call) => call.method);
     expect(methods).toContain("items_sync");
-    expect(methods).toContain("priorities_get");
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -205,23 +209,63 @@ describe("Start thread on a row", () => {
   });
 });
 
-describe("Start thread on a priority", () => {
-  it("opens the box under the priority, seeded with it, and its icon closes it again", async () => {
-    const slot = render();
-    await settled(slot);
-    const button = await slot.findByRole("button", { name: `Start thread: ${PRIORITY}` });
-    const priority = button.closest("li")! as HTMLElement;
-    fireEvent.click(button);
+function week(items: Array<{ text: string; doneAt?: string | null }>) {
+  return {
+    monday: MONDAY,
+    source: "weekly-review",
+    heading: null,
+    hoursAt: null,
+    writtenAt: new Date().toISOString(),
+    items: items.map((each) => ({ details: [], hours: null, doneAt: null, ...each })),
+  };
+}
 
-    const box = await within(priority).findByRole("region", { name: "Start a thread" });
-    expect(button).toHaveAttribute("aria-expanded", "true");
-    expect(within(box).getByTestId("bb-new-thread-composer").dataset.draftKey).toMatch(
-      new RegExp(`^now:${priorityThreadId(MONDAY, PRIORITY).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
-    );
-    expect((within(box).getByTestId("bb-new-thread-composer-input") as HTMLTextAreaElement).value).toContain(PRIORITY);
+/** The priorities box in bb's sidebar footer, with the week `priorities_get` answers. */
+function renderFooter(priorities: ReturnType<typeof week> | null) {
+  const dismissed: number[] = [];
+  const slot = renderSlot(
+    app.experimentalSidebarFooterItems[0]!,
+    { dismiss: () => dismissed.push(1) },
+    { rpc: { items_list: () => listing(), priorities_get: () => priorities } },
+  );
+  mounted = slot;
+  return { slot, dismissed };
+}
 
-    fireEvent.click(button);
-    await waitFor(() => expect(within(priority).queryByRole("region", { name: "Start a thread" })).toBeNull());
+describe("Priorities in the sidebar", () => {
+  afterEach(() => window.localStorage.clear());
+
+  it("says how many there are and how many are done, and opens to the priorities", async () => {
+    const { slot } = renderFooter(week([{ text: PRIORITY, doneAt: new Date().toISOString() }, { text: "Plan the fall talks" }]));
+    const summary = await slot.findByRole("button", { name: /2 priorities this week/ });
+    expect(within(summary).getByRole("img", { name: "1 of 2 done" })).toBeInTheDocument();
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    expect(slot.queryByText(PRIORITY)).toBeNull();
+
+    fireEvent.click(summary);
+    expect(await slot.findByText(PRIORITY)).toBeInTheDocument();
+    expect(window.localStorage.getItem("bb-plugin-now:priorities-open")).toBe("true");
+  });
+
+  it("opens bb's new-thread page seeded with the priority, in the threads' project", async () => {
+    window.localStorage.setItem("bb-plugin-now:priorities-open", "true");
+    const { slot } = renderFooter(week([{ text: PRIORITY }]));
+    await waitFor(() => expect(slot.inspection.rpcCalls.map((call) => call.method)).toContain("items_list"));
+    fireEvent.click(await slot.findByRole("button", { name: `Start thread: ${PRIORITY}` }));
+
+    const call = (
+      slot.inspection.navigateCalls.find((entry) => entry.method === "toCompose") as
+        | { options?: { initialPrompt?: string; projectId?: string } }
+        | undefined
+    )?.options;
+    expect(call?.initialPrompt).toContain(PRIORITY);
+    expect(call?.projectId).toBe("proj_a");
+    expect(slot.inspection.rpcCalls.some((entry) => entry.method === "items_start_thread")).toBe(false);
+  });
+
+  it("closes the box in a week with no priorities", async () => {
+    const { dismissed } = renderFooter(null);
+    await waitFor(() => expect(dismissed).toHaveLength(1));
   });
 });
 

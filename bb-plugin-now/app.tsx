@@ -8,6 +8,7 @@ import {
   useRealtime,
   useRpc,
   type ExperimentalPluginFixedTabReference,
+  type ExperimentalSidebarFooterDisclosureProps,
   type JsonValue,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
@@ -19,8 +20,8 @@ import type { rpcContract } from "./server";
 import { listingSchema, PRIORITIES_CHANNEL, SYNC_CHANNEL, type EmailThread, type Listing } from "./now/contract.js";
 import { EmailReader, EmailReaderNote } from "./now/email-reader.js";
 import { ItemListView } from "./now/item-list.js";
-import { mondayOf, priorityPrompt, priorityThreadId, weekLabel, type PriorityWeek, type StoredPriority } from "./now/priorities.js";
-import { PrioritiesColumn, WithPriorities } from "./now/priorities-column.js";
+import { mondayOf, priorityPrompt, type PriorityWeek } from "./now/priorities.js";
+import { PrioritiesSidebar } from "./now/priorities-sidebar.js";
 import { latestMessageText } from "./now/email-text.js";
 import { ReadingContext, type PendingAction, type RowActions } from "./now/item-row.js";
 import { sidebarCounts } from "./now/sections.js";
@@ -325,10 +326,9 @@ function useRowActions(
 }
 
 /**
- * Start a thread about a row or a priority: `start` and `startPriority` open
- * bb's composer seeded with it, or close it when it is already open for that
- * one, and `boxFor` draws it under whichever row, priority, or email it is
- * open for.
+ * Start a thread about a row: `start` opens bb's composer seeded with it, or
+ * closes it when it is already open for that one, and `boxFor` draws it under
+ * whichever row or email it is open for.
  */
 function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProjectId: string | null) {
   const navigate = useBbNavigate();
@@ -361,24 +361,7 @@ function useStartThread(rpc: ReturnType<typeof useListing>["rpc"], threadProject
     [box, threadProjectId],
   );
 
-  const startPriority = useCallback(
-    (monday: string, priority: StoredPriority) => {
-      const key = priorityThreadId(monday, priority.text);
-      box.toggle({
-        key,
-        draftKey: `now:${key}`,
-        title: priority.text,
-        seed: {
-          projectId: threadProjectId,
-          prompt: priorityPrompt(monday, priority),
-          preview: { title: priority.text, url: null, meta: `Priority for the ${weekLabel(monday).replace(/^Week/, "week")}` },
-        },
-      });
-    },
-    [box, threadProjectId],
-  );
-
-  return { start, startPriority, boxFor: box.boxFor, isStarting: box.isStarting, startedThread: box.startedThread };
+  return { start, boxFor: box.boxFor, isStarting: box.isStarting, startedThread: box.startedThread };
 }
 
 function NowPage() {
@@ -387,7 +370,7 @@ function NowPage() {
   const navigate = useBbNavigate();
   const panel = experimental_useAppPanel();
   const reading = experimental_useFixedTabTarget(EMAIL_TAB)?.target.id ?? null;
-  const { start, startPriority, boxFor, isStarting, startedThread } = useStartThread(rpc, listing?.threadProjectId ?? null);
+  const { start, boxFor, isStarting, startedThread } = useStartThread(rpc, listing?.threadProjectId ?? null);
 
   const threadActions = useMemo(
     () => ({
@@ -436,30 +419,13 @@ function NowPage() {
     rpc.call("items_sync", { ifOlderThanMs: STALE_ON_OPEN_MS }).catch(() => undefined);
   }, [rpc]);
 
-  const priorities = usePriorities(rpc);
   // bb's sidebar, already on the page, says what each row's thread is doing.
   const threadStatus = useThreadStatus();
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <ReadingContext.Provider value={reading}>
-        <WithPriorities
-          priorities={
-            priorities.week === null || priorities.week.items.length === 0 ? null : (
-              <PrioritiesColumn
-                week={priorities.week}
-                now={new Date()}
-                onToggle={priorities.toggle}
-                threads={listing?.threads ?? {}}
-                onStartThread={(priority) => startPriority(priorities.week!.monday, priority)}
-                renderStartThread={(priority) => boxFor(priorityThreadId(priorities.week!.monday, priority.text))}
-                isThreadStarting={(priority) => isStarting(priorityThreadId(priorities.week!.monday, priority.text))}
-                startedThread={(priority) => startedThread(priorityThreadId(priorities.week!.monday, priority.text))}
-                onOpenThread={(threadId) => navigate.toThread(threadId)}
-              />
-            )
-          }
-        >
+
           <ItemListView
             listing={listing}
             now={new Date()}
@@ -468,7 +434,6 @@ function NowPage() {
             projects={projects}
             threadStatus={threadStatus}
           />
-        </WithPriorities>
       </ReadingContext.Provider>
     </div>
   );
@@ -480,8 +445,12 @@ function NowPage() {
  */
 function usePriorities(rpc: ReturnType<typeof useRpc<typeof rpcContract>>) {
   const [week, setWeek] = useState<PriorityWeek | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const load = useCallback(() => {
-    rpc.call("priorities_get", { monday: mondayOf(new Date()) }).then(setWeek, () => undefined);
+    rpc.call("priorities_get", { monday: mondayOf(new Date()) }).then((next) => {
+      setWeek(next);
+      setLoaded(true);
+    }, () => undefined);
   }, [rpc]);
   useEffect(load, [load]);
   useRealtime(PRIORITIES_CHANNEL, load);
@@ -516,7 +485,7 @@ function usePriorities(rpc: ReturnType<typeof useRpc<typeof rpcContract>>) {
     },
     [rpc, week],
   );
-  return { week, toggle };
+  return { week, loaded, toggle };
 }
 
 /**
@@ -592,6 +561,54 @@ function EmailTab() {
   );
 }
 
+const PRIORITIES_OPEN_KEY = "bb-plugin-now:priorities-open";
+
+/** Whether the sidebar's priorities list is showing, remembered across reloads. */
+function usePrioritiesOpen(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => listingStore()?.getItem(PRIORITIES_OPEN_KEY) === "true");
+  const change = useCallback((next: boolean) => {
+    setOpen(next);
+    listingStore()?.setItem(PRIORITIES_OPEN_KEY, String(next));
+  }, []);
+  return [open, change];
+}
+
+/**
+ * The week's priorities in bb's sidebar footer. Start thread opens bb's
+ * new-thread page with the priority's prompt, since the composer does not fit
+ * the sidebar. A week with none closes the box.
+ */
+function PrioritiesFooter({ dismiss }: ExperimentalSidebarFooterDisclosureProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const { listing } = useListing();
+  const { week, loaded, toggle } = usePriorities(rpc);
+  const [open, setOpen] = usePrioritiesOpen();
+  const navigate = useBbNavigate();
+  const empty = loaded && (week === null || week.items.length === 0);
+  useEffect(() => {
+    if (empty) dismiss();
+  }, [dismiss, empty]);
+
+  return (
+    <PrioritiesSidebar
+      week={week}
+      now={new Date()}
+      open={open}
+      onOpenChange={setOpen}
+      onToggle={toggle}
+      threads={listing?.threads ?? {}}
+      onStartThread={(priority) =>
+        navigate.toCompose({
+          initialPrompt: priorityPrompt(week!.monday, priority),
+          projectId: listing?.threadProjectId ?? undefined,
+          focusPrompt: true,
+        })
+      }
+      onOpenThread={(threadId) => navigate.toThread(threadId)}
+    />
+  );
+}
+
 /**
  * Now's badge in bb's sidebar and rail: the urgent count in red, or else the
  * due today count in amber. It re-reads on the same signal as the page, so
@@ -615,4 +632,9 @@ export default definePluginApp((app) => {
     fixedTabs: [{ ...EMAIL_TAB, title: "Email", icon: "Mail", component: EmailTab, layout: "flush" }],
     experimental_useBadge: useNowBadge,
   });
+  // Opened on every load, so the priorities stay in view; bb itself forgets an
+  // open box on reload.
+  app.experimental_sidebarFooter
+    .register({ kind: "disclosure", id: "priorities", label: "This week's priorities", icon: "Target", component: PrioritiesFooter })
+    .open();
 });
