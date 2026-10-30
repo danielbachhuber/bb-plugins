@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildCard } from "./fixture";
+import { buildCard, buildPierreCard } from "./fixture";
 import {
   startEngine,
   githubSlotId,
@@ -622,6 +622,57 @@ describe("the hover affordance", () => {
     engine.reload("thr_other");
     await settle(engine);
     expect(h.rpc.mock.calls.length).toBe(calls);
+    engine.dispose();
+  });
+});
+
+describe.each(["split", "unified"] as const)("commenting in %s view", (view) => {
+  const OLD = "const a = 1;\nconst c = 3;\n";
+  const NEW = "const a = 1;\nconst b = 2;\nconst c = 3;\n";
+
+  /** Hover an added line and press the comment button in its gutter. */
+  function pressOn(host: HTMLElement, line: number): void {
+    const root = host.shadowRoot!;
+    const column = root.querySelector("[data-additions], [data-unified]")!;
+    const row = column.querySelector<HTMLElement>(`[data-line="${line}"]`)!;
+    row.dispatchEvent(new window.Event("pointerover", { bubbles: true }));
+    const trigger = column.querySelector<HTMLElement>(`[${TRIGGER_ATTR}]`)!;
+    trigger.dispatchEvent(new window.Event("pointerdown", { bubbles: true, cancelable: true }));
+  }
+
+  it("opens the composer under the pressed line, and keeps it open", async () => {
+    const { host } = await buildPierreCard("src/a.ts", { view, old: OLD, new: NEW });
+    const h = harness([]);
+    const engine = startEngine(h.deps);
+    await settle(engine);
+
+    pressOn(host, 2);
+    expect(h.mountComposer).toHaveBeenCalledTimes(1);
+    const [, draft] = h.mountComposer.mock.calls[0]! as [HTMLElement, Draft];
+    expect(draft).toMatchObject({ side: "new", line: 2, anchor: { text: "const b = 2;" } });
+
+    const slot = host.shadowRoot!.querySelector(`slot[name="${slotNameFor(DRAFT_ID)}"]`)!;
+    const row = slot.closest("[data-line-annotation]")!;
+    expect(row.previousElementSibling!.getAttribute("data-line")).toBe("2");
+
+    // bb re-renders constantly, and each one runs another pass. A pass that
+    // rebuilds the rows unmounts the composer and whatever was typed in it.
+    engine.syncNow();
+    engine.syncNow();
+    expect(h.mountComposer).toHaveBeenCalledTimes(1);
+    expect(h.unmountCard).not.toHaveBeenCalled();
+    engine.dispose();
+  });
+
+  it("keeps a saved comment's card mounted across passes", async () => {
+    await buildPierreCard("src/a.ts", { view, old: OLD, new: NEW });
+    const h = harness([comment()]);
+    const engine = startEngine(h.deps);
+    await settle(engine);
+    engine.syncNow();
+    engine.syncNow();
+    expect(h.mountCard).toHaveBeenCalledTimes(1);
+    expect(h.unmountCard).not.toHaveBeenCalled();
     engine.dispose();
   });
 });

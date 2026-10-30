@@ -16,6 +16,7 @@ import {
   sideOfRow,
   slotNameFor,
   OWNED_ATTR,
+  SPACER_ATTR,
   TRIGGER_ATTR,
 } from "./dom";
 import { quoteSelection } from "@/comment/quote";
@@ -222,9 +223,14 @@ export function startEngine(deps: EngineDeps): Engine {
 
     // A re-render by bb drops our rows without changing the placements, so
     // presence has to be checked as well as the key — otherwise the rows never
-    // come back. Counting the content rows we own is enough to tell.
+    // come back. Counting the content rows we own is enough to tell. Split
+    // spacers are left out of the count: counting them made every pass in
+    // split view look like a lost row, and each rebuild re-added the card
+    // holders, which scheduled the next rebuild.
     const expectedRows = placements.length + threadPlacements.length + (draftHere ? 1 : 0);
-    const actualRows = root.querySelectorAll(`[${OWNED_ATTR}][data-line-annotation]`).length;
+    const actualRows = root.querySelectorAll(
+      `[${OWNED_ATTR}][data-line-annotation]:not([${SPACER_ATTR}])`,
+    ).length;
     if (applied.get(host) === key && actualRows === expectedRows) return;
 
     unmountHolders(host);

@@ -5,7 +5,7 @@
 // upgrade moves that shape, this file is where it surfaces, and the fix is to
 // re-read DiffHunksRenderer and update the fixture and diff/dom.ts together.
 import { afterEach, describe, expect, it } from "vitest";
-import { buildDiff, shape, spanOf } from "./fixture";
+import { buildDiff, buildPierreCard, gridRowsByLineIndex, shape, spanOf } from "./fixture";
 import { cardHolder, insertRow, readLines, removeOwned, slotNameFor } from "./dom";
 
 afterEach(() => {
@@ -258,5 +258,78 @@ describe("readLines and the hover affordance", () => {
     row.append(trigger);
 
     expect(readLines(columns[0]!)[0]!.text).toBe("const a = 1;");
+  });
+});
+
+describe("insertRow on a diff Pierre rendered", () => {
+  // Lines added after "two", "four" removed, and "six" changed: a hunk with
+  // nothing on the old side, one with nothing on the new side, and a
+  // modification. The first two are where Pierre draws a buffer spanning
+  // several rows instead of one row per line.
+  const OLD = "one\ntwo\nthree\nfour\nfive\nsix\n";
+  const NEW = "one\ntwo\nadd1\nadd2\nadd3\nthree\nfive\nsix changed\n";
+
+  /** Every line in each column, as [column index, side, line number]. */
+  function targets(columns: HTMLElement[]): Array<[number, "old" | "new", number]> {
+    return columns.flatMap((code, at) =>
+      readLines(code).map((line): [number, "old" | "new", number] => [at, line.side, line.line]),
+    );
+  }
+
+  function contentRows(code: Element): Element[] {
+    return Array.from(code.querySelector("[data-content]")!.children);
+  }
+
+  it.each(["split", "unified"] as const)(
+    "puts the row under every line in %s view and keeps the columns in step",
+    async (view) => {
+      const first = await buildPierreCard("src/a.ts", { view, old: OLD, new: NEW });
+      const all = targets(first.columns);
+      expect(all.length).toBeGreaterThan(0);
+      document.body.replaceChildren();
+
+      for (const [at, side, line] of all) {
+        const { columns } = await buildPierreCard("src/a.ts", { view, old: OLD, new: NEW });
+        const code = columns[at]!;
+        expect(insertRow(code, line, side, SLOT)).toBe(true);
+
+        // The comment row is the next child after its line.
+        const rows = contentRows(code);
+        const index = rows.findIndex((row) => row.querySelector(`slot[name="${SLOT}"]`) !== null);
+        expect(rows[index - 1]!.getAttribute("data-line")).toBe(String(line));
+
+        // Gutter and content stacks still match, child for child.
+        for (const column of columns) {
+          const [cells, contents] = shape([column])[0]!;
+          expect(cells).toBe(contents);
+        }
+
+        // Every line still sits beside its partner on the other side.
+        if (view === "split") {
+          const left = gridRowsByLineIndex(columns[0]!);
+          const right = gridRowsByLineIndex(columns[1]!);
+          for (const [lineIndex, row] of left) {
+            if (right.has(lineIndex)) expect([lineIndex, right.get(lineIndex)]).toEqual([lineIndex, row]);
+          }
+          expect(spanOf(columns[0]!.querySelector("[data-content]")!)).toBe(
+            spanOf(columns[1]!.querySelector("[data-content]")!),
+          );
+        }
+        document.body.replaceChildren();
+      }
+    },
+  );
+
+  it("puts the DOM back exactly as it was after a row inside a buffer", async () => {
+    const { root, columns } = await buildPierreCard("src/a.ts", {
+      view: "split",
+      old: OLD,
+      new: NEW,
+    });
+    const before = root.innerHTML;
+    // "add2" is mid-hunk, so the old side's spacer lands inside its buffer.
+    insertRow(columns[1]!, 4, "new", SLOT);
+    removeOwned(root);
+    expect(root.innerHTML).toBe(before);
   });
 });

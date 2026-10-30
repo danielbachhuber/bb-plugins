@@ -15,8 +15,11 @@
 //
 //  1. A comment row must go into BOTH stacks at the same index.
 //  2. Both `grid-row: span N` values must become N+1.
-//  3. In split view the opposite column needs a blank row at the same index,
-//     or the two halves drift a row apart.
+//  3. In split view the opposite column needs a blank row in the same GRID
+//     row, or the two halves drift a row apart. That is not the same child
+//     index: where one side added or removed lines, Pierre fills the other
+//     side with a single `[data-content-buffer]` (and a matching
+//     `[data-gutter-buffer="buffer"]`) spanning all of those rows.
 //
 // Before changing anything here, read DiffHunksRenderer and
 // createAnnotationElement in @pierre/diffs — this file mirrors what Pierre
@@ -218,17 +221,56 @@ export function cardHolder(host: HTMLElement, commentId: string): HTMLElement {
   return holder;
 }
 
-/** Insert an empty row at `index` so a column keeps pace with its sibling. */
-function insertSpacer(code: Element, index: number): boolean {
+/** How many grid rows one stack child covers: its `grid-row: span N`, or 1. */
+function rowsSpanned(child: Element): number {
+  const match = /grid-row:\s*span\s+(\d+)/.exec(child.getAttribute("style") ?? "");
+  return match === null ? 1 : Number(match[1]);
+}
+
+/** The last grid row, counted from 1, that a stack's child at `index` covers. */
+function lastGridRow(children: Element[], index: number): number {
+  let row = 0;
+  for (let at = 0; at <= index; at += 1) row += rowsSpanned(children[at]!);
+  return row;
+}
+
+/**
+ * Insert an empty row into a split's other column, in the grid row right after
+ * `afterRow`, so the column keeps pace with its sibling.
+ *
+ * When `afterRow` falls inside a buffer that spans several rows, the spacer
+ * goes after the whole buffer and is drawn as more buffer. The rows still line
+ * up below it, and the hatched gap just grows by one row.
+ */
+function insertSpacer(code: Element, afterRow: number): boolean {
   const gutter = gutterOf(code);
   const content = contentOf(code);
   if (gutter === null || content === null) return false;
-  const anchorRow = content.children[index];
-  const anchorCell = gutter.children[index];
+  const rows = Array.from(content.children);
+  const cells = Array.from(gutter.children);
+  if (rows.length !== cells.length) return false;
+
+  let index = 0;
+  let last = 0;
+  for (; index < rows.length; index += 1) {
+    last += rowsSpanned(rows[index]!);
+    if (last >= afterRow) break;
+  }
+  const anchorRow = rows[index];
+  const anchorCell = cells[index];
   if (anchorRow === undefined || anchorCell === undefined) return false;
 
-  anchorRow.after(contentRow(null));
-  anchorCell.after(gutterCell("context", true));
+  const inside = last > afterRow && anchorRow.hasAttribute("data-content-buffer");
+  const row = contentRow(null);
+  const cell = gutterCell("context", true);
+  if (inside) {
+    row.removeAttribute("data-line-annotation");
+    row.setAttribute("data-content-buffer", "");
+    cell.setAttribute("data-gutter-buffer", "buffer");
+    cell.removeAttribute("data-line-type");
+  }
+  anchorRow.after(row);
+  anchorCell.after(cell);
   return bumpSpan(gutter, 1) && bumpSpan(content, 1);
 }
 
@@ -265,7 +307,7 @@ export function insertRow(
   if (!bumpSpan(gutter, 1) || !bumpSpan(content, 1)) return false;
 
   const sibling = siblingColumn(code);
-  if (sibling !== null) insertSpacer(sibling, index);
+  if (sibling !== null) insertSpacer(sibling, lastGridRow(rows, index));
   return true;
 }
 

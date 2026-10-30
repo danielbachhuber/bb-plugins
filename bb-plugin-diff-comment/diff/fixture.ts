@@ -71,7 +71,9 @@ export function buildDiff(
 
   const host = doc.createElement("diffs-container");
   doc.body.append(host);
-  const root = host.attachShadow({ mode: "open" });
+  // Once a test has imported @pierre/diffs, `diffs-container` is Pierre's own
+  // custom element, which attaches its shadow root itself.
+  const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
 
   const pre = doc.createElement("pre");
   pre.setAttribute("data-diff", "");
@@ -129,4 +131,49 @@ export function buildCard(
   document.body.append(card);
 
   return { ...fixture, card };
+}
+
+/**
+ * A changes-panel card around a diff that Pierre itself rendered, for the
+ * tests that depend on Pierre's real layout rather than the stand-in above.
+ *
+ * The stand-in gives both sides of a split one child per line. Pierre does
+ * not: where one side added or removed lines, the other side gets a single
+ * `[data-content-buffer]` spanning all of them. Code that matched the two
+ * sides by child index passed every test on the stand-in and put split
+ * view's rows out of step.
+ */
+export async function buildPierreCard(
+  path: string,
+  input: { view: "split" | "unified"; old: string; new: string },
+): Promise<Fixture & { card: HTMLElement }> {
+  const { preloadMultiFileDiff } = await import("@pierre/diffs/ssr");
+  const { prerenderedHTML } = await preloadMultiFileDiff({
+    oldFile: { name: path, contents: input.old },
+    newFile: { name: path, contents: input.new },
+    options: { diffStyle: input.view, overflow: "wrap", disableFileHeader: true },
+  });
+
+  const fixture = buildCard(path, { view: "unified", lines: [] });
+  // Without its stylesheet, which jsdom cannot parse and nothing here reads.
+  fixture.root.innerHTML = prerenderedHTML.replace(/<style[\s\S]*?<\/style>/g, "");
+  return { ...fixture, columns: Array.from(fixture.root.querySelectorAll<HTMLElement>("[data-code]")) };
+}
+
+/**
+ * The grid row each code line sits in, keyed by Pierre's `data-line-index`,
+ * which a line shares with its partner on the other side of a split. Two
+ * columns are in step when every index they share maps to the same row.
+ */
+export function gridRowsByLineIndex(code: Element): Map<string, number> {
+  const content = directChild(code, "data-content");
+  const rows = new Map<string, number>();
+  let row = 0;
+  for (const child of Array.from(content.children)) {
+    const span = /grid-row:\s*span\s+(\d+)/.exec(child.getAttribute("style") ?? "");
+    row += span === null ? 1 : Number(span[1]);
+    const index = child.getAttribute("data-line-index");
+    if (index !== null) rows.set(index, row);
+  }
+  return rows;
 }
