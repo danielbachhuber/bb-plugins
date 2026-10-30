@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CommentCard } from "./comment/cards";
+import { CommentCard, CommentComposer } from "./comment/cards";
 import type { Comment } from "./comment/types";
 
 export default { title: "diff-comment/Comments" };
@@ -8,9 +8,9 @@ const NOW = Date.parse("2026-09-17T12:00:00Z");
 const at = (hoursAgo: number) => new Date(NOW - hoursAgo * 3_600_000).toISOString();
 const noop = () => {};
 
-function Frame({ children }: { children: ReactNode }) {
+function Frame({ children, width = 640 }: { children: ReactNode; width?: number }) {
   return (
-    <div data-screenshot-frame style={{ width: 640, padding: 16 }}>
+    <div data-screenshot-frame style={{ width, padding: 16 }}>
       {children}
     </div>
   );
@@ -53,6 +53,19 @@ export const ConversationWithTheAgent = () => (
       onEdit={noop}
       onRemove={noop}
       onFollowUp={async () => {}}
+    />
+  </Frame>
+);
+
+// 300px is about the width of one side of a split diff in bb's right panel.
+/** In a narrow column, such as one side of a split diff, the composer's buttons wrap onto a second row instead of running past the card's edge. */
+export const ComposerInANarrowColumn = () => (
+  <Frame width={332}>
+    <CommentComposer
+      location="src/sprocket.ts:18"
+      onAsk={noop}
+      onCancel={noop}
+      github={{ check: async () => ({ state: "ready", number: 7 }), post: async () => {} }}
     />
   </Frame>
 );

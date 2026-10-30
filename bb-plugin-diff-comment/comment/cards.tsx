@@ -203,10 +203,16 @@ export function Header({ children }: { children: ReactNode }) {
   );
 }
 
-/** The tinted strip along the bottom that holds a card's actions. */
+/**
+ * The tinted strip along the bottom that holds a card's actions. It wraps, as
+ * the header does, because one side of a split diff can be narrower than the
+ * buttons, and a row that cannot wrap pushes the last one past the card's edge.
+ */
 export function Footer({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-muted/40 flex items-center gap-2 border-t px-3 py-2">{children}</div>
+    <div className="bg-muted/40 flex flex-wrap items-center gap-2 border-t px-3 py-2">
+      {children}
+    </div>
   );
 }
 
@@ -317,7 +323,7 @@ export function BodyEditor({
         <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-        <span className="text-muted-foreground ml-auto text-[11px]">
+        <span className="text-muted-foreground ml-auto text-[11px] whitespace-nowrap">
           ⌘↵ to {submitLabel.toLowerCase()}
         </span>
       </Footer>
