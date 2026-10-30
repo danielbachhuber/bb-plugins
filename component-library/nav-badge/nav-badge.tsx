@@ -100,7 +100,8 @@ export function railStripCss(itemId: string, { urgent, second, secondTone }: Rai
   const entry = `[data-nav-rail-item="${itemId.replace(/["\\]/g, "\\$&")}"]`;
   const both = urgent > 0 && second > 0;
   const cell = [
-    "position: absolute; pointer-events: none; z-index: 1;",
+    // Drawn on the button, so a click on the strip opens the page.
+    "position: absolute; z-index: 1;",
     "right: calc(1px - var(--bb-sidebar-rail-padding)); width: 12px;",
     `height: ${CELL_HEIGHT}px; box-sizing: border-box; padding-top: 1px;`,
     "display: flex; align-items: center; justify-content: center;",

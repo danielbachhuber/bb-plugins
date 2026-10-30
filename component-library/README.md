@@ -216,7 +216,8 @@ the rail's right edge, centered on the icon: red on top, then amber for
 `"today"` or orange for `"working"`, every count in white. Each count is one character, a dot for
 10 or more, and a lone count is a single cell. It keeps a style element in
 the document's head that hides bb's mark on that rail entry and draws the
-strip with the button's `::before` and `::after`, and removes it when the
+strip with the button's `::before` and `::after`, so a click on the strip
+opens the page, and removes it when the
 hook unmounts. It finds the entry by bb's `data-nav-rail-item`, which is
 `<plugin id>/<panel id>`. The sidebar list keeps bb's badge.
 
