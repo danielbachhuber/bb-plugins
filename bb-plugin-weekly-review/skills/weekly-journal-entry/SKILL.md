@@ -51,7 +51,10 @@ Never draft `Reflections/Learnings:`; that is the user's own thinking.
 Look through every section of the week's entry for a bullet on the same
 work before drafting anything. Match on what it is about: the same doc, PR,
 or issue linked, the same people, the same request. The words will differ,
-since the user wrote it in their own.
+since the user wrote it in their own. A bullet is the top-level line and
+every sub-bullet nested under it, so match on the sub-bullets too, and weigh
+the whole bullet against the evidence. When the user asks you to update an
+entry, this is the bullet to work on.
 
 When there is one, never draft a second bullet. Weigh the existing bullet
 against the evidence:
@@ -63,8 +66,9 @@ against the evidence:
   questions or points the user worked through, a missing link, a wrong fact,
   an `AI-Native SDLC:` note. Start from the user's text and keep their
   wording, links, and order; add to it rather than rewriting it. The draft is
-  the whole bullet as it would read after the change, nested bullets
-  included.
+  the whole bullet as it would read after the change, every sub-bullet
+  included, since accepting it replaces all of them. A sub-bullet left out of
+  the draft is deleted from the doc.
 
 Name each refinement in the card's summary, so the user can take some and
 drop others by editing the draft.
