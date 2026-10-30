@@ -13,7 +13,7 @@ const colorOf = (key: PartKey) => TIME_PARTS.find((part) => part.key === key)!.c
 const totalOf = (split: Split) => split.model + split.tools + split.waiting;
 
 /** What bb calls each kind of tool, and the word for one of it. */
-const KINDS: Record<string, { label: string; one: string; many: string }> = {
+export const KINDS: Record<string, { label: string; one: string; many: string }> = {
   commandExecution: { label: "Shell commands", one: "run", many: "runs" },
   toolCall: { label: "Tool calls", one: "call", many: "calls" },
   mcpToolCall: { label: "MCP tool calls", one: "call", many: "calls" },

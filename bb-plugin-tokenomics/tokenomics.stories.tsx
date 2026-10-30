@@ -7,6 +7,7 @@ import PanelLeftIcon from "@hugeicons/core-free-icons/PanelLeftIcon";
 import PanelRightIcon from "@hugeicons/core-free-icons/PanelRightIcon";
 
 import { ContextMeter } from "./components/context-meter";
+import { TurnStrip, TurnSummaryLine } from "./components/turn-summary";
 import { TopBarLimits } from "./components/limit-spark";
 import {
   ThreadTokenCount,
@@ -37,7 +38,11 @@ import {
   SESSION_SLOTS,
   SHORT,
   SHORT_TURNS,
+  RUNNING_TURN,
+  RUNNING_WORK,
   ThreadFrame,
+  TURN_SUMMARIES,
+  TURN_WORK,
   weekly,
   WITH_SUBAGENTS,
 } from "./tokenomics.fixtures";
@@ -426,4 +431,91 @@ export const ContextMeterInThread = () => (
       conversation={CONVERSATION.slice(-3)}
     />
   </div>
+);
+
+/**
+ * The strip above the composer. While a turn runs, its clock counts up with
+ * the commands and other tools it has started; tokens arrive when it ends.
+ * Once the turn ends, the strip goes away and the line under the turn takes
+ * over.
+ */
+export const TurnStripStates = () => (
+  <div data-screenshot-frame className="w-[1000px] p-4">
+  <StoryCard>
+    <StoryRow label="running" hint="the clock ticks each second">
+      <div className="w-[720px]">
+        <TurnStrip turn={RUNNING_TURN} running now={NOW.getTime()} />
+      </div>
+    </StoryRow>
+  </StoryCard>
+  </div>
+);
+
+/**
+ * A line under each finished turn in the conversation: how long it took, its
+ * tokens, and the commands and other tools it ran. The strip above the
+ * composer counts the running turn.
+ */
+export const TurnSummariesInThread = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={TURN_SUMMARIES.map((turn) => (
+      <div key={turn.turnId} className="-mx-2">
+        <TurnSummaryLine turn={turn} />
+      </div>
+    ))}
+    stack={<TurnStrip turn={RUNNING_TURN} running now={NOW.getTime()} />}
+  />
+);
+
+/**
+ * Hovering or clicking a turn's line opens its card: when it ran, where its
+ * time went, its tokens by kind, its slowest commands, and its other tools.
+ */
+export const TurnCardOpen = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={TURN_SUMMARIES.map((turn, index) => (
+      <div key={turn.turnId} className="-mx-2">
+        {index === 1 ? (
+          <AfterComposerFocus>
+            <TurnSummaryLine turn={turn} work={TURN_WORK} defaultOpen />
+          </AfterComposerFocus>
+        ) : (
+          <TurnSummaryLine turn={turn} />
+        )}
+      </div>
+    ))}
+    stack={<TurnStrip turn={RUNNING_TURN} running now={NOW.getTime()} />}
+  />
+);
+
+/** Resting on a command in the card shows the whole command beside it, such as the body of a heredoc. */
+export const TurnCardCommandOpen = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={TURN_SUMMARIES.map((turn, index) => (
+      <div key={turn.turnId} className="-mx-2">
+        {index === 1 ? (
+          <AfterComposerFocus>
+            <TurnSummaryLine turn={turn} work={TURN_WORK} defaultOpen openCommand={1} />
+          </AfterComposerFocus>
+        ) : (
+          <TurnSummaryLine turn={turn} />
+        )}
+      </div>
+    ))}
+  />
+);
+
+/** The running turn's card, opened from the strip above the composer: a command still going, and tokens to come. */
+export const TurnStripCardOpen = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    stack={
+      <AfterComposerFocus>
+        <TurnStrip turn={RUNNING_TURN} running now={NOW.getTime()} work={RUNNING_WORK} defaultOpen />
+      </AfterComposerFocus>
+    }
+  />
 );

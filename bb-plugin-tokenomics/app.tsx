@@ -1,6 +1,7 @@
 // bb-plugin-tokenomics — the Tokenomics page, the thread header's token count,
 // and the context meter above a thread's composer.
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   definePluginApp,
   useBbNavigate,
@@ -14,6 +15,7 @@ import {
 import { SidebarLevels } from "@danielbachhuber/bb-plugin-component-library/sidebar-count";
 
 import { ContextMeter } from "@/components/context-meter";
+import { TurnStrip, TurnSummaryLine } from "@/components/turn-summary";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
 import { TOP_BAR_LIMITS_WIDTH, TopBarLimits, urgentSession } from "@/components/limit-spark";
 import { UsageView, type UsageData } from "@/components/usage-view";
@@ -21,8 +23,9 @@ import { TopBarSlot, useTopBarRoom } from "@danielbachhuber/bb-plugin-component-
 
 import type { rpcContract } from "./server";
 import { contextLevel, type ContextThresholds } from "./usage/context.js";
-import { CONTEXT_CHANNEL, LIMITS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
-import type { Limit, TurnDetail } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
+import type { Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
+import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
 function messageOf(cause: unknown): string {
@@ -336,6 +339,168 @@ function ContextMeterBanner() {
   );
 }
 
+/** The thread's turns, re-read when the server records a turn, a tool, or tokens for it. */
+function useTurnSummaries(threadId: string | null): TurnSummary[] | null {
+  const rpc = useRpc<typeof rpcContract>();
+  const [turns, setTurns] = useState<TurnSummary[] | null>(null);
+  const current = useRef(threadId);
+  current.current = threadId;
+  // A running turn reports each tool's start and end, so changes arrive in
+  // bursts; one read per burst is enough.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(() => {
+    if (threadId === null) return;
+    rpc.call("thread_turn_summaries", { threadId }).then(
+      (result) => {
+        if (current.current === threadId) setTurns(result.turns);
+      },
+      () => undefined,
+    );
+  }, [rpc, threadId]);
+
+  useEffect(() => {
+    setTurns(null);
+    load();
+    return () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+      timer.current = null;
+    };
+  }, [load]);
+
+  const onChange = useMemo(
+    () => (payload: unknown) => {
+      if (threadId === null || !isForThread(payload, threadId) || timer.current !== null) return;
+      timer.current = setTimeout(() => {
+        timer.current = null;
+        load();
+      }, 500);
+    },
+    [load, threadId],
+  );
+  useRealtime(TURNS_CHANNEL, onChange);
+  useRealtime(USAGE_CHANNEL, onChange);
+  return turns;
+}
+
+/**
+ * What each turn ran, read when its card opens. A finished turn's is read
+ * once; the running turn's again on each opening, since it keeps adding.
+ */
+function useTurnWork(threadId: string | null) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [work, setWork] = useState<ReadonlyMap<string, TurnWork>>(() => new Map());
+  useEffect(() => setWork(new Map()), [threadId]);
+  const load = useCallback(
+    (turn: TurnSummary) => {
+      if (threadId === null || (turn.endedAt !== null && work.has(turn.turnId))) return;
+      rpc.call("thread_turn_work", { threadId, turnId: turn.turnId }).then(
+        (result) => setWork((current) => new Map(current).set(turn.turnId, result)),
+        () => undefined,
+      );
+    },
+    [rpc, threadId, work],
+  );
+  return { work, load };
+}
+
+/** The current time, every second while `ticking`. */
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, [ticking]);
+  return now;
+}
+
+/**
+ * Renders each finished turn's line under its last row in bb's conversation.
+ * See timeline/turn-hosts.ts for why this reads bb's markup.
+ */
+function useTurnLines(
+  threadId: string | null,
+  turns: readonly TurnSummary[],
+  work: ReadonlyMap<string, TurnWork>,
+  loadWork: (turn: TurnSummary) => void,
+): ReactNode {
+  const [hosts, setHosts] = useState<Map<string, HTMLElement>>(() => new Map());
+  const hostsRef = useRef(hosts);
+  const finished = useMemo(() => turns.filter((turn) => turn.endedAt !== null), [turns]);
+  const wanted = useMemo(() => new Set(finished.map((turn) => turn.turnId)), [finished]);
+
+  useEffect(() => {
+    if (threadId === null) return;
+    let frame: number | null = null;
+    const pass = () => {
+      frame = null;
+      const next = placeTurnHosts(document, threadId, wanted, hostsRef.current);
+      const before = hostsRef.current;
+      hostsRef.current = next;
+      const same = next.size === before.size && [...next].every(([turnId, host]) => before.get(turnId) === host);
+      if (!same) setHosts(next);
+    };
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(pass);
+    };
+    const observer = new MutationObserver((records) => {
+      if (!onlyHostChanges(records)) schedule();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    schedule();
+    return () => {
+      observer.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [threadId, wanted]);
+
+  useEffect(
+    () => () => {
+      if (threadId !== null) removeTurnHosts(document, threadId);
+      hostsRef.current = new Map();
+    },
+    [threadId],
+  );
+
+  return finished.map((turn) => {
+    const host = hosts.get(turn.turnId);
+    return host === undefined ? null : createPortal(
+          <TurnSummaryLine turn={turn} work={work.get(turn.turnId) ?? null} onOpen={() => loadWork(turn)} />,
+          host,
+          turn.turnId,
+        );
+  });
+}
+
+/** The strip above the composer, and the line under each turn in the conversation. */
+function TurnSummaryBanner() {
+  const view = useComposerView();
+  const threadId = view.scope.kind === "thread" ? view.scope.threadId : null;
+  const turns = useTurnSummaries(threadId);
+  const latest = turns?.at(-1) ?? null;
+  const running = view.run.isRunning && latest !== null && latest.endedAt === null;
+  const now = useNow(running);
+  const { work, load } = useTurnWork(threadId);
+  const lines = useTurnLines(threadId, turns ?? [], work, load);
+  return (
+    <>
+      {/* Only while a turn runs: once it ends, the line under the turn says the same. */}
+      {latest === null || !running ? null : (
+        <TurnStrip
+          turn={latest}
+          running={running}
+          now={now}
+          work={work.get(latest.turnId) ?? null}
+          onOpen={() => load(latest)}
+        />
+      )}
+      {lines}
+    </>
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.navPanel({
     id: "tokenomics",
@@ -360,6 +525,11 @@ export default definePluginApp((app) => {
     scopes: ["thread"],
     // Bare: the meter draws its own card, and a thread under the setting
     // draws nothing at all.
-    banners: [{ id: "context-meter", chrome: "bare", component: ContextMeterBanner }],
+    banners: [
+      { id: "context-meter", chrome: "bare", component: ContextMeterBanner },
+      // Bare as well: the strip draws its own card, and the lines under each
+      // turn render into bb's conversation through portals.
+      { id: "turn-summary", chrome: "bare", component: TurnSummaryBanner },
+    ],
   });
 });

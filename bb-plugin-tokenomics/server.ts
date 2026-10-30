@@ -1,7 +1,7 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, USAGE_CHANNEL } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
 import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey } from "./usage/limits.js";
 import {
   formatCommands,
@@ -17,6 +17,7 @@ import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
+import { turnSummaries, turnWork } from "./usage/turn-summary.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
 
 export { rpcContract } from "./usage/contract.js";
@@ -90,6 +91,9 @@ export default async function plugin(bb: BbPluginApi) {
         .catch((error: unknown) => warn(threadId, error));
     },
     onContext: (threadId) => bb.realtime.publish(CONTEXT_CHANNEL, { threadIds: [threadId] }),
+    onTimings: (threadId) => {
+      if (!backfilling) bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
+    },
     onError: warn,
   });
 
@@ -467,6 +471,10 @@ export default async function plugin(bb: BbPluginApi) {
       await bb.sdk.threads.compact({ threadId });
       return { ok: true as const };
     },
+    thread_turn_summaries: ({ threadId }) => ({
+      turns: turnSummaries(store.threadRows(threadId, MAX_ROWS), store.threadTimings(threadId)),
+    }),
+    thread_turn_work: ({ threadId, turnId }) => turnWork(store.threadTimings(threadId), turnId),
     thread_turns: async ({ threadId }) => {
       const { started, completed, outline } = await sync.turnContext(threadId);
       const rows = store.threadRows(threadId, MAX_ROWS);

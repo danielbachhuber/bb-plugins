@@ -79,6 +79,8 @@ export function threadInfoOf(thread: ThreadLike): ThreadInfo {
 export interface SyncHooks {
   /** Called after rows are added for a thread, however the read started. */
   onAdded?: (threadId: string) => void;
+  /** Called after a thread's turn, tool, or wait timings are recorded. */
+  onTimings?: (threadId: string) => void;
   /** Called after context rows are added for a thread. */
   onContext?: (threadId: string) => void;
   onError?: (threadId: string, error: unknown) => void;
@@ -95,6 +97,7 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
     let cursor = store.cursor(thread.id);
     let added = 0;
     let contextAdded = 0;
+    let timed = false;
     for (;;) {
       const events = await source.listUsage({ threadId: thread.id, afterSeq: cursor, limit: PAGE_SIZE });
       const rows = events.map(usageRowOf).filter((row): row is UsageRow => row !== null);
@@ -103,13 +106,17 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
       // Before the cursor moves, so a failure here reads these events again.
       contextAdded += store.recordContext(thread.id, contextRows);
       const timings = timingRowsOf(events);
-      if (!isEmpty(timings)) store.recordTimings(thread.id, timings);
+      if (!isEmpty(timings)) {
+        store.recordTimings(thread.id, timings);
+        timed = true;
+      }
       added += store.record(info, rows, lastSeq);
       cursor = lastSeq;
       if (events.length < PAGE_SIZE) break;
     }
     if (added > 0) hooks.onAdded?.(thread.id);
     if (contextAdded > 0) hooks.onContext?.(thread.id);
+    if (timed) hooks.onTimings?.(thread.id);
     return added;
   }
 

@@ -2,7 +2,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-export { CONTEXT_CHANNEL, LIMITS_CHANNEL, USAGE_CHANNEL } from "./channels.js";
+export { CONTEXT_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./channels.js";
 
 /** The page's longest range is a week; allow a little over for clock skew. */
 export const MAX_WINDOW_MS = 9 * 24 * 3_600_000;
@@ -49,6 +49,24 @@ export const turnDetailSchema = z.object({
   /** Where the turn's time went, in milliseconds; null before timings were recorded or while it runs. */
   time: z.object({ model: z.number(), tools: z.number(), waiting: z.number() }).nullable().optional(),
   ...tokens,
+});
+
+/** One turn's length, tokens, and commands. See turnSummaries. */
+export const turnSummarySchema = z.object({
+  turnId: z.string(),
+  startedAt: z.number(),
+  endedAt: z.number().nullable(),
+  commands: z.number(),
+  tools: z.number(),
+  time: z.object({ model: z.number(), tools: z.number(), waiting: z.number() }).nullable(),
+  ...tokens,
+});
+
+/** What one turn ran. See turnWork. */
+export const turnWorkSchema = z.object({
+  commands: z.array(z.object({ command: z.string(), ms: z.number().nullable() })),
+  moreCommands: z.number(),
+  kinds: z.array(z.object({ kind: z.string(), count: z.number(), ms: z.number() })),
 });
 
 const thresholdsSchema = z.object({ warning: z.number().nullable(), error: z.number().nullable() });
@@ -142,6 +160,19 @@ export const rpcContract = defineRpcContract({
     output: z.object({ turns: z.array(turnDetailSchema) }),
   },
   /**
+   * Each turn's length, tokens, and commands, from the ledger alone, for the
+   * line under each turn and the strip above the composer. Oldest first.
+   */
+  thread_turn_summaries: {
+    input: z.object({ threadId: z.string().min(1).max(200) }),
+    output: z.object({ turns: z.array(turnSummarySchema) }),
+  },
+  /** What one turn ran, read when its summary's card opens. */
+  thread_turn_work: {
+    input: z.object({ threadId: z.string().min(1).max(200), turnId: z.string().min(1).max(200) }),
+    output: turnWorkSchema,
+  },
+  /**
    * The thread's latest context size and the warning setting, for the meter
    * above the composer. Null `context` means none recorded yet.
    */
@@ -180,3 +211,5 @@ export type HourUsage = z.infer<typeof hourUsageSchema>;
 export type ThreadUsage = z.infer<typeof threadUsageSchema>;
 export type UsageAt = z.infer<typeof usageAtSchema>;
 export type TurnDetail = z.infer<typeof turnDetailSchema>;
+export type TurnSummary = z.infer<typeof turnSummarySchema>;
+export type TurnWork = z.infer<typeof turnWorkSchema>;

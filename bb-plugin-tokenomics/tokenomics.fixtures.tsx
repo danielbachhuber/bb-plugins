@@ -14,7 +14,7 @@ import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import type { ContextMeterProps } from "./components/context-meter";
 import type { ThreadTokens } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
-import type { Limit, ThreadUsage, TurnDetail, TurnTimeBreakdown } from "./usage/contract";
+import type { Limit, ThreadUsage, TurnDetail, TurnSummary, TurnTimeBreakdown, TurnWork } from "./usage/contract";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
 export const NOW = new Date(2026, 8, 24, 14, 20);
@@ -354,18 +354,69 @@ export const CONVERSATION: { from: "user" | "agent" | "work"; text: string }[] =
   { from: "agent", text: "Renamed in 9 files, including two tests and the report docs. Type checks and tests pass." },
 ];
 
+/** One turn per agent message in CONVERSATION, for the lines under each turn. */
+export const TURN_SUMMARIES: TurnSummary[] = [
+  { turnId: "t1", startedAt: NOW.getTime() - 50 * 60_000, endedAt: NOW.getTime() - 38 * 60_000, commands: 18, tools: 37, input: 410_000, cacheRead: 11_800_000, output: 96_000, time: { model: 410_000, tools: 300_000, waiting: 10_000 } },
+  { turnId: "t2", startedAt: NOW.getTime() - 30 * 60_000, endedAt: NOW.getTime() - 22 * 60_000, commands: 41, tools: 22, input: 260_000, cacheRead: 8_900_000, output: 51_000, time: { model: 190_000, tools: 290_000, waiting: 0 } },
+  { turnId: "t3", startedAt: NOW.getTime() - 9 * 60_000, endedAt: NOW.getTime() - 8 * 60_000, commands: 4, tools: 9, input: 38_000, cacheRead: 1_400_000, output: 7_200, time: { model: 41_000, tools: 19_000, waiting: 0 } },
+];
+
+/** What the second turn ran, for its card. */
+export const TURN_WORK: TurnWork = {
+  commands: [
+    { command: "npm run export -- --rows 10000", ms: 241_000 },
+    {
+      command: "node - <<'EOF'\nconst { buildExportRows } = require(\"./src/report/export\");\nconst rows = buildExportRows({ widgets: 10_000, owners: \"join\" });\nconsole.time(\"export\");\nfor (const row of rows) process.stdout.write(row.join(\",\") + \"\\n\");\nconsole.timeEnd(\"export\");\nEOF",
+      ms: 61_000,
+    },
+    { command: "npm test -- widgets/report", ms: 38_000 },
+    { command: "npx tsc --noEmit", ms: 14_000 },
+    { command: "rg -n \"ownerOf\" src", ms: 900 },
+    { command: "git diff --stat", ms: 300 },
+  ],
+  moreCommands: 35,
+  kinds: [
+    { kind: "commandExecution", count: 41, ms: 296_000 },
+    { kind: "fileRead", count: 22, ms: 3_000 },
+  ],
+};
+
+/** What the running turn has run so far, one command still going. */
+export const RUNNING_WORK: TurnWork = {
+  commands: [
+    { command: "npm test", ms: null },
+    { command: "npx tsc --noEmit", ms: 12_000 },
+    { command: "git status --short", ms: 200 },
+  ],
+  moreCommands: 4,
+  kinds: [
+    { kind: "commandExecution", count: 7, ms: 15_000 },
+    { kind: "fileChange", count: 5, ms: 1_200 },
+    { kind: "fileRead", count: 7, ms: 900 },
+  ],
+};
+
+/** A turn two minutes in, before its tokens arrive. */
+export const RUNNING_TURN: TurnSummary = {
+  turnId: "t4", startedAt: NOW.getTime() - 134_000, endedAt: null, commands: 7, tools: 12, input: 0, cacheRead: 0, output: 0, time: null,
+};
+
 /** A thread in bb's own header and composer, with the plugin's surfaces in place. */
 export function ThreadFrame({
   headerAction,
   stack,
   height = "h-[900px]",
   conversation = CONVERSATION,
+  turnLines = [],
 }: {
   headerAction: ReactNode;
   stack?: ReactNode;
   height?: string;
   conversation?: typeof CONVERSATION;
+  /** Drawn under each of the agent's messages in turn, as the line under each turn is. */
+  turnLines?: readonly ReactNode[];
 }) {
+  const agentIndex = (index: number) => conversation.slice(0, index).filter((turn) => turn.from === "agent").length;
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState<PromptTextMention[]>([]);
   return (
@@ -390,6 +441,7 @@ export function ThreadFrame({
             ) : (
               <div key={index} className="text-sm leading-relaxed text-foreground">
                 <Markdown content={turn.text} />
+                {turnLines[agentIndex(index)] ?? null}
               </div>
             ),
           )}

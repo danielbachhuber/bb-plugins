@@ -9,5 +9,8 @@ export const USAGE_CHANNEL = "usage-changed";
 /** Published with `{ threadIds }` after a thread's context size is recorded. */
 export const CONTEXT_CHANNEL = "context-changed";
 
+/** Published with `{ threadIds }` after a thread's turns, tools, or commands start or end. */
+export const TURNS_CHANNEL = "turns-changed";
+
 /** Published after a new reading of the subscriptions' usage limits is stored. */
 export const LIMITS_CHANNEL = "limits-changed";

@@ -17,8 +17,11 @@ export const TIMING_EVENTS = [
  */
 const MODEL_ITEMS = new Set(["reasoning", "agentMessage", "userMessage", "plan"]);
 
-/** Labels are kept for grouping slow commands, not for reading in full. */
-const MAX_LABEL = 300;
+/**
+ * Labels group slow commands, and a turn's card shows a command in full on
+ * hover, so a heredoc keeps its body. Past this a label is cut.
+ */
+const MAX_LABEL = 4_000;
 
 export interface TimingEventLike {
   createdAt: number;

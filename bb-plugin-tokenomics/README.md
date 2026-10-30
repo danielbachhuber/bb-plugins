@@ -15,6 +15,16 @@ the past day in bold, and its lifetime total under them. Click it to see which
 of your messages used the most tokens and time, and the thread's three
 biggest turns.
 
+### Each turn's time, tokens, and commands
+
+![A thread with a muted line under each of the agent's replies, such as 12 min, 12.3M tokens, 18 commands, 37 tools, and a strip above the composer counting the running turn: 2:14, 7 commands, 12 tools](screenshots/page--turn-summaries-in-thread.png)
+
+Under each finished turn, a line shows how long it took, its tokens, and the
+commands and other tools it ran. Above the composer, a strip counts the
+running turn while it runs; its tokens arrive when it ends. bb has no plugin
+slot under a turn, so the lines read bb's page markup and stop appearing if
+bb changes it. Both read Tokenomics' own database, with no calls to bb.
+
 ### A context meter above the composer
 
 ![A thread's last exchange, then an amber meter above its composer: 510K context against a 1M window, with ticks at 300K and 550K, 22.4M tokens in the last turn, and a Compact button](screenshots/page--context-meter-in-thread.png)
