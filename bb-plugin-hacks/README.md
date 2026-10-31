@@ -205,13 +205,13 @@ push in the same checkout, is logged to bb's server log and tried again five
 minutes later. It never draws the dot. Only a fetch or pull you started by
 clicking shows as a failure.
 
-### Diff code blocks start wrapped
+### Diff and markdown code blocks start wrapped
 
-A fenced `diff` block in a chat message starts with long lines wrapped,
-instead of scrolling sideways. bb keeps each block's wrap toggle in React
-state and starts it off, so the hack clicks the toggle once when the block
-appears. Click it again to unwrap that block; it stays unwrapped until it
-remounts. Blocks in other languages are left alone.
+A fenced `diff` or `markdown` (or `md`) block in a chat message starts with
+long lines wrapped, instead of scrolling sideways. bb keeps each block's wrap
+toggle in React state and starts it off, so the hack clicks the toggle once
+when the block appears. Click it again to unwrap that block; it stays
+unwrapped until it remounts. Blocks in other languages are left alone.
 
 ## Install
 
@@ -298,7 +298,7 @@ The diff-wrap hack anchors on the code block's own controls:
 
 | Anchor | Used for |
 | --- | --- |
-| `aria-label="Wrap long lines"` with `aria-pressed="false"` | Finding an unwrapped block's toggle |
+| `aria-label="Wrap lines"` with `aria-pressed="false"` | Finding an unwrapped block's toggle |
 | The first `span` in the toggle's header | The block's language label |
 
 No minified class names. If bb changes the toolbar and the anchors stop
@@ -330,7 +330,7 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/checkout-sync/contract.ts` | The RPC contract, imported by the server only |
 | `hacks/checkout-sync/sidebar.ts` | Placing and drawing the indicator in bb's project headers |
 | `hacks/checkout-sync/engine.ts` | The sync loop: polling, passes, observers, cleanup |
-| `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff blocks and wrapping each once |
+| `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff and markdown blocks and wrapping each once |
 | `app.tsx` | Wiring only: registers each hack's content script |
 | `server.ts` | The checkout indicator's RPC, which finds each project's checkout on this machine and runs its sync script after a pull |
 

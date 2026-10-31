@@ -1,4 +1,5 @@
-// The sync loop: what turns on line wrap for diff code blocks in chat.
+// The sync loop: what turns on line wrap for diff and markdown code blocks in
+// chat.
 //
 // bb renders each fenced code block in a message with a language label, a
 // wrap toggle, and a copy button. The wrap state lives in React and starts
@@ -21,10 +22,9 @@ export interface Engine {
 }
 
 /** The languages whose blocks start wrapped. */
-const WRAPPED_LANGUAGES = new Set(["diff"]);
+const WRAPPED_LANGUAGES = new Set(["diff", "markdown", "md"]);
 
-const TOGGLE_SELECTOR =
-  'button[aria-label="Wrap long lines"][aria-pressed="false"]';
+const TOGGLE_SELECTOR = 'button[aria-label="Wrap lines"][aria-pressed="false"]';
 
 /** The language label in the toggle's code-block header, lowercased. */
 export function blockLanguage(toggle: Element): string {
