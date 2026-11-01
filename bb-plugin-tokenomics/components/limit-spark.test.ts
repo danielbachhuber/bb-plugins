@@ -30,9 +30,16 @@ function session(over: Partial<Limit> = {}): Limit {
 describe("urgentSession", () => {
   it("picks the session closer to its limit and skips weekly limits", () => {
     const calm = session({ tone: "ok", usedPercent: 70, accountKey: "acct_gadgets" });
-    const weekly = session({ kind: "weekly", label: "Weekly limit", tone: "error" });
+    const weekly = session({ kind: "weekly", label: "Weekly limit", tone: "error", slots: undefined });
     expect(urgentSession([calm, weekly, session()])?.accountKey).toBe("acct_acme");
     expect(urgentSession([weekly])).toBeNull();
+  });
+
+  it("falls back to the weekly limit with a spark between sessions", () => {
+    const oneModel = session({ kind: "weekly", label: "One model", usedPercent: 40, slots: undefined });
+    const weekly = session({ kind: "weekly", label: "Weekly limit", usedPercent: 7, slots: Array(20).fill(1) });
+    expect(urgentSession([oneModel, weekly])?.label).toBe("Weekly limit");
+    expect(urgentSession([weekly, session()])?.kind).toBe("five-hour");
   });
 
   it("breaks a tie on the percent used", () => {

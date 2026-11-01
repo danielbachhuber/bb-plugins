@@ -1,6 +1,7 @@
 // The session in bb's title bar: its tokens per 15 minutes from its start to
 // its reset, with a dot for each 15 minutes still to come, and two rings for
-// the percent used: the session outside, the week inside. Hovering shows the
+// the percent used: the session outside, the week inside. Between sessions,
+// the weekly limit's ring and the past five hours' tokens. Hovering shows the
 // page's meters and its chart of the past day. Display only; app.tsx loads
 // the limits and the bars.
 import { useState } from "react";
@@ -25,7 +26,10 @@ function toneColor(limit: Limit): string | undefined {
   return limit.tone === "error" ? "var(--destructive)" : limit.tone === "warning" ? AMBER : undefined;
 }
 
-/** The session's tokens per 15 minutes from its start to its reset, with a dot for each slot still to come. */
+/**
+ * The session's tokens per 15 minutes from its start to its reset, with a dot
+ * for each slot still to come. For a weekly limit, the past five hours'.
+ */
 export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
   const slots = (limit.slots ?? []).slice(0, SLOTS);
   const most = Math.max(1, ...slots);
@@ -35,7 +39,7 @@ export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
   const height = (tokens: number) => (tokens === 0 ? 0 : Math.max(1, (tokens / most) * HEIGHT));
   // The baseline runs to now; each slot still to come is a dot, so the empty
   // right side reads as time not yet reached rather than missing usage.
-  const start = limit.resetsAt - SLOTS * SLOT_MS;
+  const start = (limit.kind === "five-hour" ? limit.resetsAt : now) - SLOTS * SLOT_MS;
   const nowX = Math.min(WIDTH, Math.max(0, ((now - start) / (SLOTS * SLOT_MS)) * WIDTH));
   return (
     // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
@@ -143,7 +147,7 @@ export function TopBarLimits({
 }) {
   const [open, setOpen] = useState(initialOpen);
   const chart = bars === null ? null : withProjection(bars, "hour", limits, now);
-  const weekly = weeklyLimit(limits);
+  const weekly = session.kind === "five-hour" ? weeklyLimit(limits) : null;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
@@ -184,10 +188,13 @@ export function TopBarLimits({
 
 /**
  * The session the title bar shows: the most urgent one, then the most used,
- * so with two subscriptions the one closer to its limit wins.
+ * so with two subscriptions the one closer to its limit wins. Between
+ * sessions, when a provider reports none, the weekly limit the server gave a
+ * spark to, picked the same way.
  */
 export function urgentSession(limits: readonly Limit[]): Limit | null {
   const rank = { error: 0, warning: 1, ok: 2 } as const;
   const sessions = limits.filter((limit) => limit.kind === "five-hour");
-  return [...sessions].sort((a, b) => rank[a.tone] - rank[b.tone] || b.usedPercent - a.usedPercent)[0] ?? null;
+  const candidates = sessions.length > 0 ? sessions : limits.filter((limit) => limit.kind === "weekly" && limit.slots !== undefined);
+  return [...candidates].sort((a, b) => rank[a.tone] - rank[b.tone] || b.usedPercent - a.usedPercent)[0] ?? null;
 }

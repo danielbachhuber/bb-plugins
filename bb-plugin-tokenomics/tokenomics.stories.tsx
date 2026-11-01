@@ -241,14 +241,14 @@ export const ThreadWithMeter = () => (
 );
 
 // A stand-in for the left end of bb's title bar: the sidebar toggle, then the button.
-function TitleBarRow({ label, session, weeklyLimit }: { label: string; session: Limit; weeklyLimit: Limit }) {
+function TitleBarRow({ label, session, weeklyLimit }: { label: string; session: Limit; weeklyLimit?: Limit }) {
   return (
     <StoryRow label={label}>
       <div className="flex h-10 w-80 items-center gap-1.5 bg-background px-3">
         <span className="inline-block size-7" />
         <TopBarLimits
           session={session}
-          limits={[session, weeklyLimit]}
+          limits={weeklyLimit === undefined ? [session] : [session, weeklyLimit]}
           now={NOW.getTime()}
           providerName={() => "Claude Code"}
           onOpen={() => undefined}
@@ -258,7 +258,7 @@ function TitleBarRow({ label, session, weeklyLimit }: { label: string; session: 
   );
 }
 
-/** The session in bb's title bar, after the other plugins' buttons: its tokens per 15 minutes from its start to its reset, with a dot for each 15 minutes still to come, and two rings for the percent used: the session outside, the week inside. Hovering shows the page's meters; clicking opens the page. */
+/** The session in bb's title bar, after the other plugins' buttons: its tokens per 15 minutes from its start to its reset, with a dot for each 15 minutes still to come, and two rings for the percent used: the session outside, the week inside. Between sessions, the week's ring and the past five hours' tokens. Hovering shows the page's meters; clicking opens the page. */
 export const TitleBar = () => (
   <div data-screenshot-frame className="w-[720px] p-4">
   <StoryCard>
@@ -271,6 +271,7 @@ export const TitleBar = () => (
       weeklyLimit={RUNS_OUT[1]!}
     />
     <TitleBarRow label="Measuring" session={limit({ usedPercent: 48, pacePerHour: null, projectedPercent: null, slots: SESSION_SLOTS })} weeklyLimit={weekly({ usedPercent: 5, pacePerHour: null, projectedPercent: null })} />
+    <TitleBarRow label="Between sessions" session={weekly({ usedPercent: 7, slots: [...Array(14).fill(0), 1, 0, 0, 1, 12, 15].map((m) => m * 1_000_000) })} />
   </StoryCard>
   </div>
 );

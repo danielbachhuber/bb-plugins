@@ -2,7 +2,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
 import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
-import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey } from "./usage/limits.js";
+import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey, type LimitView } from "./usage/limits.js";
 import {
   formatCommands,
   formatThreads,
@@ -393,10 +393,17 @@ export default async function plugin(bb: BbPluginApi) {
       // A subscription bb reports but no thread used this week, such as one
       // signed in once, shows only when it's close to a limit.
       const thisWeek = store.providerTokens(now - 7 * 86_400_000, now);
+      const views = limitViews(samples, now, LIMITS_STALE_MS).filter(
+        (view) => thisWeek.has(view.providerId) || view.tone !== "ok",
+      );
+      // Between sessions a provider reports no session at all, and the title
+      // bar shows the account's weekly limit, not one model's, with the past
+      // five hours' spark instead.
+      const account = (view: LimitView) => `${view.providerId}\n${view.accountKey}`;
+      const inSession = new Set(views.filter((view) => view.kind === "five-hour").map(account));
+      const oneModel = new Set(samples.filter((sample) => sample.model !== null).map(windowKey));
       return {
-        limits: limitViews(samples, now, LIMITS_STALE_MS)
-          .filter((view) => thisWeek.has(view.providerId) || view.tone !== "ok")
-          .map((view) => ({
+        limits: views.map((view) => ({
           ...view,
           lastHourTokens: lastHour.get(view.providerId) ?? 0,
           // A query for each of up to ten past windows and the current one.
@@ -407,7 +414,9 @@ export default async function plugin(bb: BbPluginApi) {
           // A session lasts five hours and resets on the hour's minute it began.
           ...(view.kind === "five-hour"
             ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }
-            : {}),
+            : view.kind === "weekly" && !inSession.has(account(view)) && !oneModel.has(windowKey(view))
+              ? { slots: store.providerSlots(view.providerId, now - 5 * 3_600_000, now, SLOT_MS) }
+              : {}),
         })),
         polledAt: limitsPolledAt,
         error: limitsError,

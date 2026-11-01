@@ -103,7 +103,10 @@ export const limitSchema = z.object({
   tone: z.enum(["ok", "warning", "error"]),
   /** The provider's tokens in the past hour, for the chart's bars at this pace. */
   lastHourTokens: z.number(),
-  /** A session's tokens in each 15 minutes since it began, oldest first, for the title bar's spark chart. */
+  /**
+   * A session's tokens in each 15 minutes since it began, oldest first, for the
+   * title bar's spark chart. Between sessions, the weekly limit's past five hours.
+   */
   slots: z.array(z.number()).optional(),
   /** About how many tokens the whole window holds; null while there's too little to tell; absent when it can't be told. See sizeOf. */
   sizeTokens: z.number().nullable().optional(),
