@@ -221,8 +221,7 @@ beyond the one that reads the branch.
 bb does not delete a worktree it did not create, so this plugin removes one
 when its thread is archived or deleted and no other thread uses it. `git
 worktree remove` keeps a worktree with uncommitted or untracked changes, and
-the branch and its commits stay either way. The same applies to worktrees made
-by **Open pull request**.
+the branch and its commits stay either way.
 
 A thread started from the composer whose first prompt names exactly one pull
 request, and nothing else, is adopted on the next sweep when that pull request

@@ -296,33 +296,6 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({ ok: z.boolean(), error: z.string().nullable() }),
   },
-  resolvePullRequest: {
-    input: z.object({ input: z.string() }).strict(),
-    output: z.object({
-      pr: z
-        .object({
-          repo: z.string(),
-          number: z.number(),
-          title: z.string(),
-          headRef: z.string(),
-          url: z.string(),
-          isDraft: z.boolean(),
-          headRepo: z.string().nullable(),
-          isFork: z.boolean(),
-          maintainerCanModify: z.boolean(),
-        })
-        .nullable(),
-      error: z.string().nullable(),
-    }),
-  },
-  openPullRequest: {
-    input: z.object({ input: z.string(), instructions: z.string() }).strict(),
-    output: z.object({
-      threadId: z.string().nullable(),
-      worktree: z.string().nullable(),
-      error: z.string().nullable(),
-    }),
-  },
   /** Saves the row's local note. An empty body deletes it. */
   setNote: {
     input: z.object({ repo: z.string(), number: z.number(), body: z.string() }).strict(),

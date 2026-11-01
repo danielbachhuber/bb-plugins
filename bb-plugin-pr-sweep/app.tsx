@@ -10,7 +10,6 @@ import type { HarvestTimerClient } from "bb-plugin-harvest/picker";
 import { SyncStatus } from "@danielbachhuber/bb-plugin-component-library/sync-status";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { useLastValue } from "@danielbachhuber/bb-plugin-component-library/last-value";
-import { OpenPullRequestPage } from "./sweep/open-panel.js";
 import {
   FIXED_ENVIRONMENT_CSS,
   useStartThreadBox,
@@ -347,14 +346,6 @@ export default definePluginApp((app) => {
   });
 
   app.contentScripts.register(navBadgeRedContentScript);
-
-  app.slots.navPanel({
-    id: "open-pr",
-    title: "Open pull request",
-    icon: "FolderGit",
-    path: "open-pr",
-    component: OpenPullRequestPage,
-  });
 
   app.slots.navPanel({
     id: "prs",

@@ -1012,22 +1012,7 @@ describe("the thread's diff base", () => {
     return fixture;
   }
 
-  it("opens a pull request on its own branch, brought up to date, and diffs it against origin/<base>", async () => {
-    const { checkout, gh, head } = setup();
-    const { harness } = await host(checkout, gh);
-
-    const result = await harness.behavior.callRpc("openPullRequest", { input: "https://github.com/acme/widgets/pull/42", instructions: "" });
-
-    expect(result).toMatchObject({ threadId: "thr_1", error: null });
-    expect(git(`${checkout}-pr-42`, "rev-parse", "HEAD")).toBe(head);
-    await vi.waitFor(() =>
-      expect(harness.inspection.sdk.callsTo("environments.update")).toEqual([
-        [{ environmentId: "env_1", mergeBaseBranch: "origin/feat/base" }],
-      ]),
-    );
-  });
-
-  it("does the same for Work on this on the pull request's branch", async () => {
+  it("opens Work on this on the pull request's own branch, brought up to date, and diffs it against origin/<base>", async () => {
     const { checkout, gh, head } = setup();
     const { harness } = await host(checkout, gh);
 

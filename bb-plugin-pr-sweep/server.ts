@@ -3,9 +3,7 @@ import { existsSync } from "node:fs";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import {
   branchHolder,
-  buildOpenPrompt,
   checkoutForWorktree,
-  parsePullRequestInput,
   resolvePullRequest as resolvePr,
   worktreePath,
   worktreePlan,
@@ -555,12 +553,6 @@ export default async function plugin(bb: BbPluginApi) {
     return store.readRows().map((row) => applyDismissal(row, dismissals.get(`${row.repo}#${row.number}`)));
   }
 
-  /** The repository a bare "#123" should be read against: the only one swept. */
-  async function defaultRepo(): Promise<string> {
-    const repos = new Set(store.readRows().map((row) => row.repo));
-    return repos.size === 1 ? [...repos][0]! : "";
-  }
-
   /** The project checked out for a repository, with its local path. */
   /**
    * The checked-out project for a repository, with the host its source lives
@@ -959,127 +951,6 @@ export default async function plugin(bb: BbPluginApi) {
 
     async refresh() {
       return sweepNow();
-    },
-
-    /**
-     * Resolves what the user typed, so the form can confirm the title and
-     * branch before anything is created. A typo fails here rather than in a
-     * spawned thread.
-     */
-    async resolvePullRequest({ input }) {
-      const { ghPath } = await settings.get();
-      const parsed = parsePullRequestInput(input, await defaultRepo());
-      if ("error" in parsed) return { pr: null, error: parsed.error };
-
-      try {
-        const pr = await resolvePr(createGhRunner(ghPath), parsed.repo, parsed.number);
-        return { pr, error: null };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (error instanceof GhUnavailableError) bb.status.needsConfiguration(message);
-        return { pr: null, error: `Could not read ${parsed.repo}#${parsed.number}.` };
-      }
-    },
-
-    /**
-     * Creates a worktree on the pull request's own branch and attaches a
-     * thread to it as an unmanaged environment.
-     *
-     * bb's managed worktree always cuts a fresh `bb/<thread>` branch off the
-     * base, so a thread on one is not on the pull request and a push does not
-     * update it. Attaching to a worktree we made ourselves puts the thread on
-     * the branch — and bb then reports the pull request, its checks and its
-     * review state on the thread, which it cannot do for a branch that has no
-     * pull request.
-     *
-     * bb does not delete an unmanaged worktree when the thread is archived,
-     * so the thread.archived handler below does, when it is clean.
-     */
-    async openPullRequest({ input, instructions }) {
-      const { ghPath, providerId, permissionMode } = await settings.get();
-      const parsed = parsePullRequestInput(input, await defaultRepo());
-      if ("error" in parsed) return { threadId: null, worktree: null, error: parsed.error };
-
-      let pr;
-      try {
-        pr = await resolvePr(createGhRunner(ghPath), parsed.repo, parsed.number);
-      } catch {
-        return {
-          threadId: null,
-          worktree: null,
-          error: `Could not read ${parsed.repo}#${parsed.number}.`,
-        };
-      }
-
-      const project = await projectForRepo(pr.repo);
-      if (!project) {
-        return {
-          threadId: null,
-          worktree: null,
-          error: `No bb project is checked out for ${pr.repo}.`,
-        };
-      }
-
-      const path = worktreePath(project.path, pr.number);
-      let mergeBase: string | null = null;
-      try {
-        mergeBase = await fetchForThread(project.path, path, pr);
-        await addWorktree(project.path, path, worktreePlan(pr, await remotesOf(project.path)));
-      } catch (error) {
-        // addWorktree already explains the one failure with a useful answer;
-        // wrapping that in "Could not create a worktree at <path>" buries the
-        // sentence that tells you what to do.
-        const message = error instanceof Error ? error.message : String(error);
-        const explained = message.includes("already checked out at");
-        return {
-          threadId: null,
-          worktree: null,
-          error: explained ? message : `Could not create a worktree at ${path}: ${message}`,
-        };
-      }
-
-      let thread;
-      try {
-        thread = await bb.sdk.threads.spawn({
-          projectId: project.id,
-          environment: {
-            type: "host",
-            hostId: project.hostId,
-            workspace: {
-              type: "unmanaged",
-              path,
-              branch: { kind: "existing", name: pr.headRef },
-            },
-          },
-          ...(providerId ? { providerId } : {}),
-          permissionMode: parsePermissionMode(permissionMode),
-          prompt: buildOpenPrompt(pr, instructions),
-          // The same title the panel's own action produces. A thread opened
-          // here does the same kind of work on the same pull request, so the
-          // sidebar should not tell them apart by accident of which button
-          // started them.
-          title: threadTitle(pr.number, pr.title),
-        });
-      } catch (error) {
-        // Reported rather than thrown: an unhandled rejection here reaches the
-        // panel as a generic failure, and the worktree is already on disk, so
-        // the one visible symptom is a button that does nothing.
-        const message = error instanceof Error ? error.message : String(error);
-        bb.log.warn(`could not open ${pr.repo}#${pr.number}: ${message}`);
-        return {
-          threadId: null,
-          worktree: path,
-          error: `The worktree at ${path} is ready, but the thread could not start: ${message}`,
-        };
-      }
-
-      // Not awaited: it waits for bb to attach the workspace, and the panel
-      // should not wait with it.
-      void setMergeBase(thread, mergeBase);
-      await links.link(pr.repo, pr.number, thread.id, "spawned");
-      bb.realtime.publish(REALTIME_CHANNEL, { sweptAt: null });
-      bb.log.info(`opened ${pr.repo}#${pr.number} at ${path} as ${thread.id}`);
-      return { threadId: thread.id, worktree: path, error: null };
     },
 
     setNote({ repo, number, body }) {

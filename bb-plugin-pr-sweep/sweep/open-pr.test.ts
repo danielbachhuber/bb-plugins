@@ -1,57 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   branchHolder,
-  buildOpenPrompt,
   checkoutForWorktree,
-  parsePullRequestInput,
   pushTargetForRepo,
   resolvePullRequest,
   worktreePath,
   worktreePlan,
 } from "./open-pr.js";
 import type { GhRunner } from "@danielb/gh-shared/gh";
-
-describe("parsePullRequestInput", () => {
-  it("reads a bare number against the fallback repository", () => {
-    expect(parsePullRequestInput("5801", "acme/widgets")).toEqual({
-      repo: "acme/widgets",
-      number: 5801,
-    });
-    expect(parsePullRequestInput("#5801", "acme/widgets")).toEqual({
-      repo: "acme/widgets",
-      number: 5801,
-    });
-  });
-
-  it("takes the repository from a URL, over the fallback", () => {
-    expect(
-      parsePullRequestInput("https://github.com/acme/gadgets/pull/42", "acme/widgets"),
-    ).toEqual({ repo: "acme/gadgets", number: 42 });
-  });
-
-  it("tolerates the trailing paths GitHub adds", () => {
-    for (const suffix of ["/files", "#discussion_r1", "?w=1"]) {
-      expect(
-        parsePullRequestInput(`https://github.com/acme/gadgets/pull/42${suffix}`, ""),
-      ).toEqual({ repo: "acme/gadgets", number: 42 });
-    }
-  });
-
-  it("asks for a URL when a bare number has no repository to attach to", () => {
-    expect(parsePullRequestInput("42", "")).toEqual({
-      error: "Paste the pull request URL, or set a default repository.",
-    });
-  });
-
-  it("rejects anything else rather than guessing", () => {
-    expect(parsePullRequestInput("", "acme/widgets")).toHaveProperty("error");
-    expect(parsePullRequestInput("not a pr", "acme/widgets")).toHaveProperty("error");
-    // An issue URL is not a pull request URL.
-    expect(
-      parsePullRequestInput("https://github.com/acme/widgets/issues/42", "acme/widgets"),
-    ).toHaveProperty("error");
-  });
-});
 
 describe("worktreePath", () => {
   it("sits beside the checkout, named after the pull request", () => {
@@ -227,56 +183,6 @@ describe("worktreePlan", () => {
       repo: "acme/widgets",
       number: 42,
     });
-  });
-});
-
-describe("buildOpenPrompt", () => {
-  const pr = basePr;
-
-  it("says where the agent is and that it should stay there", () => {
-    const prompt = buildOpenPrompt(pr, "");
-    expect(prompt).toContain("`feat/widgets`");
-    expect(prompt).toContain("acme/widgets#42");
-    expect(prompt).toMatch(/Do not create another worktree/);
-  });
-
-  it("waits when given no instructions", () => {
-    expect(buildOpenPrompt(pr, "  ")).toMatch(/Wait for my instructions/);
-  });
-
-  it("passes instructions through instead of waiting", () => {
-    const prompt = buildOpenPrompt(pr, "Rebase the docs section.");
-    expect(prompt).toContain("Rebase the docs section.");
-    expect(prompt).not.toMatch(/Wait for my instructions/);
-  });
-
-  it("says a fork's push still reaches the pull request", () => {
-    const prompt = buildOpenPrompt(
-      { ...pr, isFork: true, headRepo: "octocat/widgets" },
-      "",
-    );
-    expect(prompt).toContain("`octocat/widgets`");
-    expect(prompt).toMatch(/git push` still updates the pull request/);
-  });
-
-  it("says when a fork's author has not allowed edits", () => {
-    const prompt = buildOpenPrompt(
-      { ...pr, isFork: true, headRepo: "octocat/widgets", maintainerCanModify: false },
-      "",
-    );
-    expect(prompt).toMatch(/a push will be rejected/);
-  });
-
-  it("says when the fork is gone", () => {
-    const prompt = buildOpenPrompt(
-      { ...pr, isFork: true, headRepo: null, maintainerCanModify: false },
-      "",
-    );
-    expect(prompt).toMatch(/nowhere to push/);
-  });
-
-  it("says nothing about forks for a same-repository pull request", () => {
-    expect(buildOpenPrompt(pr, "")).not.toMatch(/fork/i);
   });
 });
 
