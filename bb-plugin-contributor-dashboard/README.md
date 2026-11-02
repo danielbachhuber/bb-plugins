@@ -479,6 +479,41 @@ review, which is when it left draft, or when it opened if it never was one.
 Weekends do not count; a span under a day reads in hours, and under an hour in
 minutes.
 
+## For agents
+
+```sh
+bb contributor-dashboard activity <login> --from 2026-10-01 --to 2026-10-31 --json
+```
+
+`bb contributor-dashboard activity` prints what one person did over a period,
+read from the mirror, so a skill can ask for it without knowing the tables.
+Both days are included, and each starts at local midnight, as the page's
+periods do. Without `--json` it prints a few lines of counts.
+
+The JSON holds:
+
+- `period`, `login`, and `mirror`: the days asked for, when the mirror last
+  synced, whether that is more than 30 minutes ago, and whether the two-year
+  backfill has finished.
+- `summary`: the counts the person page shows for the same days, plus a few
+  it does not, such as reviews received.
+- `pullRequests`: each of theirs opened, merged, closed unmerged, or reviewed
+  in the period, with its size, description, the issues it closes, which of
+  those happened in the period, and every review others gave it.
+- `reviewsGiven`: each review they submitted in the period. `counted` marks
+  the ones the page counts: the first on each pull request each day.
+- `reviewRequests`: each request made of them in the period, by name or
+  through a team they picked it up for, and when they reviewed after it.
+- `awaitingReview` and `awaitingTeamReview`: what waits on them, or on a team
+  of theirs, now.
+- `issues`: the ones they opened, the ones assigned to them while open in the
+  period, and the ones assigned to them that closed in it. The mirror keeps
+  when an issue was first put in a milestone or project, as `plannedAt`, but
+  not which one.
+
+It reads only the mirror, so it makes no GitHub calls and never starts a sync.
+The `contributor-dashboard-cli` skill covers it for agents.
+
 ## Settings
 
 ```sh
@@ -586,6 +621,9 @@ needs no new sync.
 | `review/assigned-issues.ts` | The pure read of the open issues one person holds, with when each was opened, planned, and assigned, and how many of theirs closed in the period |
 | `review/activity-days.ts` | The pure count of what one person did on each day of the period, by kind |
 | `review/person.ts` | The pure read of one person's page: what is waiting on their review, and how their own pull requests fared |
+| `review/activity-report.ts` | The pure read of everything one person did in a period, for `bb contributor-dashboard activity` |
+| `cli/activity.ts` | The `bb contributor-dashboard` command: its dates, its errors, and its summary lines |
+| `skills/contributor-dashboard-cli/SKILL.md` | What agents are told about the command |
 | `review/everyone.ts` | The pure list of everyone the person finder offers, most recently active first |
 | `review/open-items.ts` | The pure read of what is open now, and the toolbar's filters, sorts, and counts over it |
 | `review/list-query.ts` | The sorts, filters, and counts for a person's lists and a stage's queue |

@@ -19,7 +19,7 @@ export interface AssignedIssueRow {
 }
 
 /** When the issue was first planned: put in a milestone, or added to a project. */
-function plannedAt(issue: IssueWithActivity): string | null {
+export function plannedAt(issue: IssueWithActivity): string | null {
   const planned = issue.timelineItems.find(
     (item) => item.__typename === "MilestonedEvent" || item.__typename === "AddedToProjectV2Event",
   );

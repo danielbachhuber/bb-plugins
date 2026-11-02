@@ -25,6 +25,7 @@ import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
 import type { PullRequestWithActivity } from "./mirror/github.js";
 import { runSync } from "./mirror/sync.js";
+import { contributorDashboardCli } from "./cli/activity.js";
 
 export { rpcContract };
 
@@ -159,6 +160,21 @@ export default async function plugin(bb: BbPluginApi) {
       return { ...span, teams: [...teams.keys()].sort(), named: [...people.keys()].sort() };
     });
   }
+
+  bb.cli.register(
+    contributorDashboardCli({
+      repository: configured ? repository : null,
+      pullRequests: () => store.readActivity(repository, 0),
+      issues: () => store.readIssues(repository, 0),
+      teams: () => store.readTeams(repository),
+      sync: () => {
+        const state = store.syncState(repository);
+        return { syncedAt: state.syncedAt, backfillDone: state.backfillDone && state.issues.backfillDone };
+      },
+      staleAfterMs: STALE_AFTER_MS,
+      now: Date.now,
+    }),
+  );
 
   const NO_FLOWS = { started: [], finished: [], flows: [], fromEarlier: [], open: [], asked: null, median: 0, p90: 0 };
 

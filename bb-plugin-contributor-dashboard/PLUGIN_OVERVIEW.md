@@ -26,6 +26,9 @@ own database, synced through the `gh` CLI when the page opens and the copy is
 more than 30 minutes old, or when you press Sync. The first sync reaches back
 two years; later ones fetch only what changed. The page reads only the local
 copy.
+`bb contributor-dashboard activity <login> --from <day> --to <day> --json`
+gives agents the same copy's record of one person over a period: their pull
+requests, the reviews they gave and received, and their issues.
 
 Set the repository with
 `bb plugin config contributor-dashboard set repository owner/name`, then
