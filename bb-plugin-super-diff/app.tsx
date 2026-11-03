@@ -1,5 +1,5 @@
 // Replaces the Diff tab's virtualized file list with Super Diff's own
-// grouped list, built from bb's diff API, while keeping the card DOM shape Diff
+// grouped list, built from bb's git plugin, while keeping the card DOM shape Diff
 // Viewed and Diff Comment look for. The grouping, explanations, and notes are
 // written by the thread's agent (Generate asks it) and stored by the server.
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -92,34 +92,41 @@ async function resolveContext(threadId: string, selection: string): Promise<Diff
   return "The prototype can't group a single commit yet. Pick All changes.";
 }
 
-function diffQuery(target: Target): string {
-  return target.type === "uncommitted"
-    ? "target=uncommitted"
-    : `target=${target.type}&mergeBaseBranch=${encodeURIComponent(target.mergeBaseBranch)}`;
+/** bb's diffs come from its bundled git plugin, through the same RPC route as this plugin's own. */
+const GIT_PLUGIN = "bb--git";
+
+/** The `patches` key for one file, as the git plugin's contract builds it with `gitPatchKey`. */
+function patchKey(environmentId: string, target: Target, file: FileEntry): string {
+  return JSON.stringify([environmentId, target, false, file.path, file.revision]);
 }
 
+type PatchRow = { outcome: "available"; patch: { path: string; patch: string } } | { outcome: string };
+
 async function loadDiff({ environmentId, target }: DiffContext): Promise<Loaded> {
-  const query = diffQuery(target);
-  const listing = await api<{ files: FileEntry[] }>(`/environments/${environmentId}/diff/files?${query}`);
-  const patches = new Map<string, string>();
-  const loadable = listing.files.filter((file) => file.loadMode !== "too_large").map((file) => file.path);
+  const listing = await callRpc<{ outcome: string; files?: FileEntry[]; initialPatches?: { path: string; patch: string }[] }>(
+    GIT_PLUGIN,
+    "files",
+    { environmentId, target, ignoreWhitespace: false },
+  );
+  if (listing.outcome !== "available" || listing.files === undefined) throw new Error("bb could not list this diff's files.");
+  const files = listing.files;
+  const patches = new Map<string, string>((listing.initialPatches ?? []).map((entry) => [entry.path, entry.patch]));
+  const loadable = files.filter((file) => file.loadMode !== "too_large" && !patches.has(file.path));
   for (let start = 0; start < loadable.length; start += PATCH_BATCH) {
-    const result = await api<{ patches: { path: string; patch: string }[] }>(`/environments/${environmentId}/diff/patch`, {
-      method: "POST",
-      body: JSON.stringify({ target, paths: loadable.slice(start, start + PATCH_BATCH) }),
-    });
-    for (const entry of result.patches) patches.set(entry.path, entry.patch);
+    const keys = loadable.slice(start, start + PATCH_BATCH).map((file) => patchKey(environmentId, target, file));
+    const rows = await callRpc<Record<string, PatchRow>>(GIT_PLUGIN, "patches", { keys });
+    for (const row of Object.values(rows)) {
+      if (row.outcome === "available" && "patch" in row) patches.set(row.patch.path, row.patch.patch);
+    }
   }
-  return { environmentId, files: listing.files, patches, target };
+  return { environmentId, files, patches, target };
 }
 
 /** bb's Viewed marks for a diff: each marked path and the revision it was marked at. */
 type Marks = ReadonlyMap<string, string>;
 
 async function readMarks({ environmentId, target }: Pick<Loaded, "environmentId" | "target">): Promise<Marks> {
-  const result = await api<{ files: { path: string; revision: string }[] }>(
-    `/environments/${environmentId}/diff/viewed?${diffQuery(target)}`,
-  );
+  const result = await callRpc<{ files: { path: string; revision: string }[] }>(GIT_PLUGIN, "viewed", { environmentId, target });
   return new Map(result.files.map((file) => [file.path, file.revision]));
 }
 
@@ -164,11 +171,8 @@ function useViewedMarks(data: Loaded): {
           return next;
         });
       apply(viewed);
-      const target = data.target;
-      api(`/environments/${data.environmentId}/diff/viewed`, {
-        method: viewed ? "PUT" : "DELETE",
-        body: JSON.stringify(viewed ? { target, path: file.path, revision } : { target, path: file.path }),
-      }).catch(() => apply(!viewed));
+      const input = { environmentId: data.environmentId, target: data.target, path: file.path };
+      callRpc(GIT_PLUGIN, viewed ? "markViewed" : "clearViewed", viewed ? { ...input, revision } : input).catch(() => apply(!viewed));
     },
     [data],
   );
