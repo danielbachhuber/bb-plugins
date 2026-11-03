@@ -47,7 +47,7 @@ bb super-diff explain <file | json> # in an Explain this side chat: store its on
 
 ## Requirements
 
-A thread with a git environment, and bb 0.47 or later for the **Viewed** checkboxes. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open and the window is in front, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
+A thread with a git environment, and bb 0.48 or later. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open and the window is in front, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb's git plugin: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
 
 ## Related plugins
 
