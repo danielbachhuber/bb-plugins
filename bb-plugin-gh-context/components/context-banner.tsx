@@ -112,8 +112,6 @@ function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPull
   return (
     <UrlLink
       href={pullRequest.url}
-      target="_blank"
-      rel="noopener noreferrer"
       aria-label={`Pull request ${pullRequest.number}: ${[ATTENTION_LABEL[pullRequest.attention], review].filter(Boolean).join(", ")}`}
       className={cn(SEGMENT_CLASS, "shrink-0")}
     >
@@ -150,8 +148,6 @@ function IssueSegment({ issue, compact }: { issue: ContextIssue; compact: boolea
   return (
     <UrlLink
       href={issue.url}
-      target="_blank"
-      rel="noopener noreferrer"
       aria-label={`Issue ${issue.number}${issue.title ? `: ${issue.title}` : ""}${why}`}
       title={`${issue.repo}#${issue.number}${issue.title ? ` ${issue.title}` : ""}${why}`}
       className={cn(SEGMENT_CLASS, compact && "shrink-0", closed && "opacity-60")}
