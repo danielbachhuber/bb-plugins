@@ -101,6 +101,9 @@ export const MIGRATIONS = [
      members TEXT NOT NULL,
      PRIMARY KEY (repository, slug)
    )`,
+  // Issues gained why they closed and their issue type. Running the issue
+  // backfill again gives the rows already stored those fields too.
+  `UPDATE sync_state SET issue_backfill_done = 0, issue_backfill_cursor = NULL`,
 ];
 
 /** One object type's progress through the repository. */

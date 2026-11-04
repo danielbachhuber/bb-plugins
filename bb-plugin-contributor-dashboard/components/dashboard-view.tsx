@@ -9,6 +9,7 @@ import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/perio
 import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { FlowDiagram } from "./flow-diagram";
+import { ClosedIssuesChart } from "./closed-issues-chart";
 import { FlowChart, PullRequestFlowChart } from "./flow-chart";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
@@ -165,6 +166,19 @@ export function DashboardView({
                 stages={data.stages.filter((stage) => stage.source === "issue" && DRAWN(stage))}
                 unit={unitOfBuckets(data.buckets)}
                 onOpenStage={onOpenStage}
+              />
+              <h3 className="mt-6 text-sm font-medium">
+                Closed issues
+                <span className="ml-2 font-normal text-muted-foreground">each {unitOfBuckets(data.buckets)}, by issue type</span>
+              </h3>
+              <ClosedIssuesChart
+                closed={data.closedIssues}
+                buckets={data.buckets}
+                unit={unitOfBuckets(data.buckets)}
+                now={now}
+                emptyNote={
+                  data.sync.running ? "Nothing closed in this period yet. The sync is still running." : "No issues closed in this period."
+                }
               />
             </Section>
 

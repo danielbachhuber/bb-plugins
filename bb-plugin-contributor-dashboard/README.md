@@ -135,6 +135,20 @@ a real repository the mean time to a first review is three times the median,
 pulled up by a few reviews that waited days. The median alone has the opposite
 problem, since it is blind to exactly those.
 
+#### Closed issues
+
+Under its steps, the Issues section charts the issues closed in each day,
+week, or month of the period as one bar each. Issues closed as completed are
+stacked by their GitHub issue type, such as Bug, Feature, or Task, with the
+repository's busiest types first and **No type** last. Issues closed as **not
+planned** or as a **duplicate** are hatched on top, so a cleanup that closes
+a stack of old issues does not read as finished work. The line over the chart
+gives the totals, and how many of the completed issues have no type, since
+an organization that has only started using issue types leaves many without
+one. A bar segment's tooltip gives its count. Labels are not read: few issues
+carry them, and asking for them would double the sync's cost per page of
+issues.
+
 #### A stage's page
 
 Clicking a stage name opens its page, at
@@ -537,13 +551,15 @@ Settings are read when the plugin loads, so reload it after changing one.
 The plugin keeps a mirror of the repository's releases, its pull requests, their reviews,
 their review-request and ready-for-review events, and whoever each is assigned
 to, and of its issues with the events that milestone, add to a project, and
-assign them, in its own SQLite database. Each pull request also keeps its
+assign them, in its own SQLite database. Each issue also keeps why it closed
+(completed, not planned, or duplicate) and its issue type. Each pull request also keeps its
 size (lines added and removed, files changed), its merge commit, its
 description, and the numbers of the issues it closes (up to 10), which no
 section reads yet. These, like the assignees, are fields on a query the sync
 already makes, so they cost no extra call. When the plugin starts asking for a
-new pull request field, it runs the two-year backfill once more so stored rows
-gain it too. The page reads only the mirror, so opening it or switching periods
+new pull request or issue field, it runs that object type's two-year backfill
+once more so stored rows gain it too. Until it finishes, an issue stored
+before counts as completed with no type. The page reads only the mirror, so opening it or switching periods
 makes no request to GitHub.
 
 The sync runs when the page opens and the mirror is more than 30 minutes old,

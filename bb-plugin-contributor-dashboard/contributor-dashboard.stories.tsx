@@ -4,7 +4,7 @@ import { DashboardView } from "./components/dashboard-view";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
-import type { ActivityDay, AssignedIssue, TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
+import type { ActivityDay, AssignedIssue, ClosedIssues, TeamAwaiting, FlowCounts, MinorRelease, OlderReleases, PeopleActivityResult, Releases, BucketFlows, StageDetailResult, StageSummary, SyncStatus } from "./dashboard/contract";
 import { BatchDialog } from "./components/batch-dialog";
 import { describeFilters } from "./components/list-toolbar";
 import { DEFAULT_QUERY, openFacets, queryOpen, type OpenQuery } from "./review/open-items";
@@ -344,6 +344,31 @@ function flowsFor(started: number[], finished: number[], backlog: number, askedS
   };
 }
 
+/**
+ * Issues closed over six weeks, shaped like a real repository: about half
+ * have no issue type, and one week in six holds a cleanup sweep, most of it
+ * closed as not planned.
+ */
+const CLOSED_ISSUES: Array<{ name: string | null; total: number; seed: number }> = [
+  { name: "Task", total: 48, seed: 2 },
+  { name: "Bug", total: 14, seed: 5 },
+  { name: "Feature", total: 8, seed: 7 },
+  { name: null, total: 37, seed: 3 },
+];
+
+function closedIssuesFor(n: number, factor: number): ClosedIssues {
+  const sweep = (total: number) => {
+    const counts = spread(Math.round(total * factor * 0.4), rhythm(9, n));
+    counts[Math.min(1, n - 1)] += Math.round(total * factor * 0.6);
+    return counts;
+  };
+  return {
+    types: CLOSED_ISSUES.map(({ name, total, seed }) => ({ name, completed: spread(Math.round(total * factor), rhythm(seed, n)) })),
+    notPlanned: sweep(21),
+    duplicate: spread(Math.round(6 * factor), rhythm(4, n)),
+  };
+}
+
 const bucketSums = (rows: Array<{ [key: string]: unknown }>, key: string, n: number) =>
   Array.from({ length: n }, (_, i) => rows.reduce((sum, row) => sum + ((row[key] as number[])[i] ?? 0), 0));
 
@@ -396,6 +421,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
       merge: flowsFor(bucketSums(authors, "opened", buckets.length), bucketSums(authors, "merged", buckets.length), 90, 0.6, 0.92, 4.9),
       review: flowsFor(bucketSums(people, "requested", buckets.length), bucketSums(people, "given", buckets.length), 40, null, 0.3, 2.9),
     },
+    closedIssues: closedIssuesFor(buckets.length, factor),
     authors,
     people: people.map((person) => ({ ...person, pickedUpTotal: person.pickedUp.reduce((sum, n) => sum + n, 0) })),
     teams: TEAMS,
@@ -489,7 +515,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, authors: [], people: [], teams: [], organization: null, everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, authors: [], people: [], teams: [], organization: null, everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}

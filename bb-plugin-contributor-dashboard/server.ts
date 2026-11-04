@@ -11,6 +11,7 @@ import { peopleActivity } from "./review/people.js";
 import { everyone } from "./review/everyone.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
+import { closedIssues } from "./review/closed-issues.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
 import { awaitingTeamReview, openRequests, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
@@ -182,7 +183,7 @@ export default async function plugin(bb: BbPluginApi) {
     people_activity: ({ range }) => {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
-          velocity: { merge: NO_FLOWS, review: NO_FLOWS },
+          velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] },
           authors: [], people: [], teams: [], organization: null, everyone: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
@@ -199,6 +200,7 @@ export default async function plugin(bb: BbPluginApi) {
         stages: stageSummaries({ pullRequests: prs, issues }, buckets, now),
         flow: flowOf({ pullRequests: prs, issues }, buckets[0].start, buckets.at(-1)!.end),
         velocity: { merge: mergeFlows(prs, buckets, now), review: reviewFlows(prs, buckets, now) },
+        closedIssues: closedIssues(issues, buckets),
         releases: releaseSummaries(store.readReleases(repository), prs, repository, buckets[0].start, buckets.at(-1)!.end),
         // A pull request opened before the period can still merge inside it,
         // so authoring reads them all rather than only the recently updated.

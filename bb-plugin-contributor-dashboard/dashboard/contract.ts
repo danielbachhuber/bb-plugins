@@ -289,6 +289,14 @@ export const bucketFlowsSchema = z.object({
   p90: z.number(),
 });
 
+/** Issues closed in each bucket: completed by issue type, and closed without the work. */
+export const closedIssuesSchema = z.object({
+  /** A row per issue type, busiest first; `null` is issues with no type, last. */
+  types: z.array(z.object({ name: z.string().nullable(), completed: z.array(z.number()) })),
+  notPlanned: z.array(z.number()),
+  duplicate: z.array(z.number()),
+});
+
 export const syncStatusSchema = z.object({
   /** When the last sync finished, epoch ms; null before the first one has. */
   syncedAt: z.number().nullable(),
@@ -322,6 +330,7 @@ export const rpcContract = defineRpcContract({
       releases: releasesSchema,
       /** Opened to merged, and requested to reviewed, for the charts that open the velocity sections. */
       velocity: z.object({ merge: bucketFlowsSchema, review: bucketFlowsSchema }),
+      closedIssues: closedIssuesSchema,
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       /** Every team asked for a review in the period, most asked first. */
@@ -529,6 +538,7 @@ export type MinorRelease = z.infer<typeof minorReleaseSchema>;
 export type OlderReleases = z.infer<(typeof rpcContract)["older_releases"]["output"]>;
 export type FlowCounts = z.infer<typeof flowCountsSchema>;
 export type StageSummary = z.infer<typeof stageSummarySchema>;
+export type ClosedIssues = z.infer<typeof closedIssuesSchema>;
 export type TeamAwaiting = z.infer<typeof teamAwaitingSchema>;
 export type TeamActivity = z.infer<typeof teamActivitySchema>;
 export type StageSpan = z.infer<typeof stageSpanSchema>;

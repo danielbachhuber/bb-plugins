@@ -178,6 +178,14 @@ export interface Issue {
   author: Actor | null;
   /** Who it is assigned to now. Empty for most rows: GitHub assigns nobody by default. */
   assignees: Actor[];
+  /**
+   * Why it closed; null while it is open. This and `issueType` are optional
+   * because rows mirrored before the sync asked for them lack them until the
+   * re-run backfill reaches them.
+   */
+  stateReason?: "COMPLETED" | "NOT_PLANNED" | "DUPLICATE" | "REOPENED" | null;
+  /** The organization's issue type, such as Bug or Task; null when none is set. */
+  issueType?: { name: string } | null;
 }
 
 /** The issue events the stages before a change is written are read from. */
@@ -220,6 +228,7 @@ const ISSUE_TIMELINE_FIELDS = `
 /**
  * One page of issues, most recently updated first, each with the events the
  * stages read. A page of 50 costs one point of GitHub's GraphQL rate limit.
+ * Labels are left out: asking for them doubles that.
  */
 export const ISSUES_QUERY = `
 query($owner: String!, $name: String!, $first: Int!, $after: String) {
@@ -227,7 +236,8 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
     issues(first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        id number title url state createdAt updatedAt closedAt
+        id number title url state stateReason createdAt updatedAt closedAt
+        issueType { name }
         author { __typename login }
         assignees(first: 5) { nodes { login } }
         timelineItems(first: 100, itemTypes: ${ISSUE_TIMELINE_ITEM_TYPES}) {
