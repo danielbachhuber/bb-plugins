@@ -7,6 +7,7 @@
  * this with fixture props and no server.
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -466,9 +467,9 @@ function ActivityRow({
       </span>
       <span className="min-w-0 flex-1 text-sm text-foreground">
         {item.url === null ? item.title : (
-          <a href={item.url} target="_blank" rel="noreferrer" className="hover:underline">
+          <UrlLink href={item.url} className="hover:underline">
             {item.title}
-          </a>
+          </UrlLink>
         )}
         {item.ref === null ? null : <span className="ml-1 text-muted-foreground">#{item.ref}</span>}
       </span>
