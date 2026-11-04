@@ -4,7 +4,7 @@
 // unresolved one, including the threads the diff cannot show: outdated ones,
 // comments on a whole file, and lines bb's diff does not include.
 import { useEffect, useState } from "react";
-import { useRpc } from "@get-bb/plugin-sdk/app";
+import { UrlLink, useRpc } from "@get-bb/plugin-sdk/app";
 import { cn } from "@/lib/utils";
 import type { rpcContract } from "@/server";
 import { threadUrl, type GithubReview, type GithubThread } from "./threads";
@@ -73,14 +73,12 @@ function Row({ thread }: { thread: GithubThread }) {
           </span>
         ) : null}
         {url !== null ? (
-          <a
+          <UrlLink
             href={url}
-            target="_blank"
-            rel="noreferrer"
             className="text-muted-foreground hover:text-foreground ml-auto underline-offset-2 hover:underline"
           >
             Open on GitHub
-          </a>
+          </UrlLink>
         ) : null}
       </div>
     </li>

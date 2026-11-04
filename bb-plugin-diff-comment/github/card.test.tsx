@@ -7,6 +7,7 @@ import type { GithubComment, GithubThread } from "./threads";
 
 vi.mock("@get-bb/plugin-sdk/app", () => ({
   Markdown: ({ content }: { content: string }) => <p>{content}</p>,
+  UrlLink: (props: React.ComponentProps<"a">) => <a {...props} />,
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

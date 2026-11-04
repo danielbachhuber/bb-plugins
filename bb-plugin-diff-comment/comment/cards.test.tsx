@@ -7,6 +7,7 @@ import type { Comment } from "./types";
 
 vi.mock("@get-bb/plugin-sdk/app", () => ({
   Markdown: ({ content }: { content: string }) => <p>{content}</p>,
+  UrlLink: (props: React.ComponentProps<"a">) => <a {...props} />,
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -129,7 +130,10 @@ describe("CommentCard's Post to GitHub", () => {
   it("links to GitHub instead once posted", async () => {
     const view = await render(card({ ...base, github: { url: "https://github.com/acme/widgets/pull/7#discussion_r1" } }));
     expect(button(view, "Post to GitHub")).toBeNull();
-    expect(view.querySelector("a")!.getAttribute("href")).toContain("discussion_r1");
+    const link = view.querySelector("a")!;
+    expect(link.getAttribute("href")).toContain("discussion_r1");
+    // No target, so bb's "Open links in bb" setting decides where it opens.
+    expect(link.hasAttribute("target")).toBe(false);
   });
 });
 

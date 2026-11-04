@@ -4,7 +4,7 @@
 // reading code. This is the other view: what is still open, what the agent
 // said it did, and the ones whose code has moved out from under them and are
 // therefore invisible on the diff.
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { UrlLink, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { GithubSection, useGithubReview } from "@/github/section";
 import { cn } from "@/lib/utils";
@@ -72,14 +72,12 @@ function Row({
           Delete
         </Button>
         {comment.github ? (
-          <a
+          <UrlLink
             href={comment.github.url}
-            target="_blank"
-            rel="noreferrer"
             className="text-muted-foreground hover:text-foreground self-center text-xs underline-offset-2 hover:underline"
           >
             On GitHub
-          </a>
+          </UrlLink>
         ) : null}
         <span className="text-muted-foreground ml-auto text-[11px]">
           {relativeTime(comment.updatedAt, Date.now())}

@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { GithubIcon } from "@hugeicons/core-free-icons";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Body, BodyEditor, Header, Shell } from "@/comment/cards";
 import { relativeTime } from "@/comment/time";
@@ -96,14 +97,12 @@ export function GithubThreadCard({ thread, number, onEdit, now }: GithubThreadCa
         <HugeiconsIcon icon={GithubIcon} size={14} className="text-muted-foreground" />
         <span className="text-muted-foreground">Review comment on #{number}</span>
         {url !== null ? (
-          <a
+          <UrlLink
             href={url}
-            target="_blank"
-            rel="noreferrer"
             className="text-muted-foreground hover:text-foreground ml-auto underline-offset-2 hover:underline"
           >
             Reply on GitHub
-          </a>
+          </UrlLink>
         ) : null}
       </Header>
       {thread.comments.map((comment) => (

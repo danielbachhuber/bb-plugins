@@ -6,7 +6,7 @@
 // bb's components. Nothing here knows about the shadow DOM.
 import { Component, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ErrorInfo, ReactNode } from "react";
-import { Markdown } from "@get-bb/plugin-sdk/app";
+import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "./time";
@@ -505,14 +505,12 @@ export function CommentCard({
           <GithubButton target={target} label="Post to GitHub" busy={busy} onClick={postToGithub} />
         ) : null}
         {comment.github ? (
-          <a
+          <UrlLink
             href={comment.github.url}
-            target="_blank"
-            rel="noreferrer"
             className="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
           >
             On GitHub
-          </a>
+          </UrlLink>
         ) : null}
         <Button
           size="sm"
