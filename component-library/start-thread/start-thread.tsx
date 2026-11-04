@@ -145,7 +145,7 @@ export function PreviewCard({ preview }: { preview: NonNullable<StartThreadSeed[
     <div className="rounded-lg border border-border p-3 text-sm">
       <p className="font-medium text-foreground">
         {preview.url ? (
-          <UrlLink href={preview.url} target="_blank" rel="noreferrer" className="hover:underline">
+          <UrlLink href={preview.url} className="hover:underline">
             {title}
           </UrlLink>
         ) : (
