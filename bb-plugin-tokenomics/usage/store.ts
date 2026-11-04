@@ -131,6 +131,9 @@ export const MIGRATIONS = [
      PRIMARY KEY (provider_id, account_key, label, sampled_at)
    )`,
   `CREATE INDEX IF NOT EXISTS limit_samples_sampled_at_idx ON limit_samples (sampled_at)`,
+  // How long the provider keeps this call's prompt cache, when it says, so
+  // the meter can tell when an idle thread's cache has expired.
+  `ALTER TABLE usage ADD COLUMN cache_ttl_ms INTEGER`,
 ];
 
 export interface ThreadInfo {
@@ -147,6 +150,8 @@ export interface UsageRow {
   createdAt: number;
   tokens: Tokens;
   runningTotal: number;
+  /** How long the provider keeps the prompt cache after this call, when it reports it. */
+  cacheTtlMs?: number | null;
 }
 
 export interface HourUsage extends Tokens {
@@ -238,8 +243,12 @@ export function createStore(db: Database) {
   );
   const insertUsage = db.prepare(
     `INSERT OR IGNORE INTO usage
-       (event_id, thread_id, created_at, input, cache_read, output, running_total)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (event_id, thread_id, created_at, input, cache_read, output, running_total, cache_ttl_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const selectCacheExpiry = db.prepare(
+    `SELECT created_at + cache_ttl_ms AS expiresAt FROM usage
+     WHERE thread_id = ? ORDER BY created_at DESC LIMIT 1`,
   );
   const upsertThread = db.prepare(
     `INSERT INTO threads (thread_id, title, project_id, provider_id, last_seq, archived_at)
@@ -470,6 +479,7 @@ export function createStore(db: Database) {
         row.tokens.cacheRead,
         row.tokens.output,
         row.runningTotal,
+        row.cacheTtlMs ?? null,
       );
       inserted += Number(result.changes);
     }
@@ -655,6 +665,16 @@ export function createStore(db: Database) {
     },
 
     /** The thread's most recent usage rows, oldest first. */
+    /**
+     * When the prompt cache from the thread's latest call expires: that call's
+     * time plus the lifetime the provider reported. Null when the provider
+     * reported none, or the thread has no calls.
+     */
+    cacheExpiresAt(threadId: string): number | null {
+      const row = selectCacheExpiry.get(threadId) as { expiresAt: number | null } | undefined;
+      return row?.expiresAt ?? null;
+    },
+
     threadRows(threadId: string, limit: number): UsageAt[] {
       return selectRows.all(threadId, limit) as UsageAt[];
     },

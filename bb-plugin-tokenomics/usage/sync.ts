@@ -49,7 +49,7 @@ export interface EventSource {
 }
 
 interface UsagePayload {
-  tokenUsage?: { total?: ProviderTokenBreakdown; last?: ProviderTokenBreakdown };
+  tokenUsage?: { total?: ProviderTokenBreakdown; last?: ProviderTokenBreakdown; promptCacheTtlMs?: number };
 }
 
 /** The ledger row for one event, or null when the event carries no usage. */
@@ -63,6 +63,8 @@ export function usageRowOf(event: UsageEventLike): UsageRow | null {
     createdAt: event.createdAt,
     tokens,
     runningTotal: Math.max(0, usage.total?.totalTokens ?? 0),
+    cacheTtlMs:
+      typeof usage.promptCacheTtlMs === "number" && usage.promptCacheTtlMs > 0 ? usage.promptCacheTtlMs : null,
   };
 }
 

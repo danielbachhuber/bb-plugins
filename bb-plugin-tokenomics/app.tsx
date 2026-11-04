@@ -22,7 +22,7 @@ import { UsageView, type UsageData } from "@/components/usage-view";
 import { TopBarSlot, useTopBarRoom } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 
 import type { rpcContract } from "./server";
-import { contextLevel, type ContextThresholds } from "./usage/context.js";
+import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
@@ -266,9 +266,10 @@ interface ContextState {
   lastTurn: number | null;
   thresholds: ContextThresholds;
   archived: boolean;
+  cacheExpiresAt: number | null;
 }
 
-/** The meter above the composer, drawn only once the thread's context passes the setting. */
+/** The meter above the composer, drawn only once the thread's context passes the setting or its prompt cache expires. */
 function ContextMeterBanner() {
   const view = useComposerView();
   const threadId = view.scope.kind === "thread" ? view.scope.threadId : null;
@@ -309,10 +310,26 @@ function ContextMeterBanner() {
     if (requestedAt !== null && state?.context != null && state.context.at > requestedAt) setRequestedAt(null);
   }, [requestedAt, state]);
 
+  // Redraw when the cache expires, then each minute so "expired 2h ago" stays true.
+  const [now, setNow] = useState(() => Date.now());
+  const expiresAt = state?.cacheExpiresAt ?? null;
+  useEffect(() => {
+    if (expiresAt === null) return;
+    const wait = expiresAt - Date.now();
+    if (wait > 0) {
+      const timer = setTimeout(() => setNow(Date.now()), wait + 50);
+      return () => clearTimeout(timer);
+    }
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, [expiresAt, now]);
+
   if (threadId === null || state === null || state.archived) return null;
   if (state.context === null) return null;
   const level = contextLevel(state.context.usedTokens, state.thresholds);
-  if (level === null) return null;
+  // A running turn refreshes the cache, so the expired state waits for it to end.
+  const expiredAt = view.run.isRunning ? null : cacheExpiredAt(state.context.usedTokens, expiresAt, now);
+  if (level === null && expiredAt === null) return null;
 
   const onCompact = () => {
     setError(null);
@@ -329,6 +346,8 @@ function ContextMeterBanner() {
       contextWindow={state.context.contextWindow}
       thresholds={state.thresholds}
       level={level}
+      cacheExpiredAt={expiredAt}
+      now={now}
       lastTurn={state.lastTurn}
       running={view.run.isRunning}
       compacting={requestedAt !== null}

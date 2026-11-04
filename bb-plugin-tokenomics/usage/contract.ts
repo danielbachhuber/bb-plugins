@@ -196,6 +196,8 @@ export const rpcContract = defineRpcContract({
       thresholds: thresholdsSchema,
       /** Archived or deleted threads get no meter. */
       archived: z.boolean(),
+      /** When the prompt cache from the latest call expires; null when the provider reports no lifetime. */
+      cacheExpiresAt: z.number().nullable(),
     }),
   },
   /** How many active threads have their latest context past the warning setting, and past the error one, for the sidebar. */

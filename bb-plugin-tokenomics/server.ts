@@ -473,6 +473,7 @@ export default async function plugin(bb: BbPluginApi) {
         lastTurn: last === undefined ? null : last.input + last.cacheRead + last.output,
         thresholds,
         archived: store.isArchived(threadId),
+        cacheExpiresAt: store.cacheExpiresAt(threadId),
       };
     },
     context_levels: async () => countLevels(store.activeLatestContexts(), await contextThresholds()),

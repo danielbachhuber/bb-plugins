@@ -34,6 +34,15 @@ every turn expensive. Once a thread's context passes 300K tokens, a meter
 shows above the composer, amber and then red past 550K. Click **Compact** to
 have bb compact the thread. The sidebar counts these threads in amber and red.
 
+![A thread at 223K context, under the warning, with the meter tinted amber above its composer: a grey size bar, Cache expired 2h ago, and an amber Compact button](screenshots/page--cache-expired-in-thread.png)
+
+The meter also shows, tinted amber, once a thread of 100K tokens or more has
+sat idle past its prompt cache, usually an hour for Claude Code. Its next
+message would read the whole context again uncached, so that is the moment
+to **Compact**. This is the same rule as bb's **Compact before resuming
+expired sessions** experiment, which offers to compact as you send. With
+both on, both show.
+
 ### Your session in the title bar
 
 ![bb's title bar across the full window: the window controls, back and forward, and the sidebar toggle, then Tokenomics' spark chart and rings in amber at the right edge of the sidebar, with its limits open below: the current session 28% of about 300M tokens and on pace for 95% by 5:50 PM, the weekly limit, and the past day's tokens per hour running on to the reset with hatched bars](screenshots/page--title-bar-in-window.png)
@@ -103,7 +112,7 @@ outside service.
 
 ## Related plugins
 
-_As of October 21, 2026_
+_As of November 4, 2026_
 
 - **[Burn](https://getbb.app/marketplace/burn)** (`burn`): shows what each thread costs in dollars, per prompt and
   across threads, with budgets. Tokenomics counts tokens rather than dollars,
@@ -125,6 +134,10 @@ _As of October 21, 2026_
 - **[Auto Compact](https://getbb.app/marketplace/auto-compact)** (`auto-compact`): compacts a thread on its own once its
   context reaches a share of the window. Tokenomics warns at a token count you
   set and leaves compacting to you.
+- **[Cache Watch](https://getbb.app/marketplace/cache-watch)** (`cache-watch`): shows how much
+  prompt cache each turn reuses, the time left before it expires, and an
+  optional keepalive that sends turns to keep it warm. Tokenomics only says
+  once an idle thread's cache has expired, and offers to compact.
 - **[Context Meter](https://getbb.app/marketplace/context-meter)** (`context-meter`) and **[Context Katamari](https://getbb.app/marketplace/context-katamari)**
   (`context-katamari`): show how full one thread's context is. **[Context
   Health](https://getbb.app/marketplace/context-health)** (`context-health`) shows what makes it up. Tokenomics shows each

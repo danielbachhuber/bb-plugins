@@ -1,6 +1,6 @@
 // Invented data and bb's thread frame, shared by the plugin's stories and the
 // explore stories. Not a stories file, so Ladle lists none of these.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import type { PermissionMode, PromptTextMention } from "@bb/domain";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 import { makeExecutionControlsProps, STORY_CLAUDE_CODE_MODELS, STORY_PROVIDER_OPTIONS } from "@bb-ladle/story-fixtures";
@@ -322,6 +322,13 @@ export const METER: ContextMeterProps = {
   error: null,
   onCompact: () => undefined,
 };
+/** A 223K thread, under the warning, idle 2h 21m past its prompt cache. */
+export const CACHE_EXPIRED: Partial<ContextMeterProps> = {
+  usedTokens: 223_000,
+  level: null,
+  cacheExpiredAt: NOW.getTime() - 141 * 60_000,
+  now: NOW.getTime(),
+};
 export const noop = () => {};
 export const PERMISSION_OPTIONS: readonly PickerOption<PermissionMode>[] = [
   { value: "accept-edits", label: "Accept Edits" },
@@ -408,6 +415,7 @@ export function ThreadFrame({
   height = "h-[900px]",
   conversation = CONVERSATION,
   turnLines = [],
+  compactBeforeSend = null,
 }: {
   headerAction: ReactNode;
   stack?: ReactNode;
@@ -415,6 +423,8 @@ export function ThreadFrame({
   conversation?: typeof CONVERSATION;
   /** Drawn under each of the agent's messages in turn, as the line under each turn is. */
   turnLines?: readonly ReactNode[];
+  /** bb's own compact-before-send chip in the composer, as it shows once the prompt cache expires. */
+  compactBeforeSend?: ComponentProps<typeof FollowUpPromptBox>["compactBeforeSend"];
 }) {
   const agentIndex = (index: number) => conversation.slice(0, index).filter((turn) => turn.from === "agent").length;
   const [draft, setDraft] = useState("");
@@ -476,6 +486,7 @@ export function ThreadFrame({
           promptActions={[]}
           typeahead={makeTypeaheadConfig()}
           collapseResetKey="thr_story"
+          compactBeforeSend={compactBeforeSend}
         />
       </div>
     </div>

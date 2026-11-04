@@ -82,3 +82,30 @@ export function parseThreshold(value: string): number | null {
   const unit = match[2]!.toLowerCase();
   return Math.round(number * (unit === "k" ? 1_000 : unit === "m" ? 1_000_000 : 1));
 }
+
+/**
+ * The smallest context bb offers to compact once its prompt cache expires
+ * (apps/server/src/services/threads/compaction-offer.ts in bb). Below it,
+ * re-reading the context uncached costs too little to matter.
+ */
+export const CACHE_EXPIRY_MIN_TOKENS = 100_000;
+
+/**
+ * When the thread's prompt cache expired, or null while it is still warm,
+ * when the provider reports no lifetime, or when the context is too small to
+ * matter. bb works this out the same way for its own compact-before-send
+ * offer: the latest token usage event's time plus the provider's
+ * promptCacheTtlMs (1 hour for Claude Code, sometimes 5 minutes).
+ */
+export function cacheExpiredAt(usedTokens: number, cacheExpiresAt: number | null, now: number): number | null {
+  if (cacheExpiresAt === null || usedTokens < CACHE_EXPIRY_MIN_TOKENS) return null;
+  return now >= cacheExpiresAt ? cacheExpiresAt : null;
+}
+
+/** How long ago, as the meter says it: "16 min", "2h", "6d". */
+export function formatAgo(ms: number): string {
+  const minutes = Math.max(1, Math.floor(ms / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 48 * 60) return `${Math.floor(minutes / 60)}h`;
+  return `${Math.floor(minutes / 1440)}d`;
+}

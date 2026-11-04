@@ -27,6 +27,7 @@ import {
   limit,
   LONG,
   LONG_TURNS,
+  CACHE_EXPIRED,
   METER,
   noop,
   NOW,
@@ -187,7 +188,8 @@ export const HeaderOpen = () => (
 /**
  * The meter above a thread's composer once its context passes the warning
  * setting, 300K tokens here, and red past the error setting, 550K, with a
- * button that compacts the thread.
+ * button that compacts the thread. It also shows, tinted amber, once a
+ * thread of 100K or more sits idle past its prompt cache.
  */
 export const ContextMeterStates = () => (
   <StoryCard>
@@ -226,7 +228,34 @@ export const ContextMeterStates = () => (
         <ContextMeter {...METER} compact />
       </div>
     </StoryRow>
+    <StoryRow label="cache expired" hint="223K, under the warning, idle 2h past a 1-hour cache">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} {...CACHE_EXPIRED} />
+      </div>
+    </StoryRow>
+    <StoryRow label="cache expired, past the warning" hint="369K, 16 min past">
+      <div className="w-[720px]">
+        <ContextMeter {...METER} usedTokens={369_000} cacheExpiredAt={NOW.getTime() - 16 * 60_000} now={NOW.getTime()} />
+      </div>
+    </StoryRow>
+    <StoryRow label="cache expired, narrow">
+      <div className="w-[320px]">
+        <ContextMeter {...METER} {...CACHE_EXPIRED} compact />
+      </div>
+    </StoryRow>
   </StoryCard>
+);
+
+/** A thread at 223K, under the warning, that sat idle two hours past its prompt cache: the meter shows, tinted amber, so the next message can compact first. */
+export const CacheExpiredInThread = () => (
+  <div data-screenshot-frame className="w-[1400px]" style={{ height: 480 }}>
+    <ThreadFrame
+      height="h-full"
+      headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+      stack={<ContextMeter {...METER} {...CACHE_EXPIRED} />}
+      conversation={CONVERSATION.slice(-3)}
+    />
+  </div>
 );
 
 /**

@@ -1,9 +1,9 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { CONTEXT_EVENT, contextLevel, contextRowOf, countLevels, parseThreshold } from "./context.js";
+import { cacheExpiredAt, CONTEXT_EVENT, contextLevel, contextRowOf, countLevels, formatAgo, parseThreshold } from "./context.js";
 import { createStore, MIGRATIONS } from "./store.js";
-import { createSync, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
+import { createSync, TOKEN_USAGE_EVENT, usageRowOf, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
 
 const thread: ThreadLike = { id: "thr_widgets", title: "Add a CSV export", projectId: "prj_acme", providerId: "claude-code" };
 
@@ -129,5 +129,57 @@ describe("activeLatestContexts", () => {
 
     store.setArchived(gadgets.id, 5_000);
     expect(store.activeLatestContexts()).toEqual([600_000]);
+  });
+});
+
+const HOUR = 60 * 60_000;
+
+function usageEvent(seq: number, createdAt: number, promptCacheTtlMs?: number): UsageEventLike {
+  return {
+    id: `evt_u${seq}`,
+    seq,
+    createdAt,
+    type: TOKEN_USAGE_EVENT,
+    data: {
+      tokenUsage: {
+        last: { totalTokens: 1_100, inputTokens: 1_000, cachedInputTokens: 900, outputTokens: 100, reasoningOutputTokens: 0 },
+        total: { totalTokens: 1_100, inputTokens: 1_000, cachedInputTokens: 900, outputTokens: 100, reasoningOutputTokens: 0 },
+        ...(promptCacheTtlMs === undefined ? {} : { promptCacheTtlMs }),
+      },
+    },
+  };
+}
+
+describe("prompt cache expiry", () => {
+  it("reads the cache lifetime the provider reports with each call", () => {
+    expect(usageRowOf(usageEvent(1, 5_000, HOUR))?.cacheTtlMs).toBe(HOUR);
+    expect(usageRowOf(usageEvent(2, 5_000))?.cacheTtlMs).toBeNull();
+  });
+
+  it("dates the expiry from the thread's latest call", () => {
+    const db = new Database(":memory:");
+    for (const statement of MIGRATIONS) db.exec(statement);
+    const store = createStore(db);
+    const info = { threadId: thread.id, title: null, projectId: "prj_acme", providerId: "claude-code", archivedAt: null };
+    expect(store.cacheExpiresAt(thread.id)).toBeNull();
+    store.record(info, [usageRowOf(usageEvent(1, 1_000, 5 * 60_000))!, usageRowOf(usageEvent(2, 9_000, HOUR))!], 2);
+    expect(store.cacheExpiresAt(thread.id)).toBe(9_000 + HOUR);
+    // A later call with no lifetime leaves nothing to count down from.
+    store.record(info, [usageRowOf(usageEvent(3, 20_000))!], 3);
+    expect(store.cacheExpiresAt(thread.id)).toBeNull();
+  });
+
+  it("counts a cache as expired only past its time, and only for a context of 100K or more", () => {
+    expect(cacheExpiredAt(223_000, 10_000, 9_999)).toBeNull();
+    expect(cacheExpiredAt(223_000, 10_000, 10_000)).toBe(10_000);
+    expect(cacheExpiredAt(99_000, 10_000, 50_000)).toBeNull();
+    expect(cacheExpiredAt(223_000, null, 50_000)).toBeNull();
+  });
+
+  it("says how long ago in minutes, hours, then days", () => {
+    expect(formatAgo(16 * 60_000)).toBe("16 min");
+    expect(formatAgo(141 * 60_000)).toBe("2h");
+    expect(formatAgo(8_917 * 60_000)).toBe("6d");
+    expect(formatAgo(0)).toBe("1 min");
   });
 });
