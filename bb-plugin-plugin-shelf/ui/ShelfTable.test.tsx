@@ -1,15 +1,24 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { ShelfTable, type ShelfTableProps } from "./ShelfTable";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ShelfTableProps } from "./ShelfTable";
 import { FIXTURE_NOW, emptyList, fixtureList, unknownList } from "./fixtures";
 
+// This SDK reads `UrlLink` from the runtime when its module loads, so the
+// harness goes in before the table is imported.
+let ShelfTable: typeof import("./ShelfTable").ShelfTable;
+beforeAll(async () => {
+  installTestPluginRuntime();
+  ({ ShelfTable } = await import("./ShelfTable"));
+});
 afterEach(cleanup);
 
 function renderTable(list = fixtureList(), extra: Partial<ShelfTableProps> = {}) {
   const onPublish = vi.fn();
   const onOpenPlugin = vi.fn();
-  render(
+  // In the harness's slot, which the SDK's `UrlLink` needs.
+  const slot = renderSlot({ component: () => (
     <ShelfTable
       list={list}
       providerId="claude-code"
@@ -18,9 +27,9 @@ function renderTable(list = fixtureList(), extra: Partial<ShelfTableProps> = {})
       onOpenPlugin={onOpenPlugin}
       now={FIXTURE_NOW}
       {...extra}
-    />,
-  );
-  return { onPublish, onOpenPlugin };
+    />
+  ) }, {});
+  return { onPublish, onOpenPlugin, slot };
 }
 
 describe("ShelfTable", () => {
@@ -31,7 +40,7 @@ describe("ShelfTable", () => {
   });
 
   it("expands a row's unreleased commits and marks docs-only ones", () => {
-    renderTable();
+    const { slot } = renderTable();
     expect(screen.queryByRole("list", { name: "Unreleased commits in Widgets" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "3 commits" }));
     const list = screen.getByRole("list", { name: "Unreleased commits in Widgets" });
@@ -39,6 +48,10 @@ describe("ShelfTable", () => {
     expect(within(list).getAllByText("docs")).toHaveLength(1);
     const link = within(list).getAllByRole("link")[0] as HTMLAnchorElement;
     expect(link.href).toBe(`https://github.com/acme/widgets/commit/${"4f1c".repeat(10)}`);
+    // No target, so a click goes through bb's "Open links in bb" setting.
+    expect(link.hasAttribute("target")).toBe(false);
+    fireEvent.click(link);
+    expect(slot.navigateCalls).toEqual([{ method: "openUrl", url: link.href }]);
   });
 
   it("offers a current plugin's docs-only changes without asking for a release", () => {
@@ -97,9 +110,9 @@ describe("ShelfTable", () => {
   });
 
   it("shows names as plain text when there is nowhere to open them", () => {
-    render(
-      <ShelfTable list={fixtureList()} providerId="claude-code" publishing={null} onPublish={vi.fn()} now={FIXTURE_NOW} />,
-    );
+    renderSlot({ component: () => (
+      <ShelfTable list={fixtureList()} providerId="claude-code" publishing={null} onPublish={vi.fn()} now={FIXTURE_NOW} />
+    ) }, {});
     expect(screen.queryByRole("button", { name: "Gizmos" })).toBeNull();
     expect(screen.getByText("Gizmos")).toBeTruthy();
   });

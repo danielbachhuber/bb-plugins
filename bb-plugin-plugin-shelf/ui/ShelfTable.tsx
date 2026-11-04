@@ -1,6 +1,7 @@
 // Plugin Shelf's table: every plugin in the checkout, grouped by whether it
 // needs a release. Display only; ShelfPage loads the data and handles actions.
 import { Fragment, useState } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -115,14 +116,12 @@ function CommitList({ row, repo, now }: { row: ShelfRow; repo: string; now: numb
               docs
             </Badge>
           ) : null}
-          <a
+          <UrlLink
             href={`https://${repo}/commit/${commit.sha}`}
-            target="_blank"
-            rel="noreferrer"
             className="shrink-0 font-mono text-xs text-muted-foreground hover:text-foreground hover:underline"
           >
             {commit.sha.slice(0, 7)}
-          </a>
+          </UrlLink>
           <span className="shrink-0 text-xs text-muted-foreground">
             {relative(Date.parse(commit.date), now)}
           </span>
