@@ -246,7 +246,7 @@ export const ContextMeterStates = () => (
   </StoryCard>
 );
 
-/** A thread at 223K, under the warning, that sat idle two hours past its prompt cache: the meter shows, tinted amber, so the next message can compact first. */
+/** A thread at 223K, under the warning, that sat idle two hours past its prompt cache: the meter shows, tinted amber, with Compact before the next message re-reads it all. */
 export const CacheExpiredInThread = () => (
   <div data-screenshot-frame className="w-[1400px]" style={{ height: 480 }}>
     <ThreadFrame
