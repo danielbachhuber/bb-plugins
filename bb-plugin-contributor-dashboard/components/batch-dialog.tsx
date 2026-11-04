@@ -4,7 +4,7 @@
 // thread, as a row's own Start thread opens; the server starts the
 // subthreads with whatever the composer was set to.
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import type { NewThreadRequest } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, type NewThreadRequest } from "@get-bb/plugin-sdk/app";
 import { StartThreadError, StartThreadForm } from "@danielbachhuber/bb-plugin-component-library/start-thread";
 
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,7 @@ function PickStep({
   onNext: () => void;
 }) {
   const anchor = useRef<number | null>(null);
+  const navigate = useBbNavigate();
   const [copied, setCopied] = useState(false);
   const picked = rows.filter((row) => ticked.has(row.number));
   const count = picked.length;
@@ -93,7 +94,7 @@ function PickStep({
     setTimeout(() => setCopied(false), 1500);
   };
   const open = () => {
-    for (const row of picked.slice(0, OPEN_LIMIT)) window.open(row.url, "_blank", "noopener");
+    for (const row of picked.slice(0, OPEN_LIMIT)) navigate.openUrl(row.url);
   };
 
   return (

@@ -3,6 +3,7 @@
 // here. Drawn like the sweeps' rows, and the same height as before: an icon
 // button is no taller than the line of text beside it.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import { writeLinkToClipboard } from "@danielbachhuber/bb-plugin-component-library/copy-link";
 import { StartingThreadLine, THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 
@@ -157,9 +158,9 @@ export function ItemRow({
   return (
     <li className={cn("px-3 py-2", threadId !== null && cn(THREAD_EDGE_INSET, "pl-[10px]"))}>
       <div className="flex items-center justify-between gap-3">
-        <a href={url} target="_blank" rel="noreferrer" className="min-w-0 truncate hover:underline">
+        <UrlLink href={url} className="min-w-0 truncate hover:underline">
           <span className="tabular-nums text-muted-foreground">#{number}</span> {title}
-        </a>
+        </UrlLink>
         <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted-foreground">
           {assignees === undefined ? null : <Assignees logins={assignees} />}
           {facts}

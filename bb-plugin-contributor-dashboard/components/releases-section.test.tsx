@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MinorRelease } from "@/dashboard/contract";
@@ -7,6 +9,9 @@ import type { MinorRelease } from "@/dashboard/contract";
 import { ReleasesSection } from "./releases-section";
 
 afterEach(cleanup);
+
+/** Mounts in the harness's slot, which the SDK's `UrlLink` needs. */
+const render = (ui: ReactElement) => renderSlot({ component: () => ui }, {});
 
 const minor = (tag: string, publishedAt: string, login: string): MinorRelease => ({
   tag,

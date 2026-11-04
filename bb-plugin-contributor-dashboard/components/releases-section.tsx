@@ -3,6 +3,7 @@
 // says how many pull requests its notes list, what kind they are, which
 // patches followed it, and who merged and reviewed them.
 import { useEffect, useState } from "react";
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 
 import type { MinorRelease, OlderReleases, Releases } from "@/dashboard/contract";
 
@@ -137,9 +138,9 @@ function InFull({
     <div className={`${className} rounded-lg border border-border bg-card p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-3">
-          <a href={release.url} target="_blank" rel="noreferrer" className="text-base font-semibold hover:underline">
+          <UrlLink href={release.url} className="text-base font-semibold hover:underline">
             {release.tag}
-          </a>
+          </UrlLink>
           <span className="text-xs text-muted-foreground">published {day(release.publishedAt)}</span>
         </div>
         <Patched release={release} />
@@ -168,9 +169,9 @@ function InFull({
         <div className="mt-3 space-y-0.5 text-xs">
           {release.patches.map((patch) => (
             <div key={patch.tag} className="flex min-w-0 gap-1.5">
-              <a href={patch.url} target="_blank" rel="noreferrer" className="shrink-0 font-medium hover:underline" style={{ color: PATCH }}>
+              <UrlLink href={patch.url} className="shrink-0 font-medium hover:underline" style={{ color: PATCH }}>
                 {patch.tag}
-              </a>
+              </UrlLink>
               <span className="min-w-0 truncate text-muted-foreground">
                 {day(patch.publishedAt)} · {plural(patch.total, "pull request", "pull requests")}
                 {patch.firstLine === null ? "" : ` · ${patch.firstLine}`}

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import type { ReactElement } from "react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { AssignedIssue } from "@/dashboard/contract";
@@ -10,6 +11,9 @@ import { AssignedIssues, axisMarks, endWords, issuesLine } from "./issue-lifelin
 // The rows draw bb's own Icon, which needs the runtime bb normally provides.
 beforeAll(installTestPluginRuntime);
 afterEach(cleanup);
+
+/** Mounts in the harness's slot, which the SDK's `UrlLink` needs. */
+const render = (ui: ReactElement) => renderSlot({ component: () => ui }, {});
 
 const NOW = Date.parse("2026-10-08T12:00:00Z");
 const ago = (days: number) => new Date(NOW - days * 86_400_000).toISOString();

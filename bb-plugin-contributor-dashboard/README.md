@@ -189,7 +189,7 @@ what order.
 **Batch**, at the end of the toolbar, opens a dialog with every row the
 filters match, on every page, to tick; shift-click ticks a range. From there,
 **Copy links** writes them as a markdown list, **Open on GitHub** opens the
-first ten in new tabs, and **Start a thread** goes on to bb's composer for one
+first ten, and **Start a thread** goes on to bb's composer for one
 main thread, with the ticked rows written into its prompt. Starting it starts
 that thread, then a subthread under it for each row, at most fifty, with the
 row's own Start thread prompt and a line saying to report back to the main
@@ -230,6 +230,10 @@ whichever way the sort runs. None of it makes a GitHub call.
 Every list of issues and pull requests draws the same row: the number and
 title, linking to GitHub, then what that list has to say about it, then two
 things to do with it.
+
+Every GitHub link in the dashboard, from a row's title to a release or a
+person's profile, follows bb's **Open links in bb** setting: in bb's own
+browser when it is on, in your default browser when it is off.
 
 **Who owns it** comes first on the right. Initials in a circle for each
 assignee, up to three, with the full list on hover. Where nobody is assigned,

@@ -3,6 +3,7 @@
 // merged lines and the list of how each fared, followed by their review bars
 // and the pull requests waiting on their review.
 // Display only.
+import { UrlLink } from "@get-bb/plugin-sdk/app";
 import type { AuthoredQuery, PersonActivityResult, TeamAwaiting } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
@@ -180,9 +181,9 @@ export function PersonView({
                 {profile === null ? null : (
                   <>
                     {" · "}
-                    <a href={profile} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                    <UrlLink href={profile} className="underline hover:text-foreground">
                       GitHub profile ↗
-                    </a>
+                    </UrlLink>
                   </>
                 )}
               </>
