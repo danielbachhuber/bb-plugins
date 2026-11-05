@@ -39,6 +39,17 @@ export interface GhPullRequest {
   conflicted: boolean;
 }
 
+/** A stack of pull requests on GitHub, as `gh stack` links them. */
+export interface GhStack {
+  /** The stack's own number in its repository: "stack #N" on GitHub. */
+  number: number;
+  /** This pull request's place, 1 for the one closest to the base branch. */
+  position: number;
+  size: number;
+  /** Every pull request in the stack, bottom first. */
+  entries: Array<{ number: number; url: string; state: "open" | "closed" | "merged" }>;
+}
+
 export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
 export type ReviewerState = ReviewVerdict | "pending";
 
@@ -60,6 +71,8 @@ export interface Gh {
    * viewer's review, directly or through a team; null when `gh` cannot say.
    */
   reviewRequested(): Promise<string[] | null>;
+  /** The stack the pull request belongs to; null when it is in none, or `gh` cannot say. */
+  stack(ref: IssueRef): Promise<GhStack | null>;
 }
 
 const ANSWER_TTL_MS = 5 * 60_000;
@@ -239,6 +252,75 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
   };
 }
 
+const STACK_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      stackEntry {
+        position
+        stack {
+          number
+          size
+          entries(first: 100) { nodes { position pullRequest { number url state } } }
+        }
+      }
+    }
+  }
+}`;
+
+interface StackJson {
+  data?: {
+    repository?: {
+      pullRequest?: {
+        stackEntry?: {
+          position?: unknown;
+          stack?: {
+            number?: unknown;
+            size?: unknown;
+            entries?: {
+              nodes?: Array<{
+                position?: unknown;
+                pullRequest?: { number?: unknown; url?: unknown; state?: unknown } | null;
+              } | null> | null;
+            } | null;
+          } | null;
+        } | null;
+      } | null;
+    } | null;
+  };
+}
+
+export function parseStack(json: StackJson): GhStack | null {
+  const entry = json.data?.repository?.pullRequest?.stackEntry;
+  const stack = entry?.stack;
+  if (
+    !stack ||
+    typeof entry.position !== "number" ||
+    typeof stack.number !== "number" ||
+    typeof stack.size !== "number"
+  ) {
+    return null;
+  }
+  const entries = (stack.entries?.nodes ?? [])
+    .flatMap((node) => {
+      const pr = node?.pullRequest;
+      if (typeof node?.position !== "number" || typeof pr?.number !== "number" || typeof pr.url !== "string") {
+        return [];
+      }
+      const state = String(pr.state ?? "").toUpperCase();
+      return [
+        {
+          position: node.position,
+          number: pr.number,
+          url: pr.url,
+          state: state === "MERGED" ? ("merged" as const) : state === "CLOSED" ? ("closed" as const) : ("open" as const),
+        },
+      ];
+    })
+    .sort((a, b) => a.position - b.position)
+    .map(({ number, url, state }) => ({ number, url, state }));
+  return { number: stack.number, position: entry.position, size: stack.size, entries };
+}
+
 export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
   const cache = new Map<string, { value: unknown; expiresAt: number }>();
 
@@ -314,6 +396,30 @@ export function createGh(runner: GhRunner, now: () => number = Date.now): Gh {
           .filter((pr) => typeof pr.number === "number" && typeof pr.repository?.nameWithOwner === "string")
           .map((pr) => `${String(pr.repository!.nameWithOwner).toLowerCase()}#${String(pr.number)}`);
       });
+    },
+    async stack(ref) {
+      const [owner, name] = ref.repo.split("/");
+      if (!owner || !name) return null;
+      // Not being in a stack is an answer too, cached as long as one.
+      const hit = await cached<{ stack: GhStack | null }>(`stack:${ref.repo}#${ref.number}`, async () => ({
+        stack: parseStack(
+          JSON.parse(
+            await runner.run([
+              "api",
+              "graphql",
+              "-f",
+              `query=${STACK_QUERY}`,
+              "-f",
+              `owner=${owner}`,
+              "-f",
+              `name=${name}`,
+              "-F",
+              `number=${String(ref.number)}`,
+            ]),
+          ) as StackJson,
+        ),
+      }));
+      return hit?.stack ?? null;
     },
   };
 }

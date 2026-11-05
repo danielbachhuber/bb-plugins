@@ -1,7 +1,7 @@
 # bb-plugin-gh-context
 
 A banner above the composer that shows what a thread is about on GitHub: its
-pull request and who is reviewing it, the issues it works on, its committed or uncommitted changes, a
+pull request, its place in a stack, and who is reviewing it, the issues it works on, its committed or uncommitted changes, a
 merge button, and a Harvest timer. It takes the place of bb's own prompt
 context banner, which it hides.
 
@@ -80,6 +80,16 @@ triangle after the changes, as PR Sweep and Review Sweep draw one after the
 title. It comes from bb's mergeability for the thread's branch, or from the
 same `gh pr view` call that reads a linked pull request's checks, so it costs
 no extra request.
+
+When the pull request is part of a stack on GitHub, a layers icon and its
+place in the stack follow it, written as GitHub writes it: "4/5" is the fourth
+of five, counting up from the base branch. Clicking it lists every pull request
+in the stack, top first, with this one marked, and each opens on GitHub. The
+stack comes from one `gh api graphql` call per pull request, cached for five
+minutes like the rest of the banner's `gh` answers, including the answer that
+it is in no stack. Only stacks GitHub itself records count, the ones
+`gh stack` links; pull requests that only point at each other with a base
+branch show nothing.
 
 The pull request comes from bb's GitHub PR Status plugin, which looks it up
 for the thread's branch. For a thread that is not on the branch, such as a

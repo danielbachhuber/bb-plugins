@@ -40,6 +40,7 @@ const pullRequest = {
   conflicted: false,
   myReview: null,
   reviewers: [],
+  stack: null,
 };
 
 describe("harvestItem", () => {

@@ -32,6 +32,20 @@ const reviewerSchema = z.object({
 
 export type ContextReviewer = z.infer<typeof reviewerSchema>;
 
+/** The stack the pull request is part of, as GitHub shows it: "4/5", stack #N. */
+const stackSchema = z.object({
+  number: z.number(),
+  /** 1 for the pull request closest to the base branch. */
+  position: z.number(),
+  size: z.number(),
+  /** Every pull request in the stack, bottom first. */
+  entries: z.array(
+    z.object({ number: z.number(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
+  ),
+});
+
+export type ContextStack = z.infer<typeof stackSchema>;
+
 /** The thread's pull request, from bb's environment lookup or a sweep's link. */
 const pullRequestSchema = z.object({
   repo: z.string(),
@@ -77,6 +91,8 @@ const pullRequestSchema = z.object({
   myReview: myReviewSchema.nullable(),
   /** Everyone reviewing it and where each stands; null when `gh` cannot say. */
   reviewers: z.array(reviewerSchema).nullable(),
+  /** Null when it is in no stack, or `gh` cannot say. */
+  stack: stackSchema.nullable(),
 });
 
 const issueSchema = z.object({

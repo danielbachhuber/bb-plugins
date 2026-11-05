@@ -8,6 +8,7 @@ import {
   type ContextIssue,
   type ContextPullRequest,
   type ContextReviewer,
+  type ContextStack,
   type MyReview,
   type ThreadContext,
 } from "./context/contract.js";
@@ -177,19 +178,24 @@ export default async function plugin(bb: BbPluginApi) {
     return store.itemsForThread(thread.id).length > before;
   }
 
-  async function reviewOf(ref: IssueRef): Promise<{ myReview: MyReview | null; reviewers: ContextReviewer[] | null }> {
+  /** What only `gh` knows about a pull request: the reviews and its stack. */
+  async function fromGh(
+    ref: IssueRef,
+  ): Promise<{ myReview: MyReview | null; reviewers: ContextReviewer[] | null; stack: ContextStack | null }> {
     const client = await ghClient();
-    const [fetched, viewer, requested] = await Promise.all([
+    const [fetched, viewer, requested, stack] = await Promise.all([
       client.pullRequest(ref),
       client.viewer(),
       // One search for every banner, cached: the only way to see a request
       // that reached you through a team.
       client.reviewRequested(),
+      client.stack(ref),
     ]);
-    if (!fetched) return { myReview: null, reviewers: null };
+    if (!fetched) return { myReview: null, reviewers: null, stack };
     return {
       myReview: myReview(fetched, viewer, requested?.includes(`${ref.repo}#${ref.number}`) ?? false),
       reviewers: fetched.reviewers,
+      stack,
     };
   }
 
@@ -218,7 +224,7 @@ export default async function plugin(bb: BbPluginApi) {
                 // request would only fail, so it gets no button.
                 canMerge: pr.mergeability.state === "mergeable",
                 conflicted: pr.mergeability.mergeable === "CONFLICTING",
-                ...(await reviewOf({ repo: ref.repo, number: pr.number })),
+                ...(await fromGh({ repo: ref.repo, number: pr.number })),
               },
             };
           }
@@ -257,7 +263,7 @@ export default async function plugin(bb: BbPluginApi) {
         checks,
         canMerge: false,
         conflicted: fetched?.conflicted ?? false,
-        ...(await reviewOf(linked)),
+        ...(await fromGh(linked)),
       },
     };
   }

@@ -33,6 +33,7 @@ const committedStatus: WorkspaceStatus = {
     state: "clean",
     hasUncommittedChanges: false,
     files: [],
+    fileCount: 0,
     insertions: 0,
     deletions: 0,
     lineStatsComplete: true,
@@ -54,6 +55,7 @@ const committedStatus: WorkspaceStatus = {
     hasCommittedUnmergedChanges: true,
     commits: [],
     files: committedFiles,
+    fileCount: committedFiles.length,
     insertions: 447,
     deletions: 112,
     lineStatsComplete: true,
@@ -173,6 +175,7 @@ const contextPullRequest: ContextPullRequest = {
   conflicted: false,
   myReview: null,
   reviewers: [{ ...octocat, state: "approved" }],
+  stack: null,
 };
 
 const promptIssue: ContextIssue = {
@@ -326,6 +329,27 @@ export function States() {
         <Pair
           value={context({
             pullRequest: { ...contextPullRequest, attention: "conflicts", checks: null, canMerge: false, conflicted: true },
+            changes: committed,
+          })}
+        />
+      </StoryRow>
+      <StoryRow label="stacked PR" hint="Its place in a stack, as GitHub writes it, opening a menu of the stack's PRs.">
+        <Pair
+          value={context({
+            pullRequest: {
+              ...contextPullRequest,
+              stack: {
+                number: 131,
+                position: 3,
+                size: 4,
+                entries: [
+                  { number: 118, url: "https://github.com/acme/widgets/pull/118", state: "merged" },
+                  { number: 124, url: "https://github.com/acme/widgets/pull/124", state: "open" },
+                  { number: 128, url: "https://github.com/acme/widgets/pull/128", state: "open" },
+                  { number: 133, url: "https://github.com/acme/widgets/pull/133", state: "open" },
+                ],
+              },
+            },
             changes: committed,
           })}
         />

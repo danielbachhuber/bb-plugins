@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GhUnavailableError, type GhRunner } from "@danielb/gh-shared/gh";
-import { createGh, myReview, type GhPullRequest } from "./gh.js";
+import { createGh, myReview, parseStack, type GhPullRequest } from "./gh.js";
 
 const ref = { repo: "acme/widgets", number: 12 };
 
@@ -262,5 +262,58 @@ describe("viewer", () => {
 
   it("is null when gh cannot say", async () => {
     expect(await createGh(runner(() => new Error("not logged in"))).viewer()).toBeNull();
+  });
+});
+
+describe("stack", () => {
+  const answer = {
+    data: {
+      repository: {
+        pullRequest: {
+          stackEntry: {
+            position: 2,
+            stack: {
+              number: 131,
+              size: 3,
+              entries: {
+                nodes: [
+                  { position: 3, pullRequest: { number: 133, url: "u133", state: "OPEN" } },
+                  { position: 1, pullRequest: { number: 118, url: "u118", state: "MERGED" } },
+                  { position: 2, pullRequest: { number: 12, url: "u12", state: "OPEN" } },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  it("reads the position and every entry, bottom first", async () => {
+    const fake = runner(() => JSON.stringify(answer));
+    expect(await createGh(fake).stack(ref)).toEqual({
+      number: 131,
+      position: 2,
+      size: 3,
+      entries: [
+        { number: 118, url: "u118", state: "merged" },
+        { number: 12, url: "u12", state: "open" },
+        { number: 133, url: "u133", state: "open" },
+      ],
+    });
+    expect(fake.calls[0]).toEqual(expect.arrayContaining(["owner=acme", "name=widgets", "number=12"]));
+  });
+
+  it("is null for a pull request in no stack, and caches that answer", async () => {
+    const fake = runner(() => JSON.stringify({ data: { repository: { pullRequest: { stackEntry: null } } } }));
+    const gh = createGh(fake);
+    expect(await gh.stack(ref)).toBeNull();
+    expect(await gh.stack(ref)).toBeNull();
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it("is null when gh fails", async () => {
+    expect(await createGh(runner(() => new Error("not logged in"))).stack(ref)).toBeNull();
+    expect(parseStack({})).toBeNull();
   });
 });

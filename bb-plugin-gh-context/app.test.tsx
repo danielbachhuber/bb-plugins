@@ -30,6 +30,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
       conflicted: false,
       myReview: null,
       reviewers: [],
+      stack: null,
     },
     issues: [],
     changes: null,
@@ -83,6 +84,32 @@ describe("banner", () => {
     const clean = render(context());
     await clean.findByText("PR #128");
     expect(clean.queryByLabelText("Merge conflict")).not.toBeInTheDocument();
+  });
+
+  it("shows the pull request's place in its stack", async () => {
+    const stacked = render(
+      context({
+        pullRequest: {
+          ...context().pullRequest!,
+          stack: {
+            number: 131,
+            position: 2,
+            size: 3,
+            entries: [
+              { number: 118, url: "https://github.com/acme/widgets/pull/118", state: "merged" },
+              { number: 128, url: "https://github.com/acme/widgets/pull/128", state: "open" },
+              { number: 133, url: "https://github.com/acme/widgets/pull/133", state: "open" },
+            ],
+          },
+        },
+      }),
+    );
+    expect(await stacked.findByLabelText("Stack #131: 2 of 3")).toHaveTextContent("2/3");
+    stacked.lifecycle.unmount();
+
+    const alone = render(context());
+    await alone.findByText("PR #128");
+    expect(alone.queryByLabelText(/^Stack #/)).not.toBeInTheDocument();
   });
 
   it("carries the hide marker only while hiding is on", async () => {
