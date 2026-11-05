@@ -1084,8 +1084,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     const panel = findPanel(document);
     if (threadId === null || panel === null) {
       shownKey = null;
-      if (listHost !== null && !listHost.isConnected) showOriginal();
-      // A row bb has taken out stays mounted, to be put back with what it drew when the toolbar returns.
+      // A list or row bb has taken out stays mounted, to be put back with what it drew when the toolbar returns.
       return;
     }
     const toolbarRoot = panel.root;
@@ -1144,15 +1143,19 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       if (listHost !== null) showOriginal();
       return;
     }
-    if (replaced !== panel.list || listHost === null || !listHost.isConnected) {
-      showOriginal();
+    if (listHost === null) {
       listHost = document.createElement("div");
       listHost.setAttribute(HOST_ATTR, "");
       listHost.className = "min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-3";
+      listRoot = createRoot(listHost);
+    }
+    // bb swaps its list element when its own data loads; moving ours next to
+    // the new one keeps what it drew, where a new root would show empty for a frame.
+    if (replaced !== panel.list || !listHost.isConnected || listHost.previousElementSibling !== panel.list) {
+      replaced?.removeAttribute(REPLACED_ATTR);
       panel.list.after(listHost);
       panel.list.setAttribute(REPLACED_ATTR, "");
       replaced = panel.list;
-      listRoot = createRoot(listHost);
     }
     if (state.data === null) {
       listRoot?.render(<OutlineList key={key} stored={state.stored} />);
