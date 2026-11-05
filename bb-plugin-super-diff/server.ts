@@ -8,6 +8,7 @@ import { z } from "zod";
 import { GUIDE } from "./guide";
 import {
   anchorLines,
+  diffSince,
   type LineSide,
   isPlacedByRule,
   patchHash,
@@ -136,8 +137,11 @@ const USAGE = [
   "  bb super-diff patch <path>...       The patches for those paths",
   "  bb super-diff submit <file | json>  Check a Super Diff and store it if it passes",
   "  bb super-diff explain <file | json> Store one annotation asked for with Explain this (in its fork only)",
+  "  bb super-diff status [--json]       Whether a Super Diff is stored for this diff, and whether the diff",
+  "                                      has moved since. Exits 0 when one is stored and current, 2 when",
+  "                                      none is stored, 3 when it is out of date, and 1 on an error.",
   "",
-  "Options for read, files, patch, and submit:",
+  "Options for read, files, patch, submit, and status:",
   "  --target all|uncommitted|committed  The diff to read and store the Super Diff for. Without it,",
   "                                      the diff the Diff tab's Generate button last asked for, or",
   "                                      All changes when nobody has pressed it.",
@@ -145,6 +149,10 @@ const USAGE = [
   "Each command acts on the thread it runs in. The Diff tab shows a Super Diff when its picker",
   "is on the diff it was stored for, so pass the --target the user will review.",
 ].join("\n");
+
+/** `bb super-diff status` exit codes, besides 0 for stored and current and 1 for an error. */
+const STATUS_NONE = 2;
+const STATUS_OUT_OF_DATE = 3;
 
 /** The values `--target` takes, and the diff each one names. */
 const TARGET_FLAGS = { all: "all", uncommitted: "uncommitted", committed: "branch_committed" } as const;
@@ -239,6 +247,52 @@ export default async function plugin(bb: BbPluginApi) {
     return `${target.type === "all" ? "All changes" : "Committed changes"} against ${target.mergeBaseBranch}`;
   }
 
+  /**
+   * `bb super-diff status`: whether this diff has a Super Diff, and how the
+   * diff moved since it was accepted, the way the Diff tab's row works it out.
+   * With none stored it makes no diff requests. Otherwise one for the file
+   * list, and one per 50 files the Super Diff fingerprinted, for patches.
+   */
+  async function status(threadId: string, environmentId: string, target: DiffTarget, json: boolean) {
+    const row = selectStored.get(threadId, targetKey(target));
+    const diff = describe(target);
+    if (row === undefined) {
+      return json
+        ? { exitCode: STATUS_NONE, stdout: JSON.stringify({ stored: false, target, diff }) }
+        : { exitCode: STATUS_NONE, stdout: `No Super Diff is stored for ${diff}.` };
+    }
+    const stored = JSON.parse(row.stored_json) as StoredSuperDiff;
+    const files = await listFiles(environmentId, target);
+    if (typeof files === "string") return { exitCode: 1, stderr: files };
+    const paths = files.map((file) => file.path);
+    const onDiff = new Set(paths);
+    const patches = await loadPatches(environmentId, target, Object.keys(stored.hashes ?? {}).filter((path) => onDiff.has(path)));
+    const since = diffSince(stored, paths, patches);
+    const current = since.added.length === 0 && since.removed.length === 0 && since.changed.length === 0;
+    const exitCode = current ? 0 : STATUS_OUT_OF_DATE;
+    const summary = {
+      stored: true,
+      target,
+      diff,
+      acceptedAt: stored.acceptedAt,
+      concerns: stored.submission.concerns.length,
+      annotations: stored.submission.annotations.length,
+      current,
+      ...since,
+    };
+    if (json) return { exitCode, stdout: JSON.stringify(summary) };
+    const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`;
+    const lines = [
+      `A Super Diff is stored for ${diff}, accepted ${stored.acceptedAt}: ${plural(summary.concerns, "concern")}, ${plural(summary.annotations, "annotation")}.`,
+      current ? "It is up to date with the diff." : "The diff has changed since:",
+      ...since.added.map((path) => `  added: ${path}`),
+      ...since.removed.map((path) => `  removed: ${path}`),
+      ...since.changed.map((path) => `  changed: ${path}`),
+    ];
+    if (!since.patchesChecked) lines.push("It was stored before Super Diff fingerprinted patches, so edits to files already in it are not detected.");
+    return { exitCode, stdout: lines.join("\n") };
+  }
+
   bb.rpc.register(rpcContract, {
     superdiff_get: async ({ threadId, target }) => {
       const row = selectStored.get(threadId, targetKey(target));
@@ -318,6 +372,7 @@ export default async function plugin(bb: BbPluginApi) {
       { name: "patch", summary: "Print patches for the given paths", usage: "bb super-diff patch <path>... [--target all|uncommitted|committed]" },
       { name: "submit", summary: "Check a Super Diff and store it", usage: "bb super-diff submit <file | json> [--target all|uncommitted|committed]" },
       { name: "explain", summary: "Store one annotation asked for with Explain this", usage: "bb super-diff explain <file | json>" },
+      { name: "status", summary: "Whether a Super Diff is stored for this diff, and whether it is out of date", usage: "bb super-diff status [--target all|uncommitted|committed] [--json]" },
     ],
 
     async run(argv, ctx) {
@@ -343,6 +398,9 @@ export default async function plugin(bb: BbPluginApi) {
       if (typeof resolved === "string") return { exitCode: 1, stderr: resolved };
       const environmentId = resolved.environmentId;
       const target = explain ? (JSON.parse(explain.target_json) as DiffTarget) : resolved.target;
+
+      if (command === "status") return status(threadId, environmentId, target, argv.includes("--json"));
+
       const files = await listFiles(environmentId, target);
       if (typeof files === "string") return { exitCode: 1, stderr: files };
 

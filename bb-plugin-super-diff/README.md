@@ -41,9 +41,12 @@ bb super-diff files                 # every changed file, and which ones the plu
 bb super-diff patch <path>...       # the patches for those paths
 bb super-diff submit <file | json>  # check a Super Diff and store it if every file is placed once
 bb super-diff explain <file | json> # in an Explain this side chat: store its one note
+bb super-diff status [--json]       # whether this diff has a Super Diff, and what changed since
 ```
 
-`read`, `files`, `patch`, and `submit` take `--target all|uncommitted|committed` to choose the diff.
+`read`, `files`, `patch`, `submit`, and `status` take `--target all|uncommitted|committed` to choose the diff.
+
+`status` lets a script or skill skip writing a Super Diff the thread already has. It exits 0 when one is stored and the diff has not moved, 2 when none is stored, 3 when files were added, removed, or edited since it was accepted, and 1 on an error. It prints when the Super Diff was accepted, its concern and annotation counts, and the paths that moved, or the same as JSON with `--json`. With none stored it makes no requests; otherwise it reads the file list once and the patches it fingerprinted, one request per 50 files.
 
 ## Requirements
 

@@ -187,3 +187,92 @@ describe("Explain this", () => {
     ]);
   });
 });
+
+describe("bb super-diff status", () => {
+  const TWO = {
+    concerns: [{ title: "Exports", explanation: "Adds exports.", files: ["src/a.ts", "src/b.ts"], summaries: { "src/a.ts": "Exports b", "src/b.ts": "Exports c" } }],
+    annotations: [],
+  };
+
+  it("exits 2 and makes no diff requests when none is stored", async () => {
+    const { cli, diffQueries } = await start();
+    const result = await cli("status");
+    expect(result).toMatchObject({ exitCode: 2, stdout: "No Super Diff is stored for All changes against origin/main." });
+    expect(diffQueries).toEqual([]);
+  });
+
+  it("exits 2 for a target with nothing stored, even when another target has one", async () => {
+    const { cli } = await start();
+    await cli("submit", submissionFile(), "--target", "uncommitted");
+    expect(await cli("status", "--target", "all")).toMatchObject({ exitCode: 2 });
+    expect(await cli("status", "--target", "uncommitted")).toMatchObject({ exitCode: 0 });
+  });
+
+  it("exits 0 and reports the stored Super Diff when the diff has not moved", async () => {
+    const { cli, stored } = await start();
+    await cli("submit", submissionFile());
+    const acceptedAt = ((await stored(ALL)) as { acceptedAt: string }).acceptedAt;
+    const result = await cli("status");
+    expect(result).toMatchObject({ exitCode: 0 });
+    expect(result.stdout).toBe(
+      `A Super Diff is stored for All changes against origin/main, accepted ${acceptedAt}: 1 concern, 0 annotations.\nIt is up to date with the diff.`,
+    );
+
+    const json = await cli("status", "--json");
+    expect(json.exitCode).toBe(0);
+    expect(JSON.parse(json.stdout!)).toEqual({
+      stored: true,
+      target: ALL,
+      diff: "All changes against origin/main",
+      acceptedAt,
+      concerns: 1,
+      annotations: 0,
+      current: true,
+      added: [],
+      removed: [],
+      changed: [],
+      patchesChecked: true,
+    });
+  });
+
+  it("prints JSON when none is stored", async () => {
+    const { cli } = await start();
+    const result = await cli("status", "--json", "--target", "uncommitted");
+    expect(result.exitCode).toBe(2);
+    expect(JSON.parse(result.stdout!)).toEqual({ stored: false, target: UNCOMMITTED, diff: "Uncommitted changes" });
+  });
+
+  it("exits 3 and names the files added, removed, and changed since it was accepted", async () => {
+    const files: object[] = [FILE, { ...FILE, path: "src/b.ts" }];
+    const patches = new Map([["src/a.ts", PATCH], ["src/b.ts", PATCH]]);
+    const { cli } = await start(files, (path) => patches.get(path) ?? "");
+    const submission = join(mkdtempSync(join(tmpdir(), "super-diff-")), "submission");
+    writeFileSync(submission, JSON.stringify(TWO));
+    expect(await cli("submit", submission)).toMatchObject({ exitCode: 0 });
+
+    // b leaves the diff, c joins it, and a's patch is edited.
+    files.splice(1, 1, { ...FILE, path: "src/c.ts" });
+    patches.set("src/a.ts", `${PATCH}+export const d = 4;\n`);
+
+    const result = await cli("status");
+    expect(result.exitCode).toBe(3);
+    expect(result.stdout).toContain("The diff has changed since:\n  added: src/c.ts\n  removed: src/b.ts\n  changed: src/a.ts");
+    expect(JSON.parse((await cli("status", "--json")).stdout!)).toMatchObject({
+      current: false,
+      added: ["src/c.ts"],
+      removed: ["src/b.ts"],
+      changed: ["src/a.ts"],
+    });
+  });
+
+  it("uses the target a Generate request asked for when none is given", async () => {
+    const { cli, harness } = await start();
+    await harness.behavior.callRpc("superdiff_generate", { threadId: "thr_a", target: UNCOMMITTED });
+    expect((await cli("status")).stdout).toBe("No Super Diff is stored for Uncommitted changes.");
+  });
+
+  it("rejects a target it does not know", async () => {
+    const { cli } = await start();
+    expect(await cli("status", "--target", "staged")).toMatchObject({ exitCode: 1, stderr: "--target takes all, uncommitted, or committed." });
+  });
+});

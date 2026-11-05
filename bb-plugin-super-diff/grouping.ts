@@ -70,6 +70,27 @@ export function changedPaths(stored: StoredSuperDiff, patches: Map<string, strin
   return changed;
 }
 
+/**
+ * How the diff has moved since a Super Diff was accepted: paths on the diff
+ * now that it did not place, paths it placed that have left, and files whose
+ * patch differs from the one it was written against. `patchesChecked` is
+ * false for a Super Diff stored before `hashes` existed, which cannot tell.
+ */
+export function diffSince(
+  stored: StoredSuperDiff,
+  paths: string[],
+  patches: Map<string, string>,
+): { added: string[]; removed: string[]; changed: string[]; patchesChecked: boolean } {
+  const before = new Set(stored.paths);
+  const now = new Set(paths);
+  return {
+    added: paths.filter((path) => !before.has(path)),
+    removed: stored.paths.filter((path) => !now.has(path)),
+    changed: [...changedPaths(stored, patches)].sort(),
+    patchesChecked: stored.hashes !== undefined,
+  };
+}
+
 export function targetKey(target: DiffTarget): string {
   return target.type === "uncommitted" ? "uncommitted" : `${target.type}:${target.mergeBaseBranch}`;
 }

@@ -20,6 +20,10 @@ on your own, such as at the end of your work, pass \`--target\` to \`read\`,
 The Diff tab shows a Super Diff only when its picker is on the diff it was
 stored for.
 
+\`bb super-diff status\` says whether that diff already has a Super Diff and
+whether the diff has changed since. Use it to decide whether to write one on
+your own; a Generate request always wants a fresh one.
+
 ## Steps
 
 1. Read the diff with \`bb super-diff read\`. It prints this guide, then every
