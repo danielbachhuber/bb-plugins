@@ -277,9 +277,9 @@ describe("stack", () => {
               size: 3,
               entries: {
                 nodes: [
-                  { position: 3, pullRequest: { number: 133, url: "u133", state: "OPEN" } },
-                  { position: 1, pullRequest: { number: 118, url: "u118", state: "MERGED" } },
-                  { position: 2, pullRequest: { number: 12, url: "u12", state: "OPEN" } },
+                  { position: 3, pullRequest: { number: 133, title: "Widget change 133", url: "u133", state: "OPEN" } },
+                  { position: 1, pullRequest: { number: 118, title: "Widget change 118", url: "u118", state: "MERGED" } },
+                  { position: 2, pullRequest: { number: 12, title: "Widget change 12", url: "u12", state: "OPEN" } },
                 ],
               },
             },
@@ -296,9 +296,9 @@ describe("stack", () => {
       position: 2,
       size: 3,
       entries: [
-        { number: 118, url: "u118", state: "merged" },
-        { number: 12, url: "u12", state: "open" },
-        { number: 133, url: "u133", state: "open" },
+        { number: 118, title: "Widget change 118", url: "u118", state: "merged" },
+        { number: 12, title: "Widget change 12", url: "u12", state: "open" },
+        { number: 133, title: "Widget change 133", url: "u133", state: "open" },
       ],
     });
     expect(fake.calls[0]).toEqual(expect.arrayContaining(["owner=acme", "name=widgets", "number=12"]));

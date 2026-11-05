@@ -40,7 +40,7 @@ const stackSchema = z.object({
   size: z.number(),
   /** Every pull request in the stack, bottom first. */
   entries: z.array(
-    z.object({ number: z.number(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
+    z.object({ number: z.number(), title: z.string(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
   ),
 });
 

@@ -96,9 +96,9 @@ describe("banner", () => {
             position: 2,
             size: 3,
             entries: [
-              { number: 118, url: "https://github.com/acme/widgets/pull/118", state: "merged" },
-              { number: 128, url: "https://github.com/acme/widgets/pull/128", state: "open" },
-              { number: 133, url: "https://github.com/acme/widgets/pull/133", state: "open" },
+              { number: 118, title: "Widget change 118", url: "https://github.com/acme/widgets/pull/118", state: "merged" },
+              { number: 128, title: "Widget change 128", url: "https://github.com/acme/widgets/pull/128", state: "open" },
+              { number: 133, title: "Widget change 133", url: "https://github.com/acme/widgets/pull/133", state: "open" },
             ],
           },
         },

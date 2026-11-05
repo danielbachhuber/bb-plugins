@@ -47,7 +47,7 @@ export interface GhStack {
   position: number;
   size: number;
   /** Every pull request in the stack, bottom first. */
-  entries: Array<{ number: number; url: string; state: "open" | "closed" | "merged" }>;
+  entries: Array<{ number: number; title: string; url: string; state: "open" | "closed" | "merged" }>;
 }
 
 export type ReviewVerdict = "approved" | "changes_requested" | "commented" | "dismissed";
@@ -260,7 +260,7 @@ const STACK_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
         stack {
           number
           size
-          entries(first: 100) { nodes { position pullRequest { number url state } } }
+          entries(first: 100) { nodes { position pullRequest { number title url state } } }
         }
       }
     }
@@ -279,7 +279,7 @@ interface StackJson {
             entries?: {
               nodes?: Array<{
                 position?: unknown;
-                pullRequest?: { number?: unknown; url?: unknown; state?: unknown } | null;
+                pullRequest?: { number?: unknown; title?: unknown; url?: unknown; state?: unknown } | null;
               } | null> | null;
             } | null;
           } | null;
@@ -311,13 +311,14 @@ export function parseStack(json: StackJson): GhStack | null {
         {
           position: node.position,
           number: pr.number,
+          title: typeof pr.title === "string" ? pr.title : "",
           url: pr.url,
           state: state === "MERGED" ? ("merged" as const) : state === "CLOSED" ? ("closed" as const) : ("open" as const),
         },
       ];
     })
     .sort((a, b) => a.position - b.position)
-    .map(({ number, url, state }) => ({ number, url, state }));
+    .map(({ number, title, url, state }) => ({ number, title, url, state }));
   return { number: stack.number, position: entry.position, size: stack.size, entries };
 }
 

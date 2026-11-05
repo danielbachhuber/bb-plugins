@@ -164,6 +164,7 @@ function StackSegment({ stack, current }: { stack: ContextStack; current: number
             <DropdownMenuItem key={entry.number} className="p-0">
               <UrlLink
                 href={entry.url}
+                title={entry.title ? `#${entry.number} ${entry.title}` : undefined}
                 className={cn(
                   "flex w-full items-center gap-1.5 px-2 py-1.5 text-xs no-underline",
                   entry.number === current ? "font-medium text-foreground" : "text-muted-foreground",

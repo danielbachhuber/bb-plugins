@@ -84,7 +84,8 @@ no extra request.
 When the pull request is part of a stack on GitHub, a layers icon and its
 place in the stack follow it, written as GitHub writes it: "4/5" is the fourth
 of five, counting up from the base branch. Clicking it lists every pull request
-in the stack, top first, with this one marked, and each opens on GitHub. The
+in the stack, top first, with this one marked. Hovering one shows its title,
+and clicking it opens it on GitHub. The
 stack comes from one `gh api graphql` call per pull request, cached for five
 minutes like the rest of the banner's `gh` answers, including the answer that
 it is in no stack. Only stacks GitHub itself records count, the ones
