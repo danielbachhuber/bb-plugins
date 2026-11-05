@@ -12,6 +12,8 @@ Group a thread's diff by concern in the Diff tab, with an explanation for each g
 
 Open a thread's **Diff** tab and click **Generate Super Diff**. The thread's agent reads the diff and groups the changed files into concerns, each with a title and a short explanation, and the grouped list takes the place of bb's file list. The row above it lists every concern with how many of its files you have checked **Viewed**, and clicking one jumps to it. **Super Diff | Original** switches back to bb's own list at any time.
 
+Opening a thread that already has a Super Diff shows its concerns, explanations, and annotations straight away, with grey lines where each file's diff will go. Its counts run up from zero the first time it shows on the page, and the diffs fill in a few at a time so the panel stays responsive.
+
 ### What each file's change does
 
 ![Concern 5, "Tests and demos follow the rename", with 1 of 5 viewed, its explanation, and its files each followed by a line on what changed, the last two folded into "and 2 more files"](screenshots/super-diff--concern-file-list.png)
@@ -50,7 +52,7 @@ bb super-diff status [--json]       # whether this diff has a Super Diff, and wh
 
 ## Requirements
 
-A thread with a git environment, and bb 0.48 or later. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open and the window is in front, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb's git plugin: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus.
+A thread with a git environment, and bb 0.48 or later. Nothing calls GitHub. Generate and Explain this each send one message to an agent, then check for the result every 2 seconds. While the Diff tab is open and the window is in front, Super Diff checks every 2 seconds for one an agent stored from the command line. Showing a Super Diff reads the diff from bb's git plugin: one request for the file list, one per 50 files for patches, and one for the Viewed marks, which it reads again when the window regains focus. To draw that outline before the server answers, the browser keeps a copy of the last 20 Super Diffs shown, a few kilobytes each, in the app's local storage. The server's copy replaces it as soon as it arrives, and a thread whose Super Diff is gone is dropped from it.
 
 ## Related plugins
 

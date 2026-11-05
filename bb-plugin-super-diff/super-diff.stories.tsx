@@ -10,6 +10,7 @@ import { NoteCard, NoteRows, NotesBox, type PlacedNote } from "./annotations";
 import { ConcernHeader } from "./concern";
 import { FIXTURE, FIXTURE_NOTES, FIXTURE_VIEWED, LAYOUT_PATCH, LAYOUT_PATH } from "./super-diff.fixtures";
 import { SuperDiffRow, type ConcernLink, type ThreadState } from "./row";
+import { OutlineList } from "./outline";
 
 export default {
   title: "super-diff/Super Diff",
@@ -123,6 +124,29 @@ export const AllConcerns = () => (
 export const NotGenerated = () => (
   <Frame>
     <Row state={{ phase: "idle" }} />
+  </Frame>
+);
+
+/** While Super Diff asks whether this thread has a Super Diff. A thread whose Super Diff was shown on this machine recently skips this and opens straight to its outline. */
+export const Checking = () => (
+  <Frame>
+    <Row state={{ phase: "checking" }} />
+  </Frame>
+);
+
+/** A stored Super Diff, drawn before its diff has loaded: every concern with its explanation, files, and annotations, and grey lines where each file's diff will go. The row's counts run up from zero the first time it shows. */
+export const Opening = () => (
+  <Frame>
+    <SuperDiffRow
+      state={READY}
+      fileCount={null}
+      onGenerate={() => {}}
+      onShow={() => {}}
+      concernLinks={LINKS.map((link) => ({ ...link, viewed: null }))}
+    />
+    <div className="h-[520px] overflow-hidden">
+      <OutlineList stored={FIXTURE} />
+    </div>
   </Frame>
 );
 

@@ -1,6 +1,6 @@
 // The row under bb's Diff tab picker: Generate Super Diff, then the
 // Super Diff | Original toggle, the status line, and Regenerate when out of date.
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ViewedRing } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
 import type { DiffFile as FileEntry, DiffTarget as Target, LineSide, StoredSuperDiff } from "./grouping";
 
@@ -89,6 +89,31 @@ const RefreshIcon = () =>
     </>,
   );
 
+/** Super Diffs whose opening count-up has played, so it plays once per diff per page load. */
+const played = new Set<string>();
+
+/**
+ * 0 to 1, eased, over `ms` from the first render where `on` is true for
+ * `key`, the first time that key is seen on this page; 1 at any other time,
+ * and always 1 without a key, as in the stories.
+ */
+function useIntro(key: string | undefined, on: boolean, ms: number): number {
+  const start = useRef<{ key: string; at: number } | null>(null);
+  if (key !== undefined && on && start.current?.key !== key && !played.has(key)) {
+    played.add(key);
+    start.current = { key, at: performance.now() };
+  }
+  const at = start.current !== null && start.current.key === key ? start.current.at : null;
+  const p = at === null ? 1 : Math.min(1, (performance.now() - at) / ms);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (p >= 1) return;
+    const frame = window.requestAnimationFrame(() => tick((n) => n + 1));
+    return () => window.cancelAnimationFrame(frame);
+  });
+  return 1 - (1 - p) ** 3;
+}
+
 function ago(since: number, now: number): string {
   const minutes = Math.floor((now - since) / 60_000);
   if (minutes < 1) return "just now";
@@ -116,6 +141,7 @@ export function SuperDiffRow({
   current = null,
   onJump = () => {},
   changedCount = 0,
+  introKey,
 }: {
   state: ThreadState;
   fileCount: number | null;
@@ -128,7 +154,14 @@ export function SuperDiffRow({
   onJump?: (index: number) => void;
   /** Files still in the diff whose patches have changed since the Super Diff was written. */
   changedCount?: number;
+  /** The thread and diff target, so the counts run up from zero the first time its Super Diff shows on this page. */
+  introKey?: string;
 }) {
+  const counted = useIntro(introKey, state.phase === "ready", 600);
+  const ringed = useIntro(introKey === undefined ? undefined : `${introKey}|viewed`, concernLinks.some((link) => link.viewed !== null), 700);
+  const count = (n: number) => Math.round(n * counted);
+  // Each concern's ring fills a little after the one above it.
+  const filled = (viewed: number, index: number) => Math.round(viewed * Math.max(0, Math.min(1, ringed * (1 + 0.1 * concernLinks.length) - index * 0.1)));
   const stale =
     state.phase === "ready" ? staleText(state.stored, state.data?.files.map((file) => file.path) ?? null, fileCount, changedCount) : null;
   const button = (label: ReactNode, onClick?: () => void, { primary = false, disabled = false } = {}) => (
@@ -145,7 +178,7 @@ export function SuperDiffRow({
   );
   const files = fileCount === null ? "the" : `the ${fileCount}`;
   // Nothing to group until the diff has a file in it.
-  const empty = fileCount === 0 && state.phase !== "ready" && state.phase !== "generating";
+  const empty = fileCount === 0 && (state.phase === "idle" || state.phase === "error");
   const concerns = state.phase === "ready" ? state.stored.submission.concerns.length : 0;
   const notes = state.phase === "ready" ? state.stored.submission.annotations.length : 0;
   return (
@@ -201,13 +234,14 @@ export function SuperDiffRow({
         ) : null}
         <span className={`min-w-0 flex-1 line-clamp-2 ${stale || state.phase === "error" ? "text-foreground" : ""}`} title={stale ?? undefined}>
           {empty && "No diff to generate from yet. Once this thread changes a file, Generate groups it by concern."}
-          {!empty && (state.phase === "idle" || state.phase === "checking") && `Group ${files} files by concern, with a note on what each part does.`}
+          {state.phase === "checking" && "Checking for a Super Diff…"}
+          {!empty && state.phase === "idle" && `Group ${files} files by concern, with a note on what each part does.`}
           {state.phase === "generating" &&
             `The thread's agent is reading ${files} files and writing the Super Diff (asked ${ago(Date.parse(state.requestedAt), Date.now())}; it waits its turn if the agent is busy).`}
           {!empty && state.phase === "error" && state.message}
           {state.phase === "ready" &&
             (stale ??
-              `${concerns} ${concerns === 1 ? "concern" : "concerns"} · ${notes} ${notes === 1 ? "annotation" : "annotations"} · generated ${ago(Date.parse(state.stored.acceptedAt), Date.now())}`)}
+              `${count(concerns)} ${concerns === 1 ? "concern" : "concerns"} · ${count(notes)} ${notes === 1 ? "annotation" : "annotations"} · generated ${ago(Date.parse(state.stored.acceptedAt), Date.now())}`)}
         </span>
         {stale
           ? button(
@@ -262,8 +296,8 @@ export function SuperDiffRow({
               <span className="inline-flex shrink-0 items-center gap-1.5 tabular-nums">
                 {link.viewed !== null ? (
                   <>
-                    <ViewedRing viewed={link.viewed} total={link.total} />
-                    {`${link.viewed}/${link.total}`}
+                    <ViewedRing viewed={filled(link.viewed, index)} total={link.total} />
+                    {`${filled(link.viewed, index)}/${link.total}`}
                   </>
                 ) : (
                   link.total

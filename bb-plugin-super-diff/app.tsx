@@ -8,6 +8,7 @@ import { definePluginApp, experimental_Diff as Diff } from "@get-bb/plugin-sdk/a
 import { ExplainTrigger, NoteRows, NotesBox, placeNotes, scrollToNote, type PlacedNote } from "./annotations";
 import { SuperDiffRow, type ConcernLink, type Explaining, type Loaded, type ThreadState } from "./row";
 import { ConcernHeader } from "./concern";
+import { OutlineList, PatchSkeleton } from "./outline";
 import {
   GENERATED_TITLE,
   UNGROUPED_TITLE,
@@ -286,10 +287,13 @@ function FileCard({
   viewed,
   onViewedChange,
   onExplain,
+  deferred = false,
 }: {
   file: FileEntry;
   index: number;
   patch: string | undefined;
+  /** Not drawn yet: the list draws its cards a few at a time, and shows grey lines until then. */
+  deferred?: boolean;
   split: boolean;
   wrap: boolean;
   notes: PlacedNote[];
@@ -337,7 +341,9 @@ function FileCard({
             </span>
           </div>
         </div>
-        {collapsed ? null : patch !== undefined ? (
+        {collapsed ? null : deferred && patch !== undefined ? (
+          <PatchSkeleton />
+        ) : patch !== undefined ? (
           <Boundary>
             <div ref={bodyRef}>
               <Diff patch={patch} path={file.path} view={split ? "split" : "unified"} overflow={wrap ? "wrap" : "scroll"} />
@@ -353,6 +359,21 @@ function FileCard({
       </div>
     </div>
   );
+}
+
+/** Cards drawn straight away, then how many more each step draws. Drawing all of an 80-file diff at once held the page for over a second. */
+const FIRST_CARDS = 6;
+const CARDS_PER_STEP = 3;
+
+/** How many of the list's cards to draw: a few at first, then more each frame until all are drawn. */
+function useRevealed(total: number): [number, () => void] {
+  const [revealed, setRevealed] = useState(FIRST_CARDS);
+  useEffect(() => {
+    if (revealed >= total) return;
+    const timer = window.setTimeout(() => setRevealed((n) => n + CARDS_PER_STEP), 0);
+    return () => window.clearTimeout(timer);
+  }, [revealed, total]);
+  return [revealed, () => setRevealed(Number.MAX_SAFE_INTEGER)];
 }
 
 /** The card shown under a line while an Explain this fork writes its note. */
@@ -434,6 +455,7 @@ function GroupedList({
   }, [groups, notes, stored]);
 
   const { marks, setViewed } = useViewedMarks(data);
+  const [revealed, revealAll] = useRevealed(data.files.length);
   // A file counts as viewed while its mark matches its current revision, as
   // on bb's list: an edit after marking it brings it back.
   const viewed = useMemo<ReadonlySet<string> | null>(
@@ -544,6 +566,7 @@ function GroupedList({
     // A note in a collapsed file opens the file first.
     const note = notes.find((entry) => entry.id === id);
     if (note !== undefined) setCollapsed(note.path, false);
+    revealAll();
     setHighlightId(id);
     const scroller = wrapperRef.current?.closest<HTMLElement>(`[${HOST_ATTR}]`);
     if (!scroller) return;
@@ -599,6 +622,7 @@ function GroupedList({
                 viewed={viewed === null || file.revision === undefined ? null : viewed.has(file.path)}
                 onViewedChange={toggleViewed}
                 onExplain={onExplain}
+                deferred={index > revealed}
               />
             ))}
           </section>
@@ -664,7 +688,46 @@ function findPanel(doc: Document): { toolbar: HTMLElement; list: HTMLElement | n
   return root === null ? null : { toolbar, list: null, root };
 }
 
+/** Where the last Super Diffs seen are kept, so a thread's opens drawn from it before the server answers. */
+const CACHE_ITEM = "super-diff:recent";
+/** How many Super Diffs the cache keeps, most recently shown first. Each is a few kilobytes, at most about 30. */
+const CACHE_MAX = 20;
+
+/**
+ * The last Super Diff shown for each recent thread and diff target, kept in
+ * localStorage. It only decides what the first frame draws; the server's copy
+ * replaces it as soon as it arrives, and a thread whose Super Diff is gone is
+ * dropped from it.
+ */
+function recentCache() {
+  let entries: [string, StoredSuperDiff][] = [];
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(CACHE_ITEM) ?? "[]");
+    if (Array.isArray(parsed)) entries = parsed as [string, StoredSuperDiff][];
+  } catch {
+    // An unreadable cache is the same as an empty one.
+  }
+  const save = () => {
+    try {
+      window.localStorage.setItem(CACHE_ITEM, JSON.stringify(entries));
+    } catch {
+      // Storage full or blocked: the next open waits for the server, as without a cache.
+    }
+  };
+  return {
+    get: (key: string) => entries.find(([entry]) => entry === key)?.[1] ?? null,
+    set: (key: string, stored: StoredSuperDiff | null) => {
+      const rest = entries.filter(([entry]) => entry !== key);
+      if (stored === null && rest.length === entries.length) return;
+      if (stored !== null && entries[0]?.[0] === key && entries[0][1].acceptedAt === stored.acceptedAt) return;
+      entries = stored === null ? rest : [[key, stored] as [string, StoredSuperDiff], ...rest].slice(0, CACHE_MAX);
+      save();
+    },
+  };
+}
+
 function mount(pluginId: string, signal: AbortSignal): () => void {
+  const cache = recentCache();
   const style = document.createElement("style");
   style.setAttribute("data-super-diff-style", "");
   style.textContent = STYLE;
@@ -698,6 +761,8 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   // What the list last reported for the row's list of concerns.
   let links: ConcernLink[] = [];
   let current = 0;
+  /** Which thread and target `links` came from, so another thread's list is never shown in the row. */
+  let linksKey: string | null = null;
   /** bb's toolbar summary ("25 files +316 -328") last seen for each key; a change means the diff changed. */
   const summaries = new Map<string, string>();
   // sync() runs on most page mutations, so the count is worked out once per
@@ -729,7 +794,8 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   };
   const nav: Nav = {
     report: (nextLinks, nextCurrent) => {
-      if (nextCurrent === current && JSON.stringify(nextLinks) === JSON.stringify(links)) return;
+      if (linksKey === shownKey && nextCurrent === current && JSON.stringify(nextLinks) === JSON.stringify(links)) return;
+      linksKey = shownKey;
       links = nextLinks;
       current = nextCurrent;
       schedule();
@@ -769,10 +835,16 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   const apply = (threadId: string, selection: string, result: GetResult) => {
     const key = keyOf(threadId, selection);
     const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
+    cache.set(key, stored);
+    const current = states.get(key);
     // A request newer than what is stored means the agent is still working on it.
     if (result.requestedAt !== null && (stored === null || stored.acceptedAt < result.requestedAt)) {
       states.set(key, { phase: "generating", requestedAt: result.requestedAt });
       void poll(threadId, selection, result.requestedAt);
+    } else if (current?.phase === "ready" && stored !== null && current.stored.acceptedAt === stored.acceptedAt) {
+      // The cached copy drawn first was the current one: keep the diff it is loading.
+      states.set(key, { ...current, stored, explaining: result.explaining });
+      if (result.explaining.length > 0) void watchExplains(threadId, selection);
     } else {
       // A stored Super Diff opens by default; Original is one click away.
       states.set(
@@ -788,7 +860,11 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
   /** Asks the server for a stored Super Diff, once per thread and target. */
   const check = async (threadId: string, selection: string) => {
     const key = keyOf(threadId, selection);
-    states.set(key, { phase: "checking" });
+    // The copy from the last visit draws the outline at once, and starts the
+    // diff loading while the server confirms it.
+    const cached = cache.get(key);
+    states.set(key, cached === null ? { phase: "checking" } : { phase: "ready", showing: "original", stored: cached, data: null });
+    if (cached !== null) void show(threadId, selection, "super");
     try {
       const context = await contextOf(threadId, selection);
       if (typeof context === "string") return fail(key, context);
@@ -835,6 +911,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         const latest = states.get(key);
         if (result === null || acceptedAtOf(latest) !== known) continue;
         const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
+        cache.set(key, stored);
         if (latest?.phase === "ready" && stored !== null && !asked) {
           // Keeps the loaded diff and whichever view is on show.
           states.set(key, { ...latest, stored, explaining: result.explaining });
@@ -948,6 +1025,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         const result = await callRpc<{ stored: string | null }>(pluginId, "superdiff_get", { threadId, target: context.target });
         const stored = result.stored === null ? null : (JSON.parse(result.stored) as StoredSuperDiff);
         if (stored !== null && stored.acceptedAt >= requestedAt) {
+          cache.set(key, stored);
           const data = await loadDiff(context);
           states.set(key, { phase: "ready", showing: "super", stored, data });
           schedule();
@@ -1007,7 +1085,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     if (threadId === null || panel === null) {
       shownKey = null;
       if (listHost !== null && !listHost.isConnected) showOriginal();
-      if (rowHost !== null && !rowHost.isConnected) removeRow();
+      // A row bb has taken out stays mounted, to be put back with what it drew when the toolbar returns.
       return;
     }
     const toolbarRoot = panel.root;
@@ -1021,13 +1099,13 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     const selection = readSelection(toolbarRoot);
     const { split, wrap } = readViewSettings(layout);
 
-    if (rowHost === null || !rowHost.isConnected || rowHost.previousElementSibling !== layout) {
-      removeRow();
+    if (rowHost === null) {
       rowHost = document.createElement("div");
       rowHost.setAttribute(ROW_ATTR, "");
-      layout.after(rowHost);
       rowRoot = createRoot(rowHost);
     }
+    // bb redraws its toolbar now and then; moving the row keeps what it drew, where a new one would show empty for a frame.
+    if (!rowHost.isConnected || rowHost.previousElementSibling !== layout) layout.after(rowHost);
     const key = keyOf(threadId, selection);
     shownKey = key;
     if (!states.has(key)) void check(threadId, selection);
@@ -1039,21 +1117,30 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
     const state = states.get(key) ?? { phase: "checking" as const };
     if (state.phase === "idle" || state.phase === "ready") void watchStored(threadId, selection);
     const fileCount = summary === "No changes" ? 0 : Number(/^(\d+) files?/.exec(summary)?.[1] ?? NaN);
-    const showingSuper = state.phase === "ready" && state.showing === "super" && state.data !== null;
+    const showingSuper = state.phase === "ready" && state.showing === "super";
+    // The list reports its concerns once it has drawn; until then they come from the stored Super Diff.
+    const rowLinks =
+      state.phase !== "ready" || !showingSuper
+        ? []
+        : state.data !== null && linksKey === key
+          ? links
+          : state.stored.submission.concerns.map((concern, index) => ({ number: index + 1, title: concern.title, viewed: null, total: concern.files.length }));
     rowRoot?.render(
       <SuperDiffRow
         state={state}
-        fileCount={Number.isFinite(fileCount) ? fileCount : null}
+        // bb reads "No changes" for a moment while it loads; with a Super Diff on show and its diff not loaded, that is not news.
+        fileCount={Number.isFinite(fileCount) && !(fileCount === 0 && state.phase === "ready" && state.data === null) ? fileCount : null}
         onGenerate={() => void generate(threadId, selection)}
         onShow={(showing) => void show(threadId, selection, showing)}
-        concernLinks={showingSuper ? links : []}
+        concernLinks={rowLinks}
+        introKey={key}
         changedCount={state.phase === "ready" && state.data !== null ? changedCountOf(state.stored, state.data) : 0}
         current={current}
         onJump={(index) => nav.jump.current?.(index)}
       />,
     );
 
-    if (panel.list === null || state.phase !== "ready" || state.showing !== "super" || state.data === null) {
+    if (panel.list === null || state.phase !== "ready" || state.showing !== "super") {
       if (listHost !== null) showOriginal();
       return;
     }
@@ -1066,6 +1153,10 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
       panel.list.setAttribute(REPLACED_ATTR, "");
       replaced = panel.list;
       listRoot = createRoot(listHost);
+    }
+    if (state.data === null) {
+      listRoot?.render(<OutlineList key={key} stored={state.stored} />);
+      return;
     }
     listRoot?.render(
       <GroupedList

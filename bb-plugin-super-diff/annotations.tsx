@@ -129,7 +129,8 @@ export function NoteCard({ note, highlighted }: { note: PlacedNote; highlighted:
 }
 
 /** A concern's numbered annotations, under its file list. A note not found in the diff is listed, not linked. */
-export function NotesBox({ notes, onJump }: { notes: PlacedNote[]; onJump: (id: string) => void }) {
+/** `loading` is set while the diff has not loaded, so no note's line is known yet: each shows its file alone, not as missing. */
+export function NotesBox({ notes, onJump, loading = false }: { notes: PlacedNote[]; onJump: (id: string) => void; loading?: boolean }) {
   if (notes.length === 0) return null;
   return (
     <div className="mt-2 rounded-md border border-border bg-background px-1.5 py-1 text-xs">
@@ -141,14 +142,14 @@ export function NotesBox({ notes, onJump }: { notes: PlacedNote[]; onJump: (id: 
         <button
           key={note.id}
           type="button"
-          disabled={note.line === null}
+          disabled={note.line === null && !loading}
           onClick={() => onJump(note.id)}
           className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-state-hover disabled:opacity-60"
         >
           <Badge n={note.n} />
           <span className="min-w-0 flex-1 truncate text-foreground">{note.title}</span>
           <span className="shrink-0 font-mono text-muted-foreground" style={{ fontSize: 11 }}>
-            {note.line === null ? `${where(note)} · not in this diff` : where(note)}
+            {note.line === null && !loading ? `${where(note)} · not in this diff` : where(note)}
           </span>
         </button>
       ))}
