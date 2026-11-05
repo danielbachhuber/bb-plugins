@@ -28,19 +28,20 @@
   },
   "type": "module",
   "exports": {
-    "./sync-status": "./sync-status/sync-status.tsx",
-    "./sidebar-count": "./sidebar-count/sidebar-count.tsx",
-    "./segmented": "./segmented/segmented.tsx",
     "./calendar": "./calendar/calendar.tsx",
+    "./copy-link": "./copy-link/copy-link.ts",
     "./date-range": "./date-range/date-range.tsx",
     "./day-menu": "./day-menu/day-menu.tsx",
-    "./parse-day": "./day-menu/parse-day.ts",
-    "./copy-link": "./copy-link/copy-link.ts",
-    "./top-bar": "./top-bar/top-bar.tsx",
-    "./nav-badge": "./nav-badge/nav-badge.tsx",
-    "./start-thread": "./start-thread/start-thread.tsx",
-    "./thread-status": "./thread-status/thread-status.tsx",
     "./last-value": "./last-value/last-value.ts",
+    "./nav-badge": "./nav-badge/nav-badge.tsx",
+    "./parse-day": "./day-menu/parse-day.ts",
+    "./segmented": "./segmented/segmented.tsx",
+    "./sidebar-count": "./sidebar-count/sidebar-count.tsx",
+    "./stack-menu": "./stack-menu/stack-menu.tsx",
+    "./start-thread": "./start-thread/start-thread.tsx",
+    "./sync-status": "./sync-status/sync-status.tsx",
+    "./thread-status": "./thread-status/thread-status.tsx",
+    "./top-bar": "./top-bar/top-bar.tsx",
     "./viewed-ring": "./viewed-ring/viewed-ring.tsx"
   },
   "peerDependencies": {
@@ -52,7 +53,8 @@
     "tailwind-merge": "^3.4.0",
     "react-day-picker": "^10.0.2",
     "@get-bb/plugin-sdk": ">=0.4.21",
-    "sonner": "^1.7.4 || ^2.0.0"
+    "sonner": "^1.7.4 || ^2.0.0",
+    "@radix-ui/react-dropdown-menu": "^2.1.20"
   },
   "peerDependenciesMeta": {
     "react-day-picker": {
@@ -82,7 +84,8 @@
     "vitest": "^4.1.12",
     "react-day-picker": "^10.0.2",
     "@get-bb/plugin-sdk": "0.4.47",
-    "sonner": "^1.7.4"
+    "sonner": "^1.7.4",
+    "@radix-ui/react-dropdown-menu": "^2.2.1"
   },
   "scripts": {
     "test": "vitest run",

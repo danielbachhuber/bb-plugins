@@ -130,8 +130,21 @@ const rowSchema = z.object({
   unansweredBy: z.array(z.string()).optional(),
   /** Inline review comments, resolved threads included. */
   inlineComments: z.number().optional(),
-  /** Where it sits in its stack on GitHub. */
-  stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable().optional(),
+  /**
+   * Where it sits in its stack on GitHub, or null. A row stored before the
+   * sweep read the whole stack reads as null until the next sweep.
+   */
+  stack: z
+    .object({
+      number: z.number(),
+      position: z.number(),
+      size: z.number(),
+      entries: z.array(
+        z.object({ number: z.number(), title: z.string(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
+      ),
+    })
+    .nullable().optional()
+    .catch(null),
   notedBy: z.array(z.string()),
   /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
   updatedAt: z.number(),

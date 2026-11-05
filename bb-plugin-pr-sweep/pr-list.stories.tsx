@@ -91,13 +91,27 @@ function row(overrides: Partial<Row> & Pick<Row, "number" | "title">): Row {
   };
 }
 
+
+/** #512 and #495, stacked on GitHub. */
+function themeStack(position: number) {
+  return {
+    number: 520,
+    position,
+    size: 2,
+    entries: [
+      { number: 512, title: "Cache widget thumbnails between page loads", url: "https://github.com/acme/widgets/pull/512", state: "open" as const },
+      { number: 495, title: "Move widget colours into the theme file", url: "https://github.com/acme/widgets/pull/495", state: "open" as const },
+    ],
+  };
+}
+
 const readyToMerge = row({
   number: 512,
   title: "Cache widget thumbnails between page loads",
   flags: ["merge-ready"],
   approvedBy: ["hubber"],
   // The bottom of a stack, with #495 built on it.
-  stack: { index: 1, size: 2, on: null },
+  stack: themeStack(1),
 });
 
 const conflictAndFeedback = row({
@@ -129,7 +143,7 @@ const inProgress = row({
   waitingOn: ["hubber"],
   threadIds: ["thr_fixture1"],
   note: "Rerun the theme snapshot job after the rebase",
-  stack: { index: 2, size: 2, on: 512 },
+  stack: themeStack(2),
 });
 
 const awaitingReview = row({

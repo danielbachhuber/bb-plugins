@@ -6,12 +6,14 @@ import { REPO_SLUG_PATTERN, type GhRunner } from "./gh.js";
  * branch up.
  */
 export interface StackPosition {
-  /** 1 for the pull request closest to the base branch, as GitHub counts it. */
-  index: number;
+  /** The stack's own number in its repository: "stack #N" on GitHub. */
+  number: number;
+  /** This pull request's place, 1 for the one closest to the base branch. */
+  position: number;
   /** Every pull request in the stack, merged ones included, as GitHub counts it. */
   size: number;
-  /** The open pull request directly below this one, or null when the one below has merged or there is none. */
-  on: number | null;
+  /** Every pull request in the stack, bottom first. */
+  entries: Array<{ number: number; title: string; url: string; state: "open" | "closed" | "merged" }>;
 }
 
 /** `repo#number`, the key both sweeps store rows under. */
@@ -35,7 +37,7 @@ export function stacksQuery(count: number): string {
         number
         stackEntry {
           position
-          stack { size entries(first: 50) { nodes { position pullRequest { number state } } } }
+          stack { number size entries(first: 50) { nodes { position pullRequest { number title url state } } } }
         }
       }
     }
@@ -46,7 +48,7 @@ export function stacksQuery(count: number): string {
 
 interface RawEntry {
   position?: unknown;
-  pullRequest?: { number?: unknown; state?: unknown } | null;
+  pullRequest?: { number?: unknown; title?: unknown; url?: unknown; state?: unknown } | null;
 }
 
 interface RawRepository {
@@ -56,7 +58,7 @@ interface RawRepository {
       number?: unknown;
       stackEntry?: {
         position?: unknown;
-        stack?: { size?: unknown; entries?: { nodes?: Array<RawEntry | null> | null } | null } | null;
+        stack?: { number?: unknown; size?: unknown; entries?: { nodes?: Array<RawEntry | null> | null } | null } | null;
       } | null;
     } | null> | null;
   };
@@ -71,15 +73,33 @@ export function parseStacks(raw: string): Map<string, StackPosition> {
     if (!repo) continue;
     for (const node of repository.pullRequests?.nodes ?? []) {
       const entry = node?.stackEntry;
-      const size = entry?.stack?.size;
-      if (typeof node?.number !== "number" || typeof entry?.position !== "number" || typeof size !== "number") {
+      const stack = entry?.stack;
+      if (
+        typeof node?.number !== "number" ||
+        typeof entry?.position !== "number" ||
+        typeof stack?.number !== "number" ||
+        typeof stack.size !== "number"
+      ) {
         continue;
       }
-      const index = entry.position;
-      const below = (entry.stack?.entries?.nodes ?? []).find((other) => other?.position === index - 1)?.pullRequest;
-      const on =
-        typeof below?.number === "number" && String(below.state ?? "").toUpperCase() === "OPEN" ? below.number : null;
-      positions.set(stackKey(repo, node.number), { index, size, on });
+      const entries = (stack.entries?.nodes ?? [])
+        .flatMap((other) => {
+          const pr = other?.pullRequest;
+          if (typeof other?.position !== "number" || typeof pr?.number !== "number" || typeof pr.url !== "string") return [];
+          const state = String(pr.state ?? "").toUpperCase();
+          return [
+            {
+              position: other.position,
+              number: pr.number,
+              title: typeof pr.title === "string" ? pr.title : "",
+              url: pr.url,
+              state: state === "MERGED" ? ("merged" as const) : state === "CLOSED" ? ("closed" as const) : ("open" as const),
+            },
+          ];
+        })
+        .sort((a, b) => a.position - b.position)
+        .map(({ number, title, url, state }) => ({ number, title, url, state }));
+      positions.set(stackKey(repo, node.number), { number: stack.number, position: entry.position, size: stack.size, entries });
     }
   }
   return positions;

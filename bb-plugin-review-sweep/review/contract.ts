@@ -109,8 +109,21 @@ const rowSchema = z.object({
       team: z.boolean(),
     }),
   ),
-  /** Where it sits in its stack on GitHub, or null. */
-  stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable(),
+  /**
+   * Where it sits in its stack on GitHub, or null. A row stored before the
+   * sweep read the whole stack reads as null until the next sweep.
+   */
+  stack: z
+    .object({
+      number: z.number(),
+      position: z.number(),
+      size: z.number(),
+      entries: z.array(
+        z.object({ number: z.number(), title: z.string(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
+      ),
+    })
+    .nullable()
+    .catch(null),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),
   /** Comments since the pull request was last opened from the panel. */

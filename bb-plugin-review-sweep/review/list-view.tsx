@@ -1,4 +1,5 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
 import { useState, type ReactNode } from "react";
 import {
   DayMenu,
@@ -296,6 +297,8 @@ function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
   const reviewers = reviewersFor(row, avatarFor);
   return (
     <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      {/* First, as GitHub Context's banner puts it right after the pull request. */}
+      {row.stack ? <StackMenu stack={row.stack} current={row.number} className="-mx-1.5" /> : null}
       <span data-part="author" className="inline-flex items-center gap-1.5">
         <Avatar login={row.author} avatarUrl={avatarFor(row.author)} />
         {row.author}
@@ -592,13 +595,6 @@ export function ReviewListView({
     stage: stageOf(row),
     icon: <PullRequestIcon draft={row.isDraft} />,
     conflicted: row.conflicted === true,
-    stack: row.stack
-      ? {
-          index: row.stack.index,
-          size: row.stack.size,
-          on: row.stack.on === null ? null : { number: row.stack.on, url: `https://github.com/${row.repo}/pull/${row.stack.on}` },
-        }
-      : null,
   }));
 
   return (

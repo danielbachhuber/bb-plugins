@@ -583,6 +583,27 @@ The three sweeps use it for their listing and their Harvest state.
 **Don't** keep anything private to the server here, such as a token, or a
 value the page cannot draw while it is stale for a moment.
 
+## Stack menu
+
+A pull request's place in its stack on GitHub, "4/5" as GitHub writes it, with
+a layers icon. Clicking it lists every pull request in the stack, top first,
+with this one marked. Hovering one shows its number and title, and clicking it
+opens it with bb's `UrlLink`.
+
+```tsx
+import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
+
+<StackMenu stack={stack} current={pr.number} />
+```
+
+`stack` is `{ number, position, size, entries }`, the shape `fetchStacks` in
+`gh-shared` returns: `position` counts from 1 at the base branch, `size` and
+`entries` include merged pull requests, and `entries` run bottom first. Pass
+`className` to fit the trigger to the caller's own segment style. GitHub
+Context draws it in its banner, and PR Sweep and Review Sweep at the start of
+each row's line of icons. The menu needs `@radix-ui/react-dropdown-menu`,
+which bb provides at runtime.
+
 ## Viewed ring
 
 How many of a set of files have been marked Viewed, drawn the way the changes

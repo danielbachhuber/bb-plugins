@@ -20,6 +20,27 @@ import { FeedbackDrawer, FeedbackList, type FeedbackEntry } from "sweep-ui/feedb
 import { PlainLink } from "sweep-ui/row";
 import { Markdown } from "@get-bb/plugin-sdk/app";
 
+
+/** #404, #405, and #443, stacked on GitHub. */
+function slotStack(position: number) {
+  const pull = (number: number, title: string) => ({
+    number,
+    title,
+    url: `https://github.com/acme/widgets/pull/${number}`,
+    state: "open" as const,
+  });
+  return {
+    number: 450,
+    position,
+    size: 3,
+    entries: [
+      pull(404, "Add slot names to the widget schema"),
+      pull(405, "Rename widget slots to match the design doc"),
+      pull(443, "WIP: widget search"),
+    ],
+  };
+}
+
 export default {
   title: "review-sweep/Review list",
 };
@@ -174,13 +195,13 @@ const everything: Listing = {
       threadId: "thr_fixture2",
       reviewers: [YOU, { login: "hubber", state: "approved", team: false }],
       // The middle of a stack of three, on a pull request not in this list.
-      stack: { index: 2, size: 3, on: 404 },
+      stack: slotStack(2),
     }),
     row({
       number: 443,
       title: "WIP: widget search",
       isDraft: true,
-      stack: { index: 3, size: 3, on: 405 },
+      stack: slotStack(3),
       requestedAt: now - 26 * HOUR,
       size: { additions: 890, deletions: 45, changedFiles: 21 },
     }),

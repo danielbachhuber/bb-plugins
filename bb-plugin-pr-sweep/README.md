@@ -60,32 +60,32 @@ only its pull requests, in the same order; pressing it again shows them all.
   asked, or awaiting review.
 
 Every row is open, with its title line, banner, icons, note, and actions,
-except the waiting ones. A waiting row is one line: its title, number, and
-stack chip, with its reviewers, checks, and size at the right. The chevron at
+except the waiting ones. A waiting row is one line: its title and number, with its
+stack, reviewers, checks, and size at the right. The chevron at
 its left opens it to the full row. A waiting row whose Harvest timer is
 running stays open.
 
 ## Each row
 
 The title line starts with the pull request's icon, green when it is open and
-grey for a draft, then the title and number, a stack chip when it is in a
-stack, a warning triangle when it conflicts with its base branch, "N new" in
+grey for a draft, then the title and number, a warning triangle when it conflicts with its base branch, "N new" in
 blue when comments were posted since you last opened the pull request or its
 thread from the panel, or started one, and how long ago it was updated on the
 right. The first sweep to see a pull request records its comment count, so nothing is new on
 the first sync. A sweep that finds your own comment newest records the count
 again, so your reply never shows as new.
 
-A pull request in a stack on GitHub, one linked with `gh stack`, has a chip
-after its number with its place in the stack as GitHub writes it: "4/5" is the
+A pull request in a stack on GitHub, one linked with `gh stack`, starts the
+line of icons with its place in the stack as GitHub writes it: "4/5" is the
 fourth of five, counting up from the base branch and including layers that
-have merged. When the pull request directly below is still open, the chip adds
-"· on #612", linking to it, since that one merges first. Pull requests that
-only point at each other with a base branch are not a stack and get no chip.
-Rows keep their place in the list, so a stack's layers can sit apart. The
-stacks come from one more GraphQL call per sweep, reading the open pull
-requests in each swept repository; a failure there drops the chips, not the
-sweep.
+have merged. Clicking it lists every pull request in the stack, top first,
+with this one marked; hovering one shows its title, and clicking it opens it
+on GitHub. It is the same button GitHub Context draws in its banner. Pull
+requests that only point at each other with a base branch are not a stack and
+get no button. Rows keep their place in the list, so a stack's layers can sit
+apart. The stacks come from one more GraphQL call per sweep, reading the open
+pull requests in each swept repository; a failure there drops the buttons, not
+the sweep.
 
 Under the title, a banner says where the pull request stands.
 

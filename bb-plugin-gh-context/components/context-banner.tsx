@@ -1,5 +1,6 @@
 import { useState, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/ui/icon";
 import {
@@ -14,7 +15,6 @@ import type {
   ContextChanges,
   ContextIssue,
   ContextPullRequest,
-  ContextStack,
   MergeMethod,
   MyReview,
   ThreadContext,
@@ -127,58 +127,6 @@ function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPull
         </span>
       )}
     </UrlLink>
-  );
-}
-
-const STACK_ENTRY_ICON: Record<ContextStack["entries"][number]["state"], { icon: IconName; className: string }> = {
-  open: { icon: "GitPullRequestArrow", className: "text-success" },
-  merged: { icon: "GitMerge", className: "text-pr-merged" },
-  closed: { icon: "GitPullRequestClosed", className: "text-destructive" },
-};
-
-/**
- * The pull request's place in its stack, "4/5" as GitHub writes it, opening a
- * menu of every pull request in the stack, bottom first.
- */
-function StackSegment({ stack, current }: { stack: ContextStack; current: number }) {
-  const label = `Stack #${stack.number}: ${stack.position} of ${stack.size}`;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          title={label}
-          className={cn(SEGMENT_CLASS, "shrink-0 cursor-pointer gap-1 data-[state=open]:bg-state-active")}
-        >
-          <Icon name="Layers" className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="tabular-nums">
-            {stack.position}/{stack.size}
-          </span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={2}>
-        {[...stack.entries].reverse().map((entry) => {
-          const icon = STACK_ENTRY_ICON[entry.state];
-          return (
-            <DropdownMenuItem key={entry.number} className="p-0">
-              <UrlLink
-                href={entry.url}
-                title={entry.title ? `#${entry.number} ${entry.title}` : undefined}
-                className={cn(
-                  "flex w-full items-center gap-1.5 px-2 py-1.5 text-xs no-underline",
-                  entry.number === current ? "font-medium text-foreground" : "text-muted-foreground",
-                )}
-              >
-                <Icon name={icon.icon} className={cn("size-3.5 shrink-0", icon.className)} aria-hidden="true" />
-                #{entry.number}
-                {entry.number === current ? <span className="text-muted-foreground">· this PR</span> : null}
-              </UrlLink>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -384,7 +332,9 @@ export function ContextBanner({
     body = (
       <div className={ROW_CLASS}>
         {pullRequest ? <PullRequestSegment pullRequest={pullRequest} compact={compact} /> : null}
-        {pullRequest?.stack ? <StackSegment stack={pullRequest.stack} current={pullRequest.number} /> : null}
+        {pullRequest?.stack ? (
+          <StackMenu stack={pullRequest.stack} current={pullRequest.number} className={cn(SEGMENT_CLASS, "shrink-0 gap-1")} />
+        ) : null}
         {showReviewers(pullRequest) ? <ReviewerStack reviewers={pullRequest.reviewers} compact={compact} /> : null}
         {(compact ? issues.slice(0, 1) : issues).map((issue) => (
           <IssueSegment key={`${issue.repo}#${issue.number}`} issue={issue} compact={compact} />

@@ -78,8 +78,8 @@ describe("runSweep", () => {
           nameWithOwner: "acme/widgets",
           pullRequests: {
             nodes: [
-              { number: 1, stackEntry: { position: 1, stack: { size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, state: "OPEN" } }, { position: 2, pullRequest: { number: 2, state: "OPEN" } }] } } } },
-              { number: 2, stackEntry: { position: 2, stack: { size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, state: "OPEN" } }, { position: 2, pullRequest: { number: 2, state: "OPEN" } }] } } } },
+              { number: 1, stackEntry: { position: 1, stack: { number: 9, size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, title: "Widget base", url: "u1", state: "OPEN" } }, { position: 2, pullRequest: { number: 2, title: "Widget top", url: "u2", state: "OPEN" } }] } } } },
+              { number: 2, stackEntry: { position: 2, stack: { number: 9, size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, title: "Widget base", url: "u1", state: "OPEN" } }, { position: 2, pullRequest: { number: 2, title: "Widget top", url: "u2", state: "OPEN" } }] } } } },
             ],
           },
         },
@@ -88,7 +88,15 @@ describe("runSweep", () => {
     const replies = [search, stacks];
     const gh: GhRunner = { run: async () => replies.shift()! };
     const result = await runSweep(gh, () => NOW);
-    expect(result.rows[0]!.stack).toEqual({ index: 2, size: 2, on: 1 });
+    expect(result.rows[0]!.stack).toEqual({
+      number: 9,
+      position: 2,
+      size: 2,
+      entries: [
+        { number: 1, title: "Widget base", url: "u1", state: "open" },
+        { number: 2, title: "Widget top", url: "u2", state: "open" },
+      ],
+    });
   });
 
   it("keeps the rows out of any stack when the second call fails", async () => {

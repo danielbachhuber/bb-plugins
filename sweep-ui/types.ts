@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import type { StackChipProps } from "./stack-chip";
 
 export type Tier = "now" | "next" | "later";
 
@@ -55,16 +54,9 @@ export interface SweepItem {
   icon?: ReactNode;
   /**
    * True when the pull request conflicts with its base branch, drawn as a
-   * warning triangle at the end of the title line, after the number and any
-   * stack chip.
+   * warning triangle at the end of the title line, after the number.
    */
   conflicted?: boolean;
-  /**
-   * Where a pull request sits in a stack of pull requests built on each
-   * other's branches, drawn as a chip after the number. Left out when it is
-   * not in one.
-   */
-  stack?: StackChipProps["stack"] | null;
   progress?: { done: number; total: number } | null;
   /** The comment count, drawn in the action line after the progress bar. Left out or 0 for none. */
   comments?: number;

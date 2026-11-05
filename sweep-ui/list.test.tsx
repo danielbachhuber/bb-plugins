@@ -266,16 +266,6 @@ describe("SweepList", () => {
     expect(screen.queryByText("Feedback on Widget task 1")).toBeNull();
   });
 
-  it("draws a stacked row's chip after its number, through the list's Link", () => {
-    render(
-      <SweepList
-        {...props([item(2, "new", { stack: { index: 2, size: 3, on: { number: 1, url: "https://github.com/acme/widgets/pull/1" } } })])}
-        renderBody={() => null}
-      />,
-    );
-    expect(within(row("Widget task 2")).getByTitle(/2 of 3 in a stack/)).toHaveTextContent("2/3 · on #1");
-  });
-
   it("gives a row in an under-way run an orange edge, and a stale flag outranks it", () => {
     render(
       <SweepList

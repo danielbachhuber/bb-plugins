@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchStacks, parseStacks, stacksQuery } from "./stacks.js";
 
-const entry = (position: number, number: number, state = "OPEN") => ({ position, pullRequest: { number, state } });
+const entry = (position: number, number: number, state = "OPEN") => ({
+  position,
+  pullRequest: { number, title: `Widget change ${number}`, url: `u${number}`, state },
+});
 const stacked = (number: number, position: number, entries: ReturnType<typeof entry>[]) => ({
   number,
-  stackEntry: { position, stack: { size: entries.length, entries: { nodes: entries } } },
+  stackEntry: { position, stack: { number: 131, size: entries.length, entries: { nodes: [...entries].reverse() } } },
 });
 
 describe("parseStacks", () => {
-  it("reads each pull request's place as GitHub numbers it, merged layers included", () => {
+  it("reads each pull request's place as GitHub numbers it, and the stack bottom first, merged layers included", () => {
     const stack = [entry(1, 610, "MERGED"), entry(2, 612), entry(3, 615)];
     const raw = JSON.stringify({
       data: {
@@ -19,10 +22,14 @@ describe("parseStacks", () => {
         r1: { nameWithOwner: "acme/gadgets", pullRequests: { nodes: [{ number: 5, stackEntry: null }] } },
       },
     });
+    const entries = [
+      { number: 610, title: "Widget change 610", url: "u610", state: "merged" },
+      { number: 612, title: "Widget change 612", url: "u612", state: "open" },
+      { number: 615, title: "Widget change 615", url: "u615", state: "open" },
+    ];
     expect(Object.fromEntries(parseStacks(raw))).toEqual({
-      // The layer below merged, so there is nothing to merge first.
-      "acme/widgets#612": { index: 2, size: 3, on: null },
-      "acme/widgets#615": { index: 3, size: 3, on: 612 },
+      "acme/widgets#612": { number: 131, position: 2, size: 3, entries },
+      "acme/widgets#615": { number: 131, position: 3, size: 3, entries },
     });
   });
 

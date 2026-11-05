@@ -1,4 +1,5 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
+import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
 import type { ReactNode } from "react";
 import { Markdown, UrlLink } from "@get-bb/plugin-sdk/app";
 import { ThreadLine, OpenThreadAction, StartingThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
@@ -228,6 +229,8 @@ function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
   const stale = item.flags.find((flag) => flag.kind === "stale");
   return (
     <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      {/* First, as GitHub Context's banner puts it right after the pull request. */}
+      {row.stack ? <StackMenu stack={row.stack} current={row.number} className="-mx-1.5" /> : null}
       <span data-part="reviewers" className="inline-flex items-center">
         {reviewers.length > 0 ? (
           <TooltipProvider delayDuration={150}>
@@ -604,13 +607,6 @@ export function PrListView({
     // General and inline comments together, so a pull request whose review
     // threads were all answered still shows it has comments to read.
     comments: row.commentsCount + (row.inlineComments ?? 0),
-    stack: row.stack
-      ? {
-          index: row.stack.index,
-          size: row.stack.size,
-          on: row.stack.on === null ? null : { number: row.stack.on, url: `https://github.com/${row.repo}/pull/${row.stack.on}` },
-        }
-      : null,
     // A running timer must stay in view, and it lives in the action line.
     forceOpen: harvest.available && isRunningFor(harvest.running, row),
   }));
