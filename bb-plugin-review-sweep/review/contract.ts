@@ -109,7 +109,7 @@ const rowSchema = z.object({
       team: z.boolean(),
     }),
   ),
-  /** Where it sits in a stack of pull requests built on each other's branches, or null. */
+  /** Where it sits in its stack on GitHub, or null. */
   stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable(),
   /** The local next-step note, or null. Never sent to GitHub. */
   note: z.string().nullable(),

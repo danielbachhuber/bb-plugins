@@ -1,5 +1,5 @@
-// A pull request's place in a stack: pull requests built on each other's
-// branches, which merge from the bottom up.
+// A pull request's place in a stack on GitHub, which merges from the base
+// branch up.
 import type { ComponentType } from "react";
 
 import { Icon } from "./icons";
@@ -7,10 +7,11 @@ import type { SweepLinkProps } from "./row";
 
 export interface StackChipProps {
   stack: {
-    /** 1 for the bottom of the stack. */
+    /** 1 for the pull request closest to the base branch. */
     index: number;
+    /** Every pull request in the stack, merged ones included. */
     size: number;
-    /** The pull request this one is built on, or null at the bottom. */
+    /** The open pull request directly below, or null when that one has merged or there is none. */
     on: { number: number; url: string } | null;
   };
   /** Draws the link to the pull request below. Defaults to a plain anchor. */
@@ -25,27 +26,28 @@ function PlainAnchor({ href, className, onClick, children }: SweepLinkProps) {
   );
 }
 
-/** "3 of 5 · on #612", with the number linking to the pull request below, or "1 of 5 · base" at the bottom. */
+/** "4/5" as GitHub writes it, then "· on #612" linking to the open pull request below, when there is one. */
 export function StackChip({ stack, Link = PlainAnchor }: StackChipProps) {
   const { index, size, on } = stack;
   return (
     <span
       data-part="stack"
-      title={on ? `Stacked on #${on.number}: merge that first` : "The bottom of a stack: the others build on it"}
+      title={`${index} of ${size} in a stack${on ? `, stacked on #${on.number}: merge that first` : ""}`}
       className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-[11px] leading-4 text-muted-foreground"
     >
       <Icon name="Layers" className="size-3" />
-      {index} of {size} ·{" "}
+      <span className="tabular-nums">
+        {index}/{size}
+      </span>
       {on ? (
         <>
-          on{" "}
+          {" "}
+          · on{" "}
           <Link href={on.url} className="hover:text-foreground hover:underline">
             #{on.number}
           </Link>
         </>
-      ) : (
-        "base"
-      )}
+      ) : null}
     </span>
   );
 }

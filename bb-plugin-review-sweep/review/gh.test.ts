@@ -76,11 +76,10 @@ describe("runSweep", () => {
       data: {
         r0: {
           nameWithOwner: "acme/widgets",
-          defaultBranchRef: { name: "main" },
           pullRequests: {
             nodes: [
-              { number: 1, baseRefName: "main", headRefName: "a", isCrossRepository: false },
-              { number: 2, baseRefName: "a", headRefName: "b", isCrossRepository: false },
+              { number: 1, stackEntry: { position: 1, stack: { size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, state: "OPEN" } }, { position: 2, pullRequest: { number: 2, state: "OPEN" } }] } } } },
+              { number: 2, stackEntry: { position: 2, stack: { size: 2, entries: { nodes: [{ position: 1, pullRequest: { number: 1, state: "OPEN" } }, { position: 2, pullRequest: { number: 2, state: "OPEN" } }] } } } },
             ],
           },
         },

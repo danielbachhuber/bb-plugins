@@ -74,7 +74,7 @@ describe("SweepRow conflict warning", () => {
     });
     const warning = screen.getByLabelText("Merge conflict");
     const number = screen.getByText("#1");
-    const chip = screen.getByText(/2 of 3/);
+    const chip = screen.getByTitle(/2 of 3 in a stack/);
     expect(number.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(chip.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });

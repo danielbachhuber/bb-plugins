@@ -73,8 +73,7 @@ export interface ClassifiedRow {
    */
   inlineComments?: number;
   /**
-   * Where it sits in a stack of pull requests built on each other's branches,
-   * or null when it is in none. Absent on a row stored before the sweep read it.
+   * Where it sits in its stack on GitHub, or null when it is in none. Absent on a row stored before the sweep read it.
    */
   stack?: StackPosition | null;
   /**

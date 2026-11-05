@@ -76,14 +76,16 @@ right. The first sweep to see a pull request records its comment count, so nothi
 the first sync. A sweep that finds your own comment newest records the count
 again, so your reply never shows as new.
 
-A pull request in a stack, built on another open pull request's branch or
-with one built on its own, has a chip after its number: "3 of 5 · on #612",
-with the number linking to the pull request below it, or "1 of 5 · base" at
-the bottom. Two pull requests on one base share an index, and the count is
-every open pull request in the stack, whoever opened it. Rows keep their place
-in the list, so a stack's layers can sit apart. The stacks come from one more
-GraphQL call per sweep, reading the open pull requests in each swept
-repository; a failure there drops the chips, not the sweep.
+A pull request in a stack on GitHub, one linked with `gh stack`, has a chip
+after its number with its place in the stack as GitHub writes it: "4/5" is the
+fourth of five, counting up from the base branch and including layers that
+have merged. When the pull request directly below is still open, the chip adds
+"· on #612", linking to it, since that one merges first. Pull requests that
+only point at each other with a base branch are not a stack and get no chip.
+Rows keep their place in the list, so a stack's layers can sit apart. The
+stacks come from one more GraphQL call per sweep, reading the open pull
+requests in each swept repository; a failure there drops the chips, not the
+sweep.
 
 Under the title, a banner says where the pull request stands.
 

@@ -130,7 +130,7 @@ const rowSchema = z.object({
   unansweredBy: z.array(z.string()).optional(),
   /** Inline review comments, resolved threads included. */
   inlineComments: z.number().optional(),
-  /** Where it sits in a stack of pull requests built on each other's branches. */
+  /** Where it sits in its stack on GitHub. */
   stack: z.object({ index: z.number(), size: z.number(), on: z.number().nullable() }).nullable().optional(),
   notedBy: z.array(z.string()),
   /** When GitHub last saw activity, in milliseconds, for the age and the stale flag. */
