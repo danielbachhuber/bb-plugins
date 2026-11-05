@@ -55,6 +55,8 @@ export interface SweepListProps {
   collapsible?: boolean | "later";
   /** Drawn at the right end of an open row's action line, such as a timer. */
   renderTrailing?: (item: SweepItem) => ReactNode;
+  /** Drawn on the title line right after the number, such as a pull request's stack button. */
+  renderAfterNumber?: (item: SweepItem) => ReactNode;
   /** Drawn directly under a row's action line: component-library's ThreadLine for a row with a thread. */
   renderThreadLine?: (item: SweepItem) => ReactNode;
   /**
@@ -95,6 +97,7 @@ export function SweepList({
   renderTrack,
   collapsible = true,
   renderTrailing,
+  renderAfterNumber,
   renderThreadLine,
   renderStartThread,
   renderComments,
@@ -146,6 +149,7 @@ export function SweepList({
         Link={Link}
         actions={renderActions(item)}
         trailing={renderTrailing?.(item)}
+        afterNumber={renderAfterNumber?.(item)}
         threadLine={renderThreadLine?.(item)}
         startThread={renderStartThread?.(item)}
         onToggleComments={

@@ -77,6 +77,19 @@ describe("SweepRow conflict warning", () => {
     expect(number.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("draws what comes after the number between the number and the warning", () => {
+    draw({
+      item: { ...item, conflicted: true },
+      afterNumber: <span>after</span>,
+      renderBody: () => null,
+    });
+    const number = screen.getByText("#1");
+    const after = screen.getByText("after");
+    const warning = screen.getByLabelText("Merge conflict");
+    expect(number.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(after.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("draws it on a one-line row too", () => {
     render(
       <ul>

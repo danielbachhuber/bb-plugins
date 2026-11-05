@@ -128,14 +128,14 @@ stored list the page reads, so it adds no GitHub calls.
 
 Each row is drawn the way PR Sweep draws a pull request. The title line has
 the pull request icon (green when open, muted for a draft), the title, the
-number, a warning triangle when it
+number, a stack button when it is in a stack, a warning triangle when it
 conflicts with its base branch, "N new" in blue when comments were posted
 since you last opened the pull request or its thread from the panel, and how
 long ago the review was requested of you on the right. The first sweep to see
 a request records its comment count, so nothing is new on the first sync.
 
-A pull request in a stack on GitHub, one linked with `gh stack`, starts the
-line of icons with its place in the stack as GitHub writes it: "4/5" is the
+A pull request in a stack on GitHub, one linked with `gh stack`, has a button
+after its number with its place in the stack as GitHub writes it: "4/5" is the
 fourth of five, counting up from the base branch and including layers that
 have merged. Clicking it lists every pull request in the stack, top first,
 with this one marked; hovering one shows its title, and clicking it opens it

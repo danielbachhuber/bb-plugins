@@ -24,7 +24,8 @@ set draws that stage as a red disc with a white cross and names it in red.
 
 A plugin that passes `renderBody` draws its own row body. The row keeps its
 chevron, the title line (the item's `icon`, the title, the number, the
-a warning triangle when `conflicted` is set,
+whatever `renderAfterNumber` returns, such as a stack button, a warning
+triangle when `conflicted` is set,
 "N new", and the first fact on the right as
 the age), and, when open, the note and the
 action line; `renderBody` fills the space between the title line and the

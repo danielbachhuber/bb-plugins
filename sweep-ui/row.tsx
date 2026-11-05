@@ -155,6 +155,8 @@ export interface SweepRowProps {
   actions: ReactNode;
   /** Drawn at the right end of the action line. */
   trailing?: ReactNode;
+  /** Drawn on the title line right after the number, before the conflict warning. */
+  afterNumber?: ReactNode;
   /**
    * Drawn directly under the action line, before the note: the row's thread,
    * as component-library's ThreadLine.
@@ -214,6 +216,7 @@ export function SweepRow({
   Link = PlainLink,
   actions,
   trailing,
+  afterNumber,
   onToggleComments,
   commentsOpen = false,
   commentsDrawer,
@@ -267,6 +270,7 @@ export function SweepRow({
             {icon}
             {title}
             <span className="shrink-0 text-xs text-muted-foreground">#{item.number}</span>
+            {afterNumber}
             {conflict}
           </span>
           {/* One slot on the right: a held row's note, then a flag, then the first fact, or the flag would never show on a line. */}
@@ -298,6 +302,7 @@ export function SweepRow({
           {title}
           <span className="shrink-0 text-muted-foreground">#{item.number}</span>
         </span>
+        {afterNumber}
         {conflict}
         {unread ? (
           <span className={cn("shrink-0 text-xs font-medium", BLUE_TEXT)}>{item.newComments} new</span>

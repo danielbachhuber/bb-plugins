@@ -600,8 +600,8 @@ import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-me
 `gh-shared` returns: `position` counts from 1 at the base branch, `size` and
 `entries` include merged pull requests, and `entries` run bottom first. Pass
 `className` to fit the trigger to the caller's own segment style. GitHub
-Context draws it in its banner, and PR Sweep and Review Sweep at the start of
-each row's line of icons. The menu needs `@radix-ui/react-dropdown-menu`,
+Context draws it in its banner, and PR Sweep and Review Sweep after each row's
+number. The menu needs `@radix-ui/react-dropdown-menu`,
 which bb provides at runtime.
 
 ## Viewed ring

@@ -229,8 +229,6 @@ function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
   const stale = item.flags.find((flag) => flag.kind === "stale");
   return (
     <span className="inline-flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      {/* First, as GitHub Context's banner puts it right after the pull request. */}
-      {row.stack ? <StackMenu stack={row.stack} current={row.number} className="-mx-1.5" /> : null}
       <span data-part="reviewers" className="inline-flex items-center">
         {reviewers.length > 0 ? (
           <TooltipProvider delayDuration={150}>
@@ -681,6 +679,10 @@ export function PrListView({
                     }
                   : () => null
               }
+              renderAfterNumber={(item) => {
+                const row = rowsByKey.get(item.key);
+                return row?.stack ? <StackMenu stack={row.stack} current={row.number} className="-my-0.5" /> : null;
+              }}
               renderBody={(item, _open, line) => {
                 const row = rowsByKey.get(item.key);
                 return row ? (
