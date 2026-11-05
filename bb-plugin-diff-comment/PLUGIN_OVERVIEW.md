@@ -9,6 +9,10 @@ comment sits inline under that line while a subthread answers it.
 Its reply shows on the comment, and **Reply** answers back in the same
 subthread. You resolve the ones you accept.
 
+The comment box has GitHub's formatting toolbar, and **Add a suggestion**
+starts a suggested replacement for the line, which the agent applies or
+GitHub commits.
+
 ## How a comment is anchored
 
 A comment stores the text of the line it was left on, plus the lines either

@@ -8,6 +8,18 @@ You read the changes panel the way you read a pull request: hover a line, press
 comment sits inline under that line while a subthread answers it.
 Its reply shows on the comment. You resolve the ones you accept.
 
+## Suggesting a change
+
+![A comment box with Write and Preview tabs and GitHub's formatting toolbar, holding a suggestion that replaces the commented line](screenshots/comments--suggesting-a-change.png)
+
+The comment box has GitHub's editor toolbar: **Write** and **Preview** tabs,
+and buttons for headings, bold, italic, quotes, code, links, and lists, with
+GitHub's keyboard shortcuts. On a line of new code, **Add a suggestion** (⌘G)
+starts a `suggestion` block holding the line as it is, so you edit the line
+rather than retype it. Preview and the saved comment show the suggestion as a
+change to the line. **Add to GitHub review** posts it as a suggestion GitHub
+can commit, and **Ask agent** has the agent make the change.
+
 ## How a comment is anchored
 
 A comment stores the text of the line it was left on, plus the lines either

@@ -58,14 +58,55 @@ export const ConversationWithTheAgent = () => (
 );
 
 // 300px is about the width of one side of a split diff in bb's right panel.
-/** In a narrow column, such as one side of a split diff, the composer's buttons wrap onto a second row instead of running past the card's edge. */
+/** In a narrow column, such as one side of a split diff, the toolbar keeps Add a suggestion, Bold, and Italic, with the rest under More, and the composer's buttons wrap onto a second row instead of running past the card's edge. */
 export const ComposerInANarrowColumn = () => (
   <Frame width={332}>
     <CommentComposer
       location="src/sprocket.ts:18"
+      suggestionLine="  return gear.teeth * ratio;"
       onAsk={noop}
       onCancel={noop}
       github={{ check: async () => ({ state: "ready", number: 7 }), post: async () => {} }}
+    />
+  </Frame>
+);
+
+const LINE = "  return gear.teeth * ratio;";
+const SUGGESTION =
+  "A zero ratio from a hand-built `Gear` makes this `0`.\n\n```suggestion\n  return gear.teeth * Math.max(1, ratio);\n```\n";
+
+/** The comment box has GitHub's toolbar. On a line of new code, Add a suggestion starts a suggestion block holding the line, ready to edit. */
+export const SuggestingAChange = () => (
+  <Frame>
+    <CommentComposer
+      location="src/sprocket.ts:18"
+      initialBody={SUGGESTION}
+      suggestionLine={LINE}
+      onAsk={noop}
+      onCancel={noop}
+      github={{ check: async () => ({ state: "ready", number: 7 }), post: async () => {} }}
+    />
+  </Frame>
+);
+
+/** A saved suggestion shows as a change to its line: the line as it is, then the suggested replacement. */
+export const CommentWithASuggestion = () => (
+  <Frame>
+    <CommentCard
+      comment={{
+        ...conversation,
+        id: "c2",
+        seq: 4,
+        anchor: { text: LINE, before: null, after: null },
+        body: SUGGESTION,
+        state: "open",
+        reply: null,
+        messages: [],
+      }}
+      onSetState={noop}
+      onEdit={noop}
+      onRemove={noop}
+      onAsk={async () => {}}
     />
   </Frame>
 );

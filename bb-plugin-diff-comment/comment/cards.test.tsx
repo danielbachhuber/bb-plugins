@@ -286,3 +286,55 @@ describe("CommentCard's Reply", () => {
     expect(view.textContent).toContain("thread is gone");
   });
 });
+
+describe("CommentComposer's toolbar", () => {
+  const line = "  return gear.teeth * ratio;";
+  const byLabel = (scope: HTMLElement, label: string) =>
+    scope.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+  it("starts a suggestion holding the commented line", async () => {
+    const onAsk = vi.fn();
+    const view = await render(
+      <CommentComposer location="src/a.ts:2" onAsk={onAsk} onCancel={() => {}} suggestionLine={line} />,
+    );
+    await act(async () => byLabel(view, "Add a suggestion (⌘G)")!.click());
+    const box = view.querySelector("textarea")!;
+    expect(box.value).toBe(`\`\`\`suggestion\n${line}\n\`\`\`\n`);
+    expect(box.value.slice(box.selectionStart, box.selectionEnd)).toBe(line);
+
+    await act(async () => button(view, "Ask agent")!.click());
+    expect(onAsk).toHaveBeenCalledWith(`\`\`\`suggestion\n${line}\n\`\`\``);
+  });
+
+  it("previews a suggestion as a change to the line", async () => {
+    const view = await render(
+      <CommentComposer
+        location="src/a.ts:2"
+        initialBody={"Clamp it.\n\n```suggestion\n  return gear.teeth * Math.max(1, ratio);\n```\n"}
+        onAsk={() => {}}
+        onCancel={() => {}}
+        suggestionLine={line}
+      />,
+    );
+    await act(async () => button(view, "Preview")!.click());
+    expect(view.textContent).toContain("Suggested change");
+    expect(view.textContent).toContain(`- ${line}`);
+    expect(view.textContent).toContain("+   return gear.teeth * Math.max(1, ratio);");
+  });
+
+  it("offers no suggestion on a line of old code", async () => {
+    const view = await render(<CommentComposer location="src/a.ts:2 (old)" onAsk={() => {}} onCancel={() => {}} />);
+    expect(byLabel(view, "Add a suggestion (⌘G)")).toBeNull();
+    expect(byLabel(view, "Bold (⌘B)")).not.toBeNull();
+  });
+
+  it("bolds the selection with ⌘B", async () => {
+    const view = await render(<CommentComposer location="src/a.ts:2" initialBody="make this loud" onAsk={() => {}} onCancel={() => {}} />);
+    const box = view.querySelector("textarea")!;
+    box.setSelectionRange(10, 14);
+    await act(async () => {
+      box.dispatchEvent(new KeyboardEvent("keydown", { key: "b", metaKey: true, bubbles: true }));
+    });
+    expect(box.value).toBe("make this **loud**");
+  });
+});

@@ -69,6 +69,9 @@ change — the comments were left separately and are reviewed separately.
 
 ## Rules
 
+- **A `suggestion` block is the replacement for the commented line.** Put its
+  lines in place of that line as written. If you change it, or decide not to
+  apply it, say why in the reply.
 - **Reply to every comment you touch**, even one that needed no code change.
   The reply is how the author sees what happened without re-reading the diff.
 - **Never resolve a comment.** `addressed` is as far as you take it; resolving

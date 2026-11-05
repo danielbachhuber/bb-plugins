@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "./time";
 import { conversation } from "./store";
+import { format, shortcut, splitSuggestions, suggest, type Change, type FormatAction } from "./markdown";
+import { EditorToolbar, type EditorTab } from "./toolbar";
 import type { Comment, CommentState } from "./types";
 
 /** Whether a line can take a draft review comment on the pull request. */
@@ -134,7 +136,58 @@ class MarkdownBoundary extends Component<{ text: string; children: ReactNode }, 
   }
 }
 
-export function Body({ text }: { text: string }) {
+/**
+ * A ```suggestion block drawn as GitHub draws it: the commented line as it is,
+ * then the lines suggested in its place.
+ */
+function SuggestedChange({ original, lines }: { original: string; lines: string[] }) {
+  return (
+    <div className="my-1 overflow-hidden rounded-md border text-xs">
+      <div className="bg-muted/40 border-b px-2 py-1 font-medium">Suggested change</div>
+      <div className="font-mono">
+        <div className="px-2 py-0.5 whitespace-pre-wrap" style={REMOVED}>
+          <span className="select-none" style={REMOVED_SIGN}>- </span>
+          {original}
+        </div>
+        {lines.map((line, index) => (
+          <div key={index} className="px-2 py-0.5 whitespace-pre-wrap" style={ADDED}>
+            <span className="select-none" style={ADDED_SIGN}>+ </span>
+            {line}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Inline because these mount outside bb's tree, where a Tailwind color class
+// the app's stylesheet never generated would draw nothing.
+const REMOVED: CSSProperties = { background: "rgb(239 68 68 / 0.12)" };
+const REMOVED_SIGN: CSSProperties = { color: "rgb(220 38 38)" };
+const ADDED: CSSProperties = { background: "rgb(16 185 129 / 0.12)" };
+const ADDED_SIGN: CSSProperties = { color: "rgb(5 150 105)" };
+
+/**
+ * A comment's text. Given the line it was left on, its ```suggestion blocks
+ * show as a change to that line rather than as code.
+ */
+export function Body({ text, original }: { text: string; original?: string }) {
+  if (original !== undefined) {
+    const parts = splitSuggestions(text);
+    if (parts.some((part) => part.kind === "suggestion")) {
+      return (
+        <MarkdownBoundary text={text}>
+          {parts.map((part, index) =>
+            part.kind === "markdown" ? (
+              <Markdown key={index} content={part.text} />
+            ) : (
+              <SuggestedChange key={index} original={original} lines={part.lines} />
+            ),
+          )}
+        </MarkdownBoundary>
+      );
+    }
+  }
   return (
     <MarkdownBoundary text={text}>
       <Markdown content={text} />
@@ -229,6 +282,7 @@ export function BodyEditor({
   onCancel,
   onChange,
   github,
+  suggestionLine,
 }: {
   initialBody: string;
   submitLabel: string;
@@ -238,8 +292,15 @@ export function BodyEditor({
   onChange?: (body: string) => void;
   /** Adds "Add to GitHub review" beside the submit button. */
   github?: GithubAction;
+  /**
+   * The commented line, on a line of new code. Offers Add a suggestion, which
+   * starts a ```suggestion block holding it, and shows suggestions as a change
+   * to it in Preview.
+   */
+  suggestionLine?: string;
 }) {
   const [body, setBody] = useState(initialBody);
+  const [tab, setTab] = useState<EditorTab>("write");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const target = useGithubTarget(github);
@@ -256,6 +317,43 @@ export function BodyEditor({
     node.focus();
     node.setSelectionRange(node.value.length, node.value.length);
   }, []);
+
+  // Applied through the browser's own insertText where it can be, so ⌘Z undoes
+  // a toolbar button the way it undoes typing.
+  const applyChange = (change: Change) => {
+    const node = box.current;
+    if (node === null) return;
+    node.focus();
+    node.setSelectionRange(change.from, change.to);
+    const inserted =
+      typeof document.execCommand === "function" &&
+      document.execCommand("insertText", false, change.insert);
+    if (!inserted || node.value.slice(change.from, change.from + change.insert.length) !== change.insert) {
+      node.setRangeText(change.insert, change.from, change.to, "end");
+    }
+    setBody(node.value);
+    onChange?.(node.value);
+    node.setSelectionRange(change.start, change.end);
+  };
+
+  const selection = () => {
+    const node = box.current!;
+    return { value: node.value, start: node.selectionStart, end: node.selectionEnd };
+  };
+  const runFormat = (action: FormatAction) => {
+    if (box.current !== null) applyChange(format(action, selection()));
+  };
+  const runSuggest =
+    suggestionLine === undefined
+      ? undefined
+      : () => {
+          if (box.current !== null) applyChange(suggest(selection(), suggestionLine));
+        };
+
+  const showTab = (next: EditorTab) => {
+    setTab(next);
+    if (next === "write") requestAnimationFrame(() => box.current?.focus());
+  };
 
   const submit = () => {
     if (!ready) return;
@@ -281,9 +379,20 @@ export function BodyEditor({
 
   return (
     <>
+      <EditorToolbar tab={tab} onTab={showTab} onFormat={runFormat} onSuggest={runSuggest} />
       <div className="px-3 py-2.5">
+        {tab === "preview" ? (
+          <div className="min-h-[76px] px-0.5 py-1">
+            {body.trim() === "" ? (
+              <p className="text-muted-foreground text-sm">Nothing to preview.</p>
+            ) : (
+              <Body text={body} original={suggestionLine} />
+            )}
+          </div>
+        ) : null}
         <textarea
           ref={box}
+          hidden={tab === "preview"}
           value={body}
           onChange={(event) => {
             setBody(event.target.value);
@@ -292,6 +401,15 @@ export function BodyEditor({
           // Cmd/Ctrl+Enter submits, matching how the composer behaves elsewhere
           // in bb; plain Enter has to stay available for writing prose.
           onKeyDown={(event) => {
+            const tool = shortcut(event);
+            if (tool !== null && (tool !== "suggestion" || runSuggest !== undefined)) {
+              // Stopped here so bb's own ⌘K and ⌘B do not also fire.
+              event.preventDefault();
+              event.stopPropagation();
+              if (tool === "suggestion") runSuggest!();
+              else runFormat(tool);
+              return;
+            }
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               event.preventDefault();
               submit();
@@ -301,7 +419,9 @@ export function BodyEditor({
               onCancel();
             }
           }}
-          rows={3}
+          // Grows with the text, so a suggestion shows whole, without reading
+          // layout: a line count is enough, and the box still resizes by hand.
+          rows={Math.min(12, Math.max(3, body.split("\n").length + 1))}
           placeholder="Leave a comment. Markdown works."
           style={CARD_TYPE}
           className="border-input bg-background focus-visible:ring-ring w-full resize-y rounded-md border px-2 py-1.5 focus-visible:ring-1 focus-visible:outline-none"
@@ -397,6 +517,9 @@ export function CommentCard({
     });
   };
   const asked = comment.state === "open" && comment.askedAt != null;
+  // GitHub applies a suggestion only to a line of new code.
+  const suggestionLine = comment.side === "new" ? comment.anchor.text : undefined;
+
   const canReply =
     onFollowUp !== undefined &&
     comment.state !== "resolved" &&
@@ -429,6 +552,7 @@ export function CommentCard({
       {editing ? (
         <BodyEditor
           initialBody={comment.body}
+          suggestionLine={suggestionLine}
           submitLabel="Save"
           onCancel={() => setEditing(false)}
           onSubmit={(body) => {
@@ -441,7 +565,7 @@ export function CommentCard({
       {editing ? null : (
         <>
       <div className="px-3 py-2.5">
-        <Body text={comment.body} />
+        <Body text={comment.body} original={suggestionLine} />
       </div>
 
       {messages.map((message, index) => (
@@ -550,6 +674,8 @@ export interface CommentComposerProps {
   onChange?: (body: string) => void;
   /** Adds "Add to GitHub review", which posts instead of asking the agent. */
   github?: GithubAction;
+  /** The commented line, when it is new code that can take a suggestion. */
+  suggestionLine?: string;
 }
 
 /** Saves the comment and sends it to the agent in one step. */
@@ -560,6 +686,7 @@ export function CommentComposer({
   onCancel,
   onChange,
   github,
+  suggestionLine,
 }: CommentComposerProps) {
   return (
     <Shell>
@@ -573,6 +700,7 @@ export function CommentComposer({
         onCancel={onCancel}
         onChange={onChange}
         github={github}
+        suggestionLine={suggestionLine}
       />
     </Shell>
   );

@@ -247,6 +247,7 @@ function mount(pluginId: string, signal: AbortSignal): () => void {
         <CommentComposer
           location={`${draft.path}:${draft.line}${draft.side === "old" ? " (old)" : ""}`}
           initialBody={draft.body}
+          suggestionLine={draft.side === "new" ? draft.anchor.text : undefined}
           onChange={(body) => {
             draft.body = body;
           }}
