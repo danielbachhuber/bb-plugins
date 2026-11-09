@@ -8,7 +8,6 @@ import {
   useRealtime,
   useRpc,
   type ExperimentalPluginFixedTabReference,
-  type ExperimentalSidebarFooterDisclosureProps,
   type JsonValue,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
@@ -576,18 +575,16 @@ function usePrioritiesOpen(): [boolean, (open: boolean) => void] {
 /**
  * The week's priorities in bb's sidebar footer. Start thread opens bb's
  * new-thread page with the priority's prompt, since the composer does not fit
- * the sidebar. A week with none closes the box.
+ * the sidebar. Nothing draws until the first read answers, so a week with
+ * priorities does not flash the line for a week without.
  */
-function PrioritiesFooter({ dismiss }: ExperimentalSidebarFooterDisclosureProps) {
+function PrioritiesFooter() {
   const rpc = useRpc<typeof rpcContract>();
   const { listing } = useListing();
   const { week, loaded, toggle } = usePriorities(rpc);
   const [open, setOpen] = usePrioritiesOpen();
   const navigate = useBbNavigate();
-  const empty = loaded && (week === null || week.items.length === 0);
-  useEffect(() => {
-    if (empty) dismiss();
-  }, [dismiss, empty]);
+  if (!loaded) return null;
 
   return (
     <PrioritiesSidebar

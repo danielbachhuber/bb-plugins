@@ -263,9 +263,11 @@ describe("Priorities in the sidebar", () => {
     expect(slot.inspection.rpcCalls.some((entry) => entry.method === "items_start_thread")).toBe(false);
   });
 
-  it("closes the box in a week with no priorities", async () => {
-    const { dismissed } = renderFooter(null);
-    await waitFor(() => expect(dismissed).toHaveLength(1));
+  it("says there are none yet in a week with no priorities, and stays open", async () => {
+    const { slot, dismissed } = renderFooter(null);
+    expect(await slot.findByText("No weekly priorities yet")).toBeInTheDocument();
+    expect(slot.queryByRole("button")).toBeNull();
+    expect(dismissed).toHaveLength(0);
   });
 });
 

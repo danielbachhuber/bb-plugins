@@ -1,8 +1,8 @@
 // The week's priorities in bb's sidebar, on every page: one line saying how
 // many there are, with a ring for how many are done while it is closed, which
 // opens to each priority with its checkbox, its nested bullets, and a button
-// to start a thread about it. Draws only; the slot loads the week, saves a
-// check, and starts the thread.
+// to start a thread about it, or a line saying there are none yet. Draws only;
+// the slot loads the week, saves a check, and starts the thread.
 import type * as React from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,7 +37,7 @@ export interface PrioritiesSidebarProps {
   onOpenThread?: (threadId: string) => void;
 }
 
-/** Nothing at all for a week with no priorities. */
+/** A week with no priorities gets one line saying so, with nothing to open. */
 export function PrioritiesSidebar({
   week,
   now,
@@ -48,7 +48,7 @@ export function PrioritiesSidebar({
   onStartThread,
   onOpenThread,
 }: PrioritiesSidebarProps) {
-  if (week === null || week.items.length === 0) return null;
+  if (week === null || week.items.length === 0) return <NoPriorities />;
   // Said only when some priority has hours, since it dates them.
   const asOf = week.items.some((each) => each.hours !== null) ? hoursAsOf(week.hoursAt, now) : null;
   const listId = `now-priorities-${week.monday}`;
@@ -113,6 +113,20 @@ export function PrioritiesSidebar({
           {asOf === null ? null : <p className="mt-2.5 text-xs text-muted-foreground">{asOf}</p>}
         </div>
       ) : null}
+    </section>
+  );
+}
+
+/** The one line for a week with no priorities, where the summary would be. */
+function NoPriorities() {
+  return (
+    <section
+      aria-label="Priorities"
+      title="Weekly Review writes the week's priorities in from the Next: bullets in your journal."
+      className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"
+    >
+      <Icon name="Target" className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">No weekly priorities yet</span>
     </section>
   );
 }

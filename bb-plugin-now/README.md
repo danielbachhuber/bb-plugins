@@ -119,7 +119,7 @@ Now opens the box each time bb loads, since bb itself forgets an open box on
 reload. bb shows one plugin's box at a time, so opening another plugin's box
 replaces it, and pressing Escape anywhere in bb closes it. The target icon in
 the sidebar's footer row opens it again. A week with no priorities written
-closes the box.
+shows one line in the box, "No weekly priorities yet".
 
 The small icon after each priority opens bb's new-thread page with a prompt
 seeded with the priority and the bullets under it. The thread is not linked

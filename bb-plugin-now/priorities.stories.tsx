@@ -73,7 +73,7 @@ function Footer({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The box in bb's sidebar, on every page: closed, it counts the week's priorities, with a ring beside the arrow filled by those checked off; opened, it lists them and the ring goes. */
+/** The box in bb's sidebar, on every page: closed, it counts the week's priorities, with a ring beside the arrow filled by those checked off; opened, it lists them and the ring goes. A week with none says so. */
 export function Default() {
   return (
     <StoryCard>
@@ -88,6 +88,11 @@ export function Default() {
       >
         <Footer>
           <Box initial={week} initialOpen />
+        </Footer>
+      </StoryRow>
+      <StoryRow label="None yet" hint="A week with no priorities written: one line saying so, with nothing to open.">
+        <Footer>
+          <Box initial={null} initialOpen={false} />
         </Footer>
       </StoryRow>
     </StoryCard>
