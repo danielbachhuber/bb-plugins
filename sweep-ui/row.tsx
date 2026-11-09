@@ -430,15 +430,6 @@ export interface SweepStackLineProps {
   busy?: boolean;
 }
 
-/** The left edge and wash of `tint`, inside a stack's box rather than the list's padding. */
-function lineTint(item: SweepItem, tone?: RunTone): string | false {
-  if (item.flags.some((flag) => flag.kind === "stale")) return "border-l-2 border-l-destructive bg-destructive/[0.04] pl-[10px]";
-  if (item.flags.some((flag) => flag.kind === "blocked")) return "border-l-2 border-l-slate-400 bg-slate-500/[0.05] pl-[10px]";
-  if (tone === "underway")
-    return "border-l-2 border-l-[#ea7a0c] bg-[#ea7a0c]/[0.05] pl-[10px] dark:border-l-[#f08a24] dark:bg-[#f08a24]/[0.06]";
-  return false;
-}
-
 /**
  * One pull request in a stack, as one line: its place in the stack, number,
  * and title, then the plugin's facts, the comment count, and the actions as
@@ -468,7 +459,7 @@ export function SweepStackLine({
   const position = item.stack?.position;
   const below = startThread || threadLine || editing || item.note !== null || (commentsOpen && commentsDrawer);
   return (
-    <li className={cn("px-3 py-1.5 text-sm", lineTint(item, tone), busy && "opacity-50")}>
+    <li className={cn("py-1.5 text-sm", tint(item, tone), busy && "opacity-50")}>
       <div className="flex min-w-0 items-center gap-2">
         <span
           className="w-3 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground/70"

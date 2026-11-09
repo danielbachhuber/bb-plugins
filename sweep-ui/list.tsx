@@ -195,7 +195,7 @@ export function SweepList({
   const stackFor = (stack: SweepStack, rows: SweepItem[]) => (
     <li key={`stack:${stack.key}`} className="py-3" data-part="stack">
       <StackHeader stack={stack} />
-      <ul className="mt-1.5 divide-y divide-border overflow-hidden rounded-md border border-border">
+      <ul className="mt-1">
         {rows.map((item) => (
           <SweepStackLine
             key={item.key}
