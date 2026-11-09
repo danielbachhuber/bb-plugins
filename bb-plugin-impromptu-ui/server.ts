@@ -23,7 +23,7 @@ import { THREAD_INSTRUCTIONS } from "./view/instructions.js";
 import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
-import { fillDraft, fillNote, itemThreads, messageTargets, parseView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
+import { fillDraft, fillNote, itemThreads, messageTargets, parseView, readView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
 import { MIGRATIONS, createStore, describeItems, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
@@ -529,7 +529,8 @@ export default async function plugin(bb: BbPluginApi) {
             // The server's working directory is not the caller's.
             const path = ctx.cwd === undefined || isAbsolute(file) ? file : resolve(ctx.cwd, file);
             // A patchFile is read now, like an image, so the view keeps what was proposed.
-            const view = await expandPatchFiles(parseView(await readFile(path, "utf8")), (patchFile) =>
+            const { view: parsed, warnings } = readView(await readFile(path, "utf8"));
+            const view = await expandPatchFiles(parsed, (patchFile) =>
               readFile(ctx.cwd === undefined || isAbsolute(patchFile) ? patchFile : resolve(ctx.cwd, patchFile), "utf8"),
             );
             await checkTargets(view);
@@ -542,11 +543,15 @@ export default async function plugin(bb: BbPluginApi) {
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
             return {
               exitCode: 0,
-              stdout: `Published "${view.title}" (${count} items) as view ${stored.id}. It is above this thread's composer.`,
+              stdout: [
+                `Published "${view.title}" (${count} items) as view ${stored.id}. It is above this thread's composer.`,
+                ...warnings.map((warning) => `Warning: ${warning}`),
+              ].join("\n"),
             };
           } catch (error) {
             // The agent reads this and fixes its file.
-            return { exitCode: 1, stderr: error instanceof Error ? error.message : String(error) };
+            const message = error instanceof Error ? error.message : String(error);
+            return { exitCode: 1, stderr: message.replaceAll("--key <key>", `--key ${key}`) };
           }
         }
         case "state": {

@@ -500,7 +500,7 @@ export const viewSchema = z
       .enum(LAYOUTS)
       .default("cards")
       .describe(
-        `cards: rows above the composer, each opening as a card in the side panel; holds everything. list: the whole view in the side panel as one list, with at most ${LIST_ACTIONS} buttons on each row, for many small decisions. inline: ${INLINE_QUESTIONS} questions at most, answered right above the composer with ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons each, and nothing that needs the side panel.`,
+        `cards: rows above the composer, each opening as a card in the side panel; holds everything. list: the whole view in the side panel as one list, with at most ${LIST_ACTIONS} buttons on each row, for many small decisions. inline: ${INLINE_QUESTIONS} questions at most, answered right above the composer with ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons each, and nothing that needs the side panel; publish turns an inline view that holds more into cards, with a warning.`,
       ),
     numbered: z
       .boolean()
@@ -686,29 +686,45 @@ export const viewSchema = z
   });
 export type View = z.infer<typeof viewSchema>;
 
+/** Marks an issue that only the "inline" layout raises, so the view can fall back to "cards". */
+const INLINE_ONLY = { inlineOnly: true } as const;
+
+/** What `hide` is for, named wherever an inline question turns up with nothing to answer. */
+export const HIDE_HINT =
+  "if the user already answered in the composer and the work is done, take the question down with `bb impromptu-ui hide --key <key>` instead of publishing it again";
+
 /**
  * What an inline view cannot hold: anything that needs the side panel. Each
- * item is a question, its buttons the answers.
+ * item is a question, its buttons the answers. Every issue but a question with
+ * no buttons at all is marked INLINE_ONLY: the cards layout holds it, so
+ * `readView` publishes the view as cards instead of refusing it.
  */
 function checkInline(view: { sections: Array<{ items: Item[] }> }, ctx: z.RefinementCtx) {
+  const inlineOnly = (path: Array<string | number>, message: string) => ctx.addIssue({ code: "custom", path, message, params: INLINE_ONLY });
   const items = view.sections.flatMap((section) => section.items);
   if (items.length > INLINE_QUESTIONS) {
-    ctx.addIssue({ code: "custom", path: ["sections"], message: `an "inline" view asks at most ${INLINE_QUESTIONS} questions; use "cards" for more` });
+    inlineOnly(["sections"], `an "inline" view asks at most ${INLINE_QUESTIONS} questions; use "cards" for more`);
   }
   view.sections.forEach((section, s) =>
     section.items.forEach((item, i) => {
       const path = ["sections", s, "items", i];
       const answers = item.actions.filter((action) => action.type !== "link").length;
-      if (answers < INLINE_ANSWERS.min || item.actions.length > INLINE_ANSWERS.max) {
+      if (item.actions.length === 0) {
+        // Not a cards view in disguise: a question with nothing to answer is usually one already answered.
         ctx.addIssue({
           code: "custom",
           path: [...path, "actions"],
-          message: `a question in an "inline" view has ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons, at least ${INLINE_ANSWERS.min} of them answers rather than links`,
+          message: `a question in an "inline" view needs ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} answer buttons; ${HIDE_HINT}`,
         });
+      } else if (answers < INLINE_ANSWERS.min || item.actions.length > INLINE_ANSWERS.max) {
+        inlineOnly(
+          [...path, "actions"],
+          `a question in an "inline" view has ${INLINE_ANSWERS.min} to ${INLINE_ANSWERS.max} buttons, at least ${INLINE_ANSWERS.min} of them answers rather than links`,
+        );
       }
       item.actions.forEach((action, a) => {
         if (action.type === "command") {
-          ctx.addIssue({ code: "custom", path: [...path, "actions", a, "type"], message: 'an "inline" view answers with message, thread, or link buttons; a command needs the "cards" layout' });
+          inlineOnly([...path, "actions", a, "type"], 'an "inline" view answers with message, thread, or link buttons; a command needs the "cards" layout');
         }
       });
       const panelOnly: Array<[keyof Item, boolean]> = [
@@ -725,12 +741,44 @@ function checkInline(view: { sections: Array<{ items: Item[] }> }, ctx: z.Refine
         ["meter", item.meter !== undefined],
       ];
       for (const [field, present] of panelOnly) {
-        if (present) ctx.addIssue({ code: "custom", path: [...path, field], message: `${field} needs the side panel, so the "cards" layout, not "inline"` });
+        if (present) inlineOnly([...path, field], `${field} needs the side panel, so the "cards" layout, not "inline"`);
       }
     }),
   );
 }
 
+function isInlineOnly(issue: z.core.$ZodIssue): boolean {
+  return issue.code === "custom" && (issue.params as { inlineOnly?: boolean } | undefined)?.inlineOnly === true;
+}
+
+/**
+ * An inline item with a note but no button that sends it. The inline layout's
+ * "Something else…" field already takes a typed reply, so the note is dropped
+ * rather than refused, and the view stays inline if nothing else needs cards.
+ */
+function dropUnsentNotes(json: unknown, warnings: string[]): unknown {
+  const view = json as { layout?: unknown; sections?: unknown };
+  if (view === null || typeof view !== "object" || view.layout !== "inline" || !Array.isArray(view.sections)) return json;
+  return {
+    ...view,
+    sections: view.sections.map((section: unknown, s) => {
+      const items = (section as { items?: unknown } | null)?.items;
+      if (!Array.isArray(items)) return section;
+      return {
+        ...(section as object),
+        items: items.map((item: unknown, i) => {
+          if (item === null || typeof item !== "object" || !("note" in item)) return item;
+          const actions = (item as { actions?: unknown }).actions;
+          const sendsNote = Array.isArray(actions) && actions.some((action) => JSON.stringify(action ?? null).includes(NOTE));
+          if (sendsNote) return item;
+          warnings.push(`sections.${s}.items.${i}.note: left out, since no button sends {note}; an inline question's "Something else…" field already takes a typed reply`);
+          const { note: _note, ...rest } = item as Record<string, unknown>;
+          return rest;
+        }),
+      };
+    }),
+  };
+}
 
 function sectionOf(view: View, item: Item): Section | undefined {
   return view.sections.find((section) => section.items.some((candidate) => candidate.id === item.id));
@@ -759,13 +807,31 @@ export function describeIssues(error: z.ZodError): string {
 }
 
 export function parseView(raw: string): View {
+  return readView(raw).view;
+}
+
+/**
+ * Parses a view file. An "inline" view holding something only cards can show,
+ * such as a status, a draft, a command, or one answer, is published as "cards"
+ * instead of refused, and `warnings` names each field that moved it.
+ */
+export function readView(raw: string): { view: View; warnings: string[] } {
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch (error) {
     throw new Error(`That file is not JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
+  const warnings: string[] = [];
+  json = dropUnsentNotes(json, warnings);
   const parsed = viewSchema.safeParse(json);
-  if (!parsed.success) throw new Error(`That is not a valid view. ${describeIssues(parsed.error)}`);
-  return parsed.data;
+  if (parsed.success) return { view: parsed.data, warnings };
+  if (parsed.error.issues.every(isInlineOnly)) {
+    const cards = viewSchema.safeParse({ ...(json as object), layout: "cards" });
+    if (cards.success) {
+      const why = describeIssues(parsed.error);
+      return { view: cards.data, warnings: [...warnings, `Published as "cards", not "inline", because ${why}`] };
+    }
+  }
+  throw new Error(`That is not a valid view. ${describeIssues(parsed.error)}`);
 }
