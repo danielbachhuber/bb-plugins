@@ -4,6 +4,8 @@ import {
   callsInTurn,
   forecastInputError,
   parseRange,
+  msPerCall,
+  timeRange,
   growthPerCall,
   modelName,
   settingsAt,
@@ -107,11 +109,11 @@ describe("trackRecord", () => {
     expect(trackRecord([])).toBe("No scored forecasts yet.");
   });
 
-  it("counts turns in range and says which way the misses lean", () => {
+  it("counts calls in range and says which way the misses lean", () => {
     // Range 4–8 calls (middle 6), 1–3 min (middle 2 min).
     const line = trackRecord([turn(6, 120_000), turn(12, 300_000), turn(18, 360_000), turn(7, 90_000)]);
     expect(line).toBe(
-      "Last 4 forecasts: calls in range 2/4 (actual 1.6× over), time in range 2/4 (actual 1.8× over). Aim for 80% in range.",
+      "Last 4 forecasts: calls in range 2/4 (actual 1.6× over). Aim for 80% in range.",
     );
   });
 
@@ -126,16 +128,35 @@ describe("trackRecord", () => {
 });
 
 describe("forecastInputError", () => {
-  const input = { calls_low: 2, calls_high: 5, minutes_low: 1, minutes_high: 3 };
-
-  it("accepts a usable range", () => {
-    expect(forecastInputError(input)).toBeNull();
+  it("accepts a usable range, with or without waits", () => {
+    expect(forecastInputError([2, 5], [0, 0])).toBeNull();
+    expect(forecastInputError([2, 5], [5, 15])).toBeNull();
   });
 
   it("rejects a range that runs backwards or starts below one call", () => {
-    expect(forecastInputError({ ...input, calls_high: 1 })).toMatch(/--calls must run from low to high/);
-    expect(forecastInputError({ ...input, calls_low: 0 })).toMatch(/--calls must start at 1/);
-    expect(forecastInputError({ ...input, minutes_high: 0.5 })).toMatch(/--minutes must run from low to high/);
+    expect(forecastInputError([2, 1], [0, 0])).toMatch(/--calls must run from low to high/);
+    expect(forecastInputError([0, 3], [0, 0])).toMatch(/--calls must start at 1/);
+    expect(forecastInputError([2, 5], [15, 5])).toMatch(/--wait-minutes must run from low to high/);
+  });
+});
+
+describe("msPerCall", () => {
+  const turn = (calls: number, seconds: number) => ({ calls, workedMs: seconds * 1_000 });
+
+  it("is the median time per call over the thread's finished turns", () => {
+    // 6, 8, and 60 seconds a call: the slow test run doesn't set the pace.
+    expect(msPerCall([turn(10, 60), turn(5, 40), turn(2, 120)])).toBe(8_000);
+  });
+
+  it("skips turns without calls or times, and is null with fewer than three", () => {
+    expect(msPerCall([turn(10, 60), turn(0, 5), { calls: 4, workedMs: null }, turn(5, 40)])).toBeNull();
+  });
+});
+
+describe("timeRange", () => {
+  it("prices the calls at the pace and adds the named waits", () => {
+    expect(timeRange([4, 8], 7_000, [0, 0])).toEqual([28_000, 56_000]);
+    expect(timeRange([4, 8], 7_000, [300_000, 900_000])).toEqual([328_000, 956_000]);
   });
 });
 

@@ -164,6 +164,11 @@ export const MIGRATIONS = [
   // How much the thread's context grew per call when Claude forecast, so the
   // token range counts what each call adds for the next one to read.
   `ALTER TABLE forecasts ADD COLUMN growth INTEGER`,
+  // The thread's time per call that priced the time range, and the waits
+  // Claude named, which the range already includes.
+  `ALTER TABLE forecasts ADD COLUMN pace_ms INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN wait_low_ms INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN wait_high_ms INTEGER`,
 ];
 
 export interface ThreadInfo {
@@ -229,12 +234,14 @@ const HOUR_MS = 3_600_000;
 export function createStore(db: Database) {
   const insertForecast = db.prepare(
     `INSERT OR IGNORE INTO forecasts
-       (thread_id, created_at, calls_low, calls_high, time_low_ms, time_high_ms, context, note, growth)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (thread_id, created_at, calls_low, calls_high, time_low_ms, time_high_ms, context, note, growth,
+        pace_ms, wait_low_ms, wait_high_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const selectThreadForecasts = db.prepare(
     `SELECT created_at AS at, calls_low AS callsLow, calls_high AS callsHigh, time_low_ms AS timeLowMs,
-            time_high_ms AS timeHighMs, context, note, growth
+            time_high_ms AS timeHighMs, context, note, growth, pace_ms AS paceMs,
+            wait_low_ms AS waitLowMs, wait_high_ms AS waitHighMs
      FROM forecasts WHERE thread_id = ? ORDER BY created_at`,
   );
   const selectForecastThreads = db.prepare(
@@ -668,6 +675,9 @@ export function createStore(db: Database) {
         forecast.context,
         forecast.note,
         forecast.growth,
+        forecast.paceMs ?? null,
+        forecast.waitLowMs ?? null,
+        forecast.waitHighMs ?? null,
       );
     },
 

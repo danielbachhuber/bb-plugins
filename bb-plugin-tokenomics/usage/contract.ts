@@ -69,6 +69,10 @@ export const turnSummarySchema = z.object({
       tokens: z.tuple([z.number(), z.number()]).nullable(),
       context: z.number().nullable(),
       note: z.string().nullable(),
+      /** Time per call the time range assumed. */
+      paceMs: z.number().nullable().optional(),
+      /** Waits Claude named, included in the time range. */
+      waitMs: z.tuple([z.number(), z.number()]).nullable().optional(),
     })
     .nullable(),
   /** The model, speed, and reasoning level it ran with. */

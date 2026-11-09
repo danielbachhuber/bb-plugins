@@ -242,6 +242,15 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
           {time === null ? null : (
             <ForecastRow label="Time" actual={worked(turn)} range={turn.forecast.timeMs} format={formatMinutes} unit=" min" />
           )}
+          {turn.forecast.paceMs == null ? null : (
+            <p className="text-xs text-muted-foreground">
+              Time at this thread's {Math.round(turn.forecast.paceMs / 1_000)} sec a call
+              {turn.forecast.waitMs == null
+                ? ""
+                : `, plus ${formatMinutes(turn.forecast.waitMs[0])}–${formatMinutes(turn.forecast.waitMs[1])} min of waits`}
+              .
+            </p>
+          )}
           {turn.forecast.note === null ? null : <p className="text-xs italic text-muted-foreground">"{turn.forecast.note}"</p>}
         </Section>
       )}

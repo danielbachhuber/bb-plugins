@@ -30,8 +30,10 @@ bb changes it. Both read Tokenomics' own database, with no calls to bb.
 ![A thread with Claude's forecasts under each turn: 12 of 4–10 min, 12.3M of 3M–7.5M tokens, and 41 of 10–25 calls in amber for a turn that ran over, a turn that ran over only on time, one that landed in range, and a strip above the composer counting 5 of 4–8 calls](screenshots/page--forecasts-in-thread.png)
 
 Claude forecasts each turn that uses a tool with `bb tokenomics forecast`: an
-80% range of model calls and minutes, run alongside its first command so it
-costs no extra call. Tokens follow from calls, the context, and how fast the context has been growing. The line
+80% range of model calls, plus any wait it knows of, run alongside its first
+command so it costs no extra call. Minutes follow from calls at the thread's
+own time per call, and tokens from calls, the context, and how fast the
+context has been growing. The line
 under the turn shows each number against its range, amber when over and blue
 when under, and the strip above the composer counts calls against the range
 while the turn runs, turning amber once it passes. The turn's card names its
@@ -91,7 +93,7 @@ threads without reading their transcripts.
 ```sh
 bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens, turns, context, and turn times per thread
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
-bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]                       # record this turn's forecast
+bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]                # record this turn's forecast
 bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
 ```
 

@@ -19,7 +19,10 @@ import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { turnSummaries, turnWork, type TurnSummary } from "./usage/turn-summary.js";
 import {
+  DEFAULT_MS_PER_CALL,
   FORECAST_INSTRUCTIONS,
+  msPerCall,
+  timeRange,
   growthPerCall,
   settingsAt,
   trackRecordFor,
@@ -65,7 +68,7 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean",
       label: "Ask Claude to forecast each turn",
       description:
-        "Adds a short section to each thread's instructions asking Claude to forecast a turn's model calls and minutes with bb tokenomics forecast, so the line under the turn can score it.",
+        "Adds a short section to each thread's instructions asking Claude to forecast a turn's model calls with bb tokenomics forecast, so the line under the turn can score it.",
       default: true,
     },
   });
@@ -398,21 +401,32 @@ export default async function plugin(bb: BbPluginApi) {
   ): Promise<{ exitCode: number; stdout?: string; stderr?: string }> {
     if (threadId === undefined) return { exitCode: 1, stderr: "Run bb tokenomics forecast from inside a bb thread." };
     const calls = parseRange(flag(argv, "--calls"));
-    const minutes = parseRange(flag(argv, "--minutes"));
-    if (calls === null || minutes === null) {
-      return { exitCode: 1, stderr: 'Give both ranges, such as --calls 4-8 --minutes 1-3.' };
-    }
-    const error = forecastInputError({ calls_low: calls[0], calls_high: calls[1], minutes_low: minutes[0], minutes_high: minutes[1] });
+    if (calls === null) return { exitCode: 1, stderr: "Give the calls as a range, such as --calls 4-8." };
+    // Threads that started before minutes were worked out still pass --minutes; it is ignored.
+    const waitText = flag(argv, "--wait-minutes");
+    const wait = waitText === undefined ? ([0, 0] as [number, number]) : parseRange(waitText);
+    if (wait === null) return { exitCode: 1, stderr: "Give --wait-minutes as a range, such as 5-15." };
+    const error = forecastInputError(calls, wait);
     if (error !== null) return { exitCode: 1, stderr: error };
     const note = flag(argv, "--note")?.trim().slice(0, 200) || null;
+    const callRange: [number, number] = [Math.round(calls[0]), Math.round(calls[1])];
+    const waitMs: [number, number] = [Math.round(wait[0] * 60_000), Math.round(wait[1] * 60_000)];
+    const finished = summariesOf(threadId).filter((turn) => turn.endedAt !== null);
+    const pace =
+      msPerCall(finished.map((turn) => ({ calls: turn.calls, workedMs: turn.time === null ? null : turn.time.model + turn.time.tools }))) ??
+      DEFAULT_MS_PER_CALL;
+    const [timeLowMs, timeHighMs] = timeRange(callRange, pace, waitMs);
     store.recordForecast(threadId, {
       at: Date.now(),
-      callsLow: Math.round(calls[0]),
-      callsHigh: Math.round(calls[1]),
-      timeLowMs: Math.round(minutes[0] * 60_000),
-      timeHighMs: Math.round(minutes[1] * 60_000),
+      callsLow: callRange[0],
+      callsHigh: callRange[1],
+      timeLowMs: Math.round(timeLowMs),
+      timeHighMs: Math.round(timeHighMs),
       context: store.latestContext(threadId)?.usedTokens ?? null,
       growth: growthPerCall(store.threadCallSamples(threadId)),
+      paceMs: pace,
+      waitLowMs: waitMs[0],
+      waitHighMs: waitMs[1],
       note,
     });
     bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
@@ -438,8 +452,9 @@ export default async function plugin(bb: BbPluginApi) {
     "  command times go back only to when Tokenomics began recording them.",
     "bb tokenomics commands [--days N] [--limit N] [--json]",
     "  The shell commands that took the most time across all threads.",
-    "bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]",
-    "  Records an 80% forecast for this thread's running turn, and prints how recent forecasts landed.",
+    "bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]",
+    "  Records an 80% forecast of the running turn's model calls, and any waits you know of. Minutes",
+    "  and tokens follow from the thread's own pace. Prints how recent forecasts landed.",
     "bb tokenomics forecasts [--days N] [--json]",
     "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
     "  often they landed in range.",
@@ -466,8 +481,8 @@ export default async function plugin(bb: BbPluginApi) {
       },
       {
         name: "forecast",
-        summary: "Forecast this turn's model calls and minutes",
-        usage: "bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]",
+        summary: "Forecast this turn's model calls",
+        usage: "bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]",
       },
       {
         name: "forecasts",

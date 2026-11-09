@@ -1,9 +1,10 @@
 // Claude's forecast for a turn, and how the turn landed against it. Pure: the
 // inputs are rows the ledger already holds, so scoring needs no call to bb.
 //
-// Claude forecasts model calls and minutes. Tokens follow from calls, since
-// every call reads the whole context again, and each call adds to the
-// context the next one reads.
+// Claude forecasts model calls, and any waits it knows of. Minutes and
+// tokens follow from calls: minutes at the thread's own pace per call, tokens
+// because every call reads the whole context again, and each call adds to
+// the context the next one reads.
 
 /** One forecast as `bb tokenomics forecast` records it. */
 export interface StoredForecast {
@@ -17,6 +18,11 @@ export interface StoredForecast {
   context: number | null;
   /** How much the thread's context grew per call recently; null when too few calls to tell. */
   growth: number | null;
+  /** The thread's model and tools time per call that priced the time range; null on forecasts that named minutes. */
+  paceMs?: number | null;
+  /** Waits Claude named, already in the time range. */
+  waitLowMs?: number | null;
+  waitHighMs?: number | null;
   /** Claude's one-line reason. */
   note: string | null;
 }
@@ -29,6 +35,10 @@ export interface TurnForecast {
   tokens: [number, number] | null;
   context: number | null;
   note: string | null;
+  /** Time per call the time range assumed; null on forecasts that named minutes. */
+  paceMs?: number | null;
+  /** Waits Claude named, in the time range; null when none. */
+  waitMs?: [number, number] | null;
 }
 
 export type Verdict = "in" | "over" | "under";
@@ -78,6 +88,11 @@ export function toTurnForecast(stored: StoredForecast): TurnForecast {
         : [tokensFor(stored.callsLow, stored.context, growth), tokensFor(stored.callsHigh, stored.context, growth)],
     context: stored.context,
     note: stored.note,
+    paceMs: stored.paceMs ?? null,
+    waitMs:
+      stored.waitLowMs == null || stored.waitHighMs == null || stored.waitHighMs === 0
+        ? null
+        : [stored.waitLowMs, stored.waitHighMs],
   };
 }
 
@@ -155,28 +170,51 @@ function lean(ratios: number[]): string {
 export function trackRecord(turns: readonly ScoredTurn[]): string {
   const recent = turns.slice(-RECORD_SIZE);
   if (recent.length === 0) return "No scored forecasts yet.";
+  // Calls only: Tokenomics prices minutes and tokens from them, so they are
+  // the part of the forecast that is Claude's.
   const callsIn = recent.filter((turn) => verdict(turn.calls, turn.forecast.calls) === "in").length;
-  const timeIn = recent.filter((turn) => verdict(turn.workedMs, turn.forecast.timeMs) === "in").length;
   const middle = ([low, high]: [number, number]) => Math.max(1, (low + high) / 2);
   const callRatios = recent.map((turn) => turn.calls / middle(turn.forecast.calls));
-  const timeRatios = recent.map((turn) => turn.workedMs / middle(turn.forecast.timeMs));
-  return (
-    `Last ${recent.length} forecasts: calls in range ${callsIn}/${recent.length} (actual ${lean(callRatios)}), ` +
-    `time in range ${timeIn}/${recent.length} (actual ${lean(timeRatios)}). Aim for 80% in range.`
-  );
+  return `Last ${recent.length} forecasts: calls in range ${callsIn}/${recent.length} (actual ${lean(callRatios)}). Aim for 80% in range.`;
 }
 
-/** Checks the tool's input; returns an error message, or null when it is usable. */
-export function forecastInputError(input: {
-  calls_low: number;
-  calls_high: number;
-  minutes_low: number;
-  minutes_high: number;
-}): string | null {
-  if (input.calls_low < 1) return "--calls must start at 1 or more: the final reply is a model call too.";
-  if (input.calls_high < input.calls_low) return "--calls must run from low to high, such as 4-8.";
-  if (input.minutes_high < input.minutes_low) return "--minutes must run from low to high, such as 1-3.";
+/** Checks a forecast's ranges; returns an error message, or null when they are usable. */
+export function forecastInputError(calls: [number, number], wait: [number, number]): string | null {
+  if (calls[0] < 1) return "--calls must start at 1 or more: the final reply is a model call too.";
+  if (calls[1] < calls[0]) return "--calls must run from low to high, such as 4-8.";
+  if (wait[1] < wait[0]) return "--wait-minutes must run from low to high, such as 5-15.";
   return null;
+}
+
+/**
+ * Model and tools time per call when a thread has too few turns to measure
+ * its own: the median across real forecast turns (6.8 seconds; 5.7 to 9.7
+ * between the quartiles).
+ */
+export const DEFAULT_MS_PER_CALL = 7_000;
+
+/** How many of the thread's latest finished turns its pace is measured over. */
+const PACE_TURNS = 10;
+
+/**
+ * The thread's recent model and tools time per call: the median over its
+ * latest finished turns that made calls. The median, so one turn that sat in
+ * a long test run doesn't set the pace. Null with fewer than three such turns.
+ */
+export function msPerCall(turns: ReadonlyArray<{ calls: number; workedMs: number | null }>): number | null {
+  const paces = turns
+    .filter((turn) => turn.calls > 0 && turn.workedMs !== null)
+    .slice(-PACE_TURNS)
+    .map((turn) => turn.workedMs! / turn.calls)
+    .sort((a, b) => a - b);
+  if (paces.length < 3) return null;
+  const middle = Math.floor(paces.length / 2);
+  return Math.round(paces.length % 2 === 1 ? paces[middle]! : (paces[middle - 1]! + paces[middle]!) / 2);
+}
+
+/** A turn's time range: its calls at the thread's pace, plus the waits Claude named. */
+export function timeRange(calls: [number, number], pace: number, waitMs: [number, number]): [number, number] {
+  return [calls[0] * pace + waitMs[0], calls[1] * pace + waitMs[1]];
 }
 
 /** A scored turn with where it ran, for `bb tokenomics forecasts`. */
@@ -238,17 +276,17 @@ export function parseRange(text: string | undefined): [number, number] | null {
 export const FORECAST_INSTRUCTIONS = [
   "## Turn forecasts (Tokenomics)",
   "In every turn where you use a tool, forecast the turn with",
-  '`bb tokenomics forecast --calls 4-8 --minutes 1-3 --note "Run the tests and fix what fails"`.',
+  '`bb tokenomics forecast --calls 4-8 --note "Run the tests and fix what fails"`.',
   "Run it as a separate shell command in the same response as your first other tool call. That costs",
   "no extra model call. Never run it in a response of its own, which costs a whole model call. Skip it",
   "only when you answer without any tools.",
   "Forecast only this turn: the responses you send before your reply to the user, in this thread.",
   "Work you hand to another thread or a subagent is not part of it, so a turn that only starts a",
-  "thread is a few calls and a minute, however big the work it hands off. A command that waits on",
-  "that work, such as bb thread wait, is tool time: count the wait in --minutes, not in --calls.",
-  "Give 80% ranges: you expect 8 in 10 turns to land inside them. --calls counts every response you",
-  "send this turn, including the final reply. --minutes counts model and tool time, not time spent",
-  "waiting on the user. The command prints how your recent ranges landed; shift or widen them from it.",
+  "thread is a few calls, however big the work it hands off.",
+  "--calls is an 80% range of every response you send this turn, including the final reply: you expect",
+  "8 in 10 turns to land inside it. Tokenomics works out minutes and tokens from it, at this thread's",
+  "own pace. Add --wait-minutes 5-15 only for a wait you know of, such as a slow test suite or",
+  "bb thread wait. The command prints how your recent ranges landed; shift or widen them from it.",
 ].join("\n");
 
 /** The model settings a turn ran with, as bb records them when the turn is requested. */
