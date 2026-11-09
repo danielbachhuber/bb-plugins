@@ -9,6 +9,18 @@ description: Use when `bb impromptu-ui` is available and the user would otherwis
 
 `bb impromptu-ui publish` shows a view right above this thread's composer: one row per item with its number, title, first two badges, and the first line of its summary. By default nothing runs from the list: clicking a row opens the item in the side panel, with its full summary, details, and every button. A view with `"layout": "list"` shows whole in the side panel instead (see "A list in the side panel" below). The user acts from the list instead of typing replies. Use it when there are several items with a decision on each. When a turn ends on one question with a few answers, such as "Should I go ahead?", publish it with `"layout": "inline"` instead (see "Ask a question inline" below).
 
+## Inline at a glance
+
+An `"inline"` view is for 1 to 3 quick questions answered right above the composer. Anything else needs `"cards"`; `publish` turns an inline view that breaks one of these into cards and prints a warning naming the field.
+
+| An inline view | Allows |
+|---|---|
+| Questions (items) | 1 to 3 |
+| Buttons per question | 2 to 4, at least 2 of them answers rather than links |
+| Button types | `message`, `thread`, `link`; no `command` |
+| Item fields | `title` and `actions` show (a `summary` or `badges` are kept but not shown); no `status`, `draft`, `note`, `changes`, `evidence`, `variations`, `related`, `history`, `meter`, `closing`, or `thread` |
+| A question already answered | `bb impromptu-ui hide --key <key>`, not a republish with no buttons |
+
 ## Is it available?
 
 ```bash
@@ -139,7 +151,8 @@ When your turn ends on a question the user answers by picking, such as "Should I
 - The question, its buttons, and a "Something else…" field show right above the composer, and the side panel never opens. Once the user answers, a green banner with the answer replaces the buttons.
 - An answer typed into the field comes to you as the question, a blank line, and what they typed. `state` prints it as `(Something else: "<text>")`.
 - Any reply typed there closes the question, even one that only asks for more, such as "What would the first option change?". Answer it, then, if the decision is still open, publish the question again under the same key with a new item `id` (such as `deploy-2`), updating the answers if what you found changes them. Never tell the user a question is still above the composer without checking `state`.
-- 1 to 3 questions per view, each with 2 to 4 buttons: `message`, `thread`, or `link`, at least 2 of them answers rather than links. A `command` needs the "cards" layout, since it asks before it runs. So do drafts, notes, changes, evidence, variations, related notes, history, a status, a meter, a closing step, and `thread` on an item.
+- 1 to 3 questions per view, each with 2 to 4 buttons: `message`, `thread`, or `link`, at least 2 of them answers rather than links. A `command` needs the "cards" layout, since it asks before it runs. So do drafts, notes, changes, evidence, variations, related notes, history, a status, a meter, a closing step, and `thread` on an item. A view that breaks these is published as cards, with a warning, rather than refused.
+- When the user answered in the normal composer instead of the buttons and the work is done, run `bb impromptu-ui hide --key <key>` to take the question down. Do not publish it again with no buttons: `publish` refuses a question with none.
 - Keep labels short and say what each does in `detail`, which shows when the pointer rests on the button. Mark the answer you recommend `primary`.
 - End your reply with the proposal and say the question is above the composer. Do not repeat the question or the answers in chat.
 
