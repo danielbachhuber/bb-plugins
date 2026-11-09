@@ -35,11 +35,16 @@ Every thread's instructions get a short section telling the agent to build a vie
 bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view
 bb impromptu-ui state [--key <name>]                        # read what the user did
 bb impromptu-ui hide [--key <name>]                         # hide a view
+bb impromptu-ui clear-resolved [--key <name>]               # take done and dismissed cards out
 bb impromptu-ui list                                        # list this thread's views
 bb impromptu-ui schema                                      # print everything a view can hold
 ```
 
 Each command except `schema` works only inside a bb thread.
+
+### Clear resolved cards
+
+Type `/clear-resolved-cards` in a thread, and the `clear-resolved-cards` skill runs `bb impromptu-ui clear-resolved`. Every card you already acted on or dismissed leaves that thread's views, and a view with nothing open left is hidden. A code review whose verdict is still open keeps its findings, since the verdict counts them. It reads and writes only the plugin's database, with no API calls.
 
 ### Refine Impromptu UI
 

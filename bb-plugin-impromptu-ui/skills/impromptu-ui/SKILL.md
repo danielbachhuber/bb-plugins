@@ -391,6 +391,8 @@ bb impromptu-ui hide [--key <name>]
 
 Hides the view from above this thread's composer, as the archive button on its header does. Run it when a view's items are settled or a later round replaces it under a different key, rather than asking the user to dismiss it. The view and what the user did to it stay readable with `state`, and the next `publish` under the same key shows it again.
 
+To take only the cards the user has already acted on out of this thread's views, and hide the views with nothing left open, run `bb impromptu-ui clear-resolved`. The `clear-resolved-cards` skill covers it.
+
 ## When it falls short
 
 If the user says a view should have appeared and did not, or that one could not do what the work needed, use the `refine-impromptu-ui` skill. It works out what went wrong with the user and files an anonymized issue with the improvement.

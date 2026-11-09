@@ -119,6 +119,8 @@ export interface Store {
   setItem(viewId: number, itemId: string, record: ItemRecord, now: string): StoredView | null;
   setRelated(viewId: number, itemId: string, entryId: string, result: ActionResult, now: string): StoredView | null;
   setHidden(viewId: number, hidden: boolean, now: string): StoredView | null;
+  /** Replaces a view's items in place, keeping when it was published, so it keeps its place above the composer. */
+  replaceView(viewId: number, view: View): StoredView | null;
   /** Hides a view from above a thread that shows some of its items, leaving it in the thread that published it. */
   setLinkedHidden(viewId: number, threadId: string, hidden: boolean, now: string): void;
   /** Replaces every image a view holds, as one publish's set. */
@@ -297,6 +299,11 @@ export function createStore(db: Database): Store {
 
     setHidden(viewId, hidden, now) {
       db.prepare("UPDATE views SET hidden_at = ? WHERE id = ?").run(hidden ? now : null, viewId);
+      return get(viewId);
+    },
+
+    replaceView(viewId, view) {
+      db.prepare("UPDATE views SET body = ? WHERE id = ?").run(JSON.stringify(view), viewId);
       return get(viewId);
     },
 

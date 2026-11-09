@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { expandPatchFiles } from "./view/changes.js";
+import { planClear } from "./view/clear.js";
 import { DAY_MS, expiredViews, isNotFound, type ThreadState } from "./view/cleanup.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
@@ -456,6 +457,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  bb impromptu-ui publish --file <view.json> [--key <name>]",
     "  bb impromptu-ui state [--key <name>]",
     "  bb impromptu-ui hide [--key <name>]",
+    "  bb impromptu-ui clear-resolved [--key <name>]",
     "  bb impromptu-ui list",
     "  bb impromptu-ui schema",
     "",
@@ -464,7 +466,9 @@ export default async function plugin(bb: BbPluginApi) {
     "keeps what the user already did to each item. `state` prints each item's",
     "state and the result of the last button pressed on it. `hide` takes the view",
     "down from above the composer, as its archive button does, until the next",
-    "publish under its key. `schema` prints the JSON Schema of the view file,",
+    "publish under its key. `clear-resolved` takes the cards the user already",
+    "acted on (done or dismissed) out of this thread's views, and hides a view",
+    "once nothing in it is open. `schema` prints the JSON Schema of the view file,",
     "everything a view can hold; the impromptu-ui skill shows how to use it.",
   ].join("\n");
 
@@ -491,6 +495,11 @@ export default async function plugin(bb: BbPluginApi) {
         name: "hide",
         summary: "Take this thread's view down from above the composer until the next publish",
         usage: "bb impromptu-ui hide [--key <name>]",
+      },
+      {
+        name: "clear-resolved",
+        summary: "Take done and dismissed cards out of this thread's views, and hide views with nothing open",
+        usage: "bb impromptu-ui clear-resolved [--key <name>]",
       },
       { name: "list", summary: "List this thread's views", usage: "bb impromptu-ui list" },
       {
@@ -565,6 +574,49 @@ export default async function plugin(bb: BbPluginApi) {
           return {
             exitCode: 0,
             stdout: `Hid "${stored.view.title}" (view ${stored.id}). Publishing again under key "${key}" shows it again.`,
+          };
+        }
+        case "clear-resolved": {
+          const views = store
+            .forThread(threadId)
+            .filter((candidate) => flag(args, "key") === undefined || candidate.key === key);
+          if (views.length === 0) {
+            return flag(args, "key") === undefined
+              ? { exitCode: 0, stdout: "This thread has no views." }
+              : { exitCode: 1, stderr: `This thread has no view with key "${key}".` };
+          }
+          let pruned = false;
+          const lines = views.map((stored) => {
+            const name = `"${stored.view.title}" (${stored.key})`;
+            if (stored.hiddenAt !== null) return `${name}: already hidden.`;
+            const plan = planClear(stored);
+            if (plan.kind === "keep") {
+              return plan.reason === "closing-open"
+                ? `${name}: left as is, because its closing step is still open and counts the other cards.`
+                : `${name}: nothing resolved.`;
+            }
+            if (plan.kind === "hide") {
+              store.setHidden(stored.id, true, now());
+              changed(stored);
+              return `${name}: ${plan.resolved.length === 1 ? "its one card is" : `all ${plan.resolved.length} cards are`} resolved, so the view is hidden.`;
+            }
+            try {
+              // Checked like a publish, so a pruned view never breaks the panel.
+              const view = parseView(JSON.stringify(plan.view));
+              const next = store.replaceView(stored.id, view);
+              if (next !== null) changed(next);
+              pruned = true;
+            } catch (error) {
+              return `${name}: left as is: ${error instanceof Error ? error.message : String(error)}`;
+            }
+            return `${name}: cleared ${plan.resolved.length} (${plan.resolved.map((item) => item.id).join(", ")}), ${plan.open} still open.`;
+          });
+          return {
+            exitCode: 0,
+            stdout: [
+              ...lines,
+              ...(pruned ? ["", "Publishing a view again with the cleared cards in its file brings them back, with what the user did to them."] : []),
+            ].join("\n"),
           };
         }
         case "list": {
