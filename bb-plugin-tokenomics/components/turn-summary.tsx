@@ -463,8 +463,11 @@ export function TurnStrip({ turn, running, now, work = null, onOpen, defaultOpen
         "rounded-lg border bg-card text-xs tabular-nums",
         past ? "border-warning/40 bg-warning/5" : "border-border",
       )}
-      // Below the context meter, which takes order -1.
-      style={{ order: 0 }}
+      // bb stacks composer banners in a grid, in plugin order, inside a
+      // display: contents root, so this is a grid item. Order -2 puts the
+      // strip at the top, above other plugins' banners and the context
+      // meter's -1.
+      style={{ order: -2 }}
     >
       <TurnPopover
         turn={turn}
