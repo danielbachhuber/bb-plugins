@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Review Sweep",
-    "description": "Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, comments a click away, and where a stacked pull request sits in its stack, a Snooze that sinks a request to one line until a day you pick, plus Batch to start reviews for several at once. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its icon in bb's navigation shows how many have waited too long, in red. Needs gh-context.",
+    "description": "Open pull requests waiting on a review from you in one list, ordered Now, Next, and Later by what needs you, oldest request first, with local notes, new comment counts, comments a click away, and stacked pull requests grouped by stack, a Snooze that sinks a request to one line until a day you pick, plus Batch to start reviews for several at once. Clicking the sync time shows what the past hour of sweeps cost against GitHub's rate limit. Its icon in bb's navigation shows how many have waited too long, in red. Needs gh-context.",
     "branding": {
       "icon": "Eye"
     },

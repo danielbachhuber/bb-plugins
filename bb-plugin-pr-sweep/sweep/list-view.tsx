@@ -15,7 +15,7 @@ import {
   ReviewerStack,
   type ReviewerTooltipProps,
 } from "sweep-ui/pull-request";
-import type { Stage, SweepItem } from "sweep-ui/types";
+import type { Stage, SweepItem, SweepStack } from "sweep-ui/types";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -235,7 +235,15 @@ function FactIcons({ row, item, showRepo, avatarFor }: BodyProps) {
             <ReviewerStack reviewers={reviewers} Tooltip={ReviewerTooltip} />
           </TooltipProvider>
         ) : (
-          "no reviewer"
+          // GitHub Context's mark for nobody asked, rather than words.
+          <span
+            role="img"
+            className="inline-flex text-amber-600 dark:text-amber-500"
+            title="No reviewers assigned"
+            aria-label="No reviewers assigned"
+          >
+            <Icon name="UserRoundPlus" className="size-3.5" />
+          </span>
         )}
       </span>
       <ChecksBadge checks={row.checks} />
@@ -589,6 +597,7 @@ export function PrListView({
   const items: SweepItem[] = sorted.map((row) => ({
     key: keyOf(row),
     runId: runOf(row),
+    stack: sweepStackOf(row),
     title: row.title,
     url: row.url,
     number: row.number,
@@ -778,4 +787,17 @@ export function PrListView({
       ) : null}
     </div>
   );
+}
+
+/** The row's stack as the list groups it: its place, how many are open, and which have merged. */
+function sweepStackOf(row: Row): SweepStack | null {
+  const stack = row.stack;
+  if (!stack) return null;
+  return {
+    key: `${row.repo}#${stack.number}`,
+    number: stack.number,
+    position: stack.position,
+    open: stack.entries.length > 0 ? stack.entries.filter((entry) => entry.state === "open").length : stack.size,
+    merged: stack.entries.filter((entry) => entry.state === "merged").map((entry) => entry.number),
+  };
 }

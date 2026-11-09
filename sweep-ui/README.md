@@ -33,6 +33,18 @@ note. On a one-line Later row it is drawn inline where the first fact would
 be. `StatusBanner` is the red, green, blue, or grey line such a body can put under
 the title.
 
+An item with `stack` set belongs to a stack of pull requests. When two or
+more items in the list share a stack's `key`, the list draws them as one
+block where the first of them falls, under a header ("Stack #731 · 4 open ·
+#690 merged"), each as a `SweepStackLine`, bottom of the stack first: its
+place, number, and title, then `renderBody` drawn as on a one-line row, the
+comment count, the plugin's actions inside `IconActions`, and
+`renderTrailing`. `IconActions` shows each button's icon alone, keeping its
+label for screen readers and as its hover title, so a plugin passes the same
+action buttons it passes for a full row. What a line opens (the Start thread
+box, the thread line, the note, the comments drawer) draws under it. A stack
+with one item in the list stays an ordinary row.
+
 PR Sweep and Review Sweep both draw pull requests, and take what they draw for
 one from `sweep-ui/pull-request`, so a pull request looks the same on both
 tabs. Each passes `ReviewerStack` a `Tooltip`, a small wrapper around its own

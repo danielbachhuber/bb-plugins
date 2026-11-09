@@ -25,7 +25,7 @@ import {
   githubAvatar,
   type ReviewerTooltipProps,
 } from "sweep-ui/pull-request";
-import type { Stage, SweepItem } from "sweep-ui/types";
+import type { Stage, SweepItem, SweepStack } from "sweep-ui/types";
 import { writeLinkToClipboard } from "@/components/ui/copy-link";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HarvestRowClock } from "bb-plugin-harvest/clock";
@@ -580,6 +580,7 @@ export function ReviewListView({
   const items: SweepItem[] = sorted.map((row) => ({
     key: keyOf(row),
     runId: runOf(row, inputs),
+    stack: sweepStackOf(row),
     title: row.title,
     url: row.url,
     number: row.number,
@@ -726,4 +727,17 @@ export function ReviewListView({
       ) : null}
     </div>
   );
+}
+
+/** The row's stack as the list groups it: its place, how many are open, and which have merged. */
+function sweepStackOf(row: Row): SweepStack | null {
+  const stack = row.stack;
+  if (!stack) return null;
+  return {
+    key: `${row.repo}#${stack.number}`,
+    number: stack.number,
+    position: stack.position,
+    open: stack.entries.length > 0 ? stack.entries.filter((entry) => entry.state === "open").length : stack.size,
+    merged: stack.entries.filter((entry) => entry.state === "merged").map((entry) => entry.number),
+  };
 }

@@ -3,6 +3,7 @@ import { Fragment, type ComponentType, type MouseEvent, type ReactNode } from "r
 import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 import { NoteBox, NoteField } from "./note";
+import { IconActions } from "./actions";
 import { Track } from "./track";
 import type { Flag, RunTone, Stage, SweepItem, Tier } from "./types";
 
@@ -401,6 +402,148 @@ export function SweepRow({
         ) : null}
       </div>
       {trackPlacement === "column" ? track : null}
+    </li>
+  );
+}
+
+export interface SweepStackLineProps {
+  item: SweepItem;
+  /** The row's run's tone. An under-way row gets an orange edge. */
+  tone?: RunTone;
+  onOpenLink?: () => void;
+  Link?: ComponentType<SweepLinkProps>;
+  /** The plugin's own actions, drawn as icons before the note button. */
+  actions: ReactNode;
+  /** Drawn at the right end of the line, such as a timer. */
+  trailing?: ReactNode;
+  /** The plugin's facts, drawn on the line as for a one-line row. */
+  renderBody?: (item: SweepItem, open: boolean, line: boolean) => ReactNode;
+  threadLine?: ReactNode;
+  startThread?: ReactNode;
+  onToggleComments?: () => void;
+  commentsOpen?: boolean;
+  commentsDrawer?: ReactNode;
+  editing: boolean;
+  onEditNote: () => void;
+  onNoteSave: (body: string, onHold: boolean) => Promise<boolean>;
+  onNoteCancel: () => void;
+  busy?: boolean;
+}
+
+/** The left edge and wash of `tint`, inside a stack's box rather than the list's padding. */
+function lineTint(item: SweepItem, tone?: RunTone): string | false {
+  if (item.flags.some((flag) => flag.kind === "stale")) return "border-l-2 border-l-destructive bg-destructive/[0.04] pl-[10px]";
+  if (item.flags.some((flag) => flag.kind === "blocked")) return "border-l-2 border-l-slate-400 bg-slate-500/[0.05] pl-[10px]";
+  if (tone === "underway")
+    return "border-l-2 border-l-[#ea7a0c] bg-[#ea7a0c]/[0.05] pl-[10px] dark:border-l-[#f08a24] dark:bg-[#f08a24]/[0.06]";
+  return false;
+}
+
+/**
+ * One pull request in a stack, as one line: its place in the stack, number,
+ * and title, then the plugin's facts, the comment count, and the actions as
+ * icons. What the actions open, such as the Start thread box, a note, or the
+ * comments, opens under the line.
+ */
+export function SweepStackLine({
+  item,
+  tone,
+  onOpenLink,
+  Link = PlainLink,
+  actions,
+  trailing,
+  renderBody,
+  threadLine,
+  startThread,
+  onToggleComments,
+  commentsOpen = false,
+  commentsDrawer,
+  editing,
+  onEditNote,
+  onNoteSave,
+  onNoteCancel,
+  busy = false,
+}: SweepStackLineProps) {
+  const unread = item.newComments > 0;
+  const position = item.stack?.position;
+  const below = startThread || threadLine || editing || item.note !== null || (commentsOpen && commentsDrawer);
+  return (
+    <li className={cn("px-3 py-1.5 text-sm", lineTint(item, tone), busy && "opacity-50")}>
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className="w-3 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground/70"
+          title={position === undefined ? undefined : `Number ${position} in the stack`}
+        >
+          {position}
+        </span>
+        <span className="shrink-0 text-muted-foreground">#{item.number}</span>
+        <Link
+          href={item.url}
+          onClick={onOpenLink}
+          className={cn("min-w-0 truncate text-foreground hover:underline", unread && "font-semibold")}
+        >
+          {item.title}
+        </Link>
+        {unread ? (
+          <span className={cn("size-1.5 shrink-0 rounded-full", BLUE_DOT)} title={`${item.newComments} new`} aria-label={`${item.newComments} new`} />
+        ) : null}
+        {item.conflicted ? (
+          <span className="flex shrink-0" title="Merge conflict">
+            <Icon name="AlertTriangle" label="Merge conflict" className="size-4 text-muted-foreground" />
+          </span>
+        ) : null}
+        <span className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
+          {renderBody ? renderBody(item, false, true) : null}
+          {item.comments ? (
+            onToggleComments ? (
+              <button
+                type="button"
+                aria-expanded={commentsOpen}
+                aria-label={`${commentsOpen ? "Hide" : "Show"} ${commentsLabel(item.comments)}`}
+                title={`${commentsOpen ? "Hide" : "Show"} ${commentsLabel(item.comments)}`}
+                onClick={onToggleComments}
+                className={cn(
+                  "-mx-1 inline-flex items-center gap-1 rounded px-1 tabular-nums hover:bg-accent hover:text-foreground",
+                  commentsOpen && "bg-accent text-foreground",
+                )}
+              >
+                <Icon name="Comment" className="size-3.5" />
+                {item.comments}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1 tabular-nums" title={commentsLabel(item.comments)}>
+                <Icon name="Comment" className="size-3.5" />
+                {item.comments}
+              </span>
+            )
+          ) : null}
+          <IconActions>
+            {actions}
+            <button
+              type="button"
+              aria-expanded={editing}
+              onClick={editing ? onNoteCancel : onEditNote}
+              className={cn("rounded hover:bg-accent hover:text-foreground", editing && "bg-accent text-foreground")}
+            >
+              <Icon name="Edit" className="size-3" />
+              {item.note === null ? "Add note" : "Edit note"}
+            </button>
+          </IconActions>
+          {trailing ? <span className="flex items-center">{trailing}</span> : null}
+        </span>
+      </div>
+      {below ? (
+        <div className="pl-5">
+          {startThread}
+          {threadLine}
+          {editing ? (
+            <NoteField initial={item.note ?? ""} onSave={onNoteSave} onCancel={onNoteCancel} />
+          ) : (
+            <NoteBox note={item.note} onHold={item.onHold === true} />
+          )}
+          {commentsOpen && commentsDrawer ? <div className="mt-2">{commentsDrawer}</div> : null}
+        </div>
+      ) : null}
     </li>
   );
 }

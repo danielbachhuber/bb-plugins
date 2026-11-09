@@ -382,3 +382,49 @@ describe("SweepList", () => {
     });
   });
 });
+
+describe("SweepList stacks", () => {
+  const stack = (position: number) => ({ key: "acme/widgets#731", number: 731, position, open: 3, merged: [690] });
+
+  it("draws two or more rows of one stack together, bottom first, where its first row was", () => {
+    const items = [
+      item(12, "new", { stack: stack(3) }),
+      item(40, "new"),
+      item(10, "new", { stack: stack(1) }),
+      item(11, "new", { stack: stack(2) }),
+    ];
+    render(<SweepList {...props(items, { order: "given" })} />);
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links).toEqual(["Widget task 10", "Widget task 11", "Widget task 12", "Widget task 40"]);
+    const block = screen.getByText("Stack #731").closest("li")!;
+    expect(within(block).getByText("· 3 open")).toBeInTheDocument();
+    expect(within(block).getByText("· #690 merged")).toBeInTheDocument();
+    expect(within(block).getAllByRole("link")).toHaveLength(3);
+  });
+
+  it("gives each line in a stack its own actions as icons, labelled on hover", () => {
+    const items = [item(10, "new", { stack: stack(1) }), item(11, "new", { stack: stack(2) })];
+    render(<SweepList {...props(items, { order: "given" })} />);
+    const line = row("Widget task 11");
+    expect(within(line).getByRole("button", { name: "Start thread" })).toHaveAttribute("title", "Start thread");
+    expect(within(line).getByRole("button", { name: "Add note" })).toHaveAttribute("title", "Add note");
+  });
+
+  it("opens a stacked line's note editor under the line", () => {
+    const items = [item(10, "new", { stack: stack(1) }), item(11, "new", { stack: stack(2) })];
+    render(<SweepList {...props(items, { order: "given" })} />);
+    fireEvent.click(within(row("Widget task 10")).getByRole("button", { name: "Add note" }));
+    expect(within(row("Widget task 10")).getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("leaves a stack with one row here as an ordinary row", () => {
+    render(<SweepList {...props([item(10, "new", { stack: stack(1) }), item(40, "new")], { order: "given" })} />);
+    expect(screen.queryByText("Stack #731")).toBeNull();
+  });
+
+  it("counts a folded stack's rows in N more", () => {
+    const stacked = [item(500, "later", { stack: stack(1) }), item(501, "later", { stack: stack(2) })];
+    render(<SweepList {...props([...later(5), ...stacked], { laterShown: 5 })} />);
+    expect(screen.getByRole("button", { name: /2 more/ })).toBeInTheDocument();
+  });
+});

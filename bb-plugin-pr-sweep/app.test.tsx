@@ -165,7 +165,7 @@ describe("panel", () => {
     expect(within(row).queryByText(/approved by hubber/)).toBeNull();
   });
 
-  it("counts failing and cancelled checks in red, running ones with a clock, says no reviewer, and leaves out what it does not have", async () => {
+  it("counts failing and cancelled checks in red, running ones with a clock, marks no reviewers with an icon, and leaves out what it does not have", async () => {
     const slot = render(
       listing({
         rows: [
@@ -180,7 +180,7 @@ describe("panel", () => {
     const checks = failing.querySelector('[data-part="checks"]')!;
     expect(checks).toHaveTextContent("2/7 failing");
     expect(checks.querySelector('[data-icon="CircleX"]')).toHaveClass("text-destructive-text");
-    expect(failing.querySelector('[data-part="reviewers"]')).toHaveTextContent("no reviewer");
+    expect(within(failing.querySelector<HTMLElement>('[data-part="reviewers"]')!).getByRole("img", { name: "No reviewers assigned" })).toBeInTheDocument();
     expect(failing.querySelector('[data-part="diff"]')).toBeNull();
 
     const cancelled = await rowFor(slot, "Cancelled");

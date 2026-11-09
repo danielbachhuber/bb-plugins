@@ -66,6 +66,25 @@ export interface SweepItem {
    * running timer.
    */
   forceOpen?: boolean;
+  /**
+   * The stack on GitHub this pull request belongs to. Two or more rows in one
+   * stack draw together as one block, bottom first, each as one line.
+   */
+  stack?: SweepStack | null;
+}
+
+/** A pull request's place in its stack, as the list groups it. */
+export interface SweepStack {
+  /** Unique in the list, such as `acme/widgets#731`. */
+  key: string;
+  /** The stack's own number in its repository: "Stack #N". */
+  number: number;
+  /** This pull request's place, 1 for the one closest to the base branch. */
+  position: number;
+  /** How many of the stack's pull requests are open, including ones not in the list. */
+  open: number;
+  /** The numbers of the stack's merged pull requests, bottom first. */
+  merged: number[];
 }
 
 export interface Stage {

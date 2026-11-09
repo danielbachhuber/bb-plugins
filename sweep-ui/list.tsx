@@ -4,9 +4,9 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 
 import { Icon } from "./icons";
-import { SweepRow, type SweepLinkProps } from "./row";
+import { SweepRow, SweepStackLine, type SweepLinkProps } from "./row";
 import { SummarySquares } from "./summary";
-import type { Run, Stage, SweepItem, Tier } from "./types";
+import type { Run, Stage, SweepItem, SweepStack, Tier } from "./types";
 
 export type { SweepLinkProps };
 
@@ -127,9 +127,39 @@ export function SweepList({
   // Stable by tier, so a caller that sorts within tiers gets Now, Next, Later.
   const byTier = TIERS.map((tier) => shown.filter((item) => (tierOf.get(item.runId) ?? "later") === tier));
   const [now, next, later] = byTier as [SweepItem[], SweepItem[], SweepItem[]];
+  // Each row, or each stack of two or more rows, in the order drawn. A stack
+  // takes the place of its first row and draws its rows bottom first.
+  const sequence = order === "given" ? shown : [...now, ...next, ...later];
+  const blocks = groupStacks(sequence);
+  const tierOfBlock = (block: Block) => tierOf.get(firstOf(block).runId) ?? "later";
   // A filtered list is short already, so its Later rows all show.
-  const fold = order === "tier" && active === null && !showAllLater && later.length > laterShown;
-  const visibleLater = fold ? later.slice(0, laterShown) : later;
+  const laterBlocks = blocks.filter((block) => tierOfBlock(block) === "later");
+  const fold = order === "tier" && active === null && !showAllLater && laterBlocks.length > laterShown;
+  const hidden = fold ? new Set(laterBlocks.slice(laterShown)) : new Set<Block>();
+  const hiddenRows = [...hidden].reduce((count, block) => count + rowsOf(block).length, 0);
+
+  const commentsProps = (item: SweepItem) => ({
+    onToggleComments: renderComments
+      ? () =>
+          setCommentsOpen((current) => {
+            const next = new Set(current);
+            if (!next.delete(item.key)) next.add(item.key);
+            return next;
+          })
+      : undefined,
+    commentsOpen: commentsOpen.has(item.key),
+    commentsDrawer: renderComments && commentsOpen.has(item.key) ? renderComments(item) : undefined,
+  });
+  const noteProps = (item: SweepItem) => ({
+    editing: editing === item.key,
+    onEditNote: () => setEditing(item.key),
+    onNoteSave: async (body: string) => {
+      const saved = await onNoteSave(item, body);
+      if (saved) setEditing((current) => (current === item.key ? null : current));
+      return saved;
+    },
+    onNoteCancel: () => setEditing(null),
+  });
 
   const rowFor = (item: SweepItem, tier: Tier) => {
     const closable = collapsible === true || (collapsible === "later" && tier === "later");
@@ -152,32 +182,39 @@ export function SweepList({
         afterNumber={renderAfterNumber?.(item)}
         threadLine={renderThreadLine?.(item)}
         startThread={renderStartThread?.(item)}
-        onToggleComments={
-          renderComments
-            ? () =>
-                setCommentsOpen((current) => {
-                  const next = new Set(current);
-                  if (!next.delete(item.key)) next.add(item.key);
-                  return next;
-                })
-            : undefined
-        }
-        commentsOpen={commentsOpen.has(item.key)}
-        commentsDrawer={renderComments && commentsOpen.has(item.key) ? renderComments(item) : undefined}
-        editing={editing === item.key}
-        onEditNote={() => setEditing(item.key)}
-        onNoteSave={async (body) => {
-          const saved = await onNoteSave(item, body);
-          if (saved) setEditing((current) => (current === item.key ? null : current));
-          return saved;
-        }}
-        onNoteCancel={() => setEditing(null)}
+        {...commentsProps(item)}
+        {...noteProps(item)}
         busy={busyKeys?.has(item.key) ?? false}
         renderBody={renderBody}
         renderTrack={renderTrack}
       />
     );
   };
+
+  const stackFor = (stack: SweepStack, rows: SweepItem[]) => (
+    <li key={`stack:${stack.key}`} className="py-3" data-part="stack">
+      <StackHeader stack={stack} />
+      <ul className="mt-1.5 divide-y divide-border overflow-hidden rounded-md border border-border">
+        {rows.map((item) => (
+          <SweepStackLine
+            key={item.key}
+            item={item}
+            tone={toneOf.get(item.runId)}
+            onOpenLink={onOpenLink ? () => onOpenLink(item) : undefined}
+            Link={Link}
+            actions={renderActions(item)}
+            trailing={renderTrailing?.(item)}
+            renderBody={renderBody}
+            threadLine={renderThreadLine?.(item)}
+            startThread={renderStartThread?.(item)}
+            {...commentsProps(item)}
+            {...noteProps(item)}
+            busy={busyKeys?.has(item.key) ?? false}
+          />
+        ))}
+      </ul>
+    </li>
+  );
 
   return (
     <div className="space-y-3">
@@ -192,15 +229,9 @@ export function SweepList({
         <SummarySquares runs={runs} items={items} value={active} onChange={setFilter} />
       )}
       <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-        {order === "given" ? (
-          shown.map((item) => rowFor(item, tierOf.get(item.runId) ?? "later"))
-        ) : (
-          <>
-            {now.map((item) => rowFor(item, "now"))}
-            {next.map((item) => rowFor(item, "next"))}
-            {visibleLater.map((item) => rowFor(item, "later"))}
-          </>
-        )}
+        {blocks
+          .filter((block) => !hidden.has(block))
+          .map((block) => ("stack" in block ? stackFor(block.stack, block.rows) : rowFor(block.item, tierOfBlock(block))))}
         {fold ? (
           <li>
             <button
@@ -209,11 +240,56 @@ export function SweepList({
               className="flex w-full items-center gap-1.5 py-2 pl-8 text-left text-xs text-muted-foreground hover:text-foreground"
             >
               <Icon name="ChevronDown" className="size-3" />
-              {later.length - laterShown} more
+              {hiddenRows} more
             </button>
           </li>
         ) : null}
       </ul>
+    </div>
+  );
+}
+
+type Block = { item: SweepItem } | { stack: SweepStack; rows: SweepItem[] };
+
+const firstOf = (block: Block): SweepItem => ("stack" in block ? block.rows[0]! : block.item);
+const rowsOf = (block: Block): SweepItem[] => ("stack" in block ? block.rows : [block.item]);
+
+/**
+ * The rows in order, with each stack that has two or more rows here gathered
+ * into one block where its first row was, bottom of the stack first. A stack
+ * with one row here stays a row.
+ */
+export function groupStacks(items: SweepItem[]): Block[] {
+  const members = new Map<string, SweepItem[]>();
+  for (const item of items) {
+    if (!item.stack) continue;
+    const list = members.get(item.stack.key) ?? [];
+    list.push(item);
+    members.set(item.stack.key, list);
+  }
+  const placed = new Set<string>();
+  const blocks: Block[] = [];
+  for (const item of items) {
+    const rows = item.stack ? members.get(item.stack.key) : undefined;
+    if (!item.stack || !rows || rows.length < 2) {
+      blocks.push({ item });
+      continue;
+    }
+    if (placed.has(item.stack.key)) continue;
+    placed.add(item.stack.key);
+    blocks.push({ stack: item.stack, rows: [...rows].sort((a, b) => a.stack!.position - b.stack!.position) });
+  }
+  return blocks;
+}
+
+/** "Stack #731 · 4 open · #690, #694 merged". */
+function StackHeader({ stack }: { stack: SweepStack }) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Icon name="Layers" className="size-3.5" />
+      <span className="font-medium text-foreground">Stack #{stack.number}</span>
+      <span>· {stack.open} open</span>
+      {stack.merged.length > 0 ? <span>· {stack.merged.map((number) => `#${number}`).join(", ")} merged</span> : null}
     </div>
   );
 }

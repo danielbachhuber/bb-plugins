@@ -141,10 +141,20 @@ have merged. Clicking it lists every pull request in the stack, top first,
 with this one marked; hovering one shows its title, and clicking it opens it
 on GitHub. It is the same button GitHub Context draws in its banner. Pull
 requests that only point at each other with a base branch are not a stack and
-get no button. Rows keep their place in the list, so a stack's layers can sit
-apart. The stacks come from one more GraphQL call per sweep, reading the open
+get no button. The stacks come from one more GraphQL call per sweep, reading the open
 pull requests in each swept repository; a failure there drops the buttons, not
 the sweep.
+
+When two or more pull requests in the list belong to one stack, they draw
+together as one block, where the newest of them would sit. A header names the
+stack, how many of its pull requests are open, and which have merged. Under
+it, each pull request is one line, bottom of the stack first: its place in the
+stack, number, and title, then its reviewers, checks, size, and comment count,
+and its actions as icons, each named on hover. A note, a thread, the Start
+thread box, or the comments drawer opens under the line. A line has no banner,
+so the avatars' badges, the checks, and the conflict triangle say what a
+banner would. A stack with one pull request in the list stays an ordinary row
+with its stack button.
 
 Under the title, a banner appears for two kinds of request:
 

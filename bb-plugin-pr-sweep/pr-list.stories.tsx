@@ -613,6 +613,77 @@ export function Baseline() {
   );
 }
 
+/** Stack #731: four open, three with cancelled checks. */
+function pickerStack(position: number) {
+  const titles = [
+    [712, "Move the widget picker into its own module"],
+    [715, "Add stories for the gadget and part pickers"],
+    [718, "Add stories for the bundle and tag pickers"],
+    [721, "Match the picker's add button and row gaps to the design"],
+  ] as const;
+  return {
+    number: 731,
+    position,
+    size: 4,
+    entries: titles.map(([number, title]) => ({ number, title, url: `https://github.com/acme/widgets/pull/${number}`, state: "open" as const })),
+  };
+}
+
+/** Stack #729: seven, the bottom two merged. */
+function historyStack(position: number) {
+  const titles = [
+    [690, "Read widget history from the new store", "merged"],
+    [694, "Drop the old history endpoint", "merged"],
+    [699, "Serve gadget history from the store", "open"],
+    [702, "Page history results by cursor", "open"],
+    [705, "Serve the discussion history from the store", "open"],
+  ] as const;
+  return {
+    number: 729,
+    position,
+    size: 5,
+    entries: titles.map(([number, title, state]) => ({ number, title, url: `https://github.com/acme/widgets/pull/${number}`, state })),
+  };
+}
+
+const CANCELLED = (pass: number) => checks({ pass, cancelled: 4 });
+
+const stacked: Listing = {
+  ...baseline,
+  rows: [
+    row({ number: 718, title: "Add stories for the bundle and tag pickers", flags: ["ci-failing"], checks: CANCELLED(11), updatedAt: now - 2 * 60_000, stack: pickerStack(3) }),
+    row({ number: 712, title: "Move the widget picker into its own module", flags: ["ci-failing"], checks: CANCELLED(13), updatedAt: now - 2 * 60_000, commentsCount: 1, stack: pickerStack(1) }),
+    failingCi,
+    row({ number: 715, title: "Add stories for the gadget and part pickers", flags: ["ci-failing"], checks: CANCELLED(11), approvedBy: ["hubber"], updatedAt: now - 3 * 60_000, commentsCount: 1, stack: pickerStack(2) }),
+    row({ number: 721, title: "Match the picker's add button and row gaps to the design", approvedBy: ["hubber"], checks: checks({ pass: 15 }), updatedAt: now - 3 * 60_000, stack: pickerStack(4) }),
+    row({ number: 705, title: "Serve the discussion history from the store", flags: ["feedback"], changesRequestedBy: ["hubber"], commentedBy: ["hubber"], lastCommentBy: "hubber", unresolvedThreads: 2, commentsCount: 3, newComments: 1, checks: checks({ pass: 9, pending: 5 }), updatedAt: now - 13 * 60_000, stack: historyStack(5) }),
+    row({ number: 699, title: "Serve gadget history from the store", flags: ["merge-ready"], approvedBy: ["hubber"], updatedAt: now - 48 * 60_000, note: "Merge first, then rebase the rest.", stack: historyStack(3) }),
+    row({ number: 702, title: "Page history results by cursor", updatedAt: now - 37 * 60_000, stack: historyStack(4) }),
+    readyToMerge,
+  ],
+};
+
+/**
+ * Stacked pull requests drawn together. Each stack with two or more pull
+ * requests in the list takes the place of its newest one, under a header
+ * naming the stack, how many are open, and which have merged. Each pull
+ * request is one line, bottom of the stack first: its place, number, title,
+ * reviewers, checks, size, comments, and its actions as icons, with a note
+ * under its line. #512, alone from its stack here, stays an ordinary row.
+ */
+export function Stacks() {
+  return (
+    <StoryCard>
+      <StoryRow
+        label="Stacks"
+        hint="A stack of four listed out of order and split by another pull request, a stack of five with two merged and one with a note, and a stack with one pull request in the list."
+      >
+        <Frame listing={stacked} />
+      </StoryRow>
+    </StoryCard>
+  );
+}
+
 /**
  * Every run the list can draw: needs you, ready to merge, working, drafts,
  * and waiting, including one stale after six days with its reviewer. The
