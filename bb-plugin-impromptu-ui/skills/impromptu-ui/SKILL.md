@@ -154,6 +154,7 @@ When your turn ends on a question the user answers by picking, such as "Should I
 - 1 to 3 questions per view, each with 2 to 4 buttons: `message`, `thread`, or `link`, at least 2 of them answers rather than links. A `command` needs the "cards" layout, since it asks before it runs. So do drafts, notes, changes, evidence, variations, related notes, history, a status, a meter, a closing step, and `thread` on an item. A view that breaks these is published as cards, with a warning, rather than refused.
 - When the user answered in the normal composer instead of the buttons and the work is done, run `bb impromptu-ui hide --key <key>` to take the question down. Do not publish it again with no buttons: `publish` refuses a question with none.
 - Keep labels short and say what each does in `detail`, which shows when the pointer rests on the button. Mark the answer you recommend `primary`.
+- For a design or naming decision, the question has to carry what the user needs to decide. Say what each answer changes: the before and after, or the names it affects. Say what this repository did in earlier similar cases, with links to those pull requests. Give your recommendation and the reason for it, and mark that answer `primary`. When one line per answer is not enough, put the rest in each button's `detail`, or publish a cards view with `variations` so the user can see each option.
 - End your reply with the proposal and say the question is above the composer. Do not repeat the question or the answers in chat.
 
 ## A closing step
@@ -236,7 +237,31 @@ When an item proposes text whose claims come from sources, such as a grant secti
 - The claims are underlined and numbered in the text, and the Evidence card under the changes lists each with its quotes. A claim the user edits away moves to the bottom of the card with its quotes; when you publish the next round, drop or rewrite the evidence to match the new text.
 - `related` is for notes not in the text yet. Once you use a related note, move it to `evidence` on the claim it backs.
 
-## Work in rounds
+## Propose corrections to a document
+
+When you audit or proofread a document and find things to fix, publish one item per correction. Do not bundle several corrections into one card with a yes or no, because the user may want some and not others.
+
+```json
+{
+  "id": "fix-3",
+  "title": "Install: wrong command name",
+  "summary": "The package is published as `acme-widgets`, so `npm install widgets` installs something else.",
+  "changes": [{
+    "label": "README.md › Install",
+    "before": "Run `npm install widgets` to get started.",
+    "after": "Run `npm install acme-widgets` to get started."
+  }],
+  "actions": [
+    { "type": "message", "label": "Apply", "primary": true, "text": "Apply fix-3 to README.md › Install: change `npm install widgets` to `npm install acme-widgets`." },
+    { "type": "message", "label": "Skip", "text": "Skip fix-3 (README.md › Install); leave the text as it is." }
+  ]
+}
+```
+
+- `before` is the text as it is now, quoted exactly, and `after` is your suggested text. `label` names where it is, such as the file and heading.
+- `summary` is one line on why the text should change.
+- Give each item an Apply button, marked `primary`, and a Skip button. Write each button's `text` so it names the correction, because the user may answer them in any order.
+
 
 When each item is a piece of work that goes back and forth, such as sections of a document you draft, the user pushes back on, and you revise, give each item a `status` and a `history`:
 
