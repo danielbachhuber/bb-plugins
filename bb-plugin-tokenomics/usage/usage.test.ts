@@ -230,3 +230,56 @@ describe("providerSlots", () => {
     expect(store.providerSlots("codex", T0, T0 + 40 * 60_000, 15 * 60_000)).toEqual([0, 0, 0]);
   });
 });
+
+describe("forecast storage", () => {
+  it("reads back forecasts, turn settings, and per-call context samples", () => {
+    const store = openStore();
+    store.recordForecast("thr_widgets", {
+      at: T0,
+      callsLow: 4,
+      callsHigh: 8,
+      timeLowMs: 60_000,
+      timeHighMs: 180_000,
+      context: 300_000,
+      growth: 1_200,
+      note: "Run the tests",
+    });
+    store.recordTurnRequests("thr_widgets", [
+      { at: T0 - 1_000, model: "claude-opus-5-5", serviceTier: "fast", reasoningLevel: "medium" },
+    ]);
+    store.recordContext("thr_widgets", [
+      // bb's session sample at the start of a turn carries an auto-compact limit; it is not a call.
+      { eventId: "c1", createdAt: T0 + 1_000, usedTokens: 299_000, contextWindow: 1_000_000, autoCompactAt: 967_000 },
+      { eventId: "c2", createdAt: T0 + 2_000, usedTokens: 300_500, contextWindow: 1_000_000, autoCompactAt: null },
+    ]);
+
+    expect(store.threadForecasts("thr_widgets")).toEqual([
+      { at: T0, callsLow: 4, callsHigh: 8, timeLowMs: 60_000, timeHighMs: 180_000, context: 300_000, growth: 1_200, note: "Run the tests" },
+    ]);
+    expect(store.threadTurnRequests("thr_widgets")).toEqual([
+      { at: T0 - 1_000, model: "claude-opus-5-5", serviceTier: "fast", reasoningLevel: "medium" },
+    ]);
+    expect(store.threadCallSamples("thr_widgets")).toEqual([{ at: T0 + 2_000, usedTokens: 300_500 }]);
+    expect(store.threadsWithForecastsSince(T0 - 1)).toEqual(["thr_widgets"]);
+    expect(store.threadsWithForecastsSince(T0 + 1)).toEqual([]);
+  });
+
+  it("stores the settings of each message the sync reads", async () => {
+    const store = openStore();
+    const request: UsageEventLike = {
+      id: "evt_req",
+      seq: 1,
+      createdAt: T0,
+      type: "client/turn/requested",
+      data: { execution: { model: "claude-opus-5-5", serviceTier: "default", reasoningLevel: "high", permissionMode: "full" } },
+    };
+    const source: EventSource = {
+      listUsage: async () => [request],
+      listThreads: async () => [],
+    };
+    await createSync(store, source).syncThread(thread);
+    expect(store.threadTurnRequests("thr_widgets")).toEqual([
+      { at: T0, model: "claude-opus-5-5", serviceTier: "default", reasoningLevel: "high" },
+    ]);
+  });
+});

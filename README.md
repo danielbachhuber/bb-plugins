@@ -79,7 +79,7 @@ Source: [`bb-plugin-super-diff`](bb-plugin-super-diff)
 
 [View in the marketplace](https://getbb.app/marketplace/tokenomics)
 
-See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.
+See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.
 
 Source: [`bb-plugin-tokenomics`](bb-plugin-tokenomics)
 

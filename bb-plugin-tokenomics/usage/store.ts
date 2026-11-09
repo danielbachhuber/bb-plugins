@@ -7,6 +7,7 @@
 import type { Database } from "better-sqlite3";
 
 import type { ContextRow } from "./context.js";
+import type { CallSample, StoredForecast, TurnRequest } from "./forecast.js";
 import type { LimitSample } from "./limits.js";
 import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
@@ -134,6 +135,35 @@ export const MIGRATIONS = [
   // How long the provider keeps this call's prompt cache, when it says, so
   // the meter can tell when an idle thread's cache has expired.
   `ALTER TABLE usage ADD COLUMN cache_ttl_ms INTEGER`,
+  // One row per forecast Claude records with bb tokenomics forecast: an 80%
+  // range of model calls and minutes, and the context at the time, which
+  // turns calls into tokens. Matched to its turn by time when read.
+  `CREATE TABLE IF NOT EXISTS forecasts (
+     thread_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     calls_low INTEGER NOT NULL,
+     calls_high INTEGER NOT NULL,
+     time_low_ms INTEGER NOT NULL,
+     time_high_ms INTEGER NOT NULL,
+     context INTEGER,
+     note TEXT,
+     PRIMARY KEY (thread_id, created_at)
+   )`,
+  `CREATE INDEX IF NOT EXISTS forecasts_created_at_idx ON forecasts (created_at)`,
+  // The model, speed, and reasoning level of each message sent to a thread,
+  // from bb's client/turn/requested events, so a forecast is scored against
+  // turns that ran with the same settings.
+  `CREATE TABLE IF NOT EXISTS turn_requests (
+     thread_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     model TEXT,
+     service_tier TEXT,
+     reasoning_level TEXT,
+     PRIMARY KEY (thread_id, created_at)
+   )`,
+  // How much the thread's context grew per call when Claude forecast, so the
+  // token range counts what each call adds for the next one to read.
+  `ALTER TABLE forecasts ADD COLUMN growth INTEGER`,
 ];
 
 export interface ThreadInfo {
@@ -197,6 +227,32 @@ export interface ThreadTotal {
 const HOUR_MS = 3_600_000;
 
 export function createStore(db: Database) {
+  const insertForecast = db.prepare(
+    `INSERT OR IGNORE INTO forecasts
+       (thread_id, created_at, calls_low, calls_high, time_low_ms, time_high_ms, context, note, growth)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const selectThreadForecasts = db.prepare(
+    `SELECT created_at AS at, calls_low AS callsLow, calls_high AS callsHigh, time_low_ms AS timeLowMs,
+            time_high_ms AS timeHighMs, context, note, growth
+     FROM forecasts WHERE thread_id = ? ORDER BY created_at`,
+  );
+  const selectForecastThreads = db.prepare(
+    `SELECT thread_id AS threadId FROM forecasts WHERE created_at >= ?
+     GROUP BY thread_id ORDER BY max(created_at) DESC`,
+  );
+  const insertTurnRequest = db.prepare(
+    `INSERT OR IGNORE INTO turn_requests (thread_id, created_at, model, service_tier, reasoning_level) VALUES (?, ?, ?, ?, ?)`,
+  );
+  const selectTurnRequests = db.prepare(
+    `SELECT created_at AS at, model, service_tier AS serviceTier, reasoning_level AS reasoningLevel
+     FROM turn_requests WHERE thread_id = ? ORDER BY created_at`,
+  );
+  const selectTitle = db.prepare(`SELECT title FROM threads WHERE thread_id = ?`);
+  const selectCallSamples = db.prepare(
+    `SELECT created_at AS at, used_tokens AS usedTokens FROM context
+     WHERE thread_id = ? AND auto_compact_at IS NULL ORDER BY created_at`,
+  );
   const insertLimitSample = db.prepare(
     `INSERT OR IGNORE INTO limit_samples
        (provider_id, account_key, label, kind, model, sampled_at, used_percent, resets_at)
@@ -598,6 +654,57 @@ export function createStore(db: Database) {
     /** The latest recorded context size of each thread that is not archived or deleted. */
     activeLatestContexts(): number[] {
       return (selectActiveLatestContexts.all() as Array<{ usedTokens: number }>).map((row) => row.usedTokens);
+    },
+
+    /** Stores a forecast Claude made in the thread. */
+    recordForecast(threadId: string, forecast: StoredForecast): void {
+      insertForecast.run(
+        threadId,
+        forecast.at,
+        forecast.callsLow,
+        forecast.callsHigh,
+        forecast.timeLowMs,
+        forecast.timeHighMs,
+        forecast.context,
+        forecast.note,
+        forecast.growth,
+      );
+    },
+
+    /** Stores the settings of messages sent to the thread. */
+    recordTurnRequests(threadId: string, requests: TurnRequest[]): void {
+      for (const request of requests) {
+        insertTurnRequest.run(threadId, request.at, request.model, request.serviceTier, request.reasoningLevel);
+      }
+    },
+
+    /** The settings of each message sent to the thread, oldest first. */
+    threadTurnRequests(threadId: string): TurnRequest[] {
+      return selectTurnRequests.all(threadId) as TurnRequest[];
+    },
+
+    /** The thread's title as last recorded, or null. */
+    threadTitle(threadId: string): string | null {
+      return (selectTitle.get(threadId) as { title: string | null } | undefined)?.title ?? null;
+    },
+
+    /** Every forecast made in the thread, oldest first. */
+    threadForecasts(threadId: string): StoredForecast[] {
+      return selectThreadForecasts.all(threadId) as StoredForecast[];
+    },
+
+    /** The threads that forecast since `since`, most recent forecast first. */
+    threadsWithForecastsSince(since: number): string[] {
+      return (selectForecastThreads.all(since) as Array<{ threadId: string }>).map((row) => row.threadId);
+    },
+
+    /**
+     * The thread's context after each model response, for counting calls.
+     * Leaves out bb's session sample, the one with an auto-compact limit,
+     * which comes once at the start of a turn and is not a call.
+     */
+    threadCallSamples(threadId: string): CallSample[] {
+      return selectCallSamples.all(threadId) as CallSample[];
     },
 
     /** The thread's latest recorded context size, or null before any. */

@@ -4,6 +4,17 @@
 import { ZERO_TOKENS, type Tokens } from "./breakdown.js";
 import { attributeUsage, type UsagePoint } from "./turns.js";
 import { turnSplits, type TimingRows, type TurnSplit } from "./timing.js";
+import {
+  callsInTurn,
+  forecastInTurn,
+  settingsAt,
+  toTurnForecast,
+  type CallSample,
+  type StoredForecast,
+  type TurnForecast,
+  type TurnRequest,
+  type TurnSettings,
+} from "./forecast.js";
 
 export interface TurnSummary extends Tokens {
   turnId: string;
@@ -16,9 +27,27 @@ export interface TurnSummary extends Tokens {
   tools: number;
   /** Where its time went; null while it runs. */
   time: TurnSplit | null;
+  /** Model calls so far, counted from the context samples bb records after each response. */
+  calls: number;
+  /** Claude's forecast for the turn, or null when it made none. */
+  forecast: TurnForecast | null;
+  /** The model, speed, and reasoning level it ran with; null before Tokenomics recorded them. */
+  settings: TurnSettings | null;
 }
 
-export function turnSummaries(rows: readonly UsagePoint[], timings: TimingRows): TurnSummary[] {
+export interface ForecastInputs {
+  samples: readonly CallSample[];
+  forecasts: readonly StoredForecast[];
+  requests?: readonly TurnRequest[];
+}
+
+const NO_FORECASTS: ForecastInputs = { samples: [], forecasts: [], requests: [] };
+
+export function turnSummaries(
+  rows: readonly UsagePoint[],
+  timings: TimingRows,
+  { samples, forecasts, requests = [] }: ForecastInputs = NO_FORECASTS,
+): TurnSummary[] {
   const started = timings.turns
     .filter((turn) => turn.startedAt !== null)
     .map((turn) => ({ turnId: turn.turnId, at: turn.startedAt! }));
@@ -43,6 +72,8 @@ export function turnSummaries(rows: readonly UsagePoint[], timings: TimingRows):
     .sort((a, b) => a.at - b.at)
     .map(({ turnId, at }) => {
       const used = tokens.get(turnId);
+      const end = ends.get(turnId) ?? null;
+      const forecast = forecastInTurn(forecasts, at, end);
       return {
         turnId,
         startedAt: at,
@@ -53,6 +84,9 @@ export function turnSummaries(rows: readonly UsagePoint[], timings: TimingRows):
         commands: counts.get(turnId)?.commands.size ?? 0,
         tools: counts.get(turnId)?.tools.size ?? 0,
         time: splits.get(turnId) ?? null,
+        calls: callsInTurn(samples, at, end),
+        forecast: forecast === null ? null : toTurnForecast(forecast),
+        settings: settingsAt(requests, at),
       };
     });
 }

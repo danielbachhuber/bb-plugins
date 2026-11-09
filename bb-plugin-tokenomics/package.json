@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.",
+    "description": "See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.",
     "branding": {
       "icon": "./icons/tokenomics.svg",
       "experimental_icons": {

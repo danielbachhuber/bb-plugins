@@ -17,7 +17,21 @@ import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
-import { turnSummaries, turnWork } from "./usage/turn-summary.js";
+import { turnSummaries, turnWork, type TurnSummary } from "./usage/turn-summary.js";
+import {
+  FORECAST_INSTRUCTIONS,
+  growthPerCall,
+  settingsAt,
+  trackRecordFor,
+  TURN_REQUEST_EVENT,
+  turnRequestOf,
+  forecastInputError,
+  formatForecasts,
+  parseRange,
+  trackRecord,
+  type ForecastReport,
+} from "./usage/forecast.js";
+import { formatTokens } from "./usage/series.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
 
 export { rpcContract } from "./usage/contract.js";
@@ -47,13 +61,20 @@ export default async function plugin(bb: BbPluginApi) {
       // leaves only the warning.
       default: "550K",
     },
+    forecastTurns: {
+      type: "boolean",
+      label: "Ask Claude to forecast each turn",
+      description:
+        "Adds a short section to each thread's instructions asking Claude to forecast a turn's model calls and minutes with bb tokenomics forecast, so the line under the turn can score it.",
+      default: true,
+    },
   });
 
   const source: EventSource = {
     async listUsage({ threadId, afterSeq, limit }) {
       return bb.sdk.threads.events.list({
         threadId,
-        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT, ...TIMING_EVENTS],
+        types: [TOKEN_USAGE_EVENT, CONTEXT_EVENT, ...TIMING_EVENTS, TURN_REQUEST_EVENT],
         order: "asc",
         limit: String(limit),
         ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),
@@ -321,6 +342,94 @@ export default async function plugin(bb: BbPluginApi) {
     }));
   }
 
+  /** The thread's turns, with their call counts and Claude's forecasts. */
+  function summariesOf(threadId: string): TurnSummary[] {
+    return turnSummaries(store.threadRows(threadId, MAX_ROWS), store.threadTimings(threadId), {
+      samples: store.threadCallSamples(threadId),
+      forecasts: store.threadForecasts(threadId),
+      requests: store.threadTurnRequests(threadId),
+    });
+  }
+
+  /**
+   * Finished turns with a forecast since `since`, oldest first, across every
+   * thread. With `enough`, stops after the threads that forecast most recently
+   * hold that many, so a forecast doesn't rebuild every thread's turns.
+   */
+  function scoredForecasts(since: number, enough = Infinity): ForecastReport[] {
+    const reports: ForecastReport[] = [];
+    for (const threadId of store.threadsWithForecastsSince(since)) {
+      if (reports.length >= enough) break;
+      const title = store.threadTitle(threadId);
+      for (const turn of summariesOf(threadId)) {
+        if (turn.forecast === null || turn.endedAt === null || turn.startedAt < since) continue;
+        reports.push({
+          threadId,
+          title,
+          startedAt: turn.startedAt,
+          note: turn.forecast.note,
+          calls: turn.calls,
+          tokens: turn.input + turn.cacheRead + turn.output,
+          workedMs: turn.time === null ? turn.endedAt - turn.startedAt : turn.time.model + turn.time.tools,
+          forecast: turn.forecast,
+          settings: turn.settings,
+        });
+      }
+    }
+    return reports.sort((a, b) => a.startedAt - b.startedAt);
+  }
+
+  /** How far back Claude's track record reaches. */
+  const RECORD_DAYS = 14;
+  /** Enough recent turns for a record per setting; see RECORD_SIZE. */
+  const RECORD_TURNS = 60;
+
+  // The instructions hook must answer synchronously, so keep the setting in hand.
+  let forecastTurns = (await settings.get()).forecastTurns;
+  settings.onChange((next) => {
+    forecastTurns = next.forecastTurns;
+  });
+  bb.agents.contributeInstructions(() => (forecastTurns ? FORECAST_INSTRUCTIONS : null));
+
+  /** Records a forecast from `bb tokenomics forecast`; returns what to print. */
+  async function recordForecast(
+    threadId: string | undefined,
+    argv: string[],
+  ): Promise<{ exitCode: number; stdout?: string; stderr?: string }> {
+    if (threadId === undefined) return { exitCode: 1, stderr: "Run bb tokenomics forecast from inside a bb thread." };
+    const calls = parseRange(flag(argv, "--calls"));
+    const minutes = parseRange(flag(argv, "--minutes"));
+    if (calls === null || minutes === null) {
+      return { exitCode: 1, stderr: 'Give both ranges, such as --calls 4-8 --minutes 1-3.' };
+    }
+    const error = forecastInputError({ calls_low: calls[0], calls_high: calls[1], minutes_low: minutes[0], minutes_high: minutes[1] });
+    if (error !== null) return { exitCode: 1, stderr: error };
+    const note = flag(argv, "--note")?.trim().slice(0, 200) || null;
+    store.recordForecast(threadId, {
+      at: Date.now(),
+      callsLow: Math.round(calls[0]),
+      callsHigh: Math.round(calls[1]),
+      timeLowMs: Math.round(minutes[0] * 60_000),
+      timeHighMs: Math.round(minutes[1] * 60_000),
+      context: store.latestContext(threadId)?.usedTokens ?? null,
+      growth: growthPerCall(store.threadCallSamples(threadId)),
+      note,
+    });
+    bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
+    // The running turn's settings: the last message sent to the thread, read
+    // from bb, since the sync may not have stored this turn's request yet.
+    let current = settingsAt(store.threadTurnRequests(threadId), Date.now());
+    try {
+      const [latest] = await bb.sdk.threads.events.list({ threadId, types: [TURN_REQUEST_EVENT], order: "desc", limit: "1" });
+      const request = latest === undefined ? null : turnRequestOf(latest);
+      if (request !== null) current = request;
+    } catch (error) {
+      warn(threadId, error);
+    }
+    const record = trackRecordFor(scoredForecasts(Date.now() - RECORD_DAYS * 86_400_000, RECORD_TURNS), current);
+    return { exitCode: 0, stdout: `Recorded. ${record}` };
+  }
+
   const CLI_USAGE = [
     "bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]",
     "  One entry per thread that used tokens in the past N days (default 7, at most 30): tokens",
@@ -329,6 +438,11 @@ export default async function plugin(bb: BbPluginApi) {
     "  command times go back only to when Tokenomics began recording them.",
     "bb tokenomics commands [--days N] [--limit N] [--json]",
     "  The shell commands that took the most time across all threads.",
+    "bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]",
+    "  Records an 80% forecast for this thread's running turn, and prints how recent forecasts landed.",
+    "bb tokenomics forecasts [--days N] [--json]",
+    "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
+    "  often they landed in range.",
   ].join("\n");
 
   function flag(argv: string[], name: string): string | undefined {
@@ -350,10 +464,21 @@ export default async function plugin(bb: BbPluginApi) {
         summary: "The shell commands that took the most time",
         usage: "bb tokenomics commands [--days N] [--limit N] [--json]",
       },
+      {
+        name: "forecast",
+        summary: "Forecast this turn's model calls and minutes",
+        usage: "bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]",
+      },
+      {
+        name: "forecasts",
+        summary: "Claude's turn forecasts against what each turn took",
+        usage: "bb tokenomics forecasts [--days N] [--json]",
+      },
     ],
-    async run(argv) {
+    async run(argv, ctx) {
       const [command] = argv.filter((arg, index) => !arg.startsWith("--") && !argv[index - 1]?.startsWith("--"));
       if (command === undefined || command === "help") return { exitCode: 0, stdout: CLI_USAGE };
+      if (command === "forecast") return await recordForecast(ctx.threadId, argv);
       const json = argv.includes("--json");
       const days = Number(flag(argv, "--days") ?? 7);
       if (!Number.isFinite(days) || days <= 0 || days > 30) {
@@ -375,6 +500,10 @@ export default async function plugin(bb: BbPluginApi) {
         const limit = Number(flag(argv, "--limit") ?? 15);
         const commands = slowestCommands(store.commandsSince(since), Math.max(1, limit));
         return { exitCode: 0, stdout: json ? JSON.stringify(commands, null, 2) : formatCommands(commands, days) };
+      }
+      if (command === "forecasts") {
+        const reports = scoredForecasts(since);
+        return { exitCode: 0, stdout: json ? JSON.stringify(reports, null, 2) : formatForecasts(reports, days, formatTokens) };
       }
       return { exitCode: 1, stderr: `Unknown command "${command}".\n\n${CLI_USAGE}` };
     },
@@ -481,9 +610,7 @@ export default async function plugin(bb: BbPluginApi) {
       await bb.sdk.threads.compact({ threadId });
       return { ok: true as const };
     },
-    thread_turn_summaries: ({ threadId }) => ({
-      turns: turnSummaries(store.threadRows(threadId, MAX_ROWS), store.threadTimings(threadId)),
-    }),
+    thread_turn_summaries: ({ threadId }) => ({ turns: summariesOf(threadId) }),
     thread_turn_work: ({ threadId, turnId }) => turnWork(store.threadTimings(threadId), turnId),
     thread_turns: async ({ threadId }) => {
       const { started, completed, outline } = await sync.turnContext(threadId);

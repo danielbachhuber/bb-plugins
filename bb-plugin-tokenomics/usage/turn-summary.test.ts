@@ -100,3 +100,45 @@ describe("turnWork", () => {
     expect(turnWork(timings, "t2").commands).toEqual([{ command: "npm run build", ms: null }]);
   });
 });
+
+describe("turnSummaries with forecasts", () => {
+  const forecast = {
+    at: T0 + 3 * SEC,
+    callsLow: 2,
+    callsHigh: 4,
+    timeLowMs: 30 * SEC,
+    timeHighMs: 120 * SEC,
+    context: 100_000,
+    growth: 0,
+    note: "Run the tests",
+  };
+
+  it("adds each turn's calls, forecast, and settings", () => {
+    const [first, second] = turnSummaries([], timings, {
+      // Two samples share a size, so t1 made 3 calls; the one at 125s is t2's.
+      samples: [
+        { at: T0 + 5 * SEC, usedTokens: 100_000 },
+        { at: T0 + 30 * SEC, usedTokens: 101_000 },
+        { at: T0 + 31 * SEC, usedTokens: 101_000 },
+        { at: T0 + 70 * SEC, usedTokens: 102_500 },
+        { at: T0 + 125 * SEC, usedTokens: 103_000 },
+      ],
+      forecasts: [forecast],
+      requests: [
+        { at: T0 - SEC, model: "claude-opus-5-5", serviceTier: "default", reasoningLevel: "medium" },
+        { at: T0 + 100 * SEC, model: "claude-opus-5-5", serviceTier: "fast", reasoningLevel: "medium" },
+      ],
+    });
+    expect(first).toMatchObject({
+      calls: 3,
+      forecast: { calls: [2, 4], timeMs: [30 * SEC, 120 * SEC], tokens: [200_000, 400_000], note: "Run the tests" },
+      settings: { serviceTier: "default" },
+    });
+    expect(second).toMatchObject({ calls: 1, forecast: null, settings: { serviceTier: "fast" } });
+  });
+
+  it("leaves calls at zero and forecasts out without them", () => {
+    const [first] = turnSummaries([], timings);
+    expect(first).toMatchObject({ calls: 0, forecast: null, settings: null });
+  });
+});

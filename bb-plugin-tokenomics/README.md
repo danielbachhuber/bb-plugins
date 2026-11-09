@@ -1,6 +1,6 @@
 # Tokenomics
 
-See what your threads cost in tokens and time, and whether your subscription's session and weekly limits will last until they reset.
+See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.
 
 ![The bb window with Tokenomics' title bar button open: the current session 52% of about 300M tokens and on pace to run out at 3:56 PM, 1h 54m before it resets, and the past day's tokens per hour running on to the reset with hatched bars. Below it, a thread with a sparkline and 28M tokens in its header, and a red meter above its composer reading 620K context with a Compact button](screenshots/page--window-with-limits.png)
 
@@ -24,6 +24,19 @@ commands and other tools it ran. Above the composer, a strip counts the
 running turn while it runs; its tokens arrive when it ends. bb has no plugin
 slot under a turn, so the lines read bb's page markup and stop appearing if
 bb changes it. Both read Tokenomics' own database, with no calls to bb.
+
+### Claude's forecast for each turn
+
+![A thread with Claude's forecasts under each turn: 12 of 4–10 min, 12.3M of 3M–7.5M tokens, and 41 of 10–25 calls in amber for a turn that ran over, a turn that ran over only on time, one that landed in range, and a strip above the composer counting 5 of 4–8 calls](screenshots/page--forecasts-in-thread.png)
+
+Claude forecasts each turn that uses a tool with `bb tokenomics forecast`: an
+80% range of model calls and minutes, run alongside its first command so it
+costs no extra call. Tokens follow from calls, the context, and how fast the context has been growing. The line
+under the turn shows each number against its range, amber when over and blue
+when under, and the strip above the composer counts calls against the range
+while the turn runs, turning amber once it passes. The turn's card names its
+model, fast mode, and reasoning level. Each forecast prints Claude's recent
+record for turns with the same settings, so its next range can move.
 
 ### A context meter above the composer
 
@@ -78,6 +91,8 @@ threads without reading their transcripts.
 ```sh
 bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens, turns, context, and turn times per thread
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
+bb tokenomics forecast --calls LOW-HIGH --minutes LOW-HIGH [--note TEXT]                       # record this turn's forecast
+bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
 ```
 
 The [self-improve](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve)
@@ -89,6 +104,7 @@ week's threads to review.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `contextWarningAt` | `300K` | Shows the context meter in amber once a thread's context passes this many tokens. Empty turns it off. |
+| `forecastTurns` | on | Adds about 200 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
 
 ## Requirements
@@ -98,6 +114,7 @@ need a provider that reports them, such as Claude Code or Codex. No account or
 outside service.
 
 - Tokenomics counts tokens, not dollars.
+- It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
 - bb deletes a thread's older usage events, so Tokenomics keeps its own copy,
   starting when you install it.
 - Claude Code subagents report no usage to bb, so Tokenomics reads their

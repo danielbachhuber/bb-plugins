@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import type { TurnSummary, TurnWork } from "@/usage/contract";
 import { formatTokens } from "@/usage/series";
 
+import { settingsLabel, verdict } from "@/usage/forecast";
+
+import { formatMinutes, RangeBar, verdictTone } from "./forecast-range";
 import { useHoverOpen } from "./hover-open";
 import { formatSpan, TIME_PARTS } from "./thread-token-count";
 import { KINDS } from "./turn-time-breakdown";
@@ -35,6 +38,22 @@ function workLabel(turn: TurnSummary): string | null {
   ].filter((part) => part !== null);
   return parts.length === 0 ? null : parts.join(", ");
 }
+
+/** Model and tools time, the part of a turn a forecast covers. */
+const worked = (turn: TurnSummary) => (turn.time === null ? 0 : turn.time.model + turn.time.tools);
+
+/** "76 of 10–25 calls", with the number colored when it landed outside the range. */
+function Against({ actual, range, format, unit }: { actual: number; range: readonly [number, number]; format: (value: number) => string; unit: string }) {
+  const tone = verdictTone(verdict(actual, range));
+  return (
+    <span className={tone.className} style={tone.style}>
+      {format(actual)} of {format(range[0])}–{format(range[1])}
+      {unit}
+    </span>
+  );
+}
+
+const callsUnit = (high: number) => (high === 1 ? " call" : " calls");
 
 /** formatSpan, with "<1 sec" for a command that finished within a second. */
 const commandSpan = (ms: number) => (ms < 500 ? "<1 sec" : formatSpan(ms));
@@ -147,6 +166,40 @@ function CommandRow({ command, ms, initiallyOpen = false }: { command: string; m
   );
 }
 
+function ForecastRow({
+  label,
+  actual,
+  range,
+  format,
+  unit = "",
+}: {
+  label: string;
+  actual: number;
+  range: readonly [number, number];
+  format: (value: number) => string;
+  unit?: string;
+}) {
+  const v = verdict(actual, range);
+  const tone = verdictTone(v);
+  return (
+    <div className="flex items-center gap-2 text-xs tabular-nums">
+      <span className="w-12 shrink-0">{label}</span>
+      <RangeBar actual={actual} range={range} width={72} />
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+        {format(actual)}
+        {unit}
+        <span className="text-muted-foreground/60">
+          {" "}
+          of {format(range[0])}–{format(range[1])}
+        </span>
+      </span>
+      <span className={cn("shrink-0", tone.className || "text-muted-foreground")} style={tone.style}>
+        {v === "in" ? "in range" : v}
+      </span>
+    </div>
+  );
+}
+
 export interface TurnCardProps {
   turn: TurnSummary;
   running: boolean;
@@ -166,14 +219,32 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
   const others = work?.kinds.filter((kind) => kind.kind !== "commandExecution") ?? [];
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-medium">{running ? "This turn" : "Turn"}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {clockTime(turn.startedAt)}
-          {turn.endedAt === null ? "" : ` to ${clockTime(turn.endedAt)}`}
-          {end === null ? "" : ` · ${running ? formatClock(end - turn.startedAt) : formatSpan(end - turn.startedAt)}`}
+      <header className="flex flex-col gap-0.5">
+        <span className="flex items-baseline justify-between gap-3">
+          <span className="text-sm font-medium">{running ? "This turn" : "Turn"}</span>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {clockTime(turn.startedAt)}
+            {turn.endedAt === null ? "" : ` to ${clockTime(turn.endedAt)}`}
+            {end === null ? "" : ` · ${running ? formatClock(end - turn.startedAt) : formatSpan(end - turn.startedAt)}`}
+          </span>
         </span>
+        {turn.settings === null ? null : (
+          <span className="text-xs text-muted-foreground">{settingsLabel(turn.settings)}</span>
+        )}
       </header>
+
+      {turn.forecast === null ? null : (
+        <Section title="Forecast" aside={turn.forecast.context === null ? undefined : `at ${formatTokens(turn.forecast.context)} context`}>
+          <ForecastRow label="Calls" actual={turn.calls} range={turn.forecast.calls} format={String} />
+          {turn.forecast.tokens === null || (running && tokens === 0) ? null : (
+            <ForecastRow label="Tokens" actual={tokens} range={turn.forecast.tokens} format={formatTokens} />
+          )}
+          {time === null ? null : (
+            <ForecastRow label="Time" actual={worked(turn)} range={turn.forecast.timeMs} format={formatMinutes} unit=" min" />
+          )}
+          {turn.forecast.note === null ? null : <p className="text-xs italic text-muted-foreground">"{turn.forecast.note}"</p>}
+        </Section>
+      )}
 
       {time === null ? null : (
         <Section title="Time" aside={formatSpan(timeAll)}>
@@ -301,8 +372,13 @@ export interface TurnSummaryLineProps {
   openCommand?: number;
 }
 
-/** The line under a finished turn: "2 min · 1.8M tokens · 5 commands, 3 tools". */
+/**
+ * The line under a finished turn: "2 min · 1.8M tokens · 5 commands, 3 tools".
+ * With Claude's forecast, each number against its range instead, in the
+ * strip's words: "12 of 4–10 min · 37.1M of 4.9M–12.2M tokens · 76 of 10–25 calls".
+ */
 export function TurnSummaryLine({ turn, work = null, onOpen, defaultOpen, openCommand }: TurnSummaryLineProps) {
+  const forecast = turn.forecast;
   const parts = [
     turn.endedAt === null ? null : formatSpan(turn.endedAt - turn.startedAt),
     `${formatTokens(total(turn))} tokens`,
@@ -322,8 +398,31 @@ export function TurnSummaryLine({ turn, work = null, onOpen, defaultOpen, openCo
         side="bottom"
       >
         <span className="flex items-center gap-2 rounded-sm text-xs tabular-nums text-muted-foreground/70 transition-colors hover:text-foreground">
-          {turn.time === null ? null : <SplitBar split={turn.time} className="w-10" />}
-          <span>{parts.join(" · ")}</span>
+          {forecast !== null ? (
+            <>
+              <RangeBar actual={turn.calls} range={forecast.calls} />
+              <span>
+                {turn.time === null ? null : (
+                  <>
+                    <Against actual={worked(turn)} range={forecast.timeMs} format={formatMinutes} unit=" min" />
+                    {" · "}
+                  </>
+                )}
+                {forecast.tokens === null ? (
+                  `${formatTokens(total(turn))} tokens`
+                ) : (
+                  <Against actual={total(turn)} range={forecast.tokens} format={formatTokens} unit=" tokens" />
+                )}
+                {" · "}
+                <Against actual={turn.calls} range={forecast.calls} format={String} unit={callsUnit(forecast.calls[1])} />
+              </span>
+            </>
+          ) : (
+            <>
+              {turn.time === null ? null : <SplitBar split={turn.time} className="w-10" />}
+              <span>{parts.join(" · ")}</span>
+            </>
+          )}
         </span>
       </TurnPopover>
     </div>
@@ -345,11 +444,16 @@ export function TurnStrip({ turn, running, now, work = null, onOpen, defaultOpen
   const elapsed = running ? now - turn.startedAt : turn.endedAt === null ? null : turn.endedAt - turn.startedAt;
   const work_ = workLabel(turn);
   const noTokensYet = running && total(turn) === 0;
+  const forecast = turn.forecast;
+  const past = forecast !== null && turn.calls > forecast.calls[1];
   return (
     <div
       role="status"
       aria-live="off"
-      className="rounded-lg border border-border bg-card text-xs tabular-nums"
+      className={cn(
+        "rounded-lg border bg-card text-xs tabular-nums",
+        past ? "border-warning/40 bg-warning/5" : "border-border",
+      )}
       // Below the context meter, which takes order -1.
       style={{ order: 0 }}
     >
@@ -376,17 +480,42 @@ export function TurnStrip({ turn, running, now, work = null, onOpen, defaultOpen
           {elapsed === null ? null : (
             <span className="font-medium">{running ? formatClock(elapsed) : formatSpan(elapsed)}</span>
           )}
-          {/* Providers report a turn's tokens when it ends, so a running turn has none yet. */}
-          {noTokensYet ? null : (
-            <span>
-              <span className="font-medium">{formatTokens(total(turn))}</span>
-              <span className="text-muted-foreground"> tokens</span>
-            </span>
+          {forecast !== null ? (
+            <>
+              <span>
+                <span className="font-medium">{turn.calls}</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  of {forecast.calls[0]}–{forecast.calls[1]}
+                  {callsUnit(forecast.calls[1])}
+                </span>
+              </span>
+              <span className="min-w-0 truncate text-muted-foreground">
+                forecast {forecast.tokens === null ? "" : `${formatTokens(forecast.tokens[0])}–${formatTokens(forecast.tokens[1])} tokens, `}
+                {formatMinutes(forecast.timeMs[0])}–{formatMinutes(forecast.timeMs[1])} min
+              </span>
+              <span className="flex-1" />
+              {past ? (
+                <span className="shrink-0 font-medium text-warning-text">Past the forecast</span>
+              ) : (
+                <RangeBar actual={turn.calls} range={forecast.calls} width={72} />
+              )}
+            </>
+          ) : (
+            <>
+              {/* Providers report a turn's tokens when it ends, so a running turn has none yet. */}
+              {noTokensYet ? null : (
+                <span>
+                  <span className="font-medium">{formatTokens(total(turn))}</span>
+                  <span className="text-muted-foreground"> tokens</span>
+                </span>
+              )}
+              {work_ === null ? null : <span className="text-muted-foreground">{work_}</span>}
+              <span className="flex-1" />
+              {noTokensYet ? <span className="text-muted-foreground">Tokens when it ends</span> : null}
+              {!running && turn.time !== null ? <SplitBar split={turn.time} className="w-10" /> : null}
+            </>
           )}
-          {work_ === null ? null : <span className="text-muted-foreground">{work_}</span>}
-          <span className="flex-1" />
-          {noTokensYet ? <span className="text-muted-foreground">Tokens when it ends</span> : null}
-          {!running && turn.time !== null ? <SplitBar split={turn.time} className="w-10" /> : null}
         </span>
       </TurnPopover>
     </div>

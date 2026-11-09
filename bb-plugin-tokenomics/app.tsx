@@ -399,6 +399,8 @@ function useTurnSummaries(threadId: string | null): TurnSummary[] | null {
   );
   useRealtime(TURNS_CHANNEL, onChange);
   useRealtime(USAGE_CHANNEL, onChange);
+  // Each model response records the context, which is how the strip counts calls.
+  useRealtime(CONTEXT_CHANNEL, onChange);
   return turns;
 }
 

@@ -4,6 +4,7 @@
 import { splitBreakdown, type ProviderTokenBreakdown } from "./breakdown.js";
 import { contextRowOf, type ContextRow } from "./context.js";
 import { isEmpty, timingRowsOf } from "./timing.js";
+import { turnRequestOf, type TurnRequest } from "./forecast.js";
 import type { Store, ThreadInfo, UsageRow } from "./store.js";
 import type { OutlineItem, TurnEvent } from "./turns.js";
 
@@ -107,6 +108,10 @@ export function createSync(store: Store, source: EventSource, hooks: SyncHooks =
       const lastSeq = events.reduce((seq, event) => Math.max(seq, event.seq), cursor ?? 0);
       // Before the cursor moves, so a failure here reads these events again.
       contextAdded += store.recordContext(thread.id, contextRows);
+      store.recordTurnRequests(
+        thread.id,
+        events.map(turnRequestOf).filter((request): request is TurnRequest => request !== null),
+      );
       const timings = timingRowsOf(events);
       if (!isEmpty(timings)) {
         store.recordTimings(thread.id, timings);

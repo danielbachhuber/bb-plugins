@@ -28,6 +28,9 @@ import {
   LONG,
   LONG_TURNS,
   CACHE_EXPIRED,
+  FORECAST_RUNNING,
+  FORECAST_RUNNING_PAST,
+  FORECAST_TURNS,
   METER,
   noop,
   NOW,
@@ -548,4 +551,68 @@ export const TurnStripCardOpen = () => (
       </AfterComposerFocus>
     }
   />
+);
+
+/**
+ * With Claude's forecasts, the line under each turn shows each number against
+ * its range: minutes, tokens, and model calls. A number outside its range is
+ * amber when over and blue when under. The bar shows the calls: the grey band
+ * is the forecast's range, the tick is where the turn landed. Above the
+ * composer, the running turn counts its calls against the forecast.
+ */
+export const ForecastsInThread = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={FORECAST_TURNS.map((turn) => (
+      <div key={turn.turnId} className="-mx-2">
+        <TurnSummaryLine turn={turn} />
+      </div>
+    ))}
+    stack={<TurnStrip turn={FORECAST_RUNNING} running now={NOW.getTime()} />}
+  />
+);
+
+/** A turn's card with its forecast: calls, tokens, and time against their ranges, and Claude's note. */
+export const ForecastCardOpen = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={FORECAST_TURNS.map((turn, index) => (
+      <div key={turn.turnId} className="-mx-2">
+        {index === 1 ? (
+          <AfterComposerFocus>
+            <TurnSummaryLine turn={turn} work={TURN_WORK} defaultOpen />
+          </AfterComposerFocus>
+        ) : (
+          <TurnSummaryLine turn={turn} />
+        )}
+      </div>
+    ))}
+  />
+);
+
+/**
+ * The strip while a turn with a forecast runs: its calls so far against the
+ * range, and the forecast's tokens and time. Past the top of the range it
+ * turns amber, the moment to stop it. Without a forecast it reads as before.
+ */
+export const ForecastStripStates = () => (
+  <div data-screenshot-frame className="w-[1000px] p-4">
+    <StoryCard>
+      <StoryRow label="on track" hint="5 calls of 4–8">
+        <div className="w-[720px]">
+          <TurnStrip turn={FORECAST_RUNNING} running now={NOW.getTime()} />
+        </div>
+      </StoryRow>
+      <StoryRow label="past it" hint="13 calls of 4–8">
+        <div className="w-[720px]">
+          <TurnStrip turn={FORECAST_RUNNING_PAST} running now={NOW.getTime()} />
+        </div>
+      </StoryRow>
+      <StoryRow label="no forecast" hint="before the first tool call, or none">
+        <div className="w-[720px]">
+          <TurnStrip turn={RUNNING_TURN} running now={NOW.getTime()} />
+        </div>
+      </StoryRow>
+    </StoryCard>
+  </div>
 );

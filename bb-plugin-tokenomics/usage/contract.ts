@@ -59,6 +59,22 @@ export const turnSummarySchema = z.object({
   commands: z.number(),
   tools: z.number(),
   time: z.object({ model: z.number(), tools: z.number(), waiting: z.number() }).nullable(),
+  /** Model calls so far. */
+  calls: z.number(),
+  /** Claude's 80% ranges for the turn. See usage/forecast.ts. */
+  forecast: z
+    .object({
+      calls: z.tuple([z.number(), z.number()]),
+      timeMs: z.tuple([z.number(), z.number()]),
+      tokens: z.tuple([z.number(), z.number()]).nullable(),
+      context: z.number().nullable(),
+      note: z.string().nullable(),
+    })
+    .nullable(),
+  /** The model, speed, and reasoning level it ran with. */
+  settings: z
+    .object({ model: z.string().nullable(), serviceTier: z.string().nullable(), reasoningLevel: z.string().nullable() })
+    .nullable(),
   ...tokens,
 });
 

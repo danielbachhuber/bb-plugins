@@ -15,6 +15,7 @@ import type { ContextMeterProps } from "./components/context-meter";
 import type { ThreadTokens } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
 import type { Limit, ThreadUsage, TurnDetail, TurnSummary, TurnTimeBreakdown, TurnWork } from "./usage/contract";
+import type { TurnForecast } from "./usage/forecast";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
 export const NOW = new Date(2026, 8, 24, 14, 20);
@@ -363,9 +364,9 @@ export const CONVERSATION: { from: "user" | "agent" | "work"; text: string }[] =
 
 /** One turn per agent message in CONVERSATION, for the lines under each turn. */
 export const TURN_SUMMARIES: TurnSummary[] = [
-  { turnId: "t1", startedAt: NOW.getTime() - 50 * 60_000, endedAt: NOW.getTime() - 38 * 60_000, commands: 18, tools: 37, input: 410_000, cacheRead: 11_800_000, output: 96_000, time: { model: 410_000, tools: 300_000, waiting: 10_000 } },
-  { turnId: "t2", startedAt: NOW.getTime() - 30 * 60_000, endedAt: NOW.getTime() - 22 * 60_000, commands: 41, tools: 22, input: 260_000, cacheRead: 8_900_000, output: 51_000, time: { model: 190_000, tools: 290_000, waiting: 0 } },
-  { turnId: "t3", startedAt: NOW.getTime() - 9 * 60_000, endedAt: NOW.getTime() - 8 * 60_000, commands: 4, tools: 9, input: 38_000, cacheRead: 1_400_000, output: 7_200, time: { model: 41_000, tools: 19_000, waiting: 0 } },
+  { turnId: "t1", startedAt: NOW.getTime() - 50 * 60_000, endedAt: NOW.getTime() - 38 * 60_000, commands: 18, tools: 37, input: 410_000, cacheRead: 11_800_000, output: 96_000, time: { model: 410_000, tools: 300_000, waiting: 10_000 }, calls: 34, forecast: null, settings: null },
+  { turnId: "t2", startedAt: NOW.getTime() - 30 * 60_000, endedAt: NOW.getTime() - 22 * 60_000, commands: 41, tools: 22, input: 260_000, cacheRead: 8_900_000, output: 51_000, time: { model: 190_000, tools: 290_000, waiting: 0 }, calls: 38, forecast: null, settings: null },
+  { turnId: "t3", startedAt: NOW.getTime() - 9 * 60_000, endedAt: NOW.getTime() - 8 * 60_000, commands: 4, tools: 9, input: 38_000, cacheRead: 1_400_000, output: 7_200, time: { model: 41_000, tools: 19_000, waiting: 0 }, calls: 6, forecast: null, settings: null },
 ];
 
 /** What the second turn ran, for its card. */
@@ -405,7 +406,7 @@ export const RUNNING_WORK: TurnWork = {
 
 /** A turn two minutes in, before its tokens arrive. */
 export const RUNNING_TURN: TurnSummary = {
-  turnId: "t4", startedAt: NOW.getTime() - 134_000, endedAt: null, commands: 7, tools: 12, input: 0, cacheRead: 0, output: 0, time: null,
+  turnId: "t4", startedAt: NOW.getTime() - 134_000, endedAt: null, commands: 7, tools: 12, input: 0, cacheRead: 0, output: 0, time: null, calls: 9, forecast: null, settings: null,
 };
 
 /** A thread in bb's own header and composer, with the plugin's surfaces in place. */
@@ -495,3 +496,29 @@ export function ThreadFrame({
 }
 /** Tokens per 15 minutes since the session began 90 minutes before NOW: quiet stretches and spikes. */
 export const SESSION_SLOTS = [2, 9, 4, 0, 12, 7].map((m) => m * 1_000_000);
+
+const forecastOf = (calls: [number, number], minutes: [number, number], context: number, note: string): TurnForecast => ({
+  calls,
+  timeMs: [minutes[0] * 60_000, minutes[1] * 60_000],
+  tokens: [calls[0] * context, calls[1] * context],
+  context,
+  note,
+});
+
+/**
+ * The same three turns with Claude's forecasts: the first ran far past its
+ * range at a large context, the second took longer than forecast on a slow
+ * export, and the third landed inside.
+ */
+const OPUS = { model: "claude-opus-5-5", serviceTier: "default", reasoningLevel: "medium" };
+const OPUS_FAST = { ...OPUS, serviceTier: "fast" };
+
+export const FORECAST_TURNS: TurnSummary[] = [
+  { ...TURN_SUMMARIES[0]!, settings: OPUS, calls: 41, forecast: forecastOf([10, 25], [4, 10], 300_000, "Run the suite and fix what fails.") },
+  { ...TURN_SUMMARIES[1]!, settings: OPUS_FAST, calls: 22, forecast: forecastOf([15, 30], [2, 5], 330_000, "Profile the export and find the slow part.") },
+  { ...TURN_SUMMARIES[2]!, settings: OPUS, calls: 5, forecast: forecastOf([4, 8], [0.5, 2], 240_000, "Rename across the report module and its tests.") },
+];
+
+/** The running turn with a forecast of 4–8 calls: on track at 5, past it at 13. */
+export const FORECAST_RUNNING: TurnSummary = { ...RUNNING_TURN, settings: OPUS, calls: 5, forecast: forecastOf([4, 8], [1, 3], 320_000, "Fix the failing test and rerun it.") };
+export const FORECAST_RUNNING_PAST: TurnSummary = { ...FORECAST_RUNNING, startedAt: NOW.getTime() - 402_000, calls: 13 };
