@@ -496,6 +496,14 @@ function GroupedList({
     setCollapsed(file.path, value);
     setViewed(file, value);
   };
+  // Marks or clears every file in a section that has a Viewed box, one
+  // markViewed or clearViewed call per file whose mark changes.
+  const markSection = (files: FileEntry[], value: boolean) => {
+    for (const file of files) {
+      if (file.revision === undefined || viewed === null || viewed.has(file.path) === value) continue;
+      toggleViewed(file, value);
+    }
+  };
 
   const changed = useMemo(() => changedPaths(stored, data.patches), [stored, data]);
 
@@ -601,6 +609,8 @@ function GroupedList({
               viewed={viewed}
               onJump={jumpToFile}
               changed={changed}
+              markable={group.files.filter((file) => file.revision !== undefined).length}
+              onMarkViewed={(value) => markSection(group.files, value)}
             >
               <NotesBox notes={notesByGroup[groupIndex] ?? []} onJump={jump} />
             </ConcernHeader>

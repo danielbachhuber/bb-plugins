@@ -65,6 +65,7 @@ function Concern({ index }: { index: number }) {
       showList
       viewed={FIXTURE_VIEWED}
       onJump={() => {}}
+      onMarkViewed={() => {}}
     >
       <NotesBox notes={FIXTURE_NOTES.filter((note) => files.has(note.path))} onJump={() => {}} />
     </ConcernHeader>
@@ -269,7 +270,36 @@ export const ConcernFileList = () => {
         showList
         viewed={FIXTURE_VIEWED}
         onJump={() => {}}
+        onMarkViewed={() => {}}
       />
     </Frame>
   );
 };
+
+const GENERATED = [
+  "package-lock.json",
+  "public/images/checkout-empty.png",
+  "src/components/tag/__snapshots__/sale-tag.stories.tsx.snap",
+  "src/components/tag/__snapshots__/stock-tag.stories.tsx.snap",
+  "src/data/__snapshots__/pricing.test.ts.snap",
+];
+
+/** Marking a whole section viewed: the link after the count marks every file not yet viewed, and reads Clear once all of them are. Shown with none, some, and all of Generated files viewed. */
+export const MarkSectionViewed = () => (
+  <Frame>
+    {[0, 3, GENERATED.length].map((count, index) => (
+      <ConcernHeader
+        key={count}
+        number={null}
+        first={index === 0}
+        title="Generated files"
+        explanation="Lockfiles, snapshots, binary files, and files too large to show. Placed by rule."
+        files={GENERATED.map((path) => ({ path }))}
+        showList={false}
+        viewed={new Set(GENERATED.slice(0, count))}
+        onJump={() => {}}
+        onMarkViewed={() => {}}
+      />
+    ))}
+  </Frame>
+);

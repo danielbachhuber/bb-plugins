@@ -119,6 +119,8 @@ export function ConcernHeader({
   viewed,
   onJump,
   changed,
+  markable,
+  onMarkViewed,
   children,
 }: {
   number: number | null;
@@ -131,8 +133,14 @@ export function ConcernHeader({
   viewed: ReadonlySet<string> | null;
   onJump: (path: string) => void;
   changed?: ReadonlySet<string>;
+  /** How many of the files have a Viewed box, which only those can be marked. Defaults to all of them. */
+  markable?: number;
+  /** Marks every file in the section viewed, or clears them all. Without it, no link shows. */
+  onMarkViewed?: (viewed: boolean) => void;
   children?: ReactNode;
 }) {
+  const viewedCount = viewed === null ? 0 : files.filter((file) => viewed.has(file.path)).length;
+  const toMark = (markable ?? files.length) - viewedCount;
   return (
     <header className={`px-1 pb-3 ${first ? "pt-2" : "mt-4 border-t border-border pt-5"}`}>
       <h2 className="flex items-center gap-2.5 text-base font-semibold text-foreground">
@@ -142,7 +150,15 @@ export function ConcernHeader({
       <div className="mt-1" style={{ paddingLeft: number !== null ? 32 : 0 }}>
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           {viewed !== null ? (
-            <ViewedProgress viewed={files.filter((file) => viewed.has(file.path)).length} total={files.length} />
+            <>
+              <ViewedProgress viewed={viewedCount} total={files.length} />
+              {onMarkViewed !== undefined && (toMark > 0 || viewedCount > 0) ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <MarkLink toMark={toMark} viewedCount={viewedCount} onMarkViewed={onMarkViewed} />
+                </>
+              ) : null}
+            </>
           ) : (
             <span>
               {files.length} {files.length === 1 ? "file" : "files"}
@@ -156,6 +172,24 @@ export function ConcernHeader({
         {children}
       </div>
     </header>
+  );
+}
+
+/**
+ * "Mark 4 more viewed" after the count, or "Mark all 4 viewed" when none are,
+ * and "Clear" once every file is viewed.
+ */
+function MarkLink({ toMark, viewedCount, onMarkViewed }: { toMark: number; viewedCount: number; onMarkViewed: (viewed: boolean) => void }) {
+  const marking = toMark > 0;
+  return (
+    <button
+      type="button"
+      onClick={() => onMarkViewed(marking)}
+      title={marking ? undefined : `Clear the Viewed mark on ${viewedCount} ${viewedCount === 1 ? "file" : "files"}`}
+      className={`cursor-pointer underline decoration-border underline-offset-2 hover:decoration-foreground ${marking ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+    >
+      {marking ? `Mark ${viewedCount > 0 ? `${toMark} more` : toMark === 1 ? "it" : `all ${toMark}`} viewed` : "Clear"}
+    </button>
   );
 }
 
