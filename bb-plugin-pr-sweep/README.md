@@ -88,8 +88,9 @@ pull requests in each swept repository; a failure there drops the buttons, not
 the sweep.
 
 When two or more pull requests in the list belong to one stack, they draw
-together as one block, where the newest of them would sit. A header names the
-stack, how many of its pull requests are open, and which have merged. Under
+together as one block, where the newest of them would sit. A header gives the
+stack's number and a dot for each of its pull requests, bottom first: filled
+purple once merged, hollow while open, each named on hover. Under
 it, each pull request is one line, bottom of the stack first: its place in the
 stack, number, and title, then its reviewers, checks, size, and comment count,
 and its actions as icons, each named on hover. A note, a thread, the Start

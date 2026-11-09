@@ -35,8 +35,9 @@ the title.
 
 An item with `stack` set belongs to a stack of pull requests. When two or
 more items in the list share a stack's `key`, the list draws them as one
-block where the first of them falls, under a header ("Stack #731 · 4 open ·
-#690 merged"), each as a `SweepStackLine`, bottom of the stack first: its
+block where the first of them falls, under a header with the stack's number
+and a dot for each of its pull requests, bottom first (filled purple once
+merged, hollow while open, each named on hover), each as a `SweepStackLine`, bottom of the stack first: its
 place, number, and title, then `renderBody` drawn as on a one-line row, the
 comment count, the plugin's actions inside `IconActions`, and
 `renderTrailing`. `IconActions` shows each button's icon alone, keeping its

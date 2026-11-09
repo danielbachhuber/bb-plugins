@@ -789,7 +789,7 @@ export function PrListView({
   );
 }
 
-/** The row's stack as the list groups it: its place, how many are open, and which have merged. */
+/** The row's stack as the list groups it: its place and every pull request in it. */
 function sweepStackOf(row: Row): SweepStack | null {
   const stack = row.stack;
   if (!stack) return null;
@@ -797,7 +797,6 @@ function sweepStackOf(row: Row): SweepStack | null {
     key: `${row.repo}#${stack.number}`,
     number: stack.number,
     position: stack.position,
-    open: stack.entries.length > 0 ? stack.entries.filter((entry) => entry.state === "open").length : stack.size,
-    merged: stack.entries.filter((entry) => entry.state === "merged").map((entry) => entry.number),
+    entries: stack.entries.map(({ number, title, state }) => ({ number, title, state })),
   };
 }

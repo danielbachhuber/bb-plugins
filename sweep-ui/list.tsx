@@ -4,6 +4,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 
 import { Icon } from "./icons";
+import { cn } from "./lib/cn";
 import { SweepRow, SweepStackLine, type SweepLinkProps } from "./row";
 import { SummarySquares } from "./summary";
 import type { Run, Stage, SweepItem, SweepStack, Tier } from "./types";
@@ -282,14 +283,41 @@ export function groupStacks(items: SweepItem[]): Block[] {
   return blocks;
 }
 
-/** "Stack #731 · 4 open · #690, #694 merged". */
+/**
+ * The stack's number, then a dot for each of its pull requests, bottom first:
+ * filled purple for one that has merged, hollow for one still open, and faint
+ * for one closed without merging. Hovering a dot names its pull request.
+ */
 function StackHeader({ stack }: { stack: SweepStack }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Icon name="Layers" className="size-3.5" />
-      <span className="font-medium text-foreground">Stack #{stack.number}</span>
-      <span>· {stack.open} open</span>
-      {stack.merged.length > 0 ? <span>· {stack.merged.map((number) => `#${number}`).join(", ")} merged</span> : null}
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1.5" title={`Stack #${stack.number}`}>
+        <Icon name="Layers" className="size-3.5" />
+        <span className="font-medium text-foreground">#{stack.number}</span>
+      </span>
+      {stack.entries.length > 0 ? (
+        <span role="list" aria-label="Pull requests in the stack, bottom first" className="flex items-center">
+          {stack.entries.map((entry, index) => {
+            const merged = entry.state === "merged";
+            const joinedMerged = merged && stack.entries[index - 1]?.state === "merged";
+            const label = `#${entry.number} ${entry.title}${merged ? " (merged)" : entry.state === "closed" ? " (closed)" : ""}`;
+            return (
+              <span key={entry.number} role="listitem" className="flex items-center" title={label} aria-label={label}>
+                {index > 0 ? <span className={cn("h-px w-2.5", joinedMerged ? MERGED_BG : "bg-border")} /> : null}
+                <span
+                  className={cn(
+                    "size-2.5 rounded-full border",
+                    merged ? cn(MERGED_BG, "border-transparent") : entry.state === "closed" ? "border-border" : "border-current",
+                  )}
+                />
+              </span>
+            );
+          })}
+        </span>
+      ) : null}
     </div>
   );
 }
+
+/** GitHub's merged purple. */
+const MERGED_BG = "bg-[#8250df] dark:bg-[#a371f7]";

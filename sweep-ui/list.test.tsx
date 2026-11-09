@@ -384,7 +384,13 @@ describe("SweepList", () => {
 });
 
 describe("SweepList stacks", () => {
-  const stack = (position: number) => ({ key: "acme/widgets#731", number: 731, position, open: 3, merged: [690] });
+  const entries = [
+    { number: 690, title: "Widget task 690", state: "merged" as const },
+    { number: 10, title: "Widget task 10", state: "open" as const },
+    { number: 11, title: "Widget task 11", state: "open" as const },
+    { number: 12, title: "Widget task 12", state: "open" as const },
+  ];
+  const stack = (position: number) => ({ key: "acme/widgets#731", number: 731, position, entries });
 
   it("draws two or more rows of one stack together, bottom first, where its first row was", () => {
     const items = [
@@ -396,9 +402,9 @@ describe("SweepList stacks", () => {
     render(<SweepList {...props(items, { order: "given" })} />);
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     expect(links).toEqual(["Widget task 10", "Widget task 11", "Widget task 12", "Widget task 40"]);
-    const block = screen.getByText("Stack #731").closest("li")!;
-    expect(within(block).getByText("· 3 open")).toBeInTheDocument();
-    expect(within(block).getByText("· #690 merged")).toBeInTheDocument();
+    const block = screen.getByText("#731").closest("li")!;
+    const dots = within(within(block).getByRole("list", { name: "Pull requests in the stack, bottom first" })).getAllByRole("listitem").map((dot) => dot.getAttribute("aria-label"));
+    expect(dots).toEqual(["#690 Widget task 690 (merged)", "#10 Widget task 10", "#11 Widget task 11", "#12 Widget task 12"]);
     expect(within(block).getAllByRole("link")).toHaveLength(3);
   });
 
@@ -419,7 +425,7 @@ describe("SweepList stacks", () => {
 
   it("leaves a stack with one row here as an ordinary row", () => {
     render(<SweepList {...props([item(10, "new", { stack: stack(1) }), item(40, "new")], { order: "given" })} />);
-    expect(screen.queryByText("Stack #731")).toBeNull();
+    expect(screen.queryByText("#731")).toBeNull();
   });
 
   it("counts a folded stack's rows in N more", () => {
