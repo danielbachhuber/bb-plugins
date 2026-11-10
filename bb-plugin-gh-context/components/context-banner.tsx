@@ -1,5 +1,6 @@
 import { useState, type ButtonHTMLAttributes, type ReactNode, type Ref } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { ChecksMenu } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
 import { cn } from "@/lib/utils";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -97,13 +98,45 @@ function checkStatus(pullRequest: ContextPullRequest): GithubCheckStatus | null 
   }
 }
 
+/** The counts in words, for the checks button's name: "2 failing, 10 passed". */
+function checksLabel(checks: NonNullable<ContextPullRequest["checks"]>): string {
+  const parts = [
+    checks.failedCount ? `${checks.failedCount} failing` : null,
+    checks.pendingCount ? `${checks.pendingCount} pending` : null,
+    checks.passedCount ? `${checks.passedCount} passed` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : `${checks.totalCount} checks`;
+}
+
+/**
+ * The checks' state as GitHub's mark with a coloured dot. Clicking it lists
+ * every check, failing first, when `gh` could say what they are.
+ */
+function ChecksSegment({ pullRequest }: { pullRequest: ContextPullRequest }) {
+  const status = checkStatus(pullRequest);
+  if (status === null || !pullRequest.checks) return null;
+  const label = checksLabel(pullRequest.checks);
+  const icon = <GithubFaviconIcon status={status} />;
+  if (!pullRequest.checkList?.length) {
+    return (
+      <span className="flex h-4 shrink-0 items-center" title={`Checks: ${label}`}>
+        {icon}
+      </span>
+    );
+  }
+  return (
+    <ChecksMenu checks={pullRequest.checkList} label={label} className={cn(SEGMENT_CLASS, "mx-0 shrink-0 px-1.5")}>
+      {icon}
+    </ChecksMenu>
+  );
+}
+
 function formatCount(count: number): string {
   return count.toLocaleString("en-US");
 }
 
 function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPullRequest; compact: boolean }) {
   const state = PR_STATE_ICON[pullRequest.state];
-  const status = checkStatus(pullRequest);
   // Once merged or closed, that is the news; a review no longer is.
   const review =
     pullRequest.myReview && (pullRequest.state === "open" || pullRequest.state === "draft")
@@ -118,7 +151,6 @@ function PullRequestSegment({ pullRequest, compact }: { pullRequest: ContextPull
     >
       <span className="flex h-4 shrink-0 items-center gap-1" title={`${state.label} pull request`}>
         <Icon name={state.icon} className={cn("size-4 shrink-0", state.className)} aria-hidden="true" />
-        {status === null ? null : <GithubFaviconIcon status={status} />}
       </span>
       {compact ? null : (
         <span className="truncate">
@@ -332,6 +364,7 @@ export function ContextBanner({
     body = (
       <div className={ROW_CLASS}>
         {pullRequest ? <PullRequestSegment pullRequest={pullRequest} compact={compact} /> : null}
+        {pullRequest ? <ChecksSegment pullRequest={pullRequest} /> : null}
         {pullRequest?.stack ? (
           <StackMenu stack={pullRequest.stack} current={pullRequest.number} className={cn(SEGMENT_CLASS, "shrink-0 gap-1")} />
         ) : null}

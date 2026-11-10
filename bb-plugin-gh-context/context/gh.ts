@@ -1,5 +1,6 @@
 import type { GhRunner } from "@danielb/gh-shared/gh";
-import { summarizeChecks, type Checks, type RollupEntry } from "./checks.js";
+import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import { checkEntries, summarizeChecks, type Checks, type RollupEntry } from "./checks.js";
 import type { MyReview } from "./contract.js";
 import type { IssueRef } from "./rules.js";
 
@@ -35,6 +36,8 @@ export interface GhPullRequest {
   /** Everyone asked for a review or who gave one, as the banner shows them. */
   reviewers: Reviewer[];
   checks: Checks;
+  /** Every check's latest run, for the checks menu. */
+  checkList: CheckEntry[];
   /** True when it conflicts with its base branch; false while GitHub is still working that out. */
   conflicted: boolean;
 }
@@ -248,6 +251,7 @@ function parsePullRequest(json: PullRequestJson): GhPullRequest | null {
     requestedReviewers: logins((json.reviewRequests ?? []).map((request) => request.login)),
     reviewers: reviewerList(json.reviews ?? [], json.reviewRequests ?? [], author, open),
     checks: summarizeChecks(json.statusCheckRollup),
+    checkList: checkEntries(json.statusCheckRollup),
     conflicted: open && json.mergeable === "CONFLICTING",
   };
 }

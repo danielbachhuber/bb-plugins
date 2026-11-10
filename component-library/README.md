@@ -622,7 +622,8 @@ import { ChecksMenu } from "@danielbachhuber/bb-plugin-component-library/checks-
 `checks` is a list of `{ name, workflow?, outcome, url? }`, where `outcome` is
 `fail`, `cancelled`, `pending`, `pass`, or `skip`. `label` is the trigger's
 accessible name and hover text. With an empty list it draws `children` alone,
-not as a button. PR Sweep draws it around each row's checks count. The menu
+not as a button. PR Sweep draws it around each row's checks count, and GitHub
+Context around the checks mark in its banner. The menu
 needs `@radix-ui/react-dropdown-menu`, which bb provides at runtime.
 
 ## Viewed ring

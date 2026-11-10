@@ -81,6 +81,12 @@ title. It comes from bb's mergeability for the thread's branch, or from the
 same `gh pr view` call that reads a linked pull request's checks, so it costs
 no extra request.
 
+While the pull request is open, GitHub's mark follows it, with a dot for its
+checks: green when they pass, amber while any run, red when any fail. Clicking
+it lists every check, failing first, each opening its details page. The list
+comes from the `gh pr view` call the banner already makes for the reviewers, so
+it costs no extra request.
+
 When the pull request is part of a stack on GitHub, a layers icon and its
 place in the stack follow it, written as GitHub writes it: "4/5" is the fourth
 of five, counting up from the base branch. Clicking it lists every pull request
@@ -152,7 +158,7 @@ display-only.
 | `context/rules.ts` | The three linking rules, as pure functions over prompt text and pull request data |
 | `context/store.ts` | `thread_links` and `prompt_scan` |
 | `context/gh.ts` | The only place `gh` runs, with its cache |
-| `context/checks.ts` | Counts a pull request's checks from `gh`'s rollup the way bb does |
+| `context/checks.ts` | Counts a pull request's checks from `gh`'s rollup the way bb does, and lists them for the checks menu |
 | `context/contract.ts` | The RPC contract, including the bridge's methods and Harvest's relayed ones |
 | `context/hide.ts` | The content script that hides bb's banner |
 | `context/harvest-item.ts` | Which issue or pull request a Harvest timer is recorded against |

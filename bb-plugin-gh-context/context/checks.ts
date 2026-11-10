@@ -8,6 +8,8 @@
  * name counts, or a failure fixed by a re-run would still read as failing.
  */
 
+import type { CheckEntry, CheckOutcome } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+
 export interface RollupEntry {
   name?: unknown;
   context?: unknown;
@@ -15,6 +17,11 @@ export interface RollupEntry {
   conclusion?: unknown;
   state?: unknown;
   startedAt?: unknown;
+  workflowName?: unknown;
+  /** A CheckRun's details page. */
+  detailsUrl?: unknown;
+  /** A StatusContext's details page. */
+  targetUrl?: unknown;
 }
 
 export interface Checks {
@@ -62,7 +69,8 @@ function outcome(entry: RollupEntry): Outcome {
   return "unknown";
 }
 
-export function summarizeChecks(rollup: readonly RollupEntry[] | null | undefined): Checks {
+/** The latest run of each check, keyed by name; nameless entries kept apart. */
+function latestRuns(rollup: readonly RollupEntry[] | null | undefined): Map<string, RollupEntry> {
   const latest = new Map<string, RollupEntry>();
   let anonymous = 0;
   for (const entry of rollup ?? []) {
@@ -74,6 +82,41 @@ export function summarizeChecks(rollup: readonly RollupEntry[] | null | undefine
     const current = latest.get(key);
     if (!current || startedAt(entry) >= startedAt(current)) latest.set(key, entry);
   }
+  return latest;
+}
+
+/** How the checks menu groups a run, which tells cancelled and skipped apart. */
+function listOutcome(entry: RollupEntry): CheckOutcome {
+  if (entry.status === undefined && entry.state !== undefined) {
+    const state = text(entry.state).toUpperCase();
+    if (state === "SUCCESS") return "pass";
+    return FAILED.has(state) ? "fail" : "pending";
+  }
+  if (text(entry.status).toUpperCase() !== "COMPLETED") return "pending";
+  const conclusion = text(entry.conclusion).toUpperCase();
+  if (conclusion === "SUCCESS") return "pass";
+  if (conclusion === "SKIPPED" || conclusion === "NEUTRAL") return "skip";
+  if (conclusion === "CANCELLED") return "cancelled";
+  return FAILED.has(conclusion) ? "fail" : "pending";
+}
+
+/** Every check's latest run, with its workflow and details page, for the checks menu. */
+export function checkEntries(rollup: readonly RollupEntry[] | null | undefined): CheckEntry[] {
+  return [...latestRuns(rollup).values()].map((entry) => {
+    const check: CheckEntry = {
+      name: (text(entry.name) || text(entry.context)).trim() || "Unnamed check",
+      outcome: listOutcome(entry),
+    };
+    const workflow = text(entry.workflowName);
+    if (workflow) check.workflow = workflow;
+    const url = text(entry.detailsUrl) || text(entry.targetUrl);
+    if (url) check.url = url;
+    return check;
+  });
+}
+
+export function summarizeChecks(rollup: readonly RollupEntry[] | null | undefined): Checks {
+  const latest = latestRuns(rollup);
 
   const counts: Record<Outcome, number> = { passed: 0, failed: 0, pending: 0, unknown: 0 };
   for (const entry of latest.values()) counts[outcome(entry)] += 1;

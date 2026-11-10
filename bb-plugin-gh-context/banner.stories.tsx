@@ -145,6 +145,21 @@ const contextPullRequest: ContextPullRequest = {
   myReview: null,
   reviewers: [{ ...octocat, state: "approved" }],
   stack: null,
+  checkList: [
+    { name: "preview", workflow: "Deploy", outcome: "pending", url: "https://github.com/acme/widgets/actions/runs/2/job/1" },
+    { name: "migrate", workflow: "Deploy", outcome: "pending", url: "https://github.com/acme/widgets/actions/runs/2/job/2" },
+    { name: "smoke", workflow: "Deploy", outcome: "pending", url: "https://github.com/acme/widgets/actions/runs/2/job/3" },
+    { name: "lint", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/1" },
+    { name: "typecheck", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/2" },
+    { name: "unit", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/3" },
+    { name: "build", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/4" },
+    { name: "widgets-storybook", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/5" },
+    { name: "e2e-chrome", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/6" },
+    { name: "e2e-firefox", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/7" },
+    { name: "e2e-safari", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/8" },
+    { name: "docs", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/9" },
+    { name: "bundle-size", workflow: "Test", outcome: "pass", url: "https://github.com/acme/widgets/actions/runs/1/job/10" },
+  ],
 };
 
 const promptIssue: ContextIssue = {

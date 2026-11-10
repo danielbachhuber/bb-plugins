@@ -31,6 +31,7 @@ function context(overrides: Partial<ThreadContext> = {}): ThreadContext {
       myReview: null,
       reviewers: [],
       stack: null,
+      checkList: null,
     },
     issues: [],
     changes: null,

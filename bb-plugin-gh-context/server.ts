@@ -1,4 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import { createGhRunner, readGitRemoteUrls } from "@danielb/gh-shared/gh";
 import { environmentPullRequest, markPullRequestReady, mergePullRequest } from "@danielb/gh-shared/pr-status";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
@@ -178,10 +179,13 @@ export default async function plugin(bb: BbPluginApi) {
     return store.itemsForThread(thread.id).length > before;
   }
 
-  /** What only `gh` knows about a pull request: the reviews and its stack. */
-  async function fromGh(
-    ref: IssueRef,
-  ): Promise<{ myReview: MyReview | null; reviewers: ContextReviewer[] | null; stack: ContextStack | null }> {
+  /** What only `gh` knows about a pull request: the reviews, its stack, and each check. */
+  async function fromGh(ref: IssueRef): Promise<{
+    myReview: MyReview | null;
+    reviewers: ContextReviewer[] | null;
+    stack: ContextStack | null;
+    checkList: CheckEntry[] | null;
+  }> {
     const client = await ghClient();
     const [fetched, viewer, requested, stack] = await Promise.all([
       client.pullRequest(ref),
@@ -191,11 +195,12 @@ export default async function plugin(bb: BbPluginApi) {
       client.reviewRequested(),
       client.stack(ref),
     ]);
-    if (!fetched) return { myReview: null, reviewers: null, stack };
+    if (!fetched) return { myReview: null, reviewers: null, stack, checkList: null };
     return {
       myReview: myReview(fetched, viewer, requested?.includes(`${ref.repo}#${ref.number}`) ?? false),
       reviewers: fetched.reviewers,
       stack,
+      checkList: fetched.checkList,
     };
   }
 

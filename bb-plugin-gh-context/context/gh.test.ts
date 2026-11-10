@@ -91,6 +91,7 @@ describe("pullRequest", () => {
       requestedReviewers: [],
       reviewers: [],
       checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
+      checkList: [],
       conflicted: false,
     });
   });
@@ -199,6 +200,7 @@ describe("myReview", () => {
     requestedReviewers: [],
     reviewers: [],
     checks: { state: "no_checks", totalCount: 0, passedCount: 0, failedCount: 0, pendingCount: 0 },
+    checkList: [],
     conflicted: false,
     ...fields,
   });

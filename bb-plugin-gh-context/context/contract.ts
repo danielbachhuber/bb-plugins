@@ -93,6 +93,17 @@ const pullRequestSchema = z.object({
   reviewers: z.array(reviewerSchema).nullable(),
   /** Null when it is in no stack, or `gh` cannot say. */
   stack: stackSchema.nullable(),
+  /** Every check on the head commit, for the menu the checks icon opens. Null when `gh` could not say. */
+  checkList: z
+    .array(
+      z.object({
+        name: z.string(),
+        workflow: z.string().optional(),
+        outcome: z.enum(["fail", "cancelled", "pending", "pass", "skip"]),
+        url: z.string().optional(),
+      }),
+    )
+    .nullable(),
 });
 
 const issueSchema = z.object({

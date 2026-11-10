@@ -41,6 +41,7 @@ const pullRequest = {
   myReview: null,
   reviewers: [],
   stack: null,
+  checkList: null,
 };
 
 describe("harvestItem", () => {
