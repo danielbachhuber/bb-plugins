@@ -1,5 +1,4 @@
 import type { SyncUsage } from "@danielbachhuber/bb-plugin-component-library/sync-status";
-import { ChecksMenu } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import { StackMenu } from "@danielbachhuber/bb-plugin-component-library/stack-menu";
 import { useState, type ReactNode } from "react";
 import {
@@ -20,8 +19,6 @@ import { SkippedReposFooter } from "sweep-ui/skipped-repos";
 import {
   Avatar,
   ChecksBadge,
-  checksGlyph,
-  checksLabel,
   DiffCount,
   PullRequestIcon,
   ReviewerStack,
@@ -311,9 +308,7 @@ function FactIcons({ row, now, showRepo, avatarFor }: BodyProps) {
           </TooltipProvider>
         </span>
       ) : null}
-      <ChecksMenu checks={checksGlyph(row.checks) ? (row.checkList ?? []) : []} label={checksLabel(row.checks)}>
-        <ChecksBadge checks={row.checks} />
-      </ChecksMenu>
+      <ChecksBadge checks={row.checks} list={row.checkList} />
       <DiffCount additions={row.size.additions} deletions={row.size.deletions} />
       {showRepo ? <span data-part="repo">{row.repo}</span> : null}
     </span>

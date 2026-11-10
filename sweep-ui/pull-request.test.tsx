@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+
+vi.mock("@get-bb/plugin-sdk/app", () => ({
+  UrlLink: ({ href, ...props }: { href: string } & Record<string, unknown>) => <a href={href} {...props} />,
+}));
 
 import {
   ChecksBadge,
@@ -132,6 +136,17 @@ describe("ReviewerStack", () => {
 });
 
 describe("ChecksBadge", () => {
+  it("opens a list of every check when given one, and stays plain without", () => {
+    const list = [
+      { name: "lint", outcome: "pass" as const, url: "https://example.test/lint" },
+      { name: "build", outcome: "fail" as const, url: "https://example.test/build" },
+    ];
+    const { rerender } = render(<ChecksBadge checks={{ ...GREEN, fail: 1, total: 6 }} list={list} />);
+    expect(screen.getByRole("button", { name: /^Checks: 1 fail/ })).toHaveTextContent("1/5 failing");
+    rerender(<ChecksBadge checks={{ ...GREEN, fail: 1, total: 6 }} list={[]} />);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("draws passing checks with a green tick and every count on hover", () => {
     const { container } = render(<ChecksBadge checks={GREEN} />);
     const badge = container.querySelector('[data-part="checks"]')!;

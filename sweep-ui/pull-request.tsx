@@ -3,6 +3,8 @@
 // too, so the two plugins describe a pull request the same way.
 import { Fragment, useState, type ComponentType, type ReactElement, type ReactNode } from "react";
 
+import { ChecksMenu, type CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+
 import { Icon } from "./icons";
 import { cn } from "./lib/cn";
 
@@ -206,12 +208,13 @@ const CHECKS_TONE = {
 /**
  * The checks as an icon and a count, with every count in words on hover: a
  * green tick, an amber clock while any run, a red cross when any fail or were
- * cancelled. Nothing when the pull request has no checks.
+ * cancelled. Given the checks themselves, clicking it lists every one,
+ * failing first. Nothing when the pull request has no checks.
  */
-export function ChecksBadge({ checks }: { checks: ChecksSummary }) {
+export function ChecksBadge({ checks, list }: { checks: ChecksSummary; list?: readonly CheckEntry[] }) {
   const glyph = checksGlyph(checks);
   if (!glyph) return null;
-  return (
+  const badge = (
     <span data-part="checks" className="inline-flex items-center gap-1" title={checksLabel(checks)}>
       <Icon
         name={glyph.tone === "failed" ? "CircleX" : glyph.tone === "running" ? "Clock" : "CircleCheck"}
@@ -219,6 +222,12 @@ export function ChecksBadge({ checks }: { checks: ChecksSummary }) {
       />
       <span className={glyph.tone === "failed" ? CHECKS_TONE.failed : undefined}>{glyph.text}</span>
     </span>
+  );
+  if (!list?.length) return badge;
+  return (
+    <ChecksMenu checks={[...list]} label={checksLabel(checks)}>
+      {badge}
+    </ChecksMenu>
   );
 }
 
