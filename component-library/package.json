@@ -29,6 +29,7 @@
   "type": "module",
   "exports": {
     "./calendar": "./calendar/calendar.tsx",
+    "./checks-menu": "./checks-menu/checks-menu.tsx",
     "./copy-link": "./copy-link/copy-link.ts",
     "./date-range": "./date-range/date-range.tsx",
     "./day-menu": "./day-menu/day-menu.tsx",

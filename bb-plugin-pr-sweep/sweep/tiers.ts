@@ -1,4 +1,5 @@
 import type { StackPosition } from "@danielb/gh-shared/gh";
+import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import type { Flag, Run } from "sweep-ui/types";
 import { DISPLAY_SECTIONS, hasOnlyPassiveFlags, sectionForRow } from "./actions.js";
 
@@ -54,6 +55,8 @@ export interface ListedPr {
   /** The commit at the head of the branch, and the checks failing on it. */
   headSha?: string;
   failingChecks?: string[];
+  /** Every check on the head commit, for the menu the checks count opens. */
+  checkList?: CheckEntry[];
   /** The failing checks you dismissed on this commit, which no longer flag the row. */
   dismissedChecks?: string[];
   /** Comments since the pull request was last opened from here. */

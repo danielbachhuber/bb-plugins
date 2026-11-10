@@ -2,6 +2,8 @@ import { isBotLogin } from "@danielb/gh-shared/gh";
 import {
   FLAG_SEVERITY,
   groupForFlags,
+  type CheckEntry,
+  type CheckOutcome,
   type ChecksSummary,
   type ClassifiedRow,
   type Flag,
@@ -60,7 +62,6 @@ export function latestChecks(rollup: RawPullRequest["statusCheckRollup"]): Rollu
   return [...latest.values()];
 }
 
-type CheckOutcome = "pass" | "fail" | "skip" | "pending" | "cancelled";
 
 function outcomeOf(entry: RollupEntry): CheckOutcome {
   // StatusContext: no status/conclusion, only state.
@@ -100,6 +101,17 @@ export function summarizeChecks(
   }
 
   return summary;
+}
+
+/** Every check's latest run: its name, workflow, outcome, and details page. */
+export function checkEntries(rollup: RawPullRequest["statusCheckRollup"]): CheckEntry[] {
+  return latestChecks(rollup).map((entry) => {
+    const check: CheckEntry = { name: (entry.name ?? entry.context ?? "").trim() || "Unnamed check", outcome: outcomeOf(entry) };
+    if (entry.workflowName) check.workflow = entry.workflowName;
+    const url = entry.detailsUrl || entry.targetUrl;
+    if (url) check.url = url;
+    return check;
+  });
 }
 
 /** The names of the checks failing on the latest run, sorted, nameless ones left out. */
@@ -378,6 +390,7 @@ export function classifyOne(
     baseRefName: pr.baseRefName,
     headSha: pr.headRefOid,
     failingChecks: failingCheckNames(pr.statusCheckRollup),
+    checkList: checkEntries(pr.statusCheckRollup),
   };
 }
 

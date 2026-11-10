@@ -2,6 +2,7 @@ import { latestChecks, reviewNotes } from "./classify.js";
 import { describe, expect, it } from "vitest";
 import {
   classify,
+  checkEntries,
   classifyOne,
   failingCheckNames,
   isBotLogin,
@@ -685,5 +686,21 @@ describe("classifyOne row details", () => {
     expect(row.additions).toBeUndefined();
     expect(row.deletions).toBeUndefined();
     expect(row.baseRefName).toBeUndefined();
+  });
+});
+
+describe("checkEntries", () => {
+  it("keeps each check's latest run with its outcome, workflow, and details page", () => {
+    const entries = checkEntries([
+      { ...checkRun("build", "COMPLETED", "FAILURE"), startedAt: "2026-01-01T00:00:00Z" },
+      { ...checkRun("build", "COMPLETED", "SUCCESS"), startedAt: "2026-01-01T00:01:00Z" },
+      checkRun("unit", "COMPLETED", "CANCELLED"),
+      { ...statusContext("deploy", "PENDING"), targetUrl: "https://example.test/deploy" },
+    ]);
+    expect(entries).toEqual([
+      { name: "build", workflow: "ci", outcome: "pass", url: "https://example.test/checks/build" },
+      { name: "unit", workflow: "ci", outcome: "cancelled", url: "https://example.test/checks/unit" },
+      { name: "deploy", outcome: "pending", url: "https://example.test/deploy" },
+    ]);
   });
 });

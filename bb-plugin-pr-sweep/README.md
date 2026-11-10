@@ -142,7 +142,9 @@ where their review stands (requested, changes requested, approved, or
 commented), or an orange person icon when nobody has been asked; the checks as a green check with how many passed
 out of those that ran, a clock while some are running, or a red cross with how
 many failed or were cancelled, skipped checks left out and nothing shown when
-the pull request has no checks; and the lines
+the pull request has no checks. Clicking the checks lists every one, failing
+first, each opening its details page; the list comes from the sweep's own
+fetch, so opening it makes no API call. Then the lines
 added and removed. The repository joins the line only when more than one is in
 play. A pull request awaiting review that has not been updated for "Stale
 after (days)" shows "Waiting N days" in red there too.

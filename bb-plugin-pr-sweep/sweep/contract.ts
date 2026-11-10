@@ -157,6 +157,17 @@ const rowSchema = z.object({
   /** The commit at the head of the branch, and the checks failing on it. */
   headSha: z.string().optional(),
   failingChecks: z.array(z.string()).optional(),
+  /** Every check on the head commit, for the menu the checks count opens. */
+  checkList: z
+    .array(
+      z.object({
+        name: z.string(),
+        workflow: z.string().optional(),
+        outcome: z.enum(["fail", "cancelled", "pending", "pass", "skip"]),
+        url: z.string().optional(),
+      }),
+    )
+    .optional(),
   /**
    * The failing checks you dismissed on this commit. Their "ci-failing" flag
    * is gone from `flags` while this is set.

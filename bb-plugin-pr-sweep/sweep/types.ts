@@ -1,4 +1,5 @@
 import type { StackPosition } from "@danielb/gh-shared/gh";
+import type { CheckEntry, CheckOutcome } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import type { ChecksSummary } from "sweep-ui/pull-request";
 
 /** Ordered worst-first. Index in this array IS the severity rank. */
@@ -25,7 +26,7 @@ export function groupForFlags(flags: readonly Flag[]): RowGroup {
 }
 
 // Shared with Review Sweep, which draws the same checks badge.
-export type { ChecksSummary };
+export type { CheckEntry, CheckOutcome, ChecksSummary };
 
 export interface ClassifiedRow {
   repo: string;
@@ -113,6 +114,11 @@ export interface ClassifiedRow {
   headSha?: string;
   failingChecks?: string[];
   /**
+   * Every check on the head commit, the latest run of each, for the menu the
+   * checks count opens. Optional for the same reason.
+   */
+  checkList?: CheckEntry[];
+  /**
    * The failing checks you dismissed, set when the row is read rather than by
    * the sweep. Their "ci-failing" flag is gone from `flags` while this is set.
    */
@@ -161,6 +167,11 @@ export interface RawPullRequest {
     state?: string;
     /** Which run of a re-run check this is. See `latestChecks`. */
     startedAt?: string | null;
+    workflowName?: string;
+    /** A CheckRun's details page. */
+    detailsUrl?: string;
+    /** A StatusContext's details page. */
+    targetUrl?: string;
   }> | null;
 }
 
