@@ -7,9 +7,10 @@ description: Use when the user wants to capture one piece of work as an entry in
 
 The user keeps a weekly work journal in a Google Doc. Each week has sections
 (`Done:`, `Wins/Highlights:`, `Reflections/Learnings:`, `Next:`) of bullets.
-This skill writes **one** of those bullets, with its sub-bullets, about one
-piece of work: what this thread did, or what the user did on the thing the
-thread was started for. The format matters more than anything else here.
+This skill writes **one** of those bullets about one piece of work: what
+this thread did, or what the user did on the thing the thread was started
+for. The format matters more than anything else here: one short bullet that
+says what the work changed.
 
 Nothing reaches the doc until the user accepts the draft. Then
 `bb weekly-review entry add` puts it at the end of its section in the week's
@@ -62,9 +63,8 @@ against the evidence:
 - **It already says what the evidence supports.** Publish no card. Say in
   chat which bullet covers it, quoted, and that it needs nothing.
 - **The evidence adds something worth having.** Draft a refinement of that
-  bullet: the trigger or who asked, the outcome, sub-bullets for the
-  questions or points the user worked through, a missing link, a wrong fact,
-  an `AI-Native SDLC:` note. Start from the user's text and keep their
+  bullet: the trigger or who asked, the impact, a missing link, a wrong
+  fact. Start from the user's text and keep their
   wording, links, and order; add to it rather than rewriting it. The draft is
   the whole bullet as it would read after the change, every sub-bullet
   included, since accepting it replaces all of them. A sub-bullet left out of
@@ -91,11 +91,20 @@ when it is the thing the bullet is about.
   from `source list`; GitHub sends an issue URL on to the PR when the number
   is a PR. A doc's URL comes from `meetings --notes` or the thread. Leave
   anything else unlinked rather than guessing.
-- **Say who, why, what, and how it came out.** Name people by first name.
-  Give the trigger ("after Octocat found the export dropping rows"), what
-  the user did, and the result. One or two sentences; longer only when the
-  story needs it.
-- **Use sub-bullets for structure inside the one piece of work:**
+- **Name the impact.** The bullet says what changed because of the work:
+  for whom, and what they can now do or no longer have to. "So Octocat's
+  report stopped dropping rows", not "so the work is clearer". When you do
+  not know the impact, ask rather than write a vague one.
+- **Say who and why, briefly.** Name people by first name. Give the trigger
+  ("after Octocat found the export dropping rows") when it explains the
+  work. One or two sentences in all.
+- **One bullet, no sub-bullets, by default.** Fold several related items
+  into the one sentence ("for WBEZ, Science Friday, and HPR") rather than
+  giving each its own line. Leave out the detail of what each message or
+  doc said; the link carries it. Add sub-bullets only when the work is
+  among the most important of the week and its structure cannot fit in a
+  sentence, and say in the card's summary why it earned them. Then they
+  can be:
   - a group of similar items, each `[<linked name>](<url>) - <status sentence>.`
   - the questions or points the user gave someone, as written
   - what someone said back, quoted verbatim in quotation marks
@@ -118,8 +127,7 @@ decision someone made, a request to present.
 each side) between a name and its status. No em dashes.
 
 ```markdown
-- Took over [the export fix](https://github.com/acme/widgets/issues/412) from Hubber after Octocat found it dropping rows. I reworked the script so it could not overwrite good data, and ran it.
-  - AI-Native SDLC: I had Claude capture before-and-after screenshots of the report, so Octocat could check the result by eye instead of re-running queries.
+- Took over [the export fix](https://github.com/acme/widgets/issues/412) from Hubber after Octocat found it dropping rows, so the weekly report is complete again.
 ```
 
 ## Show the draft
