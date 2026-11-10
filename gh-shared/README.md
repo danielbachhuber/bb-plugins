@@ -65,6 +65,16 @@ and nothing else:
   draws an issue's comments with it too, read with `feedbackPerson` and
   `commentMarkdown` from the same file.
 
+- **`checks`**, served from the `gh` path for the same reason as `stacks`.
+  `checkEntries` reads a pull request's checks into one entry per check, from
+  its latest run, with its outcome, workflow, and details page. It takes
+  either form GitHub returns: `gh`'s flat `statusCheckRollup` or a GraphQL
+  `contexts` node. `countChecks` counts the entries by outcome. GitHub's own
+  counts include every run, so a check a newer push cancelled and a re-run
+  passed would count as cancelled. PR Sweep, Review Sweep, and GitHub Context
+  all count from these, and draw the entries with the component library's
+  Checks menu.
+
 Deliberately **not** here: the classifiers, the row types, or the stores. They
 look alike and encode different rules; sharing them would couple things that
 have already drifted apart once.

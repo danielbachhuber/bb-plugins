@@ -1,9 +1,7 @@
-import { isBotLogin } from "@danielb/gh-shared/gh";
+import { checkEntries, countChecks, failingCheckNames, isBotLogin } from "@danielb/gh-shared/gh";
 import {
   FLAG_SEVERITY,
   groupForFlags,
-  type CheckEntry,
-  type CheckOutcome,
   type ChecksSummary,
   type ClassifiedRow,
   type Flag,
@@ -11,116 +9,15 @@ import {
 } from "./types.js";
 
 // Re-exported so this plugin's own modules keep importing from one place.
-export { isBotLogin };
-
-const SKIPPED_CONCLUSIONS = new Set(["SKIPPED", "NEUTRAL"]);
-const FAILED_CONCLUSIONS = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"]);
+export { checkEntries, failingCheckNames, isBotLogin };
 
 /**
- * A rollup mixes CheckRun entries (.status/.conclusion) with StatusContext
- * entries (.state). Reading .conclusion alone returns null for every status
- * context AND for every run still in progress, so both shapes are handled.
+ * The checks, counted from each one's latest run. The reading itself lives in
+ * gh-shared, which GitHub Context and Review Sweep share, so the three count
+ * a pull request's checks the same way.
  */
-type RollupEntry = NonNullable<RawPullRequest["statusCheckRollup"]>[number];
-
-/** The later of two runs of the same check, undated entries sorting first. */
-function isSameOrLater(candidate: RollupEntry, current: RollupEntry): boolean {
-  const candidateAt = Date.parse(candidate.startedAt ?? "");
-  const currentAt = Date.parse(current.startedAt ?? "");
-  if (Number.isNaN(candidateAt)) return Number.isNaN(currentAt);
-  if (Number.isNaN(currentAt)) return true;
-  return candidateAt >= currentAt;
-}
-
-/**
- * One entry per check, the most recent run of each.
- *
- * A re-run does not replace its predecessor in the rollup — GitHub returns
- * both — so a check that failed and was re-run green appears twice, and
- * counting the raw rollup reports a failure that no longer exists. #5850 read
- * "1 fail · 6 pass" while every check on it was green, because "Validate PR
- * title" failed at 12:38:14 and succeeded on re-run twenty seconds later.
- *
- * Keyed on the check's name, or on `context` for the StatusContext entries
- * that have no name. An entry with neither cannot be matched against anything,
- * so it is kept rather than dropped or collapsed with other nameless entries.
- */
-export function latestChecks(rollup: RawPullRequest["statusCheckRollup"]): RollupEntry[] {
-  const latest = new Map<string, RollupEntry>();
-  let anonymous = 0;
-
-  for (const entry of rollup ?? []) {
-    const key = (entry.name ?? entry.context ?? "").trim();
-    if (key === "") {
-      latest.set(`\u0000${anonymous++}`, entry);
-      continue;
-    }
-    const current = latest.get(key);
-    if (!current || isSameOrLater(entry, current)) latest.set(key, entry);
-  }
-
-  return [...latest.values()];
-}
-
-
-function outcomeOf(entry: RollupEntry): CheckOutcome {
-  // StatusContext: no status/conclusion, only state.
-  if (entry.state !== undefined && entry.status === undefined) {
-    const state = entry.state.toUpperCase();
-    if (state === "SUCCESS") return "pass";
-    if (state === "PENDING" || state === "EXPECTED") return "pending";
-    return "fail";
-  }
-
-  // CheckRun: a run that has not completed has no meaningful conclusion.
-  if ((entry.status ?? "").toUpperCase() !== "COMPLETED") return "pending";
-
-  const conclusion = (entry.conclusion ?? "").toUpperCase();
-  if (conclusion === "SUCCESS") return "pass";
-  if (SKIPPED_CONCLUSIONS.has(conclusion)) return "skip";
-  if (conclusion === "CANCELLED") return "cancelled";
-  if (FAILED_CONCLUSIONS.has(conclusion)) return "fail";
-  return "pending";
-}
-
-export function summarizeChecks(
-  rollup: RawPullRequest["statusCheckRollup"],
-): ChecksSummary {
-  const summary: ChecksSummary = {
-    pass: 0,
-    fail: 0,
-    skip: 0,
-    pending: 0,
-    cancelled: 0,
-    total: 0,
-  };
-
-  for (const entry of latestChecks(rollup)) {
-    summary.total += 1;
-    summary[outcomeOf(entry)] += 1;
-  }
-
-  return summary;
-}
-
-/** Every check's latest run: its name, workflow, outcome, and details page. */
-export function checkEntries(rollup: RawPullRequest["statusCheckRollup"]): CheckEntry[] {
-  return latestChecks(rollup).map((entry) => {
-    const check: CheckEntry = { name: (entry.name ?? entry.context ?? "").trim() || "Unnamed check", outcome: outcomeOf(entry) };
-    if (entry.workflowName) check.workflow = entry.workflowName;
-    const url = entry.detailsUrl || entry.targetUrl;
-    if (url) check.url = url;
-    return check;
-  });
-}
-
-/** The names of the checks failing on the latest run, sorted, nameless ones left out. */
-export function failingCheckNames(rollup: RawPullRequest["statusCheckRollup"]): string[] {
-  return latestChecks(rollup)
-    .filter((entry) => outcomeOf(entry) === "fail")
-    .map((entry) => (entry.name ?? entry.context ?? "").trim())
-    .filter((name) => name !== "")
-    .sort();
+export function summarizeChecks(rollup: RawPullRequest["statusCheckRollup"]): ChecksSummary {
+  return countChecks(checkEntries(rollup));
 }
 
 const LIVE_FEEDBACK_STATES = new Set(["CHANGES_REQUESTED", "COMMENTED"]);

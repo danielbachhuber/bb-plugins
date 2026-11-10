@@ -1,4 +1,4 @@
-import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry } from "@danielb/gh-shared/gh";
 import type { Flag, Run } from "sweep-ui/types";
 import type { StackPosition } from "@danielb/gh-shared/gh";
 import { ageInDays, type ChangeSize, type ChecksSummary, type ReviewState, type RowReviewer } from "./types.js";

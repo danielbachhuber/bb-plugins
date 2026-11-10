@@ -1,5 +1,5 @@
 import type { StackPosition } from "@danielb/gh-shared/gh";
-import type { CheckEntry, CheckOutcome } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry, CheckOutcome } from "@danielb/gh-shared/gh";
 import type { ChecksSummary } from "sweep-ui/pull-request";
 
 /** Ordered worst-first. Index in this array IS the severity rank. */

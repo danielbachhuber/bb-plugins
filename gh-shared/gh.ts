@@ -132,3 +132,5 @@ export * from "./bots.js";
 export * from "./feedback.js";
 // And what a sync costs against the GraphQL rate limit.
 export * from "./usage.js";
+// And how a pull request's checks are read, one entry per check's latest run.
+export * from "./checks.js";

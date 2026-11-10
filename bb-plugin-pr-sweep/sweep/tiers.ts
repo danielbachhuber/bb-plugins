@@ -1,5 +1,5 @@
 import type { StackPosition } from "@danielb/gh-shared/gh";
-import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry } from "@danielb/gh-shared/gh";
 import type { Flag, Run } from "sweep-ui/types";
 import { DISPLAY_SECTIONS, hasOnlyPassiveFlags, sectionForRow } from "./actions.js";
 

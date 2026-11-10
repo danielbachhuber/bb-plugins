@@ -1,4 +1,4 @@
-import type { CheckEntry, CheckOutcome } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry, CheckOutcome, RollupEntry } from "@danielb/gh-shared/gh";
 import type { ChecksSummary, ReviewState as ReviewerState } from "sweep-ui/pull-request";
 import type { StackPosition } from "@danielb/gh-shared/gh";
 
@@ -134,20 +134,6 @@ export interface RawStateCount {
   count?: number;
 }
 
-/** One check on the head commit: a CheckRun, or a StatusContext with only `state`. */
-export interface RawCheckContext {
-  __typename?: string;
-  name?: string;
-  status?: string;
-  conclusion?: string | null;
-  startedAt?: string | null;
-  detailsUrl?: string | null;
-  checkSuite?: { workflowRun?: { workflow?: { name?: string } | null } | null } | null;
-  context?: string;
-  state?: string;
-  targetUrl?: string | null;
-}
-
 /**
  * The head commit's checks. The counts come from GitHub and cover every check
  * whatever the page size; `nodes` lists the first 100, for the checks menu.
@@ -157,7 +143,7 @@ export interface RawStatusCheckRollup {
   contexts?: {
     checkRunCountsByState?: Array<RawStateCount | null> | null;
     statusContextCountsByState?: Array<RawStateCount | null> | null;
-    nodes?: Array<RawCheckContext | null> | null;
+    nodes?: Array<RollupEntry | null> | null;
   } | null;
 }
 

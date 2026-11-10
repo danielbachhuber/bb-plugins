@@ -1,8 +1,7 @@
-import { latestChecks, reviewNotes } from "./classify.js";
+import { reviewNotes } from "./classify.js";
 import { describe, expect, it } from "vitest";
 import {
   classify,
-  checkEntries,
   classifyOne,
   failingCheckNames,
   isBotLogin,
@@ -481,82 +480,6 @@ describe("failingCheckNames", () => {
   });
 });
 
-describe("latestChecks", () => {
-  const run = (name: string, conclusion: string, startedAt: string | null) => ({
-    __typename: "CheckRun",
-    name,
-    status: "COMPLETED",
-    conclusion,
-    startedAt,
-  });
-
-  it("keeps only the latest run of a re-run check", () => {
-    // The exact shape that made #5850 read "1 fail" while it was green: a
-    // check failed, was re-run twenty seconds later, and GitHub returned both.
-    const rollup = [
-      run("Validate PR title", "FAILURE", "2026-08-28T12:38:14Z"),
-      run("Validate PR title", "SUCCESS", "2026-08-28T12:38:34Z"),
-    ];
-    expect(latestChecks(rollup)).toEqual([rollup[1]]);
-    expect(summarizeChecks(rollup)).toMatchObject({ pass: 1, fail: 0, total: 1 });
-  });
-
-  it("does not care which order the rollup returns them in", () => {
-    const later = run("Build", "SUCCESS", "2026-08-28T12:38:34Z");
-    const earlier = run("Build", "FAILURE", "2026-08-28T12:38:14Z");
-    expect(latestChecks([later, earlier])).toEqual([later]);
-    expect(latestChecks([earlier, later])).toEqual([later]);
-  });
-
-  it("collapses a repeat that passed both times, so the count is not doubled", () => {
-    const rollup = [
-      run("Identify changed files", "SUCCESS", "2026-08-28T12:38:14Z"),
-      run("Identify changed files", "SUCCESS", "2026-08-28T12:38:14Z"),
-    ];
-    expect(summarizeChecks(rollup)).toMatchObject({ pass: 1, total: 1 });
-  });
-
-  it("keeps checks with different names apart", () => {
-    const rollup = [
-      run("Lint", "FAILURE", "2026-08-28T12:38:14Z"),
-      run("Test", "SUCCESS", "2026-08-28T12:38:14Z"),
-    ];
-    expect(latestChecks(rollup)).toHaveLength(2);
-    expect(summarizeChecks(rollup)).toMatchObject({ pass: 1, fail: 1, total: 2 });
-  });
-
-  it("identifies a StatusContext by its context, since it has no name", () => {
-    const rollup = [
-      { __typename: "StatusContext", context: "ci/circleci", state: "FAILURE" },
-      { __typename: "StatusContext", context: "ci/circleci", state: "SUCCESS" },
-    ];
-    expect(latestChecks(rollup)).toHaveLength(1);
-  });
-
-  it("prefers a dated run over an undated one", () => {
-    const dated = run("Build", "SUCCESS", "2026-08-28T12:38:34Z");
-    const undated = run("Build", "FAILURE", null);
-    expect(latestChecks([undated, dated])).toEqual([dated]);
-    expect(latestChecks([dated, undated])).toEqual([dated]);
-  });
-
-  it("keeps every nameless entry rather than collapsing them together", () => {
-    // Two anonymous entries are two checks, not one seen twice. Collapsing
-    // them would hide a failure behind an unrelated success.
-    const rollup = [
-      { __typename: "CheckRun", status: "COMPLETED", conclusion: "FAILURE" },
-      { __typename: "CheckRun", status: "COMPLETED", conclusion: "SUCCESS" },
-    ];
-    expect(latestChecks(rollup)).toHaveLength(2);
-    expect(summarizeChecks(rollup)).toMatchObject({ pass: 1, fail: 1, total: 2 });
-  });
-
-  it("leaves a rollup with no repeats untouched", () => {
-    expect(latestChecks([])).toEqual([]);
-    expect(latestChecks(null)).toEqual([]);
-  });
-});
-
 describe("reviewNotes", () => {
   // The full review history, not just the latest per reviewer: a body that a
   // later empty review would hide is exactly what this has to keep.
@@ -686,21 +609,5 @@ describe("classifyOne row details", () => {
     expect(row.additions).toBeUndefined();
     expect(row.deletions).toBeUndefined();
     expect(row.baseRefName).toBeUndefined();
-  });
-});
-
-describe("checkEntries", () => {
-  it("keeps each check's latest run with its outcome, workflow, and details page", () => {
-    const entries = checkEntries([
-      { ...checkRun("build", "COMPLETED", "FAILURE"), startedAt: "2026-01-01T00:00:00Z" },
-      { ...checkRun("build", "COMPLETED", "SUCCESS"), startedAt: "2026-01-01T00:01:00Z" },
-      checkRun("unit", "COMPLETED", "CANCELLED"),
-      { ...statusContext("deploy", "PENDING"), targetUrl: "https://example.test/deploy" },
-    ]);
-    expect(entries).toEqual([
-      { name: "build", workflow: "ci", outcome: "pass", url: "https://example.test/checks/build" },
-      { name: "unit", workflow: "ci", outcome: "cancelled", url: "https://example.test/checks/unit" },
-      { name: "deploy", outcome: "pending", url: "https://example.test/deploy" },
-    ]);
   });
 });

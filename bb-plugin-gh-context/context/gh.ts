@@ -1,5 +1,5 @@
 import type { GhRunner } from "@danielb/gh-shared/gh";
-import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry } from "@danielb/gh-shared/gh";
 import { checkEntries, summarizeChecks, type Checks, type RollupEntry } from "./checks.js";
 import type { MyReview } from "./contract.js";
 import type { IssueRef } from "./rules.js";

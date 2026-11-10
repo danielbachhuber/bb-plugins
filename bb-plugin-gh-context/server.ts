@@ -1,5 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
+import type { CheckEntry } from "@danielb/gh-shared/gh";
 import { createGhRunner, readGitRemoteUrls } from "@danielb/gh-shared/gh";
 import { environmentPullRequest, markPullRequestReady, mergePullRequest } from "@danielb/gh-shared/pr-status";
 import { createHarvestBridge } from "bb-plugin-harvest/bridge";
