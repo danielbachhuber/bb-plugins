@@ -71,7 +71,10 @@ and nothing else:
   either form GitHub returns: `gh`'s flat `statusCheckRollup` or a GraphQL
   `contexts` node. `countChecks` counts the entries by outcome. GitHub's own
   counts include every run, so a check a newer push cancelled and a re-run
-  passed would count as cancelled. PR Sweep, Review Sweep, and GitHub Context
+  passed would count as cancelled. A check is its workflow and name together,
+  and a cancelled check is also left out when a newer run of its workflow ran
+  on the same commit, since a matrix job cancelled before it expanded has no
+  successor of the same name. PR Sweep, Review Sweep, and GitHub Context
   all count from these, and draw the entries with the component library's
   Checks menu.
 

@@ -82,7 +82,7 @@ query($q: String!, $limit: Int!) {
                       conclusion
                       startedAt
                       detailsUrl
-                      checkSuite { workflowRun { workflow { name } } }
+                      checkSuite { workflowRun { databaseId workflow { name } } }
                     }
                     ... on StatusContext { context state targetUrl }
                   }

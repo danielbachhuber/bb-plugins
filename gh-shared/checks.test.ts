@@ -144,3 +144,72 @@ describe("failingCheckNames", () => {
     ).toEqual(["audit", "lint"]);
   });
 });
+
+describe("cancelled runs a newer workflow run replaced", () => {
+  const job = (workflow: string, runId: number, name: string, conclusion: string, startedAt: string) => ({
+    __typename: "CheckRun",
+    name,
+    workflowName: workflow,
+    status: "COMPLETED",
+    conclusion,
+    startedAt,
+    detailsUrl: `https://github.com/acme/widgets/actions/runs/${runId}/job/${runId}1`,
+  });
+
+  // A stacked push started every workflow twice a few seconds apart, and each
+  // concurrency group cancelled the first run. The E2E matrix was cancelled
+  // before it expanded, so its cancelled check keeps the template's name.
+  const rollup = [
+    job("E2E", 100, "Determine if E2E tests are needed", "CANCELLED", "2026-11-10T06:09:24Z"),
+    job("E2E", 100, "E2E ${{ matrix.shard }}/3", "CANCELLED", "2026-11-10T06:09:25Z"),
+    job("E2E", 200, "Determine if E2E tests are needed", "SUCCESS", "2026-11-10T06:09:28Z"),
+    job("E2E", 200, "E2E 1/3", "SUCCESS", "2026-11-10T06:09:52Z"),
+    job("E2E", 200, "E2E 2/3", "SUCCESS", "2026-11-10T06:09:52Z"),
+    job("Storybook", 101, "Identify changed files", "CANCELLED", "2026-11-10T06:09:24Z"),
+    job("Storybook", 201, "Identify changed files", "SUCCESS", "2026-11-10T06:09:28Z"),
+    job("Test", 102, "Identify changed files", "CANCELLED", "2026-11-10T06:09:24Z"),
+    job("Test", 202, "Identify changed files", "SUCCESS", "2026-11-10T06:09:28Z"),
+  ];
+
+  it("drops the template-named matrix check along with the rest of the cancelled run", () => {
+    const entries = checkEntries(rollup);
+    expect(entries.map((e) => `${e.workflow}/${e.name}`)).toEqual([
+      "E2E/Determine if E2E tests are needed",
+      "E2E/E2E 1/3",
+      "E2E/E2E 2/3",
+      "Storybook/Identify changed files",
+      "Test/Identify changed files",
+    ]);
+    expect(countChecks(entries)).toMatchObject({ pass: 5, cancelled: 0, total: 5 });
+  });
+
+  it("keeps a cancellation no newer run of its workflow replaced", () => {
+    const lone = job("Deploy", 150, "Deploy preview", "CANCELLED", "2026-11-10T06:09:30Z");
+    expect(countChecks(checkEntries([...rollup, lone]))).toMatchObject({ cancelled: 1, total: 6 });
+  });
+
+  it("keeps a cancellation when only an older run of its workflow exists", () => {
+    const older = job("Deploy", 90, "Deploy preview", "SUCCESS", "2026-11-10T06:00:00Z");
+    const newer = job("Deploy", 150, "Deploy preview (staging)", "CANCELLED", "2026-11-10T06:09:30Z");
+    expect(countChecks(checkEntries([older, newer]))).toMatchObject({ pass: 1, cancelled: 1 });
+  });
+
+  it("reads the run from GraphQL's checkSuite when there is no details URL", () => {
+    const node = (databaseId: number, name: string, conclusion: string) => ({
+      __typename: "CheckRun",
+      name,
+      status: "COMPLETED",
+      conclusion,
+      startedAt: "2026-11-10T06:09:25Z",
+      checkSuite: { workflowRun: { databaseId, workflow: { name: "E2E" } } },
+    });
+    const entries = checkEntries([node(100, "E2E ${{ matrix.shard }}/3", "CANCELLED"), node(200, "E2E 1/3", "SUCCESS")]);
+    expect(countChecks(entries)).toMatchObject({ pass: 1, cancelled: 0, total: 1 });
+  });
+
+  it("keeps a failure from an older run, which a newer run does not excuse", () => {
+    const failed = job("Lint", 100, "Lint (old)", "FAILURE", "2026-11-10T06:09:24Z");
+    const passed = job("Lint", 200, "Lint", "SUCCESS", "2026-11-10T06:09:28Z");
+    expect(countChecks(checkEntries([failed, passed]))).toMatchObject({ fail: 1, pass: 1 });
+  });
+});
