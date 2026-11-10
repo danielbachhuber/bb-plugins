@@ -84,8 +84,9 @@ with this one marked; hovering one shows its title, and clicking it opens it
 on GitHub. It is the same button GitHub Context draws in its banner. Pull
 requests that only point at each other with a base branch are not a stack and
 get no button. The stacks come from one more GraphQL call per sweep, reading the open
-pull requests in each swept repository; a failure there drops the buttons, not
-the sweep.
+pull requests in each swept repository. When that call fails, the sweep keeps
+each pull request's stack from the sweep before and logs why, rather than
+drawing every pull request on its own.
 
 When two or more pull requests in the list belong to one stack, they draw
 together as one block, where the newest of them would sit. A header gives the

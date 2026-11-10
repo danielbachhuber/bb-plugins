@@ -183,4 +183,6 @@ export interface SweepResult {
   skippedRepos: string[];
   truncated: boolean;
   sweptAt: number;
+  /** Why the stack lookup failed, or null when it worked. */
+  stacksError?: string | null;
 }

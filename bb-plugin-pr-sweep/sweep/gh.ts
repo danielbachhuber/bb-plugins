@@ -162,14 +162,33 @@ export async function runSweep(
   }
 
   // And one for the stacks: a pull request's base is often not yours, so this
-  // reads every open pull request in the swept repositories. A failure loses
-  // the chips, not the sweep.
+  // reads every open pull request in the swept repositories. A failure costs
+  // the stacks, not the sweep, and is reported so the caller can keep the
+  // stacks it already had.
+  let stacksError: string | null = null;
   try {
     const stacks = await fetchStacks(gh, repos);
     for (const row of rows) row.stack = stacks.get(stackKey(row.repo, row.number)) ?? null;
-  } catch {
-    // Leave every row out of a stack.
+  } catch (error) {
+    stacksError = ghFailure(error);
   }
 
-  return { rows, repos, failedRepos, skippedRepos, truncated, sweptAt: now() };
+  return { rows, repos, failedRepos, skippedRepos, truncated, sweptAt: now(), stacksError };
+}
+
+/**
+ * Gives each row the stack it had in the last stored sweep, for a sweep whose
+ * stack lookup failed. A stale stack draws the group as it was a few minutes
+ * ago, which is closer to right than drawing every pull request on its own.
+ */
+export function keepStacks(rows: ClassifiedRow[], previous: readonly ClassifiedRow[]): void {
+  const before = new Map(previous.map((row) => [stackKey(row.repo, row.number), row.stack ?? null]));
+  for (const row of rows) row.stack = before.get(stackKey(row.repo, row.number)) ?? null;
+}
+
+/** A failed gh call in one line: its stderr when it has one, else the message. */
+function ghFailure(error: unknown): string {
+  const stderr = (error as { stderr?: unknown })?.stderr;
+  const text = typeof stderr === "string" && stderr.trim() ? stderr : error instanceof Error ? error.message : String(error);
+  return text.trim().split("\n")[0]!.slice(0, 300);
 }

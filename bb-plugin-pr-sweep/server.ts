@@ -20,7 +20,7 @@ import {
 import { rpcContract } from "./sweep/contract.js";
 import { createSyncUsage, fetchFeedback } from "@danielb/gh-shared/gh";
 import { prepareForPullRequest, runGit } from "@danielb/gh-shared/projects";
-import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, runSweep } from "./sweep/gh.js";
+import { GhUnavailableError, REPO_SLUG_PATTERN, createGhRunner, keepStacks, runSweep } from "./sweep/gh.js";
 import { buildPromptParts, headerItem, suggestedSkills, trailerItem } from "./sweep/prompt.js";
 import {
   actionSummary,
@@ -486,6 +486,10 @@ export default async function plugin(bb: BbPluginApi) {
       // A stopped sweep's repositories all read as failed. Keep the last
       // listing rather than storing that.
       if (signal?.aborted) return { ok: false, error: "Sweep stopped." };
+      if (result.stacksError) {
+        keepStacks(result.rows, store.readRows());
+        bb.log.warn(`stack lookup failed, kept the last sweep's stacks: ${result.stacksError}`);
+      }
       store.replaceAll(result);
       // Every row's count on first sight, and again whenever you commented
       // last, so a row is never "N new" just because this is the first sweep

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PR_LIST_FIELDS, REPO_SLUG_PATTERN, discoverRepos, fetchRepoPullRequests, runSweep } from "./gh.js";
+import { PR_LIST_FIELDS, REPO_SLUG_PATTERN, discoverRepos, fetchRepoPullRequests, keepStacks, runSweep } from "./gh.js";
 import type { GhRunner } from "./gh.js";
 import { makePr } from "./fixtures.js";
 
@@ -158,6 +158,36 @@ describe("runSweep stacks", () => {
         { number: 2, title: "Widget top", url: "u2", state: "open" },
       ],
     });
+  });
+});
+
+describe("runSweep when the stack lookup fails", () => {
+  const failing: GhRunner = {
+    async run(args) {
+      if (args[0] === "search") return JSON.stringify([{ repository: { nameWithOwner: "acme/widgets" }, number: 2 }]);
+      if (args[0] === "pr") return JSON.stringify([makePr({ number: 2 })]);
+      if (args.some((arg) => arg.startsWith("o0="))) {
+        throw Object.assign(new Error("Command failed: gh api graphql ..."), { stderr: "HTTP 502: Bad Gateway\nmore" });
+      }
+      return JSON.stringify({ data: {} });
+    },
+  };
+
+  it("still returns the rows, and says why the stacks are missing", async () => {
+    const result = await runSweep(failing, () => 1);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]!.stack).toBeNull();
+    expect(result.stacksError).toBe("HTTP 502: Bad Gateway");
+  });
+
+  it("keepStacks gives each row the stack it had last sweep", async () => {
+    const result = await runSweep(failing, () => 1);
+    const stack = { number: 9, position: 2, size: 2, entries: [] };
+    keepStacks(result.rows, [
+      { ...result.rows[0]!, stack },
+      { ...result.rows[0]!, number: 3, stack: { ...stack, position: 1 } },
+    ]);
+    expect(result.rows[0]!.stack).toEqual(stack);
   });
 });
 
