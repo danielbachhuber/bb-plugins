@@ -101,6 +101,17 @@ const rowSchema = z.object({
     cancelled: z.number(),
     total: z.number(),
   }),
+  /** Every check on the head commit, for the menu the checks count opens. */
+  checkList: z
+    .array(
+      z.object({
+        name: z.string(),
+        workflow: z.string().optional(),
+        outcome: z.enum(["fail", "cancelled", "pending", "pass", "skip"]),
+        url: z.string().optional(),
+      }),
+    )
+    .optional(),
   /** Everyone asked to review or who has reviewed but the author, the viewer first. */
   reviewers: z.array(
     z.object({

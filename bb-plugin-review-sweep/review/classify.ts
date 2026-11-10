@@ -1,7 +1,10 @@
 import {
   groupForRow,
+  type CheckEntry,
+  type CheckOutcome,
   type ChecksSummary,
   type ClassifiedRow,
+  type RawCheckContext,
   type RawPullRequest,
   type RawReviewRequestedEvent,
   type RawStateCount,
@@ -203,6 +206,66 @@ export function checksOf(pr: RawPullRequest): ChecksSummary {
   return summary;
 }
 
+/** How the checks menu groups one check's latest run. */
+function checkOutcome(entry: RawCheckContext): CheckOutcome {
+  if (entry.__typename === "StatusContext" || (entry.status === undefined && entry.state !== undefined)) {
+    const state = (entry.state ?? "").toUpperCase();
+    if (state === "SUCCESS") return "pass";
+    return state === "PENDING" || state === "EXPECTED" ? "pending" : "fail";
+  }
+  if ((entry.status ?? "").toUpperCase() !== "COMPLETED") return "pending";
+  const conclusion = (entry.conclusion ?? "").toUpperCase();
+  if (conclusion === "SUCCESS") return "pass";
+  if (conclusion === "SKIPPED" || conclusion === "NEUTRAL") return "skip";
+  if (conclusion === "CANCELLED") return "cancelled";
+  return CHECK_RUN_OUTCOME[conclusion] ?? "pending";
+}
+
+/**
+ * Every check on the head commit, from the first 100 GitHub lists. A re-run
+ * appears once per run, so only the latest run of each name is kept.
+ */
+export function checkListOf(pr: RawPullRequest): CheckEntry[] {
+  const nodes = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup?.contexts?.nodes ?? [];
+  const latest = new Map<string, RawCheckContext>();
+  let anonymous = 0;
+  for (const entry of nodes) {
+    if (!entry) continue;
+    const key = (entry.name ?? entry.context ?? "").trim() || `\u0000${anonymous++}`;
+    const current = latest.get(key);
+    if (!current || (parseTime(entry.startedAt) ?? -Infinity) >= (parseTime(current.startedAt) ?? -Infinity)) {
+      latest.set(key, entry);
+    }
+  }
+  return [...latest.values()].map((entry) => {
+    const check: CheckEntry = { name: (entry.name ?? entry.context ?? "").trim() || "Unnamed check", outcome: checkOutcome(entry) };
+    const workflow = entry.checkSuite?.workflowRun?.workflow?.name;
+    if (workflow) check.workflow = workflow;
+    const url = entry.detailsUrl || entry.targetUrl;
+    if (url) check.url = url;
+    return check;
+  });
+}
+
+/**
+ * The checks counted from each one's latest run, as PR Sweep counts them.
+ * GitHub's counts include runs a later push cancelled and a re-run replaced,
+ * so a pull request whose checks all passed on re-run reads as "16 cancelled".
+ * Falls back to GitHub's counts when there are more checks than the first 100
+ * the search lists.
+ */
+export function latestChecksOf(pr: RawPullRequest): ChecksSummary {
+  const counted = checksOf(pr);
+  const listed = pr.commits?.nodes?.at(-1)?.commit?.statusCheckRollup?.contexts?.nodes;
+  if (!listed || listed.length < counted.total) return counted;
+  const summary: ChecksSummary = { pass: 0, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 0 };
+  for (const check of checkListOf(pr)) {
+    summary[check.outcome] += 1;
+    summary.total += 1;
+  }
+  return summary;
+}
+
 /** Review states that settle where someone stands, as opposed to a comment. */
 const VERDICTS: Record<string, ReviewerState> = {
   APPROVED: "approved",
@@ -297,7 +360,8 @@ export function classifyOne(pr: RawPullRequest, viewer: string): ClassifiedRow |
     },
     comments: pr.comments?.totalCount ?? 0,
     inlineComments: inlineComments(pr),
-    checks: checksOf(pr),
+    checks: latestChecksOf(pr),
+    checkList: checkListOf(pr),
     reviewers: reviewersOf(pr, viewer),
     // Filled in by the sweep, which reads the rest of each stack in one more call.
     stack: null,

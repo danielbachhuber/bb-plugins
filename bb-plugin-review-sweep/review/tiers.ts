@@ -1,3 +1,4 @@
+import type { CheckEntry } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
 import type { Flag, Run } from "sweep-ui/types";
 import type { StackPosition } from "@danielb/gh-shared/gh";
 import { ageInDays, type ChangeSize, type ChecksSummary, type ReviewState, type RowReviewer } from "./types.js";
@@ -32,6 +33,8 @@ export interface ListedReview {
   inlineComments?: number;
   /** The head commit's checks, all zero when it has none. */
   checks: ChecksSummary;
+  /** Every check on the head commit, for the menu the checks count opens. */
+  checkList?: CheckEntry[];
   /** Everyone else asked to review or who has reviewed. */
   reviewers: RowReviewer[];
   /** Where it sits in a stack of pull requests, or null when it is in none. */

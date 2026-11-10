@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkListOf,
+  latestChecksOf,
   checksOf,
   classify,
   classifyOne,
@@ -514,5 +516,67 @@ describe("reviewersOf", () => {
     expect(classifyOne(makePr({ reviewRequests: { nodes: [pendingRequest({ login: "hubber" })] } }), ME)?.reviewers).toEqual(
       [{ login: "hubber", state: "pending", team: false }],
     );
+  });
+});
+
+describe("checkListOf", () => {
+  it("lists each check's latest run with its workflow, outcome, and details page", () => {
+    const run = (name: string, conclusion: string | null, startedAt: string, status = "COMPLETED") => ({
+      __typename: "CheckRun",
+      name,
+      status,
+      conclusion,
+      startedAt,
+      detailsUrl: `https://example.test/${name}/${startedAt}`,
+      checkSuite: { workflowRun: { workflow: { name: "Test" } } },
+    });
+    const pr = makePr({
+      commits: {
+        nodes: [
+          {
+            commit: {
+              statusCheckRollup: {
+                contexts: {
+                  nodes: [
+                    run("build", "FAILURE", "2026-01-01T00:00:00Z"),
+                    run("build", "SUCCESS", "2026-01-01T00:01:00Z"),
+                    run("unit", "CANCELLED", "2026-01-01T00:00:00Z"),
+                    run("e2e", null, "2026-01-01T00:00:00Z", "IN_PROGRESS"),
+                    { __typename: "StatusContext", context: "deploy", state: "FAILURE", targetUrl: "https://example.test/deploy" },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    expect(checkListOf(pr)).toEqual([
+      { name: "build", workflow: "Test", outcome: "pass", url: "https://example.test/build/2026-01-01T00:01:00Z" },
+      { name: "unit", workflow: "Test", outcome: "cancelled", url: "https://example.test/unit/2026-01-01T00:00:00Z" },
+      { name: "e2e", workflow: "Test", outcome: "pending", url: "https://example.test/e2e/2026-01-01T00:00:00Z" },
+      { name: "deploy", outcome: "fail", url: "https://example.test/deploy" },
+    ]);
+  });
+});
+
+describe("latestChecksOf", () => {
+  const withRuns = (nodes: unknown[], counts: Array<{ state: string; count: number }>) =>
+    makePr({
+      commits: { nodes: [{ commit: { statusCheckRollup: { contexts: { checkRunCountsByState: counts, nodes } } } }] },
+    });
+  const run = (name: string, conclusion: string, startedAt: string) => ({ __typename: "CheckRun", name, status: "COMPLETED", conclusion, startedAt });
+
+  it("counts a check cancelled by a newer push and re-run green as passing", () => {
+    const pr = withRuns(
+      [run("build", "CANCELLED", "2026-01-01T00:00:00Z"), run("build", "SUCCESS", "2026-01-01T00:01:00Z"), run("lint", "SUCCESS", "2026-01-01T00:01:00Z")],
+      [{ state: "CANCELLED", count: 1 }, { state: "SUCCESS", count: 2 }],
+    );
+    expect(latestChecksOf(pr)).toEqual({ pass: 2, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 2 });
+  });
+
+  it("keeps GitHub's counts when the list stops short of every check", () => {
+    const pr = withRuns([run("build", "SUCCESS", "2026-01-01T00:00:00Z")], [{ state: "SUCCESS", count: 150 }]);
+    expect(latestChecksOf(pr).total).toBe(150);
   });
 });

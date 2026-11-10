@@ -46,9 +46,8 @@ bump are all still review requests, so they are all still listed.
 ## Why GraphQL rather than `gh pr list`
 
 pr-sweep discovers repositories with `gh search prs` and then fans out one
-`gh pr list` per repository, because it needs every check run by name. This
-plugin does not: the only checks it shows are the head commit's counts, and
-those and `mergeable` both come back in the search query.
+`gh pr list` per repository. This plugin does not need to: the head commit's
+checks and `mergeable` both come back in the search query.
 
 What it does need is **when the review was requested of you**, and `gh pr list`
 has no field for it at any verbosity. The only honest sources are the
@@ -60,7 +59,8 @@ guess is not worth having.
 So: one `gh api graphql` call, with an exact `requestedAt` per row. The same
 call reads `comments { totalCount }`, the count behind each row's "N new", each
 review's own `comments { totalCount }`, which together are its inline
-comments, and the head commit's `statusCheckRollup` counts by state, behind each row's checks.
+comments, and the head commit's `statusCheckRollup`: GitHub's counts by state and the
+first 100 checks, behind each row's checks and its checks menu.
 The reviewers come from the `reviews` and `reviewRequests` it already reads for
 the request time. It also
 means there is no per-repository partial-failure state to carry; the sweep
@@ -181,7 +181,11 @@ Then a line of icons:
   team.
 - the head commit's checks as a count, such as a green tick with "13/13", an
   amber clock while any run, or a red cross with "2/15 failing". Hovering it
-  names every count. Left out when the pull request has no checks.
+  names every count, and clicking it lists every check, failing first, each
+  opening its details page. Only the latest run of each check counts, so a run
+  a newer push cancelled and a re-run replaced does not read as cancelled.
+  GitHub's own counts are used instead when there are more than 100 checks.
+  Left out when the pull request has no checks.
 - the size in lines added and removed ("+18 −4")
 - the repository, only when more than one is in play
 

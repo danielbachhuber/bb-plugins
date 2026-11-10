@@ -28,8 +28,8 @@ export const SEARCH_LIMIT = 50;
  * One call for the whole sweep.
  *
  * pr-sweep discovers repositories and then fans out one `gh pr list` per repo,
- * because it needs every check run by name. This plugin needs only the head
- * commit's check counts and `mergeable`, which the search can return, and the
+ * because it needs every check run by name. This plugin needs the head
+ * commit's checks and `mergeable`, which the search can return, and the
  * field it needs most — when the review was
  * requested of you — has no `gh pr list --json` equivalent at all. So it asks
  * GraphQL directly and gets an exact timestamp instead of guessing from
@@ -71,9 +71,21 @@ query($q: String!, $limit: Int!) {
             commit {
               statusCheckRollup {
                 state
-                contexts(first: 1) {
+                contexts(first: 100) {
                   checkRunCountsByState { state count }
                   statusContextCountsByState { state count }
+                  nodes {
+                    __typename
+                    ... on CheckRun {
+                      name
+                      status
+                      conclusion
+                      startedAt
+                      detailsUrl
+                      checkSuite { workflowRun { workflow { name } } }
+                    }
+                    ... on StatusContext { context state targetUrl }
+                  }
                 }
               }
             }
