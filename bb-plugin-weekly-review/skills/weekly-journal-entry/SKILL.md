@@ -93,8 +93,12 @@ when it is the thing the bullet is about.
   anything else unlinked rather than guessing.
 - **Name the impact.** The bullet says what changed because of the work:
   for whom, and what they can now do or no longer have to. "So Octocat's
-  report stopped dropping rows", not "so the work is clearer". When you do
-  not know the impact, ask rather than write a vague one.
+  report stopped dropping rows", not "so the work is clearer". The impact
+  is a result outside the work itself. Restating the deliverable ("so each
+  partner gets a specific ask") is not impact. For work still in progress,
+  the impact is what it unblocks or decides. When you do not know the
+  impact, write the bullet with a `<impact?>` placeholder and ask, rather
+  than write a vague one.
 - **Say who and why, briefly.** Name people by first name. Give the trigger
   ("after Octocat found the export dropping rows") when it explains the
   work. One or two sentences in all.
