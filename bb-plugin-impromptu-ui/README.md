@@ -43,6 +43,8 @@ bb impromptu-ui schema                                      # print everything a
 
 Each command except `schema` works only inside a bb thread.
 
+When you archive a view, its cards leave the composer but keep their state. `state` says the view is hidden, and every `publish` lists the thread's other hidden views that still have open cards, so the agent doesn't tell you a question is waiting above the composer when you've put it away.
+
 ### Clear resolved cards
 
 Type `/clear-resolved-cards` in a thread, and the `clear-resolved-cards` skill runs `bb impromptu-ui clear-resolved`. Every card you already acted on or dismissed leaves that thread's views, and a view with nothing open left is hidden. A code review whose verdict is still open keeps its findings, since the verdict counts them. It reads and writes only the plugin's database, with no API calls.

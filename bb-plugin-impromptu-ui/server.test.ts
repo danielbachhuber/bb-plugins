@@ -59,3 +59,33 @@ describe("bb impromptu-ui publish", () => {
     expect((await views())[0]?.view.layout).toBe("inline");
   });
 });
+
+describe("hidden views", () => {
+  const question = (id: string, title: string) => ({ id, title, actions: [answer("Yes"), answer("No")] });
+
+  it("state says a hidden view is not above the composer", async () => {
+    const { cli } = await start();
+    await cli("publish", "--file", viewFile({ title: "Next steps", layout: "inline", sections: [{ items: [question("pr2", "Start PR 2?")] }] }), "--key", "next");
+    await cli("hide", "--key", "next");
+    const result = await cli("state", "--key", "next");
+    expect(result.stdout).toMatch(/^Next steps \(view \d+\)\nHidden: not above the composer/);
+    expect(result.stdout).toMatch(/\[open\] pr2/);
+  });
+
+  it("publish names other hidden views that still have open items", async () => {
+    const { cli } = await start();
+    await cli("publish", "--file", viewFile({ title: "Next steps", layout: "inline", sections: [{ items: [question("pr2", "Start PR 2?")] }] }), "--key", "next");
+    await cli("hide", "--key", "next");
+    const result = await cli("publish", "--file", viewFile({ title: "Draft", layout: "inline", sections: [{ items: [question("d", "Apply?")] }] }), "--key", "draft");
+    expect(result.stdout).toMatch(/Hidden, so not above the composer: "Next steps" \(next\) with 1 open item\./);
+  });
+
+  it("publish says nothing about a shown view or a hidden one with nothing open", async () => {
+    const { cli } = await start();
+    await cli("publish", "--file", viewFile({ title: "Shown", layout: "inline", sections: [{ items: [question("a", "A?")] }] }), "--key", "shown");
+    await cli("publish", "--file", viewFile({ title: "Info", layout: "list", sections: [{ items: [{ id: "n", title: "A note" }] }] }), "--key", "info");
+    await cli("hide", "--key", "info");
+    const result = await cli("publish", "--file", viewFile({ title: "Draft", layout: "inline", sections: [{ items: [question("d", "Apply?")] }] }), "--key", "draft");
+    expect(result.stdout).not.toMatch(/Hidden/);
+  });
+});

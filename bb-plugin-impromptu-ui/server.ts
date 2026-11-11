@@ -24,7 +24,7 @@ import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, fillNote, itemThreads, messageTargets, parseView, readView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
-import { MIGRATIONS, createStore, describeItems, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
+import { MIGRATIONS, createStore, describeItems, openItemCount, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -541,11 +541,19 @@ export default async function plugin(bb: BbPluginApi) {
               bb.realtime.publish(PUBLISHED, { threadId: shown, viewId: stored.id, title: view.title });
             }
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
+            // The user may have archived an earlier view, so its open items are off screen.
+            const offScreen = store.forThread(threadId).flatMap((other) => {
+              const open = openItemCount(other);
+              return other.hiddenAt === null || open === 0
+                ? []
+                : [`Hidden, so not above the composer: "${other.view.title}" (${other.key}) with ${open} open item${open === 1 ? "" : "s"}.`];
+            });
             return {
               exitCode: 0,
               stdout: [
                 `Published "${view.title}" (${count} items) as view ${stored.id}. It is above this thread's composer.`,
                 ...warnings.map((warning) => `Warning: ${warning}`),
+                ...offScreen,
               ].join("\n"),
             };
           } catch (error) {
@@ -557,7 +565,11 @@ export default async function plugin(bb: BbPluginApi) {
         case "state": {
           const stored = store.forThread(threadId).find((candidate) => candidate.key === key);
           if (stored !== undefined) {
-            return { exitCode: 0, stdout: [`${stored.view.title} (view ${stored.id})`, ...describeItems(stored)].join("\n") };
+            const hidden =
+              stored.hiddenAt === null
+                ? []
+                : [`Hidden: not above the composer since ${stored.hiddenAt}. Publish under key "${key}" again to show it.`];
+            return { exitCode: 0, stdout: [`${stored.view.title} (view ${stored.id})`, ...hidden, ...describeItems(stored)].join("\n") };
           }
           // A thread an item shows in reads back that item, from each view that has one.
           const linked = store.linkedTo(threadId);

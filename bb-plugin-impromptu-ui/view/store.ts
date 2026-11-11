@@ -349,6 +349,15 @@ export function createStore(db: Database): Store {
   };
 }
 
+/** Items still waiting on the user: not quiet, not done or dismissed. */
+export function openItemCount(stored: StoredView): number {
+  return stored.view.sections.reduce(
+    (sum, section) =>
+      sum + section.items.filter((item) => !isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open").length,
+    0,
+  );
+}
+
 /**
  * Where an item stands, for the CLI and the agent reading it back. A quiet row
  * has no decision on it, so it reads as listed rather than open.
