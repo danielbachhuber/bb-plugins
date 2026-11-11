@@ -45,7 +45,7 @@ Each command except `schema` works only inside a bb thread.
 
 ### Answered and archived cards
 
-A card you answered or dismissed leaves the composer 10 minutes later, and a view goes once all of its cards have. Cards nobody has answered stay. The view's side panel still shows every card, and `state` still reports them. A card the agent marks complete counts from the publish that marked it. Set the wait with `autoClearMinutes`. Nothing is deleted and no API calls are made: the cards above the composer are filtered as they load, and they look again when the next card is due to go.
+A card you answered or dismissed leaves the composer 10 minutes later, and a view goes once all of its cards have. Cards nobody has answered stay. The view's side panel still shows every card, and `state` still reports them. A card the agent marks complete counts from the publish that marked it. If the agent marks a card complete before you pressed any of its buttons, `publish` warns it to reopen the card unless you answered in chat. Set the wait with `autoClearMinutes`. Nothing is deleted and no API calls are made: the cards above the composer are filtered as they load, and they look again when the next card is due to go.
 
 When you archive a view that still has an open question, it comes back when the agent's turn ends, so the agent's closing message never points at a question you can't see. To put away a question for good, dismiss its card. A view the agent hid with `bb impromptu-ui hide` stays hidden. While a view is archived, `state` says so, and every `publish` lists the thread's archived views that still have open cards.
 

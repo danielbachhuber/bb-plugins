@@ -7,7 +7,7 @@ import { allHandled, decisionItems, firstLine, listPreview, orderItems, progress
 import { grantSectionThreadsView, staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTargets, threadElsewhere, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
-import { MIGRATIONS, applyStatus, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
+import { MIGRATIONS, applyStatus, completedUnanswered, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
 import { feedbackLabel, feedbackMessage, hasFeedback, imageMime, isBeforeAfter } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { draftKey, editorDraft, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
@@ -646,6 +646,24 @@ describe("agent-set status", () => {
     expect(done.items.need).toMatchObject({ state: "done", result: { label: "Accept", at: "t" } });
     const reopened = s.publish("thr_one", "grant", grant({ status: { label: "40 words over", tone: "danger" } }), null, "t");
     expect(reopened.items.need?.state).toBe("open");
+  });
+
+  it("flags an item newly marked complete that the user never answered", () => {
+    const s = store();
+    const first = s.publish("thr_one", "grant", grant(), null, "t");
+    const done = grant({ status: { label: "Kept", tone: "success", complete: true } });
+    // No button pressed: the agent decided for the user.
+    expect(completedUnanswered(done, first).map((item) => item.id)).toEqual(["need"]);
+    // The summary has no buttons, so marking it complete asks nothing of the user.
+    expect(completedUnanswered(done, undefined).map((item) => item.id)).toEqual(["need"]);
+    // A pressed button or a dismissal is an answer.
+    const accepted = s.setItem(first.id, "need", { state: "open", result: { label: "Accept", at: "t" } }, "t")!;
+    expect(completedUnanswered(done, accepted)).toEqual([]);
+    const dismissed = s.setItem(first.id, "need", { state: "dismissed", result: null }, "t")!;
+    expect(completedUnanswered(done, dismissed)).toEqual([]);
+    // Already complete before this publish, so it was flagged then.
+    const again = s.publish("thr_one", "grant", done, null, "t");
+    expect(completedUnanswered(done, { ...again, items: {} })).toEqual([]);
   });
 
   it("counts complete items in the header once a view uses status, and open ones otherwise", () => {

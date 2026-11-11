@@ -24,7 +24,7 @@ import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, fillNote, itemThreads, messageTargets, parseView, readView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
-import { MIGRATIONS, createStore, describeItems, openItemCount, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
+import { MIGRATIONS, completedUnanswered, createStore, describeItems, openItemCount, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -570,6 +570,10 @@ export default async function plugin(bb: BbPluginApi) {
             );
             await checkTargets(view);
             const images = await loadImages(view, ctx.cwd);
+            const unanswered = completedUnanswered(
+              view,
+              store.forThread(threadId).find((candidate) => candidate.key === key),
+            );
             const stored = store.publish(threadId, key, view, ctx.cwd ?? null, now());
             store.putImages(stored.id, images);
             for (const shown of [threadId, ...itemThreads(view)]) {
@@ -592,6 +596,10 @@ export default async function plugin(bb: BbPluginApi) {
               stdout: [
                 `Published "${view.title}" (${count} items) as view ${stored.id}. It is above this thread's composer.`,
                 ...warnings.map((warning) => `Warning: ${warning}`),
+                ...unanswered.map(
+                  (item) =>
+                    `Warning: ${item.id} is marked complete, but the user never pressed one of its buttons. Unless they answered it in chat, publish it again without "complete" so they can still decide.`,
+                ),
                 ...offScreen,
               ].join("\n"),
             };

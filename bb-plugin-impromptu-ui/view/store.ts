@@ -172,6 +172,25 @@ export function applyStatus(view: View, items: Record<string, ItemRecord>): Reco
 }
 
 /**
+ * Items this publish marks complete that ask the user something they never
+ * answered: the item has buttons, none went through, the user did not dismiss
+ * it, and it was not already complete. The card closes as done although the
+ * user decided nothing, so the publish warns the agent. The user may have
+ * answered in chat, which the plugin cannot see, so it is not refused.
+ */
+export function completedUnanswered(view: View, previous: StoredView | undefined): Item[] {
+  const before = new Map(previous?.view.sections.flatMap((section) => section.items.map((item) => [item.id, item])));
+  return view.sections.flatMap((section) =>
+    section.items.filter((item) => {
+      if (item.status?.complete !== true || item.actions.length === 0) return false;
+      if (before.get(item.id)?.status?.complete === true) return false;
+      const record = previous?.items[item.id];
+      return record?.state !== "dismissed" && (record?.result ?? null) === null;
+    }),
+  );
+}
+
+/**
  * The view as a thread sees it. The thread that published it sees all of it;
  * a thread its items name sees only those items, without the page map, which
  * lays out items it does not have.
