@@ -13,7 +13,7 @@
 import type { Database } from "better-sqlite3";
 import type { Feedback } from "./review.js";
 import type { ViewThreads } from "./cleanup.js";
-import { dismissLabelOf, isQuiet, itemThreads, type Action, type Item, type View } from "./schema.js";
+import { dismissLabelOf, isQuiet, itemThreads, usesNote, type Action, type Item, type View } from "./schema.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE views (
@@ -186,6 +186,29 @@ export function completedUnanswered(view: View, previous: StoredView | undefined
       if (before.get(item.id)?.status?.complete === true) return false;
       const record = previous?.items[item.id];
       return record?.state !== "dismissed" && (record?.result ?? null) === null;
+    }),
+  );
+}
+
+/**
+ * Items the user sent back with a note, such as Revise without `repeat`, that
+ * this publish replaces with a new draft or new changes. The button closed the
+ * card, and a publish keeps what the user did, so the new version would arrive
+ * already done. It is a new question, so the publish reopens it. An item the
+ * agent marks complete stays done.
+ */
+export function revisedAfterNote(view: View, previous: StoredView | undefined): Item[] {
+  if (previous === undefined) return [];
+  const before = new Map(previous.view.sections.flatMap((section) => section.items.map((item) => [item.id, item])));
+  const content = (item: Item) => JSON.stringify([item.draft ?? null, item.changes]);
+  return view.sections.flatMap((section) =>
+    section.items.filter((item) => {
+      const record = previous.items[item.id];
+      const old = before.get(item.id);
+      if (record?.state !== "done" || record.result === null || old === undefined) return false;
+      if (item.status?.complete === true) return false;
+      const pressed = old.actions.find((action) => action.label === record.result!.label);
+      return pressed !== undefined && usesNote(pressed) && content(item) !== content(old);
     }),
   );
 }

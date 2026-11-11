@@ -7,7 +7,7 @@ import { allHandled, decisionItems, firstLine, listPreview, orderItems, progress
 import { grantSectionThreadsView, staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTargets, threadElsewhere, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
-import { MIGRATIONS, applyStatus, completedUnanswered, createStore, describeItems, stateAfterAction, viewFor, type StoredView } from "./store.js";
+import { MIGRATIONS, applyStatus, completedUnanswered, createStore, describeItems, revisedAfterNote, stateAfterAction, viewFor, type StoredView } from "./store.js";
 import { feedbackLabel, feedbackMessage, hasFeedback, imageMime, isBeforeAfter } from "./review.js";
 import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { draftKey, editorDraft, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
@@ -664,6 +664,46 @@ describe("agent-set status", () => {
     // Already complete before this publish, so it was flagged then.
     const again = s.publish("thr_one", "grant", done, null, "t");
     expect(completedUnanswered(done, { ...again, items: {} })).toEqual([]);
+  });
+
+  it("reopens an item the user sent back with a note once the agent publishes a new version", () => {
+    const fix = (draft: string, extra: object = {}) =>
+      parseView(
+        JSON.stringify({
+          title: "README fixes",
+          layout: "cards",
+          sections: [
+            {
+              title: "",
+              items: [
+                {
+                  id: "intro",
+                  title: "Intro",
+                  draft,
+                  note: { label: "Note" },
+                  actions: [
+                    { type: "message", label: "Apply", text: "Apply intro: {draft}" },
+                    { type: "message", label: "Revise", text: "Revise intro: {note}" },
+                  ],
+                  ...extra,
+                },
+              ],
+            },
+          ],
+        }),
+      );
+    const s = store();
+    const first = s.publish("thr_one", "fixes", fix("Round 1"), null, "t");
+    const revised = s.setItem(first.id, "intro", { state: "done", result: { label: "Revise", at: "t", note: "Shorter" } }, "t")!;
+    expect(revisedAfterNote(fix("Round 2"), revised).map((item) => item.id)).toEqual(["intro"]);
+    // The same text again is not a new version.
+    expect(revisedAfterNote(fix("Round 1"), revised)).toEqual([]);
+    // The agent closed it itself.
+    expect(revisedAfterNote(fix("Round 2", { status: { label: "Applied", complete: true } }), revised)).toEqual([]);
+    // Apply sends no note, so the user's decision stands.
+    const applied = s.setItem(first.id, "intro", { state: "done", result: { label: "Apply", at: "t" } }, "t")!;
+    expect(revisedAfterNote(fix("Round 2"), applied)).toEqual([]);
+    expect(revisedAfterNote(fix("Round 2"), undefined)).toEqual([]);
   });
 
   it("counts complete items in the header once a view uses status, and open ones otherwise", () => {
