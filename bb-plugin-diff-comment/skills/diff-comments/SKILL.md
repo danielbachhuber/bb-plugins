@@ -43,6 +43,23 @@ work in the conversation above.
 4. Stop. Other open comments wait until the author asks about them. A
    subthread is archived once the turn that replied ends.
 
+### A card from a subthread
+
+When the answer is better offered as an Impromptu UI card, such as a
+suggested rewrite to apply or skip, the card has to show in the thread whose
+diff the comment is on, not in the subthread. The subthread is archived when
+your turn ends, and the author is reading the parent thread, so a card left
+above the subthread's composer is never seen.
+
+- Find the parent thread's id with `bb status` (`Parent:`).
+- Publish with `"layout": "cards"`, and give each item `"thread": "<parent
+  id>"`. The card then shows above the parent thread's composer.
+- Give every `message` button, Revise included, `"threadId": "<parent id>"`.
+  A button without one sends to this subthread, and a message to an archived
+  thread fails. Write each button's `text` so it names the diff comment and
+  the file, because the parent reads it with no other context.
+- In the reply, say the card is above the parent thread's composer.
+
 ## A reply to your answer
 
 The author can reply to your answer from the comment's card. The reply
