@@ -19,12 +19,13 @@ function isResolved(stored: StoredView, item: Item): boolean {
   return state === "done" || state === "dismissed";
 }
 
-export function planClear(stored: StoredView): ClearPlan {
+export function planClear(stored: StoredView, ripe: (item: Item) => boolean = () => true): ClearPlan {
   const items = stored.view.sections.flatMap((section) => section.items);
-  const resolved = items.filter((item) => isResolved(stored, item));
+  const settled = items.filter((item) => isResolved(stored, item));
+  const resolved = settled.filter(ripe);
   const open = items.filter((item) => !isQuiet(stored.view, item) && !isResolved(stored, item));
   if (resolved.length === 0) return { kind: "keep", reason: "nothing-resolved" };
-  if (open.length === 0) return { kind: "hide", resolved };
+  if (open.length === 0 && resolved.length === settled.length) return { kind: "hide", resolved };
   // A closing step's {tally} counts what was done with the other items, so
   // they stay until it is answered.
   const closing = closingItem(stored);
@@ -46,4 +47,37 @@ export function planClear(stored: StoredView): ClearPlan {
     else delete view.map;
   }
   return { kind: "prune", view, resolved, open: open.length };
+}
+
+/**
+ * When an item was resolved. One the agent marked complete counts from the
+ * publish that marked it, or from the user's last button if that came later.
+ */
+function resolvedAt(stored: StoredView, item: Item): number {
+  const updated = stored.items[item.id]?.updatedAt;
+  const published = Date.parse(stored.publishedAt);
+  if (updated === undefined) return published;
+  return item.status === undefined ? Date.parse(updated) : Math.max(Date.parse(updated), published);
+}
+
+/**
+ * The view as the cards above the composer show it: without the items
+ * resolved at least `afterMs` ago, or null once nothing is left to show.
+ * `refreshAt` is when the next resolved item is due to go, if any is. An
+ * `afterMs` of 0 shows everything.
+ */
+export function composerView(
+  stored: StoredView,
+  nowMs: number,
+  afterMs: number,
+): { stored: StoredView | null; refreshAt: number | null } {
+  if (!(afterMs > 0)) return { stored, refreshAt: null };
+  const due = (item: Item) => resolvedAt(stored, item) + afterMs;
+  const plan = planClear(stored, (item) => due(item) <= nowMs);
+  const items = stored.view.sections.flatMap((section) => section.items);
+  const pending = items.filter((item) => isResolved(stored, item) && due(item) > nowMs).map(due);
+  const refreshAt = pending.length === 0 ? null : Math.min(...pending);
+  if (plan.kind === "keep") return { stored, refreshAt };
+  if (plan.kind === "hide") return { stored: null, refreshAt: null };
+  return { stored: { ...stored, view: plan.view }, refreshAt };
 }

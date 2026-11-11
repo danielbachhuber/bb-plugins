@@ -58,7 +58,12 @@ export const MIGRATIONS = [
      hidden_at TEXT NOT NULL,
      PRIMARY KEY (view_id, thread_id)
    )`,
+  // Who hid the view: "user" from its archive button, "agent" from the CLI.
+  // Only a view the user archived comes back when the thread's turn ends.
+  `ALTER TABLE views ADD COLUMN hidden_by TEXT`,
 ];
+
+export type HiddenBy = "user" | "agent";
 
 export type ItemState = "open" | "done" | "dismissed";
 
@@ -94,6 +99,8 @@ export interface ItemRecord {
   result: ActionResult | null;
   /** What each related entry's button did, by entry id. */
   related?: Record<string, ActionResult>;
+  /** When the state or result last changed. */
+  updatedAt?: string;
 }
 
 export interface StoredView {
@@ -104,8 +111,10 @@ export interface StoredView {
   /** Where `publish` ran, the default directory for command actions. */
   cwd: string | null;
   publishedAt: string;
-  /** When the user hid it from above the composer, until the next publish. */
+  /** When it was hidden from above the composer, until the next publish. */
   hiddenAt: string | null;
+  /** Who hid it; null for a view hidden before this was recorded. */
+  hiddenBy?: HiddenBy | null;
   items: Record<string, ItemRecord>;
 }
 
@@ -118,7 +127,7 @@ export interface Store {
   /** Sets an item's state and last result, leaving what its related entries' buttons did. */
   setItem(viewId: number, itemId: string, record: ItemRecord, now: string): StoredView | null;
   setRelated(viewId: number, itemId: string, entryId: string, result: ActionResult, now: string): StoredView | null;
-  setHidden(viewId: number, hidden: boolean, now: string): StoredView | null;
+  setHidden(viewId: number, hidden: boolean, now: string, by?: HiddenBy): StoredView | null;
   /** Replaces a view's items in place, keeping when it was published, so it keeps its place above the composer. */
   replaceView(viewId: number, view: View): StoredView | null;
   /** Hides a view from above a thread that shows some of its items, leaving it in the thread that published it. */
@@ -189,9 +198,10 @@ type ViewRow = {
   cwd: string | null;
   published_at: string;
   hidden_at: string | null;
+  hidden_by: string | null;
 };
 
-type StateRow = { item_id: string; state: ItemState; result: string | null; related: string | null };
+type StateRow = { item_id: string; state: ItemState; result: string | null; related: string | null; updated_at: string };
 
 export function createStore(db: Database): Store {
   function hydrate(row: ViewRow): StoredView {
@@ -199,13 +209,14 @@ export function createStore(db: Database): Store {
     const known = new Set(view.sections.flatMap((section) => section.items.map((item) => item.id)));
     const items: Record<string, ItemRecord> = {};
     for (const state of db
-      .prepare("SELECT item_id, state, result, related FROM item_states WHERE view_id = ?")
+      .prepare("SELECT item_id, state, result, related, updated_at FROM item_states WHERE view_id = ?")
       .all(row.id) as StateRow[]) {
       if (!known.has(state.item_id)) continue;
       items[state.item_id] = {
         state: state.state,
         result: state.result === null ? null : (JSON.parse(state.result) as ActionResult),
         ...(state.related === null ? {} : { related: JSON.parse(state.related) as Record<string, ActionResult> }),
+        updatedAt: state.updated_at,
       };
     }
     return {
@@ -216,6 +227,7 @@ export function createStore(db: Database): Store {
       cwd: row.cwd,
       publishedAt: row.published_at,
       hiddenAt: row.hidden_at,
+      hiddenBy: row.hidden_at === null ? null : (row.hidden_by as HiddenBy | null),
       items: applyStatus(view, items),
     };
   }
@@ -232,7 +244,7 @@ export function createStore(db: Database): Store {
       db.prepare(
         `INSERT INTO views (thread_id, key, body, cwd, published_at) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT (thread_id, key) DO UPDATE SET body = excluded.body, cwd = excluded.cwd,
-           published_at = excluded.published_at, hidden_at = NULL`,
+           published_at = excluded.published_at, hidden_at = NULL, hidden_by = NULL`,
       ).run(threadId, key, JSON.stringify(view), cwd, now);
       const row = db
         .prepare("SELECT * FROM views WHERE thread_id = ? AND key = ?")
@@ -297,8 +309,8 @@ export function createStore(db: Database): Store {
       }
     },
 
-    setHidden(viewId, hidden, now) {
-      db.prepare("UPDATE views SET hidden_at = ? WHERE id = ?").run(hidden ? now : null, viewId);
+    setHidden(viewId, hidden, now, by = "agent") {
+      db.prepare("UPDATE views SET hidden_at = ?, hidden_by = ? WHERE id = ?").run(hidden ? now : null, hidden ? by : null, viewId);
       return get(viewId);
     },
 

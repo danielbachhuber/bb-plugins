@@ -12,7 +12,7 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { expandPatchFiles } from "./view/changes.js";
-import { planClear } from "./view/clear.js";
+import { composerView, planClear } from "./view/clear.js";
 import { DAY_MS, expiredViews, isNotFound, type ThreadState } from "./view/cleanup.js";
 import { fillTally, openBeforeClosing } from "./view/closing.js";
 import { rpcContract } from "./view/contract.js";
@@ -48,6 +48,13 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Tell every thread when to publish a view",
       description: "Adds a short section to each thread's instructions on when to show results above the composer.",
       default: true,
+    },
+    autoClearMinutes: {
+      type: "number",
+      label: "Minutes before answered cards leave the composer",
+      description:
+        "A card you answered or dismissed leaves the cards above the composer this many minutes later, and a view goes once all of its cards have. The view's side panel keeps them. 0 keeps them on screen.",
+      default: 10,
     },
     keepArchivedDays: {
       type: "number",
@@ -107,6 +114,22 @@ export default async function plugin(bb: BbPluginApi) {
         });
       }
     },
+  });
+
+  // A view the user archived with a question still open comes back when the
+  // thread's turn ends, so the agent's closing message never points at
+  // something hidden. One the agent hid stays hidden.
+  bb.events.on("thread.idle", ({ thread }) => {
+    for (const stored of store.forThread(thread.id)) {
+      if (stored.hiddenAt === null || stored.hiddenBy !== "user" || openItemCount(stored) === 0) continue;
+      store.setHidden(stored.id, false, now());
+      changed(stored);
+    }
+    for (const stored of store.linkedTo(thread.id)) {
+      if (stored.hiddenAt === null || openItemCount(stored) === 0) continue;
+      store.setLinkedHidden(stored.id, thread.id, false, now());
+      bb.realtime.publish(CHANGED, { threadId: thread.id, viewId: stored.id });
+    }
   });
 
   /** projects.list leaves out the personal project; the sidebar bootstrap has it. */
@@ -396,6 +419,18 @@ export default async function plugin(bb: BbPluginApi) {
   bb.rpc.register(rpcContract, {
     // A thread's own views first, then the ones whose items show in it.
     thread_views: ({ threadId }) => ({ views: [...store.forThread(threadId), ...store.linkedTo(threadId)] }),
+    composer_views: async ({ threadId }) => {
+      const afterMs = (await settings.get()).autoClearMinutes * 60_000;
+      const nowMs = Date.now();
+      let refreshAt: number | null = null;
+      const views = [...store.forThread(threadId), ...store.linkedTo(threadId)].flatMap((stored) => {
+        if (stored.hiddenAt !== null) return [];
+        const shown = composerView(stored, nowMs, afterMs);
+        if (shown.refreshAt !== null) refreshAt = refreshAt === null ? shown.refreshAt : Math.min(refreshAt, shown.refreshAt);
+        return shown.stored === null ? [] : [shown.stored];
+      });
+      return { views, refreshAt };
+    },
     view_get: ({ viewId }) => store.get(viewId),
     action_run: ({ viewId, itemId, index, draft, note }) => runAction(viewId, itemId, index, draft, note),
     related_run: ({ viewId, itemId, entryId }) => runRelated(viewId, itemId, entryId),
@@ -421,7 +456,7 @@ export default async function plugin(bb: BbPluginApi) {
         bb.realtime.publish(CHANGED, { threadId, viewId });
         return viewFor(stored, threadId);
       }
-      const updated = store.setHidden(viewId, hidden, now())!;
+      const updated = store.setHidden(viewId, hidden, now(), "user")!;
       changed(stored);
       return updated;
     },
@@ -544,9 +579,13 @@ export default async function plugin(bb: BbPluginApi) {
             // The user may have archived an earlier view, so its open items are off screen.
             const offScreen = store.forThread(threadId).flatMap((other) => {
               const open = openItemCount(other);
-              return other.hiddenAt === null || open === 0
-                ? []
-                : [`Hidden, so not above the composer: "${other.view.title}" (${other.key}) with ${open} open item${open === 1 ? "" : "s"}.`];
+              if (other.hiddenAt === null || open === 0) return [];
+              const items = `"${other.view.title}" (${other.key}) with ${open} open item${open === 1 ? "" : "s"}.`;
+              return [
+                other.hiddenBy === "user"
+                  ? `Archived by the user: ${items} It comes back above the composer when this turn ends.`
+                  : `Hidden, so not above the composer: ${items}`,
+              ];
             });
             return {
               exitCode: 0,
@@ -568,7 +607,11 @@ export default async function plugin(bb: BbPluginApi) {
             const hidden =
               stored.hiddenAt === null
                 ? []
-                : [`Hidden: not above the composer since ${stored.hiddenAt}. Publish under key "${key}" again to show it.`];
+                : [
+                    stored.hiddenBy === "user" && openItemCount(stored) > 0
+                      ? `Archived by the user at ${stored.hiddenAt}: not above the composer until this turn ends, when it comes back because it has open items.`
+                      : `Hidden: not above the composer since ${stored.hiddenAt}. Publish under key "${key}" again to show it.`,
+                  ];
             return { exitCode: 0, stdout: [`${stored.view.title} (view ${stored.id})`, ...hidden, ...describeItems(stored)].join("\n") };
           }
           // A thread an item shows in reads back that item, from each view that has one.

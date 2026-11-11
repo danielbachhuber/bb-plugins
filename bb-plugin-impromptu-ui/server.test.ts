@@ -14,7 +14,10 @@ async function start() {
   const cli = (...argv: string[]) => host.harness.behavior.runCli(argv, { threadId: "thr_a" } as never);
   const views = async () =>
     ((await host.harness.behavior.callRpc("thread_views", { threadId: "thr_a" })) as { views: Array<{ key: string; view: { layout: string } }> }).views;
-  return { cli, views };
+  const rpc = (method: string, input: unknown) => host.harness.behavior.callRpc(method, input as never) as Promise<any>;
+  const idle = () =>
+    host.harness.behavior.emitThreadEvent("thread.idle", { thread: makeThreadResponse({ id: "thr_a" }), lastAssistantText: null } as never);
+  return { cli, views, rpc, idle };
 }
 
 function viewFile(view: object): string {
@@ -87,5 +90,36 @@ describe("hidden views", () => {
     await cli("hide", "--key", "info");
     const result = await cli("publish", "--file", viewFile({ title: "Draft", layout: "inline", sections: [{ items: [question("d", "Apply?")] }] }), "--key", "draft");
     expect(result.stdout).not.toMatch(/Hidden/);
+  });
+});
+
+describe("reopening an archived view", () => {
+  const question = (id: string, title: string) => ({ id, title, actions: [answer("Yes"), answer("No")] });
+  const publishQuestion = async (cli: (...argv: string[]) => Promise<any>, key: string) =>
+    cli("publish", "--file", viewFile({ title: key, layout: "inline", sections: [{ items: [question("q", "Go?")] }] }), "--key", key);
+  const shown = async (rpc: (method: string, input: unknown) => Promise<any>) =>
+    ((await rpc("composer_views", { threadId: "thr_a" })).views as Array<{ key: string }>).map((view) => view.key);
+
+  it("brings back a view the user archived with an open question when the turn ends", async () => {
+    const { cli, rpc, idle } = await start();
+    const { stdout } = await publishQuestion(cli, "next");
+    const viewId = Number(/view (\d+)/.exec(stdout)![1]);
+    await rpc("view_hide", { viewId, hidden: true, threadId: "thr_a" });
+    expect(await shown(rpc)).toEqual([]);
+    expect((await publishQuestion(cli, "other")).stdout).toMatch(/Archived by the user: "next" \(next\) with 1 open item\. It comes back above the composer when this turn ends\./);
+    await idle();
+    expect(await shown(rpc)).toEqual(["other", "next"]);
+  });
+
+  it("leaves a view the agent hid, and one with nothing open", async () => {
+    const { cli, rpc, idle } = await start();
+    await publishQuestion(cli, "agent");
+    await cli("hide", "--key", "agent");
+    const { stdout } = await publishQuestion(cli, "answered");
+    const viewId = Number(/view (\d+)/.exec(stdout)![1]);
+    await rpc("item_dismiss", { viewId, itemId: "q", dismissed: true });
+    await rpc("view_hide", { viewId, hidden: true, threadId: "thr_a" });
+    await idle();
+    expect(await shown(rpc)).toEqual([]);
   });
 });

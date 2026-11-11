@@ -26,12 +26,14 @@ const storedViewSchema = z.object({
   cwd: z.string().nullable(),
   publishedAt: z.string(),
   hiddenAt: z.string().nullable(),
+  hiddenBy: z.enum(["user", "agent"]).nullable().optional(),
   items: z.record(
     z.string(),
     z.object({
       state: z.enum(["open", "done", "dismissed"]),
       result: resultSchema.nullable(),
       related: z.record(z.string(), resultSchema).optional(),
+      updatedAt: z.string().optional(),
     }),
   ),
 });
@@ -46,6 +48,15 @@ export const rpcContract = defineRpcContract({
   thread_views: {
     input: z.object({ threadId: z.string().min(1) }),
     output: z.object({ views: z.array(storedViewSchema) }),
+  },
+  /**
+   * The views above a thread's composer: not hidden, and without the items
+   * resolved longer ago than the auto-clear setting. `refreshAt` is when the
+   * next of those is due to go, in epoch milliseconds.
+   */
+  composer_views: {
+    input: z.object({ threadId: z.string().min(1) }),
+    output: z.object({ views: z.array(storedViewSchema), refreshAt: z.number().nullable() }),
   },
   view_get: {
     input: z.object({ viewId: z.number().int().positive() }),

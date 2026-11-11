@@ -326,9 +326,9 @@ function Banner() {
 
   const refetch = useCallback(() => {
     if (threadId === null) return;
-    rpc.call("thread_views", { threadId }).then(({ views: all }) => {
-      const shown = all.filter((candidate) => candidate.hiddenAt === null);
+    rpc.call("composer_views", { threadId }).then(({ views: shown, refreshAt }) => {
       setViews(shown);
+      setRefreshAt(refreshAt);
       // The first load after each publish opens the side panel on the newest
       // view's first open item, whether the publish happened while the thread
       // was on screen or before it was visited.
@@ -341,6 +341,13 @@ function Banner() {
   }, [rpc, threadId]);
   useEffect(refetch, [refetch]);
   useThreadSignal(threadId, refetch);
+  // Answered cards leave a few minutes later, so look again when the next is due.
+  const [refreshAt, setRefreshAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (refreshAt === null) return;
+    const timer = setTimeout(refetch, Math.max(0, refreshAt - Date.now()) + 1000);
+    return () => clearTimeout(timer);
+  }, [refreshAt, refetch]);
   // A newly published view opens expanded, even if it was collapsed before.
   useRealtime(
     "impromptu-ui-published",

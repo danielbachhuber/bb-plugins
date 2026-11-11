@@ -43,7 +43,11 @@ bb impromptu-ui schema                                      # print everything a
 
 Each command except `schema` works only inside a bb thread.
 
-When you archive a view, its cards leave the composer but keep their state. `state` says the view is hidden, and every `publish` lists the thread's other hidden views that still have open cards, so the agent doesn't tell you a question is waiting above the composer when you've put it away.
+### Answered and archived cards
+
+A card you answered or dismissed leaves the composer 10 minutes later, and a view goes once all of its cards have. Cards nobody has answered stay. The view's side panel still shows every card, and `state` still reports them. A card the agent marks complete counts from the publish that marked it. Set the wait with `autoClearMinutes`. Nothing is deleted and no API calls are made: the cards above the composer are filtered as they load, and they look again when the next card is due to go.
+
+When you archive a view that still has an open question, it comes back when the agent's turn ends, so the agent's closing message never points at a question you can't see. To put away a question for good, dismiss its card. A view the agent hid with `bb impromptu-ui hide` stays hidden. While a view is archived, `state` says so, and every `publish` lists the thread's archived views that still have open cards.
 
 ### Clear resolved cards
 
@@ -65,6 +69,7 @@ Each fix lands in one of three places: the skill that should have published, the
 | --- | --- | --- |
 | `providerId` | `claude-code` | Provider for threads a button starts. |
 | `threadInstructions` | `true` | Tell every thread when to publish a view. |
+| `autoClearMinutes` | `10` | Minutes after you answer or dismiss a card before it leaves the cards above the composer. `0` keeps them on screen. |
 | `keepArchivedDays` | `30` | Days to keep a view after its threads are archived. `0` keeps views forever. |
 
 ## Storage

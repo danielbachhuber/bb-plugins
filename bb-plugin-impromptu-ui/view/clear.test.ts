@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import { planClear } from "./clear.js";
+import { composerView, planClear } from "./clear.js";
 import { parseView } from "./schema.js";
 import { MIGRATIONS, createStore } from "./store.js";
 
@@ -111,5 +111,51 @@ describe("store.replaceView", () => {
     expect(next?.publishedAt).toBe(AT);
     expect(next?.items.b?.state).toBe("done");
     expect(next?.view.sections[0]?.items.map((item) => item.id)).toEqual(["b"]);
+  });
+});
+
+describe("composerView", () => {
+  const MIN = 60_000;
+  const cards = {
+    title: "Findings",
+    sections: [{ items: [{ id: "a", title: "A", actions: [message("Fix")] }, { id: "b", title: "B", actions: [message("Fix")] }] }],
+  };
+  const at = (minutes: number) => new Date(Date.parse(AT) + minutes * MIN).toISOString();
+
+  it("leaves a card answered less than the wait on screen, and says when to look again", () => {
+    const { store, id } = setup(cards);
+    store.setItem(id, "a", { state: "done", result: null }, at(1));
+    const shown = composerView(store.get(id)!, Date.parse(at(5)), 10 * MIN);
+    expect(shown.stored?.view.sections[0]?.items.map((item) => item.id)).toEqual(["a", "b"]);
+    expect(shown.refreshAt).toBe(Date.parse(at(11)));
+  });
+
+  it("takes out a card answered longer ago than the wait, and keeps unanswered ones", () => {
+    const { store, id } = setup(cards);
+    store.setItem(id, "a", { state: "dismissed", result: null }, at(1));
+    const shown = composerView(store.get(id)!, Date.parse(at(11)), 10 * MIN);
+    expect(shown.stored?.view.sections[0]?.items.map((item) => item.id)).toEqual(["b"]);
+    expect(shown.refreshAt).toBeNull();
+  });
+
+  it("leaves the view out once every card was answered longer ago than the wait", () => {
+    const { store, id } = setup(cards);
+    store.setItem(id, "a", { state: "done", result: null }, at(1));
+    store.setItem(id, "b", { state: "done", result: null }, at(3));
+    expect(composerView(store.get(id)!, Date.parse(at(12)), 10 * MIN).stored).not.toBeNull();
+    expect(composerView(store.get(id)!, Date.parse(at(13)), 10 * MIN).stored).toBeNull();
+  });
+
+  it("times a card the agent marked complete from the publish", () => {
+    const { store, id } = setup({ title: "T", sections: [{ items: [{ id: "a", title: "A", status: { label: "Applied", complete: true } }] }] });
+    expect(composerView(store.get(id)!, Date.parse(at(9)), 10 * MIN).stored).not.toBeNull();
+    expect(composerView(store.get(id)!, Date.parse(at(10)), 10 * MIN).stored).toBeNull();
+  });
+
+  it("shows everything when the wait is 0", () => {
+    const { store, id } = setup(cards);
+    store.setItem(id, "a", { state: "done", result: null }, at(1));
+    expect(composerView(store.get(id)!, Date.parse(at(600)), 0)).toMatchObject({ refreshAt: null });
+    expect(composerView(store.get(id)!, Date.parse(at(600)), 0).stored?.view.sections[0]?.items).toHaveLength(2);
   });
 });

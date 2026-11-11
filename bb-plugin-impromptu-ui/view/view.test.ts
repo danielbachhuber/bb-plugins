@@ -71,7 +71,7 @@ describe("store", () => {
     const trimmed = { ...triageView, sections: [triageView.sections[0]!] };
     const second = s.publish("thr_one", "default", trimmed, "/tmp", "2026-01-05T11:00:00Z");
     expect(second.id).toBe(first.id);
-    expect(second.items).toEqual({ "issue-101": { state: "done", result: { label: "Post and close", at: "t" } } });
+    expect(second.items).toMatchObject({ "issue-101": { state: "done", result: { label: "Post and close", at: "t" } } });
     expect(s.forThread("thr_one")).toHaveLength(1);
   });
 
@@ -643,7 +643,7 @@ describe("agent-set status", () => {
     expect(first.items.need?.state).toBe("open");
     s.setItem(first.id, "need", { state: "open", result: { label: "Accept", at: "t" } }, "t");
     const done = s.publish("thr_one", "grant", grant({ status: { label: "Complete", tone: "success", complete: true } }), null, "t");
-    expect(done.items.need).toEqual({ state: "done", result: { label: "Accept", at: "t" } });
+    expect(done.items.need).toMatchObject({ state: "done", result: { label: "Accept", at: "t" } });
     const reopened = s.publish("thr_one", "grant", grant({ status: { label: "40 words over", tone: "danger" } }), null, "t");
     expect(reopened.items.need?.state).toBe("open");
   });
@@ -937,7 +937,7 @@ describe("meter, related, and map", () => {
     s.setRelated(stored.id, "need", "security-queue", { label: "Add", at: "2026-03-12T10:00:00Z" }, "t");
     s.setItem(stored.id, "need", { state: "open", result: { label: "Revise", at: "t" } }, "t");
     const again = s.publish("thr_one", "grant", parseView(view()), null, "t");
-    expect(again.items.need).toEqual({
+    expect(again.items.need).toMatchObject({
       state: "open",
       result: { label: "Revise", at: "t" },
       related: { "security-queue": { label: "Add", at: "2026-03-12T10:00:00Z" } },
