@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { packageNote } from "./changes-block.js";
-import { changeFormat, parseView } from "./schema.js";
+import { changeFormat, fillNote, parseView, readView } from "./schema.js";
 import {
   expandPatchFiles,
   compareVersions,
@@ -255,6 +255,41 @@ describe("item changes", () => {
       ["package-lock.json", undefined, true],
     ]);
     expect(changes[1]!.patch).toBe(PACKAGE_JSON);
+  });
+
+  describe("a suggested change with only yes or no", () => {
+    const apply = { type: "message", label: "Apply", primary: true, text: "Apply a" };
+    const skip = { type: "message", label: "Skip", text: "Skip a" };
+    const fix = { changes: [{ label: "README.md", before: "x", after: "y" }], actions: [apply, skip] };
+
+    it("gets a Revise field and button that sends the note", () => {
+      const { view: parsed, warnings } = readView(view(fix));
+      const item = parsed.sections[0]!.items[0]!;
+      expect(item.note).toEqual({ label: "Revise", placeholder: "What to change instead" });
+      expect(item.actions.map((action) => action.label)).toEqual(["Apply", "Skip", "Revise"]);
+      expect(fillNote(item.actions[2]!, "Shorter")).toMatchObject({ text: 'Revise a ("A"): Shorter', repeat: true });
+      expect(warnings).toEqual([expect.stringMatching(/^a: added a Revise field/)]);
+    });
+
+    it("sends the draft too when the change compares against it", () => {
+      const item = parseView(view({ draft: "new", changes: [{ label: "Need", before: "old" }], actions: [apply] })).sections[0]!.items[0]!;
+      expect(item.actions[1]).toMatchObject({ text: 'Revise a ("A"): {note}\n\nThe text as I left it:\n\n{draft}' });
+    });
+
+    it("does the same for a proposed patch", () => {
+      const item = parseView(view({ changes: [{ label: "a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n", role: "proposed" }], actions: [apply] })).sections[0]!.items[0]!;
+      expect(item.note).toBeDefined();
+    });
+
+    it("leaves alone a card with its own note, a pull request's own diff, a list row, or a card with no buttons", () => {
+      const own = { note: {}, actions: [apply, { type: "message", label: "Redo", text: "Redo: {note}" }] };
+      expect(readView(view({ ...fix, ...own }))).toMatchObject({ warnings: [] });
+      expect(parseView(view({ ...fix, ...own })).sections[0]!.items[0]!.actions).toHaveLength(2);
+      expect(parseView(view({ changes: [{ label: "a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n" }], actions: [apply] })).sections[0]!.items[0]!.note).toBeUndefined();
+      expect(parseView(view({ changes: fix.changes })).sections[0]!.items[0]!.note).toBeUndefined();
+      const list = JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", ...fix }] }] });
+      expect(parseView(list).sections[0]!.items[0]!.note).toBeUndefined();
+    });
   });
 
   it("fails the publish on a missing or empty diff, naming the item", async () => {

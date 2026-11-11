@@ -251,16 +251,19 @@ When you audit or proofread a document and find things to fix, publish one item 
     "before": "Run `npm install widgets` to get started.",
     "after": "Run `npm install acme-widgets` to get started."
   }],
+  "note": { "label": "Revise", "placeholder": "What to change instead" },
   "actions": [
     { "type": "message", "label": "Apply", "primary": true, "text": "Apply fix-3 to README.md › Install: change `npm install widgets` to `npm install acme-widgets`." },
-    { "type": "message", "label": "Skip", "text": "Skip fix-3 (README.md › Install); leave the text as it is." }
+    { "type": "message", "label": "Skip", "text": "Skip fix-3 (README.md › Install); leave the text as it is." },
+    { "type": "message", "label": "Revise", "repeat": true, "text": "Revise fix-3 (README.md › Install) before applying it: {note}" }
   ]
 }
 ```
 
 - `before` is the text as it is now, quoted exactly, and `after` is your suggested text. `label` names where it is, such as the file and heading.
 - `summary` is one line on why the text should change.
-- Give each item an Apply button, marked `primary`, and a Skip button. Write each button's `text` so it names the correction, because the user may answer them in any order.
+- Give each item an Apply button, marked `primary`, a Skip button, and a Revise button with a `note` field, so the user can ask for a different fix without typing the card out in chat. Write each button's `text` so it names the correction, because the user may answer them in any order. When Revise comes back, publish the item again under the same `id` with the revised suggestion.
+- Every card that suggests a change, whether a correction, a review finding's fix (`"role": "proposed"`), or a section compared against its draft, gets a Revise field. If one has buttons but no `note`, `publish` adds a note and a Revise button that sends `Revise <id> ("<title>"): <note>`, and says so in a warning. Add your own to word it for the task.
 
 
 When each item is a piece of work that goes back and forth, such as sections of a document you draft, the user pushes back on, and you revise, give each item a `status` and a `history`:

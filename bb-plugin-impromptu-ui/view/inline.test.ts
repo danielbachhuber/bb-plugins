@@ -29,8 +29,10 @@ describe("inline view schema", () => {
   const moved = (items: unknown[]) => {
     const { view, warnings } = readView(inline(items));
     expect(view.layout).toBe("cards");
-    expect(warnings).toHaveLength(1);
-    return warnings[0]!;
+    // A suggested change also gets a Revise field, with a warning of its own.
+    const published = warnings.filter((warning) => warning.startsWith("Published as"));
+    expect(published).toHaveLength(1);
+    return published[0]!;
   };
 
   it("publishes too few or too many answers as cards", () => {

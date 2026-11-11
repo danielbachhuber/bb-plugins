@@ -780,6 +780,44 @@ function dropUnsentNotes(json: unknown, warnings: string[]): unknown {
   };
 }
 
+/** Whether an item suggests a change of yours: a fix, new text against old, or a section compared against its draft. */
+export function suggestsChange(item: Item): boolean {
+  return item.changes.some((change) => change.role === "proposed" || change.after !== undefined || usesDraftAsAfter(change));
+}
+
+/**
+ * A card that suggests a change but gives the user only yes or no, such as
+ * Apply and Skip, gets a note field and a Revise button that sends it, so the
+ * user can ask for a different change instead of retyping the card in chat.
+ */
+function addRevise(view: View, warnings: string[]): View {
+  if (view.layout !== "cards") return view;
+  return {
+    ...view,
+    sections: view.sections.map((section, s) => ({
+      ...section,
+      items: section.items.map((item, i) => {
+        const answerable = item.actions.some((action) => action.type === "message" || action.type === "thread");
+        if (!suggestsChange(item) || !answerable || item.note !== undefined || item.closing || item.draftFormat === "text") return item;
+        if (item.actions.length >= 6) {
+          warnings.push(`sections.${s}.items.${i}: suggests a change but has no Revise field, and has no room for one; drop a button and add a note with a Revise button that sends {note}`);
+          return item;
+        }
+        const draft = item.changes.some(usesDraftAsAfter) ? `\n\nThe text as I left it:\n\n${DRAFT}` : "";
+        const revise: Action = {
+          type: "message",
+          label: "Revise",
+          primary: false,
+          repeat: true,
+          text: `Revise ${item.id} ("${item.title}"): ${NOTE}${draft}`,
+        };
+        warnings.push(`${item.id}: added a Revise field, since it suggests a change; a press sends "Revise ${item.id} (…): <note>". Give it your own note and Revise button to word them yourself.`);
+        return { ...item, note: { label: "Revise", placeholder: "What to change instead" }, actions: [...item.actions, revise] };
+      }),
+    })),
+  };
+}
+
 function sectionOf(view: View, item: Item): Section | undefined {
   return view.sections.find((section) => section.items.some((candidate) => candidate.id === item.id));
 }
@@ -825,12 +863,12 @@ export function readView(raw: string): { view: View; warnings: string[] } {
   const warnings: string[] = [];
   json = dropUnsentNotes(json, warnings);
   const parsed = viewSchema.safeParse(json);
-  if (parsed.success) return { view: parsed.data, warnings };
+  if (parsed.success) return { view: addRevise(parsed.data, warnings), warnings };
   if (parsed.error.issues.every(isInlineOnly)) {
     const cards = viewSchema.safeParse({ ...(json as object), layout: "cards" });
     if (cards.success) {
-      const why = describeIssues(parsed.error);
-      return { view: cards.data, warnings: [...warnings, `Published as "cards", not "inline", because ${why}`] };
+      warnings.push(`Published as "cards", not "inline", because ${describeIssues(parsed.error)}`);
+      return { view: addRevise(cards.data, warnings), warnings };
     }
   }
   throw new Error(`That is not a valid view. ${describeIssues(parsed.error)}`);
