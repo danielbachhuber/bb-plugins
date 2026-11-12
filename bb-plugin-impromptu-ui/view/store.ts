@@ -404,12 +404,15 @@ export function createStore(db: Database): Store {
 }
 
 /** Items still waiting on the user: not quiet, not done or dismissed. */
-export function openItemCount(stored: StoredView): number {
-  return stored.view.sections.reduce(
-    (sum, section) =>
-      sum + section.items.filter((item) => !isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open").length,
-    0,
+/** The items still waiting on the user. A quiet row has nothing to decide, so it is never open. */
+export function openItems(stored: StoredView): Item[] {
+  return stored.view.sections.flatMap((section) =>
+    section.items.filter((item) => !isQuiet(stored.view, item) && (stored.items[item.id]?.state ?? "open") === "open"),
   );
+}
+
+export function openItemCount(stored: StoredView): number {
+  return openItems(stored).length;
 }
 
 /**

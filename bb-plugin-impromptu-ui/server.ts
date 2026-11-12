@@ -24,7 +24,7 @@ import { fetchArgsFor, threadEnvironment } from "./view/thread-environment.js";
 import { itemThreadPrompt } from "./view/thread-prompt.js";
 import { MAX_IMAGE_BYTES, feedbackMessage, hasFeedback, imageMime, type Feedback } from "./view/review.js";
 import { fillDraft, fillNote, itemThreads, messageTargets, parseView, readView, usesDraft, usesNote, type Action, type View } from "./view/schema.js";
-import { MIGRATIONS, completedUnanswered, createStore, describeItems, openItemCount, revisedAfterNote, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
+import { MIGRATIONS, completedUnanswered, createStore, describeItems, openItemCount, openItems, revisedAfterNote, stateAfterAction, viewFor, type ActionResult, type StoredImage, type StoredView } from "./view/store.js";
 
 export { rpcContract };
 
@@ -489,7 +489,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   const usage = [
     "Usage:",
-    "  bb impromptu-ui publish --file <view.json> [--key <name>]",
+    "  bb impromptu-ui publish --file <view.json> [--key <name>] [--replaces <key> ...]",
     "  bb impromptu-ui state [--key <name>]",
     "  bb impromptu-ui hide [--key <name>]",
     "  bb impromptu-ui clear-resolved [--key <name>]",
@@ -498,7 +498,9 @@ export default async function plugin(bb: BbPluginApi) {
     "",
     "Run these from the thread the view belongs to. `publish` shows the view above",
     "that thread's composer; publishing again with the same key replaces it and",
-    "keeps what the user already did to each item. `state` prints each item's",
+    "keeps what the user already did to each item. `--replaces <key>` hides an",
+    "earlier view this one asks again or makes moot; repeat it for several, and",
+    "publish lists the thread's other views that still have open items. `state` prints each item's",
     "state and the result of the last button pressed on it. `hide` takes the view",
     "down from above the composer, as its archive button does, until the next",
     "publish under its key. `clear-resolved` takes the cards the user already",
@@ -512,6 +514,11 @@ export default async function plugin(bb: BbPluginApi) {
     return at === -1 ? undefined : args[at + 1];
   }
 
+  /** Every value of a flag that may repeat, such as `--replaces a --replaces b`. */
+  function flags(args: string[], name: string): string[] {
+    return args.flatMap((arg, at) => (arg === `--${name}` && args[at + 1] !== undefined ? [args[at + 1]!] : []));
+  }
+
   bb.cli.register({
     name: "impromptu-ui",
     summary: "Show a skill's results above the thread's composer, with buttons",
@@ -519,7 +526,7 @@ export default async function plugin(bb: BbPluginApi) {
       {
         name: "publish",
         summary: "Publish or replace this thread's view from a JSON file",
-        usage: "bb impromptu-ui publish --file <view.json> [--key <name>]",
+        usage: "bb impromptu-ui publish --file <view.json> [--key <name>] [--replaces <key> ...]",
       },
       {
         name: "state",
@@ -560,6 +567,14 @@ export default async function plugin(bb: BbPluginApi) {
         case "publish": {
           const file = flag(args, "file");
           if (file === undefined) return { exitCode: 1, stderr: usage };
+          const replaces = [...new Set(flags(args, "replaces"))];
+          const mine = store.forThread(threadId);
+          for (const other of replaces) {
+            if (other === key) return { exitCode: 1, stderr: `--replaces ${other} names the view being published. Publishing under the same key already replaces it.` };
+            if (!mine.some((candidate) => candidate.key === other)) {
+              return { exitCode: 1, stderr: `--replaces ${other}: this thread has no view with that key. \`bb impromptu-ui list\` shows them.` };
+            }
+          }
           try {
             // The server's working directory is not the caller's.
             const path = ctx.cwd === undefined || isAbsolute(file) ? file : resolve(ctx.cwd, file);
@@ -581,7 +596,25 @@ export default async function plugin(bb: BbPluginApi) {
             for (const shown of [threadId, ...itemThreads(view)]) {
               bb.realtime.publish(PUBLISHED, { threadId: shown, viewId: stored.id, title: view.title });
             }
+            // Only once the new view is up, so a bad file leaves the old question where it was.
+            const replaced = replaces.flatMap((other) => {
+              const earlier = store.forThread(threadId).find((candidate) => candidate.key === other)!;
+              if (earlier.hiddenAt !== null) return [`"${earlier.view.title}" (${other}) was already hidden.`];
+              store.setHidden(earlier.id, true, now());
+              changed(earlier);
+              return [`Replaced "${earlier.view.title}" (${other}): it is no longer above the composer.`];
+            });
             const count = view.sections.reduce((sum, section) => sum + section.items.length, 0);
+            // An earlier question the agent asked again under a new key, or
+            // that its work made moot, stays above the composer until it is
+            // taken down, so name each one still open.
+            const stillOpen = store.forThread(threadId).flatMap((other) => {
+              const open = openItems(other);
+              if (other.key === key || other.hiddenAt !== null || open.length === 0) return [];
+              const titles = open.slice(0, 3).map((item) => `"${item.title}"`).join(", ");
+              const more = open.length > 3 ? `, and ${open.length - 3} more` : "";
+              return [`Still above the composer: "${other.view.title}" (${other.key}) with ${open.length} open item${open.length === 1 ? "" : "s"}: ${titles}${more}.`];
+            });
             // The user may have archived an earlier view, so its open items are off screen.
             const offScreen = store.forThread(threadId).flatMap((other) => {
               const open = openItemCount(other);
@@ -606,6 +639,13 @@ export default async function plugin(bb: BbPluginApi) {
                   (item) =>
                     `Reopened ${item.id}: the user sent it back with "${previous!.items[item.id]!.result!.label}", and this version has a new draft or changes, so it is open again for them to decide.`,
                 ),
+                ...replaced,
+                ...stillOpen,
+                ...(stillOpen.length > 0
+                  ? [
+                      "If this view asks one of those again, or your work answered it or made it moot, take it down: publish with --replaces <key>, or run `bb impromptu-ui hide --key <key>`.",
+                    ]
+                  : []),
                 ...offScreen,
               ].join("\n"),
             };

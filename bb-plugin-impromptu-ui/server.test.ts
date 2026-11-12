@@ -83,13 +83,61 @@ describe("hidden views", () => {
     expect(result.stdout).toMatch(/Hidden, so not above the composer: "Next steps" \(next\) with 1 open item\./);
   });
 
-  it("publish says nothing about a shown view or a hidden one with nothing open", async () => {
+  it("publish says nothing about a hidden view with nothing open", async () => {
     const { cli } = await start();
-    await cli("publish", "--file", viewFile({ title: "Shown", layout: "inline", sections: [{ items: [question("a", "A?")] }] }), "--key", "shown");
     await cli("publish", "--file", viewFile({ title: "Info", layout: "list", sections: [{ items: [{ id: "n", title: "A note" }] }] }), "--key", "info");
     await cli("hide", "--key", "info");
     const result = await cli("publish", "--file", viewFile({ title: "Draft", layout: "inline", sections: [{ items: [question("d", "Apply?")] }] }), "--key", "draft");
-    expect(result.stdout).not.toMatch(/Hidden/);
+    expect(result.stdout).not.toMatch(/Hidden|Still above/);
+  });
+});
+
+describe("replacing an earlier question", () => {
+  const question = (id: string, title: string) => ({ id, title, actions: [answer("Yes"), answer("No")] });
+  const publish = (cli: (...argv: string[]) => Promise<any>, key: string, title: string, ...extra: string[]) =>
+    cli("publish", "--file", viewFile({ title: key, layout: "inline", sections: [{ items: [question("q", title)] }] }), "--key", key, ...extra);
+  const shown = async (rpc: (method: string, input: unknown) => Promise<any>) =>
+    ((await rpc("composer_views", { threadId: "thr_a" })).views as Array<{ key: string }>).map((view) => view.key);
+
+  it("names the other views still above the composer with open items", async () => {
+    const { cli } = await start();
+    await publish(cli, "step", "Commit the fix?");
+    const { stdout } = await publish(cli, "fix-1", "Commit the fix?");
+    expect(stdout).toMatch(/Still above the composer: "step" \(step\) with 1 open item: "Commit the fix\?"\./);
+    expect(stdout).toMatch(/--replaces <key>/);
+  });
+
+  it("says nothing about a view whose items are answered, or the view being republished", async () => {
+    const { cli, rpc } = await start();
+    const { stdout: first } = await publish(cli, "step", "Go?");
+    await rpc("item_dismiss", { viewId: Number(/view (\d+)/.exec(first)![1]), itemId: "q", dismissed: true });
+    await publish(cli, "next", "Next?");
+    const { stdout } = await publish(cli, "next", "Next, revised?");
+    expect(stdout).not.toMatch(/Still above/);
+  });
+
+  it("hides the views --replaces names once the new view is published", async () => {
+    const { cli, rpc, idle } = await start();
+    await publish(cli, "step", "Commit?");
+    await publish(cli, "other", "Push?");
+    const { stdout } = await publish(cli, "fix-1", "Commit?", "--replaces", "step", "--replaces", "other");
+    expect(stdout).toMatch(/Replaced "step" \(step\)/);
+    expect(stdout).not.toMatch(/Still above/);
+    expect(await shown(rpc)).toEqual(["fix-1"]);
+    // Hidden by the agent, so the end of the turn does not bring it back.
+    await idle();
+    expect(await shown(rpc)).toEqual(["fix-1"]);
+  });
+
+  it("refuses an unknown key, or the key being published, and publishes nothing", async () => {
+    const { cli, rpc } = await start();
+    await publish(cli, "step", "Commit?");
+    const unknown = await publish(cli, "fix-1", "Commit?", "--replaces", "nope");
+    expect(unknown.exitCode).toBe(1);
+    expect(unknown.stderr).toMatch(/no view with that key/);
+    const self = await publish(cli, "step", "Commit?", "--replaces", "step");
+    expect(self.exitCode).toBe(1);
+    expect(await shown(rpc)).toEqual(["step"]);
   });
 });
 

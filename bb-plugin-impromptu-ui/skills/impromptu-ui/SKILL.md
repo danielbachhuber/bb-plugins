@@ -20,6 +20,7 @@ An `"inline"` view is for 1 to 3 quick questions answered right above the compos
 | Button types | `message`, `thread`, `link`; no `command` |
 | Item fields | `title` and `actions` show (a `summary` or `badges` are kept but not shown); no `status`, `draft`, `note`, `changes`, `evidence`, `variations`, `related`, `history`, `meter`, `closing`, or `thread` |
 | A question already answered | `bb impromptu-ui hide --key <key>`, not a republish with no buttons |
+| A question asked again under a new key | `publish --replaces <old key>`, so the old one leaves the composer |
 
 ## Is it available?
 
@@ -152,6 +153,7 @@ When your turn ends on a question the user answers by picking, such as "Should I
 - An answer typed into the field comes to you as the question, a blank line, and what they typed. `state` prints it as `(Something else: "<text>")`.
 - Any reply typed there closes the question, even one that only asks for more, such as "What would the first option change?". Answer it, then, if the decision is still open, publish the question again under the same key with a new item `id` (such as `deploy-2`), updating the answers if what you found changes them. Never tell the user a question is still above the composer without checking `state`.
 - 1 to 3 questions per view, each with 2 to 4 buttons: `message`, `thread`, or `link`, at least 2 of them answers rather than links. A `command` needs the "cards" layout, since it asks before it runs. So do drafts, notes, changes, evidence, variations, related notes, history, a status, a meter, a closing step, and `thread` on an item. A view that breaks these is published as cards, with a warning, rather than refused.
+- When you ask a question again under a new key, or your work answered or overtook an earlier question, pass `--replaces <old key>` to `publish` (repeat it for several) so the old question leaves the composer. `publish` lists every other view still above the composer with open items, so read that list each time.
 - When the user answered in the normal composer instead of the buttons and the work is done, run `bb impromptu-ui hide --key <key>` to take the question down. Do not publish it again with no buttons: `publish` refuses a question with none.
 - Keep labels short and say what each does in `detail`, which shows when the pointer rests on the button. Mark the answer you recommend `primary`.
 - For a design or naming decision, the question has to carry what the user needs to decide. Say what each answer changes: the before and after, or the names it affects. Say what this repository did in earlier similar cases, with links to those pull requests. Give your recommendation and the reason for it, and mark that answer `primary`. When one line per answer is not enough, put the rest in each button's `detail`, or publish a cards view with `variations` so the user can see each option.
@@ -430,7 +432,7 @@ Prints each item as `[open|done|dismissed] <id> <title>`, then its status as `{I
 bb impromptu-ui hide [--key <name>]
 ```
 
-Hides the view from above this thread's composer, as the archive button on its header does. Run it when a view's items are settled or a later round replaces it under a different key, rather than asking the user to dismiss it. The view and what the user did to it stay readable with `state`, and the next `publish` under the same key shows it again.
+Hides the view from above this thread's composer, as the archive button on its header does. Run it when a view's items are settled, rather than asking the user to dismiss it. When a later round replaces a view under a different key, publish the new one with `--replaces <old key>` instead, which hides the old view once the new one is up. The view and what the user did to it stay readable with `state`, and the next `publish` under the same key shows it again.
 
 To take only the cards the user has already acted on out of this thread's views, and hide the views with nothing left open, run `bb impromptu-ui clear-resolved`. The `clear-resolved-cards` skill covers it.
 

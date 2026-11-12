@@ -34,7 +34,7 @@ With Impromptu UI, you can:
 Every thread's instructions get a short section telling the agent to build a view whenever you would otherwise read its output and type a reply to act on it, shaped to its own task. The section doesn't list what a view can hold. It points to `bb impromptu-ui schema`, which prints the view file's JSON Schema from the code, so new fields reach agents without anyone editing the instructions. The `impromptu-ui` skill shows how to put a view together. Turn it off with the `threadInstructions` setting.
 
 ```sh
-bb impromptu-ui publish --file <view.json> [--key <name>]   # show or replace a view
+bb impromptu-ui publish --file <view.json> [--key <name>] [--replaces <key> ...]   # show or replace a view
 bb impromptu-ui state [--key <name>]                        # read what the user did
 bb impromptu-ui hide [--key <name>]                         # hide a view
 bb impromptu-ui clear-resolved [--key <name>]               # take done and dismissed cards out
@@ -49,6 +49,8 @@ Each command except `schema` works only inside a bb thread.
 A card you answered or dismissed leaves the composer 10 minutes later, and a view goes once all of its cards have. Cards nobody has answered stay. The view's side panel still shows every card, and `state` still reports them. A card the agent marks complete counts from the publish that marked it. If the agent marks a card complete before you pressed any of its buttons, `publish` warns it to reopen the card unless you answered in chat. Set the wait with `autoClearMinutes`. Nothing is deleted and no API calls are made: the cards above the composer are filtered as they load, and they look again when the next card is due to go.
 
 When you archive a view that still has an open question, it comes back when the agent's turn ends, so the agent's closing message never points at a question you can't see. To put away a question for good, dismiss its card. A view the agent hid with `bb impromptu-ui hide` stays hidden. While a view is archived, `state` says so, and every `publish` lists the thread's archived views that still have open cards.
+
+An agent sometimes asks the same question again under a new key, or does the work an earlier question asked about, and the earlier question would stay above the composer unanswered. So every `publish` also lists the thread's other views still above the composer with open cards. The agent takes the ones it replaced down by publishing with `--replaces <key>`, which hides each named view once the new one is up, as `hide` does. A key the thread has no view under stops the publish.
 
 ### Clear resolved cards
 
