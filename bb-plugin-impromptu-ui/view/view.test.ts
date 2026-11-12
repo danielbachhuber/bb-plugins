@@ -698,6 +698,10 @@ describe("agent-set status", () => {
     expect(revisedAfterNote(fix("Round 2"), revised).map((item) => item.id)).toEqual(["intro"]);
     // The same text again is not a new version.
     expect(revisedAfterNote(fix("Round 1"), revised)).toEqual([]);
+    // A new summary or brief is a new version even when the draft is the same.
+    expect(revisedAfterNote(fix("Round 1", { summary: "Uses the new table" }), revised).map((item) => item.id)).toEqual(["intro"]);
+    // A new status alone is not.
+    expect(revisedAfterNote(fix("Round 1", { status: { label: "Revised" } }), revised)).toEqual([]);
     // The agent closed it itself.
     expect(revisedAfterNote(fix("Round 2", { status: { label: "Applied", complete: true } }), revised)).toEqual([]);
     // Apply sends no note, so the user's decision stands.

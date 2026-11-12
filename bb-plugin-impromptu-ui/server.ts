@@ -637,7 +637,7 @@ export default async function plugin(bb: BbPluginApi) {
                 ),
                 ...revised.map(
                   (item) =>
-                    `Reopened ${item.id}: the user sent it back with "${previous!.items[item.id]!.result!.label}", and this version has a new draft or changes, so it is open again for them to decide.`,
+                    `Reopened ${item.id}: the user sent it back with "${previous!.items[item.id]!.result!.label}", and this version changes it, so it is open again for them to decide.`,
                 ),
                 ...replaced,
                 ...stillOpen,
