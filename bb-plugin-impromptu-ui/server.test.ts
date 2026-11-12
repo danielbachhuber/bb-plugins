@@ -122,7 +122,7 @@ describe("replacing an earlier question", () => {
     await publish(cli, "other", "Push?");
     const { stdout } = await publish(cli, "fix-1", "Commit?", "--replaces", "step", "--replaces", "other");
     expect(stdout).toMatch(/Replaced "step" \(step\)/);
-    expect(stdout).not.toMatch(/Still above/);
+    expect(stdout).not.toMatch(/Still above|Hidden/);
     expect(await shown(rpc)).toEqual(["fix-1"]);
     // Hidden by the agent, so the end of the turn does not bring it back.
     await idle();

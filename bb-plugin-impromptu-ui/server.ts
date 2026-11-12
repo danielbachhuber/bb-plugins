@@ -618,7 +618,7 @@ export default async function plugin(bb: BbPluginApi) {
             // The user may have archived an earlier view, so its open items are off screen.
             const offScreen = store.forThread(threadId).flatMap((other) => {
               const open = openItemCount(other);
-              if (other.hiddenAt === null || open === 0) return [];
+              if (other.hiddenAt === null || open === 0 || replaces.includes(other.key)) return [];
               const items = `"${other.view.title}" (${other.key}) with ${open} open item${open === 1 ? "" : "s"}.`;
               return [
                 other.hiddenBy === "user"
