@@ -23,14 +23,39 @@ describe("parseStacks", () => {
       },
     });
     const entries = [
-      { number: 610, title: "Widget change 610", url: "u610", state: "merged" },
-      { number: 612, title: "Widget change 612", url: "u612", state: "open" },
-      { number: 615, title: "Widget change 615", url: "u615", state: "open" },
+      { number: 610, title: "Widget change 610", url: "u610", state: "merged", approved: false },
+      { number: 612, title: "Widget change 612", url: "u612", state: "open", approved: false },
+      { number: 615, title: "Widget change 615", url: "u615", state: "open", approved: false },
     ];
     expect(Object.fromEntries(parseStacks(raw))).toEqual({
       "acme/widgets#612": { number: 131, position: 2, size: 3, entries },
       "acme/widgets#615": { number: 131, position: 3, size: 3, entries },
     });
+  });
+
+  it("marks an open entry approved when the viewer's latest opinionated review approves it", () => {
+    const stack = [entry(1, 610), entry(2, 612), entry(3, 615)];
+    const reviews = (...nodes: Array<{ state: string; viewerDidAuthor: boolean }>) => ({ latestOpinionatedReviews: { nodes } });
+    const raw = JSON.stringify({
+      data: {
+        r0: {
+          nameWithOwner: "acme/widgets",
+          pullRequests: {
+            nodes: [
+              { ...stacked(610, 1, stack), ...reviews({ state: "APPROVED", viewerDidAuthor: true }) },
+              { ...stacked(612, 2, stack), ...reviews({ state: "APPROVED", viewerDidAuthor: false }) },
+              { ...stacked(615, 3, stack), ...reviews({ state: "CHANGES_REQUESTED", viewerDidAuthor: true }) },
+            ],
+          },
+        },
+      },
+    });
+    const approved = parseStacks(raw).get("acme/widgets#612")?.entries.map((e) => [e.number, e.approved]);
+    expect(approved).toEqual([
+      [610, true],
+      [612, false],
+      [615, false],
+    ]);
   });
 
   it("skips a repository GitHub returned as null", () => {

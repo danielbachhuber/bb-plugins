@@ -140,7 +140,14 @@ const rowSchema = z.object({
       position: z.number(),
       size: z.number(),
       entries: z.array(
-        z.object({ number: z.number(), title: z.string(), url: z.string(), state: z.enum(["open", "closed", "merged"]) }),
+        z.object({
+          number: z.number(),
+          title: z.string(),
+          url: z.string(),
+          state: z.enum(["open", "closed", "merged"]),
+          // Optional so a row stored before approvals were read still parses.
+          approved: z.boolean().optional(),
+        }),
       ),
     })
     .nullable().optional()

@@ -387,7 +387,7 @@ describe("SweepList stacks", () => {
   const entries = [
     { number: 690, title: "Widget task 690", state: "merged" as const },
     { number: 10, title: "Widget task 10", state: "open" as const },
-    { number: 11, title: "Widget task 11", state: "open" as const },
+    { number: 11, title: "Widget task 11", state: "open" as const, approved: true },
     { number: 12, title: "Widget task 12", state: "open" as const },
   ];
   const stack = (position: number) => ({ key: "acme/widgets#731", number: 731, position, entries });
@@ -404,7 +404,7 @@ describe("SweepList stacks", () => {
     expect(links).toEqual(["Widget task 10", "Widget task 11", "Widget task 12", "Widget task 40"]);
     const block = screen.getByText("#731").closest("li")!;
     const dots = within(within(block).getByRole("list", { name: "Pull requests in the stack, bottom first" })).getAllByRole("listitem").map((dot) => dot.getAttribute("aria-label"));
-    expect(dots).toEqual(["#690 Widget task 690 (merged)", "#10 Widget task 10", "#11 Widget task 11", "#12 Widget task 12"]);
+    expect(dots).toEqual(["#690 Widget task 690 (merged)", "#10 Widget task 10", "#11 Widget task 11 (approved by you)", "#12 Widget task 12"]);
     expect(within(block).getAllByRole("link")).toHaveLength(3);
   });
 

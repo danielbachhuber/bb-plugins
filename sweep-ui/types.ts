@@ -81,8 +81,11 @@ export interface SweepStack {
   number: number;
   /** This pull request's place, 1 for the one closest to the base branch. */
   position: number;
-  /** Every pull request in the stack, merged ones and ones not in the list included, bottom first. */
-  entries: Array<{ number: number; title: string; state: "open" | "closed" | "merged" }>;
+  /**
+   * Every pull request in the stack, merged ones and ones not in the list
+   * included, bottom first. `approved` marks an open one the viewer approved.
+   */
+  entries: Array<{ number: number; title: string; state: "open" | "closed" | "merged"; approved?: boolean }>;
 }
 
 export interface Stage {

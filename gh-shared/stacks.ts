@@ -12,8 +12,11 @@ export interface StackPosition {
   position: number;
   /** Every pull request in the stack, merged ones included, as GitHub counts it. */
   size: number;
-  /** Every pull request in the stack, bottom first. */
-  entries: Array<{ number: number; title: string; url: string; state: "open" | "closed" | "merged" }>;
+  /**
+   * Every pull request in the stack, bottom first. `approved` is whether the
+   * viewer's latest review of an open one approves it.
+   */
+  entries: Array<{ number: number; title: string; url: string; state: "open" | "closed" | "merged"; approved: boolean }>;
 }
 
 /** `repo#number`, the key both sweeps store rows under. */
@@ -24,7 +27,9 @@ export function stackKey(repo: string, number: number): string {
 /**
  * One query for every repository, each under its own alias. The first 100 open
  * pull requests, most recently updated first, which covers any stack still
- * being worked on, with each one's stack entry.
+ * being worked on, with each one's stack entry and whether the viewer's
+ * latest review approves it. Merged and closed entries are not in that list,
+ * and need no approval.
  */
 export function stacksQuery(count: number): string {
   const params = Array.from({ length: count }, (_, i) => `$o${i}: String!, $n${i}: String!`).join(", ");
@@ -35,6 +40,7 @@ export function stacksQuery(count: number): string {
     pullRequests(states: OPEN, first: 100, orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
         number
+        latestOpinionatedReviews(first: 20) { nodes { state viewerDidAuthor } }
         stackEntry {
           position
           stack { number size entries(first: 50) { nodes { position pullRequest { number title url state } } } }
@@ -56,6 +62,7 @@ interface RawRepository {
   pullRequests?: {
     nodes?: Array<{
       number?: unknown;
+      latestOpinionatedReviews?: { nodes?: Array<{ state?: unknown; viewerDidAuthor?: unknown } | null> | null } | null;
       stackEntry?: {
         position?: unknown;
         stack?: { number?: unknown; size?: unknown; entries?: { nodes?: Array<RawEntry | null> | null } | null } | null;
@@ -71,7 +78,16 @@ export function parseStacks(raw: string): Map<string, StackPosition> {
   for (const repository of Object.values(parsed.data ?? {})) {
     const repo = repository?.nameWithOwner;
     if (!repo) continue;
-    for (const node of repository.pullRequests?.nodes ?? []) {
+    const nodes = repository.pullRequests?.nodes ?? [];
+    const approved = new Set(
+      nodes.flatMap((node) =>
+        typeof node?.number === "number" &&
+        (node.latestOpinionatedReviews?.nodes ?? []).some((review) => review?.viewerDidAuthor === true && review.state === "APPROVED")
+          ? [node.number]
+          : [],
+      ),
+    );
+    for (const node of nodes) {
       const entry = node?.stackEntry;
       const stack = entry?.stack;
       if (
@@ -98,7 +114,7 @@ export function parseStacks(raw: string): Map<string, StackPosition> {
           ];
         })
         .sort((a, b) => a.position - b.position)
-        .map(({ number, title, url, state }) => ({ number, title, url, state }));
+        .map(({ number, title, url, state }) => ({ number, title, url, state, approved: state === "open" && approved.has(number) }));
       positions.set(stackKey(repo, node.number), { number: stack.number, position: entry.position, size: stack.size, entries });
     }
   }

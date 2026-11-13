@@ -93,8 +93,8 @@ describe("runSweep", () => {
       position: 2,
       size: 2,
       entries: [
-        { number: 1, title: "Widget base", url: "u1", state: "open" },
-        { number: 2, title: "Widget top", url: "u2", state: "open" },
+        { number: 1, title: "Widget base", url: "u1", state: "open", approved: false },
+        { number: 2, title: "Widget top", url: "u2", state: "open", approved: false },
       ],
     });
   });

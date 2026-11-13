@@ -285,8 +285,9 @@ export function groupStacks(items: SweepItem[]): Block[] {
 
 /**
  * The stack's number, then a dot for each of its pull requests, bottom first:
- * filled purple for one that has merged, hollow for one still open, and faint
- * for one closed without merging. Hovering a dot names its pull request.
+ * filled purple for one that has merged, filled green for one still open that
+ * the viewer approved, hollow for any other open one, and faint for one closed
+ * without merging. Hovering a dot names its pull request.
  */
 function StackHeader({ stack }: { stack: SweepStack }) {
   return (
@@ -300,14 +301,21 @@ function StackHeader({ stack }: { stack: SweepStack }) {
           {stack.entries.map((entry, index) => {
             const merged = entry.state === "merged";
             const joinedMerged = merged && stack.entries[index - 1]?.state === "merged";
-            const label = `#${entry.number} ${entry.title}${merged ? " (merged)" : entry.state === "closed" ? " (closed)" : ""}`;
+            const approved = entry.state === "open" && entry.approved === true;
+            const label = `#${entry.number} ${entry.title}${merged ? " (merged)" : entry.state === "closed" ? " (closed)" : approved ? " (approved by you)" : ""}`;
             return (
               <span key={entry.number} role="listitem" className="flex items-center" title={label} aria-label={label}>
                 {index > 0 ? <span className={cn("h-px w-2.5", joinedMerged ? MERGED_BG : "bg-border")} /> : null}
                 <span
                   className={cn(
                     "size-2.5 rounded-full border",
-                    merged ? cn(MERGED_BG, "border-transparent") : entry.state === "closed" ? "border-border" : "border-current",
+                    merged
+                      ? cn(MERGED_BG, "border-transparent")
+                      : approved
+                        ? cn(APPROVED_BG, "border-transparent")
+                        : entry.state === "closed"
+                          ? "border-border"
+                          : "border-current",
                   )}
                 />
               </span>
@@ -321,3 +329,6 @@ function StackHeader({ stack }: { stack: SweepStack }) {
 
 /** GitHub's merged purple. */
 const MERGED_BG = "bg-[#8250df] dark:bg-[#a371f7]";
+
+/** GitHub's open green, for a pull request the viewer approved. */
+const APPROVED_BG = "bg-[#1a7f37] dark:bg-[#3fb950]";

@@ -737,6 +737,6 @@ function sweepStackOf(row: Row): SweepStack | null {
     key: `${row.repo}#${stack.number}`,
     number: stack.number,
     position: stack.position,
-    entries: stack.entries.map(({ number, title, state }) => ({ number, title, state })),
+    entries: stack.entries.map(({ number, title, state, approved }) => ({ number, title, state, approved: approved ?? false })),
   };
 }

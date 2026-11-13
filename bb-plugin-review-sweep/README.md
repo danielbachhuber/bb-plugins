@@ -148,7 +148,9 @@ the sweep.
 When two or more pull requests in the list belong to one stack, they draw
 together as one block, where the newest of them would sit. A header gives the
 stack's number and a dot for each of its pull requests, bottom first: filled
-purple once merged, hollow while open, each named on hover. Under
+purple once merged, filled green while open and approved by you, hollow
+while open otherwise, each named on hover. The approvals come from the same
+stacks call. Under
 it, each pull request is one line, bottom of the stack first: its place in the
 stack, number, and title, then its reviewers, checks, size, and comment count,
 and its actions as icons, each named on hover. A note, a thread, the Start
