@@ -97,7 +97,7 @@ bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT] 
 bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
 ```
 
-The [self-improve](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve)
+The [self-improve-bb](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve-bb)
 Claude Code skill uses `bb tokenomics threads` to pick which of the past
 week's threads to review.
 
