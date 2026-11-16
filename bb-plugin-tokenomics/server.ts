@@ -554,7 +554,7 @@ export default async function plugin(bb: BbPluginApi) {
           sizeTokens: sizeOf(
             samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
             (from, to) => store.providerTokens(from, to).get(view.providerId) ?? 0,
-          ),
+          ) ?? null,
           // A session lasts five hours and resets on the hour's minute it began.
           ...(view.kind === "five-hour"
             ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }
