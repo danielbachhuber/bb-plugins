@@ -1,4 +1,4 @@
-import { viewSchema, type View } from "./schema.js";
+import { parseView, viewSchema, type View } from "./schema.js";
 
 /* Invented diffs for the Dependabot and code-review fixtures. */
 
@@ -115,7 +115,8 @@ const syncFixHunk = `diff --git a/src/sync.ts b/src/sync.ts
 `;
 
 /** A triage-shaped view: invented repository, issues, and people. */
-export const triageView: View = viewSchema.parse({
+// Parsed as publish parses it, so the drafted comment gets the Revise field publish adds.
+export const triageView: View = parseView(JSON.stringify({
   title: "Triage: acme/widgets milestone 4.2",
   summary: "Three open issues. One is done and can close, one still needs work, one is a duplicate.",
   sections: [
@@ -178,7 +179,7 @@ export const triageView: View = viewSchema.parse({
       ],
     },
   ],
-});
+}));
 
 /** A self-improve-shaped view: invented threads, projects, and findings. */
 export const selfImproveView: View = viewSchema.parse({

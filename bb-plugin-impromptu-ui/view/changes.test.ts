@@ -276,6 +276,17 @@ describe("item changes", () => {
       expect(item.actions[1]).toMatchObject({ text: 'Revise a ("A"): {note}\n\nThe text as I left it:\n\n{draft}' });
     });
 
+    it("does the same for a drafted comment that a button posts", () => {
+      const post = { type: "message", label: "Post", text: "Post this on a:\n\n{draft}" };
+      const item = parseView(view({ draftLabel: "Comment to post", draft: "Looks done.", actions: [post] })).sections[0]!.items[0]!;
+      expect(item.note).toEqual({ label: "Revise", placeholder: "What to change instead" });
+      expect(item.actions[1]).toMatchObject({ label: "Revise", text: 'Revise a ("A"): {note}\n\nThe text as I left it:\n\n{draft}' });
+      // A draft no button sends, or a one-line answer field, is not a suggestion.
+      expect(parseView(view({ draft: "Looks done.", actions: [apply] })).sections[0]!.items[0]!.note).toBeUndefined();
+      const answer = { type: "message", label: "Send", text: "{draft}" };
+      expect(parseView(view({ draftFormat: "text", draft: "12", actions: [answer] })).sections[0]!.items[0]!.note).toBeUndefined();
+    });
+
     it("does the same for a proposed patch", () => {
       const item = parseView(view({ changes: [{ label: "a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n", role: "proposed" }], actions: [apply] })).sections[0]!.items[0]!;
       expect(item.note).toBeDefined();

@@ -780,14 +780,22 @@ function dropUnsentNotes(json: unknown, warnings: string[]): unknown {
   };
 }
 
-/** Whether an item suggests a change of yours: a fix, new text against old, or a section compared against its draft. */
+/** Whether an item sends text you drafted, such as a comment to post or the task for a new thread. */
+function sendsDraft(item: Item): boolean {
+  return item.draftFormat === "markdown" && item.draft.trim() !== "" && item.actions.some(usesDraft);
+}
+
+/**
+ * Whether an item suggests a change of yours: a fix, new text against old, a
+ * section compared against its draft, or a draft a button sends.
+ */
 export function suggestsChange(item: Item): boolean {
-  return item.changes.some((change) => change.role === "proposed" || change.after !== undefined || usesDraftAsAfter(change));
+  return sendsDraft(item) || item.changes.some((change) => change.role === "proposed" || change.after !== undefined || usesDraftAsAfter(change));
 }
 
 /**
  * A card that suggests a change but gives the user only yes or no, such as
- * Apply and Skip, gets a note field and a Revise button that sends it, so the
+ * Apply and Skip, or Post and Post and close for a drafted comment, gets a note field and a Revise button that sends it, so the
  * user can ask for a different change instead of retyping the card in chat.
  */
 function addRevise(view: View, warnings: string[]): View {
@@ -803,7 +811,7 @@ function addRevise(view: View, warnings: string[]): View {
           warnings.push(`sections.${s}.items.${i}: suggests a change but has no Revise field, and has no room for one; drop a button and add a note with a Revise button that sends {note}`);
           return item;
         }
-        const draft = item.changes.some(usesDraftAsAfter) ? `\n\nThe text as I left it:\n\n${DRAFT}` : "";
+        const draft = item.changes.some(usesDraftAsAfter) || sendsDraft(item) ? `\n\nThe text as I left it:\n\n${DRAFT}` : "";
         const revise: Action = {
           type: "message",
           label: "Revise",
