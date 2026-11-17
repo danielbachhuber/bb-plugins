@@ -7,6 +7,7 @@
 // can be tested under jsdom.
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import * as checkoutSync from "./hacks/checkout-sync";
+import * as closeAllTabs from "./hacks/close-all-tabs";
 import * as codeBlockWrapDiffs from "./hacks/code-block-wrap-diffs";
 import * as freshFileImages from "./hacks/fresh-file-images";
 import * as gitDiffExpandUnviewed from "./hacks/git-diff-expand-unviewed";
@@ -16,6 +17,7 @@ import * as projectOpenInEditor from "./hacks/project-open-in-editor";
 
 const HACKS = [
   checkoutSync,
+  closeAllTabs,
   codeBlockWrapDiffs,
   freshFileImages,
   gitDiffExpandUnviewed,

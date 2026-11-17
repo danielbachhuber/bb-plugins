@@ -233,6 +233,15 @@ toggle in React state and starts it off, so the hack clicks the toggle once
 when the block appears. Click it again to unwrap that block; it stays
 unwrapped until it remounts. Blocks in other languages are left alone.
 
+### Close all tabs
+
+When the side panel has two or more tabs you can close, a button between the
+tabs and bb's New tab button closes all of them. bb's own tab menu has Close
+other tabs and Close tabs to the right, but nothing that closes every tab.
+Pinned tabs stay open, as they do for bb's menu items. The button clicks each
+tab's own close button, so bb closes them the same way it does when you click
+the x on each one.
+
 ## Install
 
 This repository holds several plugins, so the install names which one and where
@@ -322,6 +331,15 @@ The diff-wrap hack anchors on the code block's own controls:
 | The first `span` in the toggle's header | The block's language label |
 
 
+The close-all-tabs hack anchors on the side panel's tab row:
+
+| Anchor | Used for |
+| --- | --- |
+| `[data-testid="secondary-panel-tab-strip"]` | Finding the tab strip, which the button follows |
+| `[data-tab-pill-close]` | Counting the tabs that can close, and closing each one |
+| `[data-panel-new-tab]` | bb's New tab button, whose classes and icon stroke the button copies |
+| `data-icon-root` | bb's icon marker, which the button's classes size |
+
 The fresh-images hack anchors on URLs rather than markup:
 
 | Anchor | Used for |
@@ -359,6 +377,7 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/checkout-sync/contract.ts` | The RPC contract, imported by the server only |
 | `hacks/checkout-sync/sidebar.ts` | Placing and drawing the indicator in bb's project headers |
 | `hacks/checkout-sync/engine.ts` | The sync loop: polling, passes, observers, cleanup |
+| `hacks/close-all-tabs/engine.ts` | The sync loop: placing the button beside each tab strip, and closing the tabs |
 | `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff and markdown blocks and wrapping each once |
 | `hacks/fresh-file-images/rules.ts` | Pure logic: which image URLs are live files, and the versioned URL |
 | `hacks/fresh-file-images/engine.ts` | The sync loop: finding file images, checking their versions, and swapping the URL |
