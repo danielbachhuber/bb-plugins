@@ -8,7 +8,7 @@ Counts the files you've checked Viewed in bb's changes panel, syncs them with Gi
 
 ### A viewed count in the changes panel toolbar
 
-Open the changes panel (⌘ D) and check **Viewed** on the files you have read, using bb's own checkbox in each file header. The toolbar counts them, such as **3/6 viewed**, across the whole range, including files you have not scrolled to. The ring beside the count fills as you go and turns green when every file is viewed.
+Open the changes panel (⌘ D) and check **Viewed** on the files you have read, using bb's own checkbox in each file header. The toolbar counts them, such as **3/6 viewed**, across the whole range, including files you have not scrolled to. The ring beside the count fills as you go and turns black when every file is viewed.
 
 bb folds a file when you check it. Click **Expand all files** in the toolbar and the files you have viewed stay folded while the rest open. A viewed file you open by hand afterwards stays open.
 

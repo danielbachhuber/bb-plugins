@@ -17,8 +17,8 @@ describe("viewedRingSvg", () => {
     expect(svg).toContain('stroke-dasharray="18.85 37.70"');
   });
 
-  it("turns green once every file is viewed", () => {
-    expect(viewedRingSvg(6, 6)).toContain("var(--success)");
+  it("turns the foreground color once every file is viewed", () => {
+    expect(viewedRingSvg(6, 6)).toContain("var(--foreground)");
   });
 });
 

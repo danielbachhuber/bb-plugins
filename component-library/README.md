@@ -21,7 +21,7 @@ what not to do with it.
 | [Start thread](#start-thread) | `@danielbachhuber/bb-plugin-component-library/start-thread` | bb's new-thread composer under a row or in a dialog, with the plugin's suggested skills as chips, and the toast that links to the thread once it starts |
 | [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 | [Last value](#last-value) | `@danielbachhuber/bb-plugin-component-library/last-value` | State that opens on the value the page last read from its server, kept in `localStorage`, so a page draws its list at once instead of a loading screen |
-| [Viewed ring](#viewed-ring) | `@danielbachhuber/bb-plugin-component-library/viewed-ring` | A ring that fills as files are marked Viewed, turning green when all are, with "3/6 viewed" beside it, as the changes panel's toolbar shows it |
+| [Viewed ring](#viewed-ring) | `@danielbachhuber/bb-plugin-component-library/viewed-ring` | A ring that fills as files are marked Viewed, turning black when all are, with "3/6 viewed" beside it, as the changes panel's toolbar shows it |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -631,7 +631,7 @@ needs `@radix-ui/react-dropdown-menu`, which bb provides at runtime.
 
 How many of a set of files have been marked Viewed, drawn the way the changes
 panel's toolbar draws it: a 12px ring that fills in bb's primary color and
-turns green once every file is viewed.
+turns black (bb's foreground color) once every file is viewed.
 
 ```tsx
 import { ViewedProgress, ViewedRing } from "@danielbachhuber/bb-plugin-component-library/viewed-ring";
