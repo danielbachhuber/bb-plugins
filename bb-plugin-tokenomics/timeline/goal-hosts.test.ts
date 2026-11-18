@@ -87,3 +87,14 @@ describe("withOpenCard", () => {
     expect(withOpenCard("none", false)).toBe("none");
   });
 });
+
+describe("dashedSegment", () => {
+  it("fills the segment with dashes and skips the rest of the ring", async () => {
+    const { dashedSegment } = await import("../components/goal-line.js");
+    const parts = dashedSegment(10, 40).split(" ").map(Number);
+    // Dashes and spaces cover the segment exactly, and the last gap the rest.
+    expect(parts.slice(0, -1).reduce((sum, part) => sum + part, 0)).toBeCloseTo(10, 1);
+    expect(parts.at(-1)).toBeCloseTo(30, 1);
+    expect(parts.length % 2).toBe(0);
+  });
+});

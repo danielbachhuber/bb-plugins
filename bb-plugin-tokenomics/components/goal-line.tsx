@@ -55,12 +55,8 @@ function StageCircle({ done, current, activity }: { done: boolean; current: bool
     );
   }
   if (current && activity === "working") {
-    // Half filled and pulsing, as the donut's next segment does.
-    return (
-      <span aria-hidden className="relative flex size-3.5 shrink-0 items-center justify-center rounded-full border border-foreground/60 motion-safe:animate-pulse">
-        <span className="absolute inset-[2px] rounded-full bg-[conic-gradient(currentColor_0_50%,transparent_50%_100%)] text-foreground/60" />
-      </span>
-    );
+    // Dashed, as the donut's segment for the stage being worked on is.
+    return <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-dashed border-foreground/60" />;
   }
   if (current && activity === "waiting") {
     return (
@@ -357,11 +353,21 @@ const DONE_ARC: Partial<Record<NonNullable<DonutActivity>, string>> = {
 /** One turn of the donut while the thread works. */
 const SPIN_SECONDS = 2.4;
 
+/** A dash pattern that fills one segment of `length` with short dashes, then skips the rest of the ring. */
+export function dashedSegment(length: number, circumference: number, dash = 1.6, space = 1.3): string {
+  const count = Math.max(1, Math.round((length + space) / (dash + space)));
+  // Stretch the dashes so the first and last meet the segment's ends.
+  const fitted = count === 1 ? length : (length - space * (count - 1)) / count;
+  const parts: number[] = [];
+  for (let index = 0; index < count; index += 1) parts.push(fitted, index === count - 1 ? circumference - length : space);
+  return parts.map((part) => part.toFixed(2)).join(" ");
+}
+
 /**
  * A ring split into one segment per stage, the done ones filled. bb's state
  * colours the done arc: blue when the thread needs you, red when it failed,
  * darker when it finished and you haven't looked. While the thread works the
- * stage it is on is half filled and the whole ring turns. A met goal is a
+ * stage it is on is dashed and the whole ring turns. A met goal is a
  * filled disc with a check, one not met a grey ring with a cross. Queued and idle look alike; a draft shows bb's own
  * icon instead, in SidebarGoalMark.
  */
@@ -429,6 +435,7 @@ export function GoalDonut({
   // A small gap between segments, so each reads as its own stage.
   const gap = stages > 1 ? Math.min(circumference / stages / 3, stroke * 0.9) : 0;
   const length = circumference / stages - gap;
+  const inProgress = working && reached < stages;
   return (
     <svg {...svgProps}>
       {Array.from({ length: stages }, (_, index) => (
@@ -442,10 +449,12 @@ export function GoalDonut({
           strokeDasharray={`${length} ${circumference - length}`}
           strokeDashoffset={-index * (length + gap) - gap / 2}
           className={index < reached ? doneClass : empty}
+          // The stage being worked on is drawn dashed instead, below.
+          visibility={inProgress && index === reached ? "hidden" : undefined}
         />
       ))}
-      {working && reached < stages && (
-        // The stage being worked on is half filled, so the turning ring has
+      {inProgress && (
+        // The stage being worked on is drawn dashed, so the turning ring has
         // something to show even when every segment would look the same,
         // as with a single stage or none done yet.
         <circle
@@ -454,7 +463,7 @@ export function GoalDonut({
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          strokeDasharray={`${length / 2} ${circumference - length / 2}`}
+          strokeDasharray={dashedSegment(length, circumference)}
           strokeDashoffset={-reached * (length + gap) - gap / 2}
           className={doneClass}
         />

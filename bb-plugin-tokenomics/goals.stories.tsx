@@ -303,7 +303,7 @@ export const CardInEachState = () => (
   </div>
 );
 
-/** The donut while the thread works, for goals of one, two, and five stages: the stage being worked on is half filled, so the turning ring shows even with a single stage or none done yet (a still, mid-turn). */
+/** The donut while the thread works, for goals of one, two, and five stages: the stage being worked on is dashed, so the turning ring shows even with a single stage or none done yet (a still, mid-turn). */
 export const WorkingDonuts = () => (
   <div data-screenshot-frame className="inline-flex flex-col gap-1 bg-background p-6">
     {[
