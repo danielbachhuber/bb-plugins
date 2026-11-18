@@ -199,7 +199,11 @@ outside service.
   and every 15 seconds while they are still writing, which is a directory
   listing with no request to bb.
 - It reads the usage limits from bb every five minutes, one request that bb
-  passes to each provider. Opening a thread's summary reads that thread's
+  passes to each provider. When you sign in to another account, the limits
+  switch to it at the next reading. Tokens count toward an account only while
+  it was signed in, and a window that began before bb first saw the account
+  shows "sizing the limit" until it resets, since its percent includes use
+  bb didn't record. Opening a thread's summary reads that thread's
   turn events from bb. The page, title bar, and meter read the plugin's own
   database.
 

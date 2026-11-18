@@ -3,7 +3,17 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
-import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey, type LimitView } from "./usage/limits.js";
+import {
+  accountSpans,
+  limitViews,
+  samplesFromUsage,
+  seenSince,
+  sizeOf,
+  SLOT_MS,
+  tokensWithin,
+  windowKey,
+  type LimitView,
+} from "./usage/limits.js";
 import {
   formatCommands,
   formatThreads,
@@ -640,7 +650,6 @@ export default async function plugin(bb: BbPluginApi) {
       // A weekly pace reads the past day and its baseline the day before;
       // a size can read last week's window.
       const samples = store.limitSamplesSince(now - MAX_WINDOW_MS);
-      const lastHour = store.providerTokens(now - 3_600_000, now);
       // A subscription bb reports but no thread used this week, such as one
       // signed in once, shows only when it's close to a limit.
       const thisWeek = store.providerTokens(now - 7 * 86_400_000, now);
@@ -654,21 +663,29 @@ export default async function plugin(bb: BbPluginApi) {
       const inSession = new Set(views.filter((view) => view.kind === "five-hour").map(account));
       const oneModel = new Set(samples.filter((sample) => sample.model !== null).map(windowKey));
       return {
-        limits: views.map((view) => ({
-          ...view,
-          lastHourTokens: lastHour.get(view.providerId) ?? 0,
-          // A query for each of up to ten past windows and the current one.
-          sizeTokens: sizeOf(
-            samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
-            (from, to) => store.providerTokens(from, to).get(view.providerId) ?? 0,
-          ) ?? null,
-          // A session lasts five hours and resets on the hour's minute it began.
-          ...(view.kind === "five-hour"
-            ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }
-            : view.kind === "weekly" && !inSession.has(account(view)) && !oneModel.has(windowKey(view))
-              ? { slots: store.providerSlots(view.providerId, now - 5 * 3_600_000, now, SLOT_MS) }
-              : {}),
-        })),
+        limits: views.map((view) => {
+          // Tokens are recorded per provider, so after a switch of accounts
+          // only the time this account was signed in counts toward its limits.
+          const spans = accountSpans(samples, view.providerId, view.accountKey);
+          const tokens = (from: number, to: number) =>
+            tokensWithin(spans, from, to, (start, end) => store.providerTokens(start, end).get(view.providerId) ?? 0);
+          return {
+            ...view,
+            lastHourTokens: tokens(now - 3_600_000, now),
+            // A query for each of up to ten past windows and the current one,
+            // and one more for each switch of accounts inside them.
+            sizeTokens: sizeOf(
+              samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
+              (from, to) => (seenSince(spans, from) ? tokens(from, to) : null),
+            ) ?? null,
+            // A session lasts five hours and resets on the hour's minute it began.
+            ...(view.kind === "five-hour"
+              ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }
+              : view.kind === "weekly" && !inSession.has(account(view)) && !oneModel.has(windowKey(view))
+                ? { slots: store.providerSlots(view.providerId, now - 5 * 3_600_000, now, SLOT_MS) }
+                : {}),
+          };
+        }),
         polledAt: limitsPolledAt,
         error: limitsError,
       };

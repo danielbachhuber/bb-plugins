@@ -143,11 +143,12 @@ const SIZING_WINDOWS = 10;
  * Null while no window has been read far enough in; undefined for a window
  * it can't size, one for a single model or of an unknown length, since
  * tokens aren't recorded per model. `samples` are one window key's, oldest
- * first.
+ * first. `tokensBetween` returns null for a stretch whose tokens bb didn't
+ * all see, which gives that window no estimate.
  */
 export function sizeOf(
   samples: readonly LimitSample[],
-  tokensBetween: (from: number, to: number) => number,
+  tokensBetween: (from: number, to: number) => number | null,
 ): number | null | undefined {
   const latest = samples.at(-1);
   const length = latest === undefined ? undefined : WINDOW_LENGTH[latest.kind];
@@ -166,7 +167,7 @@ export function sizeOf(
   }
   const estimate = ({ sample }: { sample: LimitSample }) => {
     const tokens = tokensBetween(sample.resetsAt - length, sample.sampledAt);
-    return tokens > 0 ? tokens / (sample.usedPercent / 100) : null;
+    return tokens !== null && tokens > 0 ? tokens / (sample.usedPercent / 100) : null;
   };
   const current = readings[0]?.current ? estimate(readings[0]) : null;
   const past = readings
@@ -185,23 +186,96 @@ export function sizeOf(
  * One view per window in the latest reading of each account, session first.
  * A window for one model shows only once it has been used, since most
  * accounts never touch it. Readings older than `staleAfter` are dropped, so a
- * provider that stopped reporting disappears.
+ * provider that stopped reporting disappears. bb reports one account per
+ * provider, so once a provider reports another account, as after signing in
+ * to a different one, the previous account's windows are dropped too.
  */
 export function limitViews(samples: readonly LimitSample[], now: number, staleAfter: number): LimitView[] {
   const byWindow = new Map<string, LimitSample[]>();
+  const providerLatest = new Map<string, number>();
   for (const sample of [...samples].sort((a, b) => a.sampledAt - b.sampledAt)) {
     const key = windowKey(sample);
     byWindow.set(key, [...(byWindow.get(key) ?? []), sample]);
+    providerLatest.set(sample.providerId, sample.sampledAt);
   }
   const views: LimitView[] = [];
   for (const windowSamples of byWindow.values()) {
     const latest = windowSamples.at(-1)!;
     if (now - latest.sampledAt > staleAfter) continue;
+    if (latest.sampledAt < providerLatest.get(latest.providerId)!) continue;
     if (latest.model !== null && latest.usedPercent === 0) continue;
     views.push(viewOf(windowSamples, now));
   }
   const order = (view: LimitView) => (view.kind === "five-hour" ? 0 : 1);
   return views.sort((a, b) => order(a) - order(b) || a.providerId.localeCompare(b.providerId));
+}
+
+/** A stretch of time, with either end open. */
+export interface Span {
+  from: number;
+  to: number;
+}
+
+/**
+ * When `accountKey` was the account a provider reported. Tokens are recorded
+ * per provider, not per account, so these are the stretches whose tokens
+ * count toward its limits. Tokens between the last reading of one account
+ * and the first of the next count toward the next, since the switch came
+ * somewhere in between and the next reading is the one that shows them.
+ * Before the first reading counts toward the first account, and after the
+ * latest toward the latest.
+ */
+export function accountSpans(samples: readonly LimitSample[], providerId: string, accountKey: string | null): Span[] {
+  const readings = samples.filter((sample) => sample.providerId === providerId).sort((a, b) => a.sampledAt - b.sampledAt);
+  const spans: Span[] = [];
+  let from: number | null = null;
+  let lastMine = -Infinity;
+  let previous = -Infinity;
+  for (const reading of readings) {
+    const mine = reading.accountKey === accountKey;
+    if (mine) {
+      if (from === null) from = previous;
+      lastMine = reading.sampledAt;
+    } else if (from !== null) {
+      spans.push({ from, to: lastMine });
+      from = null;
+    }
+    previous = reading.sampledAt;
+  }
+  if (from !== null) spans.push({ from, to: Infinity });
+  return spans;
+}
+
+/**
+ * How long before bb first saw an account a window may start and still be
+ * sized from what bb recorded: a poll's gap, and then some, so a session that
+ * began just before a switch of accounts is still sized.
+ */
+const UNSEEN_SLACK = 10 * MINUTE;
+
+/**
+ * Whether bb saw the account's use from `from` on: false when the account
+ * was first reported after then, since its percent includes use from before
+ * it was signed in here.
+ */
+export function seenSince(spans: readonly Span[], from: number): boolean {
+  return spans.length > 0 && spans[0]!.from <= from + UNSEEN_SLACK;
+}
+
+/** `tokensBetween` from `from` to `to`, counting only the time inside `spans`. */
+export function tokensWithin(
+  spans: readonly Span[],
+  from: number,
+  to: number,
+  tokensBetween: (from: number, to: number) => number,
+): number {
+  let total = 0;
+  for (const span of spans) {
+    const start = Math.max(from, span.from);
+    const end = Math.min(to, span.to);
+    if (start < end) total += tokensBetween(start, end);
+  }
+  return total;
 }
 
 /**

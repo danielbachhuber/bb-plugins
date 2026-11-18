@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { limitViews, pacePerHour, samplesFromUsage, sizeOf, viewOf, type LimitSample } from "./limits.js";
+import {
+  accountSpans,
+  limitViews,
+  pacePerHour,
+  samplesFromUsage,
+  seenSince,
+  sizeOf,
+  tokensWithin,
+  viewOf,
+  type LimitSample,
+} from "./limits.js";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -102,6 +112,16 @@ describe("limitViews", () => {
     expect(views.map((view) => view.usedPercent).sort()).toEqual([28, 70]);
   });
 
+  it("drops the previous account once the provider reports another", () => {
+    // Signed in to acct_gadgets between the readings 10 and 5 minutes ago.
+    const views = limitViews(
+      [sample(10, 100), sample(10, 27, weekly), sample(5, 19, { accountKey: "acct_gadgets" }), sample(0, 25, { accountKey: "acct_gadgets" })],
+      NOW,
+      30 * MIN,
+    );
+    expect(views.map((view) => [view.accountKey, view.usedPercent])).toEqual([["acct_gadgets", 25]]);
+  });
+
   it("drops a window whose latest reading is stale", () => {
     expect(limitViews([sample(45, 28)], NOW, 30 * MIN)).toEqual([]);
   });
@@ -145,6 +165,10 @@ describe("sizeOf", () => {
     expect(sizeOf([sample(10, 50), sample(0, 60)], tokens)).toBeCloseTo(300e6);
   });
 
+  it("gives no estimate for a window whose tokens bb didn't all see", () => {
+    expect(sizeOf([sample(10, 50), sample(0, 60)], () => null)).toBeNull();
+  });
+
   it("uses the past windows while this one is under 25%", () => {
     expect(sizeOf([before, sample(0, 20)], withBefore)).toBeCloseTo(300e6);
   });
@@ -170,5 +194,59 @@ describe("sizeOf", () => {
 
   it("can't size a window for one model", () => {
     expect(sizeOf([sample(0, 40, { model: "fable" })], tokens)).toBeUndefined();
+  });
+});
+
+describe("accountSpans", () => {
+  const gadgets = { accountKey: "acct_gadgets" };
+
+  it("covers all time for the only account", () => {
+    expect(accountSpans([sample(10, 20), sample(0, 25)], "claude-code", "acct_acme")).toEqual([{ from: -Infinity, to: Infinity }]);
+  });
+
+  it("hands the time between two accounts' readings to the later one", () => {
+    const samples = [sample(30, 90), sample(20, 100), sample(10, 5, gadgets), sample(0, 9, gadgets)];
+    expect(accountSpans(samples, "claude-code", "acct_acme")).toEqual([{ from: -Infinity, to: NOW - 20 * MIN }]);
+    expect(accountSpans(samples, "claude-code", "acct_gadgets")).toEqual([{ from: NOW - 20 * MIN, to: Infinity }]);
+  });
+
+  it("gives an account each stretch it was signed in after switching back", () => {
+    const samples = [sample(30, 90), sample(20, 5, gadgets), sample(10, 92), sample(0, 93)];
+    expect(accountSpans(samples, "claude-code", "acct_acme")).toEqual([
+      { from: -Infinity, to: NOW - 30 * MIN },
+      { from: NOW - 20 * MIN, to: Infinity },
+    ]);
+  });
+
+  it("ignores another provider's readings", () => {
+    const samples = [sample(10, 20), sample(5, 0, { providerId: "codex", accountKey: "acct_widgets" }), sample(0, 25)];
+    expect(accountSpans(samples, "claude-code", "acct_acme")).toEqual([{ from: -Infinity, to: Infinity }]);
+  });
+});
+
+describe("seenSince", () => {
+  const signedIn = [{ from: NOW - 60 * MIN, to: Infinity }];
+
+  it("trusts an account bb has always reported", () => {
+    expect(seenSince([{ from: -Infinity, to: Infinity }], NOW - 7 * 24 * HOUR)).toBe(true);
+  });
+
+  it("allows a window that began just before the switch", () => {
+    expect(seenSince(signedIn, NOW - 65 * MIN)).toBe(true);
+  });
+
+  it("refuses a window with use from before bb saw the account", () => {
+    expect(seenSince(signedIn, NOW - 5 * 24 * HOUR)).toBe(false);
+    expect(seenSince([], NOW)).toBe(false);
+  });
+});
+
+describe("tokensWithin", () => {
+  it("counts only the time inside the spans", () => {
+    // A thousand tokens a minute.
+    const perMinute = (from: number, to: number) => ((to - from) / MIN) * 1000;
+    const spans = [{ from: NOW - 20 * MIN, to: Infinity }];
+    expect(tokensWithin(spans, NOW - 60 * MIN, NOW, perMinute)).toBe(20_000);
+    expect(tokensWithin([{ from: -Infinity, to: NOW - 90 * MIN }], NOW - 60 * MIN, NOW, perMinute)).toBe(0);
   });
 });
