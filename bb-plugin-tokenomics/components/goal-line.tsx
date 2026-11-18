@@ -215,23 +215,30 @@ export function CompactGoal({
   usage?: boolean;
 }) {
   if (goal.label === null) return null;
-  // The heading counts stages, as the donut on the button does; items get their own count below.
+  // With items, each list carries its own count, so the heading doesn't
+  // float a stage count above two lists; without, the heading counts stages.
+  const listed = goal.items.length > 0 && goal.stages.length > 0;
   const progress =
     goal.outcome !== null
       ? OUTCOME_LABEL[goal.outcome]
-      : goal.stages.length > 0
+      : listed
+        ? null
+        : goal.stages.length > 0
           ? `${Math.min(goal.reached, goal.stages.length)} of ${goal.stages.length}`
           : goal.label;
   const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
   return (
     <div data-tokenomics-goal="" className="flex flex-col gap-2 text-xs">
       <span className={cn("flex items-baseline justify-between gap-3 text-muted-foreground", !heading && !note && "hidden")}>
-        <span>{heading ? `${SHAPE_LABEL[goal.shape]} · ${progress}` : null}</span>
+        <span>{heading ? (progress === null ? SHAPE_LABEL[goal.shape] : `${SHAPE_LABEL[goal.shape]} · ${progress}`) : null}</span>
         {note ? (
           <span className={cn(activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : undefined)}>{note}</span>
         ) : null}
       </span>
       <span className="text-sm text-foreground">{goal.text}</span>
+      {listed ? (
+        <span className="text-muted-foreground">Stages · {Math.min(goal.reached, goal.stages.length)} of {goal.stages.length}</span>
+      ) : null}
       <EntryGrid entries={stageEntries(goal)} />
       {goal.items.length === 0 ? null : (
         <>
