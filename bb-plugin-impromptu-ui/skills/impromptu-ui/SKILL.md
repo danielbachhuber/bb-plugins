@@ -106,7 +106,7 @@ The examples in this skill show common shapes, not the limit. `bb impromptu-ui s
 | Action | What the button does |
 |---|---|
 | `message` | Sends `text` to this thread as if the user typed it, or to the thread named by `threadId` (see "An item in its own thread"). Use it when the work needs your judgment or context: posting a drafted comment, revising something. Write `text` so it names the item, because you will read it later with no other context. |
-| `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone. Add `baseBranch` when the work belongs on a branch other than the project's default (see below). |
+| `thread` | Starts a new thread in `project` (a name from `bb project list`, or `personal`) with `prompt` and `title`. The prompt must stand alone, and ends with the thread's goal: a `Goal:` line and a `Done is:` list of at most 4 end states someone could check, such as "PR's checks pass", not steps. The new thread records them as its goal. Add `baseBranch` when the work belongs on a branch other than the project's default (see below). |
 | `command` | Runs `command` in the user's login shell, in `cwd` (absolute) or the directory `publish` ran in. The panel shows the command and asks before running, then shows the exit code and output. `"confirm": false` runs it as soon as the button is clicked; use that only for a small step the user already expects, such as adding a to-do. Use a command for one self-contained step: `gh issue close`, `gh pr merge`. |
 | `link` | Opens `url`. |
 
@@ -121,7 +121,7 @@ A `thread` button with `baseBranch` starts its thread in a new worktree cut from
   "project": "widgets",
   "title": "Fix #101's retry loop",
   "baseBranch": "origin/retry-on-timeout",
-  "prompt": "acme/widgets#101 retries forever when the server times out. Make a branch off retry-on-timeout, fix it there, and open a PR whose base is retry-on-timeout."
+  "prompt": "acme/widgets#101 retries forever when the server times out. Make a branch off retry-on-timeout, fix it there, and open a PR whose base is retry-on-timeout.\n\nGoal: a fix PR for #101's retry loop, against retry-on-timeout.\nDone is:\n- Timeouts stop retrying after the limit\n- PR open against retry-on-timeout with checks passing"
 }
 ```
 
