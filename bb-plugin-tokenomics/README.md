@@ -65,11 +65,10 @@ end of the row takes the place of bb's own icon: it fills a segment per stage
 done, turns amber past the estimate, and becomes a check once met. bb's
 states show on it: the done arc turns blue when the thread needs you,
 including when an Impromptu UI card above its composer still waits on your
-answer, red
-when it failed (with bb's icon left beside it), and darker when it finished and you haven't looked; the
+answer, and darker when it finished and you haven't looked; the
 whole donut spins while the thread works; a draft keeps bb's own icon. A
-message waiting to send, such as a turn bb will retry after a provider error,
-keeps bb's icon beside the donut too. The
+failed turn, or a message waiting to send, such as a turn bb will retry after
+a provider error, shows bb's icon alone, without the donut. The
 header donut and the cards say the same. An exploration's stages are fixed:
 the agent's recommended answer, then your decision. Rest on a sidebar donut
 for the goal's card. When setting a

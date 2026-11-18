@@ -60,11 +60,11 @@ function trailingOf(link: Element): Element | null {
 
 /**
  * One pass over the sidebar: each thread in `threadIds` whose row is mounted
- * gets a host at the right end of its row, after bb's icon box. The box is
- * collapsed, so the donut takes the icon's place, unless `keepsIcon` says
- * bb's icon should stay, as it does for a failed turn or a queued retry, in
- * which case the donut sits beside it. Hosts for anything else are removed
- * and their boxes restored. `hosts` carries them from the last pass, so a row
+ * gets a host at the right end of its row, after bb's icon box, which is
+ * collapsed so the donut takes the icon's place. A row whose icon
+ * `keepsIcon` says should stay, as for a failed turn or a queued retry, gets
+ * no host: bb's icon shows alone. Hosts for anything else are removed and
+ * their boxes restored. `hosts` carries them from the last pass, so a row
  * keeps its element when bb re-renders it.
  */
 export function placeRowHosts(
@@ -80,6 +80,9 @@ export function placeRowHosts(
     if (!threadIds.has(threadId) || placed.has(threadId)) continue;
     const box = trailingOf(link)?.querySelector(".bb-sidebar-hover-actions")?.parentElement;
     if (box == null) continue;
+    const label = box.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")?.getAttribute("aria-label") ?? null;
+    labels.set(threadId, label);
+    if (keepsIcon(label)) continue;
     let host = hosts.get(threadId);
     if (host === undefined) {
       host = doc.createElement("span");
@@ -88,10 +91,7 @@ export function placeRowHosts(
       host.className = "flex shrink-0 items-center";
     }
     if (box.nextElementSibling !== host) box.after(host);
-    const label = box.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")?.getAttribute("aria-label") ?? null;
-    if (keepsIcon(label)) box.removeAttribute(SLOT_ATTRIBUTE);
-    else if (!box.hasAttribute(SLOT_ATTRIBUTE)) box.setAttribute(SLOT_ATTRIBUTE, "");
-    labels.set(threadId, label);
+    if (!box.hasAttribute(SLOT_ATTRIBUTE)) box.setAttribute(SLOT_ATTRIBUTE, "");
     placed.set(threadId, host);
   }
   const kept = new Set(placed.values());

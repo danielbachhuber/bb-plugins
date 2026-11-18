@@ -39,6 +39,16 @@ describe("placeRowHosts", () => {
     expect(hosts.get("thr_a")!.getAttribute("data-bb-plugin")).toBe("tokenomics");
   });
 
+  it("takes the donut away when the row turns to a state whose icon bb keeps", () => {
+    rows(["thr_a"]);
+    const first = placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
+    document.querySelector("svg")!.setAttribute("aria-label", "Unread thread failed");
+    const second = placeRowHosts(document, new Set(["thr_a"]), first.hosts, keepsBbIcon);
+    expect(second.hosts.size).toBe(0);
+    expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(0);
+    expect(document.getElementById("box-thr_a")!.hasAttribute(SLOT_ATTRIBUTE)).toBe(false);
+  });
+
   it("keeps a row's host across passes and restores bb's box once the goal is gone", () => {
     rows(["thr_a"]);
     const first = placeRowHosts(document, new Set(["thr_a"]), new Map());
@@ -51,7 +61,7 @@ describe("placeRowHosts", () => {
 });
 
 describe("keepsBbIcon", () => {
-  it("leaves bb's icon showing beside the donut for a failure, a queued retry, or a state it doesn't know", () => {
+  it("leaves bb's icon showing alone for a failure, a queued retry, or a state it doesn't know", () => {
     for (const [label, kept] of [
       ["Unread thread failed", true],
       ["Queued message failed to send", true],
@@ -63,10 +73,10 @@ describe("keepsBbIcon", () => {
     ] as const) {
       rows(["thr_a"], label ?? "");
       if (label === null) document.querySelector("svg")!.removeAttribute("aria-label");
-      placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
+      const { hosts, labels } = placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
       const box = document.getElementById("box-thr_a")!;
-      expect([label, box.hasAttribute(SLOT_ATTRIBUTE)]).toEqual([label, !kept]);
-      expect(box.nextElementSibling?.hasAttribute(ROW_HOST_ATTRIBUTE)).toBe(true);
+      expect([label, box.hasAttribute(SLOT_ATTRIBUTE), hosts.has("thr_a")]).toEqual([label, !kept, !kept]);
+      expect(labels.get("thr_a")).toBe(label);
     }
   });
 });
