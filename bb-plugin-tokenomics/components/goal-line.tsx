@@ -38,8 +38,56 @@ function SpentRow({ label, spent, estimate }: { label: string; spent: string; es
 const SHAPE_LABEL = { task: "Goal", exploration: "Question", project: "Purpose", none: "Goal" } as const;
 const OUTCOME_LABEL = { met: "Met", partly: "Partly met", not: "Not met" } as const;
 
-/** The card's body, apart from the trigger, so a story can show it open. */
-export function GoalCard({ goal }: { goal: GoalViewData }) {
+const ACTIVITY_NOTE: Partial<Record<NonNullable<DonutActivity>, string>> = {
+  working: "In progress",
+  waiting: "Waiting on you",
+  queued: "Message queued",
+  error: "Failed",
+};
+
+/** The circle before a stage in the card: done, the one being worked on, or not yet. */
+function StageCircle({ done, current, activity }: { done: boolean; current: boolean; activity: DonutActivity }) {
+  if (done) {
+    return (
+      <span aria-hidden className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-foreground bg-foreground text-background">
+        <HugeiconsIcon icon={Tick02Icon} size={10} strokeWidth={2.6} />
+      </span>
+    );
+  }
+  if (current && activity === "working") {
+    // Half filled and pulsing, as the donut's next segment does.
+    return (
+      <span aria-hidden className="relative flex size-3.5 shrink-0 items-center justify-center rounded-full border border-foreground/60 motion-safe:animate-pulse">
+        <span className="absolute inset-[2px] rounded-full bg-[conic-gradient(currentColor_0_50%,transparent_50%_100%)] text-foreground/60" />
+      </span>
+    );
+  }
+  if (current && activity === "waiting") {
+    return (
+      <span aria-hidden className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-blue-500">
+        <span className="size-1.5 rounded-full bg-blue-500" />
+      </span>
+    );
+  }
+  if (current && activity === "error") {
+    return <span aria-hidden className="size-3.5 shrink-0 rounded-full border-2 border-destructive" />;
+  }
+  if (current && activity === "queued") {
+    return (
+      <span aria-hidden className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-muted-foreground/70">
+        <span className="size-1.5 rounded-full border border-muted-foreground/70" />
+      </span>
+    );
+  }
+  return <span aria-hidden className="size-3.5 shrink-0 rounded-full border border-muted-foreground/50" />;
+}
+
+/**
+ * The card's body, apart from the trigger, so a story can show it open.
+ * `activity` is what the thread is doing now; the stage being worked on
+ * shows it, as the donut does.
+ */
+export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
   return (
     <div className="flex flex-col gap-3 text-xs">
       <div className="flex flex-col gap-1">
@@ -50,24 +98,26 @@ export function GoalCard({ goal }: { goal: GoalViewData }) {
         <ol className="flex flex-col gap-1">
           {goal.stages.map((stage, index) => {
             const done = index < goal.reached;
+            const current = !done && index === goal.reached && goal.outcome === null;
+            const note = current && activity !== null ? ACTIVITY_NOTE[activity] : undefined;
             return (
-              <li key={stage} className={cn("flex items-center gap-1.5", done ? "text-foreground" : "text-muted-foreground")}>
-                <span
-                  aria-hidden
-                  className={cn(
-                    "flex size-3.5 shrink-0 items-center justify-center rounded-full border",
-                    done ? "border-foreground bg-foreground text-background" : "border-muted-foreground/50",
-                  )}
-                >
-                  {done ? <HugeiconsIcon icon={Tick02Icon} size={10} strokeWidth={2.6} /> : null}
-                </span>
+              <li key={stage} className={cn("flex items-center gap-1.5", done || note ? "text-foreground" : "text-muted-foreground")}>
+                <StageCircle done={done} current={current} activity={activity} />
                 <span>{stage}</span>
-                <span className="sr-only">{done ? "(done)" : "(not yet)"}</span>
+                {note ? (
+                  <span className={cn("ml-auto shrink-0 pl-2", activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
+                    {note}
+                  </span>
+                ) : null}
+                <span className="sr-only">{done ? "(done)" : note ? `(${note})` : "(not yet)"}</span>
               </li>
             );
           })}
         </ol>
       )}
+      {goal.shape === "exploration" && activity !== null && ACTIVITY_NOTE[activity] ? (
+        <span className="text-muted-foreground">{ACTIVITY_NOTE[activity]}</span>
+      ) : null}
       {goal.outcome === null ? null : (
         <div>
           <span className="font-medium">{OUTCOME_LABEL[goal.outcome]}</span>
@@ -238,6 +288,21 @@ export function SidebarGoalMark({
  * met goal fills the whole ring; a goal with no stages, such as an
  * exploration, draws a dashed ring.
  */
+export type DonutActivity = "working" | "error" | "waiting" | "queued" | "unread" | "draft" | null;
+
+/** The mark in the donut's centre for an activity, in a 14-unit box. */
+function CentreMark({ activity, size }: { activity: DonutActivity; size: number }) {
+  return <g transform={`scale(${size / 14})`}><CentreShape activity={activity} /></g>;
+}
+
+function CentreShape({ activity }: { activity: DonutActivity }) {
+  if (activity === "unread") return <circle cx="7" cy="7" r="1.6" className="fill-muted-foreground/60" />;
+  if (activity === "waiting") return <circle cx="7" cy="7" r="2" className="fill-blue-500" />;
+  if (activity === "queued") return <circle cx="7" cy="7" r="1.6" fill="none" strokeWidth="1" className="stroke-muted-foreground/70" />;
+  if (activity === "draft") return <path d="M5.6 8.4 8.4 5.6" strokeWidth="1.3" strokeLinecap="round" className="stroke-muted-foreground" />;
+  return null;
+}
+
 export function GoalDonut({
   stages,
   reached,
@@ -246,6 +311,7 @@ export function GoalDonut({
   stroke = 2.4,
   tone = "default",
   nextTone = null,
+  activity = null,
 }: {
   stages: number;
   reached: number;
@@ -255,6 +321,12 @@ export function GoalDonut({
   tone?: "default" | "over";
   /** Colours the segment being worked on, when set. */
   nextTone?: "blue" | null;
+  /**
+   * What bb's own row icon would have said, shown on the donut it replaces:
+   * the next segment pulses while the thread works and turns red when it
+   * failed; a centre dot marks unread, needs you, queued, or a draft.
+   */
+  activity?: DonutActivity;
 }) {
   const radius = (size - stroke) / 2;
   const centre = size / 2;
@@ -281,8 +353,10 @@ export function GoalDonut({
   if (stages === 0) {
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="shrink-0">
-        <circle cx={centre} cy={centre} r={radius} fill="none" strokeWidth={stroke} className={empty}
+        <circle cx={centre} cy={centre} r={radius} fill="none" strokeWidth={stroke}
+          className={activity === "error" ? "stroke-destructive" : activity === "working" ? "stroke-foreground/45 motion-safe:animate-pulse" : empty}
           strokeDasharray={`${circumference / 12} ${circumference / 12}`} />
+        <CentreMark activity={activity} size={size} />
       </svg>
     );
   }
@@ -304,12 +378,17 @@ export function GoalDonut({
           className={
             index < reached
               ? filled
-              : index === reached && nextTone === "blue" && outcome === null
-                ? "stroke-blue-500/70"
-                : empty
+              : index === reached && outcome === null && activity === "error"
+                ? "stroke-destructive"
+                : index === reached && outcome === null && activity === "working"
+                  ? "stroke-foreground/45 motion-safe:animate-pulse"
+                  : index === reached && nextTone === "blue" && outcome === null
+                    ? "stroke-blue-500/70"
+                    : empty
           }
         />
       ))}
+      <CentreMark activity={activity} size={size} />
     </svg>
   );
 }

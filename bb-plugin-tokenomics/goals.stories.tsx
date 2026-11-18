@@ -1,8 +1,11 @@
+import type { ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { AppPageHeader } from "@bb-app/components/layout/AppPageHeader";
 import { SidebarProvider } from "@bb-app/components/ui/sidebar";
 
-import { GoalBand, GoalCard, GoalLine, SidebarGoalMark } from "./components/goal-line";
+import { ThreadStatusGlyph } from "@bb-app/components/thread/ThreadStatusGlyph";
+import { GoalBand, GoalCard, GoalDonut, GoalLine, SidebarGoalMark } from "./components/goal-line";
+import { ROW_STATES, type BbRowState } from "./components/row-activity";
 import { GoalOutcomes, type GoalOutcomesData } from "./components/goal-outcomes";
 import type { GoalViewData } from "./usage/contract";
 
@@ -186,5 +189,80 @@ export const GoalsSectionEmpty = () => (
         estimates: { turns: { inside: 0, of: 0 }, tokens: { inside: 0, of: 0 }, minutes: { inside: 0, of: 0 } },
       }}
     />
+  </div>
+);
+
+// Every state bb's sidebar row icon can show, from ROW_STATES, which the
+// typecheck holds to bb's own list of states.
+const EVERY_BB_STATE = Object.keys(ROW_STATES) as BbRowState[];
+
+const STATES_GRID = { gridTemplateColumns: "150px 270px 270px 170px" };
+
+function SidebarRow({ trailing }: { trailing: ReactNode }) {
+  return (
+    <div style={{ width: 270 }} className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm">
+      <span className="text-orange-500">✳</span>
+      <span className="min-w-0 flex-1 truncate">Widgets: export the list to CSV</span>
+      <span className="flex size-4 shrink-0 items-center justify-center">{trailing}</span>
+    </div>
+  );
+}
+
+/** Every bb sidebar row state: bb's icon today, and the goal donut that takes its place on a thread with a goal (3 of 5 stages done). The pulse is animated, so a still shows working close to idle. */
+export const EveryBbRowState = () => (
+  <div data-screenshot-frame className="inline-block bg-background p-6">
+    <div className="mb-2 grid gap-x-4 text-xs text-muted-foreground" style={STATES_GRID}>
+      <span>bb state</span>
+      <span>Without a goal</span>
+      <span>With a goal</span>
+      <span>On the donut</span>
+    </div>
+    {EVERY_BB_STATE.map((state) => {
+      const { label, activity, note } = ROW_STATES[state];
+      return (
+        <div key={state} className="grid items-center gap-x-4" style={STATES_GRID}>
+          <span className="text-xs">{label}</span>
+          <SidebarRow
+            trailing={state === "archived" ? <ThreadStatusGlyph indicator="none" archived /> : <ThreadStatusGlyph indicator={state} />}
+          />
+          <SidebarRow
+            trailing={
+              state === "archived" ? (
+                <GoalDonut size={16} stroke={2.2} stages={5} reached={5} outcome="met" />
+              ) : (
+                <GoalDonut size={16} stroke={2.2} stages={5} reached={3} activity={activity} />
+              )
+            }
+          />
+          <span className="text-xs text-muted-foreground">{note}</span>
+        </div>
+      );
+    })}
+  </div>
+);
+
+const REVIEW: GoalViewData = {
+  ...TASK,
+  text: "Review the widget export refactor and report findings",
+  stages: ["Diff read and checked out", "Findings reported to the parent thread"],
+  reached: 1,
+  setBy: "spawner",
+  estimate: { turns: { low: 1, high: 2 }, tokens: { low: 2e6, high: 8e6 }, minutes: { low: 15, high: 45 } },
+  spent: { turns: 1, tokens: 4.3e6, ms: 6 * 60_000 },
+  label: "1 of 2 · Diff read and checked out",
+  left: "~0–1 turns left",
+};
+
+/** The goal card in each thread state: the stage being worked on shows what the thread is doing, as the donut does. */
+export const CardInEachState = () => (
+  <div data-screenshot-frame className="inline-flex flex-wrap gap-4 bg-background p-6" style={{ width: 1040 }}>
+    {(["none", "runtime", "waiting-for-input", "unread-error", "queued-waiting"] as const).map((state) => (
+      <div key={state} className="flex flex-col gap-1">
+        <span className="text-xs text-muted-foreground">{ROW_STATES[state].label}</span>
+        <div className="w-[320px] rounded-md border border-border bg-popover p-3 shadow-sm">
+          <GoalCard goal={REVIEW} activity={ROW_STATES[state].activity} />
+        </div>
+      </div>
+    ))}
   </div>
 );
