@@ -1,6 +1,6 @@
 ---
 name: tokenomics-update-goal
-description: Use when the user invokes /tokenomics-update-goal, with or without a goal or a detail level (high or low) after it, or asks to set, change, refine, or update this thread's goal or stages (to remove it, use tokenomics-clear-goal), such as "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
+description: Use when the user invokes /tokenomics-update-goal, with or without a goal or a detail level (high or low) after it, or asks to set, change, refine, or update this thread's goal or stages, or to reassess where the thread stands on its goal (to remove it, use tokenomics-clear-goal), such as "where are we on the goal", "check your progress against the goal", "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
 ---
 
 # Update this thread's goal
@@ -93,10 +93,18 @@ Leave out the goal text, `--stage`, `--detail`, or an estimate flag to keep
 it as it is. Pass `--reached N` when the first N of the new entries are
 already done and their wording changed, then mark any others with
 `goal entry done|drop N` and `goal entry count N DONE/TOTAL`. If the open
-goal already fits the thread, record nothing.
+goal already fits the thread, keep it and bring its progress up to date
+instead, as below.
+
+**Bring progress up to date.** Whether or not the goal changed, check each
+entry against the work so far and mark what moved: `goal entry done N` for
+one that is now true, `goal entry start N` for the one being worked on,
+`goal entry drop N` for one no longer needed, and `goal entry count N
+DONE/TOTAL` for a grouped one. Mark an entry done only when its end state is
+actually true, not when work on it has started.
 
 ## 4. Tell the user
 
 Say in one line what the thread's goal is now, how many entries are done, its
-level, and, for a change, why. For example: "Goal: the widget security issues
+level, which entries moved, and, for a change to the goal, why. For example: "Goal: the widget security issues
 are resolved, 1 of 4 done (low detail)." Don't publish a card or ask a question.
