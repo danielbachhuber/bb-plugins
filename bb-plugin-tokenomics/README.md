@@ -42,7 +42,7 @@ record for turns with the same settings, so its next range can move.
 
 ### Each thread's goal
 
-![A thread with a band between its header and the conversation: "Export a widget list to CSV from the toolbar", "1 of 3", and "~1–6 turns left", then a square and name for each stage: Export built (filled), Tests pass (in progress), Reloaded in bb (not yet)](screenshots/goals--goal-band-in-thread.png)
+![The token button in a thread header with the goal's donut before its sparkline, and its summary open: "Goal · 2 of 4", "Export the widget list to CSV from the toolbar", a square and name for each stage, and "4 of 3–8 turns · 9.1M of 5M–20M tokens · 26 of 20–60 min" above the thread's token chart](screenshots/goals--goal-in-header.png)
 
 Each thread records one goal: what the whole thread is for, not its next
 step. In its first turn Claude records it with `bb tokenomics goal set`, from
@@ -54,10 +54,12 @@ gets the question it answers; a conversation can have no goal. Work that is
 a longer list, such as a review's twelve findings, goes in the goal's items
 (`bb tokenomics goal item add`), each marked in progress, done, or dropped.
 
-The goal, how far it has come, and the turns left show in a band between the
-thread header and the conversation, which scrolls under it, so the goal stays
-in view. Under the goal, a square and name for each stage, or for each item
-when there are items, show which are done, in progress, or still to do. In the sidebar, a segmented donut at the right
+The goal's donut leads the token button in the thread header, before the
+sparkline. The summary that button opens starts with the goal: how far it has
+come, a square and name for each stage, or for each item when there are
+items, showing which are done, in progress, or still to do, and what the goal
+has used against Claude's estimate of its turns, tokens, and minutes. In the
+sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it fills a segment per stage
 done, turns amber past the estimate, and becomes a check once met. bb's
 states show on it: the done arc turns blue when the thread needs you,
@@ -65,9 +67,9 @@ including when an Impromptu UI card above its composer still waits on your
 answer, red
 when it failed, and darker when it finished and you haven't looked; the
 whole donut spins while the thread works; a draft keeps bb's own icon. The
-card's current stage says the same. An exploration's stages are fixed: the
-agent's recommended answer, then your decision. Rest on the band for the stages and what the goal has used
-against Claude's estimate of its turns, tokens, and minutes. When setting a
+header donut and the cards say the same. An exploration's stages are fixed:
+the agent's recommended answer, then your decision. Rest on a sidebar donut
+for the goal's card. When setting a
 goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
 change a goal: it proposes the new goal and why above the composer, and keeps
@@ -78,9 +80,8 @@ that arrives after the goal closed reopens it. A closed goal keeps counting the
 thread's turns until another goal replaces it, so follow-up work after the
 close counts toward the outcome.
 
-The band and the sidebar mark go into bb's own markup, since bb has no slot
-for either. If bb changes that markup they stop appearing, and
-nothing else breaks.
+The sidebar donut goes into bb's own markup, since bb has no slot for it. If
+bb changes that markup the donuts stop appearing, and nothing else breaks.
 
 ### A context meter above the composer
 
@@ -165,7 +166,7 @@ week's threads to review.
 | `forecastTurns` | on | Adds about 200 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
 | `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
-| `goalLine` | on | Shows the goal band above the conversation of a thread with a goal. Off removes it from open threads right away. |
+| `goalLine` | on | Shows the goal's donut on the thread header's token button, and the goal at the top of the summary it opens. Off removes them from open threads right away. |
 | `goalSidebar` | on | Shows the goal donut in sidebar rows. Off removes them right away. |
 
 ## Requirements
@@ -178,7 +179,7 @@ outside service.
 - It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
 - It keeps each goal, and each earlier goal a revision replaced, with what it
   used, a few hundred bytes each, and deletes them when bb deletes the
-  thread. The band reads one goal from the plugin's database
+  thread. The token button reads one goal from the plugin's database
   when the thread opens and after each turn; the sidebar reads every active
   thread's goal in one request after each recorded usage and once a minute.
   Neither asks bb. Each of those sidebar requests also asks Impromptu UI, when

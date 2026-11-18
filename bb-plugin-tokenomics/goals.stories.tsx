@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { StoryCard, StoryRow } from "@bb-ladle/story-card";
-import { AppPageHeader } from "@bb-app/components/layout/AppPageHeader";
-import { SidebarProvider } from "@bb-app/components/ui/sidebar";
 
 import { ThreadStatusGlyph } from "@bb-app/components/thread/ThreadStatusGlyph";
-import { GoalBand, GoalCard, GoalDonut, SidebarGoalMark } from "./components/goal-line";
+import { CompactGoal, GoalCard, GoalDonut, SidebarGoalMark, type DonutActivity } from "./components/goal-line";
+import { ThreadTokenCount } from "./components/thread-token-count";
+import { AfterComposerFocus, LONG, LONG_TURNS, noop, NOW, ThreadFrame } from "./tokenomics.fixtures";
 import { ROW_STATES, type BbRowState } from "./components/row-activity";
 import { GoalOutcomes, type GoalOutcomesData } from "./components/goal-outcomes";
 import type { GoalViewData } from "./usage/contract";
@@ -55,32 +55,28 @@ const EXPLORING: GoalViewData = {
 
 const MET: GoalViewData = { ...TASK, reached: 3, outcome: "met", outcomeNote: "Merged as acme/widgets#42", label: "Met", left: null };
 
-function Pane({ title, goal }: { title: string; goal: GoalViewData }) {
-  return (
-    <SidebarProvider>
-      <div data-screenshot-frame className="flex h-[260px] w-[760px] flex-col overflow-hidden border border-border bg-background">
-        <AppPageHeader
-          ownsWindowTopLeft={false}
-          center={
-            <p className="relative min-w-0 truncate text-sm font-normal">
-              <span className="bb-thread-title">{title}</span>
-            </p>
-          }
-        />
-        <GoalBand goal={goal} />
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-5 py-4 text-sm">
-          <p className="text-muted-foreground">Explored 3 files</p>
-          <p>The export goes in the toolbar beside the filter. I'll build it as a menu item that downloads the visible rows.</p>
-          <p className="text-muted-foreground">Ran 2 commands</p>
-          <p>Export built. Next I'll add tests for empty lists and quoted fields.</p>
-        </div>
-      </div>
-    </SidebarProvider>
-  );
-}
+// The plugin's README embeds this one.
+/** The token button in the thread header with the goal's donut before its sparkline, spinning while the thread works, and the summary it opens, which starts with the goal. */
+export const GoalInHeader = () => (
+  <ThreadFrame
+    height="h-[760px]"
+    headerAction={
+      <AfterComposerFocus>
+        <ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} defaultOpen now={NOW.getTime()} goal={HEADER_GOAL} activity="working" spinDelay="-0.6s" />
+      </AfterComposerFocus>
+    }
+  />
+);
 
-/** The goal band between the thread header and the conversation, which scrolls under it: the goal, how far it has come, and the turns left, then a square and name per stage. */
-export const GoalBandInThread = () => <Pane title="Widgets: export the list to CSV" goal={TASK} />;
+const HEADER_GOAL: GoalViewData = {
+  ...TASK,
+  text: "Export the widget list to CSV from the toolbar",
+  stages: ["Export built", "Tests pass", "Reloaded in bb", "Refined on your feedback"],
+  reached: 2,
+  spent: { turns: 4, tokens: 9.1e6, ms: 26 * 60_000 },
+  label: "2 of 4 · Tests pass",
+  left: "~0–4 turns left",
+};
 
 const FINDINGS: GoalViewData["items"] = [
   { label: "C1 Debug login enabled in production", state: "done" },
@@ -107,33 +103,33 @@ const REVIEWING: GoalViewData = {
   left: "~2–6 turns left",
 };
 
-/** The band past its estimate, with twelve items in place of the stages, and once the goal is met. */
-export const GoalBandStates = () => (
+function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
+  return (
+    <div className="w-[400px] rounded-md border border-border bg-popover p-4">
+      <CompactGoal goal={goal} activity={activity} />
+    </div>
+  );
+}
+
+/** The goal at the top of the summary: with twelve items in place of the stages, waiting on you past its estimate, an exploration, and once met. */
+export const CompactGoalStates = () => (
   <StoryCard>
-    <StoryRow label="twelve items" hint="a review's findings: the squares show items, the stages stay in the card">
-      <div className="w-[720px] border border-border">
-        <GoalBand goal={REVIEWING} />
-      </div>
+    <StoryRow label="twelve items" hint="a review's findings; the stages stay in the sidebar's card">
+      <SummaryTop goal={REVIEWING} activity="working" />
     </StoryRow>
-    <StoryRow label="past its estimate" hint="the turns left turn amber">
-      <div className="w-[720px] border border-border">
-        <GoalBand goal={OVER} />
-      </div>
+    <StoryRow label="past its estimate" hint="waiting on you; the turns left turn amber">
+      <SummaryTop goal={OVER} activity="waiting" />
     </StoryRow>
     <StoryRow label="an exploration" hint="answer recommended, waiting on your call">
-      <div className="w-[720px] border border-border">
-        <GoalBand goal={EXPLORING} />
-      </div>
+      <SummaryTop goal={EXPLORING} />
     </StoryRow>
     <StoryRow label="met" hint="the outcome in place of the count">
-      <div className="w-[720px] border border-border">
-        <GoalBand goal={MET} />
-      </div>
+      <SummaryTop goal={MET} />
     </StoryRow>
   </StoryCard>
 );
 
-/** The card that opens on the band: the stages, any items, what the goal has used against its estimate, and how to change it. */
+/** The card that opens on a sidebar donut: the stages, any items, what the goal has used against its estimate, and how to change it. */
 export const GoalCardOpen = () => (
   <StoryCard>
     <StoryRow label="with items" hint="the stages, then the items">

@@ -1,22 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 
-import { onlyGoalHostChanges, placeBandHost, placeRowHosts, ROW_HOST_ATTRIBUTE, SLOT_ATTRIBUTE } from "./goal-hosts.js";
+import { onlyGoalHostChanges, placeRowHosts, ROW_HOST_ATTRIBUTE, SLOT_ATTRIBUTE } from "./goal-hosts.js";
 import { rowStateOf } from "../components/row-activity.js";
-
-// The shape of bb's thread pane: the header, with plugin header actions in
-// it, then the conversation window.
-function pane(): { anchor: HTMLElement; header: HTMLElement } {
-  document.body.innerHTML = `
-    <div data-split-pane-id="p1">
-      <header id="header">
-        <p><span class="bb-thread-title">Add a CSV export</span></p>
-        <div class="actions"><span role="group"><span id="anchor"></span></span></div>
-      </header>
-      <div data-thread-window><div class="scroller"></div></div>
-    </div>`;
-  return { anchor: document.getElementById("anchor")!, header: document.getElementById("header")! };
-}
 
 // The shape of a sidebar row: the link, the title, then the trailing area
 // with bb's icon box: its icon in a fading span, and the hover buttons.
@@ -38,29 +24,6 @@ function rows(ids: string[], label = "Thread working"): void {
     )
     .join("");
 }
-
-describe("placeBandHost", () => {
-  it("puts the band between the header and the conversation, once", () => {
-    const { anchor, header } = pane();
-    const host = document.createElement("div");
-    host.setAttribute("data-tokenomics-goal", "thr_a");
-    expect(placeBandHost(anchor, host)).toBe(true);
-    expect(placeBandHost(anchor, host)).toBe(true);
-    expect(header.nextElementSibling).toBe(host);
-    expect(host.nextElementSibling?.hasAttribute("data-thread-window")).toBe(true);
-    expect(document.querySelectorAll("[data-tokenomics-goal]")).toHaveLength(1);
-  });
-
-  it("removes the band when the conversation no longer follows the header", () => {
-    const { anchor } = pane();
-    const host = document.createElement("div");
-    host.setAttribute("data-tokenomics-goal", "thr_a");
-    placeBandHost(anchor, host);
-    document.querySelector("[data-thread-window]")!.remove();
-    expect(placeBandHost(anchor, host)).toBe(false);
-    expect(host.isConnected).toBe(false);
-  });
-});
 
 describe("placeRowHosts", () => {
   it("puts the donut after bb's icon box, collapses the box, and reads bb's state", () => {

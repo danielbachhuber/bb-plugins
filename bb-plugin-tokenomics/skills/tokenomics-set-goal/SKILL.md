@@ -6,7 +6,7 @@ description: Use when the user invokes /tokenomics-set-goal, or asks to set, cha
 # Set or revise this thread's goal
 
 A thread's goal is what the whole thread is for, not its next step. Tokenomics
-records it, shows it in a band above the conversation, and counts the turns, tokens, and
+records it, shows it on the token button in the thread header, and counts the turns, tokens, and
 time each goal took. This skill sets the first goal, or replaces one the
 thread has moved past.
 

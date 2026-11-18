@@ -26,9 +26,10 @@ import type { rpcContract } from "./server";
 import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
-import { GoalBand, SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
+import { SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
 import { ROW_STATES, rowStateOf, withOpenCard, type BbRowState } from "@/components/row-activity";
-import { onlyGoalHostChanges, OPEN_CARD_ATTRIBUTE, placeBandHost, placeRowHosts, ROW_HOST_ATTRIBUTE, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
+import { setGoalActivities, useGoalActivity } from "@/components/goal-activity";
+import { onlyGoalHostChanges, placeRowHosts, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -267,9 +268,34 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
   );
   useRealtime(USAGE_CHANNEL, onChange);
 
+  // The thread's goal, for the donut on the button and the top of the summary.
+  const [goal, setGoal] = useState<GoalViewData | null>(null);
+  const loadGoal = useCallback(() => {
+    rpc.call("thread_goal", { threadId }).then((result) => setGoal(result.show ? result.goal : null), () => undefined);
+  }, [rpc, threadId]);
+  useEffect(() => {
+    setGoal(null);
+    loadGoal();
+  }, [loadGoal]);
+  const onGoal = useMemo(
+    () => (payload: unknown) => {
+      // A setting change carries no thread ids and applies to every thread.
+      const ids = (payload as { threadIds?: unknown } | null)?.threadIds;
+      if (ids === undefined || isForThread(payload, threadId)) loadGoal();
+    },
+    [loadGoal, threadId],
+  );
+  useRealtime(GOALS_CHANNEL, onGoal);
+  // What the goal has used moves with each turn.
+  const onTurn = useMemo(() => (payload: unknown) => (isForThread(payload, threadId) ? loadGoal() : undefined), [loadGoal, threadId]);
+  useRealtime(TURNS_CHANNEL, onTurn);
+  const activity = useGoalActivity(threadId);
+
   if (usage === null || usage.total === 0) return null;
   return (
     <ThreadTokenCount
+      goal={goal}
+      activity={activity}
       usage={usage}
       turns={turns}
       onOpen={() => setWantsTurns(true)}
@@ -279,107 +305,6 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
   );
 }
 
-
-/**
- * Renders nothing in the header's action row. Its hidden anchor finds the
- * thread's header, and the goal band renders between it and the conversation
- * through a portal, so it stays in view as the conversation scrolls. See
- * timeline/goal-hosts.ts for why this reads bb's markup.
- */
-function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
-  const rpc = useRpc<typeof rpcContract>();
-  const [goal, setGoal] = useState<GoalViewData | null>(null);
-  const [show, setShow] = useState(false);
-  const anchorRef = useRef<HTMLSpanElement | null>(null);
-  const [host, setHost] = useState<HTMLElement | null>(null);
-
-  const load = useCallback(() => {
-    rpc.call("thread_goal", { threadId }).then(
-      (result) => {
-        setGoal(result.goal);
-        setShow(result.show);
-      },
-      () => undefined,
-    );
-  }, [rpc, threadId]);
-  useEffect(() => {
-    setGoal(null);
-    load();
-  }, [load]);
-  const onGoal = useMemo(
-    () => (payload: unknown) => {
-      // A setting change carries no thread ids and applies to every thread.
-      const ids = (payload as { threadIds?: unknown } | null)?.threadIds;
-      if (ids === undefined || isForThread(payload, threadId)) load();
-    },
-    [load, threadId],
-  );
-  useRealtime(GOALS_CHANNEL, onGoal);
-  // What the goal has used moves with each turn.
-  const onTurn = useMemo(() => (payload: unknown) => (isForThread(payload, threadId) ? load() : undefined), [load, threadId]);
-  useRealtime(TURNS_CHANNEL, onTurn);
-
-  const visible = show && goal !== null && goal.label !== null;
-  useEffect(() => {
-    const anchor = anchorRef.current;
-    if (!visible || anchor === null) {
-      setHost(null);
-      return;
-    }
-    const element = document.createElement("div");
-    element.setAttribute(TITLE_HOST_ATTRIBUTE, threadId);
-    element.setAttribute(...STYLE_SCOPE);
-    element.className = "shrink-0";
-    let frame: number | null = null;
-    const pass = () => {
-      frame = null;
-      setHost(placeBandHost(anchor, element) ? element : null);
-    };
-    const schedule = () => {
-      if (frame === null) frame = requestAnimationFrame(pass);
-    };
-    // bb re-renders the pane on switching threads in it, and may drop the band.
-    const observer = new MutationObserver((records) => {
-      if (!onlyGoalHostChanges(records)) schedule();
-    });
-    const pane = anchor.closest("header")?.parentElement;
-    if (pane != null) observer.observe(pane, { childList: true });
-    pass();
-    return () => {
-      observer.disconnect();
-      if (frame !== null) cancelAnimationFrame(frame);
-      element.remove();
-    };
-  }, [visible, threadId]);
-
-  return (
-    <>
-      <span ref={anchorRef} hidden />
-      {visible && host !== null ? createPortal(
-            <GoalBand
-              goal={goal}
-              // bb's state for this thread, read off its sidebar row's icon.
-              // An open Impromptu UI card counts as waiting, as on the donut.
-              readActivity={() =>
-                ROW_STATES[
-                  withOpenCard(
-                    rowStateOf(
-                      document
-                        .querySelector(`a[data-sidebar-thread-id="${threadId}"]`)
-                        ?.closest(".bb-sidebar-hover-actions-row")
-                        ?.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")
-                        ?.getAttribute("aria-label"),
-                    ),
-                    document.querySelector(`[${ROW_HOST_ATTRIBUTE}="${threadId}"]`)?.hasAttribute(OPEN_CARD_ATTRIBUTE) === true,
-                  )
-                ].activity
-              }
-            />,
-            host,
-          ) : null}
-    </>
-  );
-}
 
 /** The goal mark beside each sidebar row's title, for threads with a goal. */
 function SidebarGoals() {
@@ -415,10 +340,6 @@ function SidebarGoals() {
     const timer = setInterval(load, 60_000);
     return () => clearInterval(timer);
   }, [load]);
-  // Marks each row with an open card, for the band's card in that thread.
-  useEffect(() => {
-    for (const [threadId, host] of hosts) host.toggleAttribute(OPEN_CARD_ATTRIBUTE, marks.get(threadId)?.openCard === true);
-  }, [hosts, marks]);
 
   const wanted = useMemo(() => new Set(marks.keys()), [marks]);
   useEffect(() => {
@@ -462,6 +383,13 @@ function SidebarGoals() {
     },
     [],
   );
+
+  // Shares each thread's activity with its header button.
+  useEffect(() => {
+    setGoalActivities(
+      new Map([...marks].map(([threadId, mark]) => [threadId, ROW_STATES[withOpenCard(states.get(threadId) ?? "none", mark.openCard === true)].activity])),
+    );
+  }, [marks, states]);
 
   return [...hosts].map(([threadId, host]) => {
     const mark = marks.get(threadId);
@@ -760,12 +688,6 @@ export default definePluginApp((app) => {
     id: "thread-tokens",
     title: "Tokens used",
     component: ThreadTokensAction,
-  });
-
-  app.slots.experimental_threadHeaderAction({
-    id: "thread-goal",
-    title: "Thread goal",
-    component: ThreadGoalAction,
   });
 
   app.composer.customize({

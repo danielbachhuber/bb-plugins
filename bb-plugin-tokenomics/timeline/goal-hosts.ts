@@ -1,13 +1,10 @@
-// Places empty elements in bb's own markup for the goal band at the top of a
-// thread's conversation and the goal mark beside each sidebar row's title to
-// render into.
+// Places an empty element in bb's own markup at the end of each sidebar row
+// with a goal, for the goal donut to render into.
 //
-// bb gives plugins no slot between the thread header and the conversation, or
-// inside a sidebar row, so this reads bb's markup: the thread's pane is a
-// column holding its `<header>` and then `[data-thread-window]`, which scrolls
-// the conversation inside itself, and each sidebar row has an
-// `a[data-sidebar-thread-id]` beside the span holding its `.bb-thread-title`. That markup is not an API.
-// When bb changes it, the lines stop appearing and nothing else breaks, and
+// bb gives plugins no slot inside a sidebar row, so this reads bb's markup:
+// each row has an `a[data-sidebar-thread-id]` and a trailing area holding
+// bb's icon box. That markup is not an API.
+// When bb changes it, the donuts stop appearing and nothing else breaks, and
 // the tests here, which build the same markup, say what they expected.
 
 /**
@@ -17,40 +14,8 @@
  */
 export const STYLE_SCOPE: [string, string] = ["data-bb-plugin", "tokenomics"];
 
-/** Marks the goal band at the top of a thread's conversation. */
-export const TITLE_HOST_ATTRIBUTE = "data-tokenomics-goal";
 /** Marks the element beside a sidebar row's title, and names the row's thread. */
 export const ROW_HOST_ATTRIBUTE = "data-tokenomics-goal-row";
-/** On a row's host when the thread has an open Impromptu UI card, for the band in that thread to read. */
-export const OPEN_CARD_ATTRIBUTE = "data-tokenomics-open-card";
-
-/**
- * The thread header holding `anchor`, a node rendered in the header's action
- * row, when bb's conversation follows it. Null when bb's markup has moved.
- */
-export function threadHeaderOf(anchor: Element): Element | null {
-  const header = anchor.closest("header");
-  if (header === null) return null;
-  // A band already placed sits between them.
-  let next = header.nextElementSibling;
-  while (next !== null && next.hasAttribute(TITLE_HOST_ATTRIBUTE)) next = next.nextElementSibling;
-  return next?.hasAttribute("data-thread-window") ? header : null;
-}
-
-/**
- * Puts `host` right after the thread header, above the conversation, once.
- * The conversation scrolls inside its own element, so the band stays in view.
- * Returns whether it is in place.
- */
-export function placeBandHost(anchor: Element, host: HTMLElement): boolean {
-  const header = threadHeaderOf(anchor);
-  if (header === null) {
-    host.remove();
-    return false;
-  }
-  if (header.nextElementSibling !== host) header.after(host);
-  return true;
-}
 
 /**
  * How much further left the donut pushes bb's hover buttons: the donut, its
@@ -137,7 +102,7 @@ export function placeRowHosts(
 /** True when every change in `records` is to a host this module placed, so a pass would change nothing. */
 export function onlyGoalHostChanges(records: readonly MutationRecord[]): boolean {
   const ours = (node: Node) =>
-    node instanceof Element && (node.hasAttribute(ROW_HOST_ATTRIBUTE) || node.hasAttribute(TITLE_HOST_ATTRIBUTE) || node.closest(`[${ROW_HOST_ATTRIBUTE}], [${TITLE_HOST_ATTRIBUTE}]`) !== null);
+    node instanceof Element && (node.hasAttribute(ROW_HOST_ATTRIBUTE) || node.closest(`[${ROW_HOST_ATTRIBUTE}]`) !== null);
   return records.every(
     (record) =>
       ours(record.target) || [...record.addedNodes, ...record.removedNodes].every((node) => ours(node)),

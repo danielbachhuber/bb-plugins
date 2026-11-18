@@ -1,6 +1,8 @@
 // The thread header's token count: a button with a sparkline of the thread's
 // token use over time, opening a summary of when its tokens went and which of
 // your messages set them off. Display only.
+import { CompactGoal, GoalDonut, type DonutActivity } from "./goal-line";
+import type { GoalViewData } from "@/usage/contract";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -516,6 +518,9 @@ export function ThreadTokenCount({
   defaultOpen = false,
   initialHovered,
   now = Date.now(),
+  goal = null,
+  activity = null,
+  spinDelay,
 }: {
   usage: ThreadTokens;
   turns: TurnDetail[] | null;
@@ -528,8 +533,15 @@ export function ThreadTokenCount({
   initialHovered?: InitialHover;
   /** What "past day" is measured from; stories pin it. */
   now?: number;
+  /** The thread's goal: its donut leads the button and the goal heads the summary. */
+  goal?: GoalViewData | null;
+  /** What the thread is doing, as the donut and the goal show it. */
+  activity?: DonutActivity;
+  /** A negative delay, so a story can show the donut mid-spin. */
+  spinDelay?: string;
 }) {
   const pastDay = pastDayTokens(usage.recent, now);
+  const shownGoal = goal != null && goal.label !== null ? goal : null;
   const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen });
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -539,8 +551,18 @@ export function ThreadTokenCount({
           variant="ghost"
           size="sm"
           className="h-7 cursor-pointer gap-1.5 px-2 tabular-nums"
-          aria-label={`${formatTokens(pastDay)} tokens in the past day, of ${formatTokens(usage.total)} used by this thread. Show the summary.`}
+          aria-label={`${shownGoal === null ? "" : `Goal: ${shownGoal.label}. `}${formatTokens(pastDay)} tokens in the past day, of ${formatTokens(usage.total)} used by this thread. Show the summary.`}
         >
+          {shownGoal === null ? null : (
+            <GoalDonut
+              stages={shownGoal.stages.length}
+              reached={shownGoal.reached}
+              outcome={shownGoal.outcome}
+              tone={shownGoal.left === "past estimate" ? "over" : "default"}
+              activity={activity}
+              spinDelay={spinDelay}
+            />
+          )}
           {isCompactViewport ? null : (
             <span className="text-muted-foreground">
               <Spark buckets={sparkBuckets(usage.recent)} width={40} height={14} gap={1} />
@@ -557,6 +579,12 @@ export function ThreadTokenCount({
         onOpenAutoFocus={(event) => event.preventDefault()}
         {...hover}
       >
+        {shownGoal === null ? null : (
+          <>
+            <CompactGoal goal={shownGoal} activity={activity} />
+            <div className="my-4 border-t border-border" />
+          </>
+        )}
         <ThreadTokenSummary usage={usage} turns={turns} onOpenPage={onOpenPage} initialHovered={initialHovered} />
       </PopoverContent>
     </Popover>

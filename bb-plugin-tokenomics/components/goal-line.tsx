@@ -1,6 +1,6 @@
-// The goal band above a thread's conversation and the donut beside its
-// sidebar row. Resting on either opens a card with the stages, any items, the
-// estimate, and what the goal has used so far.
+// The goal at the top of the Tokenomics popover, and the donut on its header
+// button and beside each sidebar row. Resting on the sidebar donut opens a
+// card with the stages, any items, the estimate, and what the goal has used.
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
@@ -187,91 +187,73 @@ function EntrySquare({ state }: { state: BandEntry["state"] }) {
 
 const ENTRY_STATE_TEXT = { done: "done", current: "in progress", todo: "not yet", dropped: "dropped" } as const;
 
-/** One row of squares, each with its name, sharing the band's width; a name too long is cut short, the full one on hover. */
-function EntryRow({ entries }: { entries: BandEntry[] }) {
-  return (
-    <span className="flex min-w-0 gap-3">
-      {entries.map((entry, index) => (
-        <span key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 flex-1 items-center gap-1.5">
-          <EntrySquare state={entry.state} />
-          <span
-            className={cn(
-              "truncate text-[11px]",
-              entry.state === "current" ? "text-foreground" : "text-muted-foreground",
-              entry.state === "dropped" && "line-through opacity-70",
-            )}
-          >
-            {entry.label}
-          </span>
-          <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
-        </span>
-      ))}
-    </span>
-  );
+/** What the goal has used against its estimate, on one line: "4 of 3–8 turns · 9.1M of 5M–20M tokens · 26 of 20–60 min". */
+function usedLine(goal: GoalViewData): string {
+  const part = (spent: string, range: Range, unit: "turns" | "tokens" | "min") => {
+    const estimate = rangeText(range, unit);
+    return estimate === null ? null : `${spent} of ${estimate}`;
+  };
+  return [
+    part(String(goal.spent.turns), goal.estimate.turns, "turns") ?? `${goal.spent.turns} turns`,
+    part(formatTokens(goal.spent.tokens), goal.estimate.tokens, "tokens") ?? `${formatTokens(goal.spent.tokens)} tokens`,
+    part(String(Math.round(goal.spent.ms / 60_000)), goal.estimate.minutes, "min") ?? `${Math.round(goal.spent.ms / 60_000)} min`,
+  ].join(" · ");
 }
 
 /**
- * The band between the thread header and the conversation. The conversation
- * scrolls under it, so the goal stays in view. Two lines: the goal with how
- * far it has come, then a square and name for each stage, or for each item
- * when the goal has a list longer than its stages. Resting on it opens the card.
+ * The goal at the top of the Tokenomics popover: the goal, a square and name
+ * for each stage, or each item when the goal has a list longer than its
+ * stages, and what it has used against its estimate.
  */
-export function GoalBand({
-  goal,
-  defaultOpen = false,
-  readActivity,
-}: {
-  goal: GoalViewData;
-  defaultOpen?: boolean;
-  /** What the thread is doing, read when the card opens. */
-  readActivity?: () => DonutActivity;
-}) {
-  const [activity, setActivity] = useState<DonutActivity>(null);
-  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen: () => setActivity(readActivity?.() ?? null) });
+export function CompactGoal({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
   if (goal.label === null) return null;
   const entries: BandEntry[] = goal.items.length > 0 ? goal.items : stageEntries(goal);
   const progress =
     goal.outcome !== null
       ? OUTCOME_LABEL[goal.outcome]
       : goal.items.length > 0
-        ? itemsProgress(goal.items)
+        ? `${itemsProgress(goal.items)} items`
         : goal.stages.length > 0
           ? `${Math.min(goal.reached, goal.stages.length)} of ${goal.stages.length}`
           : goal.label;
+  const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
   return (
-    <div data-tokenomics-goal-band="" className="border-b border-border-seam-vertical/60 bg-background px-4 py-1.5 md:px-5">
-      <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>
-          <button
-            {...hover}
-            type="button"
-            data-tokenomics-goal-line=""
-            className="flex w-full min-w-0 flex-col gap-1 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
-          >
-            <span className="flex w-full min-w-0 items-center gap-3 whitespace-nowrap">
-              <span className="min-w-[2.5rem] truncate text-foreground" style={{ flexShrink: 10 }}>
-                {goal.text}
+    <div data-tokenomics-goal="" className="flex flex-col gap-2 text-xs">
+      <span className="flex items-baseline justify-between gap-3 text-muted-foreground">
+        <span>
+          {SHAPE_LABEL[goal.shape]} · {progress}
+        </span>
+        {note ? (
+          <span className={cn(activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : undefined)}>{note}</span>
+        ) : null}
+      </span>
+      <span className="text-sm text-foreground">{goal.text}</span>
+      {entries.length === 0 ? null : (
+        <ol className="grid max-h-40 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto">
+          {entries.map((entry, index) => (
+            <li key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 items-center gap-1.5">
+              <EntrySquare state={entry.state} />
+              <span
+                className={cn(
+                  "truncate",
+                  entry.state === "current" ? "text-foreground" : "text-muted-foreground",
+                  entry.state === "dropped" && "line-through opacity-70",
+                )}
+              >
+                {entry.label}
               </span>
-              <span className="shrink-0">{progress}</span>
-              {goal.left === null ? null : (
-                <span className={cn("min-w-0 truncate", goal.left === "past estimate" && "text-amber-600 dark:text-amber-400")}>
-                  {goal.left}
-                </span>
-              )}
-            </span>
-            {entries.length === 0 ? null : <EntryRow entries={entries} />}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[320px] p-3"
-          // Opened by hover, it leaves focus where it was, such as in the composer.
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          {...hover}
-        >
-          <GoalCard goal={goal} activity={activity} />
-        </PopoverContent>
-      </Popover>
+              <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <span className="text-muted-foreground">
+        {usedLine(goal)}
+        {goal.left === null ? null : (
+          <span className={cn(goal.left === "past estimate" && "text-amber-600 dark:text-amber-400")}> · {goal.left}</span>
+        )}
+      </span>
+      {goal.outcome !== null && goal.outcomeNote ? <span className="text-muted-foreground">{goal.outcomeNote}</span> : null}
     </div>
   );
 }

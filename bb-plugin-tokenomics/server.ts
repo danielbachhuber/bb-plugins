@@ -85,8 +85,8 @@ export default async function plugin(bb: BbPluginApi) {
     },
     goalLine: {
       type: "boolean",
-      label: "Show the goal above the conversation",
-      description: "The goal, its stages, and the turns left, in a band between the thread header and the conversation, which scrolls under it.",
+      label: "Show the goal on the thread's token button",
+      description: "The goal's donut on the token button in the thread header, and the goal, its stages, and what it has used at the top of the summary it opens.",
       default: true,
     },
     goalSidebar: {
