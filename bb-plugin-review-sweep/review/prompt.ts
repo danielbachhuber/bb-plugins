@@ -102,8 +102,25 @@ export function buildPromptParts(row: PromptRow, now: number): PromptParts {
       // the pull request's head branch checked out, so the branch has to be
       // there before the review starts, not after.
       `If this thread runs in its own bb worktree, check the pull request out there yourself with \`gh pr checkout ${row.number}\` before you load the skill (add \`--detach\` if git says the branch is already checked out elsewhere). Leave it checked out when you finish. If it runs in the project checkout instead, leave that checkout's branch alone and read the diff with \`gh pr diff\` and \`gh pr view\`. \`bb status\` shows which one it is.`,
+      "",
+      goalBlock(row),
     ].join("\n"),
   };
+}
+
+/**
+ * The thread's goal and Done is, for the agent to record as given. End
+ * states, not steps, so Tokenomics can show which are true; see
+ * bb-plugin-tokenomics.
+ */
+export function goalBlock(row: PromptRow): string {
+  return [
+    `Goal: your review of ${row.repo}#${row.number} submitted with a verdict.`,
+    "Done is:",
+    row.state === "re-review" ? "- Earlier points checked" : "- Findings shown to you",
+    "- Each finding kept or dropped",
+    "- Review submitted on GitHub",
+  ].join("\n");
 }
 
 /** The whole prompt, for anything that wants it in one piece. */

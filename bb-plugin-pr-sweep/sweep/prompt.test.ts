@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPrompt, buildPromptParts, joinPromptParts, suggestedSkills } from "./prompt.js";
+import { buildPrompt, buildPromptParts, goalBlock, joinPromptParts, suggestedSkills } from "./prompt.js";
 import type { ResolvedPullRequest } from "./open-pr.js";
 import type { ClassifiedRow } from "./types.js";
 
@@ -357,5 +357,25 @@ describe("suggestedSkills", () => {
 
   it("tells the thread to take more than one picked skill in order", () => {
     expect(buildPromptParts(row({ flags: ["conflict"] })).trailer).toContain("they are steps in that order");
+  });
+});
+
+describe("goalBlock", () => {
+  it("states one end state per kind of work, in the order of the work", () => {
+    expect(goalBlock(row({ flags: ["conflict", "ci-failing", "ci-cancelled"] }))).toBe(
+      ["Goal: acme/widgets#42 has nothing left from what the sweep found.", "Done is:", "- Merges cleanly with its base", "- Checks pass"].join("\n"),
+    );
+  });
+
+  it("folds comments to read into answering review comments", () => {
+    expect(goalBlock(row({ flags: ["merge-ready"], unresolvedThreads: 2 }))).toContain("- Every review comment answered");
+  });
+
+  it("asks to confirm the sweep when it found nothing", () => {
+    expect(goalBlock(row())).toContain("- Sweep result confirmed or corrected");
+  });
+
+  it("reaches the agent in the trailer", () => {
+    expect(buildPromptParts(row({ flags: ["conflict"] })).trailer).toContain("Done is:");
   });
 });

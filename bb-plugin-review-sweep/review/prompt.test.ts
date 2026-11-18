@@ -81,3 +81,11 @@ describe("buildPrompt", () => {
     expect(prompt).toMatch(/verdict as the closing step/);
   });
 });
+
+describe("goal", () => {
+  it("states the review's goal and its end states", () => {
+    const prompt = buildPrompt(rowFor(), NOW);
+    expect(prompt).toMatch(/Goal: your review of .+#\d+ submitted with a verdict\./);
+    expect(prompt).toMatch(/Done is:\n- Findings shown to you\n- Each finding kept or dropped\n- Review submitted on GitHub/);
+  });
+});

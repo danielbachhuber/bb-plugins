@@ -300,6 +300,11 @@ findings you choose, submits it only when you choose a verdict, and posts
 nothing else without asking. The skill works the same way, and the prompt
 states it anyway, because a direct instruction outranks a skill's own steps.
 
+The prompt ends with the thread's goal, your review submitted with a verdict,
+and three end states: findings shown to you, each finding kept or dropped,
+and the review submitted. With Tokenomics installed, the thread records them
+as its goal, and its stage shows under the thread title.
+
 **The sandbox cannot enforce it.** `auto` keeps the workspace sandbox, which
 blocks network egress, so a thread in that mode cannot reach GitHub to read the
 diff it was started for. `full` is the only mode in which a review can happen at

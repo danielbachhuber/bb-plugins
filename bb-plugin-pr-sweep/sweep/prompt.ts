@@ -187,6 +187,46 @@ function worktreeGuidance(onBranch: ResolvedPullRequest | undefined): string[] {
   ];
 }
 
+/**
+ * The end state each flag's work reaches, for the thread's goal. End states,
+ * not steps, so Tokenomics can show which are true; see bb-plugin-tokenomics.
+ */
+const END_STATE: Record<Flag, string> = {
+  conflict: "Merges cleanly with its base",
+  "ci-failing": "Checks pass",
+  feedback: "Every review comment answered",
+  "merge-blocked": "Nothing blocks the merge",
+  "mergeable-unknown": "Merge state known",
+  "ci-cancelled": "Checks pass",
+  "ci-absent": "Checks run and pass",
+  "no-reviewer": "A reviewer is requested",
+  "ci-pending": "Checks finished",
+  "merge-ready": "Ready for you to merge",
+};
+
+/** Goals hold at most this many stages; see Tokenomics' goal limits. */
+const MAX_GOAL_STAGES = 4;
+
+/**
+ * The thread's goal and Done is, for the agent to record as given. One stage
+ * per distinct end state, in the order of the work, with comments to read
+ * folded into "Every review comment answered".
+ */
+export function goalBlock(row: ClassifiedRow): string {
+  const stages: string[] = [];
+  for (const { flag } of workSteps(row.flags, commentsToRead(row))) {
+    const stage = END_STATE[flag as Flag];
+    if (stage !== undefined && !stages.includes(stage)) stages.push(stage);
+  }
+  if (describeCommentsToRead(row) && !stages.includes(END_STATE.feedback)) stages.push(END_STATE.feedback);
+  if (stages.length === 0) stages.push("Sweep result confirmed or corrected");
+  return [
+    `Goal: ${row.repo}#${row.number} has nothing left from what the sweep found.`,
+    "Done is:",
+    ...stages.slice(0, MAX_GOAL_STAGES).map((stage) => `- ${stage}`),
+  ].join("\n");
+}
+
 export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequest): PromptParts {
   // The same standing procedure every time, which is why it is neither
   // read nor worth the screen space in the composer. It still reaches the
@@ -214,6 +254,8 @@ export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequ
     "Where I name more than one skill, they are steps in that order. Finish each, including its commit and push, before starting the next, and re-check the later ones afterwards: an earlier fix often changes them.",
     "",
     ...worktreeGuidance(onBranch),
+    "",
+    goalBlock(row),
   ];
 
   const findings = findingsFor(row);

@@ -226,6 +226,11 @@ editor, so you can read and edit the prompt first. Clicking it again closes
 it. Starting it leaves you on the page, with a toast whose **Go to
 thread** button opens the new thread.
 
+The prompt ends with the thread's goal, the issue done as its latest comments
+define it, and three end states: plan agreed with you, built and tested, and
+a pull request open with checks passing. With Tokenomics installed, the
+thread records them as its goal, and its stage shows under the thread title.
+
 A thread started from a row is linked to its issue in gh-context, and the row
 then opens that thread rather than starting another.
 

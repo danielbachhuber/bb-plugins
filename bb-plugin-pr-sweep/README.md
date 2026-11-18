@@ -357,6 +357,11 @@ PR's own branch, so the prompt names the skill and states the findings without
 restating any method. A thread already on the branch is told to skip that
 setup step.
 
+The prompt ends with the thread's goal and a Done is list, one end state per
+kind of work the sweep found, such as "Merges cleanly with its base" and
+"Checks pass", at most four. With Tokenomics installed, the thread records
+them as its goal, and its stage shows under the thread title.
+
 **A pull request with several flags gets one thread that works them in order**,
 worst first, finishing each before starting the next. They are sequential
 rather than independent: resolving a conflict changes the code review feedback

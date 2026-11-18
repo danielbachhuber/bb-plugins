@@ -113,8 +113,25 @@ export function buildPromptParts(row: IssueRow): PromptParts {
       "Ask me first before: committing, pushing, opening a pull request, force-pushing, or closing the issue.",
       "",
       "Show me your plan before you write code. The issue names a problem, not a solution, and I would rather correct the approach than the diff.",
+      "",
+      goalBlock(row),
     ].join("\n"),
   };
+}
+
+/**
+ * The thread's goal and Done is, for the agent to record as given. End
+ * states, not steps, so Tokenomics can show which are true; see
+ * bb-plugin-tokenomics. The standard stages for building from an issue.
+ */
+export function goalBlock(row: IssueRow): string {
+  return [
+    `Goal: ${row.repo}#${row.number} done, as its latest comments define it.`,
+    "Done is:",
+    "- Plan agreed with you",
+    "- Built and tested",
+    "- Pull request open with checks passing",
+  ].join("\n");
 }
 
 /** The whole prompt, for anything that wants it in one piece. */

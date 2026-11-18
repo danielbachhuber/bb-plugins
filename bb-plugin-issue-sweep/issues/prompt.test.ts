@@ -101,3 +101,11 @@ describe("buildPrompt", () => {
     expect(buildPrompt(row())).not.toMatch(/blocked/i);
   });
 });
+
+describe("goal", () => {
+  it("states the issue's goal and its end states", () => {
+    const prompt = buildPrompt(row());
+    expect(prompt).toMatch(/Goal: .+#\d+ done, as its latest comments define it\./);
+    expect(prompt).toMatch(/Done is:\n- Plan agreed with you\n- Built and tested\n- Pull request open with checks passing/);
+  });
+});
