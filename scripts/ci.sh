@@ -26,6 +26,18 @@ if [ "${1:-}" = "--list" ]; then
     echo "Add to \"workspaces\" in the root package.json: $(echo $missing)" >&2
     exit 1
   fi
+  # Every package is MIT licensed, with a LICENSE file beside its
+  # package.json and "license": "MIT" in it, so a new plugin fails here too.
+  unlicensed="$(for pkg in "$DIR"/*/package.json; do
+    dir="$(dirname "$pkg")"
+    if ! cmp -s "$DIR/LICENSE" "$dir/LICENSE" || ! jq -e '.license == "MIT"' "$pkg" >/dev/null; then
+      basename "$dir"
+    fi
+  done)"
+  if [ -n "$unlicensed" ]; then
+    echo "Copy LICENSE from the root and set \"license\": \"MIT\" in: $(echo $unlicensed)" >&2
+    exit 1
+  fi
   for pkg in "$DIR"/*/package.json; do
     jq -e '.scripts.test' "$pkg" >/dev/null 2>&1 || continue
     basename "$(dirname "$pkg")"

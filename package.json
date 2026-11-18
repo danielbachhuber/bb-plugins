@@ -1,5 +1,6 @@
 {
   "name": "bb-plugins",
+  "license": "MIT",
   "private": true,
   "description": "Workspace root for the whole checkout. Every plugin and shared library is a workspace with its own package.json; they share one lockfile and one node_modules here. Playwright, for the story screenshots, is the root's own dependency.",
   "workspaces": [

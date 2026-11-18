@@ -244,6 +244,16 @@ ones bundled with bb, and say how this one is similar or different. The
 `write-plugin-docs` skill covers the format. Search again when you change what
 a plugin does, since the list of similar plugins changes too.
 
+## Every package is MIT licensed
+
+The repository is under the MIT license in the root `LICENSE`. Each plugin and
+shared library carries its own copy of that file beside its `package.json`,
+and `"license": "MIT"` in it, because bb installs a plugin from its own
+directory and npm publishes the component library from its own. When you add a
+package, copy `LICENSE` from the root and add the field, then run `npm install`
+at the root so the lockfile records it. `scripts/ci.sh --list` fails while a
+package is missing either one.
+
 ## Working on a plugin
 
 ```sh

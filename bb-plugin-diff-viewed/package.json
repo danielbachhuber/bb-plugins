@@ -1,6 +1,7 @@
 {
   "name": "bb-plugin-diff-viewed",
   "version": "0.2.3",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "bb": ">=0.47",

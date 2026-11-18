@@ -1,6 +1,7 @@
 {
   "name": "@danielbachhuber/bb-plugin-component-library",
   "version": "1.5.0",
+  "license": "MIT",
   "description": "UI that several plugins draw the same way, starting with the sync status in a page's title bar.",
   "repository": {
     "type": "git",

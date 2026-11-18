@@ -1,6 +1,7 @@
 {
   "name": "bb-plugin-tokenomics",
   "version": "0.2.2",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "bb": ">=0.43",

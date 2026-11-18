@@ -251,3 +251,7 @@ is written to `<out>/<story id>.png`. It uses a running `npm run storybook`
 server for this checkout, or starts one for the run, so it takes seconds
 rather than a build. A story that throws, or that Vite cannot load, stops the
 run at once with the error and a non-zero exit.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Each plugin carries its own copy of the file.
