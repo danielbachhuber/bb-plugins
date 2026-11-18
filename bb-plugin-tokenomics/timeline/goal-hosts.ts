@@ -10,6 +10,13 @@
 // When bb changes it, the lines stop appearing and nothing else breaks, and
 // the tests here, which build the same markup, say what they expected.
 
+/**
+ * The plugin's stylesheet applies only under an element carrying this, so
+ * each host carries it; without it, classes bb's own stylesheet lacks, such
+ * as the donut's stroke colours, do nothing.
+ */
+export const STYLE_SCOPE: [string, string] = ["data-bb-plugin", "tokenomics"];
+
 /** Marks the goal band at the top of a thread's conversation. */
 export const TITLE_HOST_ATTRIBUTE = "data-tokenomics-goal";
 /** Marks the element beside a sidebar row's title, and names the row's thread. */
@@ -45,7 +52,7 @@ export function placeBandHost(anchor: Element, host: HTMLElement): boolean {
 
 /**
  * One pass over the sidebar: each thread in `threadIds` whose row is mounted
- * gets a host after its title, and hosts for anything else are removed.
+ * gets a host before its title, and hosts for anything else are removed.
  * Returns the hosts by thread. `hosts` carries them from the last pass, so a
  * row keeps its element when bb re-renders it.
  */
@@ -65,9 +72,11 @@ export function placeRowHosts(
     if (host === undefined) {
       host = doc.createElement("span");
       host.setAttribute(ROW_HOST_ATTRIBUTE, threadId);
+      host.setAttribute(...STYLE_SCOPE);
       host.style.display = "contents";
     }
-    if (title.nextElementSibling !== host) title.after(host);
+    // Before the title: bb's hover actions cover the end of the row.
+    if (title.previousElementSibling !== host) title.before(host);
     placed.set(threadId, host);
   }
   const kept = new Set(placed.values());

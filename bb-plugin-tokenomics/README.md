@@ -54,8 +54,9 @@ gets the question it answers; a conversation can have no goal.
 
 The goal, a segment per stage, the stage reached, and the turns left show in
 a band between the thread header and the conversation, which scrolls under
-it, so the goal stays in view. A mark such as "1/3" or a check sits beside
-the thread's title in the sidebar. Rest on the band for the stages and what the goal has used
+it, so the goal stays in view. In the sidebar, a segmented donut before
+the thread's title fills a segment per stage done, turns amber past the
+estimate, and becomes a check once met; resting on it opens the same card. Rest on the band for the stages and what the goal has used
 against Claude's estimate of its turns, tokens, and minutes. When setting a
 goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
@@ -154,7 +155,7 @@ week's threads to review.
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
 | `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
 | `goalLine` | on | Shows the goal band above the conversation of a thread with a goal. Off removes it from open threads right away. |
-| `goalSidebar` | on | Shows the goal mark beside sidebar rows. Off removes them right away. |
+| `goalSidebar` | on | Shows the goal donut in sidebar rows. Off removes them right away. |
 
 ## Requirements
 

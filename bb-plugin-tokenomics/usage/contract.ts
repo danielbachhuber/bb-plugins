@@ -273,7 +273,7 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({
       show: z.boolean(),
-      goals: z.array(z.object({ threadId: z.string(), label: z.string(), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable() })),
+      goals: z.array(z.object({ threadId: z.string(), label: z.string(), stages: z.number(), reached: z.number(), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable() })),
     }),
   },
   /** Outcomes since `since`: tokens and time per outcome, goal vs no goal by start, and how estimates held. */

@@ -54,13 +54,15 @@ describe("placeBandHost", () => {
 });
 
 describe("placeRowHosts", () => {
-  it("places a host after the title of each row with a goal and leaves the rest alone", () => {
+  it("places a host before the title of each row with a goal and leaves the rest alone", () => {
     rows(["thr_a", "thr_b"]);
     const hosts = placeRowHosts(document, new Set(["thr_a"]), new Map());
     expect([...hosts.keys()]).toEqual(["thr_a"]);
     const title = document.querySelector('[data-sidebar-thread-id="thr_a"]')!.parentElement!.querySelector(".bb-thread-title")!;
-    expect(title.nextElementSibling).toBe(hosts.get("thr_a"));
+    expect(title.previousElementSibling).toBe(hosts.get("thr_a"));
     expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(1);
+    // The plugin's stylesheet applies only under this.
+    expect(hosts.get("thr_a")!.getAttribute("data-bb-plugin")).toBe("tokenomics");
   });
 
   it("keeps a row's host across passes and removes it once the goal is gone", () => {

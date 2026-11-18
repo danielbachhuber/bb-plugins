@@ -26,8 +26,8 @@ import type { rpcContract } from "./server";
 import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
-import { GoalBand, SidebarGoalMark } from "@/components/goal-line";
-import { onlyGoalHostChanges, placeBandHost, placeRowHosts, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
+import { GoalBand, SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
+import { onlyGoalHostChanges, placeBandHost, placeRowHosts, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -327,6 +327,7 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
     }
     const element = document.createElement("div");
     element.setAttribute(TITLE_HOST_ATTRIBUTE, threadId);
+    element.setAttribute(...STYLE_SCOPE);
     element.className = "shrink-0";
     let frame: number | null = null;
     const pass = () => {
@@ -361,7 +362,7 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
 /** The goal mark beside each sidebar row's title, for threads with a goal. */
 function SidebarGoals() {
   const rpc = useRpc<typeof rpcContract>();
-  const [marks, setMarks] = useState<Map<string, { label: string; outcome: GoalViewData["outcome"]; left: string | null }>>(() => new Map());
+  const [marks, setMarks] = useState<Map<string, SidebarMark>>(() => new Map());
   const [hosts, setHosts] = useState<Map<string, HTMLElement>>(() => new Map());
   const hostsRef = useRef(hosts);
 
@@ -410,7 +411,18 @@ function SidebarGoals() {
 
   return [...hosts].map(([threadId, host]) => {
     const mark = marks.get(threadId);
-    return mark === undefined ? null : createPortal(<SidebarGoalMark {...mark} />, host, threadId);
+    return mark === undefined
+      ? null
+      : createPortal(
+          <SidebarGoalMark
+            mark={mark}
+            // Read on hover, so the sidebar's request stays one per update.
+            loadGoal={() => rpc.call("thread_goal", { threadId }).then((result) => result.goal)}
+            onOpenThread={() => document.querySelector<HTMLAnchorElement>(`a[data-sidebar-thread-id="${threadId}"]`)?.click()}
+          />,
+          host,
+          threadId,
+        );
   });
 }
 

@@ -91,7 +91,7 @@ export default async function plugin(bb: BbPluginApi) {
     goalSidebar: {
       type: "boolean",
       label: "Show goal stages in the sidebar",
-      description: "The current stage, or the outcome once closed, under each sidebar row whose thread has a goal.",
+      description: "A segmented donut for the goal's stages, or its outcome once closed, in each sidebar row whose thread has a goal.",
       default: true,
     },
   });
@@ -707,7 +707,7 @@ export default async function plugin(bb: BbPluginApi) {
         goals: goals.activeCurrent().flatMap((goal) => {
           const label = stageLabel(goal);
           if (label === null) return [];
-          return [{ threadId: goal.threadId, label, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)) }];
+          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)) }];
         }),
       };
     },

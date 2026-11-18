@@ -115,23 +115,35 @@ export const GoalCardOpen = () => (
   </StoryCard>
 );
 
-/** The mark beside a sidebar row's title: stages done, a question, or the outcome. */
+/** The segmented donut beside a sidebar row's title: a segment per stage, amber past the estimate, dashed for an exploration, a check once met, a cross when not met. */
 export const SidebarMarks = () => (
   <StoryCard>
     {[
-      { title: "Widgets: export the list to CSV", mark: { label: TASK.label!, outcome: null, left: TASK.left } },
-      { title: "Gadget sync ADR", mark: { label: OVER.label!, outcome: null, left: OVER.left } },
-      { title: "Cache for widget imports?", mark: { label: "Exploring", outcome: null, left: null } },
-      { title: "Fix the widget snapshot test", mark: { label: "Met", outcome: "met" as const, left: null } },
+      { title: "Widgets: export the list to CSV", mark: { label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left } },
+      { title: "Goals in the thread", mark: { label: "4 of 5 · Built", stages: 5, reached: 4, outcome: null, left: "~0–8 turns left" } },
+      { title: "Gadget sync ADR", mark: { label: OVER.label!, stages: 3, reached: 2, outcome: null, left: OVER.left } },
+      { title: "Cache for widget imports?", mark: { label: "Exploring", stages: 0, reached: 0, outcome: null, left: null } },
+      { title: "Fix the widget snapshot test", mark: { label: "Met", stages: 2, reached: 2, outcome: "met" as const, left: null } },
+      { title: "Retry the flaky upload", mark: { label: "Not met", stages: 3, reached: 1, outcome: "not" as const, left: null } },
     ].map(({ title, mark }) => (
       <StoryRow key={title} label={title}>
         <div className="flex w-[240px] items-center text-sm">
           <span className="min-w-0 truncate">{title}</span>
-          <SidebarGoalMark {...mark} />
+          <SidebarGoalMark mark={mark} />
         </div>
       </StoryRow>
     ))}
   </StoryCard>
+);
+
+/** Resting on the donut opens the goal's card beside the sidebar. */
+export const SidebarMarkHovered = () => (
+  <div data-screenshot-frame className="h-[420px] w-[640px] bg-background p-6">
+    <div className="flex w-[260px] items-center rounded-md bg-muted px-2 py-1.5 text-sm">
+      <span className="min-w-0 truncate">Widgets: export the list to CSV</span>
+      <SidebarGoalMark mark={{ label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left }} loadGoal={async () => TASK} defaultOpen />
+    </div>
+  </div>
 );
 
 const OUTCOMES: GoalOutcomesData = {
