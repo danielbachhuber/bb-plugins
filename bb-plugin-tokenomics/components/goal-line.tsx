@@ -287,6 +287,8 @@ export interface SidebarMark {
   reached: number;
   outcome: "met" | "partly" | "not" | null;
   left: string | null;
+  /** An Impromptu UI card above the thread's composer still has an open item. */
+  openCard?: boolean;
 }
 
 /**

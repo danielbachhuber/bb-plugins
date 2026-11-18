@@ -60,7 +60,9 @@ in view. Under the goal, a square and name for each stage, or for each item
 when there are items, show which are done, in progress, or still to do. In the sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it fills a segment per stage
 done, turns amber past the estimate, and becomes a check once met. bb's
-states show on it: the done arc turns blue when the thread needs you, red
+states show on it: the done arc turns blue when the thread needs you,
+including when an Impromptu UI card above its composer still waits on your
+answer, red
 when it failed, and darker when it finished and you haven't looked; the
 whole donut spins while the thread works; a draft keeps bb's own icon. The
 card's current stage says the same. An exploration's stages are fixed: the
@@ -178,7 +180,9 @@ outside service.
   used, a few hundred bytes each, and deletes them when bb deletes the
   thread. The band reads one goal from the plugin's database
   when the thread opens and after each turn; the sidebar reads every active
-  thread's goal in one request after each recorded usage. Neither asks bb.
+  thread's goal in one request after each recorded usage and once a minute.
+  Neither asks bb. Each of those sidebar requests also asks Impromptu UI, when
+  it is installed, which threads have an open card, in one local call.
 - bb deletes a thread's older usage events, so Tokenomics keeps its own copy,
   starting when you install it.
 - Claude Code subagents report no usage to bb, so Tokenomics reads their

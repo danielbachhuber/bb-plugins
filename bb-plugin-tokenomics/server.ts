@@ -1,5 +1,6 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { z } from "zod";
 
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
 import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey, type LimitView } from "./usage/limits.js";
@@ -594,6 +595,25 @@ export default async function plugin(bb: BbPluginApi) {
   /** Commands the page lists under Shell commands. */
   const TOP_COMMANDS = 3;
 
+  /**
+   * The threads with an Impromptu UI card above the composer that still has an
+   * open item, so their donut shows them waiting on you. Empty when Impromptu
+   * UI isn't installed or the call fails.
+   */
+  async function threadsWithOpenCards(): Promise<Set<string>> {
+    try {
+      const result: { threadIds: string[] } = await bb.sdk.plugins.callRpc({
+        pluginId: "impromptu-ui",
+        method: "waiting_threads",
+        input: { days: 14 } as never,
+        outputSchema: z.object({ threadIds: z.array(z.string()) }),
+      });
+      return new Set(result.threadIds);
+    } catch {
+      return new Set();
+    }
+  }
+
   bb.rpc.register(rpcContract, {
     usage_limits: () => {
       const now = Date.now();
@@ -701,13 +721,15 @@ export default async function plugin(bb: BbPluginApi) {
       const { goalSidebar } = await settings.get();
       if (!goalSidebar) return { show: false, goals: [] };
       const now = Date.now();
-      // One local query for the goals, and one per goal for what it has used.
+      const openCards = await threadsWithOpenCards();
+      // One local query for the goals, one per goal for what it has used, and
+      // one call to Impromptu UI for the threads with an open card.
       return {
         show: true,
         goals: goals.activeCurrent().flatMap((goal) => {
           const label = stageLabel(goal);
           if (label === null) return [];
-          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)) }];
+          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId) }];
         }),
       };
     },

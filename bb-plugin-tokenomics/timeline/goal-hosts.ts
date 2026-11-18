@@ -21,6 +21,8 @@ export const STYLE_SCOPE: [string, string] = ["data-bb-plugin", "tokenomics"];
 export const TITLE_HOST_ATTRIBUTE = "data-tokenomics-goal";
 /** Marks the element beside a sidebar row's title, and names the row's thread. */
 export const ROW_HOST_ATTRIBUTE = "data-tokenomics-goal-row";
+/** On a row's host when the thread has an open Impromptu UI card, for the band in that thread to read. */
+export const OPEN_CARD_ATTRIBUTE = "data-tokenomics-open-card";
 
 /**
  * The thread header holding `anchor`, a node rendered in the header's action

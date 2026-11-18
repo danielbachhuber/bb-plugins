@@ -27,8 +27,8 @@ import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/co
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
 import { GoalBand, SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
-import { ROW_STATES, rowStateOf, type BbRowState } from "@/components/row-activity";
-import { onlyGoalHostChanges, placeBandHost, placeRowHosts, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
+import { ROW_STATES, rowStateOf, withOpenCard, type BbRowState } from "@/components/row-activity";
+import { onlyGoalHostChanges, OPEN_CARD_ATTRIBUTE, placeBandHost, placeRowHosts, ROW_HOST_ATTRIBUTE, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -359,14 +359,18 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
             <GoalBand
               goal={goal}
               // bb's state for this thread, read off its sidebar row's icon.
+              // An open Impromptu UI card counts as waiting, as on the donut.
               readActivity={() =>
                 ROW_STATES[
-                  rowStateOf(
-                    document
-                      .querySelector(`a[data-sidebar-thread-id="${threadId}"]`)
-                      ?.closest(".bb-sidebar-hover-actions-row")
-                      ?.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")
-                      ?.getAttribute("aria-label"),
+                  withOpenCard(
+                    rowStateOf(
+                      document
+                        .querySelector(`a[data-sidebar-thread-id="${threadId}"]`)
+                        ?.closest(".bb-sidebar-hover-actions-row")
+                        ?.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")
+                        ?.getAttribute("aria-label"),
+                    ),
+                    document.querySelector(`[${ROW_HOST_ATTRIBUTE}="${threadId}"]`)?.hasAttribute(OPEN_CARD_ATTRIBUTE) === true,
                   )
                 ].activity
               }
@@ -405,6 +409,16 @@ function SidebarGoals() {
   useEffect(load, [load]);
   useRealtime(GOALS_CHANNEL, load);
   useRealtime(USAGE_CHANNEL, load);
+  // A card answered or hidden without a new turn changes nothing above, so
+  // read again each minute: one local request.
+  useEffect(() => {
+    const timer = setInterval(load, 60_000);
+    return () => clearInterval(timer);
+  }, [load]);
+  // Marks each row with an open card, for the band's card in that thread.
+  useEffect(() => {
+    for (const [threadId, host] of hosts) host.toggleAttribute(OPEN_CARD_ATTRIBUTE, marks.get(threadId)?.openCard === true);
+  }, [hosts, marks]);
 
   const wanted = useMemo(() => new Set(marks.keys()), [marks]);
   useEffect(() => {
@@ -456,7 +470,7 @@ function SidebarGoals() {
       : createPortal(
           <SidebarGoalMark
             mark={mark}
-            state={states.get(threadId) ?? "none"}
+            state={withOpenCard(states.get(threadId) ?? "none", mark.openCard === true)}
             // Read on hover, so the sidebar's request stays one per update.
             loadGoal={() => rpc.call("thread_goal", { threadId }).then((result) => result.goal)}
             onOpenThread={() => document.querySelector<HTMLAnchorElement>(`a[data-sidebar-thread-id="${threadId}"]`)?.click()}

@@ -56,3 +56,14 @@ const STATE_BY_LABEL = new Map(Object.entries(BB_STATE_LABELS).map(([state, labe
 export function rowStateOf(label: string | null | undefined): BbRowState {
   return (label && STATE_BY_LABEL.get(label)) || "none";
 }
+
+/**
+ * bb's state, or waiting when the thread has an open Impromptu UI card above
+ * its composer and bb shows it as idle or finished. bb counts only its own
+ * questions and approvals as needing you; a card asking you to pick is the
+ * same thing to the person reading the sidebar. A thread that is working,
+ * failed, or holds a draft keeps bb's state.
+ */
+export function withOpenCard(state: BbRowState, openCard: boolean): BbRowState {
+  return openCard && (state === "none" || state === "unread-success") ? "waiting-for-input" : state;
+}

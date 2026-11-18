@@ -112,3 +112,15 @@ describe("onlyGoalHostChanges", () => {
     observer.disconnect();
   });
 });
+
+describe("withOpenCard", () => {
+  it("shows an idle or finished thread with an open card as waiting, and leaves other states", async () => {
+    const { withOpenCard } = await import("../components/row-activity.js");
+    expect(withOpenCard("none", true)).toBe("waiting-for-input");
+    expect(withOpenCard("unread-success", true)).toBe("waiting-for-input");
+    expect(withOpenCard("runtime", true)).toBe("runtime");
+    expect(withOpenCard("unread-error", true)).toBe("unread-error");
+    expect(withOpenCard("draft", true)).toBe("draft");
+    expect(withOpenCard("none", false)).toBe("none");
+  });
+});
