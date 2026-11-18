@@ -374,7 +374,7 @@ export const GOAL_INSTRUCTIONS = [
   "  work the user reviews, only once they've accepted it. When feedback arrives after you closed it, run",
   "  `bb tokenomics goal reopen --stage \"Refined on your feedback\"` and keep going. Don't",
   "change the goal yourself: when the user's requests move past it, say so in one line and suggest",
-  "/tokenomics-set-goal. When you write the prompt for a thread you start, end it with a `Goal:` line and",
+  "/tokenomics-refine-goal to bring it up to date, or /tokenomics-set-goal to replace it. When you write the prompt for a thread you start, end it with a `Goal:` line and",
   "a `Done is:` list under the same rules, so that thread records it. `bb tokenomics goal show` prints",
   "the goal, what it has used, and the estimate.",
 ].join("\n");

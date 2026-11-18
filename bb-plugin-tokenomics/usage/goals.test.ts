@@ -322,3 +322,31 @@ describe("goal item", () => {
     expect((await goalCli(deps, "thr_a", ["item", "finish", "1"])).exitCode).toBe(1);
   });
 });
+
+describe("goal refine", () => {
+  it("rewrites the open goal, keeps progress on kept stages and the items, and records why", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Goal band built", "--stage", "Designs picked", "--stage", "Band built", "--stage", "Refined on your feedback"]);
+    await goalCli(deps, "thr_a", ["stage", "2"]);
+    await goalCli(deps, "thr_a", ["item", "add", "One finding"]);
+    const result = await goalCli(deps, "thr_a", [
+      "refine", "Goal shown in the token button", "--stage", "Designs picked", "--stage", "Button built", "--stage", "Refined on your feedback",
+      "--reason", "Moved from the band to the token button",
+    ]);
+    expect(result.stdout).toContain("Refined: Goal shown in the token button (1 of 3 · Designs picked)");
+    const current = goals.current("thr_a")!;
+    expect(current.reached).toBe(1);
+    expect(current.items).toHaveLength(1);
+    expect(current.reason).toBe("Moved from the band to the token button");
+    expect(goals.history("thr_a")).toHaveLength(2);
+  });
+
+  it("needs a reason, and takes --reached", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--stage", "Tested"]);
+    expect((await goalCli(deps, "thr_a", ["refine", "--stage", "Built", "--stage", "Tested", "--stage", "Merged"])).exitCode).toBe(1);
+    await goalCli(deps, "thr_a", ["refine", "--stage", "Built", "--stage", "Tested", "--stage", "Merged", "--reached", "2", "--reason", "Merging is part of it"]);
+    expect(goals.current("thr_a")!.reached).toBe(2);
+    expect(goals.current("thr_a")!.text).toBe("Export built");
+  });
+});

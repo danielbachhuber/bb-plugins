@@ -71,8 +71,9 @@ header donut and the cards say the same. An exploration's stages are fixed:
 the agent's recommended answer, then your decision. Rest on a sidebar donut
 for the goal's card. When setting a
 goal, Claude sees how past threads that started the same way went, from a
-plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
-change a goal: it proposes the new goal and why above the composer, and keeps
+plugin's button, another thread, or neither. Run `/tokenomics-refine-goal`
+to bring the goal and its stages up to date with what the thread is doing,
+keeping its progress, or `/tokenomics-set-goal` to replace a goal: it proposes the new goal and why above the composer, and keeps
 the old one, and what it used, in the thread's history. When the work is
 done, Claude closes the goal as met, partly met, or not met. Work you review,
 such as a design, ends with your acceptance as its last stage, and feedback
@@ -146,13 +147,16 @@ bb tokenomics goal stage next|N                                                 
 bb tokenomics goal estimate [--turns ...] [--tokens ...] [--minutes ...]                         # replace the estimate
 bb tokenomics goal add-stage "END STATE"                                                        # add the stage that ends the thread
 bb tokenomics goal close met|partly|not [--note TEXT]                                            # record how it ended
+bb tokenomics goal refine ["GOAL"] [--stage ...] [--reached N] --reason TEXT                   # bring the open goal up to date, keeping progress and items
 bb tokenomics goal item add "ITEM" ... | start|done|drop|todo N ...                              # a list longer than the stages, such as findings
 bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
 ```
 
-The plugin ships the `tokenomics-set-goal` skill, which drafts a new goal,
-asks above the composer, and records it with `--reason`.
+The plugin ships two skills. `tokenomics-set-goal` drafts a new goal, asks
+above the composer, and records it with `--reason`. `tokenomics-refine-goal`
+rewrites the open goal and its stages to match the thread's work without
+asking, keeping its progress and items, and says in one line what changed.
 
 The [self-improve-bb](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve-bb)
 Claude Code skill uses `bb tokenomics threads` to pick which of the past

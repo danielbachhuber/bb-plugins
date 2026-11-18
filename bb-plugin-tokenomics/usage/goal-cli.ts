@@ -64,6 +64,11 @@ export const GOAL_USAGE = [
   "  Records how the goal ended, with what it used.",
   'bb tokenomics goal add-stage "END STATE"',
   "  Adds a stage at the end of an open goal, for work that goes on after every stage is true.",
+  'bb tokenomics goal refine ["GOAL"] [--stage "END STATE" ...] [--reached N] [--turns ...] [--tokens ...] [--minutes ...]',
+  '    --reason TEXT',
+  "  Rewrites the open goal to match what the thread is doing, keeping its items, and keeps the old one in",
+  "  the history. Leave out what doesn't change. --reached says how many of the new stages are already",
+  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-refine-goal does this.",
   'bb tokenomics goal item add "ITEM" ...',
   "  Adds items to the goal: a list longer than its stages, such as a review's findings.",
   "bb tokenomics goal item start|done|drop|todo N ...",
@@ -317,6 +322,62 @@ function reopen(deps: GoalDeps, threadId: string, argv: readonly string[]): CliR
   return { exitCode: 0, stdout: `Reopened: ${goal.text} (${label}).` };
 }
 
+/** How many of `next`'s leading stages were already done in the old goal, by matching text. */
+export function carriedReached(previous: readonly string[], reached: number, next: readonly string[]): number {
+  const done = new Set(previous.slice(0, reached).map((stage) => stage.trim().toLowerCase()));
+  let count = 0;
+  while (count < next.length && done.has(next[count]!.trim().toLowerCase())) count += 1;
+  return count;
+}
+
+async function refine(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
+  const found = openGoal(deps, threadId);
+  if ("exitCode" in found) return found;
+  if (found.outcome !== null) return { exitCode: 1, stderr: 'The goal is closed. Reopen it first with bb tokenomics goal reopen, or set a new one.' };
+  const { positionals, flags } = parseArgs(argv);
+  const reason = flags.get("--reason")?.at(-1)?.trim() || null;
+  if (reason === null) return { exitCode: 1, stderr: 'Say what changed with --reason, such as --reason "The work grew from one option to three".' };
+  const text = positionals.join(" ").trim() || found.text;
+  if (text.length > 200) return { exitCode: 1, stderr: "Keep the goal under 200 characters; the stages carry the detail." };
+  const given = flags.get("--stage");
+  const checked = given === undefined ? { stages: found.stages } : checkStages(found.shape, given);
+  if ("error" in checked) return { exitCode: 1, stderr: checked.error };
+  const next = readEstimate(flags);
+  if ("error" in next) return { exitCode: 1, stderr: next.error };
+  const estimate: GoalEstimate = {
+    turns: next.turns ?? found.estimate.turns,
+    tokens: next.tokens ?? found.estimate.tokens,
+    minutes: next.minutes ?? found.estimate.minutes,
+  };
+  const reachedText = flags.get("--reached")?.at(-1);
+  const reached = reachedText === undefined ? carriedReached(found.stages, found.reached, checked.stages) : Number(reachedText);
+  if (!Number.isInteger(reached) || reached < 0 || reached > checked.stages.length) {
+    return { exitCode: 1, stderr: `Give --reached as a number from 0 to ${checked.stages.length}.` };
+  }
+  const now = deps.now();
+  const goal = deps.goals.set(
+    {
+      threadId,
+      setAt: now,
+      anchorAt: now,
+      shape: found.shape,
+      text,
+      stages: checked.stages,
+      pr: flags.get("--pr")?.at(-1) ?? found.pr,
+      setBy: (flags.get("--by")?.at(-1) as GoalSetBy | undefined) ?? "agent",
+      reason,
+      origin: found.origin,
+      estimate,
+    },
+    { id: found.id, spent: deps.goals.spentOn(found, now) },
+  );
+  deps.goals.setReached(goal.id, reached);
+  if (found.items.length > 0) deps.goals.setItems(goal.id, found.items);
+  deps.changed(threadId);
+  const label = stageLabel({ ...goal, reached }) ?? "";
+  return { exitCode: 0, stdout: `Refined: ${text} (${label}). The earlier goal stays in the history with what it used.` };
+}
+
 const ITEM_VERBS: Record<string, GoalItem["state"]> = { start: "current", done: "done", drop: "dropped", todo: "todo" };
 
 function item(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
@@ -369,6 +430,7 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "reopen") return reopen(deps, threadId, rest);
   if (sub === "add-stage") return addStage(deps, threadId, rest);
   if (sub === "item") return item(deps, threadId, rest);
+  if (sub === "refine") return await refine(deps, threadId, rest);
   if (sub === "show") return await show(deps, threadId, rest);
   return { exitCode: 1, stderr: `Unknown goal command "${sub}".\n\n${GOAL_USAGE}` };
 }
