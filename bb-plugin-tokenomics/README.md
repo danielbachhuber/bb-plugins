@@ -56,8 +56,9 @@ a longer list, such as a review's twelve findings, goes in the goal's items
 
 The goal's donut leads the token button in the thread header, before the
 sparkline. The summary that button opens starts with the goal: how far it has
-come, a square and name for each stage, or for each item when there are
-items, showing which are done, in progress, or still to do, and what the goal
+come, a square and name for each stage (the donut's segments), then one for
+each item when there are items, showing which are done, in progress, or
+still to do, and what the goal
 has used against Claude's estimate of its turns, tokens, and minutes. In the
 sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it fills a segment per stage

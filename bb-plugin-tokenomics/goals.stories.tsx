@@ -111,10 +111,10 @@ function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: 
   );
 }
 
-/** The goal at the top of the summary: with twelve items in place of the stages, waiting on you past its estimate, an exploration, and once met. */
+/** The goal at the top of the summary: with its stages and then twelve items, waiting on you past its estimate, an exploration, and once met. */
 export const CompactGoalStates = () => (
   <StoryCard>
-    <StoryRow label="twelve items" hint="a review's findings; the stages stay in the sidebar's card">
+    <StoryRow label="twelve items" hint="the stages, as the donut counts them, then a review's findings">
       <SummaryTop goal={REVIEWING} activity="working" />
     </StoryRow>
     <StoryRow label="past its estimate" hint="waiting on you; the turns left turn amber">

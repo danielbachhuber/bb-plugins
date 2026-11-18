@@ -198,8 +198,8 @@ function usedLine(goal: GoalViewData): string {
 
 /**
  * The goal at the top of the Tokenomics popover: the goal, a square and name
- * for each stage, or each item when the goal has a list longer than its
- * stages, and what it has used against its estimate.
+ * for each stage (the segments of the button's donut), then each item when
+ * the goal has a list, and what it has used against its estimate.
  */
 export function CompactGoal({
   goal,
@@ -215,13 +215,11 @@ export function CompactGoal({
   usage?: boolean;
 }) {
   if (goal.label === null) return null;
-  const entries: BandEntry[] = goal.items.length > 0 ? goal.items : stageEntries(goal);
+  // The heading counts stages, as the donut on the button does; items get their own count below.
   const progress =
     goal.outcome !== null
       ? OUTCOME_LABEL[goal.outcome]
-      : goal.items.length > 0
-        ? `${itemsProgress(goal.items)} items`
-        : goal.stages.length > 0
+      : goal.stages.length > 0
           ? `${Math.min(goal.reached, goal.stages.length)} of ${goal.stages.length}`
           : goal.label;
   const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
@@ -234,24 +232,12 @@ export function CompactGoal({
         ) : null}
       </span>
       <span className="text-sm text-foreground">{goal.text}</span>
-      {entries.length === 0 ? null : (
-        <ol className="grid max-h-40 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto">
-          {entries.map((entry, index) => (
-            <li key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 items-center gap-1.5">
-              <EntrySquare state={entry.state} />
-              <span
-                className={cn(
-                  "truncate",
-                  entry.state === "current" ? "text-foreground" : "text-muted-foreground",
-                  entry.state === "dropped" && "line-through opacity-70",
-                )}
-              >
-                {entry.label}
-              </span>
-              <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
-            </li>
-          ))}
-        </ol>
+      <EntryGrid entries={stageEntries(goal)} />
+      {goal.items.length === 0 ? null : (
+        <>
+          <span className="text-muted-foreground">Items · {itemsProgress(goal.items)}</span>
+          <EntryGrid entries={goal.items} />
+        </>
       )}
       <span className={cn("text-muted-foreground", !usage && "hidden")}>
         {usedLine(goal)}
@@ -261,6 +247,30 @@ export function CompactGoal({
       </span>
       {goal.outcome !== null && goal.outcomeNote ? <span className="text-muted-foreground">{goal.outcomeNote}</span> : null}
     </div>
+  );
+}
+
+/** Stages or items as a two-column grid of squares and names. */
+function EntryGrid({ entries }: { entries: BandEntry[] }) {
+  if (entries.length === 0) return null;
+  return (
+    <ol className="grid max-h-40 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto">
+      {entries.map((entry, index) => (
+        <li key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 items-center gap-1.5">
+          <EntrySquare state={entry.state} />
+          <span
+            className={cn(
+              "truncate",
+              entry.state === "current" ? "text-foreground" : "text-muted-foreground",
+              entry.state === "dropped" && "line-through opacity-70",
+            )}
+          >
+            {entry.label}
+          </span>
+          <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
