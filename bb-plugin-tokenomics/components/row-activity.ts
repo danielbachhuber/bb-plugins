@@ -20,9 +20,9 @@ export const ROW_STATES: Record<BbRowState, { label: string; activity: DonutActi
   goal: { label: "Codex goal active", activity: "working", note: "donut spins" },
   "working-draft": { label: "Working, with a draft", activity: "working", note: "donut spins" },
   "waiting-for-input": { label: "Needs your input", activity: "waiting", note: "done arc blue" },
-  "queued-waiting": { label: "Message queued", activity: "queued", note: "same as idle" },
-  "unread-error": { label: "Failed, unread", activity: "error", note: "done arc red" },
-  "queued-failed": { label: "Queued message failed", activity: "error", note: "done arc red" },
+  "queued-waiting": { label: "Message queued", activity: "queued", note: "bb's icon stays beside it" },
+  "unread-error": { label: "Failed, unread", activity: "error", note: "done arc red; bb's icon stays" },
+  "queued-failed": { label: "Queued message failed", activity: "error", note: "done arc red; bb's icon stays" },
   "unread-success": { label: "Finished, unread", activity: "unread", note: "done arc darker" },
   draft: { label: "Unsent draft", activity: "draft", note: "bb's draft icon" },
   archived: { label: "Archived", activity: null, note: "donut shows the outcome" },
@@ -66,4 +66,19 @@ export function rowStateOf(label: string | null | undefined): BbRowState {
  */
 export function withOpenCard(state: BbRowState, openCard: boolean): BbRowState {
   return openCard && (state === "none" || state === "unread-success") ? "waiting-for-input" : state;
+}
+
+/**
+ * States whose icon bb keeps beside the donut instead of handing its place
+ * over: a failed turn, a failed queued message, and a message waiting to
+ * send, which is how bb shows a turn it will retry after a provider error.
+ * bb's icon says what went wrong; the donut cannot. A label this plugin does
+ * not know keeps its icon too, so a state bb adds later is never hidden.
+ */
+const KEEPS_ICON: ReadonlySet<BbRowState> = new Set(["unread-error", "queued-failed", "queued-waiting"]);
+
+export function keepsBbIcon(label: string | null): boolean {
+  if (label === null) return false;
+  const state = rowStateOf(label);
+  return state === "none" || KEEPS_ICON.has(state);
 }

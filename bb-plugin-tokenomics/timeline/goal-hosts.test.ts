@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { onlyGoalHostChanges, placeRowHosts, ROW_HOST_ATTRIBUTE, SLOT_ATTRIBUTE } from "./goal-hosts.js";
-import { rowStateOf } from "../components/row-activity.js";
+import { keepsBbIcon, rowStateOf } from "../components/row-activity.js";
 
 // The shape of a sidebar row: the link, the title, then the trailing area
 // with bb's icon box: its icon in a fading span, and the hover buttons.
@@ -47,6 +47,27 @@ describe("placeRowHosts", () => {
     placeRowHosts(document, new Set(), second.hosts);
     expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(0);
     expect(document.getElementById("box-thr_a")!.hasAttribute(SLOT_ATTRIBUTE)).toBe(false);
+  });
+});
+
+describe("keepsBbIcon", () => {
+  it("leaves bb's icon showing beside the donut for a failure, a queued retry, or a state it doesn't know", () => {
+    for (const [label, kept] of [
+      ["Unread thread failed", true],
+      ["Queued message failed to send", true],
+      ["Thread has a message waiting to send", true],
+      ["Provider rate limit reached", true],
+      ["Thread working", false],
+      ["Thread needs user input", false],
+      [null, false],
+    ] as const) {
+      rows(["thr_a"], label ?? "");
+      if (label === null) document.querySelector("svg")!.removeAttribute("aria-label");
+      placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
+      const box = document.getElementById("box-thr_a")!;
+      expect([label, box.hasAttribute(SLOT_ATTRIBUTE)]).toEqual([label, !kept]);
+      expect(box.nextElementSibling?.hasAttribute(ROW_HOST_ATTRIBUTE)).toBe(true);
+    }
   });
 });
 

@@ -27,7 +27,7 @@ import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/co
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
 import { SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
-import { ROW_STATES, rowStateOf, withOpenCard, type BbRowState } from "@/components/row-activity";
+import { keepsBbIcon, ROW_STATES, rowStateOf, withOpenCard, type BbRowState } from "@/components/row-activity";
 import { setGoalActivities, useGoalActivity } from "@/components/goal-activity";
 import { onlyGoalHostChanges, placeRowHosts, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
@@ -346,7 +346,7 @@ function SidebarGoals() {
     let frame: number | null = null;
     const pass = () => {
       frame = null;
-      const { hosts: next, labels } = placeRowHosts(document, wanted, hostsRef.current);
+      const { hosts: next, labels } = placeRowHosts(document, wanted, hostsRef.current, keepsBbIcon);
       const before = hostsRef.current;
       hostsRef.current = next;
       const same = next.size === before.size && [...next].every(([id, host]) => before.get(id) === host);

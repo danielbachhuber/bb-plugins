@@ -60,15 +60,18 @@ function trailingOf(link: Element): Element | null {
 
 /**
  * One pass over the sidebar: each thread in `threadIds` whose row is mounted
- * gets a host at the right end of its row, after bb's icon box, which is
- * collapsed. Hosts for anything else are removed and their boxes restored.
- * `hosts` carries them from the last pass, so a row keeps its element when bb
- * re-renders it.
+ * gets a host at the right end of its row, after bb's icon box. The box is
+ * collapsed, so the donut takes the icon's place, unless `keepsIcon` says
+ * bb's icon should stay, as it does for a failed turn or a queued retry, in
+ * which case the donut sits beside it. Hosts for anything else are removed
+ * and their boxes restored. `hosts` carries them from the last pass, so a row
+ * keeps its element when bb re-renders it.
  */
 export function placeRowHosts(
   doc: Document,
   threadIds: ReadonlySet<string>,
   hosts: ReadonlyMap<string, HTMLElement>,
+  keepsIcon: (label: string | null) => boolean = () => false,
 ): RowPlacement {
   const placed = new Map<string, HTMLElement>();
   const labels = new Map<string, string | null>();
@@ -85,9 +88,10 @@ export function placeRowHosts(
       host.className = "flex shrink-0 items-center";
     }
     if (box.nextElementSibling !== host) box.after(host);
-    if (!box.hasAttribute(SLOT_ATTRIBUTE)) box.setAttribute(SLOT_ATTRIBUTE, "");
-    const icon = box.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]");
-    labels.set(threadId, icon?.getAttribute("aria-label") ?? null);
+    const label = box.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")?.getAttribute("aria-label") ?? null;
+    if (keepsIcon(label)) box.removeAttribute(SLOT_ATTRIBUTE);
+    else if (!box.hasAttribute(SLOT_ATTRIBUTE)) box.setAttribute(SLOT_ATTRIBUTE, "");
+    labels.set(threadId, label);
     placed.set(threadId, host);
   }
   const kept = new Set(placed.values());

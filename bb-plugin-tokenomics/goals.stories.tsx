@@ -5,7 +5,7 @@ import { ThreadStatusGlyph } from "@bb-app/components/thread/ThreadStatusGlyph";
 import { CompactGoal, GoalCard, GoalDonut, SidebarGoalMark, type DonutActivity } from "./components/goal-line";
 import { ThreadTokenCount } from "./components/thread-token-count";
 import { AfterComposerFocus, LONG, LONG_TURNS, noop, NOW, ThreadFrame } from "./tokenomics.fixtures";
-import { ROW_STATES, type BbRowState } from "./components/row-activity";
+import { BB_STATE_LABELS, keepsBbIcon, ROW_STATES, type BbRowState } from "./components/row-activity";
 import { GoalOutcomes, type GoalOutcomesData } from "./components/goal-outcomes";
 import type { GoalViewData } from "./usage/contract";
 
@@ -235,12 +235,12 @@ function SidebarRow({ trailing }: { trailing: ReactNode }) {
     <div style={{ width: 270 }} className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm">
       <span className="text-orange-500">✳</span>
       <span className="min-w-0 flex-1 truncate">Widgets: export the list to CSV</span>
-      <span className="flex size-4 shrink-0 items-center justify-center">{trailing}</span>
+      <span className="flex h-4 min-w-4 shrink-0 items-center justify-end gap-1.5">{trailing}</span>
     </div>
   );
 }
 
-/** Every bb sidebar row state: bb's icon, and the goal donut that takes its place on a thread with a goal (3 of 5 stages done). The done arc takes bb's colour, the donut spins while working (a still shows it mid-turn), queued looks like idle, and a draft keeps bb's own icon. */
+/** Every bb sidebar row state: bb's icon, and the goal donut that takes its place on a thread with a goal (3 of 5 stages done). The done arc takes bb's colour, the donut spins while working (a still shows it mid-turn), and a draft keeps bb's own icon. A failure or a queued message, such as a turn waiting to retry after a provider error, keeps bb's icon beside the donut. */
 export const EveryBbRowState = () => (
   <div data-screenshot-frame className="inline-block bg-background p-6">
     <div className="mb-2 grid gap-x-4 text-xs text-muted-foreground" style={STATES_GRID}>
@@ -259,6 +259,8 @@ export const EveryBbRowState = () => (
           />
           <SidebarRow
             trailing={
+              <>
+              {state !== "archived" && keepsBbIcon(BB_STATE_LABELS[state] ?? null) ? <ThreadStatusGlyph indicator={state} /> : null}
               <SidebarGoalMark
                 mark={
                   state === "archived"
@@ -267,6 +269,7 @@ export const EveryBbRowState = () => (
                 }
                 state={state}
               />
+              </>
             }
           />
 
