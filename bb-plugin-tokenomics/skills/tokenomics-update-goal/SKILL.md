@@ -28,8 +28,11 @@ setting the first one.
   result if it isn't one ("Both review comments fixed, pushed, and answered").
 - **The user gave none:** draft it from their prompts since the current goal
   was set, or since the thread began, and from the work done so far.
-- **The level of detail:** `high` or `low` after the goal, or words such as
-  "in detail", "list each one", "keep it short", or "summarise". Without one,
+- **The level of detail:** `high` or `low` after the goal, or words that say
+  the same, such as "high fidelity", "in detail", or "list each one" for
+  high, and "low fidelity", "keep it short", or "summarise" for low. These
+  words set how many entries the goal lists, not when an entry counts as
+  done. Without one,
   keep the current goal's level, or use low for a first goal.
 
 Then work out:
