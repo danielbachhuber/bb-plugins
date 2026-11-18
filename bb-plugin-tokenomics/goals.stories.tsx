@@ -115,7 +115,7 @@ export const GoalCardOpen = () => (
   </StoryCard>
 );
 
-/** The segmented donut beside a sidebar row's title: a segment per stage, amber past the estimate, dashed for an exploration, a check once met, a cross when not met. */
+/** The segmented donut before a sidebar row's title: a segment per stage, amber past the estimate, dashed for an exploration, a check once met, a cross when not met. */
 export const SidebarMarks = () => (
   <StoryCard>
     {[
@@ -128,8 +128,8 @@ export const SidebarMarks = () => (
     ].map(({ title, mark }) => (
       <StoryRow key={title} label={title}>
         <div className="flex w-[240px] items-center text-sm">
-          <span className="min-w-0 truncate">{title}</span>
           <SidebarGoalMark mark={mark} />
+          <span className="min-w-0 truncate">{title}</span>
         </div>
       </StoryRow>
     ))}
@@ -140,8 +140,8 @@ export const SidebarMarks = () => (
 export const SidebarMarkHovered = () => (
   <div data-screenshot-frame className="h-[420px] w-[640px] bg-background p-6">
     <div className="flex w-[260px] items-center rounded-md bg-muted px-2 py-1.5 text-sm">
-      <span className="min-w-0 truncate">Widgets: export the list to CSV</span>
       <SidebarGoalMark mark={{ label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left }} loadGoal={async () => TASK} defaultOpen />
+      <span className="min-w-0 truncate">Widgets: export the list to CSV</span>
     </div>
   </div>
 );
