@@ -50,40 +50,74 @@ export function placeBandHost(anchor: Element, host: HTMLElement): boolean {
   return true;
 }
 
+/** Marks bb's icon box in a row whose donut has taken its place. The stylesheet SIDEBAR_SLOT_CSS collapses it. */
+export const SLOT_ATTRIBUTE = "data-tokenomics-goal-slot";
+
+/**
+ * Collapses bb's icon box in a row with a donut, and hides bb's icon, which
+ * stays in the page so its label can still be read. bb's hover buttons are
+ * anchored to the box's right edge, so they then appear just left of the
+ * donut.
+ */
+export const SIDEBAR_SLOT_CSS = `[${SLOT_ATTRIBUTE}] { width: 0 !important; }
+[${SLOT_ATTRIBUTE}] > .bb-sidebar-hover-actions-fade { display: none !important; }`;
+
+export interface RowPlacement {
+  hosts: Map<string, HTMLElement>;
+  /** The label of bb's icon in each placed row, or null when it shows none. */
+  labels: Map<string, string | null>;
+}
+
+/** The row element holding the link, and its trailing area. */
+function trailingOf(link: Element): Element | null {
+  let row: Element | null = link;
+  for (let depth = 0; depth < 5 && row !== null; depth += 1) {
+    const trailing = row.querySelector("[data-sidebar-thread-trailing]");
+    if (trailing !== null) return trailing;
+    row = row.parentElement;
+  }
+  return null;
+}
+
 /**
  * One pass over the sidebar: each thread in `threadIds` whose row is mounted
- * gets a host before its title, and hosts for anything else are removed.
- * Returns the hosts by thread. `hosts` carries them from the last pass, so a
- * row keeps its element when bb re-renders it.
+ * gets a host at the right end of its row, after bb's icon box, which is
+ * collapsed. Hosts for anything else are removed and their boxes restored.
+ * `hosts` carries them from the last pass, so a row keeps its element when bb
+ * re-renders it.
  */
 export function placeRowHosts(
   doc: Document,
   threadIds: ReadonlySet<string>,
   hosts: ReadonlyMap<string, HTMLElement>,
-): Map<string, HTMLElement> {
+): RowPlacement {
   const placed = new Map<string, HTMLElement>();
+  const labels = new Map<string, string | null>();
   for (const link of doc.querySelectorAll("a[data-sidebar-thread-id]")) {
     const threadId = link.getAttribute("data-sidebar-thread-id") ?? "";
     if (!threadIds.has(threadId) || placed.has(threadId)) continue;
-    const title = link.parentElement?.querySelector(".bb-thread-title");
-    const container = title?.parentElement;
-    if (title == null || container == null) continue;
+    const box = trailingOf(link)?.querySelector(".bb-sidebar-hover-actions")?.parentElement;
+    if (box == null) continue;
     let host = hosts.get(threadId);
     if (host === undefined) {
       host = doc.createElement("span");
       host.setAttribute(ROW_HOST_ATTRIBUTE, threadId);
       host.setAttribute(...STYLE_SCOPE);
-      host.style.display = "contents";
+      host.className = "flex shrink-0 items-center";
     }
-    // Before the title: bb's hover actions cover the end of the row.
-    if (title.previousElementSibling !== host) title.before(host);
+    if (box.nextElementSibling !== host) box.after(host);
+    if (!box.hasAttribute(SLOT_ATTRIBUTE)) box.setAttribute(SLOT_ATTRIBUTE, "");
+    const icon = box.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]");
+    labels.set(threadId, icon?.getAttribute("aria-label") ?? null);
     placed.set(threadId, host);
   }
   const kept = new Set(placed.values());
   for (const host of hosts.values()) {
-    if (!kept.has(host)) host.remove();
+    if (kept.has(host)) continue;
+    host.previousElementSibling?.removeAttribute(SLOT_ATTRIBUTE);
+    host.remove();
   }
-  return placed;
+  return { hosts: placed, labels };
 }
 
 /** True when every change in `records` is to a host this module placed, so a pass would change nothing. */

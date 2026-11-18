@@ -35,8 +35,9 @@ began) and draft:
   - When the user will review what the thread makes, such as a design, a UI,
     or a draft, the last stage is their acceptance ("Refined on your
     feedback"), not "Built".
-  - An *exploration* states the question to answer or the decision to make,
-    with no stages.
+  - An *exploration* states the question to answer or the decision to make.
+    Its stages are fixed (Answer recommended, then You decided), so leave out
+    `--stage`.
   - A *project* states its purpose; its workers carry their own goals.
   - *No goal* fits a conversation with nothing to finish.
 - **An 80% estimate** of the whole goal from here: turns, tokens, and

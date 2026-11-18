@@ -45,9 +45,9 @@ const EXPLORING: GoalViewData = {
   ...TASK,
   shape: "exploration",
   text: "Is a cache worth adding for widget imports?",
-  stages: [],
-  reached: 0,
-  label: "Exploring",
+  stages: ["Answer recommended", "You decided"],
+  reached: 1,
+  label: "1 of 2 · Answer recommended",
   estimate: { turns: null, tokens: null, minutes: null },
   left: null,
 };
@@ -89,7 +89,7 @@ export const GoalBandStates = () => (
         <GoalBand goal={OVER} />
       </div>
     </StoryRow>
-    <StoryRow label="an exploration" hint="a question, no stages">
+    <StoryRow label="an exploration" hint="answer recommended, waiting on your call">
       <div className="w-[720px] border border-border">
         <GoalBand goal={EXPLORING} />
       </div>
@@ -118,33 +118,33 @@ export const GoalCardOpen = () => (
   </StoryCard>
 );
 
-/** The segmented donut before a sidebar row's title: a segment per stage, amber past the estimate, dashed for an exploration, a check once met, a cross when not met. */
+/** The segmented donut at the right end of a sidebar row, in place of bb's icon: a segment per stage, amber past the estimate, an exploration's answer then your decision, a check once met, a cross when not met. */
 export const SidebarMarks = () => (
   <StoryCard>
     {[
       { title: "Widgets: export the list to CSV", mark: { label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left } },
       { title: "Goals in the thread", mark: { label: "4 of 5 · Built", stages: 5, reached: 4, outcome: null, left: "~0–8 turns left" } },
       { title: "Gadget sync ADR", mark: { label: OVER.label!, stages: 3, reached: 2, outcome: null, left: OVER.left } },
-      { title: "Cache for widget imports?", mark: { label: "Exploring", stages: 0, reached: 0, outcome: null, left: null } },
+      { title: "Cache for widget imports?", mark: { label: "1 of 2 · Answer recommended", stages: 2, reached: 1, outcome: null, left: null } },
       { title: "Fix the widget snapshot test", mark: { label: "Met", stages: 2, reached: 2, outcome: "met" as const, left: null } },
       { title: "Retry the flaky upload", mark: { label: "Not met", stages: 3, reached: 1, outcome: "not" as const, left: null } },
     ].map(({ title, mark }) => (
       <StoryRow key={title} label={title}>
         <div className="flex w-[240px] items-center text-sm">
+          <span className="min-w-0 flex-1 truncate">{title}</span>
           <SidebarGoalMark mark={mark} />
-          <span className="min-w-0 truncate">{title}</span>
         </div>
       </StoryRow>
     ))}
   </StoryCard>
 );
 
-/** Resting on the donut opens the goal's card beside the sidebar. */
+/** Resting on the donut opens the goal's card beside the sidebar, here while the thread works. */
 export const SidebarMarkHovered = () => (
   <div data-screenshot-frame className="h-[420px] w-[640px] bg-background p-6">
     <div className="flex w-[260px] items-center rounded-md bg-muted px-2 py-1.5 text-sm">
-      <SidebarGoalMark mark={{ label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left }} loadGoal={async () => TASK} defaultOpen />
-      <span className="min-w-0 truncate">Widgets: export the list to CSV</span>
+      <span className="min-w-0 flex-1 truncate">Widgets: export the list to CSV</span>
+      <SidebarGoalMark mark={{ label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left }} state="runtime" loadGoal={async () => TASK} defaultOpen />
     </div>
   </div>
 );

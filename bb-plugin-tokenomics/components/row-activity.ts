@@ -27,3 +27,32 @@ export const ROW_STATES: Record<BbRowState, { label: string; activity: DonutActi
   draft: { label: "Unsent draft", activity: "draft", note: "small stroke in the centre" },
   archived: { label: "Archived", activity: null, note: "donut shows the outcome" },
 };
+
+/**
+ * bb's accessible label for each state's icon, as bb's thread-list plugin
+ * writes them. The sidebar donut reads the label off bb's hidden icon to
+ * know the thread's state.
+ */
+export const BB_STATE_LABELS: Record<Exclude<BbRowState, "none">, string> = {
+  "unread-error": "Unread thread failed",
+  "waiting-for-input": "Thread needs user input",
+  "working-draft": "Thread working with unsubmitted draft",
+  workflow: "Workflow running",
+  "background-agent": "Background agent running",
+  "background-command": "Background command running",
+  "plan-mode": "Plan mode active",
+  goal: "Goal active",
+  runtime: "Thread working",
+  "queued-failed": "Queued message failed to send",
+  "queued-waiting": "Thread has a message waiting to send",
+  draft: "Thread has unsubmitted draft",
+  "unread-success": "Unread thread succeeded",
+  archived: "Archived thread",
+};
+
+const STATE_BY_LABEL = new Map(Object.entries(BB_STATE_LABELS).map(([state, label]) => [label, state as BbRowState]));
+
+/** The state behind bb's icon label; "none" with no icon or a label this doesn't know. */
+export function rowStateOf(label: string | null | undefined): BbRowState {
+  return (label && STATE_BY_LABEL.get(label)) || "none";
+}

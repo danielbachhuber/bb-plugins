@@ -27,7 +27,8 @@ import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/co
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
 import { GoalBand, SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
-import { onlyGoalHostChanges, placeBandHost, placeRowHosts, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
+import { ROW_STATES, rowStateOf, type BbRowState } from "@/components/row-activity";
+import { onlyGoalHostChanges, placeBandHost, placeRowHosts, SIDEBAR_SLOT_CSS, SLOT_ATTRIBUTE, STYLE_SCOPE, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -354,7 +355,24 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
   return (
     <>
       <span ref={anchorRef} hidden />
-      {visible && host !== null ? createPortal(<GoalBand goal={goal} />, host) : null}
+      {visible && host !== null ? createPortal(
+            <GoalBand
+              goal={goal}
+              // bb's state for this thread, read off its sidebar row's icon.
+              readActivity={() =>
+                ROW_STATES[
+                  rowStateOf(
+                    document
+                      .querySelector(`a[data-sidebar-thread-id="${threadId}"]`)
+                      ?.closest(".bb-sidebar-hover-actions-row")
+                      ?.querySelector("[data-sidebar-thread-trailing-indicator] [aria-label]")
+                      ?.getAttribute("aria-label"),
+                  )
+                ].activity
+              }
+            />,
+            host,
+          ) : null}
     </>
   );
 }
@@ -365,6 +383,18 @@ function SidebarGoals() {
   const [marks, setMarks] = useState<Map<string, SidebarMark>>(() => new Map());
   const [hosts, setHosts] = useState<Map<string, HTMLElement>>(() => new Map());
   const hostsRef = useRef(hosts);
+  // bb's state for each row, read off the icon the donut replaces.
+  const [states, setStates] = useState<Map<string, BbRowState>>(() => new Map());
+  const statesRef = useRef(states);
+
+  // Collapses bb's icon box in rows with a donut; see SIDEBAR_SLOT_CSS.
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-tokenomics-goal-slots", "");
+    style.textContent = SIDEBAR_SLOT_CSS;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
 
   const load = useCallback(() => {
     rpc.call("sidebar_goals", null).then(
@@ -381,11 +411,17 @@ function SidebarGoals() {
     let frame: number | null = null;
     const pass = () => {
       frame = null;
-      const next = placeRowHosts(document, wanted, hostsRef.current);
+      const { hosts: next, labels } = placeRowHosts(document, wanted, hostsRef.current);
       const before = hostsRef.current;
       hostsRef.current = next;
       const same = next.size === before.size && [...next].every(([id, host]) => before.get(id) === host);
       if (!same) setHosts(next);
+      const nextStates = new Map([...labels].map(([id, label]) => [id, rowStateOf(label)]));
+      const prior = statesRef.current;
+      if (nextStates.size !== prior.size || [...nextStates].some(([id, state]) => prior.get(id) !== state)) {
+        statesRef.current = nextStates;
+        setStates(nextStates);
+      }
     };
     const schedule = () => {
       if (frame === null) frame = requestAnimationFrame(pass);
@@ -394,7 +430,8 @@ function SidebarGoals() {
     const observer = new MutationObserver((records) => {
       if (!onlyGoalHostChanges(records)) schedule();
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // bb swaps its icon, or its label, as the thread's state changes.
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-label"] });
     schedule();
     return () => {
       observer.disconnect();
@@ -403,7 +440,10 @@ function SidebarGoals() {
   }, [wanted]);
   useEffect(
     () => () => {
-      for (const host of hostsRef.current.values()) host.remove();
+      for (const host of hostsRef.current.values()) {
+        host.previousElementSibling?.removeAttribute(SLOT_ATTRIBUTE);
+        host.remove();
+      }
       hostsRef.current = new Map();
     },
     [],
@@ -416,6 +456,7 @@ function SidebarGoals() {
       : createPortal(
           <SidebarGoalMark
             mark={mark}
+            state={states.get(threadId) ?? "none"}
             // Read on hover, so the sidebar's request stays one per update.
             loadGoal={() => rpc.call("thread_goal", { threadId }).then((result) => result.goal)}
             onOpenThread={() => document.querySelector<HTMLAnchorElement>(`a[data-sidebar-thread-id="${threadId}"]`)?.click()}

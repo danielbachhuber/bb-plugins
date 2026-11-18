@@ -54,9 +54,13 @@ gets the question it answers; a conversation can have no goal.
 
 The goal, a segment per stage, the stage reached, and the turns left show in
 a band between the thread header and the conversation, which scrolls under
-it, so the goal stays in view. In the sidebar, a segmented donut before
-the thread's title fills a segment per stage done, turns amber past the
-estimate, and becomes a check once met; resting on it opens the same card. Rest on the band for the stages and what the goal has used
+it, so the goal stays in view. In the sidebar, a segmented donut at the right
+end of the row takes the place of bb's own icon: it fills a segment per stage
+done, turns amber past the estimate, and becomes a check once met. bb's
+states show on it, such as a pulsing segment while the thread works, a red
+segment when it failed, and a blue centre dot when it needs you, and the
+card's current stage says the same. An exploration's stages are fixed: the
+agent's recommended answer, then your decision. Rest on the band for the stages and what the goal has used
 against Claude's estimate of its turns, tokens, and minutes. When setting a
 goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to

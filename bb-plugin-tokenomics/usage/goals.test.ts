@@ -40,7 +40,7 @@ describe("checkStages", () => {
   it("wants stages on a task and none on an exploration", () => {
     expect("error" in checkStages("task", [])).toBe(true);
     expect("error" in checkStages("exploration", ["a"])).toBe(true);
-    expect(checkStages("exploration", [])).toEqual({ stages: [] });
+    expect(checkStages("exploration", [])).toEqual({ stages: ["Answer recommended", "You decided"] });
   });
 });
 
@@ -56,6 +56,9 @@ describe("stageLabel", () => {
     expect(stageLabel({ ...goal, outcome: "met" })).toBe("Met");
     expect(stageLabel({ ...goal, shape: "none", stages: [] })).toBeNull();
     expect(stageLabel({ ...goal, shape: "exploration", stages: [] })).toBe("Exploring");
+    expect(stageLabel({ shape: "exploration", stages: ["Answer recommended", "You decided"], reached: 1, outcome: null })).toBe(
+      "1 of 2 · Answer recommended",
+    );
   });
 });
 

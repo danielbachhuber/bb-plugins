@@ -13,6 +13,7 @@ import type { GoalViewData } from "@/usage/contract";
 import { formatTokens } from "@/usage/series";
 
 import { useHoverOpen } from "./hover-open";
+import { ROW_STATES, type BbRowState } from "./row-activity";
 
 type Range = { low: number; high: number } | null;
 
@@ -153,17 +154,37 @@ function StageSegments({ stages, reached }: { stages: number; reached: number })
  * The band between the thread header and the conversation. The conversation
  * scrolls under it, so the goal stays in view.
  */
-export function GoalBand({ goal, defaultOpen = false }: { goal: GoalViewData; defaultOpen?: boolean }) {
+export function GoalBand({
+  goal,
+  defaultOpen = false,
+  readActivity,
+}: {
+  goal: GoalViewData;
+  defaultOpen?: boolean;
+  /** What the thread is doing, read when the card opens. */
+  readActivity?: () => DonutActivity;
+}) {
   if (goal.label === null) return null;
   return (
     <div data-tokenomics-goal-band="" className="border-b border-border-seam-vertical/60 bg-background px-4 py-1.5 md:px-5">
-      <GoalLine goal={goal} defaultOpen={defaultOpen} band />
+      <GoalLine goal={goal} defaultOpen={defaultOpen} band readActivity={readActivity} />
     </div>
   );
 }
 
-export function GoalLine({ goal, defaultOpen = false, band = false }: { goal: GoalViewData; defaultOpen?: boolean; band?: boolean }) {
-  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen });
+export function GoalLine({
+  goal,
+  defaultOpen = false,
+  band = false,
+  readActivity,
+}: {
+  goal: GoalViewData;
+  defaultOpen?: boolean;
+  band?: boolean;
+  readActivity?: () => DonutActivity;
+}) {
+  const [activity, setActivity] = useState<DonutActivity>(null);
+  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen: () => setActivity(readActivity?.() ?? null) });
   if (goal.label === null) return null;
   const closed = goal.outcome !== null;
   return (
@@ -210,7 +231,7 @@ export function GoalLine({ goal, defaultOpen = false, band = false }: { goal: Go
         onOpenAutoFocus={(event) => event.preventDefault()}
         {...hover}
       >
-        <GoalCard goal={goal} />
+        <GoalCard goal={goal} activity={activity} />
       </PopoverContent>
     </Popover>
   );
@@ -232,11 +253,14 @@ export interface SidebarMark {
  */
 export function SidebarGoalMark({
   mark,
+  state = "none",
   loadGoal,
   onOpenThread,
   defaultOpen = false,
 }: {
   mark: SidebarMark;
+  /** bb's state for the row, which the donut shows in place of bb's icon. */
+  state?: BbRowState;
   loadGoal?: () => Promise<GoalViewData | null>;
   onOpenThread?: () => void;
   defaultOpen?: boolean;
@@ -248,14 +272,16 @@ export function SidebarGoalMark({
       loadGoal?.().then(setGoal, () => undefined);
     },
   });
+  const archived = state === "archived";
+  const activity = ROW_STATES[state].activity;
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <span
           {...hover}
           role="img"
-          aria-label={`Goal: ${mark.label}${mark.left ? ` · ${mark.left}` : ""}`}
-          className="pointer-events-auto relative z-[31] mr-1.5 inline-flex shrink-0 cursor-pointer items-center"
+          aria-label={`Goal: ${mark.label}${mark.left ? ` · ${mark.left}` : ""}${state === "none" ? "" : ` · ${ROW_STATES[state].label}`}`}
+          className="pointer-events-auto relative z-[31] mr-1.5 inline-flex size-4 shrink-0 cursor-pointer items-center justify-center"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -263,21 +289,25 @@ export function SidebarGoalMark({
           }}
         >
           <GoalDonut
+            size={16}
+            stroke={2.2}
             stages={mark.stages}
             reached={mark.reached}
             outcome={mark.outcome}
             tone={mark.left === "past estimate" ? "over" : "default"}
+            activity={archived ? null : activity}
           />
         </span>
       </PopoverTrigger>
       <PopoverContent
         side="right"
         align="start"
+        sideOffset={10}
         className="w-[320px] p-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
         {...hover}
       >
-        {goal === null ? <span className="text-xs text-muted-foreground">{mark.label}</span> : <GoalCard goal={goal} />}
+        {goal === null ? <span className="text-xs text-muted-foreground">{mark.label}</span> : <GoalCard goal={goal} activity={activity} />}
       </PopoverContent>
     </Popover>
   );

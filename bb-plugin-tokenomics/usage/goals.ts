@@ -115,6 +115,11 @@ export function checkStages(shape: GoalShape, raw: readonly string[]): { stages:
         'A task goal needs its stages: --stage "Export built" --stage "Tests pass". Use --shape exploration for a question, or --none for no goal.',
     };
   }
+  if (shape === "exploration") {
+    // Fixed, so every exploration fills its donut the same way: the answer, then the user's call.
+    if (stages.length > 0) return { error: "An exploration's stages are fixed: Answer recommended, then You decided. Leave out --stage." };
+    return { stages: [...EXPLORATION_STAGES] };
+  }
   if (shape !== "task" && stages.length > 0) {
     return { error: `An ${shape} goal has no stages. Leave out --stage, or use --shape task.` };
   }
@@ -128,6 +133,9 @@ export function checkStages(shape: GoalShape, raw: readonly string[]): { stages:
   return { stages };
 }
 
+/** An exploration's stages: the agent's recommended answer, then the user's decision. */
+export const EXPLORATION_STAGES = ["Answer recommended", "You decided"] as const;
+
 export const OUTCOME_LABELS: Record<Outcome, string> = { met: "Met", partly: "Partly met", not: "Not met" };
 
 /**
@@ -137,7 +145,7 @@ export const OUTCOME_LABELS: Record<Outcome, string> = { met: "Met", partly: "Pa
 export function stageLabel(goal: Pick<Goal, "shape" | "stages" | "reached" | "outcome">): string | null {
   if (goal.shape === "none") return null;
   if (goal.outcome !== null) return OUTCOME_LABELS[goal.outcome];
-  if (goal.shape === "exploration") return "Exploring";
+  if (goal.shape === "exploration" && goal.stages.length === 0) return "Exploring";
   if (goal.shape === "project") return "Project";
   const reached = Math.min(goal.reached, goal.stages.length);
   if (reached === 0) return `0 of ${goal.stages.length}`;
@@ -303,7 +311,8 @@ export const GOAL_INSTRUCTIONS = [
   "  can't tell what finished looks like, inside any other question you need to ask.",
   "- A task gets 1 to 4 stages, 5 at most, each an end state someone could check (\"PR's checks pass\"),",
   "  never a step (\"Fix the test\"). An exploration (--shape exploration) states the question to answer",
-  "  or the decision to make, with no stages. A project (--shape project) states its purpose. A",
+  "  or the decision to make; its stages are fixed, Answer recommended then You decided, so run",
+  "  `goal stage next` once you've recommended an answer. A project (--shape project) states its purpose. A",
   "  conversation with nothing to finish gets --none.",
   "- The last stage is what ends the thread, such as \"PR open with checks passing\" or \"Merged\", never",
   "  a step on the way, such as \"PR description drafted\". When work goes on after every stage is true,",
