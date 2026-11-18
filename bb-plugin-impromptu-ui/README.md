@@ -22,6 +22,7 @@ With Impromptu UI, you can:
 ## Use
 
 - The agent publishes what it wants you to act on as numbered rows above the composer, grouped under headings.
+- Each view's header says how long ago the agent published it, such as **3h ago**, so you can tell whether it is still current. Hover for the exact time. Publishing again under the same key resets it.
 - Click a row to open its card in the side panel: the summary, any diff, a draft you can edit, and the buttons that act on it. Every card also has **Start thread** and **Dismiss**.
 - A card that suggests a change, such as a fix with **Apply** and **Skip** or a drafted comment with **Post**, always has a **Revise** field too. Type what to change and press Enter, and the agent sends back a new suggestion. If the agent leaves it out, `publish` adds it.
 - Done and dismissed rows sink to the bottom, and the agent reads back what you did.

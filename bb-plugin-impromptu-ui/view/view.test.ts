@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allHandled, decisionItems, firstLine, listPreview, orderItems, progressLabel } from "./banner.js";
+import { allHandled, decisionItems, firstLine, listPreview, orderItems, progressLabel, publishedAgo } from "./banner.js";
 import { grantSectionThreadsView, staplesView, triageView } from "./fixtures.js";
 import { runCommand, tail } from "./run-command.js";
 import { dismissLabelOf, fillDraft, fillNote, isQuiet, itemThreads, messageTargets, threadElsewhere, needsConfirm, parseView, shellQuote, usesDraft, usesNote } from "./schema.js";
@@ -1051,5 +1051,19 @@ describe("shownSince", () => {
     const hidden = s.publish("thr_hidden", "k", view, null, "2026-02-01T00:00:00.000Z");
     s.setHidden(hidden.id, true, "2026-02-02T00:00:00.000Z");
     expect(s.shownSince("2026-01-15T00:00:00.000Z").map((stored) => stored.threadId)).toEqual([shown.threadId]);
+  });
+});
+
+describe("publishedAgo", () => {
+  const at = "2026-03-12T12:00:00Z";
+  const after = (ms: number) => Date.parse(at) + ms;
+  it("counts minutes, hours, then days", () => {
+    expect(publishedAgo(at, after(30_000))).toBe("just now");
+    expect(publishedAgo(at, after(7 * 60_000))).toBe("7m ago");
+    expect(publishedAgo(at, after(3 * 3_600_000 + 59 * 60_000))).toBe("3h ago");
+    expect(publishedAgo(at, after(2 * 86_400_000 + 5 * 3_600_000))).toBe("2d ago");
+  });
+  it("reads a clock a little behind as just now", () => {
+    expect(publishedAgo(at, after(-5_000))).toBe("just now");
   });
 });

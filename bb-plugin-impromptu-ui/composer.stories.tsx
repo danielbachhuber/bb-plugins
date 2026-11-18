@@ -118,6 +118,9 @@ const execution = makeExecutionControlsProps({
   model: { ...baseExecution.model, active: { model: "claude-sonnet-5" }, selected: "claude-sonnet-5", options: STORY_CLAUDE_CODE_MODELS },
 });
 
+/** A few minutes after the fixtures publish, so the headers read "7m ago" in every capture. */
+const STORY_NOW = Date.parse("2026-03-12T12:07:00Z");
+
 function stored(view: View, items: Record<string, ItemRecord> = {}, id = 1, key = "default"): StoredView {
   // As the store reads it back: an agent-set status decides the item's state.
   return { id, threadId: "thr_story01", key, view, cwd: "/tmp", publishedAt: "2026-03-12T12:00:00Z", hiddenAt: null, items: applyStatus(view, items) };
@@ -140,6 +143,7 @@ function OtherViewBanner({ view, onOpenItem }: { view: StoredView; onOpenItem: (
       onOpenItem={onOpenItem}
       onGoToThread={noop}
       onOpenView={noop}
+      now={STORY_NOW}
     />
   );
 }
@@ -220,6 +224,7 @@ function ThreadStage({
                   onGoToThread={noop}
                   onOpenView={noop}
                   currentThreadId={currentThreadId}
+                  now={STORY_NOW}
                   onAnswer={(item, index) =>
                     setItem(item, { state: "done", result: { label: item.actions[index]!.label, at: "2026-03-12T12:07:00Z" } })
                   }

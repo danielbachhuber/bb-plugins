@@ -39,6 +39,22 @@ export interface ViewBannerProps {
   onAnswer?: (item: Item, index: number) => void;
   /** Answers an inline question with what the user typed. */
   onReply?: (item: Item, text: string) => void;
+  /** The time the header counts how long ago it was published from, in epoch milliseconds. Defaults to the time of render. */
+  now?: number;
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** How long ago a view was published, short enough for the header: "just now", "12m ago", "3h ago", "2d ago". */
+export function publishedAgo(publishedAt: string, now: number): string {
+  const elapsed = Math.max(0, now - Date.parse(publishedAt));
+  if (Number.isNaN(elapsed)) return "";
+  if (elapsed < MINUTE) return "just now";
+  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
+  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
+  return `${Math.floor(elapsed / DAY)}d ago`;
 }
 
 /** One line of plain text from a markdown summary, for the row. */
@@ -176,6 +192,7 @@ export function ViewBanner({
   currentThreadId,
   onAnswer,
   onReply,
+  now = Date.now(),
 }: ViewBannerProps) {
   const list = stored.view.layout === "list";
   const inline = stored.view.layout === "inline";
@@ -191,6 +208,10 @@ export function ViewBanner({
           <span className="flex min-w-0 flex-1 items-baseline text-sm">
             <b className="min-w-0 truncate font-medium text-foreground">{stored.view.title}</b>
             <span className="shrink-0 whitespace-pre text-muted-foreground"> · {inline ? inlineProgress(stored) : progressLabel(stored)}</span>
+            <span className="shrink-0 whitespace-pre text-muted-foreground" title={`Published ${new Date(stored.publishedAt).toLocaleString()}`}>
+              {" · "}
+              {publishedAgo(stored.publishedAt, now)}
+            </span>
           </span>
         </button>
         <button

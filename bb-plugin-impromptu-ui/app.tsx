@@ -348,6 +348,12 @@ function Banner() {
     const timer = setTimeout(refetch, Math.max(0, refreshAt - Date.now()) + 1000);
     return () => clearTimeout(timer);
   }, [refreshAt, refetch]);
+  // The headers say how long ago each view was published, so count the minutes.
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   // A newly published view opens expanded, even if it was collapsed before.
   useRealtime(
     "impromptu-ui-published",
@@ -395,6 +401,7 @@ function Banner() {
             }}
             onGoToThread={(id) => navigate.toThread(id)}
             onOpenView={openView}
+            now={now}
           />
         );
       })}
