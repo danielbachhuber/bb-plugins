@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.",
+    "description": "See what your threads cost in tokens and time, each thread's goal and its progress, how turns compared with forecasts, and if limits last.",
     "branding": {
       "icon": "./icons/tokenomics.svg",
       "experimental_icons": {

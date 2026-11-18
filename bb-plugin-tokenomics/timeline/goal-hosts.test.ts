@@ -1,0 +1,85 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from "vitest";
+
+import { onlyGoalHostChanges, placeRowHosts, placeTitleHost, ROW_HOST_ATTRIBUTE } from "./goal-hosts.js";
+
+// The shape of bb's thread header: a <header> whose title is a <p> inside a
+// block, and the plugin header actions further along.
+function header(): { anchor: HTMLElement; block: HTMLElement } {
+  document.body.innerHTML = `
+    <header>
+      <div class="center"><div id="block"><p><span class="bb-thread-title">Add a CSV export</span></p></div></div>
+      <div class="actions"><span role="group"><span id="anchor"></span></span></div>
+    </header>`;
+  return { anchor: document.getElementById("anchor")!, block: document.getElementById("block")! };
+}
+
+// The shape of a sidebar row: the link, then the span holding the title.
+function rows(ids: string[]): void {
+  document.body.innerHTML = ids
+    .map(
+      (id) => `
+      <div class="row">
+        <a data-sidebar-thread-id="${id}" href="#"></a>
+        <span class="title-wrap"><span class="provider"></span><span class="bb-thread-title">${id}</span></span>
+      </div>`,
+    )
+    .join("");
+}
+
+describe("placeTitleHost", () => {
+  it("puts the host after the title's paragraph, once", () => {
+    const { anchor, block } = header();
+    const host = document.createElement("div");
+    expect(placeTitleHost(anchor, host)).toBe(true);
+    expect(placeTitleHost(anchor, host)).toBe(true);
+    expect(block.lastElementChild).toBe(host);
+    expect(block.querySelectorAll("div")).toHaveLength(1);
+  });
+
+  it("removes the host when bb's header no longer has a title", () => {
+    const { anchor } = header();
+    const host = document.createElement("div");
+    placeTitleHost(anchor, host);
+    document.querySelector(".bb-thread-title")!.remove();
+    expect(placeTitleHost(anchor, host)).toBe(false);
+    expect(host.isConnected).toBe(false);
+  });
+});
+
+describe("placeRowHosts", () => {
+  it("places a host after the title of each row with a goal and leaves the rest alone", () => {
+    rows(["thr_a", "thr_b"]);
+    const hosts = placeRowHosts(document, new Set(["thr_a"]), new Map());
+    expect([...hosts.keys()]).toEqual(["thr_a"]);
+    const title = document.querySelector('[data-sidebar-thread-id="thr_a"]')!.parentElement!.querySelector(".bb-thread-title")!;
+    expect(title.nextElementSibling).toBe(hosts.get("thr_a"));
+    expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(1);
+  });
+
+  it("keeps a row's host across passes and removes it once the goal is gone", () => {
+    rows(["thr_a"]);
+    const first = placeRowHosts(document, new Set(["thr_a"]), new Map());
+    const second = placeRowHosts(document, new Set(["thr_a"]), first);
+    expect(second.get("thr_a")).toBe(first.get("thr_a"));
+    placeRowHosts(document, new Set(), second);
+    expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(0);
+  });
+});
+
+describe("onlyGoalHostChanges", () => {
+  it("ignores changes inside the hosts it placed", async () => {
+    rows(["thr_a"]);
+    const hosts = placeRowHosts(document, new Set(["thr_a"]), new Map());
+    const records: MutationRecord[] = [];
+    const observer = new MutationObserver((found) => records.push(...found));
+    observer.observe(document.body, { childList: true, subtree: true });
+    hosts.get("thr_a")!.appendChild(document.createElement("span"));
+    await Promise.resolve();
+    expect(onlyGoalHostChanges(records)).toBe(true);
+    document.body.appendChild(document.createElement("div"));
+    await Promise.resolve();
+    expect(onlyGoalHostChanges(records)).toBe(false);
+    observer.disconnect();
+  });
+});

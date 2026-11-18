@@ -13,6 +13,7 @@ import { TurnTimeBreakdown } from "./turn-time-breakdown";
 import { ThreadUsageList, splitArchived } from "./thread-usage-list";
 import { LimitMeters } from "./limit-meters";
 import { PARTS, UsageChart, UsageLegend, type PartKey, type Projection } from "./usage-chart";
+import { GoalOutcomes, type GoalOutcomesData } from "./goal-outcomes";
 
 export interface UsageData {
   since: number;
@@ -86,6 +87,7 @@ export function UsageView({
   now = Date.now(),
   limits = [],
   providerName = (providerId) => providerId,
+  goals = null,
 }: {
   range: RangeId;
   onRange: (range: RangeId) => void;
@@ -99,6 +101,8 @@ export function UsageView({
   /** The subscriptions' usage limits, for the meters and the chart's hatched bars. */
   limits?: readonly Limit[];
   providerName?: (providerId: string) => string;
+  /** The Goals section's data, read over the past 30 days whatever the range. */
+  goals?: GoalOutcomesData | null;
 }) {
   const [hidden, setHidden] = useState<ReadonlySet<PartKey>>(new Set());
   const toggle = (key: PartKey) =>
@@ -158,6 +162,8 @@ export function UsageView({
             period={RANGES.find((option) => option.id === range)?.label ?? ""}
           />
         )}
+
+        {goals === null ? null : <GoalOutcomes data={goals} />}
 
         <div className="mb-2 mt-6 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium">Threads</h2>

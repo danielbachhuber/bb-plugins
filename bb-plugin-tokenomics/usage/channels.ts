@@ -14,3 +14,6 @@ export const TURNS_CHANNEL = "turns-changed";
 
 /** Published after a new reading of the subscriptions' usage limits is stored. */
 export const LIMITS_CHANNEL = "limits-changed";
+
+/** Published with `{ threadIds }` after a thread's goal changes, and with `{}` after a goal setting changes. */
+export const GOALS_CHANNEL = "goals-changed";

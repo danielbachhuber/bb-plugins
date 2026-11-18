@@ -19,12 +19,15 @@ import { TurnStrip, TurnSummaryLine } from "@/components/turn-summary";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
 import { TOP_BAR_LIMITS_WIDTH, TopBarLimits, urgentSession } from "@/components/limit-spark";
 import { UsageView, type UsageData } from "@/components/usage-view";
+import type { GoalOutcomesData } from "@/components/goal-outcomes";
 import { TopBarSlot, useTopBarRoom } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 
 import type { rpcContract } from "./server";
 import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
-import { CONTEXT_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
-import type { Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
+import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
+import { GoalLine, SidebarGoalMark } from "@/components/goal-line";
+import { onlyGoalHostChanges, placeRowHosts, placeTitleHost, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -159,14 +162,28 @@ function FittedLimits(props: ComponentProps<typeof TopBarLimits>) {
   return <TopBarLimits {...props} compact={room !== null && room < TOP_BAR_LIMITS_WIDTH} />;
 }
 
+/** The Goals section's data over the past 30 days, re-read when a goal changes. */
+function useGoalOutcomes(): GoalOutcomesData | null {
+  const rpc = useRpc<typeof rpcContract>();
+  const [data, setData] = useState<GoalOutcomesData | null>(null);
+  const load = useCallback(() => {
+    rpc.call("goal_outcomes", { since: Date.now() - 30 * 86_400_000 }).then(setData, () => undefined);
+  }, [rpc]);
+  useEffect(load, [load]);
+  useRealtime(GOALS_CHANNEL, load);
+  return data;
+}
+
 function TokenomicsPage() {
   const [range, setRange] = useState<RangeId>("day");
   const { data, error } = useUsage(range);
   const limits = useLimits();
   const providerName = useProviderName();
   const navigate = useBbNavigate();
+  const goals = useGoalOutcomes();
   return (
     <UsageView
+      goals={goals}
       range={range}
       onRange={setRange}
       data={data}
@@ -259,6 +276,141 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
       onOpenPage={() => navigate.toPluginPanel("tokenomics")}
     />
   );
+}
+
+
+/**
+ * Renders nothing in the header's action row. Its hidden anchor finds the
+ * header, and the goal line renders under the title through a portal. See
+ * timeline/goal-hosts.ts for why this reads bb's markup.
+ */
+function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [goal, setGoal] = useState<GoalViewData | null>(null);
+  const [show, setShow] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const [host, setHost] = useState<HTMLElement | null>(null);
+
+  const load = useCallback(() => {
+    rpc.call("thread_goal", { threadId }).then(
+      (result) => {
+        setGoal(result.goal);
+        setShow(result.show);
+      },
+      () => undefined,
+    );
+  }, [rpc, threadId]);
+  useEffect(() => {
+    setGoal(null);
+    load();
+  }, [load]);
+  const onGoal = useMemo(
+    () => (payload: unknown) => {
+      // A setting change carries no thread ids and applies to every thread.
+      const ids = (payload as { threadIds?: unknown } | null)?.threadIds;
+      if (ids === undefined || isForThread(payload, threadId)) load();
+    },
+    [load, threadId],
+  );
+  useRealtime(GOALS_CHANNEL, onGoal);
+  // What the goal has used moves with each turn.
+  const onTurn = useMemo(() => (payload: unknown) => (isForThread(payload, threadId) ? load() : undefined), [load, threadId]);
+  useRealtime(TURNS_CHANNEL, onTurn);
+
+  const visible = show && goal !== null && goal.label !== null;
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    if (!visible || anchor === null) {
+      setHost(null);
+      return;
+    }
+    const element = document.createElement("div");
+    element.setAttribute(TITLE_HOST_ATTRIBUTE, threadId);
+    element.className = "min-w-0 max-w-full overflow-hidden";
+    let frame: number | null = null;
+    const pass = () => {
+      frame = null;
+      setHost(placeTitleHost(anchor, element) ? element : null);
+    };
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(pass);
+    };
+    // bb re-renders the title on rename and on switching threads in a pane.
+    const observer = new MutationObserver((records) => {
+      if (!onlyGoalHostChanges(records)) schedule();
+    });
+    const header = anchor.closest("header");
+    if (header !== null) observer.observe(header, { childList: true, subtree: true });
+    pass();
+    return () => {
+      observer.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+      element.remove();
+    };
+  }, [visible, threadId]);
+
+  return (
+    <>
+      <span ref={anchorRef} hidden />
+      {visible && host !== null ? createPortal(<GoalLine goal={goal} />, host) : null}
+    </>
+  );
+}
+
+/** The goal mark beside each sidebar row's title, for threads with a goal. */
+function SidebarGoals() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [marks, setMarks] = useState<Map<string, { label: string; outcome: GoalViewData["outcome"]; left: string | null }>>(() => new Map());
+  const [hosts, setHosts] = useState<Map<string, HTMLElement>>(() => new Map());
+  const hostsRef = useRef(hosts);
+
+  const load = useCallback(() => {
+    rpc.call("sidebar_goals", null).then(
+      (result) => setMarks(new Map(result.show ? result.goals.map((goal) => [goal.threadId, goal]) : [])),
+      () => undefined,
+    );
+  }, [rpc]);
+  useEffect(load, [load]);
+  useRealtime(GOALS_CHANNEL, load);
+  useRealtime(USAGE_CHANNEL, load);
+
+  const wanted = useMemo(() => new Set(marks.keys()), [marks]);
+  useEffect(() => {
+    let frame: number | null = null;
+    const pass = () => {
+      frame = null;
+      const next = placeRowHosts(document, wanted, hostsRef.current);
+      const before = hostsRef.current;
+      hostsRef.current = next;
+      const same = next.size === before.size && [...next].every(([id, host]) => before.get(id) === host);
+      if (!same) setHosts(next);
+    };
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(pass);
+    };
+    // The sidebar mounts only the rows in view, and re-renders them as threads change.
+    const observer = new MutationObserver((records) => {
+      if (!onlyGoalHostChanges(records)) schedule();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    schedule();
+    return () => {
+      observer.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [wanted]);
+  useEffect(
+    () => () => {
+      for (const host of hostsRef.current.values()) host.remove();
+      hostsRef.current = new Map();
+    },
+    [],
+  );
+
+  return [...hosts].map(([threadId, host]) => {
+    const mark = marks.get(threadId);
+    return mark === undefined ? null : createPortal(<SidebarGoalMark {...mark} />, host, threadId);
+  });
 }
 
 interface ContextState {
@@ -534,11 +686,18 @@ export default definePluginApp((app) => {
   });
 
   app.slots.experimental_appOverlay({ id: "limits-top-bar", component: LimitsTopBar });
+  app.slots.experimental_appOverlay({ id: "sidebar-goals", component: SidebarGoals });
 
   app.slots.experimental_threadHeaderAction({
     id: "thread-tokens",
     title: "Tokens used",
     component: ThreadTokensAction,
+  });
+
+  app.slots.experimental_threadHeaderAction({
+    id: "thread-goal",
+    title: "Thread goal",
+    component: ThreadGoalAction,
   });
 
   app.composer.customize({

@@ -79,7 +79,7 @@ Source: [`bb-plugin-super-diff`](bb-plugin-super-diff)
 
 [View in the marketplace](https://getbb.app/marketplace/tokenomics)
 
-See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.
+See what your threads cost in tokens and time, each thread's goal and its progress, how turns compared with forecasts, and if limits last.
 
 Source: [`bb-plugin-tokenomics`](bb-plugin-tokenomics)
 

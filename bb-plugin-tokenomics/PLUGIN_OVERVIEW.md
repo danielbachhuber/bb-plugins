@@ -3,9 +3,10 @@
 - **Tokens in each thread's header**: a sparkline of the thread's tokens over time, with its past day and lifetime totals. Click it to see which of your messages used the most tokens and time.
 - **Each turn's time, tokens, and commands** under the turn, with the running turn counted above the composer.
 - **Claude's forecast for each turn**: Claude records an 80% range of model calls, Tokenomics works out the minutes and tokens, and the line under the turn shows each number against it, amber when the turn ran over.
+- **Each thread's goal** under its title: the goal, its current stage, and the turns left, with a mark beside the thread in the sidebar. Claude records it in the first turn, with up to five stages and an estimate checked against past threads, and closes it as met, partly met, or not met. `/tokenomics-set-goal` changes it.
 - **A context meter above the composer** once a thread's context passes 300K tokens, red past 550K, or once an idle thread's prompt cache expires, with a **Compact** button.
 - **Your session in the title bar**: a spark chart of its tokens and rings for the session and the week, amber or red once either is headed for its limit. Hover it for the limits and the past day's chart.
-- **A Tokenomics page** with each usage limit and where it lands at the current pace, tokens by hour or day, where turn time went, and the threads that used the most.
+- **A Tokenomics page** with each usage limit and where it lands at the current pace, tokens by hour or day, where turn time went, the threads that used the most, and what each goal outcome cost.
 
 ## How it works
 
@@ -13,7 +14,7 @@ Tokenomics copies each usage event into its own database as bb records it, start
 
 ## For agents
 
-`bb tokenomics threads`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts.
+`bb tokenomics goal` records, moves, and closes a thread's goal. `bb tokenomics threads`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts.
 
 ## Requirements
 

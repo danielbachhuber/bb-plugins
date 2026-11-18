@@ -169,6 +169,41 @@ export const MIGRATIONS = [
   `ALTER TABLE forecasts ADD COLUMN pace_ms INTEGER`,
   `ALTER TABLE forecasts ADD COLUMN wait_low_ms INTEGER`,
   `ALTER TABLE forecasts ADD COLUMN wait_high_ms INTEGER`,
+  // How the thread started: the plugin that spawned it, "child" for one
+  // another thread started, or "typed". Goal estimates compare with threads
+  // that started the same way.
+  `ALTER TABLE threads ADD COLUMN origin TEXT`,
+  // One row per goal a thread recorded with bb tokenomics goal set. A revision
+  // adds a row and sets replaced_at on the one before, so a thread's goals
+  // read as a history. See goals.ts.
+  `CREATE TABLE IF NOT EXISTS goals (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     thread_id TEXT NOT NULL,
+     set_at INTEGER NOT NULL,
+     anchor_at INTEGER NOT NULL,
+     shape TEXT NOT NULL,
+     goal TEXT NOT NULL,
+     stages TEXT NOT NULL,
+     reached INTEGER NOT NULL DEFAULT 0,
+     pr TEXT,
+     set_by TEXT NOT NULL,
+     reason TEXT,
+     origin TEXT,
+     turns_low REAL,
+     turns_high REAL,
+     tokens_low REAL,
+     tokens_high REAL,
+     minutes_low REAL,
+     minutes_high REAL,
+     replaced_at INTEGER,
+     outcome TEXT,
+     outcome_note TEXT,
+     closed_at INTEGER,
+     spent_turns INTEGER,
+     spent_tokens INTEGER,
+     spent_ms INTEGER
+   )`,
+  `CREATE INDEX IF NOT EXISTS goals_thread_idx ON goals (thread_id, set_at)`,
 ];
 
 export interface ThreadInfo {
@@ -178,6 +213,8 @@ export interface ThreadInfo {
   providerId: string;
   /** When it was archived or deleted; null while it is active. */
   archivedAt: number | null;
+  /** How it started; see originOf in goals.ts. Absent keeps what was recorded. */
+  origin?: string | null;
 }
 
 export interface UsageRow {
@@ -314,14 +351,15 @@ export function createStore(db: Database) {
      WHERE thread_id = ? ORDER BY created_at DESC LIMIT 1`,
   );
   const upsertThread = db.prepare(
-    `INSERT INTO threads (thread_id, title, project_id, provider_id, last_seq, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO threads (thread_id, title, project_id, provider_id, last_seq, archived_at, origin)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (thread_id) DO UPDATE SET
        title = excluded.title,
        project_id = excluded.project_id,
        provider_id = excluded.provider_id,
        last_seq = max(threads.last_seq, excluded.last_seq),
-       archived_at = excluded.archived_at`,
+       archived_at = excluded.archived_at,
+       origin = coalesce(excluded.origin, threads.origin)`,
   );
   const updateArchived = db.prepare(`UPDATE threads SET archived_at = ? WHERE thread_id = ?`);
   const selectThreadHours = db.prepare(
@@ -546,7 +584,7 @@ export function createStore(db: Database) {
       );
       inserted += Number(result.changes);
     }
-    upsertThread.run(thread.threadId, thread.title, thread.projectId, thread.providerId, lastSeq, thread.archivedAt);
+    upsertThread.run(thread.threadId, thread.title, thread.projectId, thread.providerId, lastSeq, thread.archivedAt, thread.origin ?? null);
     return inserted;
   });
 

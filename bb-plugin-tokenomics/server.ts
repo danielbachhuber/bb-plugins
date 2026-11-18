@@ -1,7 +1,7 @@
 // bb-plugin-tokenomics — how many tokens each thread uses, and when.
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 
-import { CONTEXT_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
+import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, MAX_ROWS, MAX_WINDOW_MS, rpcContract, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/contract.js";
 import { limitViews, samplesFromUsage, sizeOf, SLOT_MS, windowKey, type LimitView } from "./usage/limits.js";
 import {
   formatCommands,
@@ -16,6 +16,9 @@ import { readTranscripts, subagentsDir } from "./usage/subagent-files.js";
 import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
+import { createGoalStore } from "./usage/goal-store.js";
+import { goalCli, goalView, GOAL_USAGE } from "./usage/goal-cli.js";
+import { originOf as originOfThread, GOAL_INSTRUCTIONS, estimateRecord, groupOf, originLabel, stageLabel, remainingLabel } from "./usage/goals.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { turnSummaries, turnWork, type TurnSummary } from "./usage/turn-summary.js";
 import {
@@ -47,6 +50,7 @@ export default async function plugin(bb: BbPluginApi) {
   const db = bb.storage.database();
   bb.storage.migrate(db, MIGRATIONS);
   const store = createStore(db);
+  const goals = createGoalStore(db);
   const recordingSince = store.startedAt(Date.now());
   const settings = bb.settings.define({
     contextWarningAt: {
@@ -69,6 +73,25 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Ask Claude to forecast each turn",
       description:
         "Adds a short section to each thread's instructions asking Claude to forecast a turn's model calls with bb tokenomics forecast, so the line under the turn can score it.",
+      default: true,
+    },
+    setGoals: {
+      type: "boolean",
+      label: "Ask Claude to record each thread's goal",
+      description:
+        "Adds a short section to each thread's instructions asking Claude to record the thread's goal, its stages, and an estimate with bb tokenomics goal, and to close it with an outcome.",
+      default: true,
+    },
+    goalLine: {
+      type: "boolean",
+      label: "Show the goal under the thread title",
+      description: "The goal, its current stage, and the turns left, on a line under the title of a thread that has a goal.",
+      default: true,
+    },
+    goalSidebar: {
+      type: "boolean",
+      label: "Show goal stages in the sidebar",
+      description: "The current stage, or the outcome once closed, under each sidebar row whose thread has a goal.",
       default: true,
     },
   });
@@ -211,7 +234,11 @@ export default async function plugin(bb: BbPluginApi) {
   };
   bb.events.on("thread.archived", ({ thread }) => markArchived(thread.id, thread.archivedAt ?? Date.now()));
   bb.events.on("thread.unarchived", ({ thread }) => markArchived(thread.id, null));
-  bb.events.on("thread.deleted", ({ thread }) => markArchived(thread.id, thread.deletedAt ?? Date.now()));
+  bb.events.on("thread.deleted", ({ thread }) => {
+    markArchived(thread.id, thread.deletedAt ?? Date.now());
+    // A goal describes its thread, so it goes with it.
+    goals.deleteThread(thread.id);
+  });
 
   bb.events.on("experimental_thread.events", ({ thread }) => {
     sync.syncThread(thread).catch((error: unknown) => warn(thread.id, error));
@@ -388,11 +415,42 @@ export default async function plugin(bb: BbPluginApi) {
   const RECORD_TURNS = 60;
 
   // The instructions hook must answer synchronously, so keep the setting in hand.
-  let forecastTurns = (await settings.get()).forecastTurns;
+  let { forecastTurns, setGoals } = await settings.get();
   settings.onChange((next) => {
     forecastTurns = next.forecastTurns;
+    setGoals = next.setGoals;
+    // The goal line and the sidebar read their settings from the server.
+    bb.realtime.publish(GOALS_CHANNEL, {});
   });
-  bb.agents.contributeInstructions(() => (forecastTurns ? FORECAST_INSTRUCTIONS : null));
+  bb.agents.contributeInstructions(() => {
+    const sections = [forecastTurns ? FORECAST_INSTRUCTIONS : null, setGoals ? GOAL_INSTRUCTIONS : null].filter(
+      (section): section is string => section !== null,
+    );
+    return sections.length === 0 ? null : sections.join("\n\n");
+  });
+
+  /** How far back goal estimates look for threads that started the same way. */
+  const HISTORY_DAYS = 30;
+  const goalDeps = {
+    goals,
+    now: () => Date.now(),
+    historySince: () => Date.now() - HISTORY_DAYS * 86_400_000,
+    async originOf(threadId: string): Promise<string | null> {
+      const recorded = goals.origin(threadId);
+      if (recorded !== null) return recorded;
+      try {
+        const result = (await bb.sdk.threads.get({ threadId })) as { thread?: unknown };
+        const thread = (result.thread ?? result) as { originPluginId?: string | null; parentThreadId?: string | null };
+        return originOfThread(thread);
+      } catch (error) {
+        warn(threadId, error);
+        return null;
+      }
+    },
+    changed(threadId: string) {
+      bb.realtime.publish(GOALS_CHANNEL, { threadIds: [threadId] });
+    },
+  };
 
   /** Records a forecast from `bb tokenomics forecast`; returns what to print. */
   async function recordForecast(
@@ -458,6 +516,7 @@ export default async function plugin(bb: BbPluginApi) {
     "bb tokenomics forecasts [--days N] [--json]",
     "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
     "  often they landed in range.",
+    GOAL_USAGE,
   ].join("\n");
 
   function flag(argv: string[], name: string): string | undefined {
@@ -489,11 +548,17 @@ export default async function plugin(bb: BbPluginApi) {
         summary: "Claude's turn forecasts against what each turn took",
         usage: "bb tokenomics forecasts [--days N] [--json]",
       },
+      {
+        name: "goal",
+        summary: "Record, move, estimate, close, or show this thread's goal",
+        usage: "bb tokenomics goal set|stage|estimate|close|show ...",
+      },
     ],
     async run(argv, ctx) {
       const [command] = argv.filter((arg, index) => !arg.startsWith("--") && !argv[index - 1]?.startsWith("--"));
       if (command === undefined || command === "help") return { exitCode: 0, stdout: CLI_USAGE };
       if (command === "forecast") return await recordForecast(ctx.threadId, argv);
+      if (command === "goal") return await goalCli(goalDeps, ctx.threadId, argv.slice(argv.indexOf("goal") + 1));
       const json = argv.includes("--json");
       const days = Number(flag(argv, "--days") ?? 7);
       if (!Number.isFinite(days) || days <= 0 || days > 30) {
@@ -624,6 +689,53 @@ export default async function plugin(bb: BbPluginApi) {
     compact_thread: async ({ threadId }) => {
       await bb.sdk.threads.compact({ threadId });
       return { ok: true as const };
+    },
+    thread_goal: async ({ threadId }) => {
+      const { goalLine } = await settings.get();
+      const goal = goals.current(threadId);
+      return { show: goalLine, goal: goal === null ? null : goalView(goalDeps, goal) };
+    },
+    sidebar_goals: async () => {
+      const { goalSidebar } = await settings.get();
+      if (!goalSidebar) return { show: false, goals: [] };
+      const now = Date.now();
+      // One local query for the goals, and one per goal for what it has used.
+      return {
+        show: true,
+        goals: goals.activeCurrent().flatMap((goal) => {
+          const label = stageLabel(goal);
+          if (label === null) return [];
+          return [{ threadId: goal.threadId, label, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)) }];
+        }),
+      };
+    },
+    goal_outcomes: ({ since }) => {
+      const all = goals.since(since);
+      // The latest goal of each thread stands for it; earlier ones were revised.
+      const latest = new Map(all.map((goal) => [goal.threadId, goal]));
+      const closed = [...latest.values()].filter((goal) => goal.outcome !== null && goal.spentAtEnd !== null);
+      const outcomes = (["met", "partly", "not"] as const).map((outcome) => {
+        const group = groupOf(outcome, closed.filter((goal) => goal.outcome === outcome).map((goal) => goal.spentAtEnd!));
+        return { outcome, count: group.count, medianTokens: group.medianTokens, medianMinutes: group.medianMinutes };
+      });
+      const open = [...latest.values()].filter((goal) => goal.outcome === null && goal.shape !== "none").length;
+      // Whole archived threads by how they started, with a goal against without.
+      const withGoal = new Set([...latest.values()].filter((goal) => goal.shape !== "none").map((goal) => goal.threadId));
+      const byOrigin = new Map<string, { with: Array<{ turns: number; tokens: number; ms: number }>; without: Array<{ turns: number; tokens: number; ms: number }> }>();
+      for (const thread of goals.archivedThreads(since)) {
+        const origin = thread.origin ?? "unknown";
+        const entry = byOrigin.get(origin) ?? { with: [], without: [] };
+        (withGoal.has(thread.threadId) ? entry.with : entry.without).push(thread);
+        byOrigin.set(origin, entry);
+      }
+      const byStart = [...byOrigin.entries()]
+        .map(([origin, entry]) => ({
+          origin: originLabel(origin),
+          withGoal: groupOf("with a goal", entry.with),
+          withoutGoal: groupOf("without", entry.without),
+        }))
+        .sort((a, b) => b.withGoal.count + b.withoutGoal.count - (a.withGoal.count + a.withoutGoal.count));
+      return { outcomes, open, byStart, estimates: estimateRecord(all) };
     },
     thread_turn_summaries: ({ threadId }) => ({ turns: summariesOf(threadId) }),
     thread_turn_work: ({ threadId, turnId }) => turnWork(store.threadTimings(threadId), turnId),

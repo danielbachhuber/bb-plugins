@@ -6,6 +6,7 @@ import { contextRowOf, type ContextRow } from "./context.js";
 import { isEmpty, timingRowsOf } from "./timing.js";
 import { turnRequestOf, type TurnRequest } from "./forecast.js";
 import type { Store, ThreadInfo, UsageRow } from "./store.js";
+import { originOf } from "./goals.js";
 import type { OutlineItem, TurnEvent } from "./turns.js";
 
 export const TOKEN_USAGE_EVENT = "thread/tokenUsage/updated";
@@ -22,6 +23,8 @@ export interface ThreadLike {
   providerId: string;
   archivedAt?: number | null;
   deletedAt?: number | null;
+  originPluginId?: string | null;
+  parentThreadId?: string | null;
 }
 
 /** The fields of a token usage event row this module reads. */
@@ -76,6 +79,7 @@ export function threadInfoOf(thread: ThreadLike): ThreadInfo {
     projectId: thread.projectId,
     providerId: thread.providerId,
     archivedAt: thread.deletedAt ?? thread.archivedAt ?? null,
+    origin: originOf(thread),
   };
 }
 

@@ -2,7 +2,7 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 
-export { CONTEXT_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./channels.js";
+export { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./channels.js";
 
 /** The page's longest range is a week; allow a little over for clock skew. */
 export const MAX_WINDOW_MS = 9 * 24 * 3_600_000;
@@ -134,6 +134,44 @@ export const limitSchema = z.object({
 
 export type Limit = z.infer<typeof limitSchema>;
 
+const rangeSchema = z.object({ low: z.number(), high: z.number() }).nullable();
+const spentSchema = z.object({ turns: z.number(), tokens: z.number(), ms: z.number() });
+
+/** A thread's current goal, as the line under its title shows it. */
+export const goalViewSchema = z.object({
+  id: z.number(),
+  shape: z.enum(["task", "exploration", "project", "none"]),
+  text: z.string(),
+  stages: z.array(z.string()),
+  reached: z.number(),
+  pr: z.string().nullable(),
+  setBy: z.enum(["spawner", "agent", "you"]),
+  setAt: z.number(),
+  reason: z.string().nullable(),
+  outcome: z.enum(["met", "partly", "not"]).nullable(),
+  outcomeNote: z.string().nullable(),
+  estimate: z.object({ turns: rangeSchema, tokens: rangeSchema, minutes: rangeSchema }),
+  spent: spentSchema,
+  /** "1 of 3 · Finder built", "Exploring", "Met"; null for a thread with no goal to show. */
+  label: z.string().nullable(),
+  /** "~2–5 turns left", "past estimate", or null. */
+  left: z.string().nullable(),
+  /** How many times the goal was revised. */
+  revisions: z.number(),
+});
+
+const outcomeGroupSchema = z.object({
+  label: z.string(),
+  count: z.number(),
+  medianTurns: z.number().nullable(),
+  medianTokens: z.number().nullable(),
+  medianMinutes: z.number().nullable(),
+});
+const recordSchema = z.object({ inside: z.number(), of: z.number() });
+
+export type GoalViewData = z.infer<typeof goalViewSchema>;
+export type OutcomeGroup = z.infer<typeof outcomeGroupSchema>;
+
 export const rpcContract = defineRpcContract({
   /** Each subscription's limits from the latest reading, for the meters above the chart. */
   usage_limits: {
@@ -224,6 +262,29 @@ export const rpcContract = defineRpcContract({
   context_levels: {
     input: z.null(),
     output: z.object({ warning: z.number(), error: z.number() }),
+  },
+  /** The thread's current goal for the line under its title; null without one or with the setting off. */
+  thread_goal: {
+    input: z.object({ threadId: z.string().min(1).max(200) }),
+    output: z.object({ goal: goalViewSchema.nullable(), show: z.boolean() }),
+  },
+  /** The stage label of every active thread with a goal, for the sidebar rows. */
+  sidebar_goals: {
+    input: z.null(),
+    output: z.object({
+      show: z.boolean(),
+      goals: z.array(z.object({ threadId: z.string(), label: z.string(), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable() })),
+    }),
+  },
+  /** Outcomes since `since`: tokens and time per outcome, goal vs no goal by start, and how estimates held. */
+  goal_outcomes: {
+    input: z.object({ since: z.number().int().nonnegative() }),
+    output: z.object({
+      outcomes: z.array(z.object({ outcome: z.enum(["met", "partly", "not"]), count: z.number(), medianTokens: z.number().nullable(), medianMinutes: z.number().nullable() })),
+      open: z.number(),
+      byStart: z.array(z.object({ origin: z.string(), withGoal: outcomeGroupSchema, withoutGoal: outcomeGroupSchema })),
+      estimates: z.object({ turns: recordSchema, tokens: recordSchema, minutes: recordSchema }),
+    }),
   },
   /** Asks bb to compact the thread, which runs /compact as a turn. Only an idle or errored thread can. */
   compact_thread: {

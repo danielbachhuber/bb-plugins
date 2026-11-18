@@ -1,6 +1,6 @@
 # Tokenomics
 
-See what your threads cost in tokens and time, how each turn compared with Claude's forecast, and whether your limits will last.
+See what your threads cost in tokens and time, each thread's goal and its progress, how turns compared with forecasts, and if limits last.
 
 ![The bb window with Tokenomics' title bar button open: the current session 52% of about 300M tokens and on pace to run out at 3:56 PM, 1h 54m before it resets, and the past day's tokens per hour running on to the reset with hatched bars. Below it, a thread with a sparkline and 28M tokens in its header, and a red meter above its composer reading 620K context with a Compact button](screenshots/page--window-with-limits.png)
 
@@ -39,6 +39,31 @@ when under, and the strip above the composer counts calls against the range
 while the turn runs, turning amber once it passes. The turn's card names its
 model, fast mode, and reasoning level. Each forecast prints Claude's recent
 record for turns with the same settings, so its next range can move.
+
+### Each thread's goal
+
+![A thread header with its title, and under it a goal line: a target icon, "Export a widget list to CSV from the toolbar", "1 of 3 · Export built", and "~1–6 turns left"](screenshots/goals--goal-line-in-header.png)
+
+Each thread records one goal: what the whole thread is for, not its next
+step. In its first turn Claude records it with `bb tokenomics goal set`, from
+the brief a plugin or another thread wrote, or from your first prompt, and
+says so in one line instead of asking. A task gets 1 to 4 stages, 5 at most,
+each an end state such as "Tests pass" rather than a step; an exploration
+gets the question it answers; a conversation can have no goal.
+
+The goal, its stage, and the turns left show on a line under the thread's
+title, and a mark such as "1/3" or a check sits beside the thread's title in
+the sidebar. Rest on the line for the stages and what the goal has used
+against Claude's estimate of its turns, tokens, and minutes. When setting a
+goal, Claude sees how past threads that started the same way went, from a
+plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
+change a goal: it proposes the new goal and why above the composer, and keeps
+the old one, and what it used, in the thread's history. When the work is
+done, Claude closes the goal as met, partly met, or not met.
+
+The line under the title and the sidebar mark go into bb's own markup, since
+bb has no slot for either. If bb changes that markup they stop appearing, and
+nothing else breaks.
 
 ### A context meter above the composer
 
@@ -83,7 +108,10 @@ resets". Switch between **Past day**, **Past 3 days**, and **Past week** to
 chart tokens split into new input, cache reads, and output. **Where turn time
 goes** splits turns into the model's time, tools, and waiting on you, and
 names the slowest shell commands. The thread list ranks threads by tokens,
-with each one's context size and a dot per turn for its length.
+with each one's context size and a dot per turn for its length. **Goals**
+shows the past 30 days: how many goals were met, partly met, and not met and
+what each took, how often goal estimates held, and archived threads with a
+goal against without, by how they started.
 
 ## For agents
 
@@ -95,7 +123,15 @@ bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--act
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
 bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]                # record this turn's forecast
 bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
+bb tokenomics goal set "GOAL" --stage "END STATE" ... [--turns 3-8 --tokens 5M-20M --minutes 20-60]  # record this thread's goal
+bb tokenomics goal stage next|N                                                                # mark stages done
+bb tokenomics goal estimate [--turns ...] [--tokens ...] [--minutes ...]                         # replace the estimate
+bb tokenomics goal close met|partly|not [--note TEXT]                                            # record how it ended
+bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
 ```
+
+The plugin ships the `tokenomics-set-goal` skill, which drafts a new goal,
+asks above the composer, and records it with `--reason`.
 
 The [self-improve-bb](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve-bb)
 Claude Code skill uses `bb tokenomics threads` to pick which of the past
@@ -108,6 +144,9 @@ week's threads to review.
 | `contextWarningAt` | `300K` | Shows the context meter in amber once a thread's context passes this many tokens. Empty turns it off. |
 | `forecastTurns` | on | Adds about 200 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
+| `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
+| `goalLine` | on | Shows the goal line under the title of a thread with a goal. Off removes it from open threads right away. |
+| `goalSidebar` | on | Shows the goal mark beside sidebar rows. Off removes them right away. |
 
 ## Requirements
 
@@ -117,6 +156,11 @@ outside service.
 
 - Tokenomics counts tokens, not dollars.
 - It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
+- It keeps each goal, and each earlier goal a revision replaced, with what it
+  used, a few hundred bytes each, and deletes them when bb deletes the
+  thread. The line under the title reads one goal from the plugin's database
+  when the thread opens and after each turn; the sidebar reads every active
+  thread's goal in one request after each recorded usage. Neither asks bb.
 - bb deletes a thread's older usage events, so Tokenomics keeps its own copy,
   starting when you install it.
 - Claude Code subagents report no usage to bb, so Tokenomics reads their
@@ -131,7 +175,7 @@ outside service.
 
 ## Related plugins
 
-_As of November 4, 2026_
+_As of November 18, 2026_
 
 - **[Burn](https://getbb.app/marketplace/burn)** (`burn`): shows what each thread costs in dollars, per prompt and
   across threads, with budgets. Tokenomics counts tokens rather than dollars,
@@ -161,6 +205,19 @@ _As of November 4, 2026_
   (`context-katamari`): show how full one thread's context is. **[Context
   Health](https://getbb.app/marketplace/context-health)** (`context-health`) shows what makes it up. Tokenomics shows each
   thread's context size beside its token use over time, across all threads.
+
+- **[UltraGoal](https://getbb.app/marketplace/ultragoal)** (`ultragoal`) and **[Loom](https://getbb.app/marketplace/loom)** (`loom`): take a goal
+  and run it across workers, with plans, tickets, and verifiers. Tokenomics
+  only records each thread's goal, shows its stage, and counts what it cost.
+- **[Plan Progress](https://getbb.app/marketplace/plan-progress)** (`plan-progress`): follows the agent's plan above the
+  message box, step by step. Tokenomics shows the goal and its stage, at
+  most five end states, never the step list.
+- **[Radar Sidebar](https://getbb.app/marketplace/radar-sidebar)** (`radar-sidebar`): replaces the sidebar, groups
+  threads by activity, and previews goals on hover. Tokenomics leaves bb's
+  sidebar in place and adds a mark beside each row.
+- bb's own thread goal, for Codex threads, keeps an objective and a token
+  budget per thread. Tokenomics records goals for any provider, with stages,
+  an estimate, and an outcome.
 
 ## Develop
 
