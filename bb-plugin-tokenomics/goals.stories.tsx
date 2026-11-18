@@ -105,6 +105,13 @@ const REVIEWING: GoalViewData = {
   left: "~2–6 turns left",
 };
 
+const SWEEP: GoalViewData = {
+  ...OVER,
+  text: "acme/widgets#42 has nothing left from what the sweep found",
+  entries: [{ label: "Every review comment answered, with the fixes pushed and the threads resolved", state: "todo" }],
+  label: "0 of 1",
+};
+
 // Low detail: the findings grouped by severity, each group with a count.
 const GROUPED: GoalViewData = {
   ...REVIEWING,
@@ -126,7 +133,7 @@ function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: 
   );
 }
 
-/** The goal at the top of the summary: a review's twelve findings at high detail, the same review grouped with counts at low detail, waiting on you past its estimate, an exploration, and once met. */
+/** The goal at the top of the summary: a review's twelve findings at high detail, the same review grouped with counts at low detail, waiting on you past its estimate, one long entry wrapping, an exploration, and once met. */
 export const CompactGoalStates = () => (
   <StoryCard>
     <StoryRow label="high detail" hint="each finding its own entry, as the donut's segments">
@@ -137,6 +144,9 @@ export const CompactGoalStates = () => (
     </StoryRow>
     <StoryRow label="past its estimate" hint="waiting on you; the turns left turn amber">
       <SummaryTop goal={OVER} activity="waiting" />
+    </StoryRow>
+    <StoryRow label="one long entry" hint="ten or fewer entries wrap, one per line">
+      <SummaryTop goal={SWEEP} activity="waiting" />
     </StoryRow>
     <StoryRow label="an exploration" hint="answer recommended, waiting on your call">
       <SummaryTop goal={EXPLORING} />

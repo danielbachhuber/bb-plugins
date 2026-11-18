@@ -242,18 +242,29 @@ export function CompactGoal({
   );
 }
 
-/** Entries as a two-column grid of squares and names, or one column with counts when any entry has one. */
+/** Lists this long or shorter show one entry per line, wrapping, rather than two truncated columns. */
+const WRAP_UP_TO = 10;
+
+/**
+ * Entries with a square and name each: one per line, the names wrapping, for
+ * ten or fewer; past that, two columns of truncated names, or one column when
+ * an entry has a count to show at the right.
+ */
 function EntryGrid({ entries }: { entries: BandEntry[] }) {
   if (entries.length === 0) return null;
-  const counted = entries.some((entry) => entry.count !== undefined);
+  const wrap = entries.length <= WRAP_UP_TO;
+  const oneColumn = wrap || entries.some((entry) => entry.count !== undefined);
   return (
-    <ol className={cn("max-h-48 gap-x-3 gap-y-1 overflow-y-auto", counted ? "flex flex-col" : "grid grid-cols-2")}>
+    <ol className={cn("max-h-48 gap-x-3 gap-y-1 overflow-y-auto", oneColumn ? "flex flex-col" : "grid grid-cols-2")}>
       {entries.map((entry, index) => (
-        <li key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 items-center gap-1.5">
-          <EntrySquare state={entry.state} />
+        <li key={`${index}-${entry.label}`} title={wrap ? undefined : entry.label} className={cn("flex min-w-0 gap-1.5", wrap ? "items-start" : "items-center")}>
+          {/* Level with the first line of a wrapped name. */}
+          <span className={cn("flex shrink-0", wrap && "h-4 items-center")}>
+            <EntrySquare state={entry.state} />
+          </span>
           <span
             className={cn(
-              "truncate",
+              wrap ? "min-w-0" : "truncate",
               entry.state === "current" ? "text-foreground" : "text-muted-foreground",
               entry.state === "dropped" && "line-through opacity-70",
             )}
