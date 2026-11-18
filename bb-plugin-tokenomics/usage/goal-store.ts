@@ -104,7 +104,8 @@ export function createGoalStore(db: Database) {
     `UPDATE goals SET turns_low = ?, turns_high = ?, tokens_low = ?, tokens_high = ?, minutes_low = ?, minutes_high = ? WHERE id = ?`,
   );
   const updateOutcome = db.prepare(
-    `UPDATE goals SET outcome = ?, outcome_note = ?, closed_at = ?, spent_turns = ?, spent_tokens = ?, spent_ms = ? WHERE id = ?`,
+    `UPDATE goals SET outcome = ?, outcome_note = ?, closed_at = ?, spent_turns = ?, spent_tokens = ?, spent_ms = ?,
+       reached = CASE WHEN ? = 'met' THEN json_array_length(stages) ELSE reached END WHERE id = ?`,
   );
   const updateReopen = db.prepare(
     `UPDATE goals SET outcome = NULL, outcome_note = NULL, closed_at = NULL, spent_turns = NULL, spent_tokens = NULL,
@@ -115,15 +116,7 @@ export function createGoalStore(db: Database) {
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
   );
   const selectOrigin = db.prepare(`SELECT origin FROM threads WHERE thread_id = ?`);
-  // The turn running at a moment: when it ended, or null while it runs.
-  const selectTurnAround = db.prepare(
-    `SELECT completed_at AS completedAt FROM turn_times WHERE thread_id = ? AND started_at <= ?
-     ORDER BY started_at DESC LIMIT 1`,
-  );
   const updateSpent = db.prepare(`UPDATE goals SET spent_turns = ?, spent_tokens = ?, spent_ms = ? WHERE id = ?`);
-  const selectClosedSince = db.prepare(
-    `SELECT * FROM goals WHERE thread_id = ? AND closed_at IS NOT NULL AND closed_at >= ?`,
-  );
   const selectSpentTokens = db.prepare(
     `SELECT coalesce(sum(input + cache_read + output), 0) AS total FROM (
        SELECT input, cache_read, output FROM usage WHERE thread_id = ? AND created_at >= ? AND created_at < ?
@@ -197,42 +190,28 @@ export function createGoalStore(db: Database) {
     },
 
     /**
-     * What a goal has used: up to when it was replaced, through the end of
-     * the turn it was closed in, or up to now while it is open. bb records a
-     * turn's usage when the turn ends, so a goal closed mid-turn counts that
-     * whole turn once it finishes.
+     * What a goal has used: up to when a later goal replaced it, or up to now.
+     * A closed goal keeps counting, because work after the close, such as
+     * acting on feedback, is still about it until another goal is set.
      */
     spentOn(goal: Goal, now: number): Spent {
       if (goal.replacedAt !== null && goal.spentAtEnd !== null) return goal.spentAtEnd;
-      if (goal.closedAt !== null) return this.spent(goal.threadId, goal.anchorAt, (this.closedTurnEnd(goal) ?? now) + 1);
       return this.spent(goal.threadId, goal.anchorAt, now + 1);
     },
 
-    /** When the turn a goal was closed in ended; null while it runs. */
-    closedTurnEnd(goal: Goal): number | null {
-      if (goal.closedAt === null) return null;
-      const row = selectTurnAround.get(goal.threadId, goal.closedAt) as { completedAt: number | null } | undefined;
-      return row?.completedAt != null && row.completedAt >= goal.closedAt ? row.completedAt : null;
-    },
-
     /**
-     * Saves again what goals closed in the past day used, once the turn each
-     * closed in has ended, so history and the outcomes view count that turn.
-     * Returns how many changed.
+     * Saves again what the thread's closed, current goal has used, so history
+     * and the outcomes view count the turns since it closed. Returns how many
+     * changed.
      */
     refreshClosed(threadId: string, now: number): number {
-      let changed = 0;
-      for (const goal of (selectClosedSince.all(threadId, now - 86_400_000) as GoalRow[]).map(goalOf)) {
-        if (goal.replacedAt !== null) continue;
-        const end = this.closedTurnEnd(goal);
-        if (end === null) continue;
-        const spent = this.spent(threadId, goal.anchorAt, end + 1);
-        const saved = goal.spentAtEnd;
-        if (saved !== null && saved.turns === spent.turns && saved.tokens === spent.tokens && saved.ms === spent.ms) continue;
-        updateSpent.run(spent.turns, spent.tokens, spent.ms, goal.id);
-        changed += 1;
-      }
-      return changed;
+      const goal = this.current(threadId);
+      if (goal === null || goal.closedAt === null) return 0;
+      const spent = this.spent(threadId, goal.anchorAt, now + 1);
+      const saved = goal.spentAtEnd;
+      if (saved !== null && saved.turns === spent.turns && saved.tokens === spent.tokens && saved.ms === spent.ms) return 0;
+      updateSpent.run(spent.turns, spent.tokens, spent.ms, goal.id);
+      return 1;
     },
 
     /** Adds a goal. A current goal, closed or not, becomes an earlier one. */
@@ -275,7 +254,8 @@ export function createGoalStore(db: Database) {
     },
 
     close(goalId: number, outcome: Outcome, note: string | null, at: number, spent: Spent): void {
-      updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, goalId);
+      // A met goal has every stage true, whether or not each was marked.
+      updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, outcome, goalId);
     },
 
     /** Opens a closed goal again, with `stages` as its stages from now on. */

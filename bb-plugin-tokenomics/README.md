@@ -62,7 +62,9 @@ change a goal: it proposes the new goal and why above the composer, and keeps
 the old one, and what it used, in the thread's history. When the work is
 done, Claude closes the goal as met, partly met, or not met. Work you review,
 such as a design, ends with your acceptance as its last stage, and feedback
-that arrives after the goal closed reopens it.
+that arrives after the goal closed reopens it. A closed goal keeps counting the
+thread's turns until another goal replaces it, so follow-up work after the
+close counts toward the outcome.
 
 The band and the sidebar mark go into bb's own markup, since bb has no slot
 for either. If bb changes that markup they stop appearing, and

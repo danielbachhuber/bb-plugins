@@ -227,8 +227,8 @@ describe("goal CLI", () => {
   });
 });
 
-describe("a goal closed mid-turn", () => {
-  it("counts the turn it closed in once that turn ends", async () => {
+describe("a closed goal", () => {
+  it("keeps counting the thread's turns after it closed", async () => {
     const { db, deps, goals, advance } = setup();
     db.prepare(`INSERT INTO turn_times (thread_id, turn_id, started_at, completed_at) VALUES ('thr_a', 't1', 9000, NULL)`).run();
     await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--turns", "1-2"]);
@@ -258,5 +258,23 @@ describe("goal reopen", () => {
     expect(goal.outcome).toBeNull();
     expect(goal.stages).toEqual(["Built", "Verified", "Refined on your feedback"]);
     expect((await goalCli(deps, "thr_a", ["reopen"])).exitCode).toBe(1);
+  });
+});
+
+describe("closing a goal as met", () => {
+  it("marks every stage done", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Bullet added", "--stage", "Change approved", "--stage", "Committed and pushed"]);
+    await goalCli(deps, "thr_a", ["stage", "1"]);
+    await goalCli(deps, "thr_a", ["close", "met"]);
+    expect(goals.current("thr_a")!.reached).toBe(2);
+  });
+
+  it("leaves the stages as they were when partly met", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Bullet added", "--stage", "Change approved", "--stage", "Committed and pushed"]);
+    await goalCli(deps, "thr_a", ["stage", "1"]);
+    await goalCli(deps, "thr_a", ["close", "partly"]);
+    expect(goals.current("thr_a")!.reached).toBe(1);
   });
 });
