@@ -66,10 +66,13 @@ export const SLOT_ATTRIBUTE = "data-tokenomics-goal-slot";
  * stays in the page so its label can still be read. bb's hover buttons are
  * anchored to the box's right edge, so they then appear just left of the
  * donut, and the title gives up DONUT_WIDTH_PX more on hover to make room.
+ * A row with child threads keeps that room at all times, as bb does for it,
+ * so its collapse chevron stays clear of the buttons.
  */
 export const SIDEBAR_SLOT_CSS = `[${SLOT_ATTRIBUTE}] { width: 0 !important; }
 [${SLOT_ATTRIBUTE}] > .bb-sidebar-hover-actions-fade { display: none !important; }
-.bb-sidebar-hover-actions-row:has([${ROW_HOST_ATTRIBUTE}]):is(:hover, :focus-within, :has([data-sidebar-hover-actions-open])) .bb-sidebar-hover-actions-inset { padding-right: calc(var(--bb-sidebar-hover-actions-inset, 0px) + ${DONUT_WIDTH_PX}px) !important; }`;
+.bb-sidebar-hover-actions-row:has([${ROW_HOST_ATTRIBUTE}]):is(:hover, :focus-within, :has([data-sidebar-hover-actions-open])) .bb-sidebar-hover-actions-inset,
+.bb-sidebar-hover-actions-row:has([${ROW_HOST_ATTRIBUTE}]) > span:has(> a[data-sidebar-thread-id]):not(.bb-sidebar-hover-actions-inset) { padding-right: calc(var(--bb-sidebar-hover-actions-inset, 0px) + ${DONUT_WIDTH_PX}px) !important; }`;
 
 export interface RowPlacement {
   hosts: Map<string, HTMLElement>;
