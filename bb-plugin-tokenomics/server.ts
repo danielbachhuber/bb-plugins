@@ -140,6 +140,8 @@ export default async function plugin(bb: BbPluginApi) {
     onContext: (threadId) => bb.realtime.publish(CONTEXT_CHANNEL, { threadIds: [threadId] }),
     onTimings: (threadId) => {
       if (!backfilling) bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
+      // A goal closed mid-turn counts that turn once it ends.
+      if (goals.refreshClosed(threadId, Date.now()) > 0) bb.realtime.publish(GOALS_CHANNEL, { threadIds: [threadId] });
     },
     onError: warn,
   });

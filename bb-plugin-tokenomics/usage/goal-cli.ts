@@ -270,7 +270,7 @@ function close(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
     .map((key) => `${key} ${result[key] ? "inside" : "outside"}`);
   return {
     exitCode: 0,
-    stdout: `Closed: ${OUTCOME_LABELS[outcome]}. Used ${formatSpent(spent)}.${marks.length > 0 ? ` Estimate: ${marks.join(", ")}.` : ""}`,
+    stdout: `Closed: ${OUTCOME_LABELS[outcome]}. Used ${formatSpent(spent)} before this turn's usage, which Tokenomics adds when the turn ends.${marks.length > 0 ? ` Estimate so far: ${marks.join(", ")}.` : ""}`,
   };
 }
 

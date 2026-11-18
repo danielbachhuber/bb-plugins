@@ -226,3 +226,21 @@ describe("goal CLI", () => {
     expect(goals.current("thr_a")).toBeNull();
   });
 });
+
+describe("a goal closed mid-turn", () => {
+  it("counts the turn it closed in once that turn ends", async () => {
+    const { db, deps, goals, advance } = setup();
+    db.prepare(`INSERT INTO turn_times (thread_id, turn_id, started_at, completed_at) VALUES ('thr_a', 't1', 9000, NULL)`).run();
+    await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--turns", "1-2"]);
+    advance(1_000);
+    await goalCli(deps, "thr_a", ["close", "met"]);
+    expect(goals.current("thr_a")!.spentAtEnd!.tokens).toBe(0);
+
+    // The turn ends, and bb records its usage.
+    db.prepare(`UPDATE turn_times SET completed_at = 12000 WHERE turn_id = 't1'`).run();
+    db.prepare(`INSERT INTO usage (event_id, thread_id, created_at, input, cache_read, output, running_total) VALUES ('e1', 'thr_a', 11900, 3000000, 0, 0, 0)`).run();
+    expect(goals.refreshClosed("thr_a", 12_000)).toBe(1);
+    expect(goals.current("thr_a")!.spentAtEnd).toEqual({ turns: 1, tokens: 3_000_000, ms: 3_000 });
+    expect(goals.refreshClosed("thr_a", 12_000)).toBe(0);
+  });
+});

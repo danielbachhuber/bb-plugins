@@ -111,6 +111,15 @@ export function createGoalStore(db: Database) {
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
   );
   const selectOrigin = db.prepare(`SELECT origin FROM threads WHERE thread_id = ?`);
+  // The turn running at a moment: when it ended, or null while it runs.
+  const selectTurnAround = db.prepare(
+    `SELECT completed_at AS completedAt FROM turn_times WHERE thread_id = ? AND started_at <= ?
+     ORDER BY started_at DESC LIMIT 1`,
+  );
+  const updateSpent = db.prepare(`UPDATE goals SET spent_turns = ?, spent_tokens = ?, spent_ms = ? WHERE id = ?`);
+  const selectClosedSince = db.prepare(
+    `SELECT * FROM goals WHERE thread_id = ? AND closed_at IS NOT NULL AND closed_at >= ?`,
+  );
   const selectSpentTokens = db.prepare(
     `SELECT coalesce(sum(input + cache_read + output), 0) AS total FROM (
        SELECT input, cache_read, output FROM usage WHERE thread_id = ? AND created_at >= ? AND created_at < ?
@@ -183,10 +192,43 @@ export function createGoalStore(db: Database) {
       return { turns: turns.turns, tokens, ms: turns.ms };
     },
 
-    /** What a goal has used: up to when it ended, or now. */
+    /**
+     * What a goal has used: up to when it was replaced, through the end of
+     * the turn it was closed in, or up to now while it is open. bb records a
+     * turn's usage when the turn ends, so a goal closed mid-turn counts that
+     * whole turn once it finishes.
+     */
     spentOn(goal: Goal, now: number): Spent {
-      if (goal.spentAtEnd !== null) return goal.spentAtEnd;
+      if (goal.replacedAt !== null && goal.spentAtEnd !== null) return goal.spentAtEnd;
+      if (goal.closedAt !== null) return this.spent(goal.threadId, goal.anchorAt, (this.closedTurnEnd(goal) ?? now) + 1);
       return this.spent(goal.threadId, goal.anchorAt, now + 1);
+    },
+
+    /** When the turn a goal was closed in ended; null while it runs. */
+    closedTurnEnd(goal: Goal): number | null {
+      if (goal.closedAt === null) return null;
+      const row = selectTurnAround.get(goal.threadId, goal.closedAt) as { completedAt: number | null } | undefined;
+      return row?.completedAt != null && row.completedAt >= goal.closedAt ? row.completedAt : null;
+    },
+
+    /**
+     * Saves again what goals closed in the past day used, once the turn each
+     * closed in has ended, so history and the outcomes view count that turn.
+     * Returns how many changed.
+     */
+    refreshClosed(threadId: string, now: number): number {
+      let changed = 0;
+      for (const goal of (selectClosedSince.all(threadId, now - 86_400_000) as GoalRow[]).map(goalOf)) {
+        if (goal.replacedAt !== null) continue;
+        const end = this.closedTurnEnd(goal);
+        if (end === null) continue;
+        const spent = this.spent(threadId, goal.anchorAt, end + 1);
+        const saved = goal.spentAtEnd;
+        if (saved !== null && saved.turns === spent.turns && saved.tokens === spent.tokens && saved.ms === spent.ms) continue;
+        updateSpent.run(spent.turns, spent.tokens, spent.ms, goal.id);
+        changed += 1;
+      }
+      return changed;
     },
 
     /** Adds a goal. A current goal, closed or not, becomes an earlier one. */
