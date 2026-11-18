@@ -201,7 +201,19 @@ function usedLine(goal: GoalViewData): string {
  * for each stage, or each item when the goal has a list longer than its
  * stages, and what it has used against its estimate.
  */
-export function CompactGoal({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
+export function CompactGoal({
+  goal,
+  activity = null,
+  heading = true,
+  usage = true,
+}: {
+  goal: GoalViewData;
+  activity?: DonutActivity;
+  /** The "Goal · 2 of 4" line, left out where a label already says it. */
+  heading?: boolean;
+  /** The line of what the goal used, left out where meters show it. */
+  usage?: boolean;
+}) {
   if (goal.label === null) return null;
   const entries: BandEntry[] = goal.items.length > 0 ? goal.items : stageEntries(goal);
   const progress =
@@ -215,10 +227,8 @@ export function CompactGoal({ goal, activity = null }: { goal: GoalViewData; act
   const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
   return (
     <div data-tokenomics-goal="" className="flex flex-col gap-2 text-xs">
-      <span className="flex items-baseline justify-between gap-3 text-muted-foreground">
-        <span>
-          {SHAPE_LABEL[goal.shape]} · {progress}
-        </span>
+      <span className={cn("flex items-baseline justify-between gap-3 text-muted-foreground", !heading && !note && "hidden")}>
+        <span>{heading ? `${SHAPE_LABEL[goal.shape]} · ${progress}` : null}</span>
         {note ? (
           <span className={cn(activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : undefined)}>{note}</span>
         ) : null}
@@ -243,7 +253,7 @@ export function CompactGoal({ goal, activity = null }: { goal: GoalViewData; act
           ))}
         </ol>
       )}
-      <span className="text-muted-foreground">
+      <span className={cn("text-muted-foreground", !usage && "hidden")}>
         {usedLine(goal)}
         {goal.left === null ? null : (
           <span className={cn(goal.left === "past estimate" && "text-amber-600 dark:text-amber-400")}> · {goal.left}</span>
