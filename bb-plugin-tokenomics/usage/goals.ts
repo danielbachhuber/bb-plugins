@@ -305,6 +305,9 @@ export const GOAL_INSTRUCTIONS = [
   "  never a step (\"Fix the test\"). An exploration (--shape exploration) states the question to answer",
   "  or the decision to make, with no stages. A project (--shape project) states its purpose. A",
   "  conversation with nothing to finish gets --none.",
+  "- The last stage is what ends the thread, such as \"PR open with checks passing\" or \"Merged\", never",
+  "  a step on the way, such as \"PR description drafted\". When work goes on after every stage is true,",
+  "  add the stage that ends it: `bb tokenomics goal add-stage \"PR open with checks passing\"`.",
   "- When the user will look at what you make, such as a design, a UI, or a draft, the last stage is",
   "  their acceptance (\"Refined on your feedback\"), not \"Built\". Their review is part of the work.",
   "- Add an 80% estimate of the whole goal: --turns 3-8 --tokens 5M-20M --minutes 20-90. The command",
@@ -316,7 +319,9 @@ export const GOAL_INSTRUCTIONS = [
   "  work the user reviews, only once they've accepted it. When feedback arrives after you closed it, run",
   "  `bb tokenomics goal reopen --stage \"Refined on your feedback\"` and keep going. Don't",
   "change the goal yourself: when the user's requests move past it, say so in one line and suggest",
-  "/tokenomics-set-goal. `bb tokenomics goal show` prints the goal, what it has used, and the estimate.",
+  "/tokenomics-set-goal. When you write the prompt for a thread you start, end it with a `Goal:` line and",
+  "a `Done is:` list under the same rules, so that thread records it. `bb tokenomics goal show` prints",
+  "the goal, what it has used, and the estimate.",
 ].join("\n");
 
 /** Medians for the outcomes view: one group of threads. */

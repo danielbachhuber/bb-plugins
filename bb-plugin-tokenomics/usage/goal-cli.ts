@@ -57,6 +57,8 @@ export const GOAL_USAGE = [
   "  Replaces the goal's estimate.",
   "bb tokenomics goal close met|partly|not [--note TEXT]",
   "  Records how the goal ended, with what it used.",
+  'bb tokenomics goal add-stage "END STATE"',
+  "  Adds a stage at the end of an open goal, for work that goes on after every stage is true.",
   'bb tokenomics goal reopen [--stage "END STATE"] ...',
   "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any stages.",
   "bb tokenomics goal show [--json]",
@@ -229,7 +231,10 @@ function stage(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   deps.goals.setReached(goal.id, reached);
   deps.changed(threadId);
   const label = stageLabel({ ...goal, reached }) ?? "";
-  const done = reached === goal.stages.length ? " Every stage is done; close the goal with bb tokenomics goal close met when its work is finished." : "";
+  const done =
+    reached === goal.stages.length
+      ? ' Every stage is done. Close the goal with bb tokenomics goal close met once the thread\'s work is finished, or add the stage that ends it with bb tokenomics goal add-stage "END STATE".'
+      : "";
   return { exitCode: 0, stdout: `Stage: ${label}.${done}` };
 }
 
@@ -276,6 +281,19 @@ function close(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   };
 }
 
+function addStage(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
+  const found = openGoal(deps, threadId);
+  if ("exitCode" in found) return found;
+  if (found.outcome !== null) return { exitCode: 1, stderr: 'The goal is closed. Use bb tokenomics goal reopen --stage "END STATE".' };
+  const stage = parseArgs(argv).positionals.join(" ");
+  const checked = checkStages(found.shape, [...found.stages, stage]);
+  if ("error" in checked) return { exitCode: 1, stderr: checked.error };
+  if (checked.stages.length === found.stages.length) return { exitCode: 1, stderr: 'Give the stage in quotes: bb tokenomics goal add-stage "PR open with checks passing".' };
+  deps.goals.setStages(found.id, checked.stages);
+  deps.changed(threadId);
+  return { exitCode: 0, stdout: `Stage: ${stageLabel({ ...found, stages: checked.stages }) ?? ""}. Next: ${checked.stages[found.reached] ?? "close the goal"}.` };
+}
+
 function reopen(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
   const goal = deps.goals.current(threadId);
   if (goal === null || goal.shape === "none") return { exitCode: 1, stderr: "This thread has no goal to reopen." };
@@ -309,6 +327,7 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "estimate") return estimate(deps, threadId, rest);
   if (sub === "close") return close(deps, threadId, rest);
   if (sub === "reopen") return reopen(deps, threadId, rest);
+  if (sub === "add-stage") return addStage(deps, threadId, rest);
   if (sub === "show") return await show(deps, threadId, rest);
   return { exitCode: 1, stderr: `Unknown goal command "${sub}".\n\n${GOAL_USAGE}` };
 }

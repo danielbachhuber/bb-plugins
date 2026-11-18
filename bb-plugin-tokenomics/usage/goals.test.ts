@@ -278,3 +278,16 @@ describe("closing a goal as met", () => {
     expect(goals.current("thr_a")!.reached).toBe(1);
   });
 });
+
+describe("goal add-stage", () => {
+  it("adds the stage that really ends the thread to an open goal", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Repositories scoped", "--stage", "Refactor done", "--stage", "PR description drafted"]);
+    await goalCli(deps, "thr_a", ["stage", "2"]);
+    expect((await goalCli(deps, "thr_a", ["add-stage", "PR open with checks passing"])).stdout).toBe(
+      "Stage: 2 of 3 · PR description drafted. Next: PR open with checks passing.",
+    );
+    expect(goals.current("thr_a")!.stages).toHaveLength(3);
+    expect((await goalCli(deps, "thr_a", ["add-stage"])).exitCode).toBe(1);
+  });
+});
