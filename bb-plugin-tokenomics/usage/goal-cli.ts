@@ -55,7 +55,7 @@ export const GOAL_USAGE = [
   "    [--reason TEXT]",
   "  Records this thread's goal: up to 5 stages, each an end state, and an 80% estimate of the whole",
   "  goal. Prints how past threads that started the same way went. A thread with an open goal needs",
-  "  --reason to replace it; /tokenomics-set-goal does that.",
+  "  --reason to replace it, or use goal refine; /tokenomics-set-goal does that.",
   "bb tokenomics goal stage next|N",
   "  Marks the next stage, or the first N stages, as done.",
   "bb tokenomics goal estimate [--turns LOW-HIGH] [--tokens LOW-HIGH] [--minutes LOW-HIGH]",
@@ -68,7 +68,7 @@ export const GOAL_USAGE = [
   '    --reason TEXT',
   "  Rewrites the open goal to match what the thread is doing, keeping its items, and keeps the old one in",
   "  the history. Leave out what doesn't change. --reached says how many of the new stages are already",
-  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-refine-goal does this.",
+  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-set-goal does this.",
   'bb tokenomics goal item add "ITEM" ...',
   "  Adds items to the goal: a list longer than its stages, such as a review's findings.",
   "bb tokenomics goal item start|done|drop|todo N ...",
@@ -184,7 +184,7 @@ async function set(deps: GoalDeps, threadId: string, argv: readonly string[]): P
   if (open && reason === null) {
     return {
       exitCode: 1,
-      stderr: `This thread already has a goal: "${current.text}". Leave it, or revise it through /tokenomics-set-goal, which passes --reason.`,
+      stderr: `This thread already has a goal: "${current.text}". Leave it, update it with bb tokenomics goal refine --reason, or run /tokenomics-set-goal.`,
     };
   }
   const origin = await deps.originOf(threadId);

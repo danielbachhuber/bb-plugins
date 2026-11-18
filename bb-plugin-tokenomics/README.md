@@ -71,10 +71,11 @@ header donut and the cards say the same. An exploration's stages are fixed:
 the agent's recommended answer, then your decision. Rest on a sidebar donut
 for the goal's card. When setting a
 goal, Claude sees how past threads that started the same way went, from a
-plugin's button, another thread, or neither. Run `/tokenomics-refine-goal`
-to bring the goal and its stages up to date with what the thread is doing,
-keeping its progress, or `/tokenomics-set-goal` to replace a goal: it proposes the new goal and why above the composer, and keeps
-the old one, and what it used, in the thread's history. When the work is
+plugin's button, another thread, or neither. Run `/tokenomics-set-goal`, with a goal
+after it or not, to set or update the goal: it uses the goal you give or
+drafts one from the thread's work, records it without asking, keeps the
+progress of stages that carry over, and keeps the old goal, and what it used,
+in the thread's history. When the work is
 done, Claude closes the goal as met, partly met, or not met. Work you review,
 such as a design, ends with your acceptance as its last stage, and feedback
 that arrives after the goal closed reopens it. A closed goal keeps counting the
@@ -153,10 +154,9 @@ bb tokenomics goal reopen [--stage "END STATE"] ...                             
 bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
 ```
 
-The plugin ships two skills. `tokenomics-set-goal` drafts a new goal, asks
-above the composer, and records it with `--reason`. `tokenomics-refine-goal`
-rewrites the open goal and its stages to match the thread's work without
-asking, keeping its progress and items, and says in one line what changed.
+The plugin ships the `tokenomics-set-goal` skill, which uses the goal you give
+it or drafts one from the thread, records it with `goal set` or `goal refine`
+without asking, and says in one line what the goal is now.
 
 The [self-improve-bb](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve-bb)
 Claude Code skill uses `bb tokenomics threads` to pick which of the past
