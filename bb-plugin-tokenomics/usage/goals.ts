@@ -36,6 +36,43 @@ export interface GoalEstimate {
 
 export const NO_ESTIMATE: GoalEstimate = { turns: null, tokens: null, minutes: null };
 
+/**
+ * A goal's items: the things it works through when there are more than its
+ * stages can hold, such as a review's findings, each ending as done or
+ * dropped. Unlike stages they have no limit and no order of completion.
+ */
+export const ITEM_STATES = ["todo", "current", "done", "dropped"] as const;
+export type ItemState = (typeof ITEM_STATES)[number];
+export interface GoalItem {
+  label: string;
+  state: ItemState;
+}
+/** Items past this are refused; a list that long belongs in an issue tracker. */
+export const MAX_ITEMS = 40;
+export const MAX_ITEM_LENGTH = 100;
+
+/** Reads the items column; a malformed value reads as none. */
+export function parseItems(text: string | null): GoalItem[] {
+  if (text === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is GoalItem =>
+        typeof item === "object" && item !== null && typeof item.label === "string" && ITEM_STATES.includes(item.state),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** "6 of 12": the items finished, done or dropped, of all of them. */
+export function itemsLabel(items: readonly GoalItem[]): string | null {
+  if (items.length === 0) return null;
+  const finished = items.filter((item) => item.state === "done" || item.state === "dropped").length;
+  return `${finished} of ${items.length}`;
+}
+
 /** What a goal has used: turns started, tokens (subagents included), and time worked. */
 export interface Spent {
   turns: number;
@@ -54,6 +91,7 @@ export interface Goal {
   stages: string[];
   /** How many stages are done, in order. */
   reached: number;
+  items: GoalItem[];
   pr: string | null;
   setBy: GoalSetBy;
   /** Why a revision replaced the goal before it; null for a thread's first goal. */
@@ -276,6 +314,11 @@ export function formatGoal(goal: Goal, spent: Spent, history: History | null, re
     lines.push("Done is:");
     goal.stages.forEach((stage, index) => lines.push(`  [${index < goal.reached ? "x" : " "}] ${stage}`));
   }
+  if (goal.items.length > 0) {
+    lines.push(`Items (${itemsLabel(goal.items)}):`);
+    const mark = { todo: " ", current: ">", done: "x", dropped: "-" } as const;
+    goal.items.forEach((item, index) => lines.push(`  ${index + 1}. [${mark[item.state]}] ${item.label}`));
+  }
   if (goal.outcome !== null) {
     lines.push(`Outcome: ${OUTCOME_LABELS[goal.outcome]}${goal.outcomeNote ? ` (${goal.outcomeNote})` : ""}`);
   }
@@ -319,6 +362,9 @@ export const GOAL_INSTRUCTIONS = [
   "  add the stage that ends it: `bb tokenomics goal add-stage \"PR open with checks passing\"`.",
   "- When the user will look at what you make, such as a design, a UI, or a draft, the last stage is",
   "  their acceptance (\"Refined on your feedback\"), not \"Built\". Their review is part of the work.",
+  "- When the work is a list longer than the stages can hold, such as a review's findings or a batch of",
+  "  issues, keep the stages for the end states and add the list as items: `bb tokenomics goal item add",
+  "  \"Finding one\" \"Finding two\"`. Mark each as you go with `goal item start|done|drop N`.",
   "- Add an 80% estimate of the whole goal: --turns 3-8 --tokens 5M-20M --minutes 20-90. The command",
   "  prints how past threads that started the same way went; shift or widen yours from it.",
   'Example: bb tokenomics goal set "Export the widget list to CSV from the toolbar" --stage "Export built"',

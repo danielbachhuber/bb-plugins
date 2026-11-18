@@ -11,6 +11,10 @@ import {
   GOAL_SETTERS,
   GOAL_SHAPES,
   historyFor,
+  ITEM_STATES,
+  itemsLabel,
+  MAX_ITEM_LENGTH,
+  MAX_ITEMS,
   landed,
   NO_ESTIMATE,
   OUTCOMES,
@@ -20,6 +24,7 @@ import {
   stageLabel,
   type Goal,
   type GoalEstimate,
+  type GoalItem,
   type GoalSetBy,
   type GoalShape,
   type History,
@@ -59,6 +64,10 @@ export const GOAL_USAGE = [
   "  Records how the goal ended, with what it used.",
   'bb tokenomics goal add-stage "END STATE"',
   "  Adds a stage at the end of an open goal, for work that goes on after every stage is true.",
+  'bb tokenomics goal item add "ITEM" ...',
+  "  Adds items to the goal: a list longer than its stages, such as a review's findings.",
+  "bb tokenomics goal item start|done|drop|todo N ...",
+  "  Marks items by number (from goal show): in progress, done, dropped, or not started.",
   'bb tokenomics goal reopen [--stage "END STATE"] ...',
   "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any stages.",
   "bb tokenomics goal show [--json]",
@@ -124,6 +133,7 @@ export function goalView(deps: GoalDeps, goal: Goal) {
     text: goal.text,
     stages: goal.stages,
     reached: goal.reached,
+    items: goal.items,
     pr: goal.pr,
     setBy: goal.setBy,
     setAt: goal.setAt,
@@ -307,6 +317,36 @@ function reopen(deps: GoalDeps, threadId: string, argv: readonly string[]): CliR
   return { exitCode: 0, stdout: `Reopened: ${goal.text} (${label}).` };
 }
 
+const ITEM_VERBS: Record<string, GoalItem["state"]> = { start: "current", done: "done", drop: "dropped", todo: "todo" };
+
+function item(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
+  const found = openGoal(deps, threadId);
+  if ("exitCode" in found) return found;
+  const [verb, ...rest] = parseArgs(argv).positionals;
+  let items: GoalItem[];
+  if (verb === "add") {
+    const labels = rest.map((label) => label.trim()).filter((label) => label !== "");
+    if (labels.length === 0) return { exitCode: 1, stderr: 'Give each item in quotes: bb tokenomics goal item add "H1 Session cookie not marked Secure".' };
+    const long = labels.find((label) => label.length > MAX_ITEM_LENGTH);
+    if (long !== undefined) return { exitCode: 1, stderr: `Keep each item under ${MAX_ITEM_LENGTH} characters: "${long.slice(0, 40)}…".` };
+    if (found.items.length + labels.length > MAX_ITEMS) return { exitCode: 1, stderr: `A goal holds ${MAX_ITEMS} items at most.` };
+    items = [...found.items, ...labels.map((label) => ({ label, state: "todo" as const }))];
+  } else if (verb !== undefined && verb in ITEM_VERBS) {
+    const numbers = rest.flatMap((part) => part.split(",")).map(Number);
+    if (numbers.length === 0 || numbers.some((n) => !Number.isInteger(n) || n < 1 || n > found.items.length)) {
+      return { exitCode: 1, stderr: found.items.length === 0 ? "The goal has no items yet. Add them with bb tokenomics goal item add." : `Give item numbers from 1 to ${found.items.length}.` };
+    }
+    const state = ITEM_VERBS[verb]!;
+    items = found.items.map((entry, index) => (numbers.includes(index + 1) ? { ...entry, state } : entry));
+  } else {
+    return { exitCode: 1, stderr: `Give add, ${Object.keys(ITEM_VERBS).join(", ")}. States: ${ITEM_STATES.join(", ")}.` };
+  }
+  deps.goals.setItems(found.id, items);
+  deps.changed(threadId);
+  const open = items.filter((entry) => entry.state === "todo" || entry.state === "current").length;
+  return { exitCode: 0, stdout: `Items: ${itemsLabel(items)} finished${open > 0 ? `, ${open} open` : ""}.` };
+}
+
 async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
   const goal = deps.goals.current(threadId);
   const json = parseArgs(argv).booleans.has("--json");
@@ -328,6 +368,7 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "close") return close(deps, threadId, rest);
   if (sub === "reopen") return reopen(deps, threadId, rest);
   if (sub === "add-stage") return addStage(deps, threadId, rest);
+  if (sub === "item") return item(deps, threadId, rest);
   if (sub === "show") return await show(deps, threadId, rest);
   return { exitCode: 1, stderr: `Unknown goal command "${sub}".\n\n${GOAL_USAGE}` };
 }

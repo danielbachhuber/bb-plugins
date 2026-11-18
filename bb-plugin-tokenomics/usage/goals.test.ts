@@ -294,3 +294,31 @@ describe("goal add-stage", () => {
     expect((await goalCli(deps, "thr_a", ["add-stage"])).exitCode).toBe(1);
   });
 });
+
+describe("goal item", () => {
+  it("adds a list longer than the stages and marks items by number", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Every finding has an issue or is dropped", "--stage", "Findings triaged", "--stage", "Issues filed"]);
+    expect((await goalCli(deps, "thr_a", ["item", "add", "H1 Cookie not Secure", "H2 Admin check skipped", "M1 No rate limit"])).stdout).toBe(
+      "Items: 0 of 3 finished, 3 open.",
+    );
+    expect((await goalCli(deps, "thr_a", ["item", "done", "1"])).exitCode).toBe(0);
+    expect((await goalCli(deps, "thr_a", ["item", "drop", "3"])).stdout).toBe("Items: 2 of 3 finished, 1 open.");
+    await goalCli(deps, "thr_a", ["item", "start", "2"]);
+    expect(goals.current("thr_a")!.items.map((item) => item.state)).toEqual(["done", "current", "dropped"]);
+    const shown = (await goalCli(deps, "thr_a", ["show"])).stdout!;
+    expect(shown).toContain("Items (2 of 3):");
+    expect(shown).toContain("  2. [>] H2 Admin check skipped");
+    const json = JSON.parse((await goalCli(deps, "thr_a", ["show", "--json"])).stdout!);
+    expect(json.items).toHaveLength(3);
+  });
+
+  it("refuses numbers outside the list and unknown verbs", async () => {
+    const { deps } = setup();
+    await goalCli(deps, "thr_a", ["set", "Findings handled", "--stage", "Done"]);
+    expect((await goalCli(deps, "thr_a", ["item", "done", "1"])).stderr).toContain("no items yet");
+    await goalCli(deps, "thr_a", ["item", "add", "One"]);
+    expect((await goalCli(deps, "thr_a", ["item", "done", "2"])).exitCode).toBe(1);
+    expect((await goalCli(deps, "thr_a", ["item", "finish", "1"])).exitCode).toBe(1);
+  });
+});

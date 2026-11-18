@@ -1,10 +1,8 @@
 // The goal band above a thread's conversation and the donut beside its
-// sidebar row. Resting on either opens a card with the stages, the estimate, and what the
-// goal has used so far.
+// sidebar row. Resting on either opens a card with the stages, any items, the
+// estimate, and what the goal has used so far.
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Target02Icon from "@hugeicons/core-free-icons/Target02Icon";
-import CheckmarkCircle02Icon from "@hugeicons/core-free-icons/CheckmarkCircle02Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import Edit02Icon from "@hugeicons/core-free-icons/Edit02Icon";
 
@@ -117,6 +115,27 @@ export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activi
           })}
         </ol>
       )}
+      {goal.items.length === 0 ? null : (
+        <div className="flex flex-col gap-1">
+          <span className="text-muted-foreground">Items · {itemsProgress(goal.items)}</span>
+          <ol className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+            {goal.items.map((item, index) => (
+              <li
+                key={`${index}-${item.label}`}
+                className={cn(
+                  "flex items-center gap-1.5",
+                  item.state === "current" ? "text-foreground" : "text-muted-foreground",
+                  item.state === "dropped" && "line-through opacity-70",
+                )}
+              >
+                <EntrySquare state={item.state} />
+                <span className="min-w-0 truncate">{item.label}</span>
+                <span className="sr-only">({ENTRY_STATE_TEXT[item.state]})</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       {goal.shape === "exploration" && activity !== null && ACTIVITY_NOTE[activity] ? (
         <span className="text-muted-foreground">{ACTIVITY_NOTE[activity]}</span>
       ) : null}
@@ -140,12 +159,52 @@ export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activi
   );
 }
 
-/** A segment per stage, filled for each one done. */
-function StageSegments({ stages, reached }: { stages: number; reached: number }) {
+type BandEntry = { label: string; state: GoalViewData["items"][number]["state"] };
+
+/** The goal's stages as band entries: done up to `reached`, the next one in progress while the goal is open. */
+function stageEntries(goal: GoalViewData): BandEntry[] {
+  return goal.stages.map((label, index) => ({
+    label,
+    state: index < goal.reached ? "done" : index === goal.reached && goal.outcome === null ? "current" : "todo",
+  }));
+}
+
+/** A small square per stage or item: filled when done, light while in progress, outlined before, grey when dropped. */
+function EntrySquare({ state }: { state: BandEntry["state"] }) {
   return (
-    <span aria-hidden className="flex shrink-0 items-center gap-0.5">
-      {Array.from({ length: stages }, (_, index) => (
-        <span key={index} className={cn("h-1.5 w-3 rounded-full", index < reached ? "bg-foreground/70" : "bg-muted-foreground/25")} />
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block size-2.5 shrink-0 rounded-[3px]",
+        state === "done" && "bg-foreground/65",
+        state === "current" && "bg-foreground/30",
+        state === "todo" && "border border-muted-foreground/35",
+        state === "dropped" && "border border-muted-foreground/50 bg-muted",
+      )}
+    />
+  );
+}
+
+const ENTRY_STATE_TEXT = { done: "done", current: "in progress", todo: "not yet", dropped: "dropped" } as const;
+
+/** One row of squares, each with its name, sharing the band's width; a name too long is cut short, the full one on hover. */
+function EntryRow({ entries }: { entries: BandEntry[] }) {
+  return (
+    <span className="flex min-w-0 gap-3">
+      {entries.map((entry, index) => (
+        <span key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 flex-1 items-center gap-1.5">
+          <EntrySquare state={entry.state} />
+          <span
+            className={cn(
+              "truncate text-[11px]",
+              entry.state === "current" ? "text-foreground" : "text-muted-foreground",
+              entry.state === "dropped" && "line-through opacity-70",
+            )}
+          >
+            {entry.label}
+          </span>
+          <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
+        </span>
       ))}
     </span>
   );
@@ -153,7 +212,9 @@ function StageSegments({ stages, reached }: { stages: number; reached: number })
 
 /**
  * The band between the thread header and the conversation. The conversation
- * scrolls under it, so the goal stays in view.
+ * scrolls under it, so the goal stays in view. Two lines: the goal with how
+ * far it has come, then a square and name for each stage, or for each item
+ * when the goal has a list longer than its stages. Resting on it opens the card.
  */
 export function GoalBand({
   goal,
@@ -165,77 +226,59 @@ export function GoalBand({
   /** What the thread is doing, read when the card opens. */
   readActivity?: () => DonutActivity;
 }) {
+  const [activity, setActivity] = useState<DonutActivity>(null);
+  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen: () => setActivity(readActivity?.() ?? null) });
   if (goal.label === null) return null;
+  const entries: BandEntry[] = goal.items.length > 0 ? goal.items : stageEntries(goal);
+  const progress =
+    goal.outcome !== null
+      ? OUTCOME_LABEL[goal.outcome]
+      : goal.items.length > 0
+        ? itemsProgress(goal.items)
+        : goal.stages.length > 0
+          ? `${Math.min(goal.reached, goal.stages.length)} of ${goal.stages.length}`
+          : goal.label;
   return (
     <div data-tokenomics-goal-band="" className="border-b border-border-seam-vertical/60 bg-background px-4 py-1.5 md:px-5">
-      <GoalLine goal={goal} defaultOpen={defaultOpen} band readActivity={readActivity} />
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            {...hover}
+            type="button"
+            data-tokenomics-goal-line=""
+            className="flex w-full min-w-0 flex-col gap-1 text-left text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
+          >
+            <span className="flex w-full min-w-0 items-center gap-3 whitespace-nowrap">
+              <span className="min-w-[2.5rem] truncate text-foreground" style={{ flexShrink: 10 }}>
+                {goal.text}
+              </span>
+              <span className="shrink-0">{progress}</span>
+              {goal.left === null ? null : (
+                <span className={cn("min-w-0 truncate", goal.left === "past estimate" && "text-amber-600 dark:text-amber-400")}>
+                  {goal.left}
+                </span>
+              )}
+            </span>
+            {entries.length === 0 ? null : <EntryRow entries={entries} />}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[320px] p-3"
+          // Opened by hover, it leaves focus where it was, such as in the composer.
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          {...hover}
+        >
+          <GoalCard goal={goal} activity={activity} />
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
 
-export function GoalLine({
-  goal,
-  defaultOpen = false,
-  band = false,
-  readActivity,
-}: {
-  goal: GoalViewData;
-  defaultOpen?: boolean;
-  band?: boolean;
-  readActivity?: () => DonutActivity;
-}) {
-  const [activity, setActivity] = useState<DonutActivity>(null);
-  const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen, onOpen: () => setActivity(readActivity?.() ?? null) });
-  if (goal.label === null) return null;
-  const closed = goal.outcome !== null;
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          {...hover}
-          type="button"
-          data-tokenomics-goal-line=""
-          className={cn(
-            "flex w-full min-w-0 items-center overflow-hidden whitespace-nowrap text-left text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground",
-            band ? "gap-1.5 text-xs leading-5" : "gap-1 text-[11px] leading-4",
-          )}
-        >
-          <HugeiconsIcon
-            icon={closed && goal.outcome === "met" ? CheckmarkCircle02Icon : Target02Icon}
-            size={12}
-            strokeWidth={1.8}
-            className="shrink-0"
-          />
-          {/* In a narrow pane the turns left go first, then the goal, and the stage last. */}
-          <span className={cn("min-w-[2.5rem] truncate", band && "text-foreground")} style={{ flexShrink: 10 }}>
-            {goal.text}
-          </span>
-          <span aria-hidden className="shrink-0">·</span>
-          {band && goal.stages.length > 0 && goal.outcome === null ? <StageSegments stages={goal.stages.length} reached={goal.reached} /> : null}
-          <span className="min-w-0 truncate" style={{ flexShrink: 1 }}>
-            {goal.label}
-          </span>
-          {goal.left === null ? null : (
-            <span
-              className={cn("min-w-0 truncate", goal.left === "past estimate" && "text-amber-600 dark:text-amber-400")}
-              style={{ flexShrink: 100 }}
-            >
-              · {goal.left}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[320px] p-3"
-        // Opened by hover, it leaves focus where it was, such as in the composer.
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        {...hover}
-      >
-        <GoalCard goal={goal} activity={activity} />
-      </PopoverContent>
-    </Popover>
-  );
+function itemsProgress(items: GoalViewData["items"]): string {
+  const finished = items.filter((item) => item.state === "done" || item.state === "dropped").length;
+  return `${finished} of ${items.length}`;
 }
 
 export interface SidebarMark {

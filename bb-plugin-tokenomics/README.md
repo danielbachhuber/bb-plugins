@@ -42,7 +42,7 @@ record for turns with the same settings, so its next range can move.
 
 ### Each thread's goal
 
-![A thread with a band between its header and the conversation: a target icon, "Export a widget list to CSV from the toolbar", three stage segments with the first filled, "1 of 3 · Export built", and "~1–6 turns left"](screenshots/goals--goal-band-in-thread.png)
+![A thread with a band between its header and the conversation: "Export a widget list to CSV from the toolbar", "1 of 3", and "~1–6 turns left", then a square and name for each stage: Export built (filled), Tests pass (in progress), Reloaded in bb (not yet)](screenshots/goals--goal-band-in-thread.png)
 
 Each thread records one goal: what the whole thread is for, not its next
 step. In its first turn Claude records it with `bb tokenomics goal set`, from
@@ -50,11 +50,14 @@ the brief a plugin or another thread wrote, or from your first prompt, and
 says so in one line instead of asking. A task gets 1 to 4 stages, 5 at most,
 each an end state such as "Tests pass" rather than a step, and the last one
 what ends the thread, such as "PR open with checks passing"; an exploration
-gets the question it answers; a conversation can have no goal.
+gets the question it answers; a conversation can have no goal. Work that is
+a longer list, such as a review's twelve findings, goes in the goal's items
+(`bb tokenomics goal item add`), each marked in progress, done, or dropped.
 
-The goal, a segment per stage, the stage reached, and the turns left show in
-a band between the thread header and the conversation, which scrolls under
-it, so the goal stays in view. In the sidebar, a segmented donut at the right
+The goal, how far it has come, and the turns left show in a band between the
+thread header and the conversation, which scrolls under it, so the goal stays
+in view. Under the goal, a square and name for each stage, or for each item
+when there are items, show which are done, in progress, or still to do. In the sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it fills a segment per stage
 done, turns amber past the estimate, and becomes a check once met. bb's
 states show on it: the done arc turns blue when the thread needs you, red
@@ -140,6 +143,7 @@ bb tokenomics goal stage next|N                                                 
 bb tokenomics goal estimate [--turns ...] [--tokens ...] [--minutes ...]                         # replace the estimate
 bb tokenomics goal add-stage "END STATE"                                                        # add the stage that ends the thread
 bb tokenomics goal close met|partly|not [--note TEXT]                                            # record how it ended
+bb tokenomics goal item add "ITEM" ... | start|done|drop|todo N ...                              # a list longer than the stages, such as findings
 bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
 ```

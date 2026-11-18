@@ -144,6 +144,8 @@ export const goalViewSchema = z.object({
   text: z.string(),
   stages: z.array(z.string()),
   reached: z.number(),
+  /** A list longer than the stages, such as a review's findings; empty for most goals. */
+  items: z.array(z.object({ label: z.string(), state: z.enum(["todo", "current", "done", "dropped"]) })),
   pr: z.string().nullable(),
   setBy: z.enum(["spawner", "agent", "you"]),
   setAt: z.number(),

@@ -4,7 +4,7 @@ import { AppPageHeader } from "@bb-app/components/layout/AppPageHeader";
 import { SidebarProvider } from "@bb-app/components/ui/sidebar";
 
 import { ThreadStatusGlyph } from "@bb-app/components/thread/ThreadStatusGlyph";
-import { GoalBand, GoalCard, GoalDonut, GoalLine, SidebarGoalMark } from "./components/goal-line";
+import { GoalBand, GoalCard, GoalDonut, SidebarGoalMark } from "./components/goal-line";
 import { ROW_STATES, type BbRowState } from "./components/row-activity";
 import { GoalOutcomes, type GoalOutcomesData } from "./components/goal-outcomes";
 import type { GoalViewData } from "./usage/contract";
@@ -17,6 +17,7 @@ const TASK: GoalViewData = {
   text: "Export a widget list to CSV from the toolbar",
   stages: ["Export built", "Tests pass", "Reloaded in bb"],
   reached: 1,
+  items: [],
   pr: null,
   setBy: "agent",
   setAt: 0,
@@ -78,12 +79,42 @@ function Pane({ title, goal }: { title: string; goal: GoalViewData }) {
   );
 }
 
-/** The goal band between the thread header and the conversation, which scrolls under it: the goal, a segment per stage, the stage reached, and the turns left. */
+/** The goal band between the thread header and the conversation, which scrolls under it: the goal, how far it has come, and the turns left, then a square and name per stage. */
 export const GoalBandInThread = () => <Pane title="Widgets: export the list to CSV" goal={TASK} />;
 
-/** The band past its estimate, and once the goal is met. */
+const FINDINGS: GoalViewData["items"] = [
+  { label: "C1 Debug login enabled in production", state: "done" },
+  { label: "H1 Session cookie not marked Secure", state: "done" },
+  { label: "H2 Admin route skips the role check", state: "done" },
+  { label: "H3 Upload size not limited", state: "dropped" },
+  { label: "H4 Message origin not checked", state: "current" },
+  { label: "M1 Login posts tokens to any origin", state: "current" },
+  { label: "M2 No rate limit on invites", state: "todo" },
+  { label: "M3 Stack traces in API errors", state: "todo" },
+  { label: "M4 Email preview page is public", state: "done" },
+  { label: "M5 Stale CSRF token accepted", state: "todo" },
+  { label: "M6 Any role counts as admin", state: "done" },
+  { label: "L1 Request bodies logged", state: "todo" },
+];
+
+const REVIEWING: GoalViewData = {
+  ...TASK,
+  text: "Every finding from the widget security review has an issue or is dropped",
+  stages: ["Findings triaged", "Issues filed"],
+  reached: 1,
+  items: FINDINGS,
+  label: "1 of 2 · Findings triaged",
+  left: "~2–6 turns left",
+};
+
+/** The band past its estimate, with twelve items in place of the stages, and once the goal is met. */
 export const GoalBandStates = () => (
   <StoryCard>
+    <StoryRow label="twelve items" hint="a review's findings: the squares show items, the stages stay in the card">
+      <div className="w-[720px] border border-border">
+        <GoalBand goal={REVIEWING} />
+      </div>
+    </StoryRow>
     <StoryRow label="past its estimate" hint="the turns left turn amber">
       <div className="w-[720px] border border-border">
         <GoalBand goal={OVER} />
@@ -94,7 +125,7 @@ export const GoalBandStates = () => (
         <GoalBand goal={EXPLORING} />
       </div>
     </StoryRow>
-    <StoryRow label="met" hint="the outcome replaces the stages">
+    <StoryRow label="met" hint="the outcome in place of the count">
       <div className="w-[720px] border border-border">
         <GoalBand goal={MET} />
       </div>
@@ -102,9 +133,14 @@ export const GoalBandStates = () => (
   </StoryCard>
 );
 
-/** The card that opens on the band: the stages, what the goal has used against its estimate, and how to change it. */
+/** The card that opens on the band: the stages, any items, what the goal has used against its estimate, and how to change it. */
 export const GoalCardOpen = () => (
   <StoryCard>
+    <StoryRow label="with items" hint="the stages, then the items">
+      <div className="w-[320px] rounded-md border border-border bg-popover p-3">
+        <GoalCard goal={REVIEWING} />
+      </div>
+    </StoryRow>
     <StoryRow label="a task" hint="one stage done">
       <div className="w-[320px] rounded-md border border-border bg-popover p-3">
         <GoalCard goal={TASK} />

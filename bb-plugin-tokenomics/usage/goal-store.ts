@@ -2,6 +2,7 @@
 // in store.ts; this module reads and writes them.
 import type { Database } from "better-sqlite3";
 
+import { parseItems, type GoalItem } from "./goals.js";
 import type { Goal, GoalEstimate, GoalSetBy, GoalShape, HistorySample, Outcome, Range, Spent } from "./goals.js";
 
 interface GoalRow {
@@ -13,6 +14,7 @@ interface GoalRow {
   goal: string;
   stages: string;
   reached: number;
+  items: string | null;
   pr: string | null;
   set_by: string;
   reason: string | null;
@@ -53,6 +55,7 @@ function goalOf(row: GoalRow): Goal {
     text: row.goal,
     stages,
     reached: row.reached,
+    items: parseItems(row.items),
     pr: row.pr,
     setBy: row.set_by as GoalSetBy,
     reason: row.reason,
@@ -112,6 +115,7 @@ export function createGoalStore(db: Database) {
        spent_ms = NULL, stages = ? WHERE id = ?`,
   );
   const updateStages = db.prepare(`UPDATE goals SET stages = ? WHERE id = ?`);
+  const updateItems = db.prepare(`UPDATE goals SET items = ? WHERE id = ?`);
   const deleteThreadGoals = db.prepare(`DELETE FROM goals WHERE thread_id = ?`);
   const selectTurnStart = db.prepare(
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
@@ -267,6 +271,11 @@ export function createGoalStore(db: Database) {
     /** Replaces an open goal's stages, such as with one added at the end. */
     setStages(goalId: number, stages: string[]): void {
       updateStages.run(JSON.stringify(stages), goalId);
+    },
+
+    /** Replaces the goal's items. */
+    setItems(goalId: number, items: readonly GoalItem[]): void {
+      updateItems.run(JSON.stringify(items), goalId);
     },
 
     /** Removes the thread's goals, once bb deletes the thread. */

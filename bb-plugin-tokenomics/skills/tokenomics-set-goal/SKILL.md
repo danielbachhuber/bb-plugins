@@ -32,6 +32,9 @@ began) and draft:
     could check ("Alternatives compared", "PR's checks pass", "Merged"),
     never a step to do ("Research polling"). If it needs more than 5, the
     thread should split or become a project: say so instead of listing more.
+    A list of similar things to work through, such as a review's findings,
+    goes in the goal's items instead (`bb tokenomics goal item add "…"`),
+    which have no limit.
   - When the user will review what the thread makes, such as a design, a UI,
     or a draft, the last stage is their acceptance ("Refined on your
     feedback"), not "Built".

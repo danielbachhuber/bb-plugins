@@ -204,6 +204,8 @@ export const MIGRATIONS = [
      spent_ms INTEGER
    )`,
   `CREATE INDEX IF NOT EXISTS goals_thread_idx ON goals (thread_id, set_at)`,
+  // A goal's items, as JSON: [{ label, state }]. See GoalItem in goals.ts.
+  `ALTER TABLE goals ADD COLUMN items TEXT`,
 ];
 
 export interface ThreadInfo {
