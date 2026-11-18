@@ -287,6 +287,8 @@ export interface SidebarMark {
   left: string | null;
   /** An Impromptu UI card above the thread's composer still has an open item. */
   openCard?: boolean;
+  /** The thread's last turn failed, as on a provider error. */
+  failed?: boolean;
 }
 
 /**

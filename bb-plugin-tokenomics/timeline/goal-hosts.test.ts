@@ -41,11 +41,19 @@ describe("placeRowHosts", () => {
 
   it("takes the donut away when the row turns to a state whose icon bb keeps", () => {
     rows(["thr_a"]);
-    const first = placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
+    const first = placeRowHosts(document, new Set(["thr_a"]), new Map(), (_, l) => keepsBbIcon(l));
     document.querySelector("svg")!.setAttribute("aria-label", "Unread thread failed");
-    const second = placeRowHosts(document, new Set(["thr_a"]), first.hosts, keepsBbIcon);
+    const second = placeRowHosts(document, new Set(["thr_a"]), first.hosts, (_, l) => keepsBbIcon(l));
     expect(second.hosts.size).toBe(0);
     expect(document.querySelectorAll(`[${ROW_HOST_ATTRIBUTE}]`)).toHaveLength(0);
+    expect(document.getElementById("box-thr_a")!.hasAttribute(SLOT_ATTRIBUTE)).toBe(false);
+  });
+
+  it("shows bb's icon alone for a queued retry on a failed thread, and the donut for a plain queued message", () => {
+    rows(["thr_a", "thr_b"], "Thread has a message waiting to send");
+    const failed = new Set(["thr_a"]);
+    const { hosts } = placeRowHosts(document, new Set(["thr_a", "thr_b"]), new Map(), (id, l) => failed.has(id) || keepsBbIcon(l));
+    expect([...hosts.keys()]).toEqual(["thr_b"]);
     expect(document.getElementById("box-thr_a")!.hasAttribute(SLOT_ATTRIBUTE)).toBe(false);
   });
 
@@ -61,11 +69,11 @@ describe("placeRowHosts", () => {
 });
 
 describe("keepsBbIcon", () => {
-  it("leaves bb's icon showing alone for a failure, a queued retry, or a state it doesn't know", () => {
+  it("leaves bb's icon showing alone for a failure or a state it doesn't know", () => {
     for (const [label, kept] of [
       ["Unread thread failed", true],
       ["Queued message failed to send", true],
-      ["Thread has a message waiting to send", true],
+      ["Thread has a message waiting to send", false],
       ["Provider rate limit reached", true],
       ["Thread working", false],
       ["Thread needs user input", false],
@@ -73,7 +81,7 @@ describe("keepsBbIcon", () => {
     ] as const) {
       rows(["thr_a"], label ?? "");
       if (label === null) document.querySelector("svg")!.removeAttribute("aria-label");
-      const { hosts, labels } = placeRowHosts(document, new Set(["thr_a"]), new Map(), keepsBbIcon);
+      const { hosts, labels } = placeRowHosts(document, new Set(["thr_a"]), new Map(), (_, l) => keepsBbIcon(l));
       const box = document.getElementById("box-thr_a")!;
       expect([label, box.hasAttribute(SLOT_ATTRIBUTE), hosts.has("thr_a")]).toEqual([label, !kept, !kept]);
       expect(labels.get("thr_a")).toBe(label);

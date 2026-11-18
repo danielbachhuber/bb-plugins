@@ -614,6 +614,25 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /**
+   * The threads among `threadIds` whose last turn failed, such as on a
+   * provider error, including one waiting to retry. bb labels a retry's row
+   * as a queued message, so only the thread's status tells the two apart.
+   * One call for up to 200 threads; empty when it fails.
+   */
+  async function failedThreads(threadIds: string[]): Promise<Set<string>> {
+    if (threadIds.length === 0) return new Set();
+    try {
+      const threads = (await bb.sdk.threads.list({ threadIds: threadIds.slice(0, 200).join(","), includeHidden: true } as never)) as unknown as {
+        id: string;
+        status: string;
+      }[];
+      return new Set(threads.filter((thread) => thread.status === "error").map((thread) => thread.id));
+    } catch {
+      return new Set();
+    }
+  }
+
   bb.rpc.register(rpcContract, {
     usage_limits: () => {
       const now = Date.now();
@@ -721,15 +740,17 @@ export default async function plugin(bb: BbPluginApi) {
       const { goalSidebar } = await settings.get();
       if (!goalSidebar) return { show: false, goals: [] };
       const now = Date.now();
-      const openCards = await threadsWithOpenCards();
-      // One local query for the goals, one per goal for what it has used, and
-      // one call to Impromptu UI for the threads with an open card.
+      const active = goals.activeCurrent();
+      const [openCards, failed] = await Promise.all([threadsWithOpenCards(), failedThreads(active.map((goal) => goal.threadId))]);
+      // One local query for the goals, one per goal for what it has used, one
+      // call to Impromptu UI for the threads with an open card, and one to bb
+      // for the threads whose last turn failed.
       return {
         show: true,
-        goals: goals.activeCurrent().flatMap((goal) => {
+        goals: active.flatMap((goal) => {
           const label = stageLabel(goal);
           if (label === null) return [];
-          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId) }];
+          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId), failed: failed.has(goal.threadId) }];
         }),
       };
     },

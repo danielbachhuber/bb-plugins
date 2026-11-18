@@ -67,8 +67,8 @@ states show on it: the done arc turns blue when the thread needs you,
 including when an Impromptu UI card above its composer still waits on your
 answer, and darker when it finished and you haven't looked; the
 whole donut spins while the thread works; a draft keeps bb's own icon. A
-failed turn, or a message waiting to send, such as a turn bb will retry after
-a provider error, shows bb's icon alone, without the donut. The
+failed turn, including one bb will retry after a provider error, shows bb's
+icon alone, without the donut; a plain queued message keeps the donut. The
 header donut and the cards say the same. An exploration's stages are fixed:
 the agent's recommended answer, then your decision. Rest on a sidebar donut
 for the goal's card. When setting a
@@ -188,8 +188,9 @@ outside service.
   thread. The token button reads one goal from the plugin's database
   when the thread opens and after each turn; the sidebar reads every active
   thread's goal in one request after each recorded usage and once a minute.
-  Neither asks bb. Each of those sidebar requests also asks Impromptu UI, when
-  it is installed, which threads have an open card, in one local call.
+  The token button doesn't ask bb. Each of those sidebar requests also asks
+  Impromptu UI, when it is installed, which threads have an open card, and bb
+  which of those threads failed, one local call each.
 - bb deletes a thread's older usage events, so Tokenomics keeps its own copy,
   starting when you install it.
 - Claude Code subagents report no usage to bb, so Tokenomics reads their

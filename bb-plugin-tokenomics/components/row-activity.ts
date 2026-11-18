@@ -20,7 +20,7 @@ export const ROW_STATES: Record<BbRowState, { label: string; activity: DonutActi
   goal: { label: "Codex goal active", activity: "working", note: "donut spins" },
   "working-draft": { label: "Working, with a draft", activity: "working", note: "donut spins" },
   "waiting-for-input": { label: "Needs your input", activity: "waiting", note: "done arc blue" },
-  "queued-waiting": { label: "Message queued", activity: "queued", note: "bb's icon, no donut" },
+  "queued-waiting": { label: "Message queued", activity: "queued", note: "same as idle; bb's icon alone on a retry" },
   "unread-error": { label: "Failed, unread", activity: "error", note: "bb's icon, no donut" },
   "queued-failed": { label: "Queued message failed", activity: "error", note: "bb's icon, no donut" },
   "unread-success": { label: "Finished, unread", activity: "unread", note: "done arc darker" },
@@ -69,13 +69,17 @@ export function withOpenCard(state: BbRowState, openCard: boolean): BbRowState {
 }
 
 /**
- * States whose row shows bb's icon alone, with no donut: a failed turn, a
- * failed queued message, and a message waiting to send, which is how bb shows
- * a turn it will retry after a provider error. bb's icon says what went
- * wrong; the donut cannot, and the goal can wait until the thread runs again. A label this plugin does
+ * States whose row shows bb's icon alone, with no donut: a failed turn and a
+ * failed queued message. bb's icon says what went wrong; the donut cannot,
+ * and the goal can wait until the thread runs again. A label this plugin does
  * not know keeps its icon too, so a state bb adds later is never hidden.
+ *
+ * A turn bb will retry after a provider error is labelled as a plain queued
+ * message, so the sidebar also checks the thread's status (the `failed` flag
+ * from sidebar_goals); a queued message on a thread that didn't fail keeps
+ * the donut.
  */
-const KEEPS_ICON: ReadonlySet<BbRowState> = new Set(["unread-error", "queued-failed", "queued-waiting"]);
+const KEEPS_ICON: ReadonlySet<BbRowState> = new Set(["unread-error", "queued-failed"]);
 
 export function keepsBbIcon(label: string | null): boolean {
   if (label === null) return false;

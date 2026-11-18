@@ -342,11 +342,14 @@ function SidebarGoals() {
   }, [load]);
 
   const wanted = useMemo(() => new Set(marks.keys()), [marks]);
+  // A thread whose last turn failed shows bb's icon alone, even while bb
+  // labels its retry as a queued message.
+  const failedIds = useMemo(() => new Set([...marks].filter(([, mark]) => mark.failed === true).map(([id]) => id)), [marks]);
   useEffect(() => {
     let frame: number | null = null;
     const pass = () => {
       frame = null;
-      const { hosts: next, labels } = placeRowHosts(document, wanted, hostsRef.current, keepsBbIcon);
+      const { hosts: next, labels } = placeRowHosts(document, wanted, hostsRef.current, (threadId, label) => failedIds.has(threadId) || keepsBbIcon(label));
       const before = hostsRef.current;
       hostsRef.current = next;
       const same = next.size === before.size && [...next].every(([id, host]) => before.get(id) === host);
@@ -372,7 +375,7 @@ function SidebarGoals() {
       observer.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [wanted]);
+  }, [wanted, failedIds]);
   useEffect(
     () => () => {
       for (const host of hostsRef.current.values()) {

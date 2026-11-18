@@ -277,7 +277,9 @@ export const rpcContract = defineRpcContract({
       show: z.boolean(),
       goals: z.array(z.object({ threadId: z.string(), label: z.string(), stages: z.number(), reached: z.number(), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable(),
         /** An Impromptu UI card above the thread's composer still has an open item. */
-        openCard: z.boolean() })),
+        openCard: z.boolean(),
+        /** The thread's last turn failed, as on a provider error, even while bb waits to retry it. */
+        failed: z.boolean() })),
     }),
   },
   /** Outcomes since `since`: tokens and time per outcome, goal vs no goal by start, and how estimates held. */
