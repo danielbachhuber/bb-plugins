@@ -350,7 +350,7 @@ export const GOAL_INSTRUCTIONS = [
   "holds your first tool call in a thread, record it with `bb tokenomics goal set`, beside your forecast.",
   "- When the prompt states a goal or a \"Done is:\" list, record it as given, with --by spawner.",
   "- Otherwise set it from the user's first prompt, with --by agent, and say in one line what you set",
-  "  and that /tokenomics-set-goal changes it. Don't ask the user to confirm it. Ask only when you",
+  "  and that /tokenomics-update-goal changes it. Don't ask the user to confirm it. Ask only when you",
   "  can't tell what finished looks like, inside any other question you need to ask.",
   "- A task gets 1 to 4 stages, 5 at most, each an end state someone could check (\"PR's checks pass\"),",
   "  never a step (\"Fix the test\"). An exploration (--shape exploration) states the question to answer",
@@ -374,7 +374,7 @@ export const GOAL_INSTRUCTIONS = [
   "  work the user reviews, only once they've accepted it. When feedback arrives after you closed it, run",
   "  `bb tokenomics goal reopen --stage \"Refined on your feedback\"` and keep going. Don't",
   "change the goal yourself: when the user's requests move past it, say so in one line and suggest",
-  "/tokenomics-set-goal, which updates it. When you write the prompt for a thread you start, end it with a `Goal:` line and",
+  "/tokenomics-update-goal, which updates it. When you write the prompt for a thread you start, end it with a `Goal:` line and",
   "a `Done is:` list under the same rules, so that thread records it. `bb tokenomics goal show` prints",
   "the goal, what it has used, and the estimate.",
 ].join("\n");

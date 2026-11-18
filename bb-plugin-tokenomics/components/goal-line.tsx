@@ -149,7 +149,7 @@ export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activi
       </div>
       <div className="text-muted-foreground">
         {goal.revisions > 0 ? `Revised ${goal.revisions === 1 ? "once" : `${goal.revisions} times`}. ` : ""}
-        Run /tokenomics-set-goal to change it.
+        Run /tokenomics-update-goal to change it.
       </div>
     </div>
   );

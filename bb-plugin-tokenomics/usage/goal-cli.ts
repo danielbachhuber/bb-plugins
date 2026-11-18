@@ -55,7 +55,7 @@ export const GOAL_USAGE = [
   "    [--reason TEXT]",
   "  Records this thread's goal: up to 5 stages, each an end state, and an 80% estimate of the whole",
   "  goal. Prints how past threads that started the same way went. A thread with an open goal needs",
-  "  --reason to replace it, or use goal refine; /tokenomics-set-goal does that.",
+  "  --reason to replace it, or use goal refine; /tokenomics-update-goal does that.",
   "bb tokenomics goal stage next|N",
   "  Marks the next stage, or the first N stages, as done.",
   "bb tokenomics goal estimate [--turns LOW-HIGH] [--tokens LOW-HIGH] [--minutes LOW-HIGH]",
@@ -68,11 +68,14 @@ export const GOAL_USAGE = [
   '    --reason TEXT',
   "  Rewrites the open goal to match what the thread is doing, keeping its items, and keeps the old one in",
   "  the history. Leave out what doesn't change. --reached says how many of the new stages are already",
-  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-set-goal does this.",
+  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-update-goal does this.",
   'bb tokenomics goal item add "ITEM" ...',
   "  Adds items to the goal: a list longer than its stages, such as a review's findings.",
   "bb tokenomics goal item start|done|drop|todo N ...",
   "  Marks items by number (from goal show): in progress, done, dropped, or not started.",
+  "bb tokenomics goal clear [--reason TEXT]",
+  "  Takes the goal off this thread, leaving no goal. The goal and what it used stay in the history.",
+  "  /tokenomics-clear-goal does this.",
   'bb tokenomics goal reopen [--stage "END STATE"] ...',
   "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any stages.",
   "bb tokenomics goal show [--json]",
@@ -184,7 +187,7 @@ async function set(deps: GoalDeps, threadId: string, argv: readonly string[]): P
   if (open && reason === null) {
     return {
       exitCode: 1,
-      stderr: `This thread already has a goal: "${current.text}". Leave it, update it with bb tokenomics goal refine --reason, or run /tokenomics-set-goal.`,
+      stderr: `This thread already has a goal: "${current.text}". Leave it, update it with bb tokenomics goal refine --reason, or run /tokenomics-update-goal.`,
     };
   }
   const origin = await deps.originOf(threadId);
@@ -419,6 +422,16 @@ async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): 
   return { exitCode: 0, stdout: formatGoal(goal, deps.goals.spentOn(goal, deps.now()), history, deps.goals.history(threadId)) };
 }
 
+/** Takes the goal off the thread: records "no goal" in its place, which keeps the old one in the history. */
+async function clear(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
+  const current = deps.goals.current(threadId);
+  if (current === null || current.shape === "none") return { exitCode: 0, stdout: "This thread has no goal." };
+  const { flags } = parseArgs(argv);
+  const reason = flags.get("--reason")?.at(-1)?.trim() || "Cleared by you";
+  const result = await set(deps, threadId, ["--none", "--by", "you", "--reason", reason]);
+  return result.exitCode === 0 ? { exitCode: 0, stdout: `Cleared the goal "${current.text}". This thread has no goal now.` } : result;
+}
+
 export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv: readonly string[]): Promise<CliResult> {
   const [sub, ...rest] = argv;
   if (sub === undefined || sub === "help") return { exitCode: 0, stdout: GOAL_USAGE };
@@ -428,6 +441,7 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "estimate") return estimate(deps, threadId, rest);
   if (sub === "close") return close(deps, threadId, rest);
   if (sub === "reopen") return reopen(deps, threadId, rest);
+  if (sub === "clear") return await clear(deps, threadId, rest);
   if (sub === "add-stage") return addStage(deps, threadId, rest);
   if (sub === "item") return item(deps, threadId, rest);
   if (sub === "refine") return await refine(deps, threadId, rest);

@@ -188,12 +188,22 @@ describe("goal CLI", () => {
     expect(goalView(deps, goals.current("thr_a")!).label).toBe("Met");
   });
 
+  it("clears the goal, keeping it in the history", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Webhook sync ADR merged", "--stage", "Merged"]);
+    const cleared = await goalCli(deps, "thr_a", ["clear"]);
+    expect(cleared.stdout).toContain('Cleared the goal "Webhook sync ADR merged"');
+    expect(goals.current("thr_a")!.shape).toBe("none");
+    expect(goals.history("thr_a")).toHaveLength(2);
+    expect((await goalCli(deps, "thr_a", ["clear"])).stdout).toBe("This thread has no goal.");
+  });
+
   it("refuses a second goal without a reason, and keeps the first as history when revised", async () => {
     const { deps, goals, advance } = setup();
     await goalCli(deps, "thr_a", ["set", "Webhook sync ADR merged", "--stage", "Merged"]);
     const refused = await goalCli(deps, "thr_a", ["set", "Sync decision recorded", "--stage", "Merged"]);
     expect(refused.exitCode).toBe(1);
-    expect(refused.stderr).toContain("/tokenomics-set-goal");
+    expect(refused.stderr).toContain("/tokenomics-update-goal");
 
     advance(1_000);
     const revised = await goalCli(deps, "thr_a", [

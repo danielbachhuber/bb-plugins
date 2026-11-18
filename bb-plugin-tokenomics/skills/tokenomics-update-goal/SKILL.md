@@ -1,9 +1,9 @@
 ---
-name: tokenomics-set-goal
-description: Use when the user invokes /tokenomics-set-goal, with or without a goal after it, or asks to set, change, refine, or update this thread's goal or stages, such as "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
+name: tokenomics-update-goal
+description: Use when the user invokes /tokenomics-update-goal, with or without a goal after it, or asks to set, change, refine, or update this thread's goal or stages (to remove it, use tokenomics-clear-goal), such as "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
 ---
 
-# Set or update this thread's goal
+# Update this thread's goal
 
 A thread's goal is what the whole thread is for, not its next step.
 Tokenomics records it, shows it on the token button in the thread header,
@@ -23,7 +23,7 @@ setting the first one.
 
 ## 2. Decide the goal
 
-- **The user gave one** after the command, such as `/tokenomics-set-goal
+- **The user gave one** after the command, such as `/tokenomics-update-goal
   Address review feedback`: use it as the goal's subject. Phrase it as an end
   result if it isn't one ("Both review comments fixed, pushed, and answered").
 - **The user gave none:** draft it from their prompts since the current goal
