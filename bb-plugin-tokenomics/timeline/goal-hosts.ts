@@ -50,6 +50,14 @@ export function placeBandHost(anchor: Element, host: HTMLElement): boolean {
   return true;
 }
 
+/**
+ * How much further left the donut pushes bb's hover buttons: the donut, its
+ * margin, and the trailing area's gap. bb trims the title on hover by the
+ * buttons' width alone, so a row with a donut trims this much more, or the
+ * buttons cover the end of the title.
+ */
+export const DONUT_WIDTH_PX = 24;
+
 /** Marks bb's icon box in a row whose donut has taken its place. The stylesheet SIDEBAR_SLOT_CSS collapses it. */
 export const SLOT_ATTRIBUTE = "data-tokenomics-goal-slot";
 
@@ -57,10 +65,11 @@ export const SLOT_ATTRIBUTE = "data-tokenomics-goal-slot";
  * Collapses bb's icon box in a row with a donut, and hides bb's icon, which
  * stays in the page so its label can still be read. bb's hover buttons are
  * anchored to the box's right edge, so they then appear just left of the
- * donut.
+ * donut, and the title gives up DONUT_WIDTH_PX more on hover to make room.
  */
 export const SIDEBAR_SLOT_CSS = `[${SLOT_ATTRIBUTE}] { width: 0 !important; }
-[${SLOT_ATTRIBUTE}] > .bb-sidebar-hover-actions-fade { display: none !important; }`;
+[${SLOT_ATTRIBUTE}] > .bb-sidebar-hover-actions-fade { display: none !important; }
+.bb-sidebar-hover-actions-row:has([${ROW_HOST_ATTRIBUTE}]):is(:hover, :focus-within, :has([data-sidebar-hover-actions-open])) .bb-sidebar-hover-actions-inset { padding-right: calc(var(--bb-sidebar-hover-actions-inset, 0px) + ${DONUT_WIDTH_PX}px) !important; }`;
 
 export interface RowPlacement {
   hosts: Map<string, HTMLElement>;
