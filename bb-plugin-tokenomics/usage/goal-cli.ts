@@ -57,6 +57,8 @@ export const GOAL_USAGE = [
   "  Replaces the goal's estimate.",
   "bb tokenomics goal close met|partly|not [--note TEXT]",
   "  Records how the goal ended, with what it used.",
+  'bb tokenomics goal reopen [--stage "END STATE"] ...',
+  "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any stages.",
   "bb tokenomics goal show [--json]",
   "  Prints the goal, its stages, its estimate, what it has used, and earlier goals.",
 ].join("\n");
@@ -274,6 +276,19 @@ function close(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   };
 }
 
+function reopen(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
+  const goal = deps.goals.current(threadId);
+  if (goal === null || goal.shape === "none") return { exitCode: 1, stderr: "This thread has no goal to reopen." };
+  if (goal.outcome === null) return { exitCode: 1, stderr: "The goal is still open." };
+  const added = parseArgs(argv).flags.get("--stage") ?? [];
+  const checked = checkStages(goal.shape, [...goal.stages, ...added]);
+  if ("error" in checked) return { exitCode: 1, stderr: checked.error };
+  deps.goals.reopen(goal.id, checked.stages);
+  deps.changed(threadId);
+  const label = stageLabel({ ...goal, stages: checked.stages, outcome: null }) ?? "open";
+  return { exitCode: 0, stdout: `Reopened: ${goal.text} (${label}).` };
+}
+
 async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
   const goal = deps.goals.current(threadId);
   const json = parseArgs(argv).booleans.has("--json");
@@ -293,6 +308,7 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "stage") return stage(deps, threadId, rest);
   if (sub === "estimate") return estimate(deps, threadId, rest);
   if (sub === "close") return close(deps, threadId, rest);
+  if (sub === "reopen") return reopen(deps, threadId, rest);
   if (sub === "show") return await show(deps, threadId, rest);
   return { exitCode: 1, stderr: `Unknown goal command "${sub}".\n\n${GOAL_USAGE}` };
 }

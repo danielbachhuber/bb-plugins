@@ -244,3 +244,19 @@ describe("a goal closed mid-turn", () => {
     expect(goals.refreshClosed("thr_a", 12_000)).toBe(0);
   });
 });
+
+describe("goal reopen", () => {
+  it("opens a closed goal again with a stage for the feedback", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--stage", "Verified"]);
+    await goalCli(deps, "thr_a", ["stage", "2"]);
+    await goalCli(deps, "thr_a", ["close", "met"]);
+    expect((await goalCli(deps, "thr_a", ["reopen", "--stage", "Refined on your feedback"])).stdout).toBe(
+      "Reopened: Export built (2 of 3 · Verified).",
+    );
+    const goal = goals.current("thr_a")!;
+    expect(goal.outcome).toBeNull();
+    expect(goal.stages).toEqual(["Built", "Verified", "Refined on your feedback"]);
+    expect((await goalCli(deps, "thr_a", ["reopen"])).exitCode).toBe(1);
+  });
+});

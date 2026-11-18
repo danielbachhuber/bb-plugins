@@ -106,6 +106,10 @@ export function createGoalStore(db: Database) {
   const updateOutcome = db.prepare(
     `UPDATE goals SET outcome = ?, outcome_note = ?, closed_at = ?, spent_turns = ?, spent_tokens = ?, spent_ms = ? WHERE id = ?`,
   );
+  const updateReopen = db.prepare(
+    `UPDATE goals SET outcome = NULL, outcome_note = NULL, closed_at = NULL, spent_turns = NULL, spent_tokens = NULL,
+       spent_ms = NULL, stages = ? WHERE id = ?`,
+  );
   const deleteThreadGoals = db.prepare(`DELETE FROM goals WHERE thread_id = ?`);
   const selectTurnStart = db.prepare(
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
@@ -272,6 +276,11 @@ export function createGoalStore(db: Database) {
 
     close(goalId: number, outcome: Outcome, note: string | null, at: number, spent: Spent): void {
       updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, goalId);
+    },
+
+    /** Opens a closed goal again, with `stages` as its stages from now on. */
+    reopen(goalId: number, stages: string[]): void {
+      updateReopen.run(JSON.stringify(stages), goalId);
     },
 
     /** Removes the thread's goals, once bb deletes the thread. */

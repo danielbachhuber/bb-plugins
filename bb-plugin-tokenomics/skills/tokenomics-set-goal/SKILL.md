@@ -32,6 +32,9 @@ began) and draft:
     could check ("Alternatives compared", "PR's checks pass", "Merged"),
     never a step to do ("Research polling"). If it needs more than 5, the
     thread should split or become a project: say so instead of listing more.
+  - When the user will review what the thread makes, such as a design, a UI,
+    or a draft, the last stage is their acceptance ("Refined on your
+    feedback"), not "Built".
   - An *exploration* states the question to answer or the decision to make,
     with no stages.
   - A *project* states its purpose; its workers carry their own goals.

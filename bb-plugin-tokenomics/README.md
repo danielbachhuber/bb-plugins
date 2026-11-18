@@ -60,7 +60,9 @@ goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
 change a goal: it proposes the new goal and why above the composer, and keeps
 the old one, and what it used, in the thread's history. When the work is
-done, Claude closes the goal as met, partly met, or not met.
+done, Claude closes the goal as met, partly met, or not met. Work you review,
+such as a design, ends with your acceptance as its last stage, and feedback
+that arrives after the goal closed reopens it.
 
 The band and the sidebar mark go into bb's own markup, since bb has no slot
 for either. If bb changes that markup they stop appearing, and
@@ -128,6 +130,7 @@ bb tokenomics goal set "GOAL" --stage "END STATE" ... [--turns 3-8 --tokens 5M-2
 bb tokenomics goal stage next|N                                                                # mark stages done
 bb tokenomics goal estimate [--turns ...] [--tokens ...] [--minutes ...]                         # replace the estimate
 bb tokenomics goal close met|partly|not [--note TEXT]                                            # record how it ended
+bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
 ```
 
