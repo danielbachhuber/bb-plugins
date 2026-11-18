@@ -270,3 +270,21 @@ export const CardInEachState = () => (
     ))}
   </div>
 );
+
+/** The donut while the thread works, for goals of one, two, and five stages: the stage being worked on is half filled, so the turning ring shows even with a single stage or none done yet (a still, mid-turn). */
+export const WorkingDonuts = () => (
+  <div data-screenshot-frame className="inline-flex flex-col gap-1 bg-background p-6">
+    {[
+      { stages: 1, reached: 0, label: "1 stage, none done" },
+      { stages: 2, reached: 0, label: "2 stages, none done" },
+      { stages: 2, reached: 1, label: "2 stages, 1 done" },
+      { stages: 5, reached: 0, label: "5 stages, none done" },
+      { stages: 5, reached: 3, label: "5 stages, 3 done" },
+    ].map(({ stages, reached, label }) => (
+      <div key={label} className="flex items-center gap-3">
+        <SidebarRow trailing={<GoalDonut stages={stages} reached={reached} activity="working" spinDelay="-0.6s" />} />
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+    ))}
+  </div>
+);

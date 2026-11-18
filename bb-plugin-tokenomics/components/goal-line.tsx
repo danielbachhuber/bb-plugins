@@ -334,8 +334,8 @@ const SPIN_SECONDS = 2.4;
  * A ring split into one segment per stage, the done ones filled. bb's state
  * colours the done arc: blue when the thread needs you, red when it failed,
  * darker when it finished and you haven't looked. While the thread works the
- * whole ring turns. A met goal is a filled disc with a check, one not met a
- * grey ring with a cross. Queued and idle look alike; a draft shows bb's own
+ * stage it is on is half filled and the whole ring turns. A met goal is a
+ * filled disc with a check, one not met a grey ring with a cross. Queued and idle look alike; a draft shows bb's own
  * icon instead, in SidebarGoalMark.
  */
 export function GoalDonut({
@@ -417,6 +417,21 @@ export function GoalDonut({
           className={index < reached ? doneClass : empty}
         />
       ))}
+      {working && reached < stages && (
+        // The stage being worked on is half filled, so the turning ring has
+        // something to show even when every segment would look the same,
+        // as with a single stage or none done yet.
+        <circle
+          cx={centre}
+          cy={centre}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          strokeDasharray={`${length / 2} ${circumference - length / 2}`}
+          strokeDashoffset={-reached * (length + gap) - gap / 2}
+          className={doneClass}
+        />
+      )}
     </svg>
   );
 }
