@@ -360,7 +360,11 @@ setup step.
 The prompt ends with the thread's goal and a Done is list, one end state per
 kind of work the sweep found, such as "Merges cleanly with its base" and
 "Checks pass", at most four. With Tokenomics installed, the thread records
-them as its goal, and its stage shows in a band above the conversation.
+them as its goal, and its progress shows on the token button in the thread
+header. Review comments start as one entry, "Every review comment
+answered", since the sweep knows only how many there are; once the thread
+has read them, it gives each comment its own entry and marks it done as it
+answers it.
 
 **A pull request with several flags gets one thread that works them in order**,
 worst first, finishing each before starting the next. They are sequential

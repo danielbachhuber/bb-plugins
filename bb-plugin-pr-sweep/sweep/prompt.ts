@@ -210,7 +210,8 @@ const MAX_GOAL_STAGES = 4;
 /**
  * The thread's goal and Done is, for the agent to record as given. One stage
  * per distinct end state, in the order of the work, with comments to read
- * folded into "Every review comment answered".
+ * folded into "Every review comment answered" until the thread has read them
+ * and lists each as its own entry.
  */
 export function goalBlock(row: ClassifiedRow): string {
   const stages: string[] = [];
@@ -220,11 +221,21 @@ export function goalBlock(row: ClassifiedRow): string {
   }
   if (describeCommentsToRead(row) && !stages.includes(END_STATE.feedback)) stages.push(END_STATE.feedback);
   if (stages.length === 0) stages.push("Sweep result confirmed or corrected");
-  return [
-    `Goal: ${row.repo}#${row.number} has nothing left from what the sweep found.`,
-    "Done is:",
-    ...stages.slice(0, MAX_GOAL_STAGES).map((stage) => `- ${stage}`),
-  ].join("\n");
+  const listed = stages.slice(0, MAX_GOAL_STAGES);
+  const lines = [`Goal: ${row.repo}#${row.number} has nothing left from what the sweep found.`, "Done is:", ...listed.map((stage) => `- ${stage}`)];
+  // The sweep knows how many comments there are, not what they say, so the
+  // thread lists them once it has read them: one entry each, as the user
+  // sees in the goal's list, rather than one entry for all of them.
+  if (listed.includes(END_STATE.feedback)) {
+    const kept = listed.filter((stage) => stage !== END_STATE.feedback);
+    lines.push(
+      "",
+      `Once you've read the review comments, give each its own entry in place of "${END_STATE.feedback}", named for what it asks, such as "Null check added in the export (octocat)": ` +
+        `bb tokenomics goal refine --detail high ${kept.map((stage) => `--stage "${stage}" `).join("")}--stage "<one per comment>" ... --reason "Listed each review comment". ` +
+        "Mark each done as you answer it.",
+    );
+  }
+  return lines.join("\n");
 }
 
 export function buildPromptParts(row: ClassifiedRow, onBranch?: ResolvedPullRequest): PromptParts {

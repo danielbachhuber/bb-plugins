@@ -367,8 +367,12 @@ describe("goalBlock", () => {
     );
   });
 
-  it("folds comments to read into answering review comments", () => {
-    expect(goalBlock(row({ flags: ["merge-ready"], unresolvedThreads: 2 }))).toContain("- Every review comment answered");
+  it("folds comments to read into answering review comments, then asks for one entry per comment once read", () => {
+    const block = goalBlock(row({ flags: ["ci-failing"], unresolvedThreads: 2 }));
+    expect(block).toContain("- Every review comment answered");
+    expect(block).toContain('give each its own entry in place of "Every review comment answered"');
+    expect(block).toContain('bb tokenomics goal refine --detail high --stage "Checks pass" --stage "<one per comment>"');
+    expect(goalBlock(row({ flags: ["conflict"] }))).not.toContain("goal refine");
   });
 
   it("asks to confirm the sweep when it found nothing", () => {
