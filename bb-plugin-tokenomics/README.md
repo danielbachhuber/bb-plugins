@@ -57,8 +57,9 @@ a band between the thread header and the conversation, which scrolls under
 it, so the goal stays in view. In the sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it fills a segment per stage
 done, turns amber past the estimate, and becomes a check once met. bb's
-states show on it, such as a pulsing segment while the thread works, a red
-segment when it failed, and a blue centre dot when it needs you, and the
+states show on it: the done arc turns blue when the thread needs you, red
+when it failed, and darker when it finished and you haven't looked; the
+whole donut spins while the thread works; a draft keeps bb's own icon. The
 card's current stage says the same. An exploration's stages are fixed: the
 agent's recommended answer, then your decision. Rest on the band for the stages and what the goal has used
 against Claude's estimate of its turns, tokens, and minutes. When setting a

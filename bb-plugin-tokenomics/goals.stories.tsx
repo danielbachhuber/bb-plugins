@@ -208,7 +208,7 @@ function SidebarRow({ trailing }: { trailing: ReactNode }) {
   );
 }
 
-/** Every bb sidebar row state: bb's icon today, and the goal donut that takes its place on a thread with a goal (3 of 5 stages done). The pulse is animated, so a still shows working close to idle. */
+/** Every bb sidebar row state: bb's icon, and the goal donut that takes its place on a thread with a goal (3 of 5 stages done). The done arc takes bb's colour, the donut spins while working (a still shows it mid-turn), queued looks like idle, and a draft keeps bb's own icon. */
 export const EveryBbRowState = () => (
   <div data-screenshot-frame className="inline-block bg-background p-6">
     <div className="mb-2 grid gap-x-4 text-xs text-muted-foreground" style={STATES_GRID}>
@@ -218,7 +218,7 @@ export const EveryBbRowState = () => (
       <span>On the donut</span>
     </div>
     {EVERY_BB_STATE.map((state) => {
-      const { label, activity, note } = ROW_STATES[state];
+      const { label, note } = ROW_STATES[state];
       return (
         <div key={state} className="grid items-center gap-x-4" style={STATES_GRID}>
           <span className="text-xs">{label}</span>
@@ -227,13 +227,17 @@ export const EveryBbRowState = () => (
           />
           <SidebarRow
             trailing={
-              state === "archived" ? (
-                <GoalDonut size={16} stroke={2.2} stages={5} reached={5} outcome="met" />
-              ) : (
-                <GoalDonut size={16} stroke={2.2} stages={5} reached={3} activity={activity} />
-              )
+              <SidebarGoalMark
+                mark={
+                  state === "archived"
+                    ? { label: "Met", stages: 5, reached: 5, outcome: "met", left: null }
+                    : { label: "3 of 5 · Tests pass", stages: 5, reached: 3, outcome: null, left: null }
+                }
+                state={state}
+              />
             }
           />
+
           <span className="text-xs text-muted-foreground">{note}</span>
         </div>
       );

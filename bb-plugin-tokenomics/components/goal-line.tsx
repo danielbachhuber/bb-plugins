@@ -6,6 +6,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Target02Icon from "@hugeicons/core-free-icons/Target02Icon";
 import CheckmarkCircle02Icon from "@hugeicons/core-free-icons/CheckmarkCircle02Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
+import Edit02Icon from "@hugeicons/core-free-icons/Edit02Icon";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -288,15 +289,18 @@ export function SidebarGoalMark({
             onOpenThread?.();
           }}
         >
-          <GoalDonut
-            size={16}
-            stroke={2.2}
-            stages={mark.stages}
-            reached={mark.reached}
-            outcome={mark.outcome}
-            tone={mark.left === "past estimate" ? "over" : "default"}
-            activity={archived ? null : activity}
-          />
+          {activity === "draft" && !archived ? (
+            // bb's own draft icon, as bb draws it in this slot.
+            <HugeiconsIcon icon={Edit02Icon} size={16} strokeWidth={1.5} className="text-muted-foreground" />
+          ) : (
+            <GoalDonut
+              stages={mark.stages}
+              reached={mark.reached}
+              outcome={mark.outcome}
+              tone={mark.left === "past estimate" ? "over" : "default"}
+              activity={archived ? null : activity}
+            />
+          )}
         </span>
       </PopoverTrigger>
       <PopoverContent
@@ -313,35 +317,36 @@ export function SidebarGoalMark({
   );
 }
 
-/**
- * A ring split into one segment per stage, filled for each stage done. A
- * met goal fills the whole ring; a goal with no stages, such as an
- * exploration, draws a dashed ring.
- */
+/** What bb's row icon says about the thread, as the donut and the card show it. */
 export type DonutActivity = "working" | "error" | "waiting" | "queued" | "unread" | "draft" | null;
 
-/** The mark in the donut's centre for an activity, in a 14-unit box. */
-function CentreMark({ activity, size }: { activity: DonutActivity; size: number }) {
-  return <g transform={`scale(${size / 14})`}><CentreShape activity={activity} /></g>;
-}
+/** The done arc's colour for a bb state; states not listed keep the usual colour. */
+const DONE_ARC: Partial<Record<NonNullable<DonutActivity>, string>> = {
+  waiting: "stroke-blue-500",
+  error: "stroke-destructive",
+  unread: "stroke-foreground",
+};
 
-function CentreShape({ activity }: { activity: DonutActivity }) {
-  if (activity === "unread") return <circle cx="7" cy="7" r="1.6" className="fill-muted-foreground/60" />;
-  if (activity === "waiting") return <circle cx="7" cy="7" r="2" className="fill-blue-500" />;
-  if (activity === "queued") return <circle cx="7" cy="7" r="1.6" fill="none" strokeWidth="1" className="stroke-muted-foreground/70" />;
-  if (activity === "draft") return <path d="M5.6 8.4 8.4 5.6" strokeWidth="1.3" strokeLinecap="round" className="stroke-muted-foreground" />;
-  return null;
-}
+/** One turn of the donut while the thread works. */
+const SPIN_SECONDS = 2.4;
 
+/**
+ * A ring split into one segment per stage, the done ones filled. bb's state
+ * colours the done arc: blue when the thread needs you, red when it failed,
+ * darker when it finished and you haven't looked. While the thread works the
+ * whole ring turns. A met goal is a filled disc with a check, one not met a
+ * grey ring with a cross. Queued and idle look alike; a draft shows bb's own
+ * icon instead, in SidebarGoalMark.
+ */
 export function GoalDonut({
   stages,
   reached,
   outcome = null,
-  size = 14,
-  stroke = 2.4,
+  size = 16,
+  stroke = 2.2,
   tone = "default",
-  nextTone = null,
   activity = null,
+  spinDelay,
 }: {
   stages: number;
   reached: number;
@@ -349,14 +354,9 @@ export function GoalDonut({
   size?: number;
   stroke?: number;
   tone?: "default" | "over";
-  /** Colours the segment being worked on, when set. */
-  nextTone?: "blue" | null;
-  /**
-   * What bb's own row icon would have said, shown on the donut it replaces:
-   * the next segment pulses while the thread works and turns red when it
-   * failed; a centre dot marks unread, needs you, queued, or a draft.
-   */
   activity?: DonutActivity;
+  /** A negative delay, so a story can show the spin at a given point. */
+  spinDelay?: string;
 }) {
   const radius = (size - stroke) / 2;
   const centre = size / 2;
@@ -380,13 +380,22 @@ export function GoalDonut({
       </svg>
     );
   }
+  const working = activity === "working";
+  const doneClass = (activity !== null && DONE_ARC[activity]) || filled;
+  const svgProps = {
+    width: size,
+    height: size,
+    viewBox: `0 0 ${size} ${size}`,
+    "aria-hidden": true,
+    className: cn("shrink-0", working ? "motion-safe:animate-spin" : "-rotate-90"),
+    style: working ? { animationDuration: `${SPIN_SECONDS}s`, animationDelay: spinDelay } : undefined,
+  } as const;
   if (stages === 0) {
+    // A goal recorded before explorations had stages.
     return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="shrink-0">
-        <circle cx={centre} cy={centre} r={radius} fill="none" strokeWidth={stroke}
-          className={activity === "error" ? "stroke-destructive" : activity === "working" ? "stroke-foreground/45 motion-safe:animate-pulse" : empty}
+      <svg {...svgProps}>
+        <circle cx={centre} cy={centre} r={radius} fill="none" strokeWidth={stroke} className={empty}
           strokeDasharray={`${circumference / 12} ${circumference / 12}`} />
-        <CentreMark activity={activity} size={size} />
       </svg>
     );
   }
@@ -394,7 +403,7 @@ export function GoalDonut({
   const gap = stages > 1 ? Math.min(circumference / stages / 3, stroke * 0.9) : 0;
   const length = circumference / stages - gap;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="shrink-0 -rotate-90">
+    <svg {...svgProps}>
       {Array.from({ length: stages }, (_, index) => (
         <circle
           key={index}
@@ -405,20 +414,9 @@ export function GoalDonut({
           strokeWidth={stroke}
           strokeDasharray={`${length} ${circumference - length}`}
           strokeDashoffset={-index * (length + gap) - gap / 2}
-          className={
-            index < reached
-              ? filled
-              : index === reached && outcome === null && activity === "error"
-                ? "stroke-destructive"
-                : index === reached && outcome === null && activity === "working"
-                  ? "stroke-foreground/45 motion-safe:animate-pulse"
-                  : index === reached && nextTone === "blue" && outcome === null
-                    ? "stroke-blue-500/70"
-                    : empty
-          }
+          className={index < reached ? doneClass : empty}
         />
       ))}
-      <CentreMark activity={activity} size={size} />
     </svg>
   );
 }
