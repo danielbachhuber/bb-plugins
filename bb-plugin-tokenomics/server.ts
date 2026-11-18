@@ -623,12 +623,13 @@ export default async function plugin(bb: BbPluginApi) {
   async function failedThreads(threadIds: string[]): Promise<Set<string>> {
     if (threadIds.length === 0) return new Set();
     try {
-      const threads = (await bb.sdk.threads.list({ threadIds: threadIds.slice(0, 200).join(","), includeHidden: true } as never)) as unknown as {
+      const threads = (await bb.sdk.threads.list({ threadIds: threadIds.slice(0, 200), includeHidden: true, limit: 200 } as never)) as unknown as {
         id: string;
         status: string;
       }[];
       return new Set(threads.filter((thread) => thread.status === "error").map((thread) => thread.id));
-    } catch {
+    } catch (error) {
+      bb.log.warn(`reading which goal threads failed: ${messageOf(error)}`);
       return new Set();
     }
   }
