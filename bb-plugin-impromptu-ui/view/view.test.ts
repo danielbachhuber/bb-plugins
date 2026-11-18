@@ -1007,3 +1007,15 @@ describe("meter, related, and map", () => {
     expect(describeItems(again)).toContain("    [related] security-queue  (Add)");
   });
 });
+
+describe("shownSince", () => {
+  it("lists views still above the composer, published since a time", () => {
+    const s = store();
+    const view = parseView(JSON.stringify({ title: "Pick", sections: [{ items: [{ id: "a", title: "A", actions: [{ type: "message", label: "Go", text: "Go." }] }] }] }));
+    s.publish("thr_old", "k", view, null, "2026-01-01T00:00:00.000Z");
+    const shown = s.publish("thr_new", "k", view, null, "2026-02-01T00:00:00.000Z");
+    const hidden = s.publish("thr_hidden", "k", view, null, "2026-02-01T00:00:00.000Z");
+    s.setHidden(hidden.id, true, "2026-02-02T00:00:00.000Z");
+    expect(s.shownSince("2026-01-15T00:00:00.000Z").map((stored) => stored.threadId)).toEqual([shown.threadId]);
+  });
+});

@@ -125,4 +125,13 @@ export const rpcContract = defineRpcContract({
     }),
     output: z.object({ threadId: z.string() }),
   },
+  /**
+   * The threads with a view above the composer that still has an open item,
+   * published in the last `days` days, so another plugin, such as Tokenomics,
+   * can show those threads as waiting on the user.
+   */
+  waiting_threads: {
+    input: z.object({ days: z.number().int().positive().max(90).default(14) }),
+    output: z.object({ threadIds: z.array(z.string()) }),
+  },
 });

@@ -44,6 +44,8 @@ bb impromptu-ui schema                                      # print everything a
 
 Each command except `schema` works only inside a bb thread.
 
+Other plugins can ask which threads have a card still waiting on you, through the `waiting_threads` RPC method: the threads with a view above the composer that has an open item, published in the last 14 days. Tokenomics uses it to show those threads as waiting in the sidebar. It reads the plugin's own database and makes no API calls.
+
 ### Answered and archived cards
 
 A card you answered or dismissed leaves the composer 10 minutes later, and a view goes once all of its cards have. Cards nobody has answered stay. The view's side panel still shows every card, and `state` still reports them. A card the agent marks complete counts from the publish that marked it. If the agent marks a card complete before you pressed any of its buttons, `publish` warns it to reopen the card unless you answered in chat. Set the wait with `autoClearMinutes`. Nothing is deleted and no API calls are made: the cards above the composer are filtered as they load, and they look again when the next card is due to go.

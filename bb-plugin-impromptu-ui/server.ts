@@ -461,6 +461,11 @@ export default async function plugin(bb: BbPluginApi) {
       return updated;
     },
     item_dismiss: ({ viewId, itemId, dismissed }) => dismiss(viewId, itemId, dismissed),
+    waiting_threads: ({ days }) => {
+      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const threadIds = new Set(store.shownSince(since).filter((stored) => openItemCount(stored) > 0).map((stored) => stored.threadId));
+      return { threadIds: [...threadIds] };
+    },
     item_thread_seed: async ({ viewId, itemId }) => {
       const stored = requireView(viewId);
       const item = findItem(stored, itemId);

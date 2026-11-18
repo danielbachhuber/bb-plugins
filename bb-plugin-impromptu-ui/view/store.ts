@@ -122,6 +122,8 @@ export interface Store {
   publish(threadId: string, key: string, view: View, cwd: string | null, now: string): StoredView;
   get(id: number): StoredView | null;
   forThread(threadId: string): StoredView[];
+  /** Views not hidden from above the composer, published at or after `since`. */
+  shownSince(since: string): StoredView[];
   /** Views another thread published with items that show in this one, each narrowed to those items, newest first. */
   linkedTo(threadId: string): StoredView[];
   /** Sets an item's state and last result, leaving what its related entries' buttons did. */
@@ -296,6 +298,12 @@ export function createStore(db: Database): Store {
     },
 
     get,
+
+    shownSince(since) {
+      return (
+        db.prepare("SELECT * FROM views WHERE hidden_at IS NULL AND published_at >= ?").all(since) as ViewRow[]
+      ).map(hydrate);
+    },
 
     forThread(threadId) {
       return (
