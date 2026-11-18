@@ -303,7 +303,7 @@ states it anyway, because a direct instruction outranks a skill's own steps.
 The prompt ends with the thread's goal, your review submitted with a verdict,
 and three end states: findings shown to you, each finding kept or dropped,
 and the review submitted. With Tokenomics installed, the thread records them
-as its goal, and its stage shows under the thread title.
+as its goal, and its stage shows in a band above the conversation.
 
 **The sandbox cannot enforce it.** `auto` keeps the workspace sandbox, which
 blocks network egress, so a thread in that mode cannot reach GitHub to read the

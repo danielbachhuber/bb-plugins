@@ -87,7 +87,31 @@ export function GoalCard({ goal }: { goal: GoalViewData }) {
   );
 }
 
-export function GoalLine({ goal, defaultOpen = false }: { goal: GoalViewData; defaultOpen?: boolean }) {
+/** A segment per stage, filled for each one done. */
+function StageSegments({ stages, reached }: { stages: number; reached: number }) {
+  return (
+    <span aria-hidden className="flex shrink-0 items-center gap-0.5">
+      {Array.from({ length: stages }, (_, index) => (
+        <span key={index} className={cn("h-1.5 w-3 rounded-full", index < reached ? "bg-foreground/70" : "bg-muted-foreground/25")} />
+      ))}
+    </span>
+  );
+}
+
+/**
+ * The band between the thread header and the conversation. The conversation
+ * scrolls under it, so the goal stays in view.
+ */
+export function GoalBand({ goal, defaultOpen = false }: { goal: GoalViewData; defaultOpen?: boolean }) {
+  if (goal.label === null) return null;
+  return (
+    <div data-tokenomics-goal-band="" className="border-b border-border-seam-vertical/60 bg-background px-4 py-1.5 md:px-5">
+      <GoalLine goal={goal} defaultOpen={defaultOpen} band />
+    </div>
+  );
+}
+
+export function GoalLine({ goal, defaultOpen = false, band = false }: { goal: GoalViewData; defaultOpen?: boolean; band?: boolean }) {
   const { open, onOpenChange, hover } = useHoverOpen({ defaultOpen });
   if (goal.label === null) return null;
   const closed = goal.outcome !== null;
@@ -98,7 +122,10 @@ export function GoalLine({ goal, defaultOpen = false }: { goal: GoalViewData; de
           {...hover}
           type="button"
           data-tokenomics-goal-line=""
-          className="flex w-full min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap text-left text-[11px] leading-4 text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
+          className={cn(
+            "flex w-full min-w-0 items-center overflow-hidden whitespace-nowrap text-left text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground",
+            band ? "gap-1.5 text-xs leading-5" : "gap-1 text-[11px] leading-4",
+          )}
         >
           <HugeiconsIcon
             icon={closed && goal.outcome === "met" ? CheckmarkCircle02Icon : Target02Icon}
@@ -106,11 +133,12 @@ export function GoalLine({ goal, defaultOpen = false }: { goal: GoalViewData; de
             strokeWidth={1.8}
             className="shrink-0"
           />
-          {/* In a narrow header the turns left go first, then the goal, and the stage last. */}
-          <span className="min-w-[2.5rem] truncate" style={{ flexShrink: 10 }}>
+          {/* In a narrow pane the turns left go first, then the goal, and the stage last. */}
+          <span className={cn("min-w-[2.5rem] truncate", band && "text-foreground")} style={{ flexShrink: 10 }}>
             {goal.text}
           </span>
           <span aria-hidden className="shrink-0">·</span>
+          {band && goal.stages.length > 0 && goal.outcome === null ? <StageSegments stages={goal.stages.length} reached={goal.reached} /> : null}
           <span className="min-w-0 truncate" style={{ flexShrink: 1 }}>
             {goal.label}
           </span>

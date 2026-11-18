@@ -1,41 +1,45 @@
-// Places empty elements in bb's own markup for the goal line under a thread's
-// title and the goal mark beside each sidebar row's title to render into.
+// Places empty elements in bb's own markup for the goal band at the top of a
+// thread's conversation and the goal mark beside each sidebar row's title to
+// render into.
 //
-// bb gives plugins no slot under the title or inside a sidebar row, so this
-// reads bb's markup: the header is a `<header>` holding the title's
-// `.bb-thread-title`, and each sidebar row has an `a[data-sidebar-thread-id]`
-// beside the span holding its `.bb-thread-title`. That markup is not an API.
+// bb gives plugins no slot between the thread header and the conversation, or
+// inside a sidebar row, so this reads bb's markup: the thread's pane is a
+// column holding its `<header>` and then `[data-thread-window]`, which scrolls
+// the conversation inside itself, and each sidebar row has an
+// `a[data-sidebar-thread-id]` beside the span holding its `.bb-thread-title`. That markup is not an API.
 // When bb changes it, the lines stop appearing and nothing else breaks, and
 // the tests here, which build the same markup, say what they expected.
 
-/** Marks the element under a header's title. */
+/** Marks the goal band at the top of a thread's conversation. */
 export const TITLE_HOST_ATTRIBUTE = "data-tokenomics-goal";
 /** Marks the element beside a sidebar row's title, and names the row's thread. */
 export const ROW_HOST_ATTRIBUTE = "data-tokenomics-goal-row";
 
 /**
- * The header holding `anchor`, a node rendered in the header's action row,
- * and the block holding its title. Null when bb's markup has moved.
+ * The thread header holding `anchor`, a node rendered in the header's action
+ * row, when bb's conversation follows it. Null when bb's markup has moved.
  */
-export function titleBlockOf(anchor: Element): Element | null {
+export function threadHeaderOf(anchor: Element): Element | null {
   const header = anchor.closest("header");
-  const title = header?.querySelector(".bb-thread-title");
-  // The title sits in a <p> inside a block; the line goes after the <p>, in the block.
-  const paragraph = title?.closest("p");
-  return paragraph?.parentElement ?? null;
+  if (header === null) return null;
+  // A band already placed sits between them.
+  let next = header.nextElementSibling;
+  while (next !== null && next.hasAttribute(TITLE_HOST_ATTRIBUTE)) next = next.nextElementSibling;
+  return next?.hasAttribute("data-thread-window") ? header : null;
 }
 
 /**
- * Puts `host` as the last child of the header's title block, once. Returns
- * whether it is in place.
+ * Puts `host` right after the thread header, above the conversation, once.
+ * The conversation scrolls inside its own element, so the band stays in view.
+ * Returns whether it is in place.
  */
-export function placeTitleHost(anchor: Element, host: HTMLElement): boolean {
-  const block = titleBlockOf(anchor);
-  if (block === null) {
+export function placeBandHost(anchor: Element, host: HTMLElement): boolean {
+  const header = threadHeaderOf(anchor);
+  if (header === null) {
     host.remove();
     return false;
   }
-  if (block.lastElementChild !== host) block.appendChild(host);
+  if (header.nextElementSibling !== host) header.after(host);
   return true;
 }
 

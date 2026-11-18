@@ -2,7 +2,7 @@ import { StoryCard, StoryRow } from "@bb-ladle/story-card";
 import { AppPageHeader } from "@bb-app/components/layout/AppPageHeader";
 import { SidebarProvider } from "@bb-app/components/ui/sidebar";
 
-import { GoalCard, GoalLine, SidebarGoalMark } from "./components/goal-line";
+import { GoalBand, GoalCard, GoalLine, SidebarGoalMark } from "./components/goal-line";
 import { GoalOutcomes, type GoalOutcomesData } from "./components/goal-outcomes";
 import type { GoalViewData } from "./usage/contract";
 
@@ -51,50 +51,55 @@ const EXPLORING: GoalViewData = {
 
 const MET: GoalViewData = { ...TASK, reached: 3, outcome: "met", outcomeNote: "Merged as acme/widgets#42", label: "Met", left: null };
 
-function Header({ title, goal }: { title: string; goal: GoalViewData }) {
+function Pane({ title, goal }: { title: string; goal: GoalViewData }) {
   return (
     <SidebarProvider>
-      <div data-screenshot-frame className="w-[760px] border border-border bg-background">
+      <div data-screenshot-frame className="flex h-[260px] w-[760px] flex-col overflow-hidden border border-border bg-background">
         <AppPageHeader
           ownsWindowTopLeft={false}
           center={
-            <div className="relative min-w-0">
-              <p className="relative min-w-0 truncate text-sm font-normal">
-                <span className="bb-thread-title">{title}</span>
-              </p>
-              <div className="min-w-0 max-w-full overflow-hidden">
-                <GoalLine goal={goal} />
-              </div>
-            </div>
+            <p className="relative min-w-0 truncate text-sm font-normal">
+              <span className="bb-thread-title">{title}</span>
+            </p>
           }
         />
+        <GoalBand goal={goal} />
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-5 py-4 text-sm">
+          <p className="text-muted-foreground">Explored 3 files</p>
+          <p>The export goes in the toolbar beside the filter. I'll build it as a menu item that downloads the visible rows.</p>
+          <p className="text-muted-foreground">Ran 2 commands</p>
+          <p>Export built. Next I'll add tests for empty lists and quoted fields.</p>
+        </div>
       </div>
     </SidebarProvider>
   );
 }
 
-/** The goal line under a thread's title: the goal, its current stage, and the turns left. */
-export const GoalLineInHeader = () => <Header title="Widgets: export the list to CSV" goal={TASK} />;
+/** The goal band between the thread header and the conversation, which scrolls under it: the goal, a segment per stage, the stage reached, and the turns left. */
+export const GoalBandInThread = () => <Pane title="Widgets: export the list to CSV" goal={TASK} />;
 
-/** Each kind of goal on the line: a task under way, one past its estimate, an exploration, and a met goal. */
-export const GoalLineStates = () => (
+/** The band past its estimate, and once the goal is met. */
+export const GoalBandStates = () => (
   <StoryCard>
-    <StoryRow label="a task" hint="stage reached and turns left">
-      <GoalLine goal={TASK} />
-    </StoryRow>
     <StoryRow label="past its estimate" hint="the turns left turn amber">
-      <GoalLine goal={OVER} />
+      <div className="w-[720px] border border-border">
+        <GoalBand goal={OVER} />
+      </div>
     </StoryRow>
     <StoryRow label="an exploration" hint="a question, no stages">
-      <GoalLine goal={EXPLORING} />
+      <div className="w-[720px] border border-border">
+        <GoalBand goal={EXPLORING} />
+      </div>
     </StoryRow>
-    <StoryRow label="met" hint="the outcome replaces the stage">
-      <GoalLine goal={MET} />
+    <StoryRow label="met" hint="the outcome replaces the stages">
+      <div className="w-[720px] border border-border">
+        <GoalBand goal={MET} />
+      </div>
     </StoryRow>
   </StoryCard>
 );
 
-/** The card that opens on the line: the stages, what the goal has used against its estimate, and how to change it. */
+/** The card that opens on the band: the stages, what the goal has used against its estimate, and how to change it. */
 export const GoalCardOpen = () => (
   <StoryCard>
     <StoryRow label="a task" hint="one stage done">

@@ -137,7 +137,7 @@ export type Limit = z.infer<typeof limitSchema>;
 const rangeSchema = z.object({ low: z.number(), high: z.number() }).nullable();
 const spentSchema = z.object({ turns: z.number(), tokens: z.number(), ms: z.number() });
 
-/** A thread's current goal, as the line under its title shows it. */
+/** A thread's current goal, as the band above its conversation shows it. */
 export const goalViewSchema = z.object({
   id: z.number(),
   shape: z.enum(["task", "exploration", "project", "none"]),
@@ -263,7 +263,7 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({ warning: z.number(), error: z.number() }),
   },
-  /** The thread's current goal for the line under its title; null without one or with the setting off. */
+  /** The thread's current goal for the band above its conversation; null without one or with the setting off. */
   thread_goal: {
     input: z.object({ threadId: z.string().min(1).max(200) }),
     output: z.object({ goal: goalViewSchema.nullable(), show: z.boolean() }),

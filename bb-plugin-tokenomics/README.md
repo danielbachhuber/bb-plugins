@@ -42,7 +42,7 @@ record for turns with the same settings, so its next range can move.
 
 ### Each thread's goal
 
-![A thread header with its title, and under it a goal line: a target icon, "Export a widget list to CSV from the toolbar", "1 of 3 · Export built", and "~1–6 turns left"](screenshots/goals--goal-line-in-header.png)
+![A thread with a band between its header and the conversation: a target icon, "Export a widget list to CSV from the toolbar", three stage segments with the first filled, "1 of 3 · Export built", and "~1–6 turns left"](screenshots/goals--goal-band-in-thread.png)
 
 Each thread records one goal: what the whole thread is for, not its next
 step. In its first turn Claude records it with `bb tokenomics goal set`, from
@@ -51,9 +51,10 @@ says so in one line instead of asking. A task gets 1 to 4 stages, 5 at most,
 each an end state such as "Tests pass" rather than a step; an exploration
 gets the question it answers; a conversation can have no goal.
 
-The goal, its stage, and the turns left show on a line under the thread's
-title, and a mark such as "1/3" or a check sits beside the thread's title in
-the sidebar. Rest on the line for the stages and what the goal has used
+The goal, a segment per stage, the stage reached, and the turns left show in
+a band between the thread header and the conversation, which scrolls under
+it, so the goal stays in view. A mark such as "1/3" or a check sits beside
+the thread's title in the sidebar. Rest on the band for the stages and what the goal has used
 against Claude's estimate of its turns, tokens, and minutes. When setting a
 goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-set-goal` to
@@ -61,8 +62,8 @@ change a goal: it proposes the new goal and why above the composer, and keeps
 the old one, and what it used, in the thread's history. When the work is
 done, Claude closes the goal as met, partly met, or not met.
 
-The line under the title and the sidebar mark go into bb's own markup, since
-bb has no slot for either. If bb changes that markup they stop appearing, and
+The band and the sidebar mark go into bb's own markup, since bb has no slot
+for either. If bb changes that markup they stop appearing, and
 nothing else breaks.
 
 ### A context meter above the composer
@@ -145,7 +146,7 @@ week's threads to review.
 | `forecastTurns` | on | Adds about 200 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
 | `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
-| `goalLine` | on | Shows the goal line under the title of a thread with a goal. Off removes it from open threads right away. |
+| `goalLine` | on | Shows the goal band above the conversation of a thread with a goal. Off removes it from open threads right away. |
 | `goalSidebar` | on | Shows the goal mark beside sidebar rows. Off removes them right away. |
 
 ## Requirements
@@ -158,7 +159,7 @@ outside service.
 - It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
 - It keeps each goal, and each earlier goal a revision replaced, with what it
   used, a few hundred bytes each, and deletes them when bb deletes the
-  thread. The line under the title reads one goal from the plugin's database
+  thread. The band reads one goal from the plugin's database
   when the thread opens and after each turn; the sidebar reads every active
   thread's goal in one request after each recorded usage. Neither asks bb.
 - bb deletes a thread's older usage events, so Tokenomics keeps its own copy,

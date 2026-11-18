@@ -131,7 +131,7 @@ export function checkStages(shape: GoalShape, raw: readonly string[]): { stages:
 export const OUTCOME_LABELS: Record<Outcome, string> = { met: "Met", partly: "Partly met", not: "Not met" };
 
 /**
- * The short status the goal line and the sidebar show: "1 of 3 · Finder
+ * The short status the goal band and the sidebar show: "1 of 3 · Export
  * built", "Exploring", "Met". Null for a thread with no goal to show.
  */
 export function stageLabel(goal: Pick<Goal, "shape" | "stages" | "reached" | "outcome">): string | null {
@@ -157,7 +157,7 @@ function roundRange(range: Range): string {
   return low === high ? `${low}` : `${low}–${high}`;
 }
 
-/** The goal line's tail: "~2–5 turns left", "past estimate", or null with no turn estimate or once closed. */
+/** The goal band's tail: "~2–5 turns left", "past estimate", or null with no turn estimate or once closed. */
 export function remainingLabel(goal: Pick<Goal, "estimate" | "outcome" | "shape">, spent: Spent): string | null {
   if (goal.outcome !== null || goal.shape === "none") return null;
   const left = remainingOf(goal.estimate.turns, spent.turns);

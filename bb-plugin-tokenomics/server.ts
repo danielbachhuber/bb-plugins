@@ -84,8 +84,8 @@ export default async function plugin(bb: BbPluginApi) {
     },
     goalLine: {
       type: "boolean",
-      label: "Show the goal under the thread title",
-      description: "The goal, its current stage, and the turns left, on a line under the title of a thread that has a goal.",
+      label: "Show the goal above the conversation",
+      description: "The goal, its stages, and the turns left, in a band between the thread header and the conversation, which scrolls under it.",
       default: true,
     },
     goalSidebar: {
@@ -421,7 +421,7 @@ export default async function plugin(bb: BbPluginApi) {
   settings.onChange((next) => {
     forecastTurns = next.forecastTurns;
     setGoals = next.setGoals;
-    // The goal line and the sidebar read their settings from the server.
+    // The goal band and the sidebar read their settings from the server.
     bb.realtime.publish(GOALS_CHANNEL, {});
   });
   bb.agents.contributeInstructions(() => {

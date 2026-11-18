@@ -26,8 +26,8 @@ import type { rpcContract } from "./server";
 import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
 import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
-import { GoalLine, SidebarGoalMark } from "@/components/goal-line";
-import { onlyGoalHostChanges, placeRowHosts, placeTitleHost, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
+import { GoalBand, SidebarGoalMark } from "@/components/goal-line";
+import { onlyGoalHostChanges, placeBandHost, placeRowHosts, TITLE_HOST_ATTRIBUTE } from "./timeline/goal-hosts.js";
 import { onlyHostChanges, placeTurnHosts, removeTurnHosts } from "./timeline/turn-hosts.js";
 import { fillBars, windowFor, type Bar, type RangeId } from "./usage/series.js";
 
@@ -281,7 +281,8 @@ function ThreadTokensAction({ threadId, isCompactViewport }: PluginThreadHeaderA
 
 /**
  * Renders nothing in the header's action row. Its hidden anchor finds the
- * header, and the goal line renders under the title through a portal. See
+ * thread's header, and the goal band renders between it and the conversation
+ * through a portal, so it stays in view as the conversation scrolls. See
  * timeline/goal-hosts.ts for why this reads bb's markup.
  */
 function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
@@ -326,21 +327,21 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
     }
     const element = document.createElement("div");
     element.setAttribute(TITLE_HOST_ATTRIBUTE, threadId);
-    element.className = "min-w-0 max-w-full overflow-hidden";
+    element.className = "shrink-0";
     let frame: number | null = null;
     const pass = () => {
       frame = null;
-      setHost(placeTitleHost(anchor, element) ? element : null);
+      setHost(placeBandHost(anchor, element) ? element : null);
     };
     const schedule = () => {
       if (frame === null) frame = requestAnimationFrame(pass);
     };
-    // bb re-renders the title on rename and on switching threads in a pane.
+    // bb re-renders the pane on switching threads in it, and may drop the band.
     const observer = new MutationObserver((records) => {
       if (!onlyGoalHostChanges(records)) schedule();
     });
-    const header = anchor.closest("header");
-    if (header !== null) observer.observe(header, { childList: true, subtree: true });
+    const pane = anchor.closest("header")?.parentElement;
+    if (pane != null) observer.observe(pane, { childList: true });
     pass();
     return () => {
       observer.disconnect();
@@ -352,7 +353,7 @@ function ThreadGoalAction({ threadId }: PluginThreadHeaderActionProps) {
   return (
     <>
       <span ref={anchorRef} hidden />
-      {visible && host !== null ? createPortal(<GoalLine goal={goal} />, host) : null}
+      {visible && host !== null ? createPortal(<GoalBand goal={goal} />, host) : null}
     </>
   );
 }

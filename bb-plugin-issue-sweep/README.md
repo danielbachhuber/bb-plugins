@@ -229,7 +229,7 @@ thread** button opens the new thread.
 The prompt ends with the thread's goal, the issue done as its latest comments
 define it, and three end states: plan agreed with you, built and tested, and
 a pull request open with checks passing. With Tokenomics installed, the
-thread records them as its goal, and its stage shows under the thread title.
+thread records them as its goal, and its stage shows in a band above the conversation.
 
 A thread started from a row is linked to its issue in gh-context, and the row
 then opens that thread rather than starting another.
