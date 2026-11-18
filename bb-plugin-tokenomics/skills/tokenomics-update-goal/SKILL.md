@@ -1,6 +1,6 @@
 ---
 name: tokenomics-update-goal
-description: Use when the user invokes /tokenomics-update-goal, with or without a goal after it, or asks to set, change, refine, or update this thread's goal or stages (to remove it, use tokenomics-clear-goal), such as "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
+description: Use when the user invokes /tokenomics-update-goal, with or without a goal or a detail level (high or low) after it, or asks to set, change, refine, or update this thread's goal or stages (to remove it, use tokenomics-clear-goal), such as "the goal has changed", "update the goal", "the stages are out of date", "this thread is really about X now", or "set a goal for this thread". Uses the goal the user gave, or drafts one from the thread's work, and records it right away with bb tokenomics goal set or goal refine, without asking for review.
 ---
 
 # Update this thread's goal
@@ -17,8 +17,8 @@ they can run the skill again to change it.
 bb tokenomics goal show
 ```
 
-It prints the current goal, its stages and items, its estimate, what it has
-used, and any earlier goals. "This thread has no goal yet" means you're
+It prints the current goal, its "Done is" list and detail level, its
+estimate, what it has used, and any earlier goals. "This thread has no goal yet" means you're
 setting the first one.
 
 ## 2. Decide the goal
@@ -28,28 +28,30 @@ setting the first one.
   result if it isn't one ("Both review comments fixed, pushed, and answered").
 - **The user gave none:** draft it from their prompts since the current goal
   was set, or since the thread began, and from the work done so far.
+- **The level of detail:** `high` or `low` after the goal, or words such as
+  "in detail", "list each one", "keep it short", or "summarise". Without one,
+  keep the current goal's level, or use low for a first goal.
 
 Then work out:
 
 - **The goal:** one sentence, under 200 characters, naming the end result.
-  "Widget sync decision recorded in an ADR and merged", not "Look into sync
-  options".
-- **The shape:**
-  - A *task* has 1 to 4 stages, 5 at most. Each stage is an end state someone
-    could check ("Alternatives compared", "PR's checks pass", "Merged"),
-    never a step to do ("Research polling"). The last stage is what ends the
-    thread. When the user will review what the thread makes, such as a
-    design, a UI, or a draft, the last stage is their acceptance ("Refined on
-    your feedback").
-  - A list of similar things to work through, such as a review's findings,
-    goes in the goal's items (`bb tokenomics goal item add "…"`), which have
-    no limit, rather than in more stages.
-  - An *exploration* states the question to answer or the decision to make.
-    Its stages are fixed (Answer recommended, then You decided), so leave out
-    `--stage`.
-  - A *project* states its purpose; its workers carry their own goals.
-  - *No goal* fits a conversation with nothing to finish.
-- **Which stages are already true** from the work so far.
+  "The widget security issues are resolved", not "Look into the findings".
+- **The "Done is" list.** Each entry is an end state someone could check
+  ("PR's checks pass", "H2 addressed"), never a step to do ("Research
+  polling"). The last one is what ends the thread; when the user will review
+  what the thread makes, it is their acceptance ("Refined on your feedback").
+  - **low** (`--detail low`): up to 5 entries. When the work has more pieces,
+    such as a review's 17 findings, group them by what they share and keep a
+    count on each group: "Critical and high findings addressed · 4 of 6".
+  - **high** (`--detail high`): up to 25 entries, each piece its own entry,
+    such as one per finding. Past 25, keep the pieces that matter most as
+    their own entries and group the rest with counts.
+- **The shape:** a *task* has the list above. An *exploration* states the
+  question to answer or the decision to make; its entries are fixed (Answer
+  recommended, then You decided), so leave out `--stage`. A *project* states
+  its purpose; its workers carry their own goals. *No goal* fits a
+  conversation with nothing to finish.
+- **Which entries are already done**, and the count on each grouped one, from the work so far.
 - **An 80% estimate** of what is left: turns, tokens, and minutes. `goal show`
   prints how past threads that started the same way went; start from that.
 - **Why**, when the thread already has a goal: one sentence on what changed,
@@ -60,11 +62,12 @@ Then work out:
 **No goal yet, or the current one is closed:**
 
 ```sh
-bb tokenomics goal set "Both review comments fixed, pushed, and answered" \
-  --stage "First comment fixed" --stage "Second comment fixed" \
-  --stage "Pushed with checks passing" --stage "Replies posted" \
-  --turns 2-5 --tokens 5M-20M --minutes 15-45 --by you
-bb tokenomics goal stage 1   # when the first stage is already true
+bb tokenomics goal set "The widget security issues are resolved" --detail low \
+  --stage "Critical and high findings addressed" --stage "Medium findings addressed" \
+  --stage "Low findings addressed" --stage "You approved each action" \
+  --turns 3-10 --tokens 5M-25M --minutes 30-120 --by you
+bb tokenomics goal entry count 1 4/6   # a grouped entry's count
+bb tokenomics goal entry done 3        # an entry already true
 ```
 
 Add `--shape exploration` or `--shape project` for those shapes, and
@@ -73,24 +76,24 @@ Add `--shape exploration` or `--shape project` for those shapes, and
 rather than dropped, it already counts; setting a new one needs no
 `--reason`.
 
-**An open goal:** refine it, which keeps the progress of stages you keep word
-for word, and its items, and leaves the old wording in the history:
+**An open goal:** refine it. Entries kept word for word keep their state and
+count, and the old wording stays in the history:
 
 ```sh
-bb tokenomics goal refine "Widget sync decision recorded in an ADR and merged" \
-  --stage "Alternatives compared" --stage "Recommendation checked" \
-  --stage "Review answered" --stage "Merged" \
-  --turns 2-6 --tokens 10M-40M --minutes 15-60 \
-  --reason "Widened from one option to three"
+bb tokenomics goal refine "The widget security issues are resolved" --detail high \
+  --stage "C1 addressed" --stage "H1 addressed" ... --stage "You approved each action" \
+  --turns 3-10 --tokens 5M-25M --minutes 30-120 \
+  --reason "You asked for each finding listed"
 ```
 
-Leave out the goal text, `--stage`, or an estimate flag to keep it as it is.
-Pass `--reached N` when the first N of the new stages are already true and
-their wording changed. If the open goal already fits the thread, record
-nothing.
+Leave out the goal text, `--stage`, `--detail`, or an estimate flag to keep
+it as it is. Pass `--reached N` when the first N of the new entries are
+already done and their wording changed, then mark any others with
+`goal entry done|drop N` and `goal entry count N DONE/TOTAL`. If the open
+goal already fits the thread, record nothing.
 
 ## 4. Tell the user
 
-Say in one line what the thread's goal is now, how many stages are done, and,
-for a change, why. For example: "Goal: both review comments fixed, pushed,
-and answered, 1 of 4 done." Don't publish a card or ask a question.
+Say in one line what the thread's goal is now, how many entries are done, its
+level, and, for a change, why. For example: "Goal: the widget security issues
+are resolved, 1 of 4 done (low detail)." Don't publish a card or ask a question.

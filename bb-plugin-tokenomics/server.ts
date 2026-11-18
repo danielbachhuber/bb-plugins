@@ -29,7 +29,7 @@ import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextT
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createGoalStore } from "./usage/goal-store.js";
 import { goalCli, goalView, GOAL_USAGE } from "./usage/goal-cli.js";
-import { originOf as originOfThread, GOAL_INSTRUCTIONS, estimateRecord, groupOf, originLabel, stageLabel, remainingLabel } from "./usage/goals.js";
+import { originOf as originOfThread, GOAL_INSTRUCTIONS, estimateRecord, finishedCount, groupOf, originLabel, stageLabel, remainingLabel } from "./usage/goals.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { turnSummaries, turnWork, type TurnSummary } from "./usage/turn-summary.js";
 import {
@@ -90,19 +90,19 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean",
       label: "Ask Claude to record each thread's goal",
       description:
-        "Adds a short section to each thread's instructions asking Claude to record the thread's goal, its stages, and an estimate with bb tokenomics goal, and to close it with an outcome.",
+        "Adds a short section to each thread's instructions asking Claude to record the thread's goal, its \"Done is\" list, and an estimate with bb tokenomics goal, and to close it with an outcome.",
       default: true,
     },
     goalLine: {
       type: "boolean",
       label: "Show the goal on the thread's token button",
-      description: "The goal's donut on the token button in the thread header, and the goal, its stages, and what it has used at the top of the summary it opens.",
+      description: "The goal's donut on the token button in the thread header, and the goal, its \"Done is\" list, and what it has used at the top of the summary it opens.",
       default: true,
     },
     goalSidebar: {
       type: "boolean",
-      label: "Show goal stages in the sidebar",
-      description: "A segmented donut for the goal's stages, or its outcome once closed, in each sidebar row whose thread has a goal.",
+      label: "Show goal progress in the sidebar",
+      description: "A donut with a segment per \"Done is\" entry, or the goal's outcome once closed, in each sidebar row whose thread has a goal.",
       default: true,
     },
   });
@@ -768,7 +768,7 @@ export default async function plugin(bb: BbPluginApi) {
         goals: active.flatMap((goal) => {
           const label = stageLabel(goal);
           if (label === null) return [];
-          return [{ threadId: goal.threadId, label, stages: goal.stages.length, reached: goal.reached, outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId), failed: failed.has(goal.threadId) }];
+          return [{ threadId: goal.threadId, label, stages: goal.entries.length, reached: finishedCount(goal.entries), states: goal.entries.map((entry) => entry.state), outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId), failed: failed.has(goal.threadId) }];
         }),
       };
     },

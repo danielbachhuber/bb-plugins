@@ -555,8 +555,9 @@ export function ThreadTokenCount({
         >
           {shownGoal === null ? null : (
             <GoalDonut
-              stages={shownGoal.stages.length}
-              reached={shownGoal.reached}
+              stages={shownGoal.entries.length}
+              reached={shownGoal.entries.filter((entry) => entry.state === "done" || entry.state === "dropped").length}
+              states={shownGoal.entries.map((entry) => entry.state)}
               outcome={shownGoal.outcome}
               tone={shownGoal.left === "past estimate" ? "over" : "default"}
               activity={activity}

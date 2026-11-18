@@ -1,6 +1,6 @@
 // The goal at the top of the Tokenomics popover, and the donut on its header
 // button and beside each sidebar row. Resting on the sidebar donut opens a
-// card with the stages, any items, the estimate, and what the goal has used.
+// card with the "Done is" list, the estimate, and what the goal has used.
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
@@ -90,47 +90,37 @@ export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activi
         <span className="text-muted-foreground">{SHAPE_LABEL[goal.shape]}</span>
         <span className="text-sm text-foreground">{goal.text}</span>
       </div>
-      {goal.stages.length === 0 ? null : (
-        <ol className="flex flex-col gap-1">
-          {goal.stages.map((stage, index) => {
-            const done = index < goal.reached;
-            const current = !done && index === goal.reached && goal.outcome === null;
+      {goal.entries.length === 0 ? null : (
+        <ol className="flex max-h-60 flex-col gap-1 overflow-y-auto">
+          {shownEntries(goal).map((entry, index) => {
+            const done = entry.state === "done";
+            const current = entry.state === "current";
             const note = current && activity !== null ? ACTIVITY_NOTE[activity] : undefined;
             return (
-              <li key={stage} className={cn("flex items-center gap-1.5", done || note ? "text-foreground" : "text-muted-foreground")}>
+              <li
+                key={`${index}-${entry.label}`}
+                className={cn(
+                  "flex items-center gap-1.5",
+                  done || note ? "text-foreground" : "text-muted-foreground",
+                  entry.state === "dropped" && "line-through opacity-70",
+                )}
+              >
                 <StageCircle done={done} current={current} activity={activity} />
-                <span>{stage}</span>
+                <span className="min-w-0 truncate">{entry.label}</span>
                 {note ? (
                   <span className={cn("ml-auto shrink-0 pl-2", activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
                     {note}
                   </span>
+                ) : entry.count ? (
+                  <span className="ml-auto shrink-0 pl-2 tabular-nums text-muted-foreground">
+                    {entry.count.done} of {entry.count.total}
+                  </span>
                 ) : null}
-                <span className="sr-only">{done ? "(done)" : note ? `(${note})` : "(not yet)"}</span>
+                <span className="sr-only">({note ?? ENTRY_STATE_TEXT[entry.state]})</span>
               </li>
             );
           })}
         </ol>
-      )}
-      {goal.items.length === 0 ? null : (
-        <div className="flex flex-col gap-1">
-          <span className="text-muted-foreground">Items · {itemsProgress(goal.items)}</span>
-          <ol className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-            {goal.items.map((item, index) => (
-              <li
-                key={`${index}-${item.label}`}
-                className={cn(
-                  "flex items-center gap-1.5",
-                  item.state === "current" ? "text-foreground" : "text-muted-foreground",
-                  item.state === "dropped" && "line-through opacity-70",
-                )}
-              >
-                <EntrySquare state={item.state} />
-                <span className="min-w-0 truncate">{item.label}</span>
-                <span className="sr-only">({ENTRY_STATE_TEXT[item.state]})</span>
-              </li>
-            ))}
-          </ol>
-        </div>
       )}
       {goal.shape === "exploration" && activity !== null && ACTIVITY_NOTE[activity] ? (
         <span className="text-muted-foreground">{ACTIVITY_NOTE[activity]}</span>
@@ -155,17 +145,21 @@ export function GoalCard({ goal, activity = null }: { goal: GoalViewData; activi
   );
 }
 
-type BandEntry = { label: string; state: GoalViewData["items"][number]["state"] };
+type Entry = GoalViewData["entries"][number];
+type BandEntry = Pick<Entry, "label" | "state" | "count">;
 
-/** The goal's stages as band entries: done up to `reached`, the next one in progress while the goal is open. */
-function stageEntries(goal: GoalViewData): BandEntry[] {
-  return goal.stages.map((label, index) => ({
-    label,
-    state: index < goal.reached ? "done" : index === goal.reached && goal.outcome === null ? "current" : "todo",
-  }));
+/**
+ * The entries as they show: each in its own state, and, while the goal is
+ * open and none is marked in progress, the first unfinished one shown as in
+ * progress, as an ordered list of end states is worked through.
+ */
+export function shownEntries(goal: Pick<GoalViewData, "entries" | "outcome">): BandEntry[] {
+  if (goal.outcome !== null || goal.entries.some((entry) => entry.state === "current")) return goal.entries;
+  const next = goal.entries.findIndex((entry) => entry.state === "todo");
+  return goal.entries.map((entry, index) => (index === next ? { ...entry, state: "current" } : entry));
 }
 
-/** A small square per stage or item: filled when done, light while in progress, outlined before, grey when dropped. */
+/** A small square per entry: filled when done, light while in progress, outlined before, grey when dropped. */
 function EntrySquare({ state }: { state: BandEntry["state"] }) {
   return (
     <span
@@ -197,9 +191,9 @@ function usedLine(goal: GoalViewData): string {
 }
 
 /**
- * The goal at the top of the Tokenomics popover: the goal, a square and name
- * for each stage (the segments of the button's donut), then each item when
- * the goal has a list, and what it has used against its estimate.
+ * The goal at the top of the Tokenomics popover: the goal, its "Done is"
+ * list (the segments of the button's donut), and what it has used against
+ * its estimate.
  */
 export function CompactGoal({
   goal,
@@ -215,35 +209,26 @@ export function CompactGoal({
   usage?: boolean;
 }) {
   if (goal.label === null) return null;
-  // With items, each list carries its own count, so the heading doesn't
-  // float a stage count above two lists; without, the heading counts stages.
-  const listed = goal.items.length > 0 && goal.stages.length > 0;
   const progress =
     goal.outcome !== null
       ? OUTCOME_LABEL[goal.outcome]
-      : listed
-        ? null
-        : goal.stages.length > 0
-          ? `${Math.min(goal.reached, goal.stages.length)} of ${goal.stages.length}`
-          : goal.label;
+      : goal.entries.length > 0
+        ? `${finishedOf(goal.entries)} of ${goal.entries.length} done`
+        : goal.label;
   const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
   return (
     <div data-tokenomics-goal="" className="flex flex-col gap-2 text-xs">
       <span className={cn("flex items-baseline justify-between gap-3 text-muted-foreground", !heading && !note && "hidden")}>
-        <span>{heading ? (progress === null ? SHAPE_LABEL[goal.shape] : `${SHAPE_LABEL[goal.shape]} · ${progress}`) : null}</span>
+        <span>{heading ? `${SHAPE_LABEL[goal.shape]} · ${progress}` : null}</span>
         {note ? (
           <span className={cn(activity === "error" ? "text-destructive" : activity === "waiting" ? "text-blue-600 dark:text-blue-400" : undefined)}>{note}</span>
         ) : null}
       </span>
       <span className="text-sm text-foreground">{goal.text}</span>
-      {listed ? (
-        <span className="text-muted-foreground">Stages · {Math.min(goal.reached, goal.stages.length)} of {goal.stages.length}</span>
-      ) : null}
-      <EntryGrid entries={stageEntries(goal)} />
-      {goal.items.length === 0 ? null : (
+      {goal.entries.length === 0 ? null : (
         <>
-          <span className="text-muted-foreground">Items · {itemsProgress(goal.items)}</span>
-          <EntryGrid entries={goal.items} />
+          <span className="text-muted-foreground">Done is</span>
+          <EntryGrid entries={shownEntries(goal)} />
         </>
       )}
       <span className={cn("text-muted-foreground", !usage && "hidden")}>
@@ -257,11 +242,12 @@ export function CompactGoal({
   );
 }
 
-/** Stages or items as a two-column grid of squares and names. */
+/** Entries as a two-column grid of squares and names, or one column with counts when any entry has one. */
 function EntryGrid({ entries }: { entries: BandEntry[] }) {
   if (entries.length === 0) return null;
+  const counted = entries.some((entry) => entry.count !== undefined);
   return (
-    <ol className="grid max-h-40 grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto">
+    <ol className={cn("max-h-48 gap-x-3 gap-y-1 overflow-y-auto", counted ? "flex flex-col" : "grid grid-cols-2")}>
       {entries.map((entry, index) => (
         <li key={`${index}-${entry.label}`} title={entry.label} className="flex min-w-0 items-center gap-1.5">
           <EntrySquare state={entry.state} />
@@ -274,6 +260,11 @@ function EntryGrid({ entries }: { entries: BandEntry[] }) {
           >
             {entry.label}
           </span>
+          {entry.count ? (
+            <span className="ml-auto shrink-0 pl-2 tabular-nums text-muted-foreground">
+              {entry.count.done} of {entry.count.total}
+            </span>
+          ) : null}
           <span className="sr-only">({ENTRY_STATE_TEXT[entry.state]})</span>
         </li>
       ))}
@@ -281,15 +272,16 @@ function EntryGrid({ entries }: { entries: BandEntry[] }) {
   );
 }
 
-function itemsProgress(items: GoalViewData["items"]): string {
-  const finished = items.filter((item) => item.state === "done" || item.state === "dropped").length;
-  return `${finished} of ${items.length}`;
+function finishedOf(entries: readonly Pick<Entry, "state">[]): number {
+  return entries.filter((entry) => entry.state === "done" || entry.state === "dropped").length;
 }
 
 export interface SidebarMark {
   label: string;
   stages: number;
   reached: number;
+  /** Each entry's state, in order, so each segment shows its own; without it, the first `reached` are done. */
+  states?: Entry["state"][];
   outcome: "met" | "partly" | "not" | null;
   left: string | null;
   /** An Impromptu UI card above the thread's composer still has an open item. */
@@ -348,6 +340,7 @@ export function SidebarGoalMark({
             <GoalDonut
               stages={mark.stages}
               reached={mark.reached}
+              states={mark.states}
               outcome={mark.outcome}
               tone={mark.left === "past estimate" ? "over" : "default"}
               activity={archived ? null : activity}
@@ -371,6 +364,9 @@ export function SidebarGoalMark({
 
 /** What bb's row icon says about the thread, as the donut and the card show it. */
 export type DonutActivity = "working" | "error" | "waiting" | "queued" | "unread" | "draft" | null;
+
+/** A dropped entry's segment: finished, but lighter than done. */
+const DROPPED_ARC = "stroke-muted-foreground/45";
 
 /** The done arc's colour for a bb state; states not listed keep the usual colour. */
 const DONE_ARC: Partial<Record<NonNullable<DonutActivity>, string>> = {
@@ -403,6 +399,7 @@ export function dashedSegment(length: number, circumference: number, dash = 1.6,
 export function GoalDonut({
   stages,
   reached,
+  states,
   outcome = null,
   size = 16,
   stroke = 2.2,
@@ -412,6 +409,8 @@ export function GoalDonut({
 }: {
   stages: number;
   reached: number;
+  /** Each entry's state, in order; without it, the first `reached` segments are done. */
+  states?: readonly Entry["state"][];
   outcome?: "met" | "partly" | "not" | null;
   size?: number;
   stroke?: number;
@@ -464,7 +463,14 @@ export function GoalDonut({
   // A small gap between segments, so each reads as its own stage.
   const gap = stages > 1 ? Math.min(circumference / stages / 3, stroke * 0.9) : 0;
   const length = circumference / stages - gap;
-  const inProgress = working && reached < stages;
+  // Each segment's state: from `states` when given, else the first `reached` done.
+  const segment = (index: number): Entry["state"] => (states ? (states[index] ?? "todo") : index < reached ? "done" : "todo");
+  // While working, the entry in progress is drawn dashed: the one marked so,
+  // or else the first not yet started.
+  const explicit = states?.indexOf("current") ?? -1;
+  const firstTodo = Array.from({ length: stages }, (_, index) => segment(index)).indexOf("todo");
+  const active = working ? (explicit >= 0 ? explicit : firstTodo) : -1;
+  const inProgress = active >= 0;
   return (
     <svg {...svgProps}>
       {Array.from({ length: stages }, (_, index) => (
@@ -477,9 +483,9 @@ export function GoalDonut({
           strokeWidth={stroke}
           strokeDasharray={`${length} ${circumference - length}`}
           strokeDashoffset={-index * (length + gap) - gap / 2}
-          className={index < reached ? doneClass : empty}
-          // The stage being worked on is drawn dashed instead, below.
-          visibility={inProgress && index === reached ? "hidden" : undefined}
+          className={segment(index) === "done" ? doneClass : segment(index) === "dropped" ? DROPPED_ARC : empty}
+          // The entry being worked on is drawn dashed instead, below.
+          visibility={index === active ? "hidden" : undefined}
         />
       ))}
       {inProgress && (
@@ -493,7 +499,7 @@ export function GoalDonut({
           fill="none"
           strokeWidth={stroke}
           strokeDasharray={dashedSegment(length, circumference)}
-          strokeDashoffset={-reached * (length + gap) - gap / 2}
+          strokeDashoffset={-active * (length + gap) - gap / 2}
           className={doneClass}
         />
       )}

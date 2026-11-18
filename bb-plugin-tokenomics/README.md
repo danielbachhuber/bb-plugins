@@ -42,45 +42,47 @@ record for turns with the same settings, so its next range can move.
 
 ### Each thread's goal
 
-![The token button in a thread header with the goal's donut before its sparkline, and its summary open: "Goal · 2 of 4", "Export the widget list to CSV from the toolbar", a square and name for each stage, and "4 of 3–8 turns · 9.1M of 5M–20M tokens · 26 of 20–60 min" above the thread's token chart](screenshots/goals--goal-in-header.png)
+![The token button in a thread header with the goal's donut before its sparkline, and its summary open: "Goal · 2 of 4 done", "Export the widget list to CSV from the toolbar", "Done is" with a square and name for each entry, and "4 of 3–8 turns · 9.1M of 5M–20M tokens · 26 of 20–60 min" above the thread's token chart](screenshots/goals--goal-in-header.png)
 
 Each thread records one goal: what the whole thread is for, not its next
 step. In its first turn Claude records it with `bb tokenomics goal set`, from
 the brief a plugin or another thread wrote, or from your first prompt, and
-says so in one line instead of asking. A task gets 1 to 4 stages, 5 at most,
-each an end state such as "Tests pass" rather than a step, and the last one
-what ends the thread, such as "PR open with checks passing"; an exploration
-gets the question it answers; a conversation can have no goal. Work that is
-a longer list, such as a review's twelve findings, goes in the goal's items
-(`bb tokenomics goal item add`), each marked in progress, done, or dropped.
+says so in one line instead of asking. A task gets a "Done is" list of end
+states such as "Tests pass" rather than steps, the last one what ends the
+thread, such as "PR open with checks passing", each marked in progress, done,
+or dropped as the work goes. The goal's detail level caps the list: up to 5
+entries at low, the default, or 25 at high. When the work has more pieces
+than that, such as a review's 17 findings at low detail, Claude groups them
+and keeps a count on each group, such as "Medium findings addressed · 2 of
+9", rather than tracking each one. An exploration gets the question it
+answers; a conversation can have no goal.
 
 The goal's donut leads the token button in the thread header, before the
 sparkline. The summary that button opens starts with the goal: how far it has
-come, a square and name for each stage (the donut's segments), then one for
-each item when there are items, showing which are done, in progress, or
-still to do, and what the goal
+come, a square and name for each entry (the donut's segments), with any
+count, showing which are done, in progress, or still to do, and what the goal
 has used against Claude's estimate of its turns, tokens, and minutes. In the
 sidebar, a segmented donut at the right
-end of the row takes the place of bb's own icon: it fills a segment per stage
-done, turns amber past the estimate, and becomes a check once met. bb's
+end of the row takes the place of bb's own icon: it has a segment per entry,
+filled when done and lighter when dropped, turns amber past the estimate, and becomes a check once met. bb's
 states show on it: the done arc turns blue when the thread needs you,
 including when an Impromptu UI card above its composer still waits on your
 answer, and darker when it finished and you haven't looked; the
 whole donut spins while the thread works; a draft keeps bb's own icon. A
 failed turn, including one bb will retry after a provider error, shows bb's
 icon alone, without the donut; a plain queued message keeps the donut. The
-header donut and the cards say the same. An exploration's stages are fixed:
+header donut and the cards say the same. An exploration's entries are fixed:
 the agent's recommended answer, then your decision. Rest on a sidebar donut
 for the goal's card. When setting a
 goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-update-goal`, with a goal
-after it or not, to set or update the goal: it uses the goal you give or
-drafts one from the thread's work, records it without asking, keeps the
-progress of stages that carry over, and keeps the old goal, and what it used,
+and a level of detail (high or low) after it or not, to set or update the
+goal: it uses the goal you give or drafts one from the thread's work, records
+it without asking, keeps the progress of entries that carry over, and keeps the old goal, and what it used,
 in the thread's history. `/tokenomics-clear-goal` takes the goal off the
 thread, keeping it in the history too. When the work is
 done, Claude closes the goal as met, partly met, or not met. Work you review,
-such as a design, ends with your acceptance as its last stage, and feedback
+such as a design, ends with your acceptance as its last entry, and feedback
 that arrives after the goal closed reopens it. A closed goal keeps counting the
 thread's turns until another goal replaces it, so follow-up work after the
 close counts toward the outcome.
@@ -146,16 +148,16 @@ bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--act
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
 bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]                # record this turn's forecast
 bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
-bb tokenomics goal set "GOAL" --stage "END STATE" ... [--turns 3-8 --tokens 5M-20M --minutes 20-60]  # record this thread's goal
-bb tokenomics goal stage next|N                                                                # mark stages done
+bb tokenomics goal set "GOAL" --stage "END STATE" ... [--detail low|high] [--turns 3-8 ...]          # record this thread's goal
+bb tokenomics goal stage next|N                                                                # mark the next entry, or the first N, done
 bb tokenomics goal estimate [--turns ...] [--tokens ...] [--minutes ...]                         # replace the estimate
-bb tokenomics goal add-stage "END STATE"                                                        # add the stage that ends the thread
 bb tokenomics goal close met|partly|not [--note TEXT]                                            # record how it ended
-bb tokenomics goal refine ["GOAL"] [--stage ...] [--reached N] --reason TEXT                   # bring the open goal up to date, keeping progress and items
-bb tokenomics goal item add "ITEM" ... | start|done|drop|todo N ...                              # a list longer than the stages, such as findings
+bb tokenomics goal refine ["GOAL"] [--stage ...] [--detail ...] [--reached N] --reason TEXT    # bring the open goal up to date, keeping progress
+bb tokenomics goal entry add "END STATE" ... | start|done|drop|todo N ...                        # add entries, or mark them by number
+bb tokenomics goal entry count N DONE/TOTAL                                                      # a grouped entry's count, such as 2/9
 bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal clear [--reason TEXT]                                                         # take the goal off the thread, keeping it in the history
-bb tokenomics goal show [--json]                                                               # the goal, its stages, and what it has used
+bb tokenomics goal show [--json]                                                               # the goal, its list, and what it has used
 ```
 
 The plugin ships the `tokenomics-update-goal` skill, which uses the goal you give
@@ -246,15 +248,15 @@ _As of November 18, 2026_
 
 - **[UltraGoal](https://getbb.app/marketplace/ultragoal)** (`ultragoal`) and **[Loom](https://getbb.app/marketplace/loom)** (`loom`): take a goal
   and run it across workers, with plans, tickets, and verifiers. Tokenomics
-  only records each thread's goal, shows its stage, and counts what it cost.
+  only records each thread's goal, shows its progress, and counts what it cost.
 - **[Plan Progress](https://getbb.app/marketplace/plan-progress)** (`plan-progress`): follows the agent's plan above the
-  message box, step by step. Tokenomics shows the goal and its stage, at
-  most five end states, never the step list.
+  message box, step by step. Tokenomics shows the goal and its "Done is"
+  list of end states, never the step list.
 - **[Radar Sidebar](https://getbb.app/marketplace/radar-sidebar)** (`radar-sidebar`): replaces the sidebar, groups
   threads by activity, and previews goals on hover. Tokenomics leaves bb's
   sidebar in place and adds a mark beside each row.
 - bb's own thread goal, for Codex threads, keeps an objective and a token
-  budget per thread. Tokenomics records goals for any provider, with stages,
+  budget per thread. Tokenomics records goals for any provider, with a "Done is" list,
   an estimate, and an outcome.
 
 ## Develop

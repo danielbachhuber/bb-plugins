@@ -1,11 +1,13 @@
-// Thread goals: what a thread is for, the stages that show it is done, an
-// estimate of what it will take, and how it ended. Pure functions only; the
-// store and the CLI in server.ts do the I/O.
+// Thread goals: what a thread is for, the "Done is" list that shows it is
+// done, an estimate of what it will take, and how it ended. Pure functions
+// only; the store and the CLI in server.ts do the I/O.
 //
 // A goal is the higher-level statement of a thread's work, not its next step.
-// Its stages are end states someone could check ("PR's checks pass"), never
-// tasks ("Fix the test"), and there are at most five of them, because a longer
-// list turns into a to-do list nobody reads.
+// Its entries are end states someone could check ("PR's checks pass", "H2
+// addressed"), never tasks ("Fix the test"). The goal's detail level caps
+// them: 5 at low, 25 at high. Past the cap, the agent groups the work and
+// keeps a count on an entry ("Medium findings addressed · 2 of 9"), so the
+// goal never turns into a to-do list nobody reads.
 
 import { formatTokens } from "./series.js";
 
@@ -17,11 +19,6 @@ export type GoalSetBy = (typeof GOAL_SETTERS)[number];
 
 export const OUTCOMES = ["met", "partly", "not"] as const;
 export type Outcome = (typeof OUTCOMES)[number];
-
-/** Stages past this are refused: split the thread or make it a project. */
-export const MAX_STAGES = 5;
-/** What the instructions ask for; the fifth is allowed but discouraged. */
-export const PREFERRED_STAGES = 4;
 
 export interface Range {
   low: number;
@@ -36,41 +33,75 @@ export interface GoalEstimate {
 
 export const NO_ESTIMATE: GoalEstimate = { turns: null, tokens: null, minutes: null };
 
-/**
- * A goal's items: the things it works through when there are more than its
- * stages can hold, such as a review's findings, each ending as done or
- * dropped. Unlike stages they have no limit and no order of completion.
- */
-export const ITEM_STATES = ["todo", "current", "done", "dropped"] as const;
-export type ItemState = (typeof ITEM_STATES)[number];
-export interface GoalItem {
-  label: string;
-  state: ItemState;
-}
-/** Items past this are refused; a list that long belongs in an issue tracker. */
-export const MAX_ITEMS = 40;
-export const MAX_ITEM_LENGTH = 100;
+/** How much the "Done is" list holds: low groups the work into a few entries, high lists each piece. */
+export const GOAL_DETAILS = ["low", "high"] as const;
+export type GoalDetail = (typeof GOAL_DETAILS)[number];
+/** Entries past this are refused at each level; group the work and count it instead. */
+export const MAX_ENTRIES: Record<GoalDetail, number> = { low: 5, high: 25 };
+export const MAX_ENTRY_LENGTH = 100;
 
-/** Reads the items column; a malformed value reads as none. */
-export function parseItems(text: string | null): GoalItem[] {
-  if (text === null) return [];
+/**
+ * One line of a goal's "Done is" list, each finishing on its own: not
+ * started, in progress, done, or dropped. A count says how far a grouped
+ * entry has come, such as 2 of 9 medium findings.
+ */
+export const ENTRY_STATES = ["todo", "current", "done", "dropped"] as const;
+export type EntryState = (typeof ENTRY_STATES)[number];
+export interface GoalEntry {
+  label: string;
+  state: EntryState;
+  count?: { done: number; total: number };
+}
+
+export function isFinished(entry: Pick<GoalEntry, "state">): boolean {
+  return entry.state === "done" || entry.state === "dropped";
+}
+
+export function finishedCount(entries: readonly Pick<GoalEntry, "state">[]): number {
+  return entries.filter(isFinished).length;
+}
+
+function isEntry(value: unknown): value is GoalEntry {
+  if (typeof value !== "object" || value === null) return false;
+  const entry = value as GoalEntry;
+  if (typeof entry.label !== "string" || !ENTRY_STATES.includes(entry.state)) return false;
+  return entry.count === undefined || (typeof entry.count?.done === "number" && typeof entry.count?.total === "number");
+}
+
+/** Reads a JSON list of entries; null when the column is empty or malformed. */
+export function parseEntries(text: string | null): GoalEntry[] | null {
+  if (text === null) return null;
   try {
     const parsed: unknown = JSON.parse(text);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is GoalItem =>
-        typeof item === "object" && item !== null && typeof item.label === "string" && ITEM_STATES.includes(item.state),
-    );
+    return Array.isArray(parsed) ? parsed.filter(isEntry) : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-/** "6 of 12": the items finished, done or dropped, of all of them. */
-export function itemsLabel(items: readonly GoalItem[]): string | null {
-  if (items.length === 0) return null;
-  const finished = items.filter((item) => item.state === "done" || item.state === "dropped").length;
-  return `${finished} of ${items.length}`;
+/**
+ * A goal recorded before the "Done is" list, as one: its items, then its
+ * stages, the first `reached` of them done. Kept so older goals still show.
+ */
+export function legacyEntries(stages: readonly string[], reached: number, items: readonly GoalEntry[]): GoalEntry[] {
+  return [...items, ...stages.map((label, index) => ({ label, state: (index < reached ? "done" : "todo") as EntryState }))];
+}
+
+/** Trims entry labels; returns an error to print, or the labels. */
+export function checkLabels(raw: readonly string[]): { labels: string[] } | { error: string } {
+  const labels = raw.map((label) => label.trim().replace(/\s+/g, " ")).filter((label) => label !== "");
+  const long = labels.find((label) => label.length > MAX_ENTRY_LENGTH);
+  if (long !== undefined) return { error: `Keep each entry under ${MAX_ENTRY_LENGTH} characters: "${long.slice(0, 40)}…"` };
+  return { labels };
+}
+
+/** The error for a list past the level's cap, or null when it fits. */
+export function overCap(count: number, detail: GoalDetail): string | null {
+  const max = MAX_ENTRIES[detail];
+  if (count <= max) return null;
+  return detail === "low"
+    ? `${count} entries is too many at low detail; ${max} at most. Group the work by what the pieces share and keep a count on each group (goal entry count N DONE/TOTAL), or use --detail high for up to ${MAX_ENTRIES.high}.`
+    : `${count} entries is too many; ${max} at most. Keep the pieces that matter most as their own entries and group the rest with a count (goal entry count N DONE/TOTAL).`;
 }
 
 /** What a goal has used: turns started, tokens (subagents included), and time worked. */
@@ -88,10 +119,9 @@ export interface Goal {
   anchorAt: number;
   shape: GoalShape;
   text: string;
-  stages: string[];
-  /** How many stages are done, in order. */
-  reached: number;
-  items: GoalItem[];
+  /** The "Done is" list. */
+  entries: GoalEntry[];
+  detail: GoalDetail;
   pr: string | null;
   setBy: GoalSetBy;
   /** Why a revision replaced the goal before it; null for a thread's first goal. */
@@ -144,30 +174,27 @@ export function parseGoalRange(text: string | undefined): Range | null {
   return { low, high };
 }
 
-/** Trims the stages and checks the count for the shape; returns an error to print, or the stages. */
-export function checkStages(shape: GoalShape, raw: readonly string[]): { stages: string[] } | { error: string } {
-  const stages = raw.map((stage) => stage.trim().replace(/\s+/g, " ")).filter((stage) => stage !== "");
+/** Checks the "Done is" list for the shape and level; returns an error to print, or the labels. */
+export function checkStages(shape: GoalShape, raw: readonly string[], detail: GoalDetail = "low"): { stages: string[] } | { error: string } {
+  const checked = checkLabels(raw);
+  if ("error" in checked) return checked;
+  const stages = checked.labels;
   if (shape === "task" && stages.length === 0) {
     return {
       error:
-        'A task goal needs its stages: --stage "Export built" --stage "Tests pass". Use --shape exploration for a question, or --none for no goal.',
+        'A task goal needs its "Done is" entries: --stage "Export built" --stage "Tests pass". Use --shape exploration for a question, or --none for no goal.',
     };
   }
   if (shape === "exploration") {
     // Fixed, so every exploration fills its donut the same way: the answer, then the user's call.
-    if (stages.length > 0) return { error: "An exploration's stages are fixed: Answer recommended, then You decided. Leave out --stage." };
+    if (stages.length > 0) return { error: "An exploration's entries are fixed: Answer recommended, then You decided. Leave out --stage." };
     return { stages: [...EXPLORATION_STAGES] };
   }
   if (shape !== "task" && stages.length > 0) {
-    return { error: `An ${shape} goal has no stages. Leave out --stage, or use --shape task.` };
+    return { error: `An ${shape} goal has no entries. Leave out --stage, or use --shape task.` };
   }
-  if (stages.length > MAX_STAGES) {
-    return {
-      error: `${stages.length} stages is too many; ${MAX_STAGES} at most, ${PREFERRED_STAGES} is better. State end states rather than steps, or split the thread or make it a project.`,
-    };
-  }
-  const long = stages.find((stage) => stage.length > 80);
-  if (long !== undefined) return { error: `Keep each stage under 80 characters: "${long.slice(0, 40)}…"` };
+  const over = overCap(stages.length, detail);
+  if (over !== null) return { error: over };
   return { stages };
 }
 
@@ -177,17 +204,24 @@ export const EXPLORATION_STAGES = ["Answer recommended", "You decided"] as const
 export const OUTCOME_LABELS: Record<Outcome, string> = { met: "Met", partly: "Partly met", not: "Not met" };
 
 /**
- * The short status the token button and the sidebar show: "1 of 3 · Export
- * built", "Exploring", "Met". Null for a thread with no goal to show.
+ * The short status the token button and the sidebar show: "1 of 3 · Tests
+ * pass" (the entry in progress, if one is), "Exploring", "Met". Null for a
+ * thread with no goal to show.
  */
-export function stageLabel(goal: Pick<Goal, "shape" | "stages" | "reached" | "outcome">): string | null {
+export function stageLabel(goal: Pick<Goal, "shape" | "entries" | "outcome">): string | null {
   if (goal.shape === "none") return null;
   if (goal.outcome !== null) return OUTCOME_LABELS[goal.outcome];
-  if (goal.shape === "exploration" && goal.stages.length === 0) return "Exploring";
+  if (goal.shape === "exploration" && goal.entries.length === 0) return "Exploring";
   if (goal.shape === "project") return "Project";
-  const reached = Math.min(goal.reached, goal.stages.length);
-  if (reached === 0) return `0 of ${goal.stages.length}`;
-  return `${reached} of ${goal.stages.length} · ${goal.stages[reached - 1]}`;
+  const count = `${finishedCount(goal.entries)} of ${goal.entries.length}`;
+  const current = goal.entries.find((entry) => entry.state === "current");
+  return current === undefined ? count : `${count} · ${current.label}`;
+}
+
+/** An entry's line in goal show: "3. [>] Medium findings addressed (2 of 9)". */
+export function entryLine(entry: GoalEntry, index: number): string {
+  const mark = { todo: " ", current: ">", done: "x", dropped: "-" } as const;
+  return `  ${index + 1}. [${mark[entry.state]}] ${entry.label}${entry.count ? ` (${entry.count.done} of ${entry.count.total})` : ""}`;
 }
 
 /** What's left of a range once `spent` is used; null when there is no range, "over" once past its top. */
@@ -241,7 +275,7 @@ export function percentileRange(values: readonly number[]): Range | null {
 /** One finished piece of work to estimate from: a closed goal, or a whole archived thread. */
 export interface HistorySample {
   origin: string | null;
-  /** The goal's stage count; null for a whole thread. */
+  /** The goal's entry count; null for a whole thread. */
   stages: number | null;
   turns: number;
   tokens: number;
@@ -270,7 +304,7 @@ export function historyFor(
   threads: readonly HistorySample[],
 ): History | null {
   const groups: Array<[string, HistorySample[]]> = [
-    [`closed goals from ${originLabel(origin)} with ${stages} ${stages === 1 ? "stage" : "stages"}`, goals.filter((g) => g.origin === origin && g.stages === stages)],
+    [`closed goals from ${originLabel(origin)} with ${stages} ${stages === 1 ? "entry" : "entries"}`, goals.filter((g) => g.origin === origin && g.stages === stages)],
     [`closed goals from ${originLabel(origin)}`, goals.filter((g) => g.origin === origin)],
     [`archived ${originLabel(origin)}, whole thread`, threads.filter((t) => t.origin === origin)],
   ];
@@ -310,14 +344,9 @@ export function formatGoal(goal: Goal, spent: Spent, history: History | null, re
   const label = goal.shape === "exploration" ? "Question" : goal.shape === "project" ? "Purpose" : "Goal";
   lines.push(`${label}: ${goal.text}`);
   if (goal.pr !== null) lines.push(`PR: ${goal.pr}`);
-  if (goal.stages.length > 0) {
-    lines.push("Done is:");
-    goal.stages.forEach((stage, index) => lines.push(`  [${index < goal.reached ? "x" : " "}] ${stage}`));
-  }
-  if (goal.items.length > 0) {
-    lines.push(`Items (${itemsLabel(goal.items)}):`);
-    const mark = { todo: " ", current: ">", done: "x", dropped: "-" } as const;
-    goal.items.forEach((item, index) => lines.push(`  ${index + 1}. [${mark[item.state]}] ${item.label}`));
+  if (goal.entries.length > 0) {
+    lines.push(`Done is (${finishedCount(goal.entries)} of ${goal.entries.length}, ${goal.detail} detail, ${MAX_ENTRIES[goal.detail]} at most):`);
+    goal.entries.forEach((entry, index) => lines.push(entryLine(entry, index)));
   }
   if (goal.outcome !== null) {
     lines.push(`Outcome: ${OUTCOME_LABELS[goal.outcome]}${goal.outcomeNote ? ` (${goal.outcomeNote})` : ""}`);
@@ -352,24 +381,25 @@ export const GOAL_INSTRUCTIONS = [
   "- Otherwise set it from the user's first prompt, with --by agent, and say in one line what you set",
   "  and that /tokenomics-update-goal changes it. Don't ask the user to confirm it. Ask only when you",
   "  can't tell what finished looks like, inside any other question you need to ask.",
-  "- A task gets 1 to 4 stages, 5 at most, each an end state someone could check (\"PR's checks pass\"),",
-  "  never a step (\"Fix the test\"). An exploration (--shape exploration) states the question to answer",
-  "  or the decision to make; its stages are fixed, Answer recommended then You decided, so run",
-  "  `goal stage next` once you've recommended an answer. A project (--shape project) states its purpose. A",
-  "  conversation with nothing to finish gets --none.",
-  "- The last stage is what ends the thread, such as \"PR open with checks passing\" or \"Merged\", never",
-  "  a step on the way, such as \"PR description drafted\". When work goes on after every stage is true,",
-  "  add the stage that ends it: `bb tokenomics goal add-stage \"PR open with checks passing\"`.",
-  "- When the user will look at what you make, such as a design, a UI, or a draft, the last stage is",
+  "- A task gets a \"Done is\" list of end states someone could check (\"PR's checks pass\"), never steps",
+  "  (\"Fix the test\"): 1 to 5 entries at the default --detail low. An exploration (--shape exploration)",
+  "  states the question to answer or the decision to make; its entries are fixed, Answer recommended then",
+  "  You decided, so run `goal stage next` once you've recommended an answer. A project (--shape project)",
+  "  states its purpose. A conversation with nothing to finish gets --none.",
+  "- The last entry is what ends the thread, such as \"PR open with checks passing\" or \"Merged\", never",
+  "  a step on the way, such as \"PR description drafted\". When work goes on after every entry is done,",
+  "  add the entry that ends it: `bb tokenomics goal entry add \"PR open with checks passing\"`.",
+  "- When the user will look at what you make, such as a design, a UI, or a draft, the last entry is",
   "  their acceptance (\"Refined on your feedback\"), not \"Built\". Their review is part of the work.",
-  "- When the work is a list longer than the stages can hold, such as a review's findings or a batch of",
-  "  issues, keep the stages for the end states and add the list as items: `bb tokenomics goal item add",
-  "  \"Finding one\" \"Finding two\"`. Mark each as you go with `goal item start|done|drop N`.",
+  "- When the work is many similar pieces, such as a review's findings, group them by what they share",
+  "  and keep a count on each group: `goal entry count 2 4/9` for \"Medium findings addressed\". The",
+  "  user can ask for --detail high, up to 25 entries, to list each piece. Mark entries as you go with",
+  "  `goal entry start|done|drop N`.",
   "- Add an 80% estimate of the whole goal: --turns 3-8 --tokens 5M-20M --minutes 20-90. The command",
   "  prints how past threads that started the same way went; shift or widen yours from it.",
   'Example: bb tokenomics goal set "Export the widget list to CSV from the toolbar" --stage "Export built"',
   '  --stage "Tests pass" --stage "Refined on your feedback" --turns 3-8 --tokens 5M-20M --minutes 20-60 --by agent',
-  "Later in the thread, run `bb tokenomics goal stage next` when a stage's end state becomes true, and",
+  "Later in the thread, run `bb tokenomics goal stage next` when the next entry becomes true, and",
   "`bb tokenomics goal close met|partly|not --note TEXT` when the goal's work is done or dropped: for",
   "  work the user reviews, only once they've accepted it. When feedback arrives after you closed it, run",
   "  `bb tokenomics goal reopen --stage \"Refined on your feedback\"` and keep going. Don't",

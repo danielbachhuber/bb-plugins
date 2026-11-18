@@ -11,13 +11,18 @@ import type { GoalViewData } from "./usage/contract";
 
 export default { title: "tokenomics/Goals" };
 
+type Entries = GoalViewData["entries"];
+
+/** A list of end states worked through in order: the first `done` finished. */
+const ordered = (labels: string[], done: number): Entries =>
+  labels.map((label, index) => ({ label, state: index < done ? "done" : "todo" }));
+
 const TASK: GoalViewData = {
   id: 1,
   shape: "task",
   text: "Export a widget list to CSV from the toolbar",
-  stages: ["Export built", "Tests pass", "Reloaded in bb"],
-  reached: 1,
-  items: [],
+  entries: ordered(["Export built", "Tests pass", "Reloaded in bb"], 1),
+  detail: "low",
   pr: null,
   setBy: "agent",
   setAt: 0,
@@ -34,8 +39,7 @@ const TASK: GoalViewData = {
 const OVER: GoalViewData = {
   ...TASK,
   text: "Gadget sync decision recorded in an ADR and merged",
-  stages: ["Options compared", "Review answered", "Merged"],
-  reached: 2,
+  entries: ordered(["Options compared", "Review answered", "Merged"], 2),
   label: "2 of 3 · Review answered",
   spent: { turns: 11, tokens: 48e6, ms: 95 * 60_000 },
   left: "past estimate",
@@ -46,14 +50,13 @@ const EXPLORING: GoalViewData = {
   ...TASK,
   shape: "exploration",
   text: "Is a cache worth adding for widget imports?",
-  stages: ["Answer recommended", "You decided"],
-  reached: 1,
+  entries: ordered(["Answer recommended", "You decided"], 1),
   label: "1 of 2 · Answer recommended",
   estimate: { turns: null, tokens: null, minutes: null },
   left: null,
 };
 
-const MET: GoalViewData = { ...TASK, reached: 3, outcome: "met", outcomeNote: "Merged as acme/widgets#42", label: "Met", left: null };
+const MET: GoalViewData = { ...TASK, entries: ordered(["Export built", "Tests pass", "Reloaded in bb"], 3), outcome: "met", outcomeNote: "Merged as acme/widgets#42", label: "Met", left: null };
 
 // The plugin's README embeds this one.
 /** The token button in the thread header with the goal's donut before its sparkline, spinning while the thread works, and the summary it opens, which starts with the goal. */
@@ -71,14 +74,13 @@ export const GoalInHeader = () => (
 const HEADER_GOAL: GoalViewData = {
   ...TASK,
   text: "Export the widget list to CSV from the toolbar",
-  stages: ["Export built", "Tests pass", "Reloaded in bb", "Refined on your feedback"],
-  reached: 2,
+  entries: ordered(["Export built", "Tests pass", "Reloaded in bb", "Refined on your feedback"], 2),
   spent: { turns: 4, tokens: 9.1e6, ms: 26 * 60_000 },
   label: "2 of 4 · Tests pass",
   left: "~0–4 turns left",
 };
 
-const FINDINGS: GoalViewData["items"] = [
+const FINDINGS: Entries = [
   { label: "C1 Debug login enabled in production", state: "done" },
   { label: "H1 Session cookie not marked Secure", state: "done" },
   { label: "H2 Admin route skips the role check", state: "done" },
@@ -93,14 +95,27 @@ const FINDINGS: GoalViewData["items"] = [
   { label: "L1 Request bodies logged", state: "todo" },
 ];
 
+// High detail: each finding is its own entry.
 const REVIEWING: GoalViewData = {
   ...TASK,
-  text: "Every finding from the widget security review has an issue or is dropped",
-  stages: ["Findings triaged", "Issues filed"],
-  reached: 1,
-  items: FINDINGS,
-  label: "1 of 2 · Findings triaged",
+  text: "The widget security issues are resolved",
+  entries: FINDINGS,
+  detail: "high",
+  label: "6 of 12 · H4 Message origin not checked",
   left: "~2–6 turns left",
+};
+
+// Low detail: the findings grouped by severity, each group with a count.
+const GROUPED: GoalViewData = {
+  ...REVIEWING,
+  entries: [
+    { label: "Critical and high findings addressed", state: "current", count: { done: 4, total: 6 } },
+    { label: "Medium findings addressed", state: "current", count: { done: 2, total: 9 } },
+    { label: "Low findings addressed", state: "todo", count: { done: 0, total: 2 } },
+    { label: "You approved each action", state: "todo" },
+  ],
+  detail: "low",
+  label: "0 of 4 · Critical and high findings addressed",
 };
 
 function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
@@ -111,11 +126,14 @@ function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: 
   );
 }
 
-/** The goal at the top of the summary: with its stages and then twelve items, waiting on you past its estimate, an exploration, and once met. */
+/** The goal at the top of the summary: a review's twelve findings at high detail, the same review grouped with counts at low detail, waiting on you past its estimate, an exploration, and once met. */
 export const CompactGoalStates = () => (
   <StoryCard>
-    <StoryRow label="twelve items" hint="the stages, as the donut counts them, then a review's findings">
+    <StoryRow label="high detail" hint="each finding its own entry, as the donut's segments">
       <SummaryTop goal={REVIEWING} activity="working" />
+    </StoryRow>
+    <StoryRow label="low detail" hint="the findings grouped, each group with a count">
+      <SummaryTop goal={GROUPED} activity="waiting" />
     </StoryRow>
     <StoryRow label="past its estimate" hint="waiting on you; the turns left turn amber">
       <SummaryTop goal={OVER} activity="waiting" />
@@ -129,15 +147,20 @@ export const CompactGoalStates = () => (
   </StoryCard>
 );
 
-/** The card that opens on a sidebar donut: the stages, any items, what the goal has used against its estimate, and how to change it. */
+/** The card that opens on a sidebar donut: the "Done is" list, what the goal has used against its estimate, and how to change it. */
 export const GoalCardOpen = () => (
   <StoryCard>
-    <StoryRow label="with items" hint="the stages, then the items">
+    <StoryRow label="high detail" hint="a review's findings, each its own entry">
       <div className="w-[320px] rounded-md border border-border bg-popover p-3">
         <GoalCard goal={REVIEWING} />
       </div>
     </StoryRow>
-    <StoryRow label="a task" hint="one stage done">
+    <StoryRow label="low detail" hint="the findings grouped, with counts">
+      <div className="w-[320px] rounded-md border border-border bg-popover p-3">
+        <GoalCard goal={GROUPED} />
+      </div>
+    </StoryRow>
+    <StoryRow label="a task" hint="one entry done">
       <div className="w-[320px] rounded-md border border-border bg-popover p-3">
         <GoalCard goal={TASK} />
       </div>
@@ -284,8 +307,7 @@ export const EveryBbRowState = () => (
 const REVIEW: GoalViewData = {
   ...TASK,
   text: "Review the widget export refactor and report findings",
-  stages: ["Diff read and checked out", "Findings reported to the parent thread"],
-  reached: 1,
+  entries: ordered(["Diff read and checked out", "Findings reported to the parent thread"], 1),
   setBy: "spawner",
   estimate: { turns: { low: 1, high: 2 }, tokens: { low: 2e6, high: 8e6 }, minutes: { low: 15, high: 45 } },
   spent: { turns: 1, tokens: 4.3e6, ms: 6 * 60_000 },
@@ -320,6 +342,23 @@ export const WorkingDonuts = () => (
       <div key={label} className="flex items-center gap-3">
         <SidebarRow trailing={<GoalDonut stages={stages} reached={reached} activity="working" spinDelay="-0.6s" />} />
         <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+    ))}
+  </div>
+);
+
+/** The donut with a segment per entry, each in its own state: done, dropped (lighter), in progress (dashed while working), or not started. Twelve findings at high detail, and the same review grouped at low detail. */
+export const DonutPerEntry = () => (
+  <div data-screenshot-frame className="inline-flex flex-col gap-3 bg-background p-6">
+    {[
+      { goal: REVIEWING, label: "12 findings, idle" },
+      { goal: REVIEWING, label: "12 findings, working", activity: "working" as const },
+      { goal: GROUPED, label: "4 groups, waiting on you", activity: "waiting" as const },
+    ].map(({ goal, label, activity }) => (
+      <div key={label} className="flex items-center gap-3">
+        <span className="w-48 text-xs text-muted-foreground">{label}</span>
+        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} activity={activity ?? null} spinDelay="-0.6s" />
+        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} activity={activity ?? null} size={48} stroke={6} spinDelay="-0.6s" />
       </div>
     ))}
   </div>

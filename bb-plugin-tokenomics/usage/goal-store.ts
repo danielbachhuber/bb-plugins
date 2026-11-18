@@ -2,7 +2,7 @@
 // in store.ts; this module reads and writes them.
 import type { Database } from "better-sqlite3";
 
-import { parseItems, type GoalItem } from "./goals.js";
+import { finishedCount, GOAL_DETAILS, legacyEntries, MAX_ENTRIES, parseEntries, type GoalDetail, type GoalEntry } from "./goals.js";
 import type { Goal, GoalEstimate, GoalSetBy, GoalShape, HistorySample, Outcome, Range, Spent } from "./goals.js";
 
 interface GoalRow {
@@ -15,6 +15,8 @@ interface GoalRow {
   stages: string;
   reached: number;
   items: string | null;
+  entries: string | null;
+  detail: string | null;
   pr: string | null;
   set_by: string;
   reason: string | null;
@@ -38,7 +40,10 @@ function rangeOf(low: number | null, high: number | null): Range | null {
   return low === null || high === null ? null : { low, high };
 }
 
-function goalOf(row: GoalRow): Goal {
+/** The row's "Done is" list, or, for a goal from before it, its items and stages as one. */
+function entriesOf(row: GoalRow): GoalEntry[] {
+  const entries = parseEntries(row.entries);
+  if (entries !== null) return entries;
   let stages: string[] = [];
   try {
     const parsed: unknown = JSON.parse(row.stages);
@@ -46,6 +51,20 @@ function goalOf(row: GoalRow): Goal {
   } catch {
     // A row written by hand; show it without stages.
   }
+  const legacy = legacyEntries(stages, row.reached, parseEntries(row.items) ?? []);
+  // Stages were done in order, so an open goal was working on the next one.
+  const next = legacy.findIndex((entry, index) => index >= legacy.length - stages.length && entry.state === "todo");
+  if (row.outcome === null && next >= 0) legacy[next] = { ...legacy[next]!, state: "current" };
+  return legacy;
+}
+
+function goalOf(row: GoalRow): Goal {
+  const entries = entriesOf(row);
+  const detail: GoalDetail = GOAL_DETAILS.includes(row.detail as GoalDetail)
+    ? (row.detail as GoalDetail)
+    : entries.length > MAX_ENTRIES.low
+      ? "high"
+      : "low";
   return {
     id: row.id,
     threadId: row.thread_id,
@@ -53,9 +72,8 @@ function goalOf(row: GoalRow): Goal {
     anchorAt: row.anchor_at,
     shape: row.shape as GoalShape,
     text: row.goal,
-    stages,
-    reached: row.reached,
-    items: parseItems(row.items),
+    entries,
+    detail,
     pr: row.pr,
     setBy: row.set_by as GoalSetBy,
     reason: row.reason,
@@ -80,7 +98,8 @@ export interface NewGoal {
   anchorAt: number;
   shape: GoalShape;
   text: string;
-  stages: string[];
+  entries: GoalEntry[];
+  detail: GoalDetail;
   pr: string | null;
   setBy: GoalSetBy;
   reason: string | null;
@@ -94,28 +113,26 @@ export function createGoalStore(db: Database) {
   );
   const selectHistory = db.prepare(`SELECT * FROM goals WHERE thread_id = ? ORDER BY set_at, id`);
   const insertGoal = db.prepare(
-    `INSERT INTO goals (thread_id, set_at, anchor_at, shape, goal, stages, pr, set_by, reason, origin,
+    `INSERT INTO goals (thread_id, set_at, anchor_at, shape, goal, stages, reached, entries, detail, pr, set_by, reason, origin,
        turns_low, turns_high, tokens_low, tokens_high, minutes_low, minutes_high)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const markReplaced = db.prepare(
     `UPDATE goals SET replaced_at = ?, spent_turns = coalesce(spent_turns, ?), spent_tokens = coalesce(spent_tokens, ?),
        spent_ms = coalesce(spent_ms, ?) WHERE id = ?`,
   );
-  const updateReached = db.prepare(`UPDATE goals SET reached = ? WHERE id = ?`);
+  // stages and reached stay filled, as the labels and the finished count, for history's entry counts.
+  const updateEntries = db.prepare(`UPDATE goals SET entries = ?, stages = ?, reached = ? WHERE id = ?`);
   const updateEstimate = db.prepare(
     `UPDATE goals SET turns_low = ?, turns_high = ?, tokens_low = ?, tokens_high = ?, minutes_low = ?, minutes_high = ? WHERE id = ?`,
   );
   const updateOutcome = db.prepare(
-    `UPDATE goals SET outcome = ?, outcome_note = ?, closed_at = ?, spent_turns = ?, spent_tokens = ?, spent_ms = ?,
-       reached = CASE WHEN ? = 'met' THEN json_array_length(stages) ELSE reached END WHERE id = ?`,
+    `UPDATE goals SET outcome = ?, outcome_note = ?, closed_at = ?, spent_turns = ?, spent_tokens = ?, spent_ms = ? WHERE id = ?`,
   );
   const updateReopen = db.prepare(
     `UPDATE goals SET outcome = NULL, outcome_note = NULL, closed_at = NULL, spent_turns = NULL, spent_tokens = NULL,
-       spent_ms = NULL, stages = ? WHERE id = ?`,
+       spent_ms = NULL WHERE id = ?`,
   );
-  const updateStages = db.prepare(`UPDATE goals SET stages = ? WHERE id = ?`);
-  const updateItems = db.prepare(`UPDATE goals SET items = ? WHERE id = ?`);
   const deleteThreadGoals = db.prepare(`DELETE FROM goals WHERE thread_id = ?`);
   const selectTurnStart = db.prepare(
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
@@ -232,7 +249,10 @@ export function createGoalStore(db: Database) {
           goal.anchorAt,
           goal.shape,
           goal.text,
-          JSON.stringify(goal.stages),
+          JSON.stringify(goal.entries.map((entry) => entry.label)),
+          finishedCount(goal.entries),
+          JSON.stringify(goal.entries),
+          goal.detail,
           goal.pr,
           goal.setBy,
           goal.reason,
@@ -249,8 +269,9 @@ export function createGoalStore(db: Database) {
       return this.current(goal.threadId)!;
     },
 
-    setReached(goalId: number, reached: number): void {
-      updateReached.run(reached, goalId);
+    /** Replaces the goal's "Done is" list. */
+    setEntries(goalId: number, entries: readonly GoalEntry[]): void {
+      updateEntries.run(JSON.stringify(entries), JSON.stringify(entries.map((entry) => entry.label)), finishedCount(entries), goalId);
     },
 
     setEstimate(goalId: number, estimate: GoalEstimate): void {
@@ -258,24 +279,22 @@ export function createGoalStore(db: Database) {
       updateEstimate.run(turns?.low ?? null, turns?.high ?? null, tokens?.low ?? null, tokens?.high ?? null, minutes?.low ?? null, minutes?.high ?? null, goalId);
     },
 
-    close(goalId: number, outcome: Outcome, note: string | null, at: number, spent: Spent): void {
-      // A met goal has every stage true, whether or not each was marked.
-      updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, outcome, goalId);
+    /** Records how the goal ended. A met goal has every entry done, apart from those dropped. */
+    close(goalId: number, outcome: Outcome, note: string | null, at: number, spent: Spent, entries: readonly GoalEntry[]): void {
+      db.transaction(() => {
+        updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, goalId);
+        if (outcome === "met") {
+          this.setEntries(goalId, entries.map((entry) => (entry.state === "dropped" ? entry : { ...entry, state: "done" as const })));
+        }
+      })();
     },
 
-    /** Opens a closed goal again, with `stages` as its stages from now on. */
-    reopen(goalId: number, stages: string[]): void {
-      updateReopen.run(JSON.stringify(stages), goalId);
-    },
-
-    /** Replaces an open goal's stages, such as with one added at the end. */
-    setStages(goalId: number, stages: string[]): void {
-      updateStages.run(JSON.stringify(stages), goalId);
-    },
-
-    /** Replaces the goal's items. */
-    setItems(goalId: number, items: readonly GoalItem[]): void {
-      updateItems.run(JSON.stringify(items), goalId);
+    /** Opens a closed goal again, with `entries` as its list from now on. */
+    reopen(goalId: number, entries: readonly GoalEntry[]): void {
+      db.transaction(() => {
+        updateReopen.run(goalId);
+        this.setEntries(goalId, entries);
+      })();
     },
 
     /** Removes the thread's goals, once bb deletes the thread. */

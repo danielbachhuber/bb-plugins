@@ -45,20 +45,20 @@ describe("checkStages", () => {
 });
 
 describe("stageLabel", () => {
-  const goal = { shape: "task" as const, stages: ["Export built", "Tests pass", "Reloaded in bb"], reached: 1, outcome: null };
+  const entries = (states: string[], labels = ["Export built", "Tests pass", "Reloaded in bb"]) =>
+    labels.map((label, index) => ({ label, state: states[index] as "todo" | "current" | "done" | "dropped" }));
+  const goal = { shape: "task" as const, entries: entries(["done", "current", "todo"]), outcome: null };
 
-  it("names the last stage reached", () => {
-    expect(stageLabel(goal)).toBe("1 of 3 · Export built");
-    expect(stageLabel({ ...goal, reached: 0 })).toBe("0 of 3");
+  it("counts the finished entries and names the one in progress", () => {
+    expect(stageLabel(goal)).toBe("1 of 3 · Tests pass");
+    expect(stageLabel({ ...goal, entries: entries(["todo", "todo", "todo"]) })).toBe("0 of 3");
+    expect(stageLabel({ ...goal, entries: entries(["done", "dropped", "todo"]) })).toBe("2 of 3");
   });
 
   it("shows the outcome once closed, and nothing for no goal", () => {
     expect(stageLabel({ ...goal, outcome: "met" })).toBe("Met");
-    expect(stageLabel({ ...goal, shape: "none", stages: [] })).toBeNull();
-    expect(stageLabel({ ...goal, shape: "exploration", stages: [] })).toBe("Exploring");
-    expect(stageLabel({ shape: "exploration", stages: ["Answer recommended", "You decided"], reached: 1, outcome: null })).toBe(
-      "1 of 2 · Answer recommended",
-    );
+    expect(stageLabel({ ...goal, shape: "none", entries: [] })).toBeNull();
+    expect(stageLabel({ ...goal, shape: "exploration", entries: [] })).toBe("Exploring");
   });
 });
 
@@ -96,7 +96,7 @@ describe("historyFor", () => {
   it("prefers closed goals with the same start and stage count", () => {
     const goals = [1, 2, 3, 4, 5].map((turns) => sample(turns, 3));
     const history = historyFor("typed", 3, goals, []);
-    expect(history?.basis).toContain("with 3 stages");
+    expect(history?.basis).toContain("with 3 entries");
     expect(history?.turns).toEqual(percentileRange([1, 2, 3, 4, 5]));
   });
 
@@ -171,7 +171,7 @@ describe("goal CLI", () => {
       "1M-5M",
     ]);
     expect(set.exitCode).toBe(0);
-    expect(set.stdout).toContain("3 stages");
+    expect(set.stdout).toContain("3 entries, low detail");
     expect(changed).toEqual(["thr_a"]);
 
     const goal = goals.current("thr_a")!;
@@ -179,7 +179,7 @@ describe("goal CLI", () => {
     expect(goalView(deps, goal).spent).toEqual({ turns: 1, tokens: 1_000_000, ms: 0 });
     expect(goalView(deps, goal).left).toBe("~1–3 turns left");
 
-    expect((await goalCli(deps, "thr_a", ["stage", "next"])).stdout).toBe("Stage: 1 of 3 · Export built.");
+    expect((await goalCli(deps, "thr_a", ["stage", "next"])).stdout).toBe("Done is: 1 of 3.");
     advance(5_000);
     turn("t2", 14_000, 14_500, 2_000_000);
     const closed = await goalCli(deps, "thr_a", ["close", "met", "--note", "Shipped"]);
@@ -259,104 +259,115 @@ describe("a closed goal", () => {
 });
 
 describe("goal reopen", () => {
-  it("opens a closed goal again with a stage for the feedback", async () => {
+  it("opens a closed goal again with an entry for the feedback", async () => {
     const { deps, goals } = setup();
     await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--stage", "Verified"]);
     await goalCli(deps, "thr_a", ["stage", "2"]);
     await goalCli(deps, "thr_a", ["close", "met"]);
-    expect((await goalCli(deps, "thr_a", ["reopen", "--stage", "Refined on your feedback"])).stdout).toBe(
-      "Reopened: Export built (2 of 3 · Verified).",
-    );
+    expect((await goalCli(deps, "thr_a", ["reopen", "--stage", "Refined on your feedback"])).stdout).toBe("Reopened: Export built (2 of 3).");
     const goal = goals.current("thr_a")!;
     expect(goal.outcome).toBeNull();
-    expect(goal.stages).toEqual(["Built", "Verified", "Refined on your feedback"]);
+    expect(goal.entries.map((entry) => entry.label)).toEqual(["Built", "Verified", "Refined on your feedback"]);
     expect((await goalCli(deps, "thr_a", ["reopen"])).exitCode).toBe(1);
   });
 });
 
 describe("closing a goal as met", () => {
-  it("marks every stage done", async () => {
+  it("marks every entry done but the dropped ones", async () => {
     const { deps, goals } = setup();
-    await goalCli(deps, "thr_a", ["set", "Bullet added", "--stage", "Change approved", "--stage", "Committed and pushed"]);
-    await goalCli(deps, "thr_a", ["stage", "1"]);
+    await goalCli(deps, "thr_a", ["set", "Bullet added", "--stage", "Change approved", "--stage", "Docs updated", "--stage", "Committed and pushed"]);
+    await goalCli(deps, "thr_a", ["entry", "drop", "2"]);
     await goalCli(deps, "thr_a", ["close", "met"]);
-    expect(goals.current("thr_a")!.reached).toBe(2);
+    expect(goals.current("thr_a")!.entries.map((entry) => entry.state)).toEqual(["done", "dropped", "done"]);
   });
 
-  it("leaves the stages as they were when partly met", async () => {
+  it("leaves the entries as they were when partly met", async () => {
     const { deps, goals } = setup();
     await goalCli(deps, "thr_a", ["set", "Bullet added", "--stage", "Change approved", "--stage", "Committed and pushed"]);
-    await goalCli(deps, "thr_a", ["stage", "1"]);
+    await goalCli(deps, "thr_a", ["stage", "next"]);
     await goalCli(deps, "thr_a", ["close", "partly"]);
-    expect(goals.current("thr_a")!.reached).toBe(1);
+    expect(goals.current("thr_a")!.entries.map((entry) => entry.state)).toEqual(["done", "todo"]);
   });
 });
 
-describe("goal add-stage", () => {
-  it("adds the stage that really ends the thread to an open goal", async () => {
+describe("goal entry", () => {
+  it("adds the entry that ends the thread, marks entries by number, and keeps counts on grouped ones", async () => {
     const { deps, goals } = setup();
-    await goalCli(deps, "thr_a", ["set", "Repositories scoped", "--stage", "Refactor done", "--stage", "PR description drafted"]);
-    await goalCli(deps, "thr_a", ["stage", "2"]);
-    expect((await goalCli(deps, "thr_a", ["add-stage", "PR open with checks passing"])).stdout).toBe(
-      "Stage: 2 of 3 · PR description drafted. Next: PR open with checks passing.",
+    await goalCli(deps, "thr_a", ["set", "The widget security issues are resolved", "--stage", "Critical and high findings addressed", "--stage", "Medium findings addressed"]);
+    expect((await goalCli(deps, "thr_a", ["add-stage", "You approved each action"])).stdout).toBe(
+      "Done is: 0 of 3 finished, 3 open (low detail, 5 at most).",
     );
-    expect(goals.current("thr_a")!.stages).toHaveLength(3);
-    expect((await goalCli(deps, "thr_a", ["add-stage"])).exitCode).toBe(1);
-  });
-});
-
-describe("goal item", () => {
-  it("adds a list longer than the stages and marks items by number", async () => {
-    const { deps, goals } = setup();
-    await goalCli(deps, "thr_a", ["set", "Every finding has an issue or is dropped", "--stage", "Findings triaged", "--stage", "Issues filed"]);
-    expect((await goalCli(deps, "thr_a", ["item", "add", "H1 Cookie not Secure", "H2 Admin check skipped", "M1 No rate limit"])).stdout).toBe(
-      "Items: 0 of 3 finished, 3 open.",
-    );
-    expect((await goalCli(deps, "thr_a", ["item", "done", "1"])).exitCode).toBe(0);
-    expect((await goalCli(deps, "thr_a", ["item", "drop", "3"])).stdout).toBe("Items: 2 of 3 finished, 1 open.");
-    await goalCli(deps, "thr_a", ["item", "start", "2"]);
-    expect(goals.current("thr_a")!.items.map((item) => item.state)).toEqual(["done", "current", "dropped"]);
+    await goalCli(deps, "thr_a", ["entry", "count", "1", "4/6"]);
+    await goalCli(deps, "thr_a", ["entry", "count", "2", "9/9"]);
+    const goal = goals.current("thr_a")!;
+    expect(goal.entries.map((entry) => entry.state)).toEqual(["current", "done", "todo"]);
+    expect(goal.entries[0]!.count).toEqual({ done: 4, total: 6 });
     const shown = (await goalCli(deps, "thr_a", ["show"])).stdout!;
-    expect(shown).toContain("Items (2 of 3):");
-    expect(shown).toContain("  2. [>] H2 Admin check skipped");
+    expect(shown).toContain("Done is (1 of 3, low detail, 5 at most):");
+    expect(shown).toContain("  1. [>] Critical and high findings addressed (4 of 6)");
     const json = JSON.parse((await goalCli(deps, "thr_a", ["show", "--json"])).stdout!);
-    expect(json.items).toHaveLength(3);
+    expect(json.entries).toHaveLength(3);
+    expect(json.detail).toBe("low");
+    expect((await goalCli(deps, "thr_a", ["entry", "count", "1", "7/6"])).exitCode).toBe(1);
+  });
+
+  it("caps the list at the detail level", async () => {
+    const { deps } = setup();
+    const six = ["a", "b", "c", "d", "e", "f"].flatMap((label) => ["--stage", label]);
+    expect((await goalCli(deps, "thr_a", ["set", "Findings handled", ...six])).stderr).toContain("too many at low detail");
+    expect((await goalCli(deps, "thr_a", ["set", "Findings handled", ...six, "--detail", "high"])).exitCode).toBe(0);
+    const twenty = Array.from({ length: 20 }, (_, index) => `Finding ${index + 1}`);
+    expect((await goalCli(deps, "thr_a", ["entry", "add", ...twenty])).exitCode).toBe(1);
+    expect((await goalCli(deps, "thr_a", ["entry", "add", ...twenty.slice(0, 19)])).exitCode).toBe(0);
   });
 
   it("refuses numbers outside the list and unknown verbs", async () => {
     const { deps } = setup();
     await goalCli(deps, "thr_a", ["set", "Findings handled", "--stage", "Done"]);
-    expect((await goalCli(deps, "thr_a", ["item", "done", "1"])).stderr).toContain("no items yet");
-    await goalCli(deps, "thr_a", ["item", "add", "One"]);
-    expect((await goalCli(deps, "thr_a", ["item", "done", "2"])).exitCode).toBe(1);
-    expect((await goalCli(deps, "thr_a", ["item", "finish", "1"])).exitCode).toBe(1);
+    expect((await goalCli(deps, "thr_a", ["entry", "done", "2"])).exitCode).toBe(1);
+    expect((await goalCli(deps, "thr_a", ["entry", "finish", "1"])).exitCode).toBe(1);
+    // The name from before the "Done is" list still works.
+    expect((await goalCli(deps, "thr_a", ["item", "done", "1"])).exitCode).toBe(0);
   });
 });
 
 describe("goal refine", () => {
-  it("rewrites the open goal, keeps progress on kept stages and the items, and records why", async () => {
+  it("rewrites the open goal, keeps the state of entries kept word for word, and records why", async () => {
     const { deps, goals } = setup();
     await goalCli(deps, "thr_a", ["set", "Goal band built", "--stage", "Designs picked", "--stage", "Band built", "--stage", "Refined on your feedback"]);
     await goalCli(deps, "thr_a", ["stage", "2"]);
-    await goalCli(deps, "thr_a", ["item", "add", "One finding"]);
     const result = await goalCli(deps, "thr_a", [
       "refine", "Goal shown in the token button", "--stage", "Designs picked", "--stage", "Button built", "--stage", "Refined on your feedback",
-      "--reason", "Moved from the band to the token button",
+      "--detail", "high", "--reason", "Moved from the band to the token button",
     ]);
-    expect(result.stdout).toContain("Refined: Goal shown in the token button (1 of 3 · Designs picked)");
+    expect(result.stdout).toContain("Refined: Goal shown in the token button (1 of 3)");
     const current = goals.current("thr_a")!;
-    expect(current.reached).toBe(1);
-    expect(current.items).toHaveLength(1);
+    expect(current.entries.map((entry) => entry.state)).toEqual(["done", "todo", "todo"]);
+    expect(current.detail).toBe("high");
     expect(current.reason).toBe("Moved from the band to the token button");
     expect(goals.history("thr_a")).toHaveLength(2);
   });
 
-  it("needs a reason, and takes --reached", async () => {
+  it("needs a reason, takes --reached, and keeps the level", async () => {
     const { deps, goals } = setup();
-    await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--stage", "Tested"]);
+    await goalCli(deps, "thr_a", ["set", "Export built", "--stage", "Built", "--stage", "Tested", "--detail", "high"]);
     expect((await goalCli(deps, "thr_a", ["refine", "--stage", "Built", "--stage", "Tested", "--stage", "Merged"])).exitCode).toBe(1);
     await goalCli(deps, "thr_a", ["refine", "--stage", "Built", "--stage", "Tested", "--stage", "Merged", "--reached", "2", "--reason", "Merging is part of it"]);
-    expect(goals.current("thr_a")!.reached).toBe(2);
-    expect(goals.current("thr_a")!.text).toBe("Export built");
+    const goal = goals.current("thr_a")!;
+    expect(goal.entries.map((entry) => entry.state)).toEqual(["done", "done", "todo"]);
+    expect(goal.text).toBe("Export built");
+    expect(goal.detail).toBe("high");
+  });
+});
+
+describe("goals from before the Done is list", () => {
+  it("read their items, then their stages, as entries, with the next stage in progress", () => {
+    const { db, goals } = setup();
+    db.prepare(
+      `INSERT INTO goals (thread_id, set_at, anchor_at, shape, goal, stages, reached, items, set_by) VALUES ('thr_a', 1, 1, 'task', 'Findings filed', ?, 1, ?, 'agent')`,
+    ).run(JSON.stringify(["Triaged", "Filed", "Approved"]), JSON.stringify([{ label: "H1", state: "done" }]));
+    const goal = goals.current("thr_a")!;
+    expect(goal.entries.map((entry) => `${entry.label}:${entry.state}`)).toEqual(["H1:done", "Triaged:done", "Filed:current", "Approved:todo"]);
+    expect(goal.detail).toBe("low");
   });
 });

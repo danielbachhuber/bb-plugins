@@ -3,19 +3,22 @@
 // it against an in-memory database.
 import type { GoalStore } from "./goal-store.js";
 import {
+  checkLabels,
   checkStages,
+  ENTRY_STATES,
+  finishedCount,
   formatGoal,
   formatHistory,
   formatRange,
   formatSpent,
+  GOAL_DETAILS,
   GOAL_SETTERS,
   GOAL_SHAPES,
   historyFor,
-  ITEM_STATES,
-  itemsLabel,
-  MAX_ITEM_LENGTH,
-  MAX_ITEMS,
+  isFinished,
   landed,
+  MAX_ENTRIES,
+  overCap,
   NO_ESTIMATE,
   OUTCOMES,
   OUTCOME_LABELS,
@@ -23,8 +26,9 @@ import {
   remainingLabel,
   stageLabel,
   type Goal,
+  type GoalDetail,
+  type GoalEntry,
   type GoalEstimate,
-  type GoalItem,
   type GoalSetBy,
   type GoalShape,
   type History,
@@ -50,36 +54,37 @@ interface CliResult {
 }
 
 export const GOAL_USAGE = [
-  'bb tokenomics goal set "GOAL" --stage "END STATE" ... [--shape task|exploration|project] [--none]',
-  "    [--turns LOW-HIGH] [--tokens LOW-HIGH] [--minutes LOW-HIGH] [--pr URL] [--by spawner|agent|you]",
+  'bb tokenomics goal set "GOAL" --stage "END STATE" ... [--detail low|high] [--shape task|exploration|project]',
+  "    [--none] [--turns LOW-HIGH] [--tokens LOW-HIGH] [--minutes LOW-HIGH] [--pr URL] [--by spawner|agent|you]",
   "    [--reason TEXT]",
-  "  Records this thread's goal: up to 5 stages, each an end state, and an 80% estimate of the whole",
-  "  goal. Prints how past threads that started the same way went. A thread with an open goal needs",
-  "  --reason to replace it, or use goal refine; /tokenomics-update-goal does that.",
+  '  Records this thread\'s goal: its "Done is" list, each entry an end state, up to 5 at --detail low (the',
+  "  default) or 25 at high, and an 80% estimate of the whole goal. Prints how past threads that started",
+  "  the same way went. A thread with an open goal needs --reason to replace it, or use goal refine;",
+  "  /tokenomics-update-goal does that.",
   "bb tokenomics goal stage next|N",
-  "  Marks the next stage, or the first N stages, as done.",
+  "  Marks the next unfinished entry done, or the first N entries.",
+  'bb tokenomics goal entry add "END STATE" ...',
+  "  Adds entries at the end of the list, such as the one that ends the thread.",
+  "bb tokenomics goal entry start|done|drop|todo N ...",
+  "  Marks entries by number (from goal show): in progress, done, dropped, or not started.",
+  "bb tokenomics goal entry count N DONE/TOTAL",
+  "  Keeps a count on a grouped entry, such as 2/9 for \"Medium findings addressed\". At DONE = TOTAL it is done.",
   "bb tokenomics goal estimate [--turns LOW-HIGH] [--tokens LOW-HIGH] [--minutes LOW-HIGH]",
   "  Replaces the goal's estimate.",
   "bb tokenomics goal close met|partly|not [--note TEXT]",
   "  Records how the goal ended, with what it used.",
-  'bb tokenomics goal add-stage "END STATE"',
-  "  Adds a stage at the end of an open goal, for work that goes on after every stage is true.",
-  'bb tokenomics goal refine ["GOAL"] [--stage "END STATE" ...] [--reached N] [--turns ...] [--tokens ...] [--minutes ...]',
-  '    --reason TEXT',
-  "  Rewrites the open goal to match what the thread is doing, keeping its items, and keeps the old one in",
-  "  the history. Leave out what doesn't change. --reached says how many of the new stages are already",
-  "  true; by default, the stages kept from the old goal keep their progress. /tokenomics-update-goal does this.",
-  'bb tokenomics goal item add "ITEM" ...',
-  "  Adds items to the goal: a list longer than its stages, such as a review's findings.",
-  "bb tokenomics goal item start|done|drop|todo N ...",
-  "  Marks items by number (from goal show): in progress, done, dropped, or not started.",
+  'bb tokenomics goal refine ["GOAL"] [--stage "END STATE" ...] [--detail low|high] [--reached N] [--turns ...]',
+  '    [--tokens ...] [--minutes ...] --reason TEXT',
+  "  Rewrites the open goal to match what the thread is doing, and keeps the old one in the history. Leave",
+  "  out what doesn't change. Entries kept word for word keep their state and count; --reached N marks the",
+  "  first N of the new list done instead. /tokenomics-update-goal does this.",
   "bb tokenomics goal clear [--reason TEXT]",
   "  Takes the goal off this thread, leaving no goal. The goal and what it used stay in the history.",
   "  /tokenomics-clear-goal does this.",
   'bb tokenomics goal reopen [--stage "END STATE"] ...',
-  "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any stages.",
+  "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any entries.",
   "bb tokenomics goal show [--json]",
-  "  Prints the goal, its stages, its estimate, what it has used, and earlier goals.",
+  "  Prints the goal, its list, its estimate, what it has used, and earlier goals.",
 ].join("\n");
 
 const BOOLEAN_FLAGS = new Set(["--none", "--json"]);
@@ -132,6 +137,14 @@ function compareLine(estimate: GoalEstimate, history: History | null): string | 
   return `Your ${off.join(" and ")} range doesn't overlap that history. Check it, or say in the thread why this goal differs.`;
 }
 
+function readDetail(flags: Map<string, string[]>, fallback: GoalDetail): GoalDetail | { error: string } {
+  const text = flags.get("--detail")?.at(-1);
+  if (text === undefined) return fallback;
+  return GOAL_DETAILS.includes(text as GoalDetail) ? (text as GoalDetail) : { error: "--detail takes low or high." };
+}
+
+const todo = (label: string): GoalEntry => ({ label, state: "todo" });
+
 /** The goal as the header line, the sidebar, and `goal show --json` read it. */
 export function goalView(deps: GoalDeps, goal: Goal) {
   const spent = deps.goals.spentOn(goal, deps.now());
@@ -139,9 +152,8 @@ export function goalView(deps: GoalDeps, goal: Goal) {
     id: goal.id,
     shape: goal.shape,
     text: goal.text,
-    stages: goal.stages,
-    reached: goal.reached,
-    items: goal.items,
+    entries: goal.entries,
+    detail: goal.detail,
     pr: goal.pr,
     setBy: goal.setBy,
     setAt: goal.setAt,
@@ -172,8 +184,10 @@ async function set(deps: GoalDeps, threadId: string, argv: readonly string[]): P
   if (shape !== "none" && text === "") {
     return { exitCode: 1, stderr: 'Give the goal in quotes: bb tokenomics goal set "PR #12 merged" --stage "Checks pass" ...' };
   }
-  if (text.length > 200) return { exitCode: 1, stderr: "Keep the goal under 200 characters; the stages carry the detail." };
-  const checked = checkStages(shape, flags.get("--stage") ?? []);
+  if (text.length > 200) return { exitCode: 1, stderr: "Keep the goal under 200 characters; the entries carry the detail." };
+  const detail = readDetail(flags, "low");
+  if (typeof detail === "object") return { exitCode: 1, stderr: detail.error };
+  const checked = checkStages(shape, flags.get("--stage") ?? [], detail);
   if ("error" in checked) return { exitCode: 1, stderr: checked.error };
   const setBy = (flags.get("--by")?.at(-1) ?? "agent") as GoalSetBy;
   if (!GOAL_SETTERS.includes(setBy)) return { exitCode: 1, stderr: "--by takes spawner, agent, or you." };
@@ -202,7 +216,8 @@ async function set(deps: GoalDeps, threadId: string, argv: readonly string[]): P
       anchorAt,
       shape,
       text: shape === "none" ? "" : text,
-      stages: checked.stages,
+      entries: checked.stages.map(todo),
+      detail,
       pr: flags.get("--pr")?.at(-1) ?? null,
       setBy,
       reason: current === null ? null : reason,
@@ -214,8 +229,10 @@ async function set(deps: GoalDeps, threadId: string, argv: readonly string[]): P
   deps.changed(threadId);
   if (shape === "none") return { exitCode: 0, stdout: "Recorded: this thread has no goal." };
 
-  const history = await historyOf(deps, origin, goal.stages.length);
-  const lines = [`Recorded${current === null ? "" : ", replacing the earlier goal"}: ${goal.text}${goal.stages.length > 0 ? ` (${goal.stages.length} stages)` : ""}.`];
+  const history = await historyOf(deps, origin, goal.entries.length);
+  const lines = [
+    `Recorded${current === null ? "" : ", replacing the earlier goal"}: ${goal.text}${goal.entries.length > 0 ? ` (${goal.entries.length} ${goal.entries.length === 1 ? "entry" : "entries"}, ${goal.detail} detail)` : ""}.`,
+  ];
   const { turns, tokens, minutes } = goal.estimate;
   if (turns === null && tokens === null && minutes === null) {
     lines.push("No estimate. Add one with bb tokenomics goal estimate --turns 3-8 --tokens 5M-20M --minutes 20-60.");
@@ -240,20 +257,31 @@ function stage(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   const found = openGoal(deps, threadId);
   if ("exitCode" in found) return found;
   const goal = found;
-  if (goal.stages.length === 0) return { exitCode: 1, stderr: `An ${goal.shape} goal has no stages. Close it when it's done.` };
+  if (goal.entries.length === 0) return { exitCode: 1, stderr: `An ${goal.shape} goal has no entries. Close it when it's done.` };
   const [which] = parseArgs(argv).positionals;
-  const reached = which === "next" ? goal.reached + 1 : Number(which);
-  if (!Number.isInteger(reached) || reached < 0 || reached > goal.stages.length) {
-    return { exitCode: 1, stderr: `Give next, or a number from 0 to ${goal.stages.length}.` };
+  let entries: GoalEntry[];
+  if (which === "next") {
+    const next = goal.entries.findIndex((entry) => !isFinished(entry));
+    if (next < 0) return { exitCode: 1, stderr: "Every entry is already done or dropped." };
+    entries = goal.entries.map((entry, index) => (index === next ? { ...entry, state: "done" } : entry));
+  } else {
+    const count = Number(which);
+    if (!Number.isInteger(count) || count < 0 || count > goal.entries.length) {
+      return { exitCode: 1, stderr: `Give next, or a number from 0 to ${goal.entries.length}.` };
+    }
+    entries = goal.entries.map((entry, index) =>
+      index < count ? (entry.state === "dropped" ? entry : { ...entry, state: "done" }) : isFinished(entry) ? { ...entry, state: "todo" } : entry,
+    );
   }
-  deps.goals.setReached(goal.id, reached);
+  deps.goals.setEntries(goal.id, entries);
   deps.changed(threadId);
-  const label = stageLabel({ ...goal, reached }) ?? "";
-  const done =
-    reached === goal.stages.length
-      ? ' Every stage is done. Close the goal with bb tokenomics goal close met once the thread\'s work is finished, or add the stage that ends it with bb tokenomics goal add-stage "END STATE".'
-      : "";
-  return { exitCode: 0, stdout: `Stage: ${label}.${done}` };
+  return { exitCode: 0, stdout: `Done is: ${stageLabel({ ...goal, entries }) ?? ""}.${allDone(entries)}` };
+}
+
+function allDone(entries: readonly GoalEntry[]): string {
+  return entries.every(isFinished)
+    ? ' Every entry is done. Close the goal with bb tokenomics goal close met once the thread\'s work is finished, or add the entry that ends it with bb tokenomics goal entry add "END STATE".'
+    : "";
 }
 
 function estimate(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
@@ -287,7 +315,7 @@ function close(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   const now = deps.now();
   const spent: Spent = deps.goals.spent(threadId, found.anchorAt, now + 1);
   const note = flags.get("--note")?.at(-1)?.trim().slice(0, 300) || null;
-  deps.goals.close(found.id, outcome, note, now, spent);
+  deps.goals.close(found.id, outcome, note, now, spent, found.entries);
   deps.changed(threadId);
   const result = landed(found.estimate, spent);
   const marks = (["turns", "tokens", "minutes"] as const)
@@ -299,38 +327,33 @@ function close(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   };
 }
 
-function addStage(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
-  const found = openGoal(deps, threadId);
-  if ("exitCode" in found) return found;
-  if (found.outcome !== null) return { exitCode: 1, stderr: 'The goal is closed. Use bb tokenomics goal reopen --stage "END STATE".' };
-  const stage = parseArgs(argv).positionals.join(" ");
-  const checked = checkStages(found.shape, [...found.stages, stage]);
-  if ("error" in checked) return { exitCode: 1, stderr: checked.error };
-  if (checked.stages.length === found.stages.length) return { exitCode: 1, stderr: 'Give the stage in quotes: bb tokenomics goal add-stage "PR open with checks passing".' };
-  deps.goals.setStages(found.id, checked.stages);
-  deps.changed(threadId);
-  return { exitCode: 0, stdout: `Stage: ${stageLabel({ ...found, stages: checked.stages }) ?? ""}. Next: ${checked.stages[found.reached] ?? "close the goal"}.` };
-}
-
 function reopen(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
   const goal = deps.goals.current(threadId);
   if (goal === null || goal.shape === "none") return { exitCode: 1, stderr: "This thread has no goal to reopen." };
   if (goal.outcome === null) return { exitCode: 1, stderr: "The goal is still open." };
-  const added = parseArgs(argv).flags.get("--stage") ?? [];
-  const checked = checkStages(goal.shape, [...goal.stages, ...added]);
+  const checked = checkLabels(parseArgs(argv).flags.get("--stage") ?? []);
   if ("error" in checked) return { exitCode: 1, stderr: checked.error };
-  deps.goals.reopen(goal.id, checked.stages);
+  const entries = [...goal.entries, ...checked.labels.map(todo)];
+  const over = overCap(entries.length, goal.detail);
+  if (over !== null) return { exitCode: 1, stderr: over };
+  deps.goals.reopen(goal.id, entries);
   deps.changed(threadId);
-  const label = stageLabel({ ...goal, stages: checked.stages, outcome: null }) ?? "open";
+  const label = stageLabel({ ...goal, entries, outcome: null }) ?? "open";
   return { exitCode: 0, stdout: `Reopened: ${goal.text} (${label}).` };
 }
 
-/** How many of `next`'s leading stages were already done in the old goal, by matching text. */
-export function carriedReached(previous: readonly string[], reached: number, next: readonly string[]): number {
-  const done = new Set(previous.slice(0, reached).map((stage) => stage.trim().toLowerCase()));
-  let count = 0;
-  while (count < next.length && done.has(next[count]!.trim().toLowerCase())) count += 1;
-  return count;
+/**
+ * The new list's entries, each keeping the state and count of an old entry
+ * with the same wording. With `reached`, the first that many are done instead
+ * and the rest start over.
+ */
+export function carriedEntries(previous: readonly GoalEntry[], labels: readonly string[], reached: number | null): GoalEntry[] {
+  if (reached !== null) return labels.map((label, index) => ({ label, state: index < reached ? "done" : "todo" }));
+  const byLabel = new Map(previous.map((entry) => [entry.label.trim().toLowerCase(), entry]));
+  return labels.map((label) => {
+    const kept = byLabel.get(label.trim().toLowerCase());
+    return kept === undefined ? todo(label) : { ...kept, label };
+  });
 }
 
 async function refine(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
@@ -341,10 +364,14 @@ async function refine(deps: GoalDeps, threadId: string, argv: readonly string[])
   const reason = flags.get("--reason")?.at(-1)?.trim() || null;
   if (reason === null) return { exitCode: 1, stderr: 'Say what changed with --reason, such as --reason "The work grew from one option to three".' };
   const text = positionals.join(" ").trim() || found.text;
-  if (text.length > 200) return { exitCode: 1, stderr: "Keep the goal under 200 characters; the stages carry the detail." };
+  if (text.length > 200) return { exitCode: 1, stderr: "Keep the goal under 200 characters; the entries carry the detail." };
+  const detail = readDetail(flags, found.detail);
+  if (typeof detail === "object") return { exitCode: 1, stderr: detail.error };
   const given = flags.get("--stage");
-  const checked = given === undefined ? { stages: found.stages } : checkStages(found.shape, given);
+  const checked = given === undefined ? { stages: found.entries.map((entry) => entry.label) } : checkStages(found.shape, given, detail);
   if ("error" in checked) return { exitCode: 1, stderr: checked.error };
+  const over = overCap(checked.stages.length, detail);
+  if (over !== null) return { exitCode: 1, stderr: over };
   const next = readEstimate(flags);
   if ("error" in next) return { exitCode: 1, stderr: next.error };
   const estimate: GoalEstimate = {
@@ -353,10 +380,11 @@ async function refine(deps: GoalDeps, threadId: string, argv: readonly string[])
     minutes: next.minutes ?? found.estimate.minutes,
   };
   const reachedText = flags.get("--reached")?.at(-1);
-  const reached = reachedText === undefined ? carriedReached(found.stages, found.reached, checked.stages) : Number(reachedText);
-  if (!Number.isInteger(reached) || reached < 0 || reached > checked.stages.length) {
+  const reached = reachedText === undefined ? null : Number(reachedText);
+  if (reached !== null && (!Number.isInteger(reached) || reached < 0 || reached > checked.stages.length)) {
     return { exitCode: 1, stderr: `Give --reached as a number from 0 to ${checked.stages.length}.` };
   }
+  const entries = carriedEntries(found.entries, checked.stages, reached);
   const now = deps.now();
   const goal = deps.goals.set(
     {
@@ -365,7 +393,8 @@ async function refine(deps: GoalDeps, threadId: string, argv: readonly string[])
       anchorAt: now,
       shape: found.shape,
       text,
-      stages: checked.stages,
+      entries,
+      detail,
       pr: flags.get("--pr")?.at(-1) ?? found.pr,
       setBy: (flags.get("--by")?.at(-1) as GoalSetBy | undefined) ?? "agent",
       reason,
@@ -374,41 +403,57 @@ async function refine(deps: GoalDeps, threadId: string, argv: readonly string[])
     },
     { id: found.id, spent: deps.goals.spentOn(found, now) },
   );
-  deps.goals.setReached(goal.id, reached);
-  if (found.items.length > 0) deps.goals.setItems(goal.id, found.items);
   deps.changed(threadId);
-  const label = stageLabel({ ...goal, reached }) ?? "";
+  const label = stageLabel(goal) ?? "";
   return { exitCode: 0, stdout: `Refined: ${text} (${label}). The earlier goal stays in the history with what it used.` };
 }
 
-const ITEM_VERBS: Record<string, GoalItem["state"]> = { start: "current", done: "done", drop: "dropped", todo: "todo" };
+const ENTRY_VERBS: Record<string, GoalEntry["state"]> = { start: "current", done: "done", drop: "dropped", todo: "todo" };
 
-function item(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
+function entry(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
   const found = openGoal(deps, threadId);
   if ("exitCode" in found) return found;
   const [verb, ...rest] = parseArgs(argv).positionals;
-  let items: GoalItem[];
+  const numbersOf = (parts: readonly string[]) => parts.flatMap((part) => part.split(",")).filter((part) => part !== "").map(Number);
+  const badNumbers = (numbers: readonly number[]) =>
+    numbers.length === 0 || numbers.some((n) => !Number.isInteger(n) || n < 1 || n > found.entries.length);
+  const numberError = { exitCode: 1, stderr: found.entries.length === 0 ? "The goal has no entries yet. Add them with bb tokenomics goal entry add." : `Give entry numbers from 1 to ${found.entries.length}.` };
+  let entries: GoalEntry[];
   if (verb === "add") {
-    const labels = rest.map((label) => label.trim()).filter((label) => label !== "");
-    if (labels.length === 0) return { exitCode: 1, stderr: 'Give each item in quotes: bb tokenomics goal item add "H1 Session cookie not marked Secure".' };
-    const long = labels.find((label) => label.length > MAX_ITEM_LENGTH);
-    if (long !== undefined) return { exitCode: 1, stderr: `Keep each item under ${MAX_ITEM_LENGTH} characters: "${long.slice(0, 40)}…".` };
-    if (found.items.length + labels.length > MAX_ITEMS) return { exitCode: 1, stderr: `A goal holds ${MAX_ITEMS} items at most.` };
-    items = [...found.items, ...labels.map((label) => ({ label, state: "todo" as const }))];
-  } else if (verb !== undefined && verb in ITEM_VERBS) {
-    const numbers = rest.flatMap((part) => part.split(",")).map(Number);
-    if (numbers.length === 0 || numbers.some((n) => !Number.isInteger(n) || n < 1 || n > found.items.length)) {
-      return { exitCode: 1, stderr: found.items.length === 0 ? "The goal has no items yet. Add them with bb tokenomics goal item add." : `Give item numbers from 1 to ${found.items.length}.` };
-    }
-    const state = ITEM_VERBS[verb]!;
-    items = found.items.map((entry, index) => (numbers.includes(index + 1) ? { ...entry, state } : entry));
+    const checked = checkLabels(rest);
+    if ("error" in checked) return { exitCode: 1, stderr: checked.error };
+    if (checked.labels.length === 0) return { exitCode: 1, stderr: 'Give each entry in quotes: bb tokenomics goal entry add "PR open with checks passing".' };
+    entries = [...found.entries, ...checked.labels.map(todo)];
+    const over = overCap(entries.length, found.detail);
+    if (over !== null) return { exitCode: 1, stderr: over };
+  } else if (verb === "count") {
+    const [which, ratio] = rest;
+    const index = Number(which) - 1;
+    if (badNumbers([index + 1])) return numberError;
+    const match = /^(\d+)\s*\/\s*(\d+)$/.exec(ratio ?? "");
+    const done = Number(match?.[1]);
+    const total = Number(match?.[2]);
+    if (match === null || total < 1 || done > total) return { exitCode: 1, stderr: "Give the count as DONE/TOTAL, such as 2/9." };
+    entries = found.entries.map((entry, at) => {
+      if (at !== index) return entry;
+      const state = done === total ? "done" : done > 0 ? "current" : entry.state === "dropped" ? "dropped" : entry.state;
+      return { ...entry, state, count: { done, total } };
+    });
+  } else if (verb !== undefined && verb in ENTRY_VERBS) {
+    const numbers = numbersOf(rest);
+    if (badNumbers(numbers)) return numberError;
+    const state = ENTRY_VERBS[verb]!;
+    entries = found.entries.map((entry, index) => (numbers.includes(index + 1) ? { ...entry, state } : entry));
   } else {
-    return { exitCode: 1, stderr: `Give add, ${Object.keys(ITEM_VERBS).join(", ")}. States: ${ITEM_STATES.join(", ")}.` };
+    return { exitCode: 1, stderr: `Give add, count, ${Object.keys(ENTRY_VERBS).join(", ")}. States: ${ENTRY_STATES.join(", ")}.` };
   }
-  deps.goals.setItems(found.id, items);
+  deps.goals.setEntries(found.id, entries);
   deps.changed(threadId);
-  const open = items.filter((entry) => entry.state === "todo" || entry.state === "current").length;
-  return { exitCode: 0, stdout: `Items: ${itemsLabel(items)} finished${open > 0 ? `, ${open} open` : ""}.` };
+  const open = entries.filter((each) => !isFinished(each)).length;
+  return {
+    exitCode: 0,
+    stdout: `Done is: ${finishedCount(entries)} of ${entries.length} finished${open > 0 ? `, ${open} open` : ""} (${found.detail} detail, ${MAX_ENTRIES[found.detail]} at most).${allDone(entries)}`,
+  };
 }
 
 async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
@@ -418,7 +463,7 @@ async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): 
     return json ? { exitCode: 0, stdout: "null" } : { exitCode: 0, stdout: "This thread has no goal yet." };
   }
   if (json) return { exitCode: 0, stdout: JSON.stringify(goalView(deps, goal), null, 2) };
-  const history = goal.shape === "none" ? null : await historyOf(deps, goal.origin, goal.stages.length);
+  const history = goal.shape === "none" ? null : await historyOf(deps, goal.origin, goal.entries.length);
   return { exitCode: 0, stdout: formatGoal(goal, deps.goals.spentOn(goal, deps.now()), history, deps.goals.history(threadId)) };
 }
 
@@ -442,8 +487,9 @@ export async function goalCli(deps: GoalDeps, threadId: string | undefined, argv
   if (sub === "close") return close(deps, threadId, rest);
   if (sub === "reopen") return reopen(deps, threadId, rest);
   if (sub === "clear") return await clear(deps, threadId, rest);
-  if (sub === "add-stage") return addStage(deps, threadId, rest);
-  if (sub === "item") return item(deps, threadId, rest);
+  // add-stage and item are the names from before the "Done is" list.
+  if (sub === "add-stage") return entry(deps, threadId, ["add", ...rest]);
+  if (sub === "entry" || sub === "item") return entry(deps, threadId, rest);
   if (sub === "refine") return await refine(deps, threadId, rest);
   if (sub === "show") return await show(deps, threadId, rest);
   return { exitCode: 1, stderr: `Unknown goal command "${sub}".\n\n${GOAL_USAGE}` };

@@ -138,14 +138,22 @@ const rangeSchema = z.object({ low: z.number(), high: z.number() }).nullable();
 const spentSchema = z.object({ turns: z.number(), tokens: z.number(), ms: z.number() });
 
 /** A thread's current goal, as the band above its conversation shows it. */
+const entryStateSchema = z.enum(["todo", "current", "done", "dropped"]);
+
 export const goalViewSchema = z.object({
   id: z.number(),
   shape: z.enum(["task", "exploration", "project", "none"]),
   text: z.string(),
-  stages: z.array(z.string()),
-  reached: z.number(),
-  /** A list longer than the stages, such as a review's findings; empty for most goals. */
-  items: z.array(z.object({ label: z.string(), state: z.enum(["todo", "current", "done", "dropped"]) })),
+  /** The "Done is" list: each entry's state, and a count on a grouped one. */
+  entries: z.array(
+    z.object({
+      label: z.string(),
+      state: entryStateSchema,
+      count: z.object({ done: z.number(), total: z.number() }).optional(),
+    }),
+  ),
+  /** How much the list holds: up to 5 entries at low, 25 at high. */
+  detail: z.enum(["low", "high"]),
   pr: z.string().nullable(),
   setBy: z.enum(["spawner", "agent", "you"]),
   setAt: z.number(),
@@ -154,7 +162,7 @@ export const goalViewSchema = z.object({
   outcomeNote: z.string().nullable(),
   estimate: z.object({ turns: rangeSchema, tokens: rangeSchema, minutes: rangeSchema }),
   spent: spentSchema,
-  /** "1 of 3 · Finder built", "Exploring", "Met"; null for a thread with no goal to show. */
+  /** "1 of 3 · Tests pass", "Exploring", "Met"; null for a thread with no goal to show. */
   label: z.string().nullable(),
   /** "~2–5 turns left", "past estimate", or null. */
   left: z.string().nullable(),
@@ -275,7 +283,9 @@ export const rpcContract = defineRpcContract({
     input: z.null(),
     output: z.object({
       show: z.boolean(),
-      goals: z.array(z.object({ threadId: z.string(), label: z.string(), stages: z.number(), reached: z.number(), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable(),
+      goals: z.array(z.object({ threadId: z.string(), label: z.string(), stages: z.number(), reached: z.number(),
+        /** Each entry's state, in order, for the donut's segments. */
+        states: z.array(entryStateSchema), outcome: z.enum(["met", "partly", "not"]).nullable(), left: z.string().nullable(),
         /** An Impromptu UI card above the thread's composer still has an open item. */
         openCard: z.boolean(),
         /** The thread's last turn failed, as on a provider error, even while bb waits to retry it. */
