@@ -13,6 +13,7 @@ import { filmstripLabels, shortLabel } from "./review-panel.js";
 import { draftKey, editorDraft, enterAction, firstOpenItem, linkedThreads, mapPages, nextOpenItem, sentDraft, showsResult } from "./view-panel.js";
 import { doneTag, failureLine, listRows } from "./list-panel.js";
 import { itemThreadPrompt } from "./thread-prompt.js";
+import { INLINE_REPLY_LABEL } from "./inline.js";
 
 function store() {
   const db = new Database(":memory:");
@@ -708,6 +709,39 @@ describe("agent-set status", () => {
     const applied = s.setItem(first.id, "intro", { state: "done", result: { label: "Apply", at: "t" } }, "t")!;
     expect(revisedAfterNote(fix("Round 2"), applied)).toEqual([]);
     expect(revisedAfterNote(fix("Round 2"), undefined)).toEqual([]);
+  });
+
+  it("reopens an inline question answered in the user's own words when the agent publishes a new version", () => {
+    const question = (title: string) =>
+      parseView(
+        JSON.stringify({
+          title: "Next",
+          layout: "inline",
+          sections: [
+            {
+              title: "",
+              items: [
+                {
+                  id: "fix",
+                  title,
+                  actions: [
+                    { type: "message", label: "Commit", text: "Commit it" },
+                    { type: "message", label: "Change it", text: "Change it" },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+    const s = store();
+    const first = s.publish("thr_one", "fix", question("Keep the banner off?"), null, "t");
+    const replied = s.setItem(first.id, "fix", { state: "done", result: { label: INLINE_REPLY_LABEL, at: "t", draft: "Show a notice in both" } }, "t")!;
+    expect(revisedAfterNote(question("Show a notice in both states?"), replied).map((item) => item.id)).toEqual(["fix"]);
+    expect(revisedAfterNote(question("Keep the banner off?"), replied)).toEqual([]);
+    // A button sends no words, so the user's decision stands.
+    const committed = s.setItem(first.id, "fix", { state: "done", result: { label: "Commit", at: "t" } }, "t")!;
+    expect(revisedAfterNote(question("Show a notice in both states?"), committed)).toEqual([]);
   });
 
   it("counts complete items in the header once a view uses status, and open ones otherwise", () => {

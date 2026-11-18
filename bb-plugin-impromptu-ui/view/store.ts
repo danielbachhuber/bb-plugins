@@ -14,6 +14,7 @@ import type { Database } from "better-sqlite3";
 import type { Feedback } from "./review.js";
 import type { ViewThreads } from "./cleanup.js";
 import { dismissLabelOf, isQuiet, itemThreads, usesNote, type Action, type Item, type View } from "./schema.js";
+import { INLINE_REPLY_LABEL } from "./inline.js";
 
 export const MIGRATIONS = [
   `CREATE TABLE views (
@@ -193,8 +194,8 @@ export function completedUnanswered(view: View, previous: StoredView | undefined
 }
 
 /**
- * Items the user sent back with a note, such as Revise without `repeat`, that
- * this publish replaces with a new version: anything about the item other than
+ * Items the user sent back with a note, such as Revise without `repeat`, or
+ * answered in their own words in an inline question's field, that this publish replaces with a new version: anything about the item other than
  * its status is different, such as its draft, summary, or a button's brief. The button closed the
  * card, and a publish keeps what the user did, so the new version would arrive
  * already done. It is a new question, so the publish reopens it. An item the
@@ -210,6 +211,7 @@ export function revisedAfterNote(view: View, previous: StoredView | undefined): 
       const old = before.get(item.id);
       if (record?.state !== "done" || record.result === null || old === undefined) return false;
       if (item.status?.complete === true) return false;
+      if (record.result.label === INLINE_REPLY_LABEL && record.result.draft !== undefined) return content(item) !== content(old);
       const pressed = old.actions.find((action) => action.label === record.result!.label);
       return pressed !== undefined && usesNote(pressed) && content(item) !== content(old);
     }),
