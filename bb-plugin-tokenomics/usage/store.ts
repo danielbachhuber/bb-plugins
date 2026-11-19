@@ -211,6 +211,18 @@ export const MIGRATIONS = [
   // which read as entries. See GoalEntry in goals.ts.
   `ALTER TABLE goals ADD COLUMN entries TEXT`,
   `ALTER TABLE goals ADD COLUMN detail TEXT`,
+  // Each change to a goal, with its time: set, an entry's state or count,
+  // the estimate, a close, a reopen. detail is JSON; see GoalEvent in
+  // goals.ts. Deleted with the thread's goals.
+  `CREATE TABLE IF NOT EXISTS goal_events (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     goal_id INTEGER NOT NULL,
+     thread_id TEXT NOT NULL,
+     at INTEGER NOT NULL,
+     kind TEXT NOT NULL,
+     detail TEXT NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS goal_events_thread_idx ON goal_events (thread_id, at)`,
 ];
 
 export interface ThreadInfo {

@@ -8,6 +8,7 @@ import {
   ENTRY_STATES,
   entryLine,
   finishedCount,
+  formatEvent,
   formatGoal,
   formatHistory,
   formatRange,
@@ -30,6 +31,7 @@ import {
   type GoalDetail,
   type GoalEntry,
   type GoalEstimate,
+  type GoalEvent,
   type GoalSetBy,
   type GoalShape,
   type History,
@@ -85,7 +87,7 @@ export const GOAL_USAGE = [
   'bb tokenomics goal reopen [--stage "END STATE"] ...',
   "  Opens a closed goal again, such as when feedback arrives after it was closed, adding any entries.",
   "bb tokenomics goal show [--json]",
-  "  Prints the goal, its list, its estimate, what it has used, and earlier goals.",
+  "  Prints the goal, its list, its estimate, what it has used, earlier goals, and each change with its time.",
 ].join("\n");
 
 const BOOLEAN_FLAGS = new Set(["--none", "--json"]);
@@ -475,15 +477,26 @@ function entry(deps: GoalDeps, threadId: string, argv: readonly string[]): CliRe
   };
 }
 
+/** The thread's goal changes for goal show: the latest 20, oldest first. */
+export function formatChanges(events: readonly GoalEvent[], timeZone?: string): string {
+  if (events.length === 0) return "";
+  const shown = events.slice(-CHANGES_SHOWN);
+  const more = events.length - shown.length;
+  return [`\nChanges${more > 0 ? ` (latest ${shown.length} of ${events.length}; --json has all)` : ""}:`, ...shown.map((event) => formatEvent(event, timeZone))].join("\n");
+}
+const CHANGES_SHOWN = 20;
+
 async function show(deps: GoalDeps, threadId: string, argv: readonly string[]): Promise<CliResult> {
   const goal = deps.goals.current(threadId);
   const json = parseArgs(argv).booleans.has("--json");
   if (goal === null) {
     return json ? { exitCode: 0, stdout: "null" } : { exitCode: 0, stdout: "This thread has no goal yet." };
   }
-  if (json) return { exitCode: 0, stdout: JSON.stringify(goalView(deps, goal), null, 2) };
+  const events = deps.goals.events(threadId);
+  if (json) return { exitCode: 0, stdout: JSON.stringify({ ...goalView(deps, goal), changes: events }, null, 2) };
   const history = goal.shape === "none" ? null : await historyOf(deps, goal.origin, goal.entries.length);
-  return { exitCode: 0, stdout: formatGoal(goal, deps.goals.spentOn(goal, deps.now()), history, deps.goals.history(threadId)) };
+  const text = formatGoal(goal, deps.goals.spentOn(goal, deps.now()), history, deps.goals.history(threadId));
+  return { exitCode: 0, stdout: `${text}${formatChanges(events)}` };
 }
 
 /** Takes the goal off the thread: records "no goal" in its place, which keeps the old one in the history. */

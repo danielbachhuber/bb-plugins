@@ -53,6 +53,60 @@ export interface GoalEntry {
   count?: { done: number; total: number };
 }
 
+/**
+ * One change to a goal, as goal_events stores it. Revisions also add a goal
+ * row; the events put every change on one timeline.
+ */
+export type GoalEvent = { goalId: number; at: number } & (
+  | { kind: "set"; text: string; reason: string | null; entries: number }
+  | { kind: "entry"; entry: number; label: string; from: EntryState | null; to: EntryState; count?: { done: number; total: number } }
+  | { kind: "estimate"; from: GoalEstimate; to: GoalEstimate }
+  | { kind: "closed"; outcome: Outcome; note: string | null }
+  | { kind: "reopened"; outcome: Outcome | null }
+);
+
+/** The entry changes between two versions of a "Done is" list, by position. */
+export function entryChanges(before: readonly GoalEntry[], after: readonly GoalEntry[]) {
+  return after.flatMap((entry, index) => {
+    const old = before[index];
+    const sameCount = old?.count?.done === entry.count?.done && old?.count?.total === entry.count?.total;
+    if (old !== undefined && old.state === entry.state && sameCount) return [];
+    return [{ entry: index + 1, label: entry.label, from: old?.state ?? null, to: entry.state, ...(entry.count ? { count: entry.count } : {}) }];
+  });
+}
+
+const ENTRY_MOVES: Record<EntryState, string> = { todo: "back to not started", current: "started", done: "done", dropped: "dropped" };
+
+/** A goal change as one line of goal show: "Nov 19, 3:38 AM  entry 3 done: Prompt saves batched". */
+export function formatEvent(event: GoalEvent, timeZone?: string): string {
+  const when = new Date(event.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone });
+  const what = (() => {
+    switch (event.kind) {
+      case "set":
+        return event.reason === null ? `set: ${event.text} (${event.entries} entries)` : `revised: ${event.text} (${event.entries} entries), because ${event.reason}`;
+      case "entry": {
+        const count = event.count ? ` (${event.count.done} of ${event.count.total})` : "";
+        const move = event.from === null && event.to === "todo" ? "added" : ENTRY_MOVES[event.to];
+        return `entry ${event.entry} ${move}${count}: ${event.label}`;
+      }
+      case "estimate": {
+        const kinds = [["turns", ""], ["tokens", " tokens"], ["minutes", ""]] as const;
+        const moved = kinds.flatMap(([kind, unit]) => {
+          const show = (range: Range | null) => (range === null ? `no ${kind}` : `${formatRange(range, kind)}${unit}`);
+          const [from, to] = [show(event.from[kind]), show(event.to[kind])];
+          return from === to ? [] : [`${from} to ${to}`];
+        });
+        return `estimate: ${moved.length === 0 ? "unchanged" : moved.join(", ")}`;
+      }
+      case "closed":
+        return `closed: ${OUTCOME_LABELS[event.outcome]}${event.note ? ` (${event.note})` : ""}`;
+      case "reopened":
+        return `reopened${event.outcome ? ` (was ${OUTCOME_LABELS[event.outcome]})` : ""}`;
+    }
+  })();
+  return `  ${when}  ${what}`;
+}
+
 export function isFinished(entry: Pick<GoalEntry, "state">): boolean {
   return entry.state === "done" || entry.state === "dropped";
 }

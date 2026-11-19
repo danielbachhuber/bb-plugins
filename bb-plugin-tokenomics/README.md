@@ -163,7 +163,7 @@ bb tokenomics goal entry add "END STATE" ... | start|done|drop|todo N ...       
 bb tokenomics goal entry count N DONE/TOTAL                                                      # a grouped entry's count, such as 2/9
 bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal clear [--reason TEXT]                                                         # take the goal off the thread, keeping it in the history
-bb tokenomics goal show [--json]                                                               # the goal, its list, and what it has used
+bb tokenomics goal show [--json]                                                               # the goal, its list, what it has used, and each change with its time
 ```
 
 The plugin ships the `tokenomics-update-goal` skill, which uses the goal you give
@@ -197,8 +197,9 @@ outside service.
 - Tokenomics counts tokens, not dollars.
 - It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
 - It keeps each goal, and each earlier goal a revision replaced, with what it
-  used, a few hundred bytes each, and deletes them when bb deletes the
-  thread. The token button reads one goal from the plugin's database
+  used, a few hundred bytes each, and a timed log of every change to them
+  (entries marked, estimates changed, closes, reopens), about 150 bytes a
+  change, and deletes both when bb deletes the thread. The token button reads one goal from the plugin's database
   when the thread opens and after each turn; the sidebar reads every active
   thread's goal in one request after each recorded usage and once a minute.
   The token button doesn't ask bb. Each of those sidebar requests also asks

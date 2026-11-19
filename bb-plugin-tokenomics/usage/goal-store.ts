@@ -2,7 +2,7 @@
 // in store.ts; this module reads and writes them.
 import type { Database } from "better-sqlite3";
 
-import { finishedCount, GOAL_DETAILS, legacyEntries, MAX_ENTRIES, parseEntries, type GoalDetail, type GoalEntry } from "./goals.js";
+import { entryChanges, finishedCount, GOAL_DETAILS, legacyEntries, MAX_ENTRIES, parseEntries, type GoalDetail, type GoalEntry, type GoalEvent } from "./goals.js";
 import type { Goal, GoalEstimate, GoalSetBy, GoalShape, HistorySample, Outcome, Range, Spent } from "./goals.js";
 
 interface GoalRow {
@@ -107,7 +107,8 @@ export interface NewGoal {
   estimate: GoalEstimate;
 }
 
-export function createGoalStore(db: Database) {
+/** Times events at the clock's reading; tests pass their own. */
+export function createGoalStore(db: Database, clock: () => number = Date.now) {
   const selectCurrent = db.prepare(
     `SELECT * FROM goals WHERE thread_id = ? AND replaced_at IS NULL ORDER BY set_at DESC, id DESC LIMIT 1`,
   );
@@ -134,6 +135,16 @@ export function createGoalStore(db: Database) {
        spent_ms = NULL WHERE id = ?`,
   );
   const deleteThreadGoals = db.prepare(`DELETE FROM goals WHERE thread_id = ?`);
+  const deleteThreadEvents = db.prepare(`DELETE FROM goal_events WHERE thread_id = ?`);
+  const insertEvent = db.prepare(
+    `INSERT INTO goal_events (goal_id, thread_id, at, kind, detail) SELECT id, thread_id, ?, ?, ? FROM goals WHERE id = ?`,
+  );
+  const selectEvents = db.prepare(`SELECT goal_id, at, kind, detail FROM goal_events WHERE thread_id = ? ORDER BY at, id`);
+  const selectRow = db.prepare(`SELECT * FROM goals WHERE id = ?`);
+  const log = (goalId: number, at: number, event: Record<string, unknown> & { kind: GoalEvent["kind"] }) => {
+    const { kind, ...detail } = event;
+    insertEvent.run(at, kind, JSON.stringify(detail), goalId);
+  };
   const selectTurnStart = db.prepare(
     `SELECT max(started_at) AS at FROM turn_times WHERE thread_id = ? AND started_at <= ?`,
   );
@@ -264,6 +275,9 @@ export function createGoalStore(db: Database) {
           minutes?.low ?? null,
           minutes?.high ?? null,
         );
+        const id = (db.prepare(`SELECT last_insert_rowid() AS id`).get() as { id: number }).id;
+        log(id, goal.setAt, { kind: "set", text: goal.text, reason: goal.reason, entries: goal.entries.length });
+        for (const change of entryChanges([], goal.entries)) if (change.to !== "todo") log(id, goal.setAt, { kind: "entry", ...change });
       });
       run();
       return this.current(goal.threadId)!;
@@ -271,18 +285,29 @@ export function createGoalStore(db: Database) {
 
     /** Replaces the goal's "Done is" list. */
     setEntries(goalId: number, entries: readonly GoalEntry[]): void {
-      updateEntries.run(JSON.stringify(entries), JSON.stringify(entries.map((entry) => entry.label)), finishedCount(entries), goalId);
+      db.transaction(() => {
+        const row = selectRow.get(goalId) as GoalRow | undefined;
+        updateEntries.run(JSON.stringify(entries), JSON.stringify(entries.map((entry) => entry.label)), finishedCount(entries), goalId);
+        if (row === undefined) return;
+        const at = clock();
+        for (const change of entryChanges(entriesOf(row), entries)) log(goalId, at, { kind: "entry", ...change });
+      })();
     },
 
     setEstimate(goalId: number, estimate: GoalEstimate): void {
-      const { turns, tokens, minutes } = estimate;
-      updateEstimate.run(turns?.low ?? null, turns?.high ?? null, tokens?.low ?? null, tokens?.high ?? null, minutes?.low ?? null, minutes?.high ?? null, goalId);
+      db.transaction(() => {
+        const row = selectRow.get(goalId) as GoalRow | undefined;
+        const { turns, tokens, minutes } = estimate;
+        updateEstimate.run(turns?.low ?? null, turns?.high ?? null, tokens?.low ?? null, tokens?.high ?? null, minutes?.low ?? null, minutes?.high ?? null, goalId);
+        if (row !== undefined) log(goalId, clock(), { kind: "estimate", from: goalOf(row).estimate, to: estimate });
+      })();
     },
 
     /** Records how the goal ended. A met goal has every entry done, apart from those dropped. */
     close(goalId: number, outcome: Outcome, note: string | null, at: number, spent: Spent, entries: readonly GoalEntry[]): void {
       db.transaction(() => {
         updateOutcome.run(outcome, note, at, spent.turns, spent.tokens, spent.ms, goalId);
+        log(goalId, at, { kind: "closed", outcome, note });
         if (outcome === "met") {
           this.setEntries(goalId, entries.map((entry) => (entry.state === "dropped" ? entry : { ...entry, state: "done" as const })));
         }
@@ -292,14 +317,30 @@ export function createGoalStore(db: Database) {
     /** Opens a closed goal again, with `entries` as its list from now on. */
     reopen(goalId: number, entries: readonly GoalEntry[]): void {
       db.transaction(() => {
+        const row = selectRow.get(goalId) as GoalRow | undefined;
         updateReopen.run(goalId);
+        log(goalId, clock(), { kind: "reopened", outcome: (row?.outcome ?? null) as Outcome | null });
         this.setEntries(goalId, entries);
       })();
     },
 
     /** Removes the thread's goals, once bb deletes the thread. */
     deleteThread(threadId: string): void {
-      deleteThreadGoals.run(threadId);
+      db.transaction(() => {
+        deleteThreadEvents.run(threadId);
+        deleteThreadGoals.run(threadId);
+      })();
+    },
+
+    /** Every change to the thread's goals, oldest first. */
+    events(threadId: string): GoalEvent[] {
+      return (selectEvents.all(threadId) as Array<{ goal_id: number; at: number; kind: string; detail: string }>).flatMap((row) => {
+        try {
+          return [{ ...(JSON.parse(row.detail) as object), kind: row.kind, goalId: row.goal_id, at: row.at } as GoalEvent];
+        } catch {
+          return [];
+        }
+      });
     },
 
     /** Closed goals and archived whole threads since `since`, for estimates. */

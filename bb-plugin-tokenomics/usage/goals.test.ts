@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { goalCli, goalReminder, goalView, parseArgs, type GoalDeps } from "./goal-cli.js";
+import { formatChanges, goalCli, goalReminder, goalView, parseArgs, type GoalDeps } from "./goal-cli.js";
 import { createGoalStore } from "./goal-store.js";
 import {
   checkStages,
@@ -133,8 +133,8 @@ describe("parseArgs", () => {
 function setup() {
   const db = new Database(":memory:");
   for (const statement of MIGRATIONS) db.exec(statement);
-  const goals = createGoalStore(db);
   let now = 10_000;
+  const goals = createGoalStore(db, () => now);
   const changed: string[] = [];
   const deps: GoalDeps = {
     goals,
@@ -407,5 +407,62 @@ describe("goalReminder", () => {
     expect(goalReminder(goal([], { shape: "none" }))).toBeNull();
     expect(goalReminder(goal([{ label: "Merged", state: "todo" }], { outcome: "met" }))).toBeNull();
     expect(goalReminder(goal([]))).toBeNull();
+  });
+});
+
+describe("goal change log", () => {
+  it("records each change with its time, and goal show lists them", async () => {
+    const { deps, goals, advance } = setup();
+    await goalCli(deps, "thr_a", ["set", "Export the widget list to CSV", "--stage", "Export built", "--stage", "Tests pass", "--turns", "2-4"]);
+    advance(60_000);
+    await goalCli(deps, "thr_a", ["entry", "start", "1"]);
+    advance(60_000);
+    await goalCli(deps, "thr_a", ["entry", "done", "1"]);
+    await goalCli(deps, "thr_a", ["entry", "count", "2", "3/5"]);
+    advance(60_000);
+    await goalCli(deps, "thr_a", ["estimate", "--turns", "3-6"]);
+    await goalCli(deps, "thr_a", ["close", "met", "--note", "Shipped"]);
+    advance(60_000);
+    await goalCli(deps, "thr_a", ["reopen", "--stage", "Refined on your feedback"]);
+
+    const events = goals.events("thr_a");
+    expect(events.map((event) => [event.at, event.kind])).toEqual([
+      [10_000, "set"],
+      [70_000, "entry"],
+      [130_000, "entry"],
+      [130_000, "entry"],
+      [190_000, "estimate"],
+      [190_000, "closed"],
+      [190_000, "entry"],
+      [250_000, "reopened"],
+      [250_000, "entry"],
+    ]);
+    expect(events[2]).toMatchObject({ kind: "entry", entry: 1, label: "Export built", from: "current", to: "done" });
+    expect(events[3]).toMatchObject({ entry: 2, from: "todo", to: "current", count: { done: 3, total: 5 } });
+    expect(events[8]).toMatchObject({ entry: 3, from: null, to: "todo", label: "Refined on your feedback" });
+
+    expect(formatChanges(events, "UTC").split("\n")).toEqual([
+      "",
+      "Changes:",
+      "  Jan 1, 12:00 AM  set: Export the widget list to CSV (2 entries)",
+      "  Jan 1, 12:01 AM  entry 1 started: Export built",
+      "  Jan 1, 12:02 AM  entry 1 done: Export built",
+      "  Jan 1, 12:02 AM  entry 2 started (3 of 5): Tests pass",
+      "  Jan 1, 12:03 AM  estimate: 2–4 turns to 3–6 turns",
+      "  Jan 1, 12:03 AM  closed: Met (Shipped)",
+      "  Jan 1, 12:03 AM  entry 2 done (3 of 5): Tests pass",
+      "  Jan 1, 12:04 AM  reopened (was Met)",
+      "  Jan 1, 12:04 AM  entry 3 added: Refined on your feedback",
+    ]);
+    expect((await goalCli(deps, "thr_a", ["show"])).stdout).toContain("Changes:");
+  });
+
+  it("records a revision and deletes the log with the thread", async () => {
+    const { deps, goals } = setup();
+    await goalCli(deps, "thr_a", ["set", "Spreadsheet built", "--stage", "Spreadsheet built"]);
+    await goalCli(deps, "thr_a", ["refine", "Every issue addressed", "--stage", "Issues addressed", "--reason", "You widened it"]);
+    expect(goals.events("thr_a").filter((event) => event.kind === "set").map((event) => event.kind === "set" && event.reason)).toEqual([null, "You widened it"]);
+    goals.deleteThread("thr_a");
+    expect(goals.events("thr_a")).toEqual([]);
   });
 });
