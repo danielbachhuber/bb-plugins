@@ -17,6 +17,7 @@ Without the plugin, bb opens the same file read-only. You can switch between Pre
 - Press **Cmd+S** or click **Save** to write the file. **Discard** puts back the text last read from disk, after a second click to confirm.
 - If an agent changes the file while you have unsaved edits, Save stops and asks you to **Reload, discard mine** or **Overwrite**.
 - Click the file's path in the header to copy its full path.
+- Click the pencil beside the path to open the file in the editor bb is set to use, the same one bb's own file preview opens. Each click makes four requests on this machine: bb's config, the status of each local helper bb lists, the editors that helper can use, and the open request. The editor has to be on the machine the file is on, so a file on a remote host shows an error instead.
 - Select text in Preview and click **Add to chat** to quote it into the composer under the file's path.
 
   ![A paragraph selected in Preview, with an Add to chat button under it](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--add-to-chat.png)
@@ -43,6 +44,8 @@ bb 0.43 or later. No account or external service: the plugin reads and writes th
 ```sh
 npm install
 npx tsc --noEmit
-npm test
+npm test   # also checks the open-in-editor requests against the running bb
 bb plugin build . && bb plugin reload markdown-editor
 ```
+
+The pencil uses requests bb's app makes to its local helper, which bb does not publish for plugins. `editor/open-in-editor.live.test.ts` runs them against the bb on this machine, without opening anything, and fails when a bb update changes one. It skips when bb is not running, as in CI.

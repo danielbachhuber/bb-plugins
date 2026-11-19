@@ -4,6 +4,8 @@
 // passes the results in, so a story can render every state without a server.
 import { useState, type RefObject } from "react";
 import { Markdown } from "@get-bb/plugin-sdk/app";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { canSave, isDirty, type EditorState } from "./save";
 import { ANCHOR_HEIGHT, ANCHOR_WIDTH } from "./selection";
 import type { MarkdownDocument } from "./document";
@@ -124,6 +126,8 @@ export interface EditorTabViewProps {
   onAddToChat: () => void;
   /** Copies the file's path, which clicking the filename does. */
   onCopyPath: () => void;
+  /** Opens the file in the editor chosen in bb, or undefined when it cannot. */
+  onOpenInEditor?: () => void;
 }
 
 export function EditorTabView({
@@ -144,6 +148,7 @@ export function EditorTabView({
   onDiscard,
   onAddToChat,
   onCopyPath,
+  onOpenInEditor,
 }: EditorTabViewProps) {
   const { directory, name } = splitPath(path);
   const dirty = isDirty(state);
@@ -174,6 +179,17 @@ export function EditorTabView({
             <span className="text-muted-foreground">{directory}</span>
             <span className="text-foreground">{name}</span>
           </button>
+          {onOpenInEditor !== undefined ? (
+            <button
+              type="button"
+              className="ml-1 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-state-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              title="Open in editor"
+              aria-label={`Open ${name} in editor`}
+              onClick={onOpenInEditor}
+            >
+              <HugeiconsIcon icon={PencilEdit02Icon} aria-hidden className="size-3.5" />
+            </button>
+          ) : null}
         </div>
 
         {/*

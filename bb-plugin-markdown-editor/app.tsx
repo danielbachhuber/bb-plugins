@@ -42,6 +42,7 @@ import {
 import { buildMarkdownDocument } from "./editor/document";
 import { EditorTabView, type View } from "./editor/tab-view";
 import { absolutePath } from "./editor/target";
+import { FILE_OPEN_TARGET_STORAGE_KEY, openInEditor } from "./editor/open-in-editor";
 
 /**
  * The SDK marks the explicit host as experimental and so spells it
@@ -82,6 +83,8 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
   const [assetRoute, setAssetRoute] = useState<string | null>(null);
   /** The directory a rooted file's path is relative to, once the server has said. */
   const [documentRoot, setDocumentRoot] = useState<string | null>(null);
+  /** The host a rooted file is on, once the server has said. */
+  const [documentHostId, setDocumentHostId] = useState<string | null>(null);
   /**
    * Whether Discard is one click from throwing the buffer away.
    *
@@ -193,11 +196,14 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
 
   useEffect(() => {
     setDocumentRoot(null);
+    setDocumentHostId(null);
     if (wireSource.kind === "host") return;
     let current = true;
     rpc.call("document_root", { source: wireSource }).then(
       (result) => {
-        if (current) setDocumentRoot(result.rootPath);
+        if (!current) return;
+        setDocumentRoot(result.rootPath);
+        setDocumentHostId(result.hostId);
       },
       // Without the root, links keep bb's message routing and the rest of
       // the preview is unaffected.
@@ -338,6 +344,32 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
     setSelection(null);
   }, [composer, selection]);
 
+  // A rooted file needs its root before it has a path an editor can open.
+  const canOpenInEditor = wireSource.kind === "host" || documentRoot !== null;
+  const openFileInEditor = useCallback(() => {
+    // The helper is on this machine, so a file on another host can't open.
+    const hostId = wireSource.kind === "host" ? wireSource.hostId : documentHostId;
+    let preferredId: string | null = null;
+    try {
+      preferredId = window.localStorage.getItem(FILE_OPEN_TARGET_STORAGE_KEY);
+    } catch {
+      // Storage blocked: bb's own choice of editor applies.
+    }
+    openInEditor({
+      fetch: window.fetch.bind(window),
+      serverOrigin: window.location.origin,
+      path: absolutePath(path, documentRoot),
+      ...(hostId !== undefined && hostId !== null ? { hostId } : {}),
+      preferredId,
+    }).then(
+      (label) => toast.success(`Opened in ${label}`),
+      (cause: unknown) =>
+        toast.error("Couldn't open the file in your editor", {
+          description: cause instanceof Error ? cause.message : String(cause),
+        }),
+    );
+  }, [path, documentRoot, documentHostId, wireSource]);
+
   return (
     <EditorTabView
       path={path}
@@ -363,6 +395,7 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
         dispatch({ type: "discard" });
       }}
       onAddToChat={addToChat}
+      onOpenInEditor={canOpenInEditor ? openFileInEditor : undefined}
       onCopyPath={() => {
         navigator.clipboard.writeText(absolutePath(path, documentRoot)).then(
           () => toast.success("File path copied"),

@@ -86,7 +86,7 @@ export const rpcContract = defineRpcContract({
    */
   document_root: {
     input: z.object({ source: sourceSchema }).strict(),
-    output: z.object({ rootPath: z.string().nullable() }),
+    output: z.object({ rootPath: z.string().nullable(), hostId: z.string().nullable() }),
   },
 });
 
@@ -174,7 +174,7 @@ export default async function plugin(bb: BbPluginApi) {
     document_root: async ({ source }) => {
       try {
         const root = await resolveRoot(source);
-        return { rootPath: root?.rootPath ?? null };
+        return { rootPath: root?.rootPath ?? null, hostId: root?.hostId ?? null };
       } catch (cause) {
         bb.log.warn(`document_root failed: ${describe(cause)}`);
         throw new Error(describe(cause));
