@@ -16,6 +16,7 @@ import {
 import { createGh, myReview, type Gh } from "./context/gh.js";
 import {
   githubRepoFromRemote,
+  mergeBaseToFollow,
   openingLineIssueNumber,
   promptIssue,
   promptPullRequest,
@@ -273,6 +274,33 @@ export default async function plugin(bb: BbPluginApi) {
     };
   }
 
+  /**
+   * Points the workspace's merge base at its pull request's base branch when
+   * they differ, so the diff panel does not compare against a stacked parent
+   * that has merged. Returns the environment as it now stands.
+   */
+  async function followPullRequestBase(
+    environment: EnvironmentLike,
+    baseRefName: string | null,
+  ): Promise<EnvironmentLike> {
+    const target = mergeBaseToFollow({
+      current: environment.mergeBaseBranch,
+      defaultBranch: environment.defaultBranch,
+      baseRefName,
+    });
+    if (!target) return environment;
+    try {
+      await bb.sdk.environments.update({ environmentId: environment.id, mergeBaseBranch: target });
+      bb.log.info(
+        `merge base for ${environment.id}: ${environment.mergeBaseBranch ?? "(default)"} -> ${target}, to match its pull request`,
+      );
+      return { ...environment, mergeBaseBranch: target };
+    } catch (error) {
+      bb.log.warn(`could not update the merge base for ${environment.id}: ${String(error)}`);
+      return environment;
+    }
+  }
+
   async function changesFor(
     environment: EnvironmentLike,
     baseRefName: string | null,
@@ -370,9 +398,10 @@ export default async function plugin(bb: BbPluginApi) {
       };
     }
 
-    const environment = await environmentFor(thread);
-    await scanThread(thread, environment);
-    const found = await pullRequestFor(thread, environment);
+    const loaded = await environmentFor(thread);
+    await scanThread(thread, loaded);
+    const found = await pullRequestFor(thread, loaded);
+    const environment = loaded ? await followPullRequestBase(loaded, found?.baseRefName ?? null) : null;
     const pullRequest = found?.pullRequest ?? null;
     const [issues, changes, harvestNow] = await Promise.all([
       issuesFor(threadId, pullRequest),

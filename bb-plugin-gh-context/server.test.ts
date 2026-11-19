@@ -9,13 +9,14 @@ interface Setup {
   environment?: boolean;
   archived?: boolean;
   pullRequest?: boolean;
+  mergeBaseBranch?: string | null;
 }
 
 /**
  * A fake host with one thread. `gh` points nowhere, so every GitHub answer is
  * null: the banner has to be whole without it.
  */
-async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived = false, pullRequest = false }: Setup = {}) {
+async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived = false, pullRequest = false, mergeBaseBranch = null }: Setup = {}) {
   const { bb, harness } = createFakePluginHost({
     pluginId: "gh-context",
     settings: { ghPath: "/nonexistent/gh-does-not-exist" },
@@ -37,7 +38,11 @@ async function setup({ prompt = `Work on ${ISSUE}`, environment = true, archived
         archive: async () => makeThreadResponse({ id: "thr_one" }),
       },
       environments: {
-        get: async () => ({ id: "env_one", path: null, defaultBranch: "main", mergeBaseBranch: null }),
+        get: async () => ({ id: "env_one", path: null, defaultBranch: "main", mergeBaseBranch }),
+        update: async (args: { environmentId: string; mergeBaseBranch: string }) => ({
+          id: args.environmentId,
+          mergeBaseBranch: args.mergeBaseBranch,
+        }),
         status: async () => ({
           outcome: "available",
           workspace: {
@@ -147,6 +152,30 @@ describe("threadContext", () => {
       environmentId: "env_one",
       mergeBaseBranch: "main",
     });
+  });
+
+  it("moves a stacked workspace's merge base to its pull request's base once the parent merged", async () => {
+    const { harness } = await setup({ pullRequest: true, mergeBaseBranch: "origin/promote-gadgets" });
+    await harness.behavior.callRpc("threadContext", { threadId: "thr_one" });
+    expect(harness.inspection.sdk.callsTo("environments.update")[0]![0]).toEqual({
+      environmentId: "env_one",
+      mergeBaseBranch: "origin/main",
+    });
+    expect(harness.inspection.sdk.callsTo("environments.status")[0]![0]).toMatchObject({
+      mergeBaseBranch: "origin/main",
+    });
+  });
+
+  it("leaves a merge base that already matches the pull request", async () => {
+    const { harness } = await setup({ pullRequest: true, mergeBaseBranch: "origin/main" });
+    await harness.behavior.callRpc("threadContext", { threadId: "thr_one" });
+    expect(harness.inspection.sdk.callsTo("environments.update")).toHaveLength(0);
+  });
+
+  it("leaves the merge base alone without a pull request", async () => {
+    const { harness } = await setup({ mergeBaseBranch: "origin/promote-gadgets" });
+    await harness.behavior.callRpc("threadContext", { threadId: "thr_one" });
+    expect(harness.inspection.sdk.callsTo("environments.update")).toHaveLength(0);
   });
 
   it("returns early for an archived thread", async () => {

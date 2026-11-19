@@ -143,3 +143,27 @@ export function githubRepoFromRemote(url: string): string | null {
     .match(/^(?:https?:\/\/|ssh:\/\/git@|git@)(?:www\.)?github\.com[/:]([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+?)(?:\.git)?\/?$/);
   return match ? match[1]!.toLowerCase() : null;
 }
+
+/**
+ * The merge base a workspace should switch to so its diff follows its pull
+ * request's base branch, or null when it already does.
+ *
+ * A stacked pull request starts with its parent's branch as the merge base.
+ * When the parent merges, GitHub moves the child onto the parent's base and
+ * often deletes the parent's branch, which leaves bb comparing against a
+ * branch that no longer exists. A workspace with no merge base already
+ * compares against the default branch, so it is left alone when the pull
+ * request targets that branch.
+ */
+export function mergeBaseToFollow(input: {
+  current: string | null | undefined;
+  defaultBranch: string | null | undefined;
+  baseRefName: string | null | undefined;
+}): string | null {
+  const base = input.baseRefName?.trim();
+  if (!base) return null;
+  const target = `origin/${base}`;
+  if (input.current === target) return null;
+  if (!input.current && base === input.defaultBranch) return null;
+  return target;
+}

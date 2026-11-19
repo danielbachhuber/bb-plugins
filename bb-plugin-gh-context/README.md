@@ -103,6 +103,24 @@ for the thread's branch. For a thread that is not on the branch, such as a
 review, it is the pull request a sweep linked the thread to. Its checks come from `gh` instead, counted the same way, and it
 cannot be merged from the banner.
 
+## The diff follows the pull request's base
+
+For a thread on its pull request's branch, the banner keeps the workspace's
+merge base, the branch bb's diff panel compares against, on the pull request's
+base branch. Whenever the two differ, it sets the merge base to
+`origin/<base branch>`. A stacked pull request starts out compared against its
+parent's branch. Once the parent merges, GitHub moves the child onto the
+parent's base and usually deletes the parent's branch, and without this the
+diff panel shows "Workspace unavailable" because the branch it compares
+against is gone. A workspace with no merge base is left alone while its pull
+request targets the default branch, which bb compares against already.
+
+This runs each time the banner loads the thread's context. The base branch
+comes from the pull request lookup the banner already makes, so it costs no
+GitHub request, and it updates the workspace only when the two differ. A merge
+base set to some other branch by hand is replaced the next time the banner
+loads.
+
 ## Hiding bb's banner
 
 A content script hides bb's banner (both its cards) inside any prompt box that

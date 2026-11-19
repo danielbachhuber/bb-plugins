@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   githubRepoFromRemote,
+  mergeBaseToFollow,
   openingLineIssueNumber,
   promptIssue,
   promptPullRequest,
@@ -179,5 +180,43 @@ describe("githubRepoFromRemote", () => {
 
   it("returns null for another host", () => {
     expect(githubRepoFromRemote("https://gitlab.com/acme/widgets.git")).toBeNull();
+  });
+});
+
+describe("mergeBaseToFollow", () => {
+  it("moves a stacked branch's merge base to the base its pull request now targets", () => {
+    expect(
+      mergeBaseToFollow({ current: "origin/promote-widgets", defaultBranch: "main", baseRefName: "main" }),
+    ).toBe("origin/main");
+  });
+
+  it("follows a pull request retargeted onto another branch", () => {
+    expect(
+      mergeBaseToFollow({ current: "origin/main", defaultBranch: "main", baseRefName: "promote-widgets" }),
+    ).toBe("origin/promote-widgets");
+  });
+
+  it("replaces a local branch name with its remote branch", () => {
+    expect(mergeBaseToFollow({ current: "main", defaultBranch: "main", baseRefName: "main" })).toBe("origin/main");
+  });
+
+  it("leaves a merge base that already matches", () => {
+    expect(
+      mergeBaseToFollow({ current: "origin/main", defaultBranch: "main", baseRefName: "main" }),
+    ).toBeNull();
+  });
+
+  it("leaves a workspace with no merge base when the pull request targets the default branch", () => {
+    expect(mergeBaseToFollow({ current: null, defaultBranch: "main", baseRefName: "main" })).toBeNull();
+  });
+
+  it("sets one when the pull request targets another branch", () => {
+    expect(mergeBaseToFollow({ current: null, defaultBranch: "main", baseRefName: "promote-widgets" })).toBe(
+      "origin/promote-widgets",
+    );
+  });
+
+  it("does nothing without a pull request base", () => {
+    expect(mergeBaseToFollow({ current: "origin/gone", defaultBranch: "main", baseRefName: null })).toBeNull();
   });
 });
