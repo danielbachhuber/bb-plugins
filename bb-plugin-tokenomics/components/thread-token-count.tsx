@@ -558,6 +558,7 @@ export function ThreadTokenCount({
               stages={shownGoal.entries.length}
               reached={shownGoal.entries.filter((entry) => entry.state === "done" || entry.state === "dropped").length}
               states={shownGoal.entries.map((entry) => entry.state)}
+              counts={shownGoal.entries.map((entry) => entry.count)}
               outcome={shownGoal.outcome}
               tone={shownGoal.left === "past estimate" ? "over" : "default"}
               activity={activity}

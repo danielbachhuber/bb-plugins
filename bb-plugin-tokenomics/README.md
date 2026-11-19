@@ -67,7 +67,9 @@ count, showing which are done, in progress, or still to do, and what the goal
 has used against Claude's estimate of its turns, tokens, and minutes. In the
 sidebar, a segmented donut at the right
 end of the row takes the place of bb's own icon: it has a segment per entry,
-filled when done and lighter when dropped, turns amber past the estimate, and becomes a check once met. bb's
+filled when done and lighter when dropped. A grouped entry's segment is as
+long as the items it counts and fills by its count, so 30 issues in groups of
+9, 14, and 7 with 9 fixed fill about a third of the ring. It turns amber past the estimate, and becomes a check once met. bb's
 states show on it: the done arc turns blue when the thread needs you,
 including when an Impromptu UI card above its composer still waits on your
 answer, and darker when it finished and you haven't looked; the

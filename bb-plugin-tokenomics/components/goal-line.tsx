@@ -293,6 +293,8 @@ export interface SidebarMark {
   reached: number;
   /** Each entry's state, in order, so each segment shows its own; without it, the first `reached` are done. */
   states?: Entry["state"][];
+  /** Each entry's count, in order, null for an entry without one. */
+  counts?: (Entry["count"] | null)[];
   outcome: "met" | "partly" | "not" | null;
   left: string | null;
   /** An Impromptu UI card above the thread's composer still has an open item. */
@@ -352,6 +354,7 @@ export function SidebarGoalMark({
               stages={mark.stages}
               reached={mark.reached}
               states={mark.states}
+              counts={mark.counts}
               outcome={mark.outcome}
               tone={mark.left === "past estimate" ? "over" : "default"}
               activity={archived ? null : activity}
@@ -399,8 +402,47 @@ export function dashedSegment(length: number, circumference: number, dash = 1.6,
   return parts.map((part) => part.toFixed(2)).join(" ");
 }
 
+/** An entry's arc on the donut: where it starts, how long it is, and how much of it is filled. */
+export interface DonutArc {
+  start: number;
+  length: number;
+  /** 0 to 1: a done or dropped entry is whole, a grouped one fills by its count. */
+  filled: number;
+  state: Entry["state"];
+}
+
 /**
- * A ring split into one segment per stage, the done ones filled. bb's state
+ * Splits the ring among the entries by how many items each holds: a grouped
+ * entry such as "Serious issues addressed · 3 of 14" takes 14 parts and fills
+ * 3 of them, and an entry without a count takes one. A small gap separates
+ * the entries.
+ */
+export function donutArcs(
+  states: readonly Entry["state"][],
+  counts: readonly (Entry["count"] | null | undefined)[],
+  circumference: number,
+  stroke: number,
+): DonutArc[] {
+  const stages = states.length;
+  if (stages === 0) return [];
+  const weights = states.map((_, index) => Math.max(1, counts[index]?.total ?? 1));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  const gap = stages > 1 ? Math.min(circumference / stages / 3, stroke * 0.9) : 0;
+  const available = circumference - gap * stages;
+  let start = gap / 2;
+  return states.map((state, index) => {
+    const length = (available * weights[index]!) / total;
+    const count = counts[index];
+    const filled = state === "done" || state === "dropped" ? 1 : count ? Math.min(1, count.done / Math.max(1, count.total)) : 0;
+    const arc = { start, length, filled, state };
+    start += length + gap;
+    return arc;
+  });
+}
+
+/**
+ * A ring split into one segment per stage, the done ones filled, each as
+ * long as the items it holds (see donutArcs). bb's state
  * colours the done arc: blue when the thread needs you, red when it failed,
  * darker when it finished and you haven't looked. While the thread works the
  * stage it is on is dashed and the whole ring turns. A met goal is a
@@ -411,6 +453,7 @@ export function GoalDonut({
   stages,
   reached,
   states,
+  counts = [],
   outcome = null,
   size = 16,
   stroke = 2.2,
@@ -422,6 +465,8 @@ export function GoalDonut({
   reached: number;
   /** Each entry's state, in order; without it, the first `reached` segments are done. */
   states?: readonly Entry["state"][];
+  /** Each entry's count, in order, for grouped entries; their arcs grow and fill by it. */
+  counts?: readonly (Entry["count"] | null | undefined)[];
   outcome?: "met" | "partly" | "not" | null;
   size?: number;
   stroke?: number;
@@ -471,49 +516,41 @@ export function GoalDonut({
       </svg>
     );
   }
-  // A small gap between segments, so each reads as its own stage.
-  const gap = stages > 1 ? Math.min(circumference / stages / 3, stroke * 0.9) : 0;
-  const length = circumference / stages - gap;
   // Each segment's state: from `states` when given, else the first `reached` done.
   const segment = (index: number): Entry["state"] => (states ? (states[index] ?? "todo") : index < reached ? "done" : "todo");
+  const arcs = donutArcs(Array.from({ length: stages }, (_, index) => segment(index)), counts, circumference, stroke);
   // While working, the entry in progress is drawn dashed: the one marked so,
   // or else the first not yet started.
-  const explicit = states?.indexOf("current") ?? -1;
-  const firstTodo = Array.from({ length: stages }, (_, index) => segment(index)).indexOf("todo");
+  const explicit = arcs.findIndex((arc) => arc.state === "current");
+  const firstTodo = arcs.findIndex((arc) => arc.state === "todo");
   const active = working ? (explicit >= 0 ? explicit : firstTodo) : -1;
-  const inProgress = active >= 0;
+  const ring = (start: number, length: number, className: string, key: string, dashed = false) => (
+    <circle
+      key={key}
+      cx={centre}
+      cy={centre}
+      r={radius}
+      fill="none"
+      strokeWidth={stroke}
+      strokeDasharray={dashed ? dashedSegment(length, circumference) : `${length} ${circumference - length}`}
+      strokeDashoffset={-start}
+      className={className}
+    />
+  );
   return (
     <svg {...svgProps}>
-      {Array.from({ length: stages }, (_, index) => (
-        <circle
-          key={index}
-          cx={centre}
-          cy={centre}
-          r={radius}
-          fill="none"
-          strokeWidth={stroke}
-          strokeDasharray={`${length} ${circumference - length}`}
-          strokeDashoffset={-index * (length + gap) - gap / 2}
-          className={segment(index) === "done" ? doneClass : segment(index) === "dropped" ? DROPPED_ARC : empty}
-          // The entry being worked on is drawn dashed instead, below.
-          visibility={index === active ? "hidden" : undefined}
-        />
-      ))}
-      {inProgress && (
-        // The stage being worked on is drawn dashed, so the turning ring has
-        // something to show even when every segment would look the same,
-        // as with a single stage or none done yet.
-        <circle
-          cx={centre}
-          cy={centre}
-          r={radius}
-          fill="none"
-          strokeWidth={stroke}
-          strokeDasharray={dashedSegment(length, circumference)}
-          strokeDashoffset={-active * (length + gap) - gap / 2}
-          className={doneClass}
-        />
-      )}
+      {arcs.flatMap((arc, index) => {
+        const doneLength = arc.length * arc.filled;
+        const rest = arc.length - doneLength;
+        const fill = arc.state === "dropped" ? DROPPED_ARC : doneClass;
+        return [
+          doneLength > 0 ? ring(arc.start, doneLength, fill, `${index}-done`) : null,
+          // The entry being worked on shows its unfinished part dashed, so the
+          // turning ring has something to show even when every segment would
+          // look the same, as with a single stage or none done yet.
+          rest > 0 ? ring(arc.start + doneLength, rest, index === active ? doneClass : empty, `${index}-rest`, index === active) : null,
+        ];
+      })}
     </svg>
   );
 }

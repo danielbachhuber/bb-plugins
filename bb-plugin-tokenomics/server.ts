@@ -102,7 +102,7 @@ export default async function plugin(bb: BbPluginApi) {
     goalSidebar: {
       type: "boolean",
       label: "Show goal progress in the sidebar",
-      description: "A donut with a segment per \"Done is\" entry, or the goal's outcome once closed, in each sidebar row whose thread has a goal.",
+      description: "A donut with a segment per \"Done is\" entry, grouped ones sized and filled by their counts, or the goal's outcome once closed, in each sidebar row whose thread has a goal.",
       default: true,
     },
   });
@@ -770,7 +770,7 @@ export default async function plugin(bb: BbPluginApi) {
         goals: active.flatMap((goal) => {
           const label = stageLabel(goal);
           if (label === null) return [];
-          return [{ threadId: goal.threadId, label, stages: goal.entries.length, reached: finishedCount(goal.entries), states: goal.entries.map((entry) => entry.state), outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId), failed: failed.has(goal.threadId) }];
+          return [{ threadId: goal.threadId, label, stages: goal.entries.length, reached: finishedCount(goal.entries), states: goal.entries.map((entry) => entry.state), counts: goal.entries.map((entry) => entry.count ?? null), outcome: goal.outcome, left: remainingLabel(goal, goals.spentOn(goal, now)), openCard: openCards.has(goal.threadId), failed: failed.has(goal.threadId) }];
         }),
       };
     },

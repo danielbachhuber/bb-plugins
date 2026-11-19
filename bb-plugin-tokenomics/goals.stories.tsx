@@ -112,6 +112,19 @@ const SWEEP: GoalViewData = {
   label: "0 of 1",
 };
 
+// Thirty issues in three groups, a third of them fixed: the donut reads as 9 of 30.
+const ISSUES: GoalViewData = {
+  ...REVIEWING,
+  text: "All 30 open contrast issues on the Acme Board are addressed",
+  entries: [
+    { label: "Critical issues addressed", state: "current", count: { done: 6, total: 9 } },
+    { label: "Serious issues addressed", state: "current", count: { done: 3, total: 14 } },
+    { label: "Moderate issues addressed", state: "todo", count: { done: 0, total: 7 } },
+  ],
+  detail: "low",
+  label: "0 of 3 · Critical issues addressed",
+};
+
 // Low detail: the findings grouped by severity, each group with a count.
 const GROUPED: GoalViewData = {
   ...REVIEWING,
@@ -183,13 +196,14 @@ export const GoalCardOpen = () => (
   </StoryCard>
 );
 
-/** The segmented donut at the right end of a sidebar row, in place of bb's icon: a segment per stage, amber past the estimate, an exploration's answer then your decision, a check once met, a cross when not met. */
+/** The segmented donut at the right end of a sidebar row, in place of bb's icon: a segment per stage, grouped entries as long as their items and filled by their counts, amber past the estimate, an exploration's answer then your decision, a check once met, a cross when not met. */
 export const SidebarMarks = () => (
   <StoryCard>
     {[
       { title: "Widgets: export the list to CSV", mark: { label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left } },
       { title: "Goals in the thread", mark: { label: "4 of 5 · Built", stages: 5, reached: 4, outcome: null, left: "~0–8 turns left" } },
       { title: "Gadget sync ADR", mark: { label: OVER.label!, stages: 3, reached: 2, outcome: null, left: OVER.left } },
+      { title: "Widget contrast fixes", mark: { label: "0 of 3", stages: 3, reached: 0, states: ["current" as const, "current" as const, "todo" as const], counts: [{ done: 6, total: 9 }, { done: 3, total: 14 }, { done: 0, total: 7 }], outcome: null, left: "~20–60 turns left" } },
       { title: "Cache for widget imports?", mark: { label: "1 of 2 · Answer recommended", stages: 2, reached: 1, outcome: null, left: null } },
       { title: "Fix the widget snapshot test", mark: { label: "Met", stages: 2, reached: 2, outcome: "met" as const, left: null } },
       { title: "Retry the flaky upload", mark: { label: "Not met", stages: 3, reached: 1, outcome: "not" as const, left: null } },
@@ -357,18 +371,19 @@ export const WorkingDonuts = () => (
   </div>
 );
 
-/** The donut with a segment per entry, each in its own state: done, dropped (lighter), in progress (dashed while working), or not started. Twelve findings at high detail, and the same review grouped at low detail. */
+/** The donut with a segment per entry, each in its own state: done, dropped (lighter), in progress (dashed while working), or not started. A grouped entry's segment is as long as its items and fills by its count, so 30 issues in groups of 9, 14, and 7 with 9 fixed shows about a third filled. Twelve findings at high detail, the same review grouped at low detail, and thirty issues in three groups. */
 export const DonutPerEntry = () => (
   <div data-screenshot-frame className="inline-flex flex-col gap-3 bg-background p-6">
     {[
       { goal: REVIEWING, label: "12 findings, idle" },
       { goal: REVIEWING, label: "12 findings, working", activity: "working" as const },
       { goal: GROUPED, label: "4 groups, waiting on you", activity: "waiting" as const },
+      { goal: ISSUES, label: "30 issues in 3 groups, 9 fixed" },
     ].map(({ goal, label, activity }) => (
       <div key={label} className="flex items-center gap-3">
         <span className="w-48 text-xs text-muted-foreground">{label}</span>
-        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} activity={activity ?? null} spinDelay="-0.6s" />
-        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} activity={activity ?? null} size={48} stroke={6} spinDelay="-0.6s" />
+        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} counts={goal.entries.map((entry) => entry.count)} activity={activity ?? null} spinDelay="-0.6s" />
+        <GoalDonut stages={goal.entries.length} reached={0} states={goal.entries.map((entry) => entry.state)} counts={goal.entries.map((entry) => entry.count)} activity={activity ?? null} size={48} stroke={6} spinDelay="-0.6s" />
       </div>
     ))}
   </div>
