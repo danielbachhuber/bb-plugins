@@ -9,7 +9,8 @@ A thread's goal is what the whole thread is for, not its next step.
 Tokenomics records it, shows it on the token button in the thread header,
 and counts the turns, tokens, and time each goal took. This skill records
 the goal straight away. Don't show a draft or ask the user to confirm it;
-they can run the skill again to change it.
+they can run the skill again to change it. The one question it asks is in
+step 3, when it can't tell whether unfinished work still belongs to the goal.
 
 ## 1. Read where the thread stands
 
@@ -60,7 +61,37 @@ Then work out:
 - **Why**, when the thread already has a goal: one sentence on what changed,
   in the user's terms ("Your last prompt widened it from one option to three").
 
-## 3. Record it
+## 3. Replace the goal or refine it
+
+When the thread already has an open goal, decide whether the new one
+replaces it or refines it. Work it out from the old goal's entries and the
+user's words:
+
+- **Replace** when the user names a different end result, not more of the
+  same one. "Tracking spreadsheet built" followed by "All accessibility
+  issues are addressed" is a new end result, even though the spreadsheet
+  helps with it. Close the old goal with `goal close met` (or `partly` when
+  some of it is unfinished and no longer wanted) and `goal set` the new one.
+  The closed goal keeps what it used in the history, and the new one starts
+  from its own entries, not from work that came before it.
+- **Refine** when the end result is the same and only the list changes:
+  the user adds to it ("also add tests"), asks for a finer or coarser list
+  ("list each finding"), or the work turned out bigger or smaller.
+- **Each old entry, when refining:** keep it only if it must still be true
+  when the new goal is met, and someone could check it then. "Checks
+  finished" stays under "nothing left from the sweep"; a finished step the
+  new goal no longer needs goes.
+
+Ask only when unfinished work is at stake: the old goal has entries that are
+not done, and the user's words don't say whether that work still belongs
+(it is neither part of the new end result nor clearly dropped). Then ask one
+question naming those entries, such as "Keep 'Export button added' (not
+done) in the new goal, or drop it?", with buttons for keep and drop, above
+the composer with Impromptu UI when it is available. Record the rest of the
+goal first, and change those entries once the user answers. Finished entries
+never need a question: they belong to the old goal.
+
+## 4. Record it
 
 **No goal yet, or the current one is closed:**
 
@@ -103,8 +134,10 @@ one that is now true, `goal entry start N` for the one being worked on,
 DONE/TOTAL` for a grouped one. Mark an entry done only when its end state is
 actually true, not when work on it has started.
 
-## 4. Tell the user
+## 5. Tell the user
 
 Say in one line what the thread's goal is now, how many entries are done, its
-level, which entries moved, and, for a change to the goal, why. For example: "Goal: the widget security issues
-are resolved, 1 of 4 done (low detail)." Don't publish a card or ask a question.
+level, which entries moved, and, for a change to the goal, why and whether it
+replaced the old goal or refined it. For example: "Goal: the widget security issues
+are resolved, 1 of 4 done (low detail)." Don't publish a card or ask a
+question, apart from the one in step 3.

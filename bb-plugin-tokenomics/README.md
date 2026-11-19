@@ -81,8 +81,11 @@ goal, Claude sees how past threads that started the same way went, from a
 plugin's button, another thread, or neither. Run `/tokenomics-update-goal`, with a goal
 and a level of detail (high or low) after it or not, to set or update the
 goal: it uses the goal you give or drafts one from the thread's work, records
-it without asking, keeps the progress of entries that carry over, and keeps the old goal, and what it used,
-in the thread's history. `/tokenomics-clear-goal` takes the goal off the
+it without asking, and keeps the old goal, and what it used, in the thread's
+history. When you name a different end result, it closes the old goal and
+starts a new one; when the end result is the same, it refines the list and
+keeps the entries the new goal still needs, with their progress. It asks only
+when unfinished entries may or may not still belong. `/tokenomics-clear-goal` takes the goal off the
 thread, keeping it in the history too. When the work is
 done, Claude closes the goal as met, partly met, or not met. Work you review,
 such as a design, ends with your acceptance as its last entry, and feedback
@@ -164,8 +167,9 @@ bb tokenomics goal show [--json]                                                
 ```
 
 The plugin ships the `tokenomics-update-goal` skill, which uses the goal you give
-it or drafts one from the thread, records it with `goal set` or `goal refine`
-without asking, and says in one line what the goal is now; and the
+it or drafts one from the thread, replaces or refines the current goal depending on
+whether the end result changed, records it without asking unless unfinished
+entries may no longer belong, and says in one line what the goal is now; and the
 `tokenomics-clear-goal` skill, which takes the goal off the thread with
 `goal clear`.
 
