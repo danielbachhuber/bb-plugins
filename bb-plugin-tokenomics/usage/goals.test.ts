@@ -53,6 +53,15 @@ describe("stageLabel", () => {
     expect(stageLabel(goal)).toBe("1 of 3 · Tests pass");
     expect(stageLabel({ ...goal, entries: entries(["todo", "todo", "todo"]) })).toBe("0 of 3");
     expect(stageLabel({ ...goal, entries: entries(["done", "dropped", "todo"]) })).toBe("2 of 3");
+    // Grouped entries count by their items: 6 + 3 + 0 of 9 + 14 + 7, plus one done entry without a count.
+    const grouped = [
+      { label: "Critical issues addressed", state: "current" as const, count: { done: 6, total: 9 } },
+      { label: "Serious issues addressed", state: "current" as const, count: { done: 3, total: 14 } },
+      { label: "Moderate issues addressed", state: "todo" as const, count: { done: 0, total: 7 } },
+      { label: "Board built", state: "done" as const },
+    ];
+    expect(stageLabel({ ...goal, entries: grouped })).toBe("10 of 31 · Critical issues addressed");
+    expect(stageLabel({ ...goal, entries: [{ ...grouped[0]!, state: "dropped" as const, count: { done: 2, total: 9 } }] })).toBe("9 of 9");
   });
 
   it("shows the outcome once closed, and nothing for no goal", () => {

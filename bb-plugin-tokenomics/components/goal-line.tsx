@@ -9,6 +9,7 @@ import Edit02Icon from "@hugeicons/core-free-icons/Edit02Icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { GoalViewData } from "@/usage/contract";
+import { progressOf } from "@/usage/goals";
 import { formatTokens } from "@/usage/series";
 
 import { useHoverOpen } from "./hover-open";
@@ -213,7 +214,7 @@ export function CompactGoal({
     goal.outcome !== null
       ? OUTCOME_LABEL[goal.outcome]
       : goal.entries.length > 0
-        ? `${finishedOf(goal.entries)} of ${goal.entries.length} done`
+        ? (({ done, total }) => `${done} of ${total} done`)(progressOf(goal.entries))
         : goal.label;
   const note = activity !== null && goal.outcome === null ? ACTIVITY_NOTE[activity] : undefined;
   return (
@@ -281,10 +282,6 @@ function EntryGrid({ entries }: { entries: BandEntry[] }) {
       ))}
     </ol>
   );
-}
-
-function finishedOf(entries: readonly Pick<Entry, "state">[]): number {
-  return entries.filter((entry) => entry.state === "done" || entry.state === "dropped").length;
 }
 
 export interface SidebarMark {

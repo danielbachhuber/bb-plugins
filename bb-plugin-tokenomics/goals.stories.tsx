@@ -122,7 +122,7 @@ const ISSUES: GoalViewData = {
     { label: "Moderate issues addressed", state: "todo", count: { done: 0, total: 7 } },
   ],
   detail: "low",
-  label: "0 of 3 · Critical issues addressed",
+  label: "9 of 30 · Critical issues addressed",
 };
 
 // Low detail: the findings grouped by severity, each group with a count.
@@ -135,7 +135,7 @@ const GROUPED: GoalViewData = {
     { label: "You approved each action", state: "todo" },
   ],
   detail: "low",
-  label: "0 of 4 · Critical and high findings addressed",
+  label: "6 of 18 · Critical and high findings addressed",
 };
 
 function SummaryTop({ goal, activity = null }: { goal: GoalViewData; activity?: DonutActivity }) {
@@ -203,7 +203,7 @@ export const SidebarMarks = () => (
       { title: "Widgets: export the list to CSV", mark: { label: TASK.label!, stages: 3, reached: 1, outcome: null, left: TASK.left } },
       { title: "Goals in the thread", mark: { label: "4 of 5 · Built", stages: 5, reached: 4, outcome: null, left: "~0–8 turns left" } },
       { title: "Gadget sync ADR", mark: { label: OVER.label!, stages: 3, reached: 2, outcome: null, left: OVER.left } },
-      { title: "Widget contrast fixes", mark: { label: "0 of 3", stages: 3, reached: 0, states: ["current" as const, "current" as const, "todo" as const], counts: [{ done: 6, total: 9 }, { done: 3, total: 14 }, { done: 0, total: 7 }], outcome: null, left: "~20–60 turns left" } },
+      { title: "Widget contrast fixes", mark: { label: "9 of 30", stages: 3, reached: 0, states: ["current" as const, "current" as const, "todo" as const], counts: [{ done: 6, total: 9 }, { done: 3, total: 14 }, { done: 0, total: 7 }], outcome: null, left: "~20–60 turns left" } },
       { title: "Cache for widget imports?", mark: { label: "1 of 2 · Answer recommended", stages: 2, reached: 1, outcome: null, left: null } },
       { title: "Fix the widget snapshot test", mark: { label: "Met", stages: 2, reached: 2, outcome: "met" as const, left: null } },
       { title: "Retry the flaky upload", mark: { label: "Not met", stages: 3, reached: 1, outcome: "not" as const, left: null } },

@@ -111,6 +111,24 @@ export function isFinished(entry: Pick<GoalEntry, "state">): boolean {
   return entry.state === "done" || entry.state === "dropped";
 }
 
+/**
+ * How far the goal has come, as the header and the sidebar label count it:
+ * by items once any entry is grouped with a count, so 30 issues in groups of
+ * 9, 14, and 7 read "9 of 30", and by entries otherwise. An entry without a
+ * count is one item; a done or dropped group counts all of its items.
+ */
+export function progressOf(entries: readonly Pick<GoalEntry, "state" | "count">[]): { done: number; total: number } {
+  if (!entries.some((entry) => entry.count !== undefined)) return { done: finishedCount(entries), total: entries.length };
+  let done = 0;
+  let total = 0;
+  for (const entry of entries) {
+    const items = entry.count?.total ?? 1;
+    total += items;
+    done += isFinished(entry) ? items : Math.min(items, entry.count?.done ?? 0);
+  }
+  return { done, total };
+}
+
 export function finishedCount(entries: readonly Pick<GoalEntry, "state">[]): number {
   return entries.filter(isFinished).length;
 }
@@ -259,7 +277,8 @@ export const OUTCOME_LABELS: Record<Outcome, string> = { met: "Met", partly: "Pa
 
 /**
  * The short status the token button and the sidebar show: "1 of 3 · Tests
- * pass" (the entry in progress, if one is), "Exploring", "Met". Null for a
+ * pass" (the entry in progress, if one is), counted in items when entries are
+ * grouped (see progressOf), "Exploring", "Met". Null for a
  * thread with no goal to show.
  */
 export function stageLabel(goal: Pick<Goal, "shape" | "entries" | "outcome">): string | null {
@@ -267,7 +286,8 @@ export function stageLabel(goal: Pick<Goal, "shape" | "entries" | "outcome">): s
   if (goal.outcome !== null) return OUTCOME_LABELS[goal.outcome];
   if (goal.shape === "exploration" && goal.entries.length === 0) return "Exploring";
   if (goal.shape === "project") return "Project";
-  const count = `${finishedCount(goal.entries)} of ${goal.entries.length}`;
+  const progress = progressOf(goal.entries);
+  const count = `${progress.done} of ${progress.total}`;
   const current = goal.entries.find((entry) => entry.state === "current");
   return current === undefined ? count : `${count} · ${current.label}`;
 }
