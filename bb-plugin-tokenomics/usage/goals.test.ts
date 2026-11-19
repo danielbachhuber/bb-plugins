@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 
-import { goalCli, goalView, parseArgs, type GoalDeps } from "./goal-cli.js";
+import { goalCli, goalReminder, goalView, parseArgs, type GoalDeps } from "./goal-cli.js";
 import { createGoalStore } from "./goal-store.js";
 import {
   checkStages,
@@ -369,5 +369,43 @@ describe("goals from before the Done is list", () => {
     const goal = goals.current("thr_a")!;
     expect(goal.entries.map((entry) => `${entry.label}:${entry.state}`)).toEqual(["H1:done", "Triaged:done", "Filed:current", "Approved:todo"]);
     expect(goal.detail).toBe("low");
+  });
+});
+
+describe("goalReminder", () => {
+  const goal = (entries: { label: string; state: "todo" | "current" | "done" | "dropped" }[], extra: { shape?: "task" | "none"; outcome?: "met" | null } = {}) => ({
+    shape: extra.shape ?? ("task" as const),
+    outcome: extra.outcome ?? null,
+    entries,
+  });
+
+  it("lists the open entries with their numbers and the command to mark them", () => {
+    const reminder = goalReminder(
+      goal([
+        { label: "Checks finished", state: "todo" },
+        { label: "Story fix pushed", state: "done" },
+        { label: "Prompt saves batched", state: "current" },
+        { label: "Old idea", state: "dropped" },
+      ]),
+    );
+    expect(reminder).toBe(
+      [
+        "Goal: 2 of 4 entries finished. Still open:",
+        "  1. [ ] Checks finished",
+        "  3. [>] Prompt saves batched",
+        "Mark each as it becomes true with bb tokenomics goal entry done N (or start N, drop N, count N DONE/TOTAL).",
+      ].join("\n"),
+    );
+  });
+
+  it("says to close the goal once every entry is finished", () => {
+    expect(goalReminder(goal([{ label: "Merged", state: "done" }]))).toMatch(/^Goal: 1 of 1 entries finished\. Every entry is done\. Close the goal/);
+  });
+
+  it("says nothing without an open goal that has entries", () => {
+    expect(goalReminder(null)).toBeNull();
+    expect(goalReminder(goal([], { shape: "none" }))).toBeNull();
+    expect(goalReminder(goal([{ label: "Merged", state: "todo" }], { outcome: "met" }))).toBeNull();
+    expect(goalReminder(goal([]))).toBeNull();
   });
 });

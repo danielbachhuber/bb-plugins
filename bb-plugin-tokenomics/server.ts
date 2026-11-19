@@ -28,7 +28,7 @@ import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createGoalStore } from "./usage/goal-store.js";
-import { goalCli, goalView, GOAL_USAGE } from "./usage/goal-cli.js";
+import { goalCli, goalReminder, goalView, GOAL_USAGE } from "./usage/goal-cli.js";
 import { originOf as originOfThread, GOAL_INSTRUCTIONS, estimateRecord, finishedCount, groupOf, originLabel, stageLabel, remainingLabel } from "./usage/goals.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
 import { turnSummaries, turnWork, type TurnSummary } from "./usage/turn-summary.js";
@@ -512,7 +512,8 @@ export default async function plugin(bb: BbPluginApi) {
       warn(threadId, error);
     }
     const record = trackRecordFor(scoredForecasts(Date.now() - RECORD_DAYS * 86_400_000, RECORD_TURNS), current);
-    return { exitCode: 0, stdout: `Recorded. ${record}` };
+    const reminder = goalReminder(goals.current(threadId));
+    return { exitCode: 0, stdout: `Recorded. ${record}${reminder === null ? "" : `\n${reminder}`}` };
   }
 
   const CLI_USAGE = [
@@ -525,7 +526,8 @@ export default async function plugin(bb: BbPluginApi) {
     "  The shell commands that took the most time across all threads.",
     "bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]",
     "  Records an 80% forecast of the running turn's model calls, and any waits you know of. Minutes",
-    "  and tokens follow from the thread's own pace. Prints how recent forecasts landed.",
+    "  and tokens follow from the thread's own pace. Prints how recent forecasts landed, then the",
+    "  goal's open entries and how to mark them.",
     "bb tokenomics forecasts [--days N] [--json]",
     "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
     "  often they landed in range.",

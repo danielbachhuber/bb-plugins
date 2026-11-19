@@ -38,7 +38,10 @@ under the turn shows each number against its range, amber when over and blue
 when under, and the strip above the composer counts calls against the range
 while the turn runs, turning amber once it passes. The turn's card names its
 model, fast mode, and reasoning level. Each forecast prints Claude's recent
-record for turns with the same settings, so its next range can move.
+record for turns with the same settings, so its next range can move. When
+the thread has a goal, it also lists the entries still open and the command
+that marks them, so Claude keeps marking them after a compaction or a run of
+turns that each start from a button.
 
 ### Each thread's goal
 

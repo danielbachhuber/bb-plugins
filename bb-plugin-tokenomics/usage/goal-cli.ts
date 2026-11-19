@@ -6,6 +6,7 @@ import {
   checkLabels,
   checkStages,
   ENTRY_STATES,
+  entryLine,
   finishedCount,
   formatGoal,
   formatHistory,
@@ -282,6 +283,24 @@ function allDone(entries: readonly GoalEntry[]): string {
   return entries.every(isFinished)
     ? ' Every entry is done. Close the goal with bb tokenomics goal close met once the thread\'s work is finished, or add the entry that ends it with bb tokenomics goal entry add "END STATE".'
     : "";
+}
+
+/**
+ * What `bb tokenomics forecast` adds after its track record: the goal's open
+ * entries and the command that marks them, so a thread that stopped marking
+ * them, such as after a compaction, sees the list again each turn. Null when
+ * there is no open goal with entries.
+ */
+export function goalReminder(goal: Pick<Goal, "shape" | "entries" | "outcome"> | null): string | null {
+  if (goal === null || goal.shape === "none" || goal.outcome !== null || goal.entries.length === 0) return null;
+  const finished = `Goal: ${finishedCount(goal.entries)} of ${goal.entries.length} entries finished.`;
+  if (goal.entries.every(isFinished)) return `${finished}${allDone(goal.entries)}`;
+  const open = goal.entries.flatMap((entry, index) => (isFinished(entry) ? [] : [entryLine(entry, index)]));
+  return [
+    `${finished} Still open:`,
+    ...open,
+    "Mark each as it becomes true with bb tokenomics goal entry done N (or start N, drop N, count N DONE/TOTAL).",
+  ].join("\n");
 }
 
 function estimate(deps: GoalDeps, threadId: string, argv: readonly string[]): CliResult {
