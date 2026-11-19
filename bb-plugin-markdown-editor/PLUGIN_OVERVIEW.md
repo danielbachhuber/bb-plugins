@@ -3,6 +3,7 @@
 - An editable source pane in the tab where bb would show a read-only preview, for md, mdx, markdown, and txt files.
 - A Preview that renders the text you have typed, before you save it, with the file's own images.
 - Saving with Cmd+S or the Save button, never automatically, and Discard to go back to the text on disk.
+- Click the path in the header to copy the file's full path.
 - Add to chat on a selection in Preview, which quotes it into the composer under the file's path.
 - A pencil on markdown files in a thread's changes panel that opens the file in the editor.
 

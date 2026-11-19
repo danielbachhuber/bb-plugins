@@ -122,6 +122,8 @@ export interface EditorTabViewProps {
   onReload: () => void;
   onDiscard: () => void;
   onAddToChat: () => void;
+  /** Copies the file's path, which clicking the filename does. */
+  onCopyPath: () => void;
 }
 
 export function EditorTabView({
@@ -141,6 +143,7 @@ export function EditorTabView({
   onReload,
   onDiscard,
   onAddToChat,
+  onCopyPath,
 }: EditorTabViewProps) {
   const { directory, name } = splitPath(path);
   const dirty = isDirty(state);
@@ -160,10 +163,18 @@ export function EditorTabView({
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
         <Icon name="FileText" className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-xs">
-          <span className="text-muted-foreground">{directory}</span>
-          <span className="text-foreground">{name}</span>
-        </span>
+        <div className="flex min-w-0 flex-1">
+          <button
+            type="button"
+            className="min-w-0 truncate rounded-sm text-left text-xs underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title="Copy file path"
+            aria-label={`Copy file path of ${name}`}
+            onClick={onCopyPath}
+          >
+            <span className="text-muted-foreground">{directory}</span>
+            <span className="text-foreground">{name}</span>
+          </button>
+        </div>
 
         {/*
           Discard rides on the save state rather than sitting among the

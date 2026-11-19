@@ -13,6 +13,7 @@
 // to server.ts. The state rules live in editor/save.ts; this file is the
 // wiring and the keyboard; editor/tab-view.tsx draws the tab.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   definePluginApp,
   useComposer,
@@ -40,6 +41,7 @@ import {
 } from "./editor/images";
 import { buildMarkdownDocument } from "./editor/document";
 import { EditorTabView, type View } from "./editor/tab-view";
+import { absolutePath } from "./editor/target";
 
 /**
  * The SDK marks the explicit host as experimental and so spells it
@@ -361,6 +363,12 @@ function MarkdownEditorTab({ path, source }: PluginFileOpenerProps) {
         dispatch({ type: "discard" });
       }}
       onAddToChat={addToChat}
+      onCopyPath={() => {
+        navigator.clipboard.writeText(absolutePath(path, documentRoot)).then(
+          () => toast.success("File path copied"),
+          () => toast.error("Failed to copy file path"),
+        );
+      }}
     />
   );
 }

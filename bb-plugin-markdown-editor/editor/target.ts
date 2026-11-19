@@ -133,3 +133,14 @@ export function buildFileTarget(args: {
   if (hostId !== null) target.hostId = hostId;
   return target;
 }
+
+/**
+ * The path to put on the clipboard: absolute once the root is known, so it
+ * works pasted into a terminal or another app. A host file's path is already
+ * absolute, and a rooted file whose root has not loaded keeps its relative
+ * path rather than copying nothing.
+ */
+export function absolutePath(path: string, rootPath: string | null): string {
+  if (path.startsWith("/") || rootPath === null || rootPath === "") return path;
+  return `${rootPath.replace(/\/+$/, "")}/${path}`;
+}

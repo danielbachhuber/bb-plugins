@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   TargetError,
+  absolutePath,
   assertPathShape,
   buildFileTarget,
   isRooted,
@@ -177,5 +178,21 @@ describe("assertPathShape", () => {
         root: { hostId: "host_1", rootPath: "/Users/hubber/work/acme-widgets/" },
       }).path,
     ).toBe("/Users/hubber/work/acme-widgets/docs/plan.md");
+  });
+});
+
+describe("absolutePath", () => {
+  it("joins a rooted path to its root", () => {
+    expect(absolutePath("docs/plan.md", "/Users/hubber/work/acme-widgets/")).toBe(
+      "/Users/hubber/work/acme-widgets/docs/plan.md",
+    );
+    expect(absolutePath("docs/plan.md", "/Users/hubber/work/acme-widgets")).toBe(
+      "/Users/hubber/work/acme-widgets/docs/plan.md",
+    );
+  });
+
+  it("keeps a host path, or a rooted path whose root is unknown", () => {
+    expect(absolutePath("/Users/hubber/notes.md", null)).toBe("/Users/hubber/notes.md");
+    expect(absolutePath("docs/plan.md", null)).toBe("docs/plan.md");
   });
 });

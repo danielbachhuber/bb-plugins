@@ -82,6 +82,7 @@ function Tab(props: Partial<EditorTabViewProps>) {
         onReload={noop}
         onDiscard={noop}
         onAddToChat={noop}
+        onCopyPath={noop}
         {...props}
       />
     </Stage>

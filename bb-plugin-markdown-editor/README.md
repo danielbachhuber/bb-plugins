@@ -16,6 +16,7 @@ Without the plugin, bb opens the same file read-only. You can switch between Pre
 - Switch between **Preview** and **Raw**. Preview renders the text you have typed, before you save it, with bb's chat markdown renderer, and shows the images the file links to.
 - Press **Cmd+S** or click **Save** to write the file. **Discard** puts back the text last read from disk, after a second click to confirm.
 - If an agent changes the file while you have unsaved edits, Save stops and asks you to **Reload, discard mine** or **Overwrite**.
+- Click the file's path in the header to copy its full path.
 - Select text in Preview and click **Add to chat** to quote it into the composer under the file's path.
 
   ![A paragraph selected in Preview, with an Add to chat button under it](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/markdown-editor/tab--add-to-chat.png)
