@@ -21,9 +21,9 @@ On every page but the dashboard, the page's title sits under the header with a
 line saying what the page covers.
 
 **Find a person or team** opens anyone's page by name, or a team's. Focusing
-it lists the five people most recently active, then three teams, the one with
-the most recently active member first. Typing narrows both to names containing
-what you typed, those starting with it first, people before teams, with three
+it lists three teams, the one with the most recently active member first, then
+the five people most recently active. Typing narrows both to names containing
+what you typed, those starting with it first, teams before people, with three
 places kept for teams. Arrow keys and Enter pick one. It offers everyone who
 opened, reviewed, or was asked to review a pull request in the mirror, bots
 left out, and each team the sync has read members for, read from rows the page

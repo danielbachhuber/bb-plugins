@@ -10,14 +10,14 @@ const EVERYONE = ["octocat", "hubber", "mona", "monalisa", "spacecat", "webcat",
 
 const open = { onOpenPerson: () => undefined, onOpenTeam: () => undefined };
 
-/** Focused with nothing typed: the five most recently active people, then three teams. */
+/** Focused with nothing typed: three teams, then the five most recently active people. */
 export const Focused = () => (
   <div data-screenshot-frame className="h-80 p-4">
     <PersonFinder everyone={EVERYONE} everyTeam={EVERY_TEAM} {...open} initialOpen />
   </div>
 );
 
-/** Typing narrows the list, names starting with the text first, people before teams. */
+/** Typing narrows the list, names starting with the text first, teams before people. */
 export const Typed = () => (
   <div data-screenshot-frame className="h-60 p-4">
     <PersonFinder everyone={EVERYONE} everyTeam={EVERY_TEAM} {...open} initialQuery="cat" initialOpen />

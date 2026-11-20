@@ -22,12 +22,12 @@ describe("matchPeople", () => {
 describe("matchEntries", () => {
   const TEAMS = ["widgets-team", "gadgets-team", "docs", "infra"];
 
-  it("offers people first, then the first three teams, when nothing is typed", () => {
+  it("offers the first three teams, then people, when nothing is typed", () => {
     expect(matchEntries(EVERYONE, TEAMS, "")).toEqual([
-      ...EVERYONE.map((name) => ({ kind: "person", name })),
       { kind: "team", name: "widgets-team" },
       { kind: "team", name: "gadgets-team" },
       { kind: "team", name: "docs" },
+      ...EVERYONE.map((name) => ({ kind: "person", name })),
     ]);
   });
 

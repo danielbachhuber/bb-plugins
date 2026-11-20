@@ -33,17 +33,17 @@ export function matchPeople(everyone: readonly string[], query: string): string[
 }
 
 /**
- * People, then teams, matching the query, as many as fit. Up to three teams
- * always keep a place, so a team still shows when many people match; while
- * nothing is typed, only those three.
+ * Teams, then people, matching the query, as many as fit. Up to three teams
+ * always keep a place, so a team still shows when many people match, and the
+ * people fill the rest; while nothing is typed, only those three teams.
  */
 export function matchEntries(everyone: readonly string[], everyTeam: readonly string[], query: string): FinderEntry[] {
   const typed = query.trim() !== "";
   const teams = matchPeople(everyTeam, query).slice(0, typed ? SHOWN : TEAMS_KEPT);
   const people = matchPeople(everyone, query).slice(0, SHOWN - Math.min(teams.length, TEAMS_KEPT));
   return [
-    ...people.map((name) => ({ kind: "person" as const, name })),
     ...teams.slice(0, SHOWN - people.length).map((name) => ({ kind: "team" as const, name })),
+    ...people.map((name) => ({ kind: "person" as const, name })),
   ];
 }
 
