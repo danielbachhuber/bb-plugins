@@ -13,6 +13,7 @@ import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
 import { ThreadStatusContext } from "./components/item-row";
+import { teamReviewActivity } from "./review/people";
 
 export default {
   title: "contributor-dashboard/Page",
@@ -56,6 +57,9 @@ const PEOPLE: Array<{ login: string; opened: number; merged: number; requested: 
 
 /** Who the person finder offers: the people above, and two who were only asked to review. */
 const EVERYONE = [...PEOPLE.map((person) => person.login), "privateinvestocat", "octobiwan"];
+const EVERY_TEAM = ["reviewers", "widgets-team", "gadgets-team", "docs"];
+/** The team the team page story shows. */
+const WIDGETS_TEAM = ["hubber", "mona", "octocat", "spacecat"];
 
 /** A person's weekly rhythm: uneven, repeatable, and the same shape each period. */
 const rhythm = (seed: number, buckets: number): number[] =>
@@ -427,6 +431,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
     teams: TEAMS,
     organization: "acme",
     everyone: EVERYONE,
+        everyTeam: EVERY_TEAM,
     sync,
   };
 }
@@ -515,7 +520,7 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, authors: [], people: [], teams: [], organization: null, everyone: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, authors: [], people: [], teams: [], organization: null, everyone: [], everyTeam: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
@@ -647,6 +652,17 @@ function fitTo(days: ActivityDay[], kind: Exclude<keyof ActivityDay, "start">, t
   return days.map((day, i) => ({ ...day, [kind]: counts[i] }));
 }
 
+/** The team page's lists, naming which member each row belongs to. */
+const TEAM_ISSUES: AssignedIssue[] = ASSIGNED_ISSUES.map((issue, index) => ({
+  ...issue,
+  holders: index % 3 === 0 ? ["hubber", "mona"] : [WIDGETS_TEAM[index % WIDGETS_TEAM.length]],
+}));
+const TEAM_AUTHORED = AUTHORED.map((row, index) => ({ ...row, author: WIDGETS_TEAM[index % WIDGETS_TEAM.length] }));
+const TEAM_MEMBERS_AWAITING = AWAITING.map((row, index) => ({
+  ...row,
+  reviewers: index === 0 ? ["hubber", "spacecat"] : [WIDGETS_TEAM[index]],
+}));
+
 /** Enough pull requests to page through, by repeating the five above. */
 function manyAuthored(total: number) {
   return Array.from({ length: total }, (_, index) => {
@@ -676,6 +692,7 @@ function Person({
   issuesClosed = 42,
   busy = 1,
   login = "octocat",
+  team = null,
   initialAuthoredQuery = DEFAULT_AUTHORED_QUERY,
 }: {
   initial?: Selection;
@@ -687,6 +704,8 @@ function Person({
   /** How much of a typical busy person's daily activity they have. */
   busy?: number;
   login?: string;
+  /** A team's page instead, adding up WIDGETS_TEAM's members. */
+  team?: string | null;
   initialAuthoredQuery?: AuthoredQuery;
 }) {
   const [selection, setSelection] = useState<Selection>(initial);
@@ -696,8 +715,21 @@ function Person({
   const page = fixture(selection);
   const kept = queryAuthored(authored, authoredQuery);
   const paging = pageOf(kept.length, authoredPage, AUTHORED_PAGE_SIZE);
-  const authorFlows = authorFlowsFor(page.authors.find((person) => person.login === login), page.buckets.length);
-  const activity = page.people.find((person) => person.login === login) ?? null;
+  const members = team === null ? [login] : WIDGETS_TEAM;
+  const theirs = page.authors.filter((author) => members.includes(author.login));
+  const authorFlows = authorFlowsFor(
+    theirs.length === 0
+      ? undefined
+      : {
+          opened: page.buckets.map((_, i) => theirs.reduce((sum, author) => sum + author.opened[i], 0)),
+          merged: page.buckets.map((_, i) => theirs.reduce((sum, author) => sum + author.merged[i], 0)),
+        },
+    page.buckets.length,
+  );
+  const activity =
+    team === null
+      ? page.people.find((person) => person.login === login) ?? null
+      : teamReviewActivity(page.people, new Set(WIDGETS_TEAM), team);
   const sumOf = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
   let activityDays = activityDaysFor(page.buckets, busy);
   activityDays = fitTo(activityDays, "opened", sumOf(authorFlows.started));
@@ -707,12 +739,14 @@ function Person({
   return (
     <>
     <PersonView
-      login={login}
+      subject={team === null ? { login } : { team }}
       selection={selection}
       onSelect={setSelection}
       data={{
         repository: "acme/widgets",
-        login,
+        subject: team === null ? { login } : { team },
+        members: team === null ? [] : WIDGETS_TEAM,
+        teams: team === null ? ["reviewers", "widgets-team"] : [],
         buckets: page.buckets,
         authorFlows,
         activity,
@@ -727,11 +761,13 @@ function Person({
         authoredFacets: authoredFacets(authored),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: kept.length },
         everyone: EVERYONE,
+        everyTeam: EVERY_TEAM,
         sync: SYNCED,
       }}
       error={null}
       onBack={() => undefined}
       onOpenPerson={() => undefined}
+      onOpenTeam={() => undefined}
       onAuthoredPage={setAuthoredPage}
       onThread={() => undefined}
       authoredQuery={authoredQuery}
@@ -777,6 +813,24 @@ export const PersonPagePaged = () => <Person authored={manyAuthored(118)} />;
 /** Their pull requests narrowed to the merged ones, biggest first. The heading counts how many of the whole list are left. */
 export const PersonPageAuthoredFiltered = () => (
   <Person authored={manyAuthored(118)} initialAuthoredQuery={{ sort: "size", direction: "desc", state: "merged" }} />
+);
+
+/**
+ * A team's page has the same parts as a person's, adding up what its members
+ * did. Its members are listed under the title, each opening their own page;
+ * the lists name who on the team holds each issue, opened each pull request,
+ * or was asked for each review; and the last list is what waits on the team itself.
+ */
+export const TeamPage = () => (
+  <Person
+    team="widgets-team"
+    issues={TEAM_ISSUES}
+    authored={TEAM_AUTHORED}
+    awaiting={TEAM_MEMBERS_AWAITING}
+    teamAwaiting={TEAM_AWAITING.map((row) => ({ ...row, teams: ["widgets-team"] }))}
+    issuesClosed={97}
+    busy={3}
+  />
 );
 
 /** Nobody is waiting on them, they hold no issues, and they have opened nothing this period. */
@@ -895,6 +949,7 @@ function stageFixture(overrides: Partial<StageDetailResult["stage"]> = {}): Stag
     organization: "acme",
     waitingPaging: { page: 0, pages: 3, from: 1, to: 5, total: 14 },
     everyone: EVERYONE,
+        everyTeam: EVERY_TEAM,
     sync: SYNCED,
   };
 }
@@ -1007,6 +1062,7 @@ function OpenList({
         facets: openFacets(open, query, NOW),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
         everyone: EVERYONE,
+        everyTeam: EVERY_TEAM,
         sync: SYNCED,
       }}
       error={null}

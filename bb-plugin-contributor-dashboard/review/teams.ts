@@ -53,7 +53,7 @@ export function openRequests(pr: PullRequestWithActivity): {
   return { teams, people };
 }
 
-/** An open pull request waiting on a team the person is in, which nobody has reviewed since. */
+/** An open pull request waiting on a team the person is in, or the team whose page it is, which nobody has reviewed since. */
 export interface TeamAwaitingRow {
   number: number;
   title: string;
@@ -81,13 +81,31 @@ export function awaitingTeamReview(
   now: number,
 ): TeamAwaitingRow[] {
   const theirs = new Set([...members].filter(([, logins]) => logins.includes(login)).map(([slug]) => slug));
-  if (theirs.size === 0) return [];
+  return waitingOnTeams(prs, theirs, now, (pr, people) => pr.author?.login === login || people.has(login));
+}
+
+/**
+ * Open pull requests waiting on the team `slug`, with no review from anyone
+ * since it was asked, longest wait first. Its members' own pull requests
+ * count, since someone else on the team can review them.
+ */
+export function awaitingTeam(prs: readonly PullRequestWithActivity[], slug: string, now: number): TeamAwaitingRow[] {
+  return waitingOnTeams(prs, new Set([slug]), now, () => false);
+}
+
+function waitingOnTeams(
+  prs: readonly PullRequestWithActivity[],
+  slugs: ReadonlySet<string>,
+  now: number,
+  skip: (pr: PullRequestWithActivity, people: ReadonlyMap<string, string>) => boolean,
+): TeamAwaitingRow[] {
+  if (slugs.size === 0) return [];
   const rows: TeamAwaitingRow[] = [];
   for (const pr of prs) {
-    if (pr.state !== "OPEN" || pr.isDraft || pr.author?.login === login) continue;
+    if (pr.state !== "OPEN" || pr.isDraft) continue;
     const { teams, people } = openRequests(pr);
-    if (people.has(login)) continue;
-    const waitingOn = [...teams].filter(([slug]) => theirs.has(slug));
+    if (skip(pr, people)) continue;
+    const waitingOn = [...teams].filter(([slug]) => slugs.has(slug));
     if (waitingOn.length === 0) continue;
     const requestedAt = waitingOn.map(([, at]) => at).sort()[0];
     // A request made while it was still a draft only starts the clock once it is ready.

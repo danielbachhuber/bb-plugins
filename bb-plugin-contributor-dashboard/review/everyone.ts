@@ -28,3 +28,17 @@ export function everyone(prs: readonly PullRequestWithActivity[]): string[] {
     .sort(([a, atA], [b, atB]) => (atA === atB ? a.localeCompare(b) : atA < atB ? 1 : -1))
     .map(([login]) => login);
 }
+
+/**
+ * The teams with at least one member the sync has read, the one whose member
+ * was most recently active first, then A to Z. `people` is `everyone`'s list.
+ */
+export function everyTeam(members: ReadonlyMap<string, readonly string[]>, people: readonly string[]): string[] {
+  const rank = new Map(people.map((login, index) => [login, index]));
+  const best = (logins: readonly string[]) => Math.min(Infinity, ...logins.map((login) => rank.get(login) ?? Infinity));
+  return [...members]
+    .filter(([, logins]) => logins.length > 0)
+    .map(([slug, logins]) => ({ slug, best: best(logins) }))
+    .sort((a, b) => (a.best === b.best ? a.slug.localeCompare(b.slug) : a.best - b.best))
+    .map(({ slug }) => slug);
+}

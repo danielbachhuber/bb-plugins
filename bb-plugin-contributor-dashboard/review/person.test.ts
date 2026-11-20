@@ -187,3 +187,53 @@ describe("authoredPullRequests", () => {
     expect(authoredPullRequests(items, "octocat", since, NOW).map((row) => row.number)).toEqual([2, 1]);
   });
 });
+
+describe("a team's page", () => {
+  const TEAM = new Set(["hubber", "mona"]);
+
+  it("lists a pull request once while it waits on any member, naming who, from the earliest request", () => {
+    const rows = awaitingReview(
+      [
+        pr({
+          timelineItems: [requested("mona", "2026-09-16T09:00:00Z"), requested("hubber", "2026-09-15T09:00:00Z")],
+        }),
+        pr({ id: "PR_2", number: 1841, timelineItems: [requested("hubber", "2026-09-16T09:00:00Z")], reviews: [review("hubber", "2026-09-17T09:00:00Z")] }),
+        pr({ id: "PR_3", number: 1842, timelineItems: [requested("yeti", "2026-09-16T09:00:00Z")] }),
+      ],
+      TEAM,
+      NOW,
+    );
+    expect(rows).toMatchObject([{ number: 1840, reviewers: ["hubber", "mona"], requestedAt: "2026-09-15T09:00:00Z" }]);
+  });
+
+  it("drops a member from a row once they have reviewed, keeping the one still asked", () => {
+    const [row] = awaitingReview(
+      [
+        pr({
+          timelineItems: [requested("mona", "2026-09-16T09:00:00Z"), requested("hubber", "2026-09-15T09:00:00Z")],
+          reviews: [review("hubber", "2026-09-16T12:00:00Z")],
+        }),
+      ],
+      TEAM,
+      NOW,
+    );
+    expect(row).toMatchObject({ reviewers: ["mona"], requestedAt: "2026-09-16T09:00:00Z" });
+  });
+
+  it("lists every member's pull requests, with who opened each", () => {
+    const rows = authoredPullRequests(
+      [
+        pr({ author: { __typename: "User", login: "hubber" } }),
+        pr({ id: "PR_2", number: 1841, author: { __typename: "User", login: "mona" } }),
+        pr({ id: "PR_3", number: 1842, author: { __typename: "User", login: "yeti" } }),
+      ],
+      TEAM,
+      0,
+      NOW,
+    );
+    expect(rows.map((row) => [row.number, row.author])).toEqual([
+      [1840, "hubber"],
+      [1841, "mona"],
+    ]);
+  });
+});

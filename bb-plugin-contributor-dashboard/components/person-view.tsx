@@ -1,10 +1,12 @@
 // One person's page: what they did each day of the period, by kind, then the
 // open issues assigned to them, then their own pull requests, as opened and
 // merged lines and the list of how each fared, followed by their review bars
-// and the pull requests waiting on their review.
+// and the pull requests waiting on their review. A team's page is the same,
+// adding up what its members did, and lists what waits on the team itself.
 // Display only.
+import { useState } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import type { AuthoredQuery, PersonActivityResult, TeamAwaiting } from "@/dashboard/contract";
+import type { AuthoredQuery, PersonActivityResult, Subject, TeamAwaiting } from "@/dashboard/contract";
 import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { ActivityStrips } from "./activity-strips";
@@ -59,9 +61,12 @@ function TeamAwaitingList({
   organization,
   onBatch,
   onThread,
+  ofTeam = false,
 }: {
   rows: readonly TeamAwaiting[];
   organization: string | null;
+  /** On a team's page: what waits on that team, rather than on any team the person is in. */
+  ofTeam?: boolean;
   onBatch: (heading: string, rows: readonly BatchItem[]) => void;
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
 }) {
@@ -70,7 +75,7 @@ function TeamAwaitingList({
     <section className="mt-8" aria-labelledby="person-team-awaiting">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="person-team-awaiting" className="text-base font-semibold">
-          Waiting on their team
+          {ofTeam ? "Waiting on the team" : "Waiting on their team"}
           <Count shown={shown.length} total={rows.length} />
         </h2>
         {rows.length === 0 ? null : (
@@ -79,16 +84,18 @@ function TeamAwaitingList({
             <PeopleMenu label="Author" value={query.author} counts={authors} onPick={(author) => setQuery({ ...query, author })} />
             <BatchButton
               count={shown.length}
-              onBatch={() => onBatch(`Waiting on their team${query.author === null ? "" : ` by ${query.author}`}`, shown)}
+              onBatch={() => onBatch(`${ofTeam ? "Waiting on the team" : "Waiting on their team"}${query.author === null ? "" : ` by ${query.author}`}`, shown)}
             />
           </span>
         )}
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        Asked of a team they are in, and nobody has reviewed since. Their own pull requests are left out.
+        {ofTeam
+          ? "Asked of the team, and nobody has reviewed since."
+          : "Asked of a team they are in, and nobody has reviewed since. Their own pull requests are left out."}
       </p>
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">Nothing is waiting on their teams.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{ofTeam ? "Nothing is waiting on the team." : "Nothing is waiting on their teams."}</p>
       ) : (
         <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card text-sm">
           {shown.map((row) => (
@@ -123,14 +130,62 @@ function TeamAwaitingList({
   );
 }
 
+/** Members to show before Show all. */
+const NAMES_SHOWN = 12;
+
+/**
+ * Under the title: a team's members, or the teams a person is in, each
+ * opening its own page.
+ */
+function Related({
+  label,
+  names,
+  onOpen,
+}: {
+  label: string;
+  names: readonly string[];
+  onOpen: (name: string) => void;
+}) {
+  const [all, setAll] = useState(false);
+  if (names.length === 0) return null;
+  const shown = all ? names : names.slice(0, NAMES_SHOWN);
+  return (
+    <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+      <span>{label}</span>
+      {shown.map((name) => (
+        <button
+          key={name}
+          type="button"
+          onClick={() => onOpen(name)}
+          className="cursor-pointer text-foreground hover:underline"
+        >
+          {name}
+        </button>
+      ))}
+      {names.length <= NAMES_SHOWN ? null : (
+        <button type="button" onClick={() => setAll(!all)} className="cursor-pointer underline hover:text-foreground">
+          {all ? "Show fewer" : `${names.length - NAMES_SHOWN} more`}
+        </button>
+      )}
+    </p>
+  );
+}
+
+/** What the page's title calls the person or team. */
+export function nameOf(subject: Subject, organization: string | null): string {
+  if ("login" in subject) return subject.login;
+  return organization === null ? subject.team : `${organization}/${subject.team}`;
+}
+
 export function PersonView({
-  login,
+  subject,
   selection,
   onSelect,
   data,
   error,
   onBack,
   onOpenPerson,
+  onOpenTeam,
   onAuthoredPage,
   onThread,
   authoredQuery,
@@ -139,7 +194,8 @@ export function PersonView({
   onBatch,
   now = Date.now(),
 }: {
-  login: string;
+  /** Whose page it is: a person, or a team. */
+  subject: Subject;
   selection: Selection;
   onSelect: (selection: Selection) => void;
   data: PersonActivityResult | null;
@@ -147,6 +203,8 @@ export function PersonView({
   onBack: () => void;
   /** Switches to another person's page. */
   onOpenPerson: (login: string) => void;
+  /** Switches to a team's page. */
+  onOpenTeam?: (slug: string) => void;
   /** Shows another page of their pull requests. */
   onAuthoredPage: (page: number) => void;
   /** Opens the row's thread, or the dialog that starts one. */
@@ -161,7 +219,16 @@ export function PersonView({
   now?: number;
 }) {
   const message = error ?? data?.sync.error ?? null;
-  const profile = data?.repository ? `https://github.com/${login}` : null;
+  const organization = data?.organization ?? null;
+  const isTeam = "team" in subject;
+  const name = nameOf(subject, organization);
+  const profile = !data?.repository
+    ? null
+    : "login" in subject
+      ? { href: `https://github.com/${subject.login}`, label: "GitHub profile ↗" }
+      : organization === null
+        ? null
+        : { href: `https://github.com/orgs/${organization}/teams/${subject.team}`, label: "GitHub team ↗" };
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -170,19 +237,23 @@ export function PersonView({
           repository={data?.repository ?? null}
           onHome={onBack}
           everyone={data?.everyone ?? []}
-          current={login}
+          everyTeam={data?.everyTeam ?? []}
+          current={"login" in subject ? { kind: "person", name: subject.login } : { kind: "team", name: subject.team }}
           onOpenPerson={onOpenPerson}
+          onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
-          title={login}
+          title={name}
           subtitle={
             data === null ? null : (
               <>
-                {summary(data, selection)}
+                {isTeam && data.members.length === 0
+                  ? "The sync has not read this team's members, so there is nothing to add up."
+                  : summary(data, selection)}
                 {profile === null ? null : (
                   <>
                     {" · "}
-                    <UrlLink href={profile} className="underline hover:text-foreground">
-                      GitHub profile ↗
+                    <UrlLink href={profile.href} className="underline hover:text-foreground">
+                      {profile.label}
                     </UrlLink>
                   </>
                 )}
@@ -190,6 +261,11 @@ export function PersonView({
             )
           }
         />
+        {data === null ? null : isTeam ? (
+          <Related label={`${data.members.length} ${data.members.length === 1 ? "member" : "members"}:`} names={data.members} onOpen={onOpenPerson} />
+        ) : onOpenTeam === undefined ? null : (
+          <Related label={data.teams.length === 1 ? "Team:" : "Teams:"} names={data.teams} onOpen={onOpenTeam} />
+        )}
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">
@@ -203,6 +279,7 @@ export function PersonView({
 
             <AssignedIssues
               issues={data.assignedIssues}
+              showHolders={isTeam}
               onThread={onThread}
               onBatch={(heading, rows) => onBatch("issue", heading, rows)}
               now={now}
@@ -218,7 +295,7 @@ export function PersonView({
               ) : (
                 <div className="mt-3">
                   <PullRequestFlowChart
-                    title={`${login}'s pull requests`}
+                    title={`${name}'s pull requests`}
                     flows={data.authorFlows}
                     buckets={data.buckets}
                     unit={unitOfBuckets(data.buckets)}
@@ -229,6 +306,7 @@ export function PersonView({
 
             <AuthoredList
               data={data}
+              name={name}
               query={authoredQuery}
               onQuery={onAuthoredQuery}
               onPage={onAuthoredPage}
@@ -248,7 +326,7 @@ export function PersonView({
               ) : (
                 <div className="mt-3">
                   <ReviewChart
-                    login={login}
+                    login={name}
                     requested={data.activity.requested}
                     pickedUp={data.activity.pickedUpTotal > 0 ? data.activity.pickedUp : undefined}
                     given={data.activity.given}
@@ -260,11 +338,12 @@ export function PersonView({
               )}
             </section>
 
-            <AwaitingList rows={data.awaiting} onBatch={(heading, rows) => onBatch("pull", heading, rows)} onThread={onThread} now={now} />
+            <AwaitingList rows={data.awaiting} showReviewers={isTeam} onBatch={(heading, rows) => onBatch("pull", heading, rows)} onThread={onThread} now={now} />
 
             <TeamAwaitingList
               rows={data.teamAwaiting}
               organization={data.organization}
+              ofTeam={isTeam}
               onBatch={(heading, rows) => onBatch("pull", heading, rows)}
               onThread={onThread}
             />

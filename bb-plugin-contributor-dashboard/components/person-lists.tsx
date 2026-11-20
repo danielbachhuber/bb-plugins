@@ -70,12 +70,13 @@ const STATE_WORDS: Record<NonNullable<AuthoredQuery["state"]>, string> = {
 };
 
 /** What the state filter keeps, as a phrase for Batch: "mona's merged pull requests". */
-export function describeAuthored(login: string, query: AuthoredQuery): string {
-  return `${login}'s ${query.state === null ? "" : `${STATE_WORDS[query.state].toLowerCase()} `}pull requests`;
+export function describeAuthored(name: string, query: AuthoredQuery): string {
+  return `${name}'s ${query.state === null ? "" : `${STATE_WORDS[query.state].toLowerCase()} `}pull requests`;
 }
 
 export function AuthoredList({
   data,
+  name,
   query,
   onQuery,
   onPage,
@@ -83,6 +84,8 @@ export function AuthoredList({
   onThread,
 }: {
   data: PersonActivityResult;
+  /** The person or team, as the page's title names them. */
+  name: string;
   query: AuthoredQuery;
   onQuery: (next: AuthoredQuery) => void;
   onPage: (page: number) => void;
@@ -113,7 +116,7 @@ export function AuthoredList({
               choices={(["open", "draft", "merged", "closed"] as const).map((key) => ({ key, label: STATE_WORDS[key], count: facets[key] }))}
               onPick={(state) => onQuery({ ...query, state })}
             />
-            <BatchButton count={paging.total} onBatch={() => onBatch(describeAuthored(data.login, query))} />
+            <BatchButton count={paging.total} onBatch={() => onBatch(describeAuthored(name, query))} />
           </span>
         )}
       </div>
@@ -134,6 +137,7 @@ export function AuthoredList({
               onThread={() => onThread({ kind: "pull", number: row.number, title: row.title, url: row.url, meta: STATES[row.state].label }, row.threadId)}
               facts={
                 <span>
+                  {"team" in data.subject && row.author ? `${row.author} · ` : ""}
                   <span className={STATES[row.state].className}>{authoredState(row) === "draft" ? "Draft" : STATES[row.state].label}</span>
                   {" · "}
                   {row.firstReviewDays === null ? "no review" : `first review ${days(row.firstReviewDays)}`}
@@ -180,12 +184,15 @@ export function AwaitingList({
   onBatch,
   onThread,
   now,
+  showReviewers = false,
 }: {
   /** Every one, longest wait first, as the server sends them. */
   rows: readonly Awaiting[];
   onBatch: (heading: string, rows: readonly BatchItem[]) => void;
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
   now: number;
+  /** On a team's page, which members each one waits on. */
+  showReviewers?: boolean;
 }) {
   const { query, setQuery, shown, authors } = useLocalList(rows, WAITING_KEYS, { sort: "wait", direction: "desc", author: null });
   return (
@@ -222,7 +229,8 @@ export function AwaitingList({
               facts={
                 <span>
                   {row.author === null ? "" : `${row.author} · `}
-                  asked {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
+                  {showReviewers && (row.reviewers ?? []).length > 0 ? `asked of ${row.reviewers!.join(", ")} ` : "asked "}
+                  {ago(row.requestedAt, now)} · {days(row.waitingDays)} waiting
                 </span>
               }
             />

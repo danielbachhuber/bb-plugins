@@ -30,6 +30,7 @@ import {
   STAGE_KEYS,
   type StageDetailResult,
   type StageKey,
+  type Subject,
   type SyncStatus,
   type WaitingQuery,
 } from "./dashboard/contract.js";
@@ -48,9 +49,14 @@ function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-/** `person/<login>` and `stage/<key>` are the sub-paths; anything else is the dashboard. */
+/** `person/<login>`, `team/<slug>`, and `stage/<key>` are the sub-paths; anything else is the dashboard. */
 function personFrom(subPath: string): string | null {
   const match = /^person\/([^/]+)\/?$/.exec(subPath);
+  return match === null ? null : decodeURIComponent(match[1]);
+}
+
+function teamFrom(subPath: string): string | null {
+  const match = /^team\/([^/]+)\/?$/.exec(subPath);
   return match === null ? null : decodeURIComponent(match[1]);
 }
 
@@ -149,7 +155,10 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const [restoring, setRestoring] = useState(() => {
     if (subPath !== "") return null;
     const remembered = rememberedScreen();
-    return personFrom(remembered) !== null || stageFrom(remembered) !== null || listFrom(remembered) !== null
+    return personFrom(remembered) !== null ||
+      teamFrom(remembered) !== null ||
+      stageFrom(remembered) !== null ||
+      listFrom(remembered) !== null
       ? remembered
       : null;
   });
@@ -166,6 +175,12 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const shown = restoring ?? subPath;
   useEffect(() => rememberScreen(shown), [shown]);
   const login = personFrom(shown);
+  const team = teamFrom(shown);
+  // A team's page is a person's page, adding up its members'.
+  const subject = useMemo<Subject | null>(
+    () => (login !== null ? { login } : team !== null ? { team } : null),
+    [login, team],
+  );
   const stage = stageFrom(shown);
   const list = listFrom(shown);
   const [listPage, setListPage] = useState(0);
@@ -249,8 +264,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   );
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
-    () => (login === null && stage === null && list === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
-    [rpc, range, login, stage, list],
+    () => (subject === null && stage === null && list === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
+    [rpc, range, subject, stage, list],
   );
   const openList = useDashboardData<OpenItemsResult | null>(
     () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage, query: listQuery })),
@@ -261,8 +276,8 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [rpc, range, stage, waitingPage, waitingQuery],
   );
   const person = useDashboardData<PersonActivityResult | null>(
-    () => (login === null ? Promise.resolve(null) : rpc.call("person_activity", { login, range, authoredPage, authoredQuery })),
-    [rpc, range, login, authoredPage, authoredQuery],
+    () => (subject === null ? Promise.resolve(null) : rpc.call("person_activity", { subject, range, authoredPage, authoredQuery })),
+    [rpc, range, subject, authoredPage, authoredQuery],
   );
 
   const openPerson = useCallback(
@@ -270,6 +285,14 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       setAuthoredPage(0);
       setAuthoredQuery(DEFAULT_AUTHORED_QUERY);
       navigate.toPluginPanel(PANEL_PATH, { subPath: `person/${encodeURIComponent(who)}` });
+    },
+    [navigate],
+  );
+  const openTeam = useCallback(
+    (slug: string) => {
+      setAuthoredPage(0);
+      setAuthoredQuery(DEFAULT_AUTHORED_QUERY);
+      navigate.toPluginPanel(PANEL_PATH, { subPath: `team/${encodeURIComponent(slug)}` });
     },
     [navigate],
   );
@@ -332,6 +355,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           error={openList.error}
           onBack={back}
           onOpenPerson={openPerson}
+          onOpenTeam={openTeam}
           onPage={setListPage}
           onThread={onThread}
           query={listQuery}
@@ -354,6 +378,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
           error={stageDetail.error}
           onBack={back}
           onOpenPerson={openPerson}
+          onOpenTeam={openTeam}
           onWaitingPage={setWaitingPage}
           periodLabel={selectionWords(selection)}
           onThread={onThread}
@@ -367,24 +392,26 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       </StartThreadContext.Provider>
     );
   }
-  if (login !== null) {
+  if (subject !== null) {
     return (
       <StartThreadContext.Provider value={startRows}>
         <PersonView
-          login={login}
+          key={"login" in subject ? `person:${subject.login}` : `team:${subject.team}`}
+          subject={subject}
           selection={selection}
           onSelect={choose}
           data={person.data}
           error={person.error}
           onBack={back}
           onOpenPerson={openPerson}
+          onOpenTeam={openTeam}
           onAuthoredPage={setAuthoredPage}
           onThread={onThread}
           authoredQuery={authoredQuery}
           onAuthoredQuery={queryAuthored}
           onBatchAuthored={(heading) =>
             openBatch("pull", heading, () =>
-              rpc.call("authored_matching", { login, range, query: authoredQuery }).then(({ rows }) => rows),
+              rpc.call("authored_matching", { subject, range, query: authoredQuery }).then(({ rows }) => rows),
             )
           }
           onBatch={(kind, heading, rows) => openBatch(kind, heading, () => Promise.resolve(rows))}
@@ -400,6 +427,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       data={dashboard.data}
       error={dashboard.error}
       onOpenPerson={openPerson}
+      onOpenTeam={openTeam}
       onOpenStage={openStage}
       onOpenList={openItemsList}
       onLoadOlderReleases={(before, count) => rpc.call("older_releases", { before, count })}

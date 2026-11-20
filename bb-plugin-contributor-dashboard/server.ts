@@ -7,13 +7,13 @@ import { matchProjectForRepo, toProjectCandidates } from "@danielb/gh-shared/pro
 import { rpcContract, DASHBOARD_CHANNEL, type SyncStatus } from "./dashboard/contract.js";
 import { ghGraphql } from "./mirror/gh.js";
 import { authorActivity } from "./review/authors.js";
-import { peopleActivity } from "./review/people.js";
-import { everyone } from "./review/everyone.js";
+import { peopleActivity, teamReviewActivity } from "./review/people.js";
+import { everyone, everyTeam } from "./review/everyone.js";
 import { flowOf, emptyFlow } from "./review/flow.js";
 import { olderReleases, releaseSummaries } from "./review/releases.js";
 import { closedIssues } from "./review/closed-issues.js";
 import { stageDetail, stageSummaries } from "./review/stages.js";
-import { awaitingTeamReview, openRequests, teamActivity } from "./review/teams.js";
+import { awaitingTeam, awaitingTeamReview, openRequests, teamActivity } from "./review/teams.js";
 import { mergeFlows, reviewFlows } from "./review/flows.js";
 import { activityDays } from "./review/activity-days.js";
 import { assignedIssues, closedAssignedIssues } from "./review/assigned-issues.js";
@@ -24,6 +24,8 @@ import { subthreadRequest } from "./components/thread-seed.js";
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging.js";
 import { bucketsFor } from "./dashboard/period.js";
 import { createStore, MIGRATIONS, type ThreadKind } from "./mirror/store.js";
+import { isWho, loginsOf, type Who } from "./review/who.js";
+import type { Subject } from "./dashboard/contract.js";
 import type { PullRequestWithActivity } from "./mirror/github.js";
 import { runSync } from "./mirror/sync.js";
 import { contributorDashboardCli } from "./cli/activity.js";
@@ -162,6 +164,17 @@ export default async function plugin(bb: BbPluginApi) {
     });
   }
 
+  /** Who the finder in the header offers: people, and the teams the sync has read. */
+  function finder(prs: readonly PullRequestWithActivity[]) {
+    const people = everyone(prs);
+    return { everyone: people, everyTeam: everyTeam(store.readTeams(repository), people) };
+  }
+
+  /** The login, or the team's members. A team the sync has not read has none. */
+  function whoOf(subject: Subject): Who {
+    return "login" in subject ? subject.login : new Set(store.readTeams(repository).get(subject.team) ?? []);
+  }
+
   bb.cli.register(
     contributorDashboardCli({
       repository: configured ? repository : null,
@@ -184,7 +197,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
           velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] },
-          authors: [], people: [], teams: [], organization: null, everyone: [], sync: status() };
+          authors: [], people: [], teams: [], organization: null, everyone: [], everyTeam: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
@@ -208,16 +221,18 @@ export default async function plugin(bb: BbPluginApi) {
         people: peopleActivity(prs.filter((pr) => Date.parse(pr.updatedAt) >= buckets[0].start), buckets),
         teams: teamActivity(prs, buckets, store.readTeams(repository)),
         organization: repository.split("/")[0],
-        everyone: everyone(prs),
+        ...finder(prs),
         sync: status(),
       };
     },
-    person_activity: ({ login, range, authoredPage, authoredQuery }) => {
+    person_activity: ({ subject, range, authoredPage, authoredQuery }) => {
       const noPaging = { page: 0, pages: 1, from: 0, to: 0, total: 0 };
       if (!configured) {
         return {
           repository: null,
-          login,
+          subject,
+          members: [],
+          teams: [],
           buckets: [],
           authorFlows: NO_FLOWS,
           activity: null,
@@ -232,6 +247,7 @@ export default async function plugin(bb: BbPluginApi) {
           authoredFacets: authoredFacets([]),
           authoredPaging: noPaging,
           everyone: [],
+          everyTeam: [],
           sync: status(),
         };
       }
@@ -239,8 +255,11 @@ export default async function plugin(bb: BbPluginApi) {
       if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
       const now = Date.now();
       const buckets = bucketsFor(range);
+      const teamMembers = store.readTeams(repository);
+      // A team's page is its members' pages added together.
+      const who = whoOf(subject);
       const prs = store.readActivity(repository, buckets[0].start);
-      const all = authoredPullRequests(prs, login, buckets[0].start, now);
+      const all = authoredPullRequests(prs, who, buckets[0].start, now);
       const authored = queryAuthored(all, authoredQuery);
       // Every stored pull request, as PR velocity reads them, so one opened
       // before the period still counts where it merged or stayed open.
@@ -248,25 +267,39 @@ export default async function plugin(bb: BbPluginApi) {
       const paging = pageOf(authored.length, authoredPage, AUTHORED_PAGE_SIZE);
       // Issues held now, whatever the period, so this reads every stored one.
       const issues = store.readIssues(repository, 0);
+      const reviewing = peopleActivity(prs, buckets);
       return {
         repository,
-        login,
+        subject,
+        members: typeof who === "string" ? [] : loginsOf(who),
+        teams:
+          "login" in subject
+            ? [...teamMembers].filter(([, logins]) => logins.includes(subject.login)).map(([slug]) => slug).sort()
+            : [],
         buckets,
-        authorFlows: mergeFlows(everything.filter((pr) => pr.author?.login === login), buckets, now),
-        activity: peopleActivity(prs, buckets).find((person) => person.login === login) ?? null,
+        authorFlows: mergeFlows(everything.filter((pr) => isWho(who, pr.author?.login)), buckets, now),
+        activity:
+          "login" in subject
+            ? reviewing.find((person) => person.login === subject.login) ?? null
+            : teamReviewActivity(reviewing, who as ReadonlySet<string>, subject.team),
         // Open pull requests are waiting now, whatever the period, so this
         // reads every stored one rather than only the period's.
-        awaiting: withThreads(awaitingReview(everything, login, now), "pull"),
-        teamAwaiting: withThreads(awaitingTeamReview(everything, login, store.readTeams(repository), now), "pull"),
+        awaiting: withThreads(awaitingReview(everything, who, now), "pull"),
+        teamAwaiting: withThreads(
+          "login" in subject
+            ? awaitingTeamReview(everything, subject.login, teamMembers, now)
+            : awaitingTeam(everything, subject.team, now),
+          "pull",
+        ),
         organization: repository.split("/")[0],
-        assignedIssues: withThreads(assignedIssues(issues, login), "issue"),
-        issuesClosed: closedAssignedIssues(issues, login, buckets[0].start, buckets.at(-1)!.end),
-        activityDays: activityDays(everything, issues, login, buckets[0].start, buckets.at(-1)!.end),
+        assignedIssues: withThreads(assignedIssues(issues, who), "issue"),
+        issuesClosed: closedAssignedIssues(issues, who, buckets[0].start, buckets.at(-1)!.end),
+        activityDays: activityDays(everything, issues, who, buckets[0].start, buckets.at(-1)!.end),
         authored: withThreads(authored.slice(paging.offset, paging.to), "pull"),
         authoredTotal: all.length,
         authoredFacets: authoredFacets(all),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
-        everyone: everyone(everything),
+        ...finder(everything),
         sync: status(),
       };
     },
@@ -274,10 +307,10 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) return { minors: [], more: false };
       return olderReleases(store.readReleases(repository), store.readActivity(repository, 0), repository, before, count);
     },
-    authored_matching: ({ login, range, query }) => {
+    authored_matching: ({ subject, range, query }) => {
       if (!configured) return { rows: [] };
       const since = bucketsFor(range)[0].start;
-      const all = authoredPullRequests(store.readActivity(repository, since), login, since, Date.now());
+      const all = authoredPullRequests(store.readActivity(repository, since), whoOf(subject), since, Date.now());
       return { rows: withThreads(queryAuthored(all, query), "pull") };
     },
     stage_waiting_matching: ({ stage, query }) => {
@@ -330,7 +363,7 @@ export default async function plugin(bb: BbPluginApi) {
           to: paging.to,
           total: waiting.length,
         },
-        everyone: everyone(prs),
+        ...finder(prs),
         sync: status(),
       };
     },
@@ -381,7 +414,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (!configured) {
         return {
           repository: null, kind, rows: [], totalOpen: 0, facets: openFacets([], query, Date.now()),
-          paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, everyone: [], sync: status(),
+          paging: { page: 0, pages: 1, from: 0, to: 0, total: 0 }, everyone: [], everyTeam: [], sync: status(),
         };
       }
       const { syncedAt } = store.syncState(repository);
@@ -399,7 +432,7 @@ export default async function plugin(bb: BbPluginApi) {
         totalOpen: open.length,
         facets: openFacets(open, query, now),
         paging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: rows.length },
-        everyone: everyone(prs),
+        ...finder(prs),
         sync: status(),
       };
     },

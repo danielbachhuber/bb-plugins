@@ -3,6 +3,8 @@
 // makes no calls.
 import type { IssueWithActivity } from "../mirror/github.js";
 
+import { isWho, type Who } from "./who.js";
+
 export interface AssignedIssueRow {
   number: number;
   title: string;
@@ -12,7 +14,9 @@ export interface AssignedIssueRow {
   openedAt: string;
   /** When it first reached a milestone or project; null when it never did. */
   plannedAt: string | null;
-  /** When it was last assigned to them. */
+  /** Who of them holds it, which on a person's page is them. */
+  holders: string[];
+  /** When it was last assigned to them, or for a team, to the member who has held it longest. */
   assignedAt: string;
   /** GitHub's last change to the issue: a comment, an edit, an event. */
   updatedAt: string;
@@ -27,18 +31,28 @@ export function plannedAt(issue: IssueWithActivity): string | null {
 }
 
 /**
- * Every open issue assigned to `login` now, longest held first. Held from the
+ * Every open issue assigned to `who` now, longest held first. Held from the
  * last time it was assigned to them, since an issue handed back and taken
  * again has been theirs only since then. An issue assigned before the mirror
- * kept its events counts from when it was opened.
+ * kept its events counts from when it was opened. For a team, an issue two
+ * members hold counts once, from the earlier of the two.
  */
-export function assignedIssues(issues: readonly IssueWithActivity[], login: string): AssignedIssueRow[] {
+export function assignedIssues(issues: readonly IssueWithActivity[], who: Who): AssignedIssueRow[] {
   return issues
-    .filter((issue) => issue.state === "OPEN" && issue.assignees.some((who) => who.login === login))
+    .filter((issue) => issue.state === "OPEN" && issue.assignees.some((assignee) => isWho(who, assignee.login)))
     .map((issue) => {
-      const assigned = issue.timelineItems
-        .filter((item) => item.__typename === "AssignedEvent" && item.assignee?.login === login)
-        .at(-1);
+      const holders = issue.assignees
+        .map((assignee) => assignee.login)
+        .filter((login): login is string => isWho(who, login))
+        .sort((a, b) => a.localeCompare(b));
+      const assignedAt = holders
+        .map(
+          (login) =>
+            issue.timelineItems
+              .filter((item) => item.__typename === "AssignedEvent" && item.assignee?.login === login)
+              .at(-1)?.createdAt ?? issue.createdAt,
+        )
+        .sort()[0];
       return {
         number: issue.number,
         title: issue.title,
@@ -46,7 +60,8 @@ export function assignedIssues(issues: readonly IssueWithActivity[], login: stri
         author: issue.author?.login ?? null,
         openedAt: issue.createdAt,
         plannedAt: plannedAt(issue),
-        assignedAt: assigned?.createdAt ?? issue.createdAt,
+        holders,
+        assignedAt,
         updatedAt: issue.updatedAt,
       };
     })
@@ -54,19 +69,19 @@ export function assignedIssues(issues: readonly IssueWithActivity[], login: stri
 }
 
 /**
- * How many issues assigned to `login` closed in [start, end). GitHub's close
+ * How many issues assigned to `who` closed in [start, end). GitHub's close
  * event names no one, so this counts issues closed while theirs, not issues
  * they closed.
  */
 export function closedAssignedIssues(
   issues: readonly IssueWithActivity[],
-  login: string,
+  who: Who,
   start: number,
   end: number,
 ): number {
   return issues.filter((issue) => {
     if (issue.state !== "CLOSED" || issue.closedAt === null) return false;
     const closed = Date.parse(issue.closedAt);
-    return closed >= start && closed < end && issue.assignees.some((who) => who.login === login);
+    return closed >= start && closed < end && issue.assignees.some((assignee) => isWho(who, assignee.login));
   }).length;
 }

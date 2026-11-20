@@ -80,6 +80,27 @@ describe("assignedIssues", () => {
   });
 });
 
+describe("assignedIssues for a team", () => {
+  it("lists an issue two members hold once, naming both, held from the earlier assignment", () => {
+    const rows = assignedIssues(
+      [
+        issue(1, {
+          assignees: [{ login: "mona" }, { login: "octocat" }, { login: "yeti" }],
+          timelineItems: [assigned("2026-08-01T09:00:00Z", "mona"), assigned("2026-07-01T09:00:00Z", "octocat")],
+        }),
+        issue(2, { assignees: [{ login: "yeti" }] }),
+      ],
+      new Set(["octocat", "mona"]),
+    );
+    expect(rows).toMatchObject([{ number: 1, holders: ["mona", "octocat"], assignedAt: "2026-07-01T09:00:00Z" }]);
+  });
+
+  it("counts an issue two members held as one closed", () => {
+    const closed = issue(3, { state: "CLOSED", closedAt: "2026-09-02T09:00:00Z", assignees: [{ login: "mona" }, { login: "octocat" }] });
+    expect(closedAssignedIssues([closed], new Set(["octocat", "mona"]), 0, Date.parse("2026-10-01T00:00:00Z"))).toBe(1);
+  });
+});
+
 describe("closedAssignedIssues", () => {
   const start = Date.parse("2026-09-01T00:00:00Z");
   const end = Date.parse("2026-10-01T00:00:00Z");

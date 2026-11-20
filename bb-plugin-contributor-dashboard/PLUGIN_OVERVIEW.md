@@ -11,7 +11,10 @@ review, then their reviews requested and given, as bars with a trend line, and t
 Reviews requested of a team, as a CODEOWNERS file asks for them, show where
 nobody has picked them up: on the overview's Code review step, in a row per
 team under Review velocity with who on it picks up its reviews, and on a
-person's page as the pull requests waiting on their teams.
+person's page as the pull requests waiting on their teams. A team has a page
+too, from the search box or its name under Review velocity: the same parts as
+a person's page, adding up what its members did, with its members listed to
+open their own pages.
 The **Issues** section charts the issues closed in each week by issue type,
 with those closed as not planned or duplicate set apart.
 Clicking the **Issues** or **Pull requests** heading lists every one open now,

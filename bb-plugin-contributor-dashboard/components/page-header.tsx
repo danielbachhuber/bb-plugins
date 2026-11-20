@@ -1,18 +1,20 @@
 // The header every page shares: a toolbar with the repository on the left,
-// which goes back to the dashboard, and the person finder and span picker on
+// which goes back to the dashboard, and the person and team finder and span picker on
 // the right; then, on every page but the dashboard, the page's title and a
 // line saying what it covers. Display only.
 import type { ReactNode } from "react";
 
-import { PersonFinder } from "./person-finder";
+import { PersonFinder, type FinderEntry } from "./person-finder";
 import { Icon } from "./ui/icon";
 
 export function PageHeader({
   repository,
   onHome,
   everyone,
+  everyTeam = [],
   current = null,
   onOpenPerson,
+  onOpenTeam,
   period = null,
   title = null,
   subtitle = null,
@@ -24,9 +26,12 @@ export function PageHeader({
   onHome?: () => void;
   /** Who the finder offers, most recently active first. */
   everyone: readonly string[];
-  /** The person whose page this is, marked in the finder's list. */
-  current?: string | null;
+  /** Team slugs the finder offers, when `onOpenTeam` is given. */
+  everyTeam?: readonly string[];
+  /** The person or team whose page this is, marked in the finder's list. */
+  current?: FinderEntry | null;
   onOpenPerson: (login: string) => void;
+  onOpenTeam?: (slug: string) => void;
   /** The span picker, on the pages a span changes. */
   period?: ReactNode;
   /** The page's own title. Null on the dashboard, where the repository is it. */
@@ -58,7 +63,7 @@ export function PageHeader({
           </button>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          {repository === null ? null : <PersonFinder everyone={everyone} current={current} onOpenPerson={onOpenPerson} />}
+          {repository === null ? null : <PersonFinder everyone={everyone} everyTeam={everyTeam} current={current} onOpenPerson={onOpenPerson} onOpenTeam={onOpenTeam} />}
           {period}
         </div>
       </div>

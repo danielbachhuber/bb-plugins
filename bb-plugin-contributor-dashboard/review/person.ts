@@ -4,6 +4,7 @@ import type { PullRequestWithActivity, TimelineItem } from "../mirror/github.js"
 
 import { businessDaysBetween } from "./business-time.js";
 import { countedReviews, reviewRounds } from "./reviews.js";
+import { isWho, loginsOf, type Who } from "./who.js";
 
 export interface AwaitingReviewRow {
   number: number;
@@ -12,7 +13,9 @@ export interface AwaitingReviewRow {
   author: string | null;
   /** Who it is assigned to now, which is nobody for most rows. */
   assignees: string[];
-  /** When the outstanding request was made. */
+  /** Who of them it is waiting on, which on a person's page is them. */
+  reviewers: string[];
+  /** When the earliest outstanding request was made. */
   requestedAt: string;
   waitingDays: number;
 }
@@ -21,6 +24,7 @@ export interface AuthoredPullRequestRow {
   number: number;
   title: string;
   url: string;
+  author: string | null;
   state: "OPEN" | "CLOSED" | "MERGED";
   isDraft: boolean;
   createdAt: string;
@@ -55,8 +59,9 @@ export function readyAt(pr: PullRequestWithActivity): string | null {
 }
 
 /**
- * Open pull requests waiting on a review from `login`: the latest request
+ * Open pull requests waiting on a review from `who`: the latest request
  * naming them has not been withdrawn, and they have not reviewed since it.
+ * For a team, a pull request waits on it while it waits on any member.
  * Longest wait first.
  *
  * Only requests that name the person. A request made of a team is waiting on
@@ -64,23 +69,26 @@ export function readyAt(pr: PullRequestWithActivity): string | null {
  */
 export function awaitingReview(
   prs: readonly PullRequestWithActivity[],
-  login: string,
+  who: Who,
   now: number,
 ): AwaitingReviewRow[] {
   const rows: AwaitingReviewRow[] = [];
   for (const pr of prs) {
     if (pr.state !== "OPEN" || pr.isDraft) continue;
-    const events = pr.timelineItems.filter(
-      (item): item is RequestEvent =>
-        (item.__typename === "ReviewRequestedEvent" || item.__typename === "ReviewRequestRemovedEvent") &&
-        requestedLogin(item) === login,
+    const latest = new Map<string, RequestEvent>();
+    for (const item of pr.timelineItems) {
+      if (item.__typename !== "ReviewRequestedEvent" && item.__typename !== "ReviewRequestRemovedEvent") continue;
+      const login = requestedLogin(item);
+      if (isWho(who, login)) latest.set(login, item);
+    }
+    const reviews = countedReviews(pr);
+    const outstanding = [...latest].filter(
+      ([login, event]) =>
+        event.__typename === "ReviewRequestedEvent" &&
+        !reviews.some((review) => review.author?.login === login && review.submittedAt! > event.createdAt),
     );
-    const latest = events.at(-1);
-    if (latest === undefined || latest.__typename !== "ReviewRequestedEvent") continue;
-    const reviewed = countedReviews(pr).some(
-      (review) => review.author?.login === login && review.submittedAt! > latest.createdAt,
-    );
-    if (reviewed) continue;
+    if (outstanding.length === 0) continue;
+    const requestedAt = outstanding.map(([, event]) => event.createdAt).sort()[0];
     rows.push({
       number: pr.number,
       title: pr.title,
@@ -89,26 +97,27 @@ export function awaitingReview(
       assignees: (pr.assignees ?? [])
         .map((who) => who.login)
         .filter((who): who is string => who !== undefined),
-      requestedAt: latest.createdAt,
-      waitingDays: businessDaysBetween(Date.parse(latest.createdAt), now),
+      reviewers: loginsOf(new Set(outstanding.map(([login]) => login))),
+      requestedAt,
+      waitingDays: businessDaysBetween(Date.parse(requestedAt), now),
     });
   }
   return rows.sort((a, b) => b.waitingDays - a.waitingDays);
 }
 
 /**
- * Pull requests `login` opened that were active in the period, newest first,
- * each with how its review went.
+ * Pull requests `who` opened that were active in the period, newest first,
+ * each with how its review went. For a team, any member's.
  */
 export function authoredPullRequests(
   prs: readonly PullRequestWithActivity[],
-  login: string,
+  who: Who,
   since: number,
   now: number,
 ): AuthoredPullRequestRow[] {
   const rows: AuthoredPullRequestRow[] = [];
   for (const pr of prs) {
-    if (pr.author?.login !== login) continue;
+    if (!isWho(who, pr.author?.login)) continue;
     if (Date.parse(pr.updatedAt) < since) continue;
     const ready = readyAt(pr);
     const readyMs = ready === null ? null : Date.parse(ready);
@@ -118,6 +127,7 @@ export function authoredPullRequests(
       number: pr.number,
       title: pr.title,
       url: pr.url,
+      author: pr.author?.login ?? null,
       state: pr.state,
       isDraft: pr.isDraft,
       createdAt: pr.createdAt,

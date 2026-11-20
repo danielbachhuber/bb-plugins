@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "../mirror/github";
 import { bucketsFor, rangeOf } from "../dashboard/period";
-import { peopleActivity } from "./people";
+import { peopleActivity, teamReviewActivity } from "./people";
 
 const NOW = Date.parse("2026-10-07T15:00:00Z"); // a Wednesday
 const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW)); // weeks starting Aug 31 … Oct 5
@@ -137,5 +137,30 @@ describe("peopleActivity, picked up for a team", () => {
     ]);
     expect(people.hubber).toMatchObject({ requestedTotal: 2, pickedUpTotal: 1 });
     expect(people.hubber.pickedUp.at(-2)).toBe(1);
+  });
+});
+
+describe("teamReviewActivity", () => {
+  it("adds up the members' rows under the team's slug, and is null when none has any", () => {
+    const row = (login: string, n: number) => ({
+      login,
+      requested: [n, 0],
+      pickedUp: [0, n],
+      given: [n, n],
+      requestedTotal: n,
+      pickedUpTotal: n,
+      givenTotal: 2 * n,
+    });
+    const people = [row("hubber", 1), row("mona", 2), row("yeti", 5)];
+    expect(teamReviewActivity(people, new Set(["hubber", "mona"]), "widgets-team")).toEqual({
+      login: "widgets-team",
+      requested: [3, 0],
+      pickedUp: [0, 3],
+      given: [3, 3],
+      requestedTotal: 3,
+      pickedUpTotal: 3,
+      givenTotal: 6,
+    });
+    expect(teamReviewActivity(people, new Set(["octocat"]), "docs")).toBeNull();
   });
 });

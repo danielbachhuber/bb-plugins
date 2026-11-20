@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "../mirror/github";
-import { everyone } from "./everyone";
+import { everyone, everyTeam } from "./everyone";
 
 function review(login: string, submittedAt: string, typename = "User"): PullRequestReview {
   return { id: `R_${login}_${submittedAt}`, state: "APPROVED", submittedAt, createdAt: submittedAt, author: { __typename: typename, login } };
@@ -66,5 +66,17 @@ describe("everyone", () => {
         pr("dependabot", "2026-09-01T00:00:00Z", [review("ci-bot[bot]", "2026-09-02T00:00:00Z")], [requested({ slug: "acme/reviewers" }, "2026-09-02T00:00:00Z")], "Bot"),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("everyTeam", () => {
+  it("puts the team with the most recently active member first, and leaves out teams with no members read", () => {
+    const members = new Map([
+      ["gadgets-team", ["yeti", "mona"]],
+      ["widgets-team", ["octocat"]],
+      ["docs", []],
+      ["quiet", ["nobody-seen"]],
+    ]);
+    expect(everyTeam(members, ["octocat", "hubber", "mona"])).toEqual(["widgets-team", "gadgets-team", "quiet"]);
   });
 });

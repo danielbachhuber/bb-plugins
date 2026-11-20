@@ -232,9 +232,12 @@ export function AssignedIssues({
   onThread,
   onBatch,
   now,
+  showHolders = false,
 }: {
   /** Longest held first, as the server sends them. */
   issues: readonly AssignedIssue[];
+  /** On a team's page, which members hold each one. */
+  showHolders?: boolean;
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
   /** Opens Batch over the issues the toolbar keeps. */
   onBatch: (heading: string, rows: readonly BatchItem[]) => void;
@@ -314,6 +317,7 @@ export function AssignedIssues({
                   number={issue.number}
                   title={issue.title}
                   url={issue.url}
+                  assignees={showHolders ? issue.holders ?? [] : undefined}
                   threadId={issue.threadId}
                   onThread={() =>
                     onThread(

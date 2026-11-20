@@ -190,6 +190,7 @@ export function StageView({
   error,
   onBack,
   onOpenPerson,
+  onOpenTeam,
   onWaitingPage,
   periodLabel,
   onThread,
@@ -204,6 +205,8 @@ export function StageView({
   error: string | null;
   onBack: () => void;
   onOpenPerson: (login: string) => void;
+  /** Opens a team's page. */
+  onOpenTeam?: (slug: string) => void;
   onWaitingPage: (page: number) => void;
   periodLabel: string;
   /** Opens the row's thread, or the dialog that starts one. */
@@ -227,7 +230,9 @@ export function StageView({
           repository={data?.repository ?? null}
           onHome={onBack}
           everyone={data?.everyone ?? []}
+          everyTeam={data?.everyTeam ?? []}
           onOpenPerson={onOpenPerson}
+          onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
           title={stage?.label ?? ""}
         />

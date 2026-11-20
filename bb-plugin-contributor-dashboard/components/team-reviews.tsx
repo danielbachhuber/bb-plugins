@@ -19,11 +19,14 @@ function TeamRow({
   team,
   organization,
   onOpenPerson,
+  onOpenTeam,
 }: {
   team: TeamActivity;
   organization: string | null;
   onOpenPerson: (login: string) => void;
+  onOpenTeam?: (slug: string) => void;
 }) {
+  const name = organization === null ? team.slug : `${organization}/${team.slug}`;
   const counted = team.pickups.filter((pickup) => pickup.count > 0);
   const none = team.pickups.filter((pickup) => pickup.count === 0);
   const shade = (index: number) => SHADES[Math.min(index, SHADES.length - 1)];
@@ -31,7 +34,18 @@ function TeamRow({
   return (
     <div className="rounded-lg border border-border bg-card p-3 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <span className="font-medium">{organization === null ? team.slug : `${organization}/${team.slug}`}</span>
+        {onOpenTeam === undefined ? (
+          <span className="font-medium">{name}</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenTeam(team.slug)}
+            title={`Open ${name}'s page`}
+            className="cursor-pointer font-medium hover:underline"
+          >
+            {name}
+          </button>
+        )}
         <span className="text-xs tabular-nums text-muted-foreground">
           {team.requested} requested · {team.pickedUp} picked up
           {team.pickedUp === 0 ? "" : ` · half within ${days(team.median)}, 1 in 10 over ${days(team.p90)}`}
@@ -86,11 +100,14 @@ export function TeamReviews({
   teams,
   organization,
   onOpenPerson,
+  onOpenTeam,
   initialShowAll = false,
 }: {
   teams: readonly TeamActivity[];
   organization: string | null;
   onOpenPerson: (login: string) => void;
+  /** Opens a team's page from its name. */
+  onOpenTeam?: (slug: string) => void;
   initialShowAll?: boolean;
 }) {
   const [showAll, setShowAll] = useState(initialShowAll);
@@ -106,7 +123,7 @@ export function TeamReviews({
       </h3>
       <div className="mt-3 space-y-2">
         {shown.map((team) => (
-          <TeamRow key={team.slug} team={team} organization={organization} onOpenPerson={onOpenPerson} />
+          <TeamRow key={team.slug} team={team} organization={organization} onOpenPerson={onOpenPerson} onOpenTeam={onOpenTeam} />
         ))}
       </div>
       {teams.length <= SHOWN ? null : (

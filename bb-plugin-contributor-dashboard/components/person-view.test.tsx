@@ -10,7 +10,9 @@ function person(started: number[], givenTotal: number | null, issues: { held?: n
   const flows = { started, finished: [], flows: [], fromEarlier: [], open: [], asked: null, median: 0, p90: 0 };
   return {
     repository: "acme/widgets",
-    login: "octocat",
+    subject: { login: "octocat" },
+    members: [],
+    teams: [],
     buckets: [],
     authorFlows: flows,
     activity: givenTotal === null ? null : { login: "octocat", requested: [], pickedUp: [], given: [], requestedTotal: 0, pickedUpTotal: 0, givenTotal },
@@ -35,6 +37,7 @@ function person(started: number[], givenTotal: number | null, issues: { held?: n
     authoredFacets: { open: 0, draft: 0, merged: 0, closed: 0 },
     authoredPaging: { page: 0, pages: 1, from: 0, to: 0, total: 0 },
     everyone: [],
+    everyTeam: [],
     sync: { syncedAt: 0, running: false, backfillDone: true, pullRequests: 0, issues: 0, error: null },
   };
 }

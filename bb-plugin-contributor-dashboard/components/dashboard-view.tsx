@@ -87,6 +87,7 @@ export function DashboardView({
   data,
   error,
   onOpenPerson,
+  onOpenTeam,
   onOpenStage,
   onOpenList,
   onLoadOlderReleases,
@@ -99,6 +100,8 @@ export function DashboardView({
   /** Loading the page failed. */
   error: string | null;
   onOpenPerson: (login: string) => void;
+  /** Opens a team's page. */
+  onOpenTeam?: (slug: string) => void;
   onOpenStage: (stage: StageKey) => void;
   /** Opens every open issue or pull request. */
   onOpenList: (kind: "issue" | "pull") => void;
@@ -117,7 +120,9 @@ export function DashboardView({
         <PageHeader
           repository={data?.repository ?? null}
           everyone={data?.everyone ?? []}
+          everyTeam={data?.everyTeam ?? []}
           onOpenPerson={onOpenPerson}
+          onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
         />
 
@@ -261,7 +266,7 @@ export function DashboardView({
                 }
                 onOpenPerson={onOpenPerson}
               />
-              <TeamReviews teams={data.teams} organization={data.organization} onOpenPerson={onOpenPerson} />
+              <TeamReviews teams={data.teams} organization={data.organization} onOpenPerson={onOpenPerson} onOpenTeam={onOpenTeam} />
             </Section>
 
             <ReleasesSection

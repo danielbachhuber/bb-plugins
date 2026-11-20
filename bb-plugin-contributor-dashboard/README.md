@@ -9,22 +9,25 @@ repository's pull requests, reviews, and issues.
 The panel's title bar says when the mirror last synced and has the **Sync**
 button, where bb's other plugins put theirs. Every page has the same header:
 the repository on the left, which goes back to the dashboard from any other
-page, and on the right a **Find a person** box and the span picker, which
+page, and on the right a **Find a person or team** box and the span picker, which
 every section follows: 2 weeks,
 6 weeks (the default), 3 months, and a date range for the question the presets
 do not answer. The range offers the two years the mirror reaches back and
 nothing later than today, the cross beside the dates drops it back to 6 weeks,
 and whatever is chosen is remembered for next time. So is the screen: opening
-the page again returns to the person, stage, or list last shown there.
+the page again returns to the person, team, stage, or list last shown there.
 While the first sync is still reaching back, the page says how far it has got.
 On every page but the dashboard, the page's title sits under the header with a
 line saying what the page covers.
 
-**Find a person** opens anyone's page by name. Focusing it lists the eight
-people most recently active, and typing narrows the list to logins containing
-what you typed, those starting with it first. Arrow keys and Enter pick one.
-It offers everyone who opened, reviewed, or was asked to review a pull request
-in the mirror, bots and teams left out, read from rows the page already loads.
+**Find a person or team** opens anyone's page by name, or a team's. Focusing
+it lists the five people most recently active, then three teams, the one with
+the most recently active member first. Typing narrows both to names containing
+what you typed, those starting with it first, people before teams, with three
+places kept for teams. Arrow keys and Enter pick one. It offers everyone who
+opened, reviewed, or was asked to review a pull request in the mirror, bots
+left out, and each team the sync has read members for, read from rows the page
+already loads.
 
 A chart has one point per bucket, and how long a bucket is follows the span: a
 month or less is drawn by day, up to half a year by week starting on Monday,
@@ -369,7 +372,8 @@ asked for a review in the period, most asked first, the first six shown until
 - how many open pull requests are waiting on it now with no review since, in
   amber
 - a bar divided by who picked its requests up, darkest for the most, with each
-  person's count and share; clicking a name opens their page
+  person's count and share; clicking a name opens their page, and clicking the
+  team's name opens the team's page
 - members who picked up none, by name, and the share the two busiest took
 
 Picking up follows the per-person count: the first review after the request
@@ -496,6 +500,33 @@ Times there are business days from when the pull request became ready for
 review, which is when it left draft, or when it opened if it never was one.
 Weekends do not count; a span under a day reads in hours, and under an hour in
 minutes.
+
+### A team's page
+
+A team's page, at `contributor-dashboard/team/<slug>`, has the same parts as a
+person's page, each adding up what the team's members did, as the sync last
+read them from GitHub. Under the title, its members are listed by name, each
+opening their own page, beside a link to the team on GitHub; on a person's
+page, the same line lists the teams they are in. Where the person's page
+counts one login, the team's counts any member:
+
+- **Activity by day**, **Pull requests**, and **Reviews** add the members'
+  counts together. A pull request two members reviewed on the same day counts
+  once for each.
+- **Issues assigned to them** lists an issue two members hold once, held from
+  the earlier of their assignments, and each row shows who holds it.
+- **Their pull requests** names who opened each one.
+- **Waiting on their review** lists a pull request once while any member is
+  asked by name and has not reviewed since, naming who, and times it from the
+  earliest of those requests.
+- **Waiting on the team** lists open pull requests waiting on this team, with
+  no review from anyone since it was asked. Unlike a person's list, members'
+  own pull requests and ones that also name someone stay in, since another
+  member can review them.
+
+A team the sync has not read members for has nothing to add up, and its page
+says so. The page reads the same rows from the local copy as a person's page
+does, so it makes no GitHub calls and takes about as long to load.
 
 ## For agents
 

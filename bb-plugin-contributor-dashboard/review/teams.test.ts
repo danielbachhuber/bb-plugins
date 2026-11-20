@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PullRequestReview, PullRequestWithActivity, TimelineItem } from "../mirror/github";
 import { bucketsFor, rangeOf } from "../dashboard/period";
 import { stageSummaries } from "./stages";
-import { awaitingTeamReview, teamActivity } from "./teams";
+import { awaitingTeam, awaitingTeamReview, teamActivity } from "./teams";
 
 const NOW = Date.parse("2026-10-07T15:00:00Z"); // a Wednesday
 const buckets = bucketsFor(rangeOf({ kind: "preset", id: "6w" }, NOW));
@@ -76,6 +76,18 @@ describe("awaitingTeamReview", () => {
       pr([asked("@gadgets", "2026-10-01T09:00:00Z")]),
     ];
     expect(awaitingTeamReview(prs, "octocat", MEMBERS, NOW)).toEqual([]);
+  });
+});
+
+describe("awaitingTeam", () => {
+  it("lists what waits on the team, members' own pull requests and named reviewers included", () => {
+    const own = pr([asked("@reviewers", "2026-10-01T09:00:00Z")], [], { author: { __typename: "User", login: "octocat" } });
+    const named = pr([asked("@reviewers", "2026-10-02T09:00:00Z"), asked("mona", "2026-10-02T09:00:00Z")]);
+    const other = pr([asked("@gadgets", "2026-10-01T09:00:00Z")]);
+    const reviewed = pr([asked("@reviewers", "2026-10-01T09:00:00Z")], [review("hubber", "2026-10-02T09:00:00Z")]);
+    const rows = awaitingTeam([own, named, other, reviewed], "reviewers", NOW);
+    expect(rows.map((row) => row.number)).toEqual([own.number, named.number]);
+    expect(rows[1]).toMatchObject({ teams: ["reviewers"], named: ["mona"] });
   });
 });
 

@@ -20,6 +20,15 @@ export const activityDaySchema = z.object({
   issuesClosed: z.number(),
 });
 
+/**
+ * Whose page it is: a person, or a team, whose page adds up its members'.
+ * A login or slug is GitHub's own, so it is bounded and has no path separators.
+ */
+export const subjectSchema = z.union([
+  z.object({ login: z.string().min(1).max(100) }),
+  z.object({ team: z.string().min(1).max(100) }),
+]);
+
 export const bucketSchema = z.object({ start: z.number(), end: z.number(), label: z.string() });
 
 export const personActivitySchema = z.object({
@@ -53,6 +62,8 @@ export const awaitingReviewSchema = z.object({
   url: z.string(),
   author: z.string().nullable(),
   ...rowOwnershipSchema,
+  /** Who of them it waits on; on a team's page, the members asked by name. */
+  reviewers: z.array(z.string()).optional(),
   requestedAt: z.string(),
   waitingDays: z.number(),
 });
@@ -88,6 +99,8 @@ export const authoredPullRequestSchema = z.object({
   url: z.string(),
   /** No assignee here: the list is the person's own pull requests. */
   threadId: z.string().nullable(),
+  /** Who opened it, which a team's page shows. */
+  author: z.string().nullable().optional(),
   state: z.enum(["OPEN", "CLOSED", "MERGED"]),
   isDraft: z.boolean(),
   createdAt: z.string(),
@@ -110,6 +123,8 @@ export const assignedIssueSchema = z.object({
   openedAt: z.string(),
   /** Null when it never reached a milestone or project. */
   plannedAt: z.string().nullable(),
+  /** Who of them holds it, which a team's page shows. */
+  holders: z.array(z.string()).optional(),
   assignedAt: z.string(),
   updatedAt: z.string(),
 });
@@ -339,13 +354,14 @@ export const rpcContract = defineRpcContract({
       organization: z.string().nullable(),
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
+      /** The teams it offers, by slug, the one with the most recently active member first. */
+      everyTeam: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },
   person_activity: {
-    // A login is GitHub's own, so it is bounded and has no path separators.
     input: z.object({
-      login: z.string().min(1).max(100),
+      subject: subjectSchema,
       range: rangeSchema,
       /** Which page of their pull requests; clamped into range by the server. */
       authoredPage: z.number().int().min(0).max(10_000).default(0),
@@ -353,7 +369,11 @@ export const rpcContract = defineRpcContract({
     }),
     output: z.object({
       repository: z.string().nullable(),
-      login: z.string(),
+      subject: subjectSchema,
+      /** A team's members, A to Z; empty on a person's page. */
+      members: z.array(z.string()),
+      /** The teams a person is in, A to Z; empty on a team's page. */
+      teams: z.array(z.string()),
       buckets: z.array(bucketSchema),
       /** Their pull requests opened and merged, and where each bucket's went. */
       authorFlows: bucketFlowsSchema,
@@ -389,6 +409,8 @@ export const rpcContract = defineRpcContract({
       }),
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
+      /** The teams it offers, by slug, the one with the most recently active member first. */
+      everyTeam: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },
@@ -425,6 +447,8 @@ export const rpcContract = defineRpcContract({
       }),
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
+      /** The teams it offers, by slug, the one with the most recently active member first. */
+      everyTeam: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },
@@ -473,6 +497,8 @@ export const rpcContract = defineRpcContract({
       }),
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
+      /** The teams it offers, by slug, the one with the most recently active member first. */
+      everyTeam: z.array(z.string()),
       sync: syncStatusSchema,
     }),
   },
@@ -486,7 +512,7 @@ export const rpcContract = defineRpcContract({
   },
   /** Every one of a person's pull requests the query matches, on every page, for Batch. */
   authored_matching: {
-    input: z.object({ login: z.string().min(1).max(100), range: rangeSchema, query: authoredQuerySchema }),
+    input: z.object({ subject: subjectSchema, range: rangeSchema, query: authoredQuerySchema }),
     output: z.object({ rows: z.array(authoredPullRequestSchema) }),
   },
   /** Everything waiting in a stage that the query matches, on every page, for Batch. */
@@ -546,6 +572,7 @@ export type StageKey = z.infer<typeof stageKeySchema>;
 export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
 export type ActivityDay = z.infer<typeof activityDaySchema>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
+export type Subject = z.infer<typeof subjectSchema>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;
 
 export type OpenItemsResult = z.infer<(typeof rpcContract)["open_items"]["output"]>;

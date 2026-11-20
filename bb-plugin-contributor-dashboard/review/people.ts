@@ -117,3 +117,27 @@ export function peopleActivity(prs: readonly PullRequestWithActivity[], buckets:
 
   return [...people.values()].sort((a, b) => a.login.localeCompare(b.login, "en", { sensitivity: "base" }));
 }
+
+/**
+ * A team's review activity: its members' rows added together, under the
+ * team's slug. Null when none of them has any in the period.
+ */
+export function teamReviewActivity(
+  people: readonly PersonActivity[],
+  members: ReadonlySet<string>,
+  slug: string,
+): PersonActivity | null {
+  const theirs = people.filter((person) => members.has(person.login));
+  if (theirs.length === 0) return null;
+  const sum = (field: "requested" | "pickedUp" | "given") =>
+    theirs[0][field].map((_, index) => theirs.reduce((total, person) => total + person[field][index], 0));
+  return {
+    login: slug,
+    requested: sum("requested"),
+    pickedUp: sum("pickedUp"),
+    given: sum("given"),
+    requestedTotal: theirs.reduce((total, person) => total + person.requestedTotal, 0),
+    pickedUpTotal: theirs.reduce((total, person) => total + person.pickedUpTotal, 0),
+    givenTotal: theirs.reduce((total, person) => total + person.givenTotal, 0),
+  };
+}

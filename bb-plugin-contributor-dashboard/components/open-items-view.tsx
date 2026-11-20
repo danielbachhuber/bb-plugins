@@ -42,6 +42,7 @@ export function OpenItemsView({
   error,
   onBack,
   onOpenPerson,
+  onOpenTeam,
   onPage,
   onThread,
   query,
@@ -55,6 +56,8 @@ export function OpenItemsView({
   error: string | null;
   onBack: () => void;
   onOpenPerson: (login: string) => void;
+  /** Opens a team's page. */
+  onOpenTeam?: (slug: string) => void;
   onPage: (page: number) => void;
   /** Opens the row's thread, or the composer that starts one. */
   onThread: (seed: ThreadSeed, threadId: string | null) => void;
@@ -78,7 +81,9 @@ export function OpenItemsView({
           repository={data?.repository ?? null}
           onHome={onBack}
           everyone={data?.everyone ?? []}
+          everyTeam={data?.everyTeam ?? []}
           onOpenPerson={onOpenPerson}
+          onOpenTeam={onOpenTeam}
           title={
             <>
               {HEADINGS[kind]}
