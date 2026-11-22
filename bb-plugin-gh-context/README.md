@@ -83,9 +83,11 @@ no extra request.
 
 While the pull request is open, GitHub's mark follows it, with a dot for its
 checks: green when they pass, amber while any run, red when any fail. Clicking
-it lists every check, failing first, each opening its details page. The list
-comes from the `gh pr view` call the banner already makes for the reviewers, so
-it costs no extra request.
+it lists every check, failing first, each opening its details page, with how
+long it took on the right, such as "2m 18s". A running check shows its time so
+far, such as "3m 4s…", and a skipped one shows none. The list and the times
+come from the `gh pr view` call the banner already makes for the reviewers, so
+they cost no extra request.
 
 When the pull request is part of a stack on GitHub, a layers icon and its
 place in the stack follow it, written as GitHub writes it: "4/5" is the fourth

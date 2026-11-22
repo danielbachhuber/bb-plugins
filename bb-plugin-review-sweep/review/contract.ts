@@ -109,6 +109,8 @@ const rowSchema = z.object({
         workflow: z.string().optional(),
         outcome: z.enum(["fail", "cancelled", "pending", "pass", "skip"]),
         url: z.string().optional(),
+        startedAt: z.string().optional(),
+        completedAt: z.string().optional(),
       }),
     )
     .optional(),

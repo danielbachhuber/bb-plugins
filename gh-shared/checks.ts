@@ -31,8 +31,10 @@ export interface RollupEntry {
   status?: string | null;
   conclusion?: string | null;
   state?: string | null;
-  /** Which run of a re-run check this is. */
+  /** Which run of a re-run check this is, and with `completedAt`, how long it took. */
   startedAt?: string | null;
+  /** When a CheckRun finished. `gh` gives year 1 for one still running. */
+  completedAt?: string | null;
   /** `gh`'s flat form. */
   workflowName?: string | null;
   /** GraphQL's nested form. */
@@ -59,6 +61,10 @@ export interface CheckEntry {
   outcome: CheckOutcome;
   /** Its details page on GitHub or the CI provider. */
   url?: string;
+  /** When it started, as an ISO timestamp. */
+  startedAt?: string;
+  /** When it finished, as an ISO timestamp. Unset while it runs. */
+  completedAt?: string;
 }
 
 /** The checks counted by outcome. `total` is every check, skipped ones included. */
@@ -160,7 +166,17 @@ export function checkOutcome(entry: RollupEntry): CheckOutcome {
   return "pending";
 }
 
-/** Every check's latest run, with its workflow and details page. */
+/**
+ * A timestamp worth passing on. `gh` fills a time that has not happened yet
+ * with year 1 (`0001-01-01T00:00:00Z`), so anything before 2000 is unset.
+ */
+function realTime(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const at = Date.parse(value);
+  return Number.isNaN(at) || at < Date.UTC(2000, 0, 1) ? undefined : value;
+}
+
+/** Every check's latest run, with its workflow, details page, and times. */
 export function checkEntries(rollup: Rollup): CheckEntry[] {
   return latestChecks(rollup).map((entry) => {
     const check: CheckEntry = { name: checkName(entry) || "Unnamed check", outcome: checkOutcome(entry) };
@@ -168,6 +184,10 @@ export function checkEntries(rollup: Rollup): CheckEntry[] {
     if (workflow) check.workflow = workflow;
     const url = entry.detailsUrl || entry.targetUrl;
     if (url) check.url = url;
+    const started = realTime(entry.startedAt);
+    if (started) check.startedAt = started;
+    const completed = realTime(entry.completedAt);
+    if (completed) check.completedAt = completed;
     return check;
   });
 }

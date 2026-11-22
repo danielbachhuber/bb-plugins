@@ -608,8 +608,10 @@ which bb provides at runtime.
 
 A pull request's checks count, made clickable. The menu lists every check on
 the head commit, failing first, then cancelled, running, passed, and skipped,
-each with its workflow and name. Clicking one opens its details page with bb's
-`UrlLink`.
+each with its workflow and name, and how long it took on the right in GitHub's
+style ("3s", "2m 18s"). A running check shows its time so far with "…", as of
+when the menu opened; a skipped check, or one without times, shows none.
+Clicking one opens its details page with bb's `UrlLink`.
 
 ```tsx
 import { ChecksMenu } from "@danielbachhuber/bb-plugin-component-library/checks-menu";
@@ -619,8 +621,11 @@ import { ChecksMenu } from "@danielbachhuber/bb-plugin-component-library/checks-
 </ChecksMenu>
 ```
 
-`checks` is a list of `{ name, workflow?, outcome, url? }`, where `outcome` is
-`fail`, `cancelled`, `pending`, `pass`, or `skip`. `label` is the trigger's
+`checks` is a list of `{ name, workflow?, outcome, url?, startedAt?,
+completedAt? }`, where `outcome` is `fail`, `cancelled`, `pending`, `pass`, or
+`skip`, and the times are ISO timestamps. `checkDuration(check, now?)` and
+`formatDuration(seconds)` give the same text outside the menu, and the `now` prop sets
+the clock a running check counts to, for a story. `label` is the trigger's
 accessible name and hover text. With an empty list it draws `children` alone,
 not as a button. `sweep-ui`'s `ChecksBadge` draws it for PR Sweep and Review
 Sweep when given a `list`, and GitHub

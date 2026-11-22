@@ -552,9 +552,9 @@ describe("checkListOf", () => {
       },
     });
     expect(checkListOf(pr)).toEqual([
-      { name: "build", workflow: "Test", outcome: "pass", url: "https://example.test/build/2026-01-01T00:01:00Z" },
-      { name: "unit", workflow: "Test", outcome: "cancelled", url: "https://example.test/unit/2026-01-01T00:00:00Z" },
-      { name: "e2e", workflow: "Test", outcome: "pending", url: "https://example.test/e2e/2026-01-01T00:00:00Z" },
+      { name: "build", workflow: "Test", outcome: "pass", url: "https://example.test/build/2026-01-01T00:01:00Z", startedAt: "2026-01-01T00:01:00Z" },
+      { name: "unit", workflow: "Test", outcome: "cancelled", url: "https://example.test/unit/2026-01-01T00:00:00Z", startedAt: "2026-01-01T00:00:00Z" },
+      { name: "e2e", workflow: "Test", outcome: "pending", url: "https://example.test/e2e/2026-01-01T00:00:00Z", startedAt: "2026-01-01T00:00:00Z" },
       { name: "deploy", outcome: "fail", url: "https://example.test/deploy" },
     ]);
   });

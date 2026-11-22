@@ -167,6 +167,8 @@ export interface RawPullRequest {
     state?: string;
     /** Which run of a re-run check this is. See `latestChecks`. */
     startedAt?: string | null;
+    /** When it finished, for the checks menu's durations. */
+    completedAt?: string | null;
     workflowName?: string;
     /** A CheckRun's details page. */
     detailsUrl?: string;

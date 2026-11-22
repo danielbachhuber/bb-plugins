@@ -81,6 +81,7 @@ query($q: String!, $limit: Int!) {
                       status
                       conclusion
                       startedAt
+                      completedAt
                       detailsUrl
                       checkSuite { workflowRun { databaseId workflow { name } } }
                     }

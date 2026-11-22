@@ -130,6 +130,26 @@ describe("checkEntries", () => {
     ];
     expect(countChecks(checkEntries(rollup))).toEqual({ pass: 1, fail: 0, skip: 0, pending: 0, cancelled: 0, total: 1 });
   });
+
+  it("passes on when a check started and finished", () => {
+    expect(
+      checkEntries([
+        { name: "lint", status: "COMPLETED", conclusion: "SUCCESS", startedAt: "2026-01-01T00:00:00Z", completedAt: "2026-01-01T00:02:18Z" },
+      ]),
+    ).toEqual([{ name: "lint", outcome: "pass", startedAt: "2026-01-01T00:00:00Z", completedAt: "2026-01-01T00:02:18Z" }]);
+  });
+
+  it("drops the year-1 time gh gives a check that has not finished", () => {
+    expect(
+      checkEntries([
+        { name: "e2e", status: "IN_PROGRESS", conclusion: "", startedAt: "2026-01-01T00:00:00Z", completedAt: "0001-01-01T00:00:00Z" },
+        { name: "queued", status: "QUEUED", conclusion: "", startedAt: "0001-01-01T00:00:00Z", completedAt: "0001-01-01T00:00:00Z" },
+      ]),
+    ).toEqual([
+      { name: "e2e", outcome: "pending", startedAt: "2026-01-01T00:00:00Z" },
+      { name: "queued", outcome: "pending" },
+    ]);
+  });
 });
 
 describe("failingCheckNames", () => {

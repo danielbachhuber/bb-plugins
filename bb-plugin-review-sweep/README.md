@@ -184,7 +184,7 @@ Then a line of icons:
 - the head commit's checks as a count, such as a green tick with "13/13", an
   amber clock while any run, or a red cross with "2/15 failing". Hovering it
   names every count, and clicking it lists every check, failing first, each
-  opening its details page. Only the latest run of each check counts, so a run
+  opening its details page and showing how long it took. Only the latest run of each check counts, so a run
   a newer push cancelled and a re-run replaced does not read as cancelled.
   GitHub's own counts are used instead when there are more than 100 checks.
   Left out when the pull request has no checks.
