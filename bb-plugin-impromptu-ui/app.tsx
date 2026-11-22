@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import type { rpcContract } from "./server";
 import { startsCollapsed, ViewBanner } from "./view/banner.js";
 import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
+import { collapsedChoice, rememberCollapsed } from "./view/collapse.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
 import { threadElsewhere, type Item } from "./view/schema.js";
 import type { StoredView } from "./view/store.js";
@@ -298,8 +299,9 @@ function Banner() {
   // different keys show together, one header each.
   const [views, setViews] = useState<StoredView[]>([]);
   // Per view: unset, a list collapses by itself once every item is handled; a
-  // click on its header overrides that until it is next published.
-  const [collapsedByUser, setCollapsedByUser] = useState<Record<number, boolean>>({});
+  // click on its header overrides that until it is next published. The click
+  // is kept in localStorage, since switching threads remounts this banner.
+  const [, setToggles] = useState(0);
   const focus = useFocus(threadId ?? "");
   const fail = useFail();
   // An inline view's answers run from here, with no side panel.
@@ -354,24 +356,18 @@ function Banner() {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
-  // A newly published view opens expanded, even if it was collapsed before.
-  useRealtime(
-    "impromptu-ui-published",
-    useCallback((payload: unknown) => {
-      const { threadId: published, viewId } = (payload ?? {}) as { threadId?: string; viewId?: number };
-      if (published !== threadId || viewId === undefined) return;
-      setCollapsedByUser(({ [viewId]: _, ...rest }) => rest);
-    }, [threadId]),
-  );
 
   // Rendering nothing lets the host's card hide itself.
   if (threadId === null || views.length === 0) return null;
   const focusedView = views.some((stored) => stored.id === focus?.viewId) ? focus!.viewId : views[0]!.id;
 
   return (
-    <div className="divide-y divide-border">
+    // Capped so a stack of views never pushes the transcript off screen; past
+    // the cap the stack scrolls.
+    <div className="max-h-[45vh] divide-y divide-border overflow-y-auto">
       {views.map((stored) => {
-        const collapsed = collapsedByUser[stored.id] ?? startsCollapsed(stored);
+        const stamp = publishStamp(stored.id, stored.publishedAt);
+        const collapsed = collapsedChoice(stored.id, stamp) ?? startsCollapsed(stored);
         const openView = () =>
           navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
         return (
@@ -379,7 +375,10 @@ function Banner() {
             key={stored.id}
             stored={stored}
             collapsed={collapsed}
-            onToggle={() => setCollapsedByUser((current) => ({ ...current, [stored.id]: !collapsed }))}
+            onToggle={() => {
+              rememberCollapsed(stored.id, stamp, !collapsed);
+              setToggles((count) => count + 1);
+            }}
             onHide={() => {
               rpc.call("view_hide", { viewId: stored.id, hidden: true, threadId }).then(refetch, (error: unknown) => {
                 toast.error(error instanceof Error ? error.message : String(error));
