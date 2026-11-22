@@ -18,7 +18,7 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
-import { startsCollapsed, ViewBanner } from "./view/banner.js";
+import { decisionItems, startsCollapsed, ViewBanner } from "./view/banner.js";
 import { alreadyAutoOpened, markAutoOpened, publishStamp } from "./view/auto-open.js";
 import { collapsedChoice, rememberCollapsed } from "./view/collapse.js";
 import { focusOf, setFocus, useFocus } from "./view/focus.js";
@@ -299,8 +299,8 @@ function Banner() {
   // different keys show together, one header each.
   const [views, setViews] = useState<StoredView[]>([]);
   // Per view: unset, a list collapses by itself once every item is handled; a
-  // click on its header overrides that until it is next published. The click
-  // is kept in localStorage, since switching threads remounts this banner.
+  // click on its header overrides that (see view/collapse.ts). The click is
+  // kept in localStorage, since switching threads remounts this banner.
   const [, setToggles] = useState(0);
   const focus = useFocus(threadId ?? "");
   const fail = useFail();
@@ -367,7 +367,10 @@ function Banner() {
     <div className="max-h-[45vh] divide-y divide-border overflow-y-auto">
       {views.map((stored) => {
         const stamp = publishStamp(stored.id, stored.publishedAt);
-        const collapsed = collapsedChoice(stored.id, stamp) ?? startsCollapsed(stored);
+        const openItems = decisionItems(stored)
+          .filter((item) => (stored.items[item.id]?.state ?? "open") === "open")
+          .map((item) => item.id);
+        const collapsed = collapsedChoice(stored.id, stamp, openItems) ?? startsCollapsed(stored);
         const openView = () =>
           navigate.openThreadPanel({ actionId: PANEL_ACTION, params: { viewId: stored.id }, title: stored.view.title });
         return (
@@ -376,7 +379,7 @@ function Banner() {
             stored={stored}
             collapsed={collapsed}
             onToggle={() => {
-              rememberCollapsed(stored.id, stamp, !collapsed);
+              rememberCollapsed(stored.id, stamp, !collapsed, openItems);
               setToggles((count) => count + 1);
             }}
             onHide={() => {

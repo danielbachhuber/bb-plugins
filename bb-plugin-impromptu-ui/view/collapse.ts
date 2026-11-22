@@ -3,15 +3,17 @@
  * localStorage so the choice survives a switch to another thread and back,
  * which remounts the banner, and a reload.
  *
- * Each choice holds the publish it was made on. A republish is a new
- * publish, so the view goes back to how it starts (expanded while anything is
- * open).
+ * Each choice holds the publish it was made on and the items open then. An
+ * unfolded view goes back to how it starts once it is published again. A
+ * folded one stays folded through a republish unless the republish brings an
+ * open item that was not open when it was folded.
  */
 const KEY = "impromptu-ui:collapsed";
 /** Choices kept, newest last; older ones are dropped. */
 const LIMIT = 200;
 
-type Choices = Record<string, { stamp: string; collapsed: boolean }>;
+type Choice = { stamp: string; collapsed: boolean; open: string[] };
+type Choices = Record<string, Choice>;
 
 function storage(): Storage | null {
   try {
@@ -30,14 +32,21 @@ function read(): Choices {
   }
 }
 
-/** The user's choice for this publish of the view, or undefined when they made none. */
-export function collapsedChoice(viewId: number, stamp: string): boolean | undefined {
+/**
+ * The user's choice for the view as published now, or undefined when they
+ * made none, or made one the republish replaced.
+ */
+export function collapsedChoice(viewId: number, stamp: string, openItems: string[]): boolean | undefined {
   const choice = read()[viewId];
-  return choice?.stamp === stamp ? choice.collapsed : undefined;
+  if (choice === undefined) return undefined;
+  if (choice.stamp === stamp) return choice.collapsed;
+  if (!choice.collapsed) return undefined;
+  const seen = new Set(choice.open ?? []);
+  return openItems.every((id) => seen.has(id)) ? true : undefined;
 }
 
-export function rememberCollapsed(viewId: number, stamp: string, collapsed: boolean): void {
+export function rememberCollapsed(viewId: number, stamp: string, collapsed: boolean, openItems: string[]): void {
   const { [viewId]: _, ...rest } = read();
-  const entries = [...Object.entries(rest), [String(viewId), { stamp, collapsed }] as const].slice(-LIMIT);
+  const entries = [...Object.entries(rest), [String(viewId), { stamp, collapsed, open: openItems }] as const].slice(-LIMIT);
   storage()?.setItem(KEY, JSON.stringify(Object.fromEntries(entries)));
 }
