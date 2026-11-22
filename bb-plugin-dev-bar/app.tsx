@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { definePluginApp, useBbNavigate, useComposer, useRpc } from "@get-bb/plugin-sdk/app";
-import { ServicesStrip, targetKey } from "./components/services-strip";
+import { INSTALL_POLL_SECONDS, ServicesStrip, targetKey, type Setup } from "./components/services-strip";
 import type { Failure, RunTarget, Strip, rpcContract } from "./services/contract";
 
 declare const __BB_PLUGIN_ID__: string | undefined;
@@ -71,20 +71,23 @@ function Strip() {
     }
   }, [rpc, threadId]);
 
+  // While dependencies are missing, the status command fails the same way until something installs them.
+  const waitingOnInstall = strip?.kind === "services" && strip.install !== null;
+
   useEffect(() => {
     void load();
     const fast = Date.now() < fastUntil;
     const timer = setInterval(() => {
       if (fast && Date.now() >= fastUntil) setFastUntil(0);
       void load();
-    }, fast ? FAST_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
+    }, fast ? FAST_POLL_INTERVAL_MS : waitingOnInstall ? INSTALL_POLL_SECONDS * 1000 : POLL_INTERVAL_MS);
     const onVisible = () => document.visibilityState === "visible" && void load();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [load, fastUntil]);
+  }, [load, fastUntil, waitingOnInstall]);
 
   const run = useCallback(
     async (target: RunTarget) => {
@@ -130,7 +133,14 @@ function Strip() {
   if (!threadId || !container || strip?.kind === "none") return probe;
 
   const services = strip?.kind === "services" ? strip : null;
-  const statusFailure = services?.failure ?? null;
+  const setup: Setup | null =
+    strip?.kind === "setting-up"
+      ? { kind: "setting-up" }
+      : services?.install
+        ? { kind: "install", install: services.install }
+        : null;
+  // The install line says what is wrong, so the status command's own failure stays out of the way.
+  const statusFailure = setup ? null : (services?.failure ?? null);
   const statusKey = statusFailure ? `${statusFailure.command}\n${statusFailure.output}` : null;
   const failure = actionFailure ?? (statusKey !== dismissedStatus ? statusFailure : null);
 
@@ -140,8 +150,9 @@ function Strip() {
       {createPortal(
         <ServicesStrip
           services={services?.services ?? []}
-          actions={services?.actions ?? []}
+          actions={strip?.actions ?? []}
           loaded={strip !== null}
+          setup={setup}
           source={services?.source ?? null}
           busy={busy}
           failure={failure}

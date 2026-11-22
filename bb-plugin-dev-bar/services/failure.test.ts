@@ -9,6 +9,7 @@ describe("diagnose", () => {
     });
     expect(diagnose("sh: 1: vite: not found")).toEqual({ kind: "missing-command", program: "vite" });
     expect(diagnose("zsh: command not found: pnpm")).toEqual({ kind: "missing-command", program: "pnpm" });
+    expect(diagnose("zsh:1: command not found: tsx")).toEqual({ kind: "missing-command", program: "tsx" });
     expect(diagnose('ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "tsx" not found')).toEqual({
       kind: "missing-command",
       program: "tsx",

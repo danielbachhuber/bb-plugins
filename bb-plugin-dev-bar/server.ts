@@ -8,17 +8,22 @@ import {
   parseManifest,
   parseStatus,
   pickManifest,
+  installCommand,
   serviceCommands,
   servicesToStop,
   tail,
   type Manifest,
   type ManifestSource,
 } from "./services/manifest";
-import { threadRequest } from "./services/failure";
-import { readCheckoutManifests, readText, runCommand } from "./services/shell";
+import { diagnose, threadRequest } from "./services/failure";
+import { presentLockfiles, readCheckoutManifests, readText, runCommand } from "./services/shell";
 
 const STATUS_TIMEOUT_MS = 20_000;
 const ACTION_TIMEOUT_MS = 5 * 60_000;
+const INSTALL_TIMEOUT_MS = 15 * 60_000;
+
+/** bb's environment statuses while it is still creating a checkout or running its setup script. */
+const SETTING_UP = new Set(["creating", "provisioning"]);
 
 interface ThreadLike {
   projectId?: string | null;
@@ -30,12 +35,13 @@ type ThreadRef = string | ThreadLike;
 
 interface EnvironmentLike {
   path?: string | null;
+  status?: string | null;
 }
 
 type Loaded =
   | { kind: "none" }
-  | { kind: "failed"; source: string; failure: Failure }
-  | { kind: "ok"; source: string; root: string; manifest: Manifest };
+  | { kind: "failed"; source: string; failure: Failure; settingUp: boolean }
+  | { kind: "ok"; source: string; root: string; manifest: Manifest; settingUp: boolean };
 
 /** A bb project's saved manifest, as text, in the plugin's own storage. */
 const projectKey = (projectId: string) => `manifest:${projectId}`;
@@ -55,25 +61,27 @@ export default async function plugin(bb: BbPluginApi) {
    * no checkout on this machine. Takes the thread itself when the caller has
    * it, since bb no longer returns a deleted thread by id.
    */
-  async function checkoutFor(threadRef: ThreadRef): Promise<{ root: string | null; projectId: string | null }> {
+  async function checkoutFor(
+    threadRef: ThreadRef,
+  ): Promise<{ root: string | null; projectId: string | null; settingUp: boolean }> {
     const thread =
       typeof threadRef === "string"
         ? ((await bb.sdk.threads.get({ threadId: threadRef })) as unknown as ThreadLike)
         : threadRef;
     const projectId = thread.projectId ?? null;
-    if (!thread.environmentId) return { root: null, projectId };
+    if (!thread.environmentId) return { root: null, projectId, settingUp: false };
     try {
       const environment = (await bb.sdk.environments.get({
         environmentId: thread.environmentId,
       })) as unknown as EnvironmentLike;
-      return { root: environment.path ?? null, projectId };
+      return { root: environment.path ?? null, projectId, settingUp: SETTING_UP.has(environment.status ?? "") };
     } catch {
-      return { root: null, projectId };
+      return { root: null, projectId, settingUp: false };
     }
   }
 
   async function load(thread: ThreadRef): Promise<Loaded> {
-    const { root, projectId } = await checkoutFor(thread);
+    const { root, projectId, settingUp } = await checkoutFor(thread);
     if (!root) return { kind: "none" };
     const inCheckout = await readCheckoutManifests(root).catch(() => ({ committed: null, local: null }));
     const saved = projectId ? ((await bb.storage.kv.get<string>(projectKey(projectId))) ?? null) : null;
@@ -81,8 +89,10 @@ export default async function plugin(bb: BbPluginApi) {
     if (!found) return { kind: "none" };
     const source = `Services from ${SOURCE_LABEL[found.source]}`;
     const manifest = parseManifest(found.text, sourceName(found.source));
-    if (!manifest.ok) return { kind: "failed", source, failure: { title: "Manifest", command: "", output: manifest.error } };
-    return { kind: "ok", source, root, manifest: manifest.value };
+    if (!manifest.ok) {
+      return { kind: "failed", source, settingUp, failure: { title: "Manifest", command: "", output: manifest.error } };
+    }
+    return { kind: "ok", source, root, manifest: manifest.value, settingUp };
   }
 
   function sourceName(source: ManifestSource): string {
@@ -98,31 +108,36 @@ export default async function plugin(bb: BbPluginApi) {
   async function strip(thread: ThreadRef): Promise<Strip> {
     const loaded = await load(thread);
     if (loaded.kind === "none") return { kind: "none" };
+    const actionsOf = (manifest: Manifest) =>
+      manifest.actions.map((action, index) => ({ index, label: action.label, confirm: action.confirm ?? null }));
+    // Its dependencies are likely still installing, so the status command would fail for no lasting reason.
+    if (loaded.settingUp) return { kind: "setting-up", actions: loaded.kind === "ok" ? actionsOf(loaded.manifest) : [] };
     if (loaded.kind === "failed") {
-      return { kind: "services", source: loaded.source, services: [], actions: [], failure: loaded.failure };
+      return { kind: "services", source: loaded.source, services: [], actions: [], failure: loaded.failure, install: null };
     }
     const { root, manifest, source } = loaded;
     const existing = inFlight.get(root);
     if (existing) return existing;
     const pending = (async (): Promise<Strip> => {
-      const actions = manifest.actions.map((action, index) => ({
-        index,
-        label: action.label,
-        confirm: action.confirm ?? null,
-      }));
+      const actions = actionsOf(manifest);
       const result = await runCommand(manifest.status, root, STATUS_TIMEOUT_MS);
-      const failed = (output: string): Strip => ({
-        kind: "services",
-        source,
-        services: [],
-        actions,
-        failure: { title: "Status", command: manifest.status, output },
-      });
+      const failed = async (output: string): Promise<Strip> => {
+        const diagnosis = diagnose(output);
+        const command = diagnosis ? installCommand(manifest, await presentLockfiles(root)) : null;
+        return {
+          kind: "services",
+          source,
+          services: [],
+          actions,
+          failure: { title: "Status", command: manifest.status, output },
+          install: diagnosis && command ? { command, missing: diagnosis.program } : null,
+        };
+      };
       if (result.timedOut) return failed(`Timed out after ${STATUS_TIMEOUT_MS / 1000}s.\n${tail(result.output)}`);
       if (result.exitCode !== 0) return failed(tail(result.output) || `Exited with ${result.exitCode}.`);
       const services = parseStatus(result.stdout, manifest);
       if (!services.ok) return failed(services.error);
-      return { kind: "services", source, services: services.value, actions, failure: null };
+      return { kind: "services", source, services: services.value, actions, failure: null, install: null };
     })().finally(() => inFlight.delete(root));
     inFlight.set(root, pending);
     return pending;
@@ -136,7 +151,14 @@ export default async function plugin(bb: BbPluginApi) {
 
     let title: string;
     let commands: string[];
-    if (target.kind === "action") {
+    let timeoutMs = ACTION_TIMEOUT_MS;
+    if (target.kind === "install") {
+      const command = installCommand(manifest, await presentLockfiles(root));
+      if (!command) throw new Error("This checkout has no install command in its manifest and no lockfile to pick one from.");
+      title = "Install dependencies";
+      commands = [command];
+      timeoutMs = INSTALL_TIMEOUT_MS;
+    } else if (target.kind === "action") {
       const action = manifest.actions[target.index];
       if (!action) throw new Error(`No action ${target.index} in the manifest.`);
       title = action.label;
@@ -150,9 +172,9 @@ export default async function plugin(bb: BbPluginApi) {
 
     for (const command of commands) {
       bb.log.info(`run in ${root}: ${command}`);
-      const result = await runCommand(command, root, ACTION_TIMEOUT_MS);
+      const result = await runCommand(command, root, timeoutMs);
       if (result.timedOut) {
-        return { title, command, output: `Timed out after ${ACTION_TIMEOUT_MS / 60_000} minutes.\n${tail(result.output)}` };
+        return { title, command, output: `Timed out after ${timeoutMs / 60_000} minutes.\n${tail(result.output)}` };
       }
       if (result.exitCode !== 0) {
         return { title, command, output: tail(result.output) || `Exited with ${result.exitCode}.` };

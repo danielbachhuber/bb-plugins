@@ -9,7 +9,7 @@ export type Diagnosis =
 
 const MISSING_COMMAND_PATTERNS = [
   /(?:^|\n)\S*sh: (?:\d+: )?([\w.@/-]+): (?:command )?not found/,
-  /(?:^|\n)zsh: command not found: ([\w.@/-]+)/,
+  /(?:^|\n)zsh:(?:\d+:)? command not found: ([\w.@/-]+)/,
   /Command "([\w.@/-]+)" not found/,
 ];
 

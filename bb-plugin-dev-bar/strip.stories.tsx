@@ -102,7 +102,7 @@ export const StatusFailed = () => (
 /** Before the first status arrives. */
 export const Loading = () => <Story services={[]} actions={[]} loaded={false} />;
 
-/** The status command calls a program the checkout has not installed, as in a new worktree before its first install. */
+/** The status command calls a program the checkout has not installed, and the checkout has no install command or lockfile, so the bar offers a thread to set it up. */
 export const NotSetUp = () => (
   <Story
     services={[]}
@@ -117,3 +117,20 @@ export const NotSetUp = () => (
 
 /** The status command's failure was dismissed; the bar still says it couldn't read services and offers Retry. */
 export const FailureDismissed = () => <Story services={[]} />;
+
+/** While bb sets up a new checkout, the bar says so and waits to read services; the repository's buttons are grayed out until it finishes. */
+export const SettingUp = () => <Story services={[]} setup={{ kind: "setting-up" }} />;
+
+/** A program the status command needs is missing, so the bar offers to install the dependencies and checks again every 30 seconds. */
+export const NeedsInstall = () => (
+  <Story services={[]} setup={{ kind: "install", install: { command: "pnpm install", missing: "tsx" } }} />
+);
+
+/** The install is running. */
+export const Installing = () => (
+  <Story
+    services={[]}
+    busy={new Set(["install"])}
+    setup={{ kind: "install", install: { command: "pnpm install", missing: "tsx" } }}
+  />
+);

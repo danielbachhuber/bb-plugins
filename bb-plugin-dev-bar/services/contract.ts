@@ -21,17 +21,26 @@ const failureSchema = z.object({
   output: z.string(),
 });
 
+const actionSchema = z.object({ index: z.number(), label: z.string(), confirm: z.string().nullable() });
+
 const stripSchema = z.discriminatedUnion("kind", [
   /** The thread has no local checkout, or its checkout has no manifest. */
   z.object({ kind: z.literal("none") }),
+  /** bb is still creating the checkout or running its setup script, so the status command has not run. */
+  z.object({ kind: z.literal("setting-up"), actions: z.array(actionSchema) }),
   z.object({
     kind: z.literal("services"),
     services: z.array(serviceSchema),
-    actions: z.array(z.object({ index: z.number(), label: z.string(), confirm: z.string().nullable() })),
+    actions: z.array(actionSchema),
     /** Where the manifest came from, said on hover. */
     source: z.string(),
     /** Set when the manifest or the status command failed. */
     failure: failureSchema.nullable(),
+    /**
+     * Set when the status command failed because a program is missing and the
+     * checkout has an install command, so the bar offers to run it.
+     */
+    install: z.object({ command: z.string(), missing: z.string() }).nullable(),
   }),
 ]);
 
@@ -41,6 +50,7 @@ const runInput = z
     target: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("service"), id: z.string(), verb: z.enum(SERVICE_VERBS) }).strict(),
       z.object({ kind: z.literal("action"), index: z.number().int().min(0) }).strict(),
+      z.object({ kind: z.literal("install") }).strict(),
     ]),
   })
   .strict();
@@ -60,6 +70,7 @@ export const rpcContract = defineRpcContract({
 
 export type Strip = z.infer<typeof stripSchema>;
 export type StripService = z.infer<typeof serviceSchema>;
-export type StripAction = Extract<Strip, { kind: "services" }>["actions"][number];
+export type StripAction = z.infer<typeof actionSchema>;
+export type StripInstall = NonNullable<Extract<Strip, { kind: "services" }>["install"]>;
 export type Failure = z.infer<typeof failureSchema>;
 export type RunTarget = z.infer<typeof runInput>["target"];

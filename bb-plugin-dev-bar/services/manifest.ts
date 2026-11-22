@@ -56,6 +56,8 @@ export const manifestSchema = z.object({
   stop: command.optional(),
   /** Without one, Restart runs `stop` and then `start`. */
   restart: command.optional(),
+  /** Installs the checkout's dependencies. Without one, the lockfile picks it. */
+  install: command.optional(),
   /** Buttons at the end of the strip, such as "Start all", in this order. */
   actions: z.array(actionSchema).max(8).default([]),
 });
@@ -172,4 +174,19 @@ export function servicesToStop(services: Service[]): string[] {
   return services
     .filter((service) => (service.state === "running" || service.state === "starting") && service.verbs.includes("stop"))
     .map((service) => service.id);
+}
+
+/** Lockfiles, most specific first, and the command that installs from each. */
+export const LOCKFILE_INSTALLS: [lockfile: string, command: string][] = [
+  ["pnpm-lock.yaml", "pnpm install"],
+  ["bun.lock", "bun install"],
+  ["bun.lockb", "bun install"],
+  ["yarn.lock", "yarn install"],
+  ["package-lock.json", "npm install"],
+];
+
+/** The command that installs a checkout's dependencies: the manifest's own, or one picked from the lockfiles present. */
+export function installCommand(manifest: Manifest, lockfiles: readonly string[]): string | null {
+  if (manifest.install) return manifest.install;
+  return LOCKFILE_INSTALLS.find(([lockfile]) => lockfiles.includes(lockfile))?.[1] ?? null;
 }

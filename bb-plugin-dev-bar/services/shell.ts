@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { LOCAL_MANIFEST_PATH, MANIFEST_PATH } from "./manifest";
+import { LOCAL_MANIFEST_PATH, LOCKFILE_INSTALLS, MANIFEST_PATH } from "./manifest";
 
 /**
  * The plugin's only file reads and process spawns.
@@ -38,6 +38,19 @@ export async function readCheckoutManifests(root: string): Promise<{ committed: 
     readText(join(root, LOCAL_MANIFEST_PATH)),
   ]);
   return { committed, local };
+}
+
+/** The lockfiles at the checkout's root that Dev Bar knows how to install from. */
+export async function presentLockfiles(root: string): Promise<string[]> {
+  const found = await Promise.all(
+    LOCKFILE_INSTALLS.map(([lockfile]) =>
+      access(join(root, lockfile)).then(
+        () => lockfile,
+        () => null,
+      ),
+    ),
+  );
+  return found.filter((lockfile): lockfile is string => lockfile !== null);
 }
 
 export function runCommand(command: string, cwd: string, timeoutMs: number): Promise<CommandResult> {

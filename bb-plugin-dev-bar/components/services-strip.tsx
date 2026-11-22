@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Failure, RunTarget, StripAction, StripService } from "../services/contract";
+import type { Failure, RunTarget, StripAction, StripInstall, StripService } from "../services/contract";
 import type { ServiceState, ServiceVerb } from "../services/manifest";
 import { diagnose } from "../services/failure";
 import { cn } from "../lib/utils";
@@ -16,8 +16,18 @@ import {
 
 /** A key for one runnable thing, so the strip can mark it busy. */
 export function targetKey(target: RunTarget): string {
+  if (target.kind === "install") return "install";
   return target.kind === "service" ? `service:${target.id}` : `action:${target.index}`;
 }
+
+/** How often the bar checks again while a checkout's dependencies are missing. */
+export const INSTALL_POLL_SECONDS = 30;
+
+/**
+ * Before the services can be read: bb is still setting up the checkout, or a
+ * program the status command needs is missing and the bar can install it.
+ */
+export type Setup = { kind: "setting-up" } | { kind: "install"; install: StripInstall };
 
 const DOT_CLASS: Record<ServiceState, string> = {
   running: "bg-success",
@@ -66,8 +76,8 @@ function shortUrl(url: string): string {
   }
 }
 
-function Spinner() {
-  return <Icon name="Spinner" className="size-3 animate-spin text-muted-foreground" />;
+function Spinner({ className }: { className?: string }) {
+  return <Icon name="Spinner" className={cn("size-3 animate-spin text-muted-foreground", className)} />;
 }
 
 function ServiceChip({
@@ -131,10 +141,13 @@ function ActionButton({
   action,
   busy,
   primary,
+  disabled,
   onRun,
 }: {
   action: StripAction;
   busy: boolean;
+  /** Says why on hover, such as while the checkout is being set up. */
+  disabled?: string;
   /** Filled, for the button the user most likely wants next. */
   primary: boolean;
   onRun: () => void;
@@ -151,8 +164,8 @@ function ActionButton({
   return (
     <button
       type="button"
-      disabled={busy}
-      title={armed ? undefined : (action.confirm ?? action.label)}
+      disabled={busy || disabled !== undefined}
+      title={armed ? undefined : (disabled ?? action.confirm ?? action.label)}
       aria-label={armed ? `${action.label}?` : action.label}
       onClick={() => {
         if (action.confirm && !armed) return setArmed(true);
@@ -163,7 +176,7 @@ function ActionButton({
         "inline-flex h-6 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 text-xs",
         compact && "@max-[760px]:w-6 @max-[760px]:px-0",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        "disabled:pointer-events-none disabled:opacity-60",
+        "disabled:cursor-default disabled:opacity-50",
         armed
           ? "border border-destructive/40 bg-destructive/10 text-destructive-text hover:bg-destructive/15"
           : primary
@@ -193,6 +206,53 @@ function StartThreadButton({ label, primary, onClick }: { label: string; primary
       <Icon name="MessageSquarePlus" className="size-3.5" />
       {label}
     </button>
+  );
+}
+
+/** The bar while bb sets up the checkout: one line, with the repository's buttons waiting. */
+function SettingUpLine() {
+  return (
+    <span role="status" className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground">
+      <Spinner />
+      <span className="truncate">Setting up this checkout…</span>
+    </span>
+  );
+}
+
+/** The bar while a program the status command needs is missing, with a button that installs the dependencies. */
+function InstallLine({ install, busy, onInstall }: { install: StripInstall; busy: boolean; onInstall: () => void }) {
+  return (
+    <>
+      <span role="status" className="flex min-w-0 flex-1 items-center gap-1.5 text-xs">
+        {busy ? <Spinner /> : <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-amber-500" />}
+        <span className="truncate text-foreground">
+          {busy ? "Installing dependencies" : "Dependencies aren't installed yet"}
+          <span className="text-muted-foreground @max-[760px]:hidden">
+            {" · "}
+            {busy ? (
+              <code className="font-mono">{install.command}</code>
+            ) : (
+              <>
+                <code className="font-mono">{install.missing}</code> is missing · checking every {INSTALL_POLL_SECONDS}s
+              </>
+            )}
+          </span>
+        </span>
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        title={install.command}
+        onClick={onInstall}
+        className={cn(
+          "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-primary px-2.5 text-xs font-medium text-primary-foreground",
+          "hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default disabled:opacity-80",
+        )}
+      >
+        {busy ? <Spinner className="text-primary-foreground" /> : <Glyph name="play" />}
+        {busy ? "Installing…" : "Install dependencies"}
+      </button>
+    </>
   );
 }
 
@@ -271,6 +331,8 @@ export interface ServicesStripProps {
   actions: StripAction[];
   /** Null before the first status arrives. */
   loaded: boolean;
+  /** Shown in place of the services until they can be read. */
+  setup?: Setup | null;
   /** Where the manifest came from, shown on hover over the count. */
   source: string | null;
   busy: ReadonlySet<string>;
@@ -290,6 +352,7 @@ export function ServicesStrip({
   services,
   actions,
   loaded,
+  setup = null,
   source,
   busy,
   failure,
@@ -312,57 +375,113 @@ export function ServicesStrip({
         </div>
       ) : null}
       <div className={cn(COLUMN_CLASS, "flex h-9 items-center gap-1.5 px-3")}>
-        {loaded && services.length === 0 ? (
-          <span title={source ?? undefined} className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-            Couldn't read services
-            <button
-              type="button"
-              disabled={retrying}
-              onClick={onRetry}
-              className={cn(
-                "inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border border-border bg-background px-2.5 text-foreground",
-                "hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
-              )}
-            >
-              {retrying ? <Spinner /> : <Glyph name="restart" />}
-              Retry
-            </button>
+        {setup?.kind === "setting-up" ? (
+          <>
+            <SettingUpLine />
+            {actions.map((action) => (
+              <ActionButton
+                key={action.index}
+                action={action}
+                busy={false}
+                primary={false}
+                disabled="Available once setup finishes"
+                onRun={() => onRun({ kind: "action", index: action.index })}
+              />
+            ))}
+          </>
+        ) : setup?.kind === "install" ? (
+          <InstallLine
+            install={setup.install}
+            busy={busy.has(targetKey({ kind: "install" }))}
+            onInstall={() => onRun({ kind: "install" })}
+          />
+        ) : (
+          <StripContents
+            services={services}
+            actions={actions}
+            loaded={loaded}
+            source={source}
+            busy={busy}
+            primaryIndex={primaryIndex}
+            onRun={onRun}
+            onOpen={onOpen}
+            onRetry={onRetry}
+            retrying={retrying}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** The services, then the repository's buttons. */
+function StripContents({
+  services,
+  actions,
+  loaded,
+  source,
+  busy,
+  primaryIndex,
+  onRun,
+  onOpen,
+  onRetry,
+  retrying,
+}: Pick<ServicesStripProps, "services" | "actions" | "loaded" | "source" | "busy" | "onRun" | "onOpen" | "onRetry" | "retrying"> & {
+  primaryIndex: number | undefined;
+}) {
+  const running = services.filter((service) => service.state === "running").length;
+  return (
+    <>
+      {loaded && services.length === 0 ? (
+        <span title={source ?? undefined} className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+          Couldn't read services
+          <button
+            type="button"
+            disabled={retrying}
+            onClick={onRetry}
+            className={cn(
+              "inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border border-border bg-background px-2.5 text-foreground",
+              "hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60",
+            )}
+          >
+            {retrying ? <Spinner /> : <Glyph name="restart" />}
+            Retry
+          </button>
+        </span>
+      ) : (
+        loaded ? (
+          <span
+            role="img"
+            aria-label={`${running} of ${services.length} running`}
+            title={[`${running} of ${services.length} running`, source].filter(Boolean).join("\n")}
+            className="inline-flex shrink-0 cursor-default items-center px-0.5"
+          >
+            <ServicesDonut states={services.map((service) => service.state)} />
           </span>
         ) : (
-          loaded ? (
-            <span
-              role="img"
-              aria-label={`${running} of ${services.length} running`}
-              title={[`${running} of ${services.length} running`, source].filter(Boolean).join("\n")}
-              className="inline-flex shrink-0 cursor-default items-center px-0.5"
-            >
-              <ServicesDonut states={services.map((service) => service.state)} />
-            </span>
-          ) : (
-            <span className="shrink-0 cursor-default pr-1 text-xs font-medium text-muted-foreground">Reading services…</span>
-          )
-        )}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
-          {services.map((service) => (
-            <ServiceChip
-              key={service.id}
-              service={service}
-              busy={busy.has(targetKey({ kind: "service", id: service.id, verb: "start" }))}
-              onRun={(verb) => onRun({ kind: "service", id: service.id, verb })}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
-        {actions.map((action) => (
-          <ActionButton
-            key={action.index}
-            action={action}
-            busy={busy.has(targetKey({ kind: "action", index: action.index }))}
-            primary={action.index === primaryIndex}
-            onRun={() => onRun({ kind: "action", index: action.index })}
+          <span className="shrink-0 cursor-default pr-1 text-xs font-medium text-muted-foreground">Reading services…</span>
+        )
+      )}
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)]">
+        {services.map((service) => (
+          <ServiceChip
+            key={service.id}
+            service={service}
+            busy={busy.has(targetKey({ kind: "service", id: service.id, verb: "start" }))}
+            onRun={(verb) => onRun({ kind: "service", id: service.id, verb })}
+            onOpen={onOpen}
           />
         ))}
       </div>
-    </section>
+      {actions.map((action) => (
+        <ActionButton
+          key={action.index}
+          action={action}
+          busy={busy.has(targetKey({ kind: "action", index: action.index }))}
+          primary={action.index === primaryIndex}
+          onRun={() => onRun({ kind: "action", index: action.index })}
+        />
+      ))}
+    </>
   );
 }

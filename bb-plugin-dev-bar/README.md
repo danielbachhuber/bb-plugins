@@ -9,7 +9,9 @@ A status bar that starts, stops, and restarts a checkout's dev services, and sto
 - Open a thread whose checkout has a `.bb/dev-bar.json`. The bar appears along the bottom of the thread, under the composer, with each service as a pill tinted by its state: green is running, amber is starting, grey is stopped, red has failed. The ring at the left end has one slice per service in the same colors; hover it for the count.
 - Click a service to **Open** the service's URL, or to **Start**, **Stop**, or **Restart** it.
 - Click a button at the right end of the bar, such as **Start all**, to run a command the repository declares. When nothing is running, the first button that starts things is filled. A button with a question asks it first; click again to confirm.
-- A failed command's last lines show above the bar. Click **Start thread** to have an agent fix it in the same checkout, or **Set up in a thread** when the checkout is missing a program the command needs, such as before its dependencies are installed. When the bar couldn't read the services, **Retry** runs the status command again.
+- While bb is still creating a new checkout or running its setup script, the bar reads "Setting up this checkout…" and does not run the status command. The repository's buttons are grayed out until setup finishes.
+- When the status command fails because a program it needs is missing, such as before a checkout's dependencies are installed, the bar says so and offers **Install dependencies**. It runs the manifest's `install` command, or one picked from the lockfile (`pnpm install`, `bun install`, `yarn install`, or `npm install`). Once the install succeeds, the services appear. A checkout with neither gets the note below with **Set up in a thread**.
+- A failed command's last lines show above the bar. Click **Start thread** to have an agent fix it in the same checkout. When the bar couldn't read the services, **Retry** runs the status command again.
 - Archive or delete the last thread working in a checkout, and the plugin stops that checkout's running and starting services with the manifest's `stop` command. While another thread still uses the checkout, its services keep running.
 
 ![The bar with Web in red, and above it a note reading "Start web failed" with the command and the error it printed](https://raw.githubusercontent.com/danielbachhuber/bb-plugins-screenshots/main/dev-bar/strip--action-failed.png)
@@ -23,6 +25,7 @@ The plugin knows nothing about any app. A repository opts in by committing `.bb/
   "status": "pnpm status --json",
   "start": "pnpm launch start {id}",
   "stop": "pnpm launch stop {id}",
+  "install": "pnpm install",
   "actions": [
     { "label": "Start all", "command": "pnpm launch" },
     { "label": "Stop all", "command": "pnpm stop" },
@@ -65,7 +68,7 @@ bb dev-bar manifest clear [--project <id>]        # remove it
 
 ## Requirements
 
-A checkout on the machine bb runs on. Commands run in the checkout through your login shell. While a thread is on screen, the plugin runs the status command every 5 seconds, and every second for 15 seconds after you click a button. When a thread is archived or deleted, it lists the checkout's other live threads once, and if none are left, runs the status command once and `stop` once per running service.
+A checkout on the machine bb runs on. Commands run in the checkout through your login shell. While a thread is on screen, the plugin runs the status command every 5 seconds, every 30 seconds while a program it needs is missing, and every second for 15 seconds after you click a button. It does not run it while bb is still setting up the checkout; finding that out costs one environment lookup per check, which it already makes to find the checkout. When a thread is archived or deleted, it lists the checkout's other live threads once, and if none are left, runs the status command once and `stop` once per running service.
 
 ## Related plugins
 

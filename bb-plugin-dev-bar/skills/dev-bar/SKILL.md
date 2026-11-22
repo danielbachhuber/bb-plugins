@@ -50,6 +50,7 @@ The bar uses the first of these it finds, and says which on hover over its count
 | `status` | yes | Prints the status JSON below and exits 0. |
 | `start`, `stop` | no | Start or stop one service. `{id}` is replaced with the service's id. Without one, services have no Start or Stop. |
 | `restart` | no | Restart one service. Without it, Restart runs `stop` and then `start`. |
+| `install` | no | Installs the checkout's dependencies. When the status command fails because a program is missing, the bar offers an **Install dependencies** button that runs it. Without one, the bar picks `pnpm install`, `bun install`, `yarn install`, or `npm install` from the lockfile at the checkout's root. |
 | `actions` | no | Up to 8 buttons at the right end of the bar, in order. `label` is at most 40 characters. With `confirm`, the first click shows the label with a question mark and a second click runs it. |
 
 ## The status JSON

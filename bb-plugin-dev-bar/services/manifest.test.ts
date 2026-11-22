@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseManifest, parseStatus, pickManifest, serviceCommands, servicesToStop, type Manifest, type Service } from "./manifest";
+import { installCommand, parseManifest, parseStatus, pickManifest, serviceCommands, servicesToStop, type Manifest, type Service } from "./manifest";
 
 const manifest: Manifest = {
   status: "pnpm status --json",
@@ -127,5 +127,27 @@ describe("servicesToStop", () => {
 
   it("skips a service that cannot be stopped", () => {
     expect(servicesToStop([service("db", "running", ["start"])])).toEqual([]);
+  });
+});
+
+describe("installCommand", () => {
+  const manifest = (extra: Record<string, unknown> = {}) => {
+    const parsed = parseManifest(JSON.stringify({ status: "pnpm status", ...extra }));
+    if (!parsed.ok) throw new Error(parsed.error);
+    return parsed.value;
+  };
+
+  it("uses the manifest's own install command first", () => {
+    expect(installCommand(manifest({ install: "make deps" }), ["pnpm-lock.yaml"])).toBe("make deps");
+  });
+
+  it("picks the command from the lockfile when the manifest has none", () => {
+    expect(installCommand(manifest(), ["pnpm-lock.yaml"])).toBe("pnpm install");
+    expect(installCommand(manifest(), ["package-lock.json"])).toBe("npm install");
+    expect(installCommand(manifest(), ["yarn.lock", "package-lock.json"])).toBe("yarn install");
+  });
+
+  it("returns null with neither", () => {
+    expect(installCommand(manifest(), [])).toBeNull();
   });
 });
