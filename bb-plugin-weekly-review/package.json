@@ -45,9 +45,9 @@
     "better-sqlite3": "^13.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "hono": "^4.13.18",
+    "hono": "^4.13.19",
     "sonner": "^1.7.4",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.7.1",
     "typescript": "^6.0.3",
     "vaul": "^1.1.2",
     "vitest": "^4.1.12"
