@@ -148,9 +148,10 @@ to open the page.
 ![The title bar's popover with the session's top ten threads below the chart: each with its goal's donut, what the goal has spent against the top of its estimate, amber for the ones past it, and its tokens this session](screenshots/page--title-bar-hovered-threads.png)
 
 Below the chart, the popover lists the session's ten threads that used the
-most tokens, subagents included. Each row shows the thread's goal donut,
-**Goal spent** against the top of the goal's token estimate, amber once past
-it, and the thread's tokens this **Session**. Click a row to open the thread.
+most tokens, subagents included, most first. Each row shows the thread's
+goal donut, **Spent / Goal**: what its current goal has used against the top
+of the goal's token estimate, amber once past it, and the thread's tokens this
+**Session**. Click a row to open the thread.
 Opening the popover makes one query to Tokenomics' own database, and no call
 to a provider.
 

@@ -59,7 +59,7 @@ export function SessionThreads({
     <div className="mt-3 border-t border-border pt-3">
       <div className="mb-1 flex items-center gap-2 px-1 text-xs font-medium">
         <span className="flex-1">This session's threads</span>
-        <span className="w-24 shrink-0 text-right font-normal text-muted-foreground">Goal spent</span>
+        <span className="w-24 shrink-0 text-right font-normal text-muted-foreground">Spent / Goal</span>
         <span className="w-12 shrink-0 text-right font-normal text-muted-foreground">Session</span>
       </div>
       {threads.map((thread) => (
