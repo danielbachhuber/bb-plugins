@@ -188,7 +188,7 @@ export function HarvestRowClock({
 
       <PopoverContent
         align="start"
-        className="p-0"
+        className="z-[60] p-0"
         style={{ width: "min(34rem, calc(100vw - 2rem))" }}
       >
         {running === null ? (
