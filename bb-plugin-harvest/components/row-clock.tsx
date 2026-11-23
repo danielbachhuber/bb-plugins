@@ -22,12 +22,13 @@
  * control uses. At full `text-muted-foreground` it renders a step darker than
  * its neighbour and reads as a different class of control.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "./ui/button.js";
 import { Icon } from "./ui/icon.js";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover.js";
 
+import { paneBoundary } from "./collision-boundary.js";
 import { memoryScope } from "./picker-state.js";
 import { elapsedLabel } from "./time-format.js";
 import { HarvestTimerPicker, type HarvestTimerClient } from "./timer-picker.js";
@@ -151,6 +152,9 @@ export function HarvestRowClock({
   onChanged,
 }: HarvestRowClockProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Read once per open: the pane can be resized or split while closed.
+  const [boundary, setBoundary] = useState<Element | null>(null);
   const defaults = timerDefaultsForItem(row);
   const scope = memoryScope(surface, defaults.externalReference.groupId);
 
@@ -163,7 +167,13 @@ export function HarvestRowClock({
     : `Track time for #${row.number}`;
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (open) setBoundary(paneBoundary(triggerRef.current));
+        setIsOpen(open);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -174,6 +184,7 @@ export function HarvestRowClock({
           // [&_svg]:size-4, so the glyph size is set here to match its
           // neighbour's 3.5.
           size="icon"
+          ref={triggerRef}
           aria-label={label}
           className={
             isRunning
@@ -188,6 +199,10 @@ export function HarvestRowClock({
 
       <PopoverContent
         align="start"
+        // Stay inside the trigger's own pane, not just the window, so the
+        // popover shifts or flips rather than running under the next pane.
+        collisionBoundary={boundary ?? undefined}
+        collisionPadding={8}
         className="z-[60] p-0"
         style={{ width: "min(34rem, calc(100vw - 2rem))" }}
       >
