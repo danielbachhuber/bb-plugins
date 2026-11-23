@@ -11,6 +11,7 @@ import type { CallSample, StoredForecast, SubagentCallCost, TurnRequest } from "
 import type { LimitSample } from "./limits.js";
 import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
+import type { AccountDay, AccountStretch } from "./accounts.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
 
 /**
@@ -234,6 +235,10 @@ export const MIGRATIONS = [
   `ALTER TABLE forecasts ADD COLUMN subagent_pace_ms INTEGER`,
   `ALTER TABLE forecasts ADD COLUMN addition INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE forecasts ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0`,
+  // The account a call's tokens count toward, stamped from the limit readings
+  // around it (see accounts.ts); null until a reading names it.
+  `ALTER TABLE usage ADD COLUMN account_key TEXT`,
+  `ALTER TABLE subagent_calls ADD COLUMN account_key TEXT`,
 ];
 
 export interface ThreadInfo {
@@ -385,6 +390,32 @@ export function createStore(db: Database) {
        LEFT JOIN threads t ON t.thread_id = u.thread_id
      WHERE u.created_at >= ? AND u.created_at < ?
      GROUP BY t.provider_id`,
+  );
+  const stampAccount = [`usage`, `subagent_calls`].map((table) =>
+    db.prepare(
+      `UPDATE ${table} SET account_key = ?
+       WHERE account_key IS NULL AND created_at > ? AND created_at <= ?
+         AND thread_id IN (SELECT thread_id FROM threads WHERE provider_id = ?)`,
+    ),
+  );
+  const stampAccounts = db.transaction((stretches: readonly AccountStretch[]) => {
+    let stamped = 0;
+    for (const stretch of stretches) {
+      for (const statement of stampAccount) {
+        stamped += statement.run(stretch.accountKey, stretch.from, stretch.to, stretch.providerId).changes;
+      }
+    }
+    return stamped;
+  });
+  const selectAccountDays = db.prepare(
+    `SELECT date(u.created_at / 1000, 'unixepoch', 'localtime') AS day, coalesce(t.provider_id, '') AS providerId,
+            u.account_key AS accountKey, sum(u.input + u.cache_read + u.output) AS tokens
+     FROM (SELECT thread_id, created_at, input, cache_read, output, account_key FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_read, output, account_key FROM subagent_calls) u
+       LEFT JOIN threads t ON t.thread_id = u.thread_id
+     WHERE u.created_at >= ?
+     GROUP BY day, t.provider_id, u.account_key ORDER BY day`,
   );
   const insertUsage = db.prepare(
     `INSERT OR IGNORE INTO usage
@@ -846,6 +877,20 @@ export function createStore(db: Database) {
 
     pruneLimitSamples(before: number): void {
       deleteLimitSamples.run(before);
+    },
+
+    /**
+     * Stamps each call in a stretch that has no account yet with the
+     * stretch's account. Returns how many rows it stamped. Two updates per
+     * stretch, and a stretch per switch of accounts.
+     */
+    stampAccounts(stretches: readonly AccountStretch[]): number {
+      return stampAccounts(stretches);
+    },
+
+    /** Each account's tokens per local day since `since`, subagents included. */
+    accountDays(since: number): AccountDay[] {
+      return selectAccountDays.all(since) as AccountDay[];
     },
 
     /** One provider's tokens in each `size` slot from `from` up to `to`, oldest first, subagents included. */

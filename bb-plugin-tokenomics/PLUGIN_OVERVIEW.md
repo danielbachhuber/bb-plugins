@@ -15,7 +15,7 @@ Tokenomics copies each usage event into its own database as bb records it, start
 
 ## For agents
 
-`bb tokenomics goal` records, moves, and closes a thread's goal. `bb tokenomics threads`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts.
+`bb tokenomics goal` records, moves, and closes a thread's goal. `bb tokenomics threads`, `bb tokenomics accounts`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts.
 
 ## Requirements
 

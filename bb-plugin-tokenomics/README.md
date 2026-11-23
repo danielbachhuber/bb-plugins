@@ -178,6 +178,7 @@ threads without reading their transcripts.
 
 ```sh
 bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens, turns, context, and turn times per thread
+bb tokenomics accounts [--days N] [--json]                                                     # tokens per day for each account, with its weekly limit
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
 bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT]  # record this turn's forecast
 bb tokenomics forecast --add-subagent-calls LOW-HIGH [--confirmed]                              # add subagents decided on partway through
@@ -244,7 +245,10 @@ outside service.
 - It reads the usage limits from bb every five minutes, one request that bb
   passes to each provider. When you sign in to another account, the limits
   switch to it at the next reading. Tokens count toward an account only while
-  it was signed in, and a window that began before bb first saw the account
+  it was signed in. Each recorded call is stamped with its account at the
+  next reading, so `bb tokenomics accounts` can split tokens by account after
+  the readings are deleted nine days later. Calls from before Tokenomics read
+  an account show as not known. A window that began before bb first saw the account
   shows "sizing the limit" until it resets, since its percent includes use
   bb didn't record. Opening a thread's summary reads that thread's
   turn events from bb. The page, title bar, and meter read the plugin's own

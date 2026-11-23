@@ -29,6 +29,7 @@ import { TIMING_EVENTS, timeBreakdown, turnSplits } from "./usage/timing.js";
 import { CONTEXT_EVENT, contextRowOf, countLevels, parseThreshold, type ContextThresholds } from "./usage/context.js";
 import { createStore, MIGRATIONS } from "./usage/store.js";
 import { createGoalStore } from "./usage/goal-store.js";
+import { accountStretches, formatAccounts, type AccountLimit } from "./usage/accounts.js";
 import { goalCli, goalReminder, goalView, GOAL_USAGE } from "./usage/goal-cli.js";
 import { originOf as originOfThread, GOAL_INSTRUCTIONS, estimateRecord, finishedCount, groupOf, originLabel, stageLabel, remainingLabel } from "./usage/goals.js";
 import { createSync, TOKEN_USAGE_EVENT, type EventSource } from "./usage/sync.js";
@@ -328,6 +329,9 @@ export default async function plugin(bb: BbPluginApi) {
     try {
       store.recordLimitSamples(samplesFromUsage(await bb.sdk.system.usageLimits(), now));
       store.pruneLimitSamples(now - MAX_WINDOW_MS);
+      // Before the readings are pruned for good, the calls they cover keep
+      // the account they name.
+      store.stampAccounts(accountStretches(store.limitSamplesSince(now - MAX_WINDOW_MS)));
       limitsPolledAt = now;
       limitsError = null;
     } catch (error) {
@@ -634,6 +638,10 @@ export default async function plugin(bb: BbPluginApi) {
     "  (Claude Code subagents included), turns, peak and latest context, turn times, time spent",
     "  waiting on your answers, and its slowest shell commands. Context sizes, turn times, and",
     "  command times go back only to when Tokenomics began recording them.",
+    "bb tokenomics accounts [--days N] [--json]",
+    "  Tokens per day for each account a provider was signed in to, subagents included, with each",
+    "  account's latest weekly limit. The account comes from bb's usage limit readings, so calls from",
+    "  before Tokenomics began reading them show as not known.",
     "bb tokenomics commands [--days N] [--limit N] [--json]",
     "  The shell commands that took the most time across all threads.",
     "bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT]",
@@ -663,6 +671,11 @@ export default async function plugin(bb: BbPluginApi) {
         name: "threads",
         summary: "One entry per thread: tokens, context, turn times, slowest commands",
         usage: "bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]",
+      },
+      {
+        name: "accounts",
+        summary: "Tokens per day for each account, with its weekly limit",
+        usage: "bb tokenomics accounts [--days N] [--json]",
       },
       {
         name: "commands",
@@ -707,6 +720,29 @@ export default async function plugin(bb: BbPluginApi) {
         if (argv.includes("--active")) reports = reports.filter((report) => !report.archived);
         reports = reports.slice(0, Math.max(1, limit));
         return { exitCode: 0, stdout: json ? JSON.stringify(reports, null, 2) : formatThreads(reports, days) };
+      }
+      if (command === "accounts") {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - (days - 1));
+        const accountDays = store.accountDays(start.getTime());
+        const limits = new Map<string, AccountLimit>();
+        for (const sample of store.limitSamplesSince(Date.now() - MAX_WINDOW_MS)) {
+          if (sample.kind !== "weekly" || sample.model !== null || sample.accountKey === null) continue;
+          limits.set(`${sample.providerId}\u0000${sample.accountKey}`, {
+            providerId: sample.providerId,
+            accountKey: sample.accountKey,
+            usedPercent: sample.usedPercent,
+            resetsAt: sample.resetsAt,
+            sampledAt: sample.sampledAt,
+          });
+        }
+        return {
+          exitCode: 0,
+          stdout: json
+            ? JSON.stringify({ days: accountDays, limits: [...limits.values()] }, null, 2)
+            : formatAccounts(accountDays, [...limits.values()], days),
+        };
       }
       if (command === "commands") {
         const limit = Number(flag(argv, "--limit") ?? 15);
