@@ -86,6 +86,97 @@ function Section({
   );
 }
 
+/** A grey block standing in for content that has not loaded yet. */
+function Bone({ className }: { className: string }) {
+  return <div aria-hidden className={`animate-pulse rounded bg-muted motion-reduce:animate-none ${className}`} />;
+}
+
+/** Rows standing in for a step table or the milestones table. */
+function BoneRows({ count, className = "" }: { count: number; className?: string }) {
+  return (
+    <div className={`mt-3 ${className}`}>
+      <Bone className="h-3 w-full max-w-md" />
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 border-b border-border py-3">
+          <div className="w-56 shrink-0 space-y-1.5">
+            <Bone className="h-3.5 w-40" />
+            <Bone className="h-2.5 w-24" />
+          </div>
+          <Bone className="h-2 flex-1" />
+          <Bone className="h-3 w-10" />
+          <Bone className="h-3 w-10" />
+          <Bone className="h-3 w-24" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The page's sections with their headings, and a grey block where each one's
+ * numbers and charts go, until the first load arrives. Headings that open a
+ * list already work.
+ */
+function DashboardSkeleton({ periodLabel, onOpenList }: { periodLabel: string; onOpenList: (kind: "issue" | "pull") => void }) {
+  return (
+    <div aria-busy>
+      <p role="status" className="sr-only">
+        Loading the dashboard
+      </p>
+      <section className="mt-5" aria-labelledby="overview">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 id="overview" className="text-lg font-semibold">
+            Overview
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            Boxes are what is waiting now; lines are what was opened in the last {periodLabel} and where it went,
+            thicker for more.
+          </span>
+        </div>
+        <Bone className="mt-3 aspect-[960/360] w-full" />
+      </section>
+
+      <Section
+        id="milestones"
+        title="Milestones"
+        note={`open milestones, most active first; added and closed over ${periodLabel}`}
+      >
+        <BoneRows count={5} />
+      </Section>
+
+      <Section id="issues" title="Issues" note="Identify, and the first step of Execute" opens="Every open issue, oldest first" onOpen={() => onOpenList("issue")}>
+        <h3 className="mt-4 text-sm font-medium">How long each step takes</h3>
+        <BoneRows count={2} />
+        <h3 className="mt-6 text-sm font-medium">Closed issues</h3>
+        <Bone className="mt-3 h-40 w-full" />
+      </Section>
+
+      <Section
+        id="pull-requests"
+        title="Pull requests"
+        note="the rest of Execute, Verify, and Release"
+        opens="Every open pull request, oldest first"
+        onOpen={() => onOpenList("pull")}
+      >
+        <h3 className="mt-4 text-sm font-medium">How long each step takes</h3>
+        <BoneRows count={3} />
+        <h2 className="mt-6 text-base font-semibold">PR velocity</h2>
+        <Bone className="mt-3 h-40 w-full" />
+        <h2 className="mt-6 text-base font-semibold">Review velocity</h2>
+        <Bone className="mt-3 h-40 w-full" />
+      </Section>
+
+      <Section id="releases" title="Releases" note="">
+        <div className="mt-4 space-y-2">
+          <Bone className="h-4 w-64" />
+          <Bone className="h-3 w-full max-w-xl" />
+          <Bone className="h-3 w-full max-w-lg" />
+        </div>
+      </Section>
+    </div>
+  );
+}
+
 export function DashboardView({
   selection,
   onSelect,
@@ -132,6 +223,7 @@ export function DashboardView({
           onOpenPerson={onOpenPerson}
           onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
+          loading={data === null && error === null}
         />
 
         {/* Below the toolbar rather than in it: the sentence is long enough to push
@@ -158,6 +250,10 @@ export function DashboardView({
             {message}
           </p>
         )}
+
+        {data === null && error === null ? (
+          <DashboardSkeleton periodLabel={selectionWords(selection)} onOpenList={onOpenList} />
+        ) : null}
 
         {data === null || data.repository === null ? null : (
           <>

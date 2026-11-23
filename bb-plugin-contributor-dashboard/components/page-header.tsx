@@ -19,6 +19,7 @@ export function PageHeader({
   title = null,
   subtitle = null,
   actions = null,
+  loading = false,
 }: {
   /** Null before the repository is set, or while the page loads. */
   repository: string | null;
@@ -39,11 +40,20 @@ export function PageHeader({
   subtitle?: ReactNode;
   /** Controls at the right of the title, such as a list's toolbar. */
   actions?: ReactNode;
+  /**
+   * The page's first load is on its way: grey blocks hold the repository's
+   * and the finder's places, so nothing shifts when they arrive.
+   */
+  loading?: boolean;
 }) {
   const home = (
     <>
       <Icon name="Home" className="size-3.5 shrink-0" />
-      <span className="truncate">{repository ?? "Dashboard"}</span>
+      {loading ? (
+        <span aria-hidden className="h-3.5 w-40 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+      ) : (
+        <span className="truncate">{repository ?? "Dashboard"}</span>
+      )}
     </>
   );
 
@@ -63,6 +73,9 @@ export function PageHeader({
           </button>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          {loading ? (
+            <div aria-hidden className="h-7 w-52 rounded-md border border-border" />
+          ) : null}
           {repository === null ? null : <PersonFinder everyone={everyone} everyTeam={everyTeam} current={current} onOpenPerson={onOpenPerson} onOpenTeam={onOpenTeam} />}
           {period}
         </div>

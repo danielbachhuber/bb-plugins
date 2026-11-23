@@ -519,6 +519,22 @@ export const FirstSync = () => (
   <Page sync={{ syncedAt: null, running: true, backfillDone: false, pullRequests: 350, issues: 0, error: null }} />
 );
 
+/** While the first load is on its way: each section's heading, with a grey block where its numbers and charts go. */
+export const Loading = () => (
+  <DashboardView
+    selection={{ kind: "preset", id: "6w" }}
+    onSelect={() => undefined}
+    data={null}
+    error={null}
+    onOpenPerson={() => undefined}
+    onOpenStage={() => undefined}
+    onOpenList={() => undefined}
+    onOpenMilestone={() => undefined}
+    onLoadOlderReleases={olderReleasesFor}
+    now={NOW}
+  />
+);
+
 /** Before a repository is set. */
 export const NoRepository = () => (
   <DashboardView
