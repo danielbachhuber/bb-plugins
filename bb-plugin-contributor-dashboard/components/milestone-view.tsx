@@ -11,6 +11,7 @@ import { ItemRow } from "./item-row";
 import { AddedClosed, DUE_CLASS, dueWords, MILESTONE_COLORS } from "./milestones-section";
 import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";
+import { Bone, BoneList, LoadingNote } from "./skeleton";
 import type { ThreadSeed } from "./thread-seed";
 
 const DAY = 86_400_000;
@@ -147,6 +148,7 @@ export function MilestoneView({
   const message = error ?? data?.sync.error ?? null;
   const milestone = data?.milestone ?? null;
   const periodStart = data?.buckets[0]?.start ?? now;
+  const loading = data === null && error === null;
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -159,8 +161,21 @@ export function MilestoneView({
           onOpenPerson={onOpenPerson}
           onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
-          title={milestone?.title ?? (data === null ? "" : `Milestone ${number}`)}
+          title={milestone?.title ?? (loading ? <Bone className="h-6 w-72" /> : data === null ? "" : `Milestone ${number}`)}
+          loading={loading}
         />
+
+        {loading ? (
+          <div aria-busy>
+            <LoadingNote what="this milestone" />
+            <Bone className="mt-3 h-3.5 w-full max-w-xl" />
+            <Bone className="mt-4 h-10 w-full" />
+            <Bone className="mt-4 h-48 w-full" />
+            <h3 className="mt-6 text-sm font-medium">Open issues, by where they stand</h3>
+            <Bone className="mt-3 h-3 w-48" />
+            <BoneList count={4} className="mt-1" />
+          </div>
+        ) : null}
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">

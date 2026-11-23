@@ -8,6 +8,7 @@ import type { OpenItemsResult, OpenQuery } from "@/dashboard/contract";
 import { ItemRow } from "./item-row";
 import { describeQuery, ListToolbar } from "./list-toolbar";
 import { PageHeader } from "./page-header";
+import { BoneList, LoadingNote } from "./skeleton";
 import type { ThreadSeed } from "./thread-seed";
 
 const DRAFT = "text-[#1baf7a] dark:text-[#199e70]";
@@ -73,6 +74,7 @@ export function OpenItemsView({
   const message = error ?? data?.sync.error ?? null;
   // A page for the other kind can still be in hand while this one loads.
   const shown = data?.kind === kind ? data : null;
+  const loading = shown === null && error === null;
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -95,6 +97,7 @@ export function OpenItemsView({
             </>
           }
           subtitle={describeQuery(kind, query)}
+          loading={loading}
           actions={
             shown === null ? null : (
               <ListToolbar kind={kind} query={query} facets={shown.facets} onQuery={onQuery} onBatch={onBatch} batchCount={shown.paging.total} />
@@ -107,6 +110,13 @@ export function OpenItemsView({
             {message}
           </p>
         )}
+
+        {loading ? (
+          <div aria-busy className="mt-4">
+            <LoadingNote what={HEADINGS[kind].toLowerCase()} />
+            <BoneList count={8} />
+          </div>
+        ) : null}
 
         {shown === null ? null : (
           <section className="mt-4" aria-label={HEADINGS[kind]}>

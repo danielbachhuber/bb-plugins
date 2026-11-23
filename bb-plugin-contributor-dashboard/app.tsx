@@ -1,5 +1,5 @@
 // bb-plugin-contributor-dashboard — the Contributor Dashboard page.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
   useBbContext,
@@ -84,24 +84,38 @@ function stageFrom(subPath: string): StageKey | null {
  * Reads the page's data and re-reads it whenever a sync stores more. The
  * request is by period, and by login on a person's page; both read the local
  * mirror only.
+ *
+ * `identity` names what the screen shows, such as which person or stage. When
+ * it changes, the last result is dropped rather than shown under the new
+ * name, so the screen draws its loading skeleton until its own data arrives,
+ * and a late answer for the screen just left is ignored. A changed period,
+ * page, or filter keeps the last result on screen until the new one lands.
  */
-function useDashboardData<T>(call: () => Promise<T>, deps: unknown[]) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function useDashboardData<T>(call: () => Promise<T>, deps: unknown[], identity = "") {
+  const [stored, setStored] = useState<{ identity: string; data: T } | null>(null);
+  const [failed, setFailed] = useState<{ identity: string; error: string } | null>(null);
+  const current = useRef(identity);
+  current.current = identity;
   const load = useCallback(() => {
+    const asked = identity;
     call().then(
       (result) => {
-        setData(result);
-        setError(null);
+        if (asked !== current.current) return;
+        setStored({ identity: asked, data: result });
+        setFailed(null);
       },
-      (cause) => setError(messageOf(cause)),
+      (cause) => {
+        if (asked === current.current) setFailed({ identity: asked, error: messageOf(cause) });
+      },
     );
-    // The caller's `call` closes over the deps below.
+    // The caller's `call` closes over the deps below, and `identity` is one of them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(load, [load]);
   useRealtime(DASHBOARD_CHANNEL, load);
+  const data = stored !== null && stored.identity === identity ? stored.data : null;
+  const error = failed !== null && failed.identity === identity ? failed.error : null;
   return { data, error, reload: load };
 }
 
@@ -282,18 +296,22 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   const milestoneDetail = useDashboardData<MilestoneDetailResult | null>(
     () => (milestone === null ? Promise.resolve(null) : rpc.call("milestone_detail", { number: milestone, range })),
     [rpc, range, milestone],
+    String(milestone),
   );
   const openList = useDashboardData<OpenItemsResult | null>(
     () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage, query: listQuery })),
     [rpc, list, listPage, listQuery],
+    String(list),
   );
   const stageDetail = useDashboardData<StageDetailResult | null>(
     () => (stage === null ? Promise.resolve(null) : rpc.call("stage_detail", { stage, range, waitingPage, waitingQuery })),
     [rpc, range, stage, waitingPage, waitingQuery],
+    String(stage),
   );
   const person = useDashboardData<PersonActivityResult | null>(
     () => (subject === null ? Promise.resolve(null) : rpc.call("person_activity", { subject, range, authoredPage, authoredQuery })),
     [rpc, range, subject, authoredPage, authoredQuery],
+    subject === null ? "" : "login" in subject ? `person:${subject.login}` : `team:${subject.team}`,
   );
 
   const openPerson = useCallback(

@@ -20,6 +20,7 @@ import type { ThreadSeed } from "./thread-seed";
 import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
 import { PullRequestFlowChart } from "./flow-chart";
+import { Bone, BoneList, LoadingNote } from "./skeleton";
 import { ReviewChart, ReviewLegend } from "./review-chart";
 
 const WARN = "text-[#b4530a] dark:text-[#e59a3a]";
@@ -177,6 +178,27 @@ export function nameOf(subject: Subject, organization: string | null): string {
   return organization === null ? subject.team : `${organization}/${subject.team}`;
 }
 
+/** The page's sections with their headings, and grey blocks for what each one holds, until the first load arrives. */
+function PersonSkeleton() {
+  return (
+    <div aria-busy>
+      <LoadingNote what="this page" />
+      <Bone className="mt-3 h-3 w-64" />
+      <Bone className="mt-6 h-24 w-full" />
+      <h2 className="mt-8 text-base font-semibold">Issues assigned to them</h2>
+      <BoneList count={3} />
+      <h2 className="mt-8 text-base font-semibold">Pull requests</h2>
+      <Bone className="mt-3 h-40 w-full" />
+      <h2 className="mt-8 text-base font-semibold">Their pull requests</h2>
+      <BoneList count={4} />
+      <h2 className="mt-10 text-base font-semibold">Reviews</h2>
+      <Bone className="mt-3 h-40 w-full" />
+      <h2 className="mt-8 text-base font-semibold">Waiting on their review</h2>
+      <BoneList count={2} />
+    </div>
+  );
+}
+
 export function PersonView({
   subject,
   selection,
@@ -221,6 +243,7 @@ export function PersonView({
   const message = error ?? data?.sync.error ?? null;
   const organization = data?.organization ?? null;
   const isTeam = "team" in subject;
+  const loading = data === null && error === null;
   const name = nameOf(subject, organization);
   const profile = !data?.repository
     ? null
@@ -242,9 +265,12 @@ export function PersonView({
           onOpenPerson={onOpenPerson}
           onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
+          loading={loading}
           title={name}
           subtitle={
-            data === null ? null : (
+            data === null ? (
+              loading ? <Bone className="mt-1 h-3 w-80" /> : null
+            ) : (
               <>
                 {isTeam && data.members.length === 0
                   ? "The sync has not read this team's members, so there is nothing to add up."
@@ -272,6 +298,8 @@ export function PersonView({
             {message}
           </p>
         )}
+
+        {loading ? <PersonSkeleton /> : null}
 
         {data === null ? null : (
           <>

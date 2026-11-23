@@ -1187,3 +1187,78 @@ export const OpenPullRequestsBatch = () => (
     <OpenList kind="pull" total={31} initialQuery={{ ...DEFAULT_QUERY, assignee: "" }} batchOpen />
   </WithThreads>
 );
+
+const SIX_WEEKS: Selection = { kind: "preset", id: "6w" };
+
+/** A person's page while its first load is on its way: their name, each section's heading, and grey blocks where the charts and lists go. */
+export const PersonPageLoading = () => (
+  <PersonView
+    subject={{ login: "octocat" }}
+    selection={SIX_WEEKS}
+    onSelect={() => undefined}
+    data={null}
+    error={null}
+    onBack={() => undefined}
+    onOpenPerson={() => undefined}
+    onOpenTeam={() => undefined}
+    onAuthoredPage={() => undefined}
+    onThread={() => undefined}
+    authoredQuery={DEFAULT_AUTHORED_QUERY}
+    onAuthoredQuery={() => undefined}
+    onBatchAuthored={() => undefined}
+    onBatch={() => undefined}
+    now={NOW}
+  />
+);
+
+/** A stage's page while it loads: grey blocks for its summary, its two charts, and the rows in it. */
+export const StagePageLoading = () => (
+  <StageView
+    selection={SIX_WEEKS}
+    onSelect={() => undefined}
+    data={null}
+    error={null}
+    onBack={() => undefined}
+    onOpenPerson={() => undefined}
+    onWaitingPage={() => undefined}
+    onThread={() => undefined}
+    waitingQuery={DEFAULT_WAITING_QUERY}
+    onWaitingQuery={() => undefined}
+    onBatch={() => undefined}
+    periodLabel={selectionWords(SIX_WEEKS)}
+    now={NOW}
+  />
+);
+
+/** A milestone's page while it loads: grey blocks for its summary, its history chart, and its open issues. */
+export const MilestonePageLoading = () => (
+  <MilestoneView
+    number={36}
+    selection={SIX_WEEKS}
+    onSelect={() => undefined}
+    data={null}
+    error={null}
+    onBack={() => undefined}
+    onOpenPerson={() => undefined}
+    periodLabel={selectionWords(SIX_WEEKS)}
+    onThread={() => undefined}
+    now={NOW}
+  />
+);
+
+/** Every open pull request, while the list loads: a grey row for each one to come. */
+export const OpenPullRequestsLoading = () => (
+  <OpenItemsView
+    kind="pull"
+    data={null}
+    error={null}
+    onBack={() => undefined}
+    onOpenPerson={() => undefined}
+    onPage={() => undefined}
+    onThread={() => undefined}
+    query={DEFAULT_QUERY}
+    onQuery={() => undefined}
+    onBatch={() => undefined}
+    now={NOW}
+  />
+);

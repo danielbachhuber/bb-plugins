@@ -16,6 +16,7 @@ import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";
 import { PeriodPicker } from "./period-picker";
 import { PageHeader } from "./page-header";
 import { ReleasesSection } from "./releases-section";
+import { Bone, BoneRows, LoadingNote } from "./skeleton";
 import { StageTable } from "./stage-flow";
 import { TeamReviews } from "./team-reviews";
 import { VelocitySection } from "./velocity-section";
@@ -86,32 +87,6 @@ function Section({
   );
 }
 
-/** A grey block standing in for content that has not loaded yet. */
-function Bone({ className }: { className: string }) {
-  return <div aria-hidden className={`animate-pulse rounded bg-muted motion-reduce:animate-none ${className}`} />;
-}
-
-/** Rows standing in for a step table or the milestones table. */
-function BoneRows({ count, className = "" }: { count: number; className?: string }) {
-  return (
-    <div className={`mt-3 ${className}`}>
-      <Bone className="h-3 w-full max-w-md" />
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 border-b border-border py-3">
-          <div className="w-56 shrink-0 space-y-1.5">
-            <Bone className="h-3.5 w-40" />
-            <Bone className="h-2.5 w-24" />
-          </div>
-          <Bone className="h-2 flex-1" />
-          <Bone className="h-3 w-10" />
-          <Bone className="h-3 w-10" />
-          <Bone className="h-3 w-24" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /**
  * The page's sections with their headings, and a grey block where each one's
  * numbers and charts go, until the first load arrives. Headings that open a
@@ -120,9 +95,7 @@ function BoneRows({ count, className = "" }: { count: number; className?: string
 function DashboardSkeleton({ periodLabel, onOpenList }: { periodLabel: string; onOpenList: (kind: "issue" | "pull") => void }) {
   return (
     <div aria-busy>
-      <p role="status" className="sr-only">
-        Loading the dashboard
-      </p>
+      <LoadingNote what="the dashboard" />
       <section className="mt-5" aria-labelledby="overview">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 id="overview" className="text-lg font-semibold">

@@ -8,6 +8,7 @@ import { ItemRow } from "./item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";
+import { Bone, BoneList, LoadingNote } from "./skeleton";
 import { BatchButton, PeopleMenu, SortMenu, type SortOption } from "./list-toolbar";
 
 const BAR = "bg-[#2a78d6] dark:bg-[#3987e5]";
@@ -222,6 +223,7 @@ export function StageView({
   const unit = unitOfBuckets(data?.buckets ?? []);
   const stage = data === null ? null : data.stage;
   const paging = data === null ? null : data.waitingPaging;
+  const loading = data === null && error === null;
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
@@ -234,8 +236,23 @@ export function StageView({
           onOpenPerson={onOpenPerson}
           onOpenTeam={onOpenTeam}
           period={<PeriodPicker selection={selection} onSelect={onSelect} />}
-          title={stage?.label ?? ""}
+          title={stage?.label ?? (loading ? <Bone className="h-6 w-48" /> : "")}
+          loading={loading}
         />
+
+        {loading ? (
+          <div aria-busy>
+            <LoadingNote what="this stage" />
+            <Bone className="mt-3 h-3 w-full max-w-2xl" />
+            <Bone className="mt-1.5 h-3 w-full max-w-lg" />
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Bone className="h-44 min-w-64 flex-1" />
+              <Bone className="h-44 min-w-64 flex-1" />
+            </div>
+            <h2 className="mt-6 text-base font-semibold">In this stage now</h2>
+            <BoneList count={5} />
+          </div>
+        ) : null}
 
         {message === null ? null : (
           <p role="alert" className="mt-3 text-sm text-destructive">
