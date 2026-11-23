@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   ISSUES_QUERY,
+  MILESTONES_QUERY,
   MORE_REVIEWS_QUERY,
   PULL_REQUESTS_QUERY,
   RELEASES_QUERY,
   TEAMS_QUERY,
   type IssueNode,
+  type Milestone,
   type PullRequestNode,
   type Release,
 } from "./github";
@@ -71,6 +73,7 @@ function fakeGithub(
   issues: IssueNode[] = [],
   releases: Release[] = [],
   teams: Record<string, string[]> | null = {},
+  milestones: Milestone[] = [],
 ) {
   const calls: Array<{ query: string; after: unknown }> = [];
   const query: GraphqlQuery = async (text, variables) => {
@@ -129,6 +132,9 @@ function fakeGithub(
           },
         },
       };
+    }
+    if (text === MILESTONES_QUERY) {
+      return { repository: { milestones: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: milestones } } };
     }
     if (text === TEAMS_QUERY) {
       if (teams === null) throw new Error("Could not resolve to an Organization with the login of 'acme'.");
@@ -320,5 +326,27 @@ describe("runSync, issues", () => {
     expect(again.calls.filter((call) => call.query === RELEASES_QUERY)).toHaveLength(1);
     expect(second.releases).toBe(100);
     expect(store.readReleases("acme/widgets")[0].tagName).toBe("v1.150.0");
+  });
+
+  it("replaces the open milestones whole each sync, so a closed one drops out", async () => {
+    const store = openStore();
+    const milestone = (number: number, title: string): Milestone => ({
+      number,
+      title,
+      url: `https://github.com/acme/widgets/milestone/${number}`,
+      dueOn: null,
+      createdAt: recent(30),
+      openIssues: { totalCount: 4 },
+      closedIssues: { totalCount: 1 },
+    });
+    const first = await runSync({
+      store,
+      query: fakeGithub([], 2, [], [], {}, [milestone(1, "Gadget importer"), milestone(2, "Sprocket export")]).query,
+      repository: "acme/widgets",
+      now: () => NOW,
+    });
+    expect(first.milestones).toBe(2);
+    await runSync({ store, query: fakeGithub([], 2, [], [], {}, [milestone(2, "Sprocket export")]).query, repository: "acme/widgets", now: () => NOW });
+    expect(store.readMilestones("acme/widgets").map((m) => m.title)).toEqual(["Sprocket export"]);
   });
 });

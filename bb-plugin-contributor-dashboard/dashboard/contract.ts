@@ -333,6 +333,46 @@ export const syncStatusSchema = z.object({
     .optional(),
 });
 
+export const milestoneSummarySchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  /** Epoch ms; null when it has no due date. */
+  due: z.number().nullable(),
+  open: z.number(),
+  closed: z.number(),
+  /** Open issues in it with nobody assigned. */
+  nobody: z.number(),
+  /** Issues added to it in each bucket. */
+  added: z.array(z.number()),
+  /** Issues in it that closed in each bucket. */
+  closedIn: z.array(z.number()),
+  /** Open issues that were added during the period. */
+  openAdded: z.number(),
+});
+
+export const issueStandingSchema = z.enum(["nobody", "assigned", "draft", "review", "approved"]);
+
+export const milestoneIssueSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  standing: issueStandingSchema,
+  /** When it joined the milestone, epoch ms. */
+  addedAt: z.number(),
+  ...rowOwnershipSchema,
+});
+
+export const closedMilestoneIssueSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  closedAt: z.number(),
+  /** Closed as not planned or a duplicate, rather than done. */
+  notDone: z.boolean(),
+  ...rowOwnershipSchema,
+});
+
 export const rpcContract = defineRpcContract({
   people_activity: {
     input: z.object({ range: rangeSchema }),
@@ -346,6 +386,8 @@ export const rpcContract = defineRpcContract({
       /** Opened to merged, and requested to reviewed, for the charts that open the velocity sections. */
       velocity: z.object({ merge: bucketFlowsSchema, review: bucketFlowsSchema }),
       closedIssues: closedIssuesSchema,
+      /** Every open milestone, past due and due soonest first. */
+      milestones: z.array(milestoneSummarySchema),
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),
       /** Every team asked for a review in the period, most asked first. */
@@ -448,6 +490,22 @@ export const rpcContract = defineRpcContract({
       /** Everyone the person finder offers, most recently active first. */
       everyone: z.array(z.string()),
       /** The teams it offers, by slug, the one with the most recently active member first. */
+      everyTeam: z.array(z.string()),
+      sync: syncStatusSchema,
+    }),
+  },
+  /** One milestone's page: every issue in it, where each open one stands, and its history. */
+  milestone_detail: {
+    input: z.object({ number: z.number().int().min(1), range: rangeSchema }),
+    output: z.object({
+      repository: z.string().nullable(),
+      buckets: z.array(bucketSchema),
+      /** Null when the repository has no open milestone with this number. */
+      milestone: milestoneSummarySchema.nullable(),
+      open: z.array(milestoneIssueSchema),
+      closed: z.array(closedMilestoneIssueSchema),
+      history: z.object({ at: z.array(z.number()), total: z.array(z.number()), closed: z.array(z.number()) }),
+      everyone: z.array(z.string()),
       everyTeam: z.array(z.string()),
       sync: syncStatusSchema,
     }),
@@ -571,6 +629,11 @@ export type StageSpan = z.infer<typeof stageSpanSchema>;
 export type StageKey = z.infer<typeof stageKeySchema>;
 export type AssignedIssue = z.infer<typeof assignedIssueSchema>;
 export type ActivityDay = z.infer<typeof activityDaySchema>;
+export type MilestoneSummary = z.infer<typeof milestoneSummarySchema>;
+export type IssueStanding = z.infer<typeof issueStandingSchema>;
+export type MilestoneIssue = z.infer<typeof milestoneIssueSchema>;
+export type ClosedMilestoneIssue = z.infer<typeof closedMilestoneIssueSchema>;
+export type MilestoneDetailResult = z.infer<(typeof rpcContract)["milestone_detail"]["output"]>;
 export type StageDetailResult = z.infer<(typeof rpcContract)["stage_detail"]["output"]>;
 export type Subject = z.infer<typeof subjectSchema>;
 export type PersonActivityResult = z.infer<(typeof rpcContract)["person_activity"]["output"]>;

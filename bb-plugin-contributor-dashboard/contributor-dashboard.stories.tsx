@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 
 import { DashboardView } from "./components/dashboard-view";
+import { MilestoneView } from "./components/milestone-view";
+import { milestoneDetailFor, milestonesFor } from "./milestone-fixtures";
 import { PersonView } from "./components/person-view";
 import { StageView } from "./components/stage-view";
 import { OpenItemsView } from "./components/open-items-view";
@@ -426,6 +428,7 @@ function fixture(selection: Selection, sync: SyncStatus = SYNCED): PeopleActivit
       review: flowsFor(bucketSums(people, "requested", buckets.length), bucketSums(people, "given", buckets.length), 40, null, 0.3, 2.9),
     },
     closedIssues: closedIssuesFor(buckets.length, factor),
+    milestones: milestonesFor(buckets, NOW),
     authors,
     people: people.map((person) => ({ ...person, pickedUpTotal: person.pickedUp.reduce((sum, n) => sum + n, 0) })),
     teams: TEAMS,
@@ -479,6 +482,7 @@ function Page({
       onOpenPerson={() => undefined}
       onOpenStage={() => undefined}
       onOpenList={() => undefined}
+      onOpenMilestone={() => undefined}
       onLoadOlderReleases={olderReleasesFor}
       now={NOW}
       initialHovered={initialHovered}
@@ -520,12 +524,62 @@ export const NoRepository = () => (
   <DashboardView
     selection={{ kind: "preset", id: "6w" }}
     onSelect={() => undefined}
-    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, authors: [], people: [], teams: [], organization: null, everyone: [], everyTeam: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
+    data={{ repository: null, buckets: [], stages: [], flow: scaledFlow(0), releases: { published: 0, patches: 0, minors: [], older: 0 }, velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, milestones: [], authors: [], people: [], teams: [], organization: null, everyone: [], everyTeam: [], sync: { ...SYNCED, syncedAt: null, pullRequests: 0, issues: 0 } }}
     error={null}
     onOpenPerson={() => undefined}
     onOpenStage={() => undefined}
     onOpenList={() => undefined}
+    onOpenMilestone={() => undefined}
     onLoadOlderReleases={olderReleasesFor}
+    now={NOW}
+  />
+);
+
+function Milestone({ initialShowClosed = false }: { initialShowClosed?: boolean }) {
+  const [selection, setSelection] = useState<Selection>({ kind: "preset", id: "6w" });
+  const buckets = bucketsFor(rangeOf(selection, NOW));
+  return (
+    <WithThreads>
+      <MilestoneView
+        number={36}
+        selection={selection}
+        onSelect={setSelection}
+        data={milestoneDetailFor(buckets, NOW, SYNCED)}
+        error={null}
+        onBack={() => undefined}
+        onOpenPerson={() => undefined}
+        periodLabel={selectionWords(selection)}
+        onThread={() => undefined}
+        now={NOW}
+        initialShowClosed={initialShowClosed}
+      />
+    </WithThreads>
+  );
+}
+
+/**
+ * A milestone's page, opened from its row: past due, with most of its open
+ * issues unheld and issues arriving faster than they close over the last six
+ * weeks. The strip shows where its issues stand, the chart how many were in
+ * it and closed since it was created.
+ */
+export const MilestonePage = () => <Milestone />;
+
+/** The same milestone with its closed issues opened under the open ones. */
+export const MilestonePageClosedOpen = () => <Milestone initialShowClosed />;
+
+/** A milestone that closed since the last sync. */
+export const MilestonePageMissing = () => (
+  <MilestoneView
+    number={99}
+    selection={{ kind: "preset", id: "6w" }}
+    onSelect={() => undefined}
+    data={{ ...milestoneDetailFor([], NOW, SYNCED), milestone: null, open: [], closed: [] }}
+    error={null}
+    onBack={() => undefined}
+    onOpenPerson={() => undefined}
+    periodLabel="six weeks"
+    onThread={() => undefined}
     now={NOW}
   />
 );

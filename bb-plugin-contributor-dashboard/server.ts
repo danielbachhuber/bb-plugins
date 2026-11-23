@@ -28,6 +28,7 @@ import { isWho, loginsOf, type Who } from "./review/who.js";
 import type { Subject } from "./dashboard/contract.js";
 import type { PullRequestWithActivity } from "./mirror/github.js";
 import { runSync } from "./mirror/sync.js";
+import { milestoneDetail, milestoneSummaries } from "./review/milestones.js";
 import { contributorDashboardCli } from "./cli/activity.js";
 
 export { rpcContract };
@@ -196,7 +197,7 @@ export default async function plugin(bb: BbPluginApi) {
     people_activity: ({ range }) => {
       if (!configured) {
         return { repository: null, buckets: [], stages: [], flow: emptyFlow(), releases: { published: 0, patches: 0, minors: [], older: 0 },
-          velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] },
+          velocity: { merge: NO_FLOWS, review: NO_FLOWS }, closedIssues: { types: [], notPlanned: [], duplicate: [] }, milestones: [],
           authors: [], people: [], teams: [], organization: null, everyone: [], everyTeam: [], sync: status() };
       }
       const { syncedAt } = store.syncState(repository);
@@ -214,6 +215,7 @@ export default async function plugin(bb: BbPluginApi) {
         flow: flowOf({ pullRequests: prs, issues }, buckets[0].start, buckets.at(-1)!.end),
         velocity: { merge: mergeFlows(prs, buckets, now), review: reviewFlows(prs, buckets, now) },
         closedIssues: closedIssues(issues, buckets),
+        milestones: milestoneSummaries(store.readMilestones(repository), issues, buckets),
         releases: releaseSummaries(store.readReleases(repository), prs, repository, buckets[0].start, buckets.at(-1)!.end),
         // A pull request opened before the period can still merge inside it,
         // so authoring reads them all rather than only the recently updated.
@@ -300,6 +302,28 @@ export default async function plugin(bb: BbPluginApi) {
         authoredFacets: authoredFacets(all),
         authoredPaging: { page: paging.page, pages: paging.pages, from: paging.from, to: paging.to, total: authored.length },
         ...finder(everything),
+        sync: status(),
+      };
+    },
+    milestone_detail: ({ number, range }) => {
+      const empty = { open: [], closed: [], history: { at: [], total: [], closed: [] } };
+      if (!configured) return { repository: null, buckets: [], milestone: null, ...empty, everyone: [], everyTeam: [], sync: status() };
+      const { syncedAt } = store.syncState(repository);
+      if (syncedAt === null || Date.now() - syncedAt > STALE_AFTER_MS) startSync();
+      const buckets = bucketsFor(range);
+      const prs = store.readActivity(repository, 0);
+      const issues = store.readIssues(repository, 0);
+      const found = store.readMilestones(repository).find((milestone) => milestone.number === number) ?? null;
+      if (found === null) return { repository, buckets, milestone: null, ...empty, ...finder(prs), sync: status() };
+      const detail = milestoneDetail(found, issues, prs, Date.now());
+      return {
+        repository,
+        buckets,
+        milestone: milestoneSummaries([found], issues, buckets)[0],
+        open: withThreads(detail.open, "issue"),
+        closed: withThreads(detail.closed, "issue"),
+        history: detail.history,
+        ...finder(prs),
         sync: status(),
       };
     },

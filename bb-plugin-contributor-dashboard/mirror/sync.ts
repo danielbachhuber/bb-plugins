@@ -7,6 +7,7 @@
 // cursor after every page so an interrupted backfill resumes where it stopped.
 import {
   ISSUES_QUERY,
+  MILESTONES_QUERY,
   MORE_ISSUE_TIMELINE_QUERY,
   MORE_REVIEWS_QUERY,
   MORE_TIMELINE_QUERY,
@@ -16,6 +17,7 @@ import {
   type Connection,
   type IssueNode,
   type IssueTimelineItem,
+  type Milestone,
   type OrganizationTeam,
   type PullRequestNode,
   type PullRequestReview,
@@ -47,6 +49,8 @@ export interface SyncResult {
   issues: number;
   /** Releases stored in this run, new or changed. */
   releases: number;
+  /** Open milestones read. */
+  milestones: number;
   /** Teams read, or null when the repository's owner is not an organization this login can read. */
   teams: number | null;
   /** GraphQL calls made. */
@@ -59,6 +63,10 @@ interface PullRequestsPage {
 
 interface ReleasesPage {
   repository: { releases: Connection<Release> } | null;
+}
+
+interface MilestonesPage {
+  repository: { milestones: Connection<Milestone> } | null;
 }
 
 interface TeamsPage {
@@ -82,7 +90,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   const pageSize = options.pageSize ?? 50;
   const [owner, name] = repository.split("/");
   const state: SyncState = store.syncState(repository);
-  const result: SyncResult = { pullRequests: 0, issues: 0, releases: 0, teams: null, calls: 0 };
+  const result: SyncResult = { pullRequests: 0, issues: 0, releases: 0, milestones: 0, teams: null, calls: 0 };
 
   async function call(text: string, variables: Record<string, string | number | null>) {
     signal?.throwIfAborted();
@@ -169,6 +177,25 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   }
 
   /**
+   * Every open milestone, replaced whole each sync: one call for up to 100.
+   * Its issue counts are GitHub's own, so they include issues older than the
+   * mirror's horizon.
+   */
+  async function syncMilestones() {
+    const milestones: Milestone[] = [];
+    for (let after: string | null = null; ; ) {
+      const data = (await call(MILESTONES_QUERY, { owner, name, after })) as MilestonesPage;
+      if (data.repository === null) throw new Error(`GitHub has no repository ${repository}, or this login cannot see it.`);
+      const { nodes, pageInfo } = data.repository.milestones;
+      milestones.push(...nodes);
+      if (!pageInfo.hasNextPage) break;
+      after = pageInfo.endCursor;
+    }
+    store.replaceMilestones(repository, milestones);
+    result.milestones = milestones.length;
+  }
+
+  /**
    * Every team in the owner's organization, with its members, replaced whole
    * each sync: one call for up to 100 teams. A repository owned by a person,
    * or a login without permission to read the organization's teams, keeps
@@ -238,6 +265,7 @@ export async function runSync(options: SyncOptions): Promise<SyncResult> {
   await run<PullRequestNode>({ state, page, keep });
   await run<IssueNode>({ state: state.issues, page: issuePage, keep: keepIssues });
   await syncReleases();
+  await syncMilestones();
   await syncTeams();
 
   state.syncedAt = now();

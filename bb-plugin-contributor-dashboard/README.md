@@ -34,8 +34,8 @@ month or less is drawn by day, up to half a year by week starting on Monday,
 and anything longer by month. A bucket is always whole, so a range starting
 midweek is charted from that week's Monday.
 
-Under the header the page has four sections: an **Overview**, then
-**Issues**, **Pull requests**, and **Releases**.
+Under the header the page has five sections: an **Overview**, then
+**Milestones**, **Issues**, **Pull requests**, and **Releases**.
 
 ### Overview
 
@@ -84,6 +84,31 @@ What counts on the lines, for everything opened in the period, bots left out:
 
 The counts come from the rows the stages already read, so the diagram makes
 no request to GitHub of its own.
+
+### Milestones
+
+![The Milestones section: a row per open milestone with its due date, a bar of how much is closed, its open and unassigned counts, what was added and closed over the period, and a small chart of issues in it against closed](screenshots/page--six-weeks.png)
+
+A row per open milestone, past due and due soonest first, then the rest by
+how much moved in the period. Each row shows when it is due, a bar of how
+much of it is closed with the open issues added in the period hatched, how
+many are open and how many of those nobody holds, and how many issues were
+added to it and closed over the period. A small chart draws the issues in it
+against those closed across the period, its top line amber when issues
+arrived faster than they closed.
+
+Clicking a milestone opens its page: a strip of where its issues stand, from
+nobody assigned and assigned to a pull request in draft, in review, or
+approved, then closed; a chart of the issues in it and closed since it was
+created, with the period shaded and the due date marked; and every open
+issue grouped by where it stands, with the closed ones behind a toggle.
+
+![A milestone's page: the strip of where its issues stand, the chart of issues in it and closed since it was created, and the open issues grouped by where they stand](screenshots/page--milestone-page.png)
+
+An issue's standing comes from the open pull requests that say they close it.
+The open and closed totals are GitHub's own counts; the dates come from the
+mirror, so issues last updated before its two-year horizon count in the
+totals but not in the chart or the lists, and the page says how many.
 
 ### Issues and Pull requests
 
@@ -610,8 +635,8 @@ mark and backfill cursor, so finishing one does not affect the other.
   50 per call, and stops at the first one the last sync already saw, then does
   the same for issues. Any review
   or review request bumps a pull request's update time, so this picks up every
-  change. A sync after a quiet half hour is usually four calls: one each for
-  pull requests, issues, releases, and teams.
+  change. A sync after a quiet half hour is usually five calls: one each for
+  pull requests, issues, releases, milestones, and teams.
 - **The first sync** reaches back two years, so a year can be compared with the
   year before. That is one call per 50 pull requests updated in those two
   years: about 100 calls, and about eight minutes, for a repository with 5,000,
@@ -630,6 +655,10 @@ mark and backfill cursor, so finishing one does not affect the other.
   reaches them. A team past 100 members keeps only its first 100. When the
   owner is a person rather than an organization, or the `gh` account cannot
   read the organization's teams, the sync keeps what it had and carries on.
+- **Milestones**: every sync reads the open milestones, with GitHub's count
+  of the open and closed issues in each, in one call per 100, and replaces the
+  stored ones, so a closed milestone drops out. Which milestone an issue is in,
+  and when it was put there, come with the issues' own pages at no extra cost.
 - **Releases** have no update order to page by, and a repository publishes a
   few a week at most, so every sync reads the newest 100 again in one call.
   The first sync reads on back two years, one more call per 100. A release
@@ -642,7 +671,8 @@ one point.
 
 The tables follow GitHub's own objects: `pull_requests`,
 `pull_request_reviews`, `pull_request_timeline_items`, `issues`,
-`issue_timeline_items`, and `releases`, keyed by GitHub's node id. Each row holds the object as GitHub returned it, with GitHub's field
+`issue_timeline_items`, and `releases`, keyed by GitHub's node id, and
+`milestones`, keyed by repository and number. Each row holds the object as GitHub returned it, with GitHub's field
 names, plus the few fields queries filter on as columns. The counts above are
 computed when the page reads, never stored, so a change to how one is defined
 needs no new sync.

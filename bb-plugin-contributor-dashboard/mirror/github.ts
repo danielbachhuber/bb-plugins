@@ -186,12 +186,24 @@ export interface Issue {
   stateReason?: "COMPLETED" | "NOT_PLANNED" | "DUPLICATE" | "REOPENED" | null;
   /** The organization's issue type, such as Bug or Task; null when none is set. */
   issueType?: { name: string } | null;
+  /**
+   * The milestone it is in now; null when it is in none. Optional, like
+   * `stateReason`, for rows mirrored before the sync asked for it.
+   */
+  milestone?: { number: number } | null;
 }
 
 /** The issue events the stages before a change is written are read from. */
 export type IssueTimelineItem =
   | {
-      __typename: "MilestonedEvent" | "DemilestonedEvent" | "AddedToProjectV2Event" | "ClosedEvent";
+      __typename: "MilestonedEvent" | "DemilestonedEvent";
+      id: string;
+      createdAt: string;
+      /** The milestone's title when the event happened. Missing on rows mirrored before the sync asked for it. */
+      milestoneTitle?: string;
+    }
+  | {
+      __typename: "AddedToProjectV2Event" | "ClosedEvent";
       id: string;
       createdAt: string;
     }
@@ -218,8 +230,8 @@ export const ISSUE_TIMELINE_ITEM_TYPES =
 
 const ISSUE_TIMELINE_FIELDS = `
   __typename
-  ... on MilestonedEvent { id createdAt }
-  ... on DemilestonedEvent { id createdAt }
+  ... on MilestonedEvent { id createdAt milestoneTitle }
+  ... on DemilestonedEvent { id createdAt milestoneTitle }
   ... on AddedToProjectV2Event { id createdAt }
   ... on AssignedEvent { id createdAt assignee { ... on User { login } ... on Bot { login } } }
   ... on UnassignedEvent { id createdAt assignee { ... on User { login } ... on Bot { login } } }
@@ -238,6 +250,7 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
       nodes {
         id number title url state stateReason createdAt updatedAt closedAt
         issueType { name }
+        milestone { number }
         author { __typename login }
         assignees(first: 5) { nodes { login } }
         timelineItems(first: 100, itemTypes: ${ISSUE_TIMELINE_ITEM_TYPES}) {
@@ -285,6 +298,38 @@ query($owner: String!, $name: String!, $first: Int!, $after: String) {
     releases(first: $first, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
       pageInfo { hasNextPage endCursor }
       nodes { id tagName name url isDraft isPrerelease createdAt publishedAt description }
+    }
+  }
+}`;
+
+/** An open milestone, with GitHub's own count of the issues in it. */
+export interface Milestone {
+  number: number;
+  title: string;
+  url: string;
+  /** Null when it has no due date. */
+  dueOn: string | null;
+  createdAt: string;
+  /** Pull requests count too on GitHub's side; these count issues only. */
+  openIssues: { totalCount: number };
+  closedIssues: { totalCount: number };
+}
+
+/**
+ * One page of the repository's open milestones. A repository keeps a few
+ * dozen at most, so one call of 100 reads them all and costs one point of the
+ * rate limit.
+ */
+export const MILESTONES_QUERY = `
+query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    milestones(first: 100, after: $after, states: [OPEN]) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number title url dueOn createdAt
+        openIssues: issues(states: [OPEN]) { totalCount }
+        closedIssues: issues(states: [CLOSED]) { totalCount }
+      }
     }
   }
 }`;

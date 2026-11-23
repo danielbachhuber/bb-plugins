@@ -15,6 +15,10 @@ person's page as the pull requests waiting on their teams. A team has a page
 too, from the search box or its name under Review velocity: the same parts as
 a person's page, adding up what its members did, with its members listed to
 open their own pages.
+The **Milestones** section lists every open milestone with its due date, how
+much of it is closed, and whether issues were added faster than they closed;
+clicking one opens its issues grouped by where they stand, with a chart of the
+issues in it and closed since it was created.
 The **Issues** section charts the issues closed in each week by issue type,
 with those closed as not planned or duplicate set apart.
 Clicking the **Issues** or **Pull requests** heading lists every one open now,

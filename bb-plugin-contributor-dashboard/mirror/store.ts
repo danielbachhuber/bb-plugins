@@ -13,6 +13,7 @@ import type {
   IssueNode,
   IssueTimelineItem,
   IssueWithActivity,
+  Milestone,
   PullRequest,
   PullRequestNode,
   PullRequestReview,
@@ -103,6 +104,16 @@ export const MIGRATIONS = [
    )`,
   // Issues gained why they closed and their issue type. Running the issue
   // backfill again gives the rows already stored those fields too.
+  `UPDATE sync_state SET issue_backfill_done = 0, issue_backfill_cursor = NULL`,
+  // The repository's open milestones, replaced whole on each sync.
+  `CREATE TABLE IF NOT EXISTS milestones (
+     repository TEXT NOT NULL,
+     number INTEGER NOT NULL,
+     data TEXT NOT NULL,
+     PRIMARY KEY (repository, number)
+   )`,
+  // Issues gained their milestone, and milestone events its title. Running
+  // the issue backfill again gives the rows already stored those fields too.
   `UPDATE sync_state SET issue_backfill_done = 0, issue_backfill_cursor = NULL`,
 ];
 
@@ -218,6 +229,9 @@ export function createStore(db: Database) {
   const deleteTeams = db.prepare(`DELETE FROM teams WHERE repository = ?`);
   const insertTeam = db.prepare(`INSERT INTO teams (repository, slug, members) VALUES (?, ?, ?)`);
   const selectTeams = db.prepare(`SELECT slug, members FROM teams WHERE repository = ?`);
+  const deleteMilestones = db.prepare(`DELETE FROM milestones WHERE repository = ?`);
+  const insertMilestone = db.prepare(`INSERT INTO milestones (repository, number, data) VALUES (?, ?, ?)`);
+  const selectMilestones = db.prepare(`SELECT data FROM milestones WHERE repository = ? ORDER BY number`);
 
   const writeIssueItems = (issueId: string, items: readonly IssueTimelineItem[]) => {
     for (const item of items) upsertIssueItem.run(item.id, issueId, JSON.stringify(item));
@@ -381,6 +395,17 @@ export function createStore(db: Database) {
     readTeams(repository: string): Map<string, string[]> {
       const rows = selectTeams.all(repository) as Array<{ slug: string; members: string }>;
       return new Map(rows.map((row) => [row.slug, JSON.parse(row.members) as string[]]));
+    },
+
+    /** Every open milestone, replacing what the last sync stored, so a closed one drops out. */
+    replaceMilestones: db.transaction((repository: string, milestones: readonly Milestone[]) => {
+      deleteMilestones.run(repository);
+      for (const milestone of milestones) insertMilestone.run(repository, milestone.number, JSON.stringify(milestone));
+    }),
+
+    /** The open milestones; empty until a sync has read them. */
+    readMilestones(repository: string): Milestone[] {
+      return (selectMilestones.all(repository) as Array<{ data: string }>).map((row) => JSON.parse(row.data) as Milestone);
     },
 
     saveSyncState(repository: string, state: SyncState): void {

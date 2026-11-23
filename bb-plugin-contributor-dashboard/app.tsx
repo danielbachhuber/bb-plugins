@@ -13,6 +13,7 @@ import { SyncStatus as SyncStatusBar } from "@danielbachhuber/bb-plugin-componen
 
 import { DashboardView } from "@/components/dashboard-view";
 import { PersonView } from "@/components/person-view";
+import { MilestoneView } from "@/components/milestone-view";
 import { StageView } from "@/components/stage-view";
 import { OpenItemsView } from "@/components/open-items-view";
 import { BatchDialog, type BatchItem } from "@/components/batch-dialog";
@@ -28,6 +29,7 @@ import {
   type PeopleActivityResult,
   type PersonActivityResult,
   STAGE_KEYS,
+  type MilestoneDetailResult,
   type StageDetailResult,
   type StageKey,
   type Subject,
@@ -49,7 +51,7 @@ function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-/** `person/<login>`, `team/<slug>`, and `stage/<key>` are the sub-paths; anything else is the dashboard. */
+/** `person/<login>`, `team/<slug>`, `stage/<key>`, and `milestone/<number>` are the sub-paths; anything else is the dashboard. */
 function personFrom(subPath: string): string | null {
   const match = /^person\/([^/]+)\/?$/.exec(subPath);
   return match === null ? null : decodeURIComponent(match[1]);
@@ -65,6 +67,11 @@ function listFrom(subPath: string): "issue" | "pull" | null {
   const match = /^(issues|pulls)\/?$/.exec(subPath);
   if (match === null) return null;
   return match[1] === "issues" ? "issue" : "pull";
+}
+
+function milestoneFrom(subPath: string): number | null {
+  const match = /^milestone\/(\d+)\/?$/.exec(subPath);
+  return match === null ? null : Number(match[1]);
 }
 
 function stageFrom(subPath: string): StageKey | null {
@@ -158,6 +165,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     return personFrom(remembered) !== null ||
       teamFrom(remembered) !== null ||
       stageFrom(remembered) !== null ||
+      milestoneFrom(remembered) !== null ||
       listFrom(remembered) !== null
       ? remembered
       : null;
@@ -182,6 +190,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
     [login, team],
   );
   const stage = stageFrom(shown);
+  const milestone = milestoneFrom(shown);
   const list = listFrom(shown);
   const [listPage, setListPage] = useState(0);
   const [listQuery, setListQuery] = useState<OpenQuery>(DEFAULT_QUERY);
@@ -264,8 +273,15 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
   );
 
   const dashboard = useDashboardData<PeopleActivityResult | null>(
-    () => (subject === null && stage === null && list === null ? rpc.call("people_activity", { range }) : Promise.resolve(null)),
-    [rpc, range, subject, stage, list],
+    () =>
+      subject === null && stage === null && list === null && milestone === null
+        ? rpc.call("people_activity", { range })
+        : Promise.resolve(null),
+    [rpc, range, subject, stage, list, milestone],
+  );
+  const milestoneDetail = useDashboardData<MilestoneDetailResult | null>(
+    () => (milestone === null ? Promise.resolve(null) : rpc.call("milestone_detail", { number: milestone, range })),
+    [rpc, range, milestone],
   );
   const openList = useDashboardData<OpenItemsResult | null>(
     () => (list === null ? Promise.resolve(null) : rpc.call("open_items", { kind: list, page: listPage, query: listQuery })),
@@ -310,6 +326,10 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       setListQuery(DEFAULT_QUERY);
       navigate.toPluginPanel(PANEL_PATH, { subPath: kind === "issue" ? "issues" : "pulls" });
     },
+    [navigate],
+  );
+  const openMilestone = useCallback(
+    (number: number) => navigate.toPluginPanel(PANEL_PATH, { subPath: `milestone/${number}` }),
     [navigate],
   );
   const back = useCallback(() => navigate.toPluginPanel(PANEL_PATH), [navigate]);
@@ -364,6 +384,24 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
             openBatch(list, heading, () => rpc.call("open_items_matching", { kind: list, query: listQuery }).then(({ rows }) => rows))
           }
           batch={batchDialog}
+        />
+      </StartThreadContext.Provider>
+    );
+  }
+  if (milestone !== null) {
+    return (
+      <StartThreadContext.Provider value={startRows}>
+        <MilestoneView
+          number={milestone}
+          selection={selection}
+          onSelect={choose}
+          data={milestoneDetail.data}
+          error={milestoneDetail.error}
+          onBack={back}
+          onOpenPerson={openPerson}
+          onOpenTeam={openTeam}
+          periodLabel={selectionWords(selection)}
+          onThread={onThread}
         />
       </StartThreadContext.Provider>
     );
@@ -430,6 +468,7 @@ function ContributorDashboardPage({ subPath }: PluginNavPanelProps) {
       onOpenTeam={openTeam}
       onOpenStage={openStage}
       onOpenList={openItemsList}
+      onOpenMilestone={openMilestone}
       onLoadOlderReleases={(before, count) => rpc.call("older_releases", { before, count })}
     />
   );
