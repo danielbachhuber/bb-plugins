@@ -184,7 +184,7 @@ function ForecastRow({
   return (
     <div className="flex items-center gap-2 text-xs tabular-nums">
       <span className="w-16 shrink-0">{label}</span>
-      <RangeBar actual={actual} range={range} width={72} />
+      <RangeBar actual={actual} range={range} width={56} />
       <span className="min-w-0 flex-1 truncate text-muted-foreground">
         {format(actual)}
         {unit}
@@ -246,7 +246,7 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
               </div>
             )
           ) : (
-            <ForecastRow label="Subagents" actual={turn.subagentCalls} range={turn.forecast.subagentCalls} format={String} unit=" calls" />
+            <ForecastRow label="Subagents" actual={turn.subagentCalls} range={turn.forecast.subagentCalls} format={String} />
           )}
           {turn.forecast.tokens === null || (running && tokens === 0) ? null : (
             <ForecastRow label="Tokens" actual={tokens} range={turn.forecast.tokens} format={formatTokens} />
