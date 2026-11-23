@@ -5,6 +5,7 @@ import { ZERO_TOKENS, type Tokens } from "./breakdown.js";
 import { attributeUsage, type UsagePoint } from "./turns.js";
 import { turnSplits, type TimingRows, type TurnSplit } from "./timing.js";
 import {
+  additionsInTurn,
   callsInTurn,
   forecastInTurn,
   settingsAt,
@@ -29,6 +30,9 @@ export interface TurnSummary extends Tokens {
   time: TurnSplit | null;
   /** Model calls so far, counted from the context samples bb records after each response. */
   calls: number;
+  /** Claude Code subagents' calls during the turn, and their tokens, already in the turn's tokens. */
+  subagentCalls: number;
+  subagentTokens: number;
   /** Claude's forecast for the turn, or null when it made none. */
   forecast: TurnForecast | null;
   /** The model, speed, and reasoning level it ran with; null before Tokenomics recorded them. */
@@ -39,14 +43,38 @@ export interface ForecastInputs {
   samples: readonly CallSample[];
   forecasts: readonly StoredForecast[];
   requests?: readonly TurnRequest[];
+  /** The subagents' calls, which `rows` already holds, so the turn can say how much was theirs. */
+  subagentRows?: readonly UsagePoint[];
 }
 
-const NO_FORECASTS: ForecastInputs = { samples: [], forecasts: [], requests: [] };
+const NO_FORECASTS: ForecastInputs = { samples: [], forecasts: [], requests: [], subagentRows: [] };
+
+/** Each turn's subagent calls and tokens: a call belongs to the last turn that started before it. */
+function subagentsByTurn(
+  rows: readonly UsagePoint[],
+  started: ReadonlyArray<{ turnId: string; at: number }>,
+): Map<string, { calls: number; tokens: number }> {
+  const turns = [...started].sort((a, b) => a.at - b.at);
+  const byTurn = new Map<string, { calls: number; tokens: number }>();
+  for (const row of rows) {
+    let owner: string | null = null;
+    for (const turn of turns) {
+      if (turn.at > row.at) break;
+      owner = turn.turnId;
+    }
+    if (owner === null) continue;
+    const entry = byTurn.get(owner) ?? { calls: 0, tokens: 0 };
+    entry.calls += 1;
+    entry.tokens += row.input + row.cacheRead + row.output;
+    byTurn.set(owner, entry);
+  }
+  return byTurn;
+}
 
 export function turnSummaries(
   rows: readonly UsagePoint[],
   timings: TimingRows,
-  { samples, forecasts, requests = [] }: ForecastInputs = NO_FORECASTS,
+  { samples, forecasts, requests = [], subagentRows = [] }: ForecastInputs = NO_FORECASTS,
 ): TurnSummary[] {
   const started = timings.turns
     .filter((turn) => turn.startedAt !== null)
@@ -68,6 +96,7 @@ export function turnSummaries(
     counts.set(item.turnId, entry);
   }
   const ends = new Map(completed.map((event) => [event.turnId, event.at]));
+  const subagents = subagentsByTurn(subagentRows, started);
   return started
     .sort((a, b) => a.at - b.at)
     .map(({ turnId, at }) => {
@@ -85,7 +114,9 @@ export function turnSummaries(
         tools: counts.get(turnId)?.tools.size ?? 0,
         time: splits.get(turnId) ?? null,
         calls: callsInTurn(samples, at, end),
-        forecast: forecast === null ? null : toTurnForecast(forecast),
+        subagentCalls: subagents.get(turnId)?.calls ?? 0,
+        subagentTokens: subagents.get(turnId)?.tokens ?? 0,
+        forecast: forecast === null ? null : toTurnForecast(forecast, additionsInTurn(forecasts, forecast, end)),
         settings: settingsAt(requests, at),
       };
     });

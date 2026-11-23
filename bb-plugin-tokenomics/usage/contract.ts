@@ -61,6 +61,9 @@ export const turnSummarySchema = z.object({
   time: z.object({ model: z.number(), tools: z.number(), waiting: z.number() }).nullable(),
   /** Model calls so far. */
   calls: z.number(),
+  /** Claude Code subagents' calls during the turn, and their tokens, already in the turn's tokens. */
+  subagentCalls: z.number(),
+  subagentTokens: z.number(),
   /** Claude's 80% ranges for the turn. See usage/forecast.ts. */
   forecast: z
     .object({
@@ -73,6 +76,11 @@ export const turnSummarySchema = z.object({
       paceMs: z.number().nullable().optional(),
       /** Waits Claude named, included in the time range. */
       waitMs: z.tuple([z.number(), z.number()]).nullable().optional(),
+      /** Subagent calls forecast, additions included, and their tokens, already in `tokens`. */
+      subagentCalls: z.tuple([z.number(), z.number()]).nullable().optional(),
+      subagentTokens: z.tuple([z.number(), z.number()]).nullable().optional(),
+      /** The part of `subagentCalls` added partway through the turn. */
+      addedSubagentCalls: z.tuple([z.number(), z.number()]).nullable().optional(),
     })
     .nullable(),
   /** The model, speed, and reasoning level it ran with. */

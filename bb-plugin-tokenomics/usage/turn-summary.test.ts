@@ -41,6 +41,21 @@ describe("turnSummaries", () => {
     });
   });
 
+  it("says how many of each turn's calls and tokens were its subagents'", () => {
+    const subagentRows = [
+      { at: T0 + 30 * SEC, input: 40, cacheRead: 400, output: 10 },
+      { at: T0 + 85 * SEC, input: 60, cacheRead: 600, output: 20 },
+      { at: T0 + 125 * SEC, input: 10, cacheRead: 3_000, output: 5 },
+    ];
+    const [first, second] = turnSummaries([...rows, ...subagentRows.slice(0, 2)], timings, {
+      samples: [],
+      forecasts: [],
+      subagentRows,
+    });
+    expect(first).toMatchObject({ subagentCalls: 2, subagentTokens: 1_130, input: 400 });
+    expect(second).toMatchObject({ subagentCalls: 1, subagentTokens: 3_015 });
+  });
+
   it("counts a running turn's commands before it ends", () => {
     const [, running] = turnSummaries(rows, timings);
     expect(running).toMatchObject({ turnId: "t2", endedAt: null, commands: 1, output: 5, time: null });

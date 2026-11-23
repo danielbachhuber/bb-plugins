@@ -364,9 +364,9 @@ export const CONVERSATION: { from: "user" | "agent" | "work"; text: string }[] =
 
 /** One turn per agent message in CONVERSATION, for the lines under each turn. */
 export const TURN_SUMMARIES: TurnSummary[] = [
-  { turnId: "t1", startedAt: NOW.getTime() - 50 * 60_000, endedAt: NOW.getTime() - 38 * 60_000, commands: 18, tools: 37, input: 410_000, cacheRead: 11_800_000, output: 96_000, time: { model: 410_000, tools: 300_000, waiting: 10_000 }, calls: 34, forecast: null, settings: null },
-  { turnId: "t2", startedAt: NOW.getTime() - 30 * 60_000, endedAt: NOW.getTime() - 22 * 60_000, commands: 41, tools: 22, input: 260_000, cacheRead: 8_900_000, output: 51_000, time: { model: 190_000, tools: 290_000, waiting: 0 }, calls: 38, forecast: null, settings: null },
-  { turnId: "t3", startedAt: NOW.getTime() - 9 * 60_000, endedAt: NOW.getTime() - 8 * 60_000, commands: 4, tools: 9, input: 38_000, cacheRead: 1_400_000, output: 7_200, time: { model: 41_000, tools: 19_000, waiting: 0 }, calls: 6, forecast: null, settings: null },
+  { turnId: "t1", startedAt: NOW.getTime() - 50 * 60_000, endedAt: NOW.getTime() - 38 * 60_000, commands: 18, tools: 37, input: 410_000, cacheRead: 11_800_000, output: 96_000, time: { model: 410_000, tools: 300_000, waiting: 10_000 }, calls: 34, subagentCalls: 0, subagentTokens: 0, forecast: null, settings: null },
+  { turnId: "t2", startedAt: NOW.getTime() - 30 * 60_000, endedAt: NOW.getTime() - 22 * 60_000, commands: 41, tools: 22, input: 260_000, cacheRead: 8_900_000, output: 51_000, time: { model: 190_000, tools: 290_000, waiting: 0 }, calls: 38, subagentCalls: 0, subagentTokens: 0, forecast: null, settings: null },
+  { turnId: "t3", startedAt: NOW.getTime() - 9 * 60_000, endedAt: NOW.getTime() - 8 * 60_000, commands: 4, tools: 9, input: 38_000, cacheRead: 1_400_000, output: 7_200, time: { model: 41_000, tools: 19_000, waiting: 0 }, calls: 6, subagentCalls: 0, subagentTokens: 0, forecast: null, settings: null },
 ];
 
 /** What the second turn ran, for its card. */
@@ -406,7 +406,7 @@ export const RUNNING_WORK: TurnWork = {
 
 /** A turn two minutes in, before its tokens arrive. */
 export const RUNNING_TURN: TurnSummary = {
-  turnId: "t4", startedAt: NOW.getTime() - 134_000, endedAt: null, commands: 7, tools: 12, input: 0, cacheRead: 0, output: 0, time: null, calls: 9, forecast: null, settings: null,
+  turnId: "t4", startedAt: NOW.getTime() - 134_000, endedAt: null, commands: 7, tools: 12, input: 0, cacheRead: 0, output: 0, time: null, calls: 9, subagentCalls: 0, subagentTokens: 0, forecast: null, settings: null,
 };
 
 /** A thread in bb's own header and composer, with the plugin's surfaces in place. */
@@ -518,6 +518,33 @@ export const FORECAST_TURNS: TurnSummary[] = [
   { ...TURN_SUMMARIES[1]!, settings: OPUS_FAST, calls: 22, forecast: forecastOf([15, 30], [2, 5], 330_000, "Profile the export and find the slow part.") },
   { ...TURN_SUMMARIES[2]!, settings: OPUS, calls: 5, forecast: forecastOf([4, 8], [0.5, 2], 240_000, "Rename across the report module and its tests.") },
 ];
+
+/**
+ * A turn that ran subagents: 14 calls of its own, and 212 subagent calls
+ * against a forecast of 120–260, 80–160 of them added partway through, when
+ * Claude split the work into groups. Most of its tokens are the subagents'.
+ */
+export const FORECAST_SUBAGENT_TURN: TurnSummary = {
+  ...TURN_SUMMARIES[1]!,
+  settings: OPUS,
+  calls: 14,
+  subagentCalls: 212,
+  subagentTokens: 23_400_000,
+  input: 620_000,
+  cacheRead: 24_210_000,
+  output: 170_000,
+  time: { model: 160_000, tools: 680_000, waiting: 0 },
+  forecast: {
+    calls: [8, 20],
+    timeMs: [6 * 60_000, 18 * 60_000],
+    tokens: [13_920_000, 30_400_000],
+    subagentCalls: [120, 260],
+    subagentTokens: [13_200_000, 28_600_000],
+    addedSubagentCalls: [80, 160],
+    context: 90_000,
+    note: "Survey the export endpoints in four groups.",
+  },
+};
 
 /** The running turn with a forecast of 4–8 calls: on track at 5, past it at 13. */
 export const FORECAST_RUNNING: TurnSummary = { ...RUNNING_TURN, settings: OPUS, calls: 5, forecast: forecastOf([4, 8], [1, 3], 320_000, "Fix the failing test and rerun it.") };

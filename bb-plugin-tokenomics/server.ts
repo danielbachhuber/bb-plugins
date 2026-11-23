@@ -12,6 +12,7 @@ import {
   SLOT_MS,
   tokensWithin,
   windowKey,
+  type LimitSample,
   type LimitView,
 } from "./usage/limits.js";
 import {
@@ -46,7 +47,13 @@ import {
   formatForecasts,
   parseRange,
   trackRecord,
+  additionsInTurn,
+  confirmationNotice,
+  subagentPricing,
+  toTurnForecast,
+  SUBAGENT_SAMPLE,
   type ForecastReport,
+  type StoredForecast,
 } from "./usage/forecast.js";
 import { formatTokens } from "./usage/series.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
@@ -78,6 +85,13 @@ export default async function plugin(bb: BbPluginApi) {
       // Past this the meter and the page row turn from amber to red. Empty
       // leaves only the warning.
       default: "550K",
+    },
+    confirmTurnsOver: {
+      type: "string",
+      label: "Ask before turns over (tokens)",
+      description:
+        "When a turn's forecast, its subagents included, could pass this many tokens, bb tokenomics forecast tells Claude to stop and ask you before going on. Leave it empty to never ask.",
+      default: "10M",
     },
     forecastTurns: {
       type: "boolean",
@@ -391,6 +405,7 @@ export default async function plugin(bb: BbPluginApi) {
       samples: store.threadCallSamples(threadId),
       forecasts: store.threadForecasts(threadId),
       requests: store.threadTurnRequests(threadId),
+      subagentRows: store.threadSubagentRows(threadId, MAX_ROWS),
     });
   }
 
@@ -412,6 +427,7 @@ export default async function plugin(bb: BbPluginApi) {
           startedAt: turn.startedAt,
           note: turn.forecast.note,
           calls: turn.calls,
+          subagentCalls: turn.subagentCalls,
           tokens: turn.input + turn.cacheRead + turn.output,
           workedMs: turn.time === null ? turn.endedAt - turn.startedAt : turn.time.model + turn.time.tools,
           forecast: turn.forecast,
@@ -465,41 +481,81 @@ export default async function plugin(bb: BbPluginApi) {
     },
   };
 
+  /** How far back the subagent calls that price a forecast reach. */
+  const SUBAGENT_PRICING_MS = 7 * 86_400_000;
+
+  /** The thread's provider's current session size, for the confirmation notice; null when unknown. */
+  function sessionSize(threadId: string): { sizeTokens: number } | null {
+    const providerId = store.threadProvider(threadId);
+    if (providerId === null) return null;
+    const now = Date.now();
+    const samples = store.limitSamplesSince(now - MAX_WINDOW_MS);
+    const view = limitViews(samples, now, LIMITS_STALE_MS).find(
+      (candidate) => candidate.kind === "five-hour" && candidate.providerId === providerId,
+    );
+    if (view === undefined) return null;
+    const size = limitSize(view, samples);
+    return size == null ? null : { sizeTokens: size };
+  }
+
   /** Records a forecast from `bb tokenomics forecast`; returns what to print. */
   async function recordForecast(
     threadId: string | undefined,
     argv: string[],
   ): Promise<{ exitCode: number; stdout?: string; stderr?: string }> {
     if (threadId === undefined) return { exitCode: 1, stderr: "Run bb tokenomics forecast from inside a bb thread." };
+    const confirmed = argv.includes("--confirmed");
+    const note = flag(argv, "--note")?.trim().slice(0, 200) || null;
+    const { perCall, paceMs: subagentPace } = subagentPricing(store.recentSubagentCalls(Date.now() - SUBAGENT_PRICING_MS, SUBAGENT_SAMPLE));
+    const threshold = parseThreshold((await settings.get()).confirmTurnsOver ?? "");
+    const addText = flag(argv, "--add-subagent-calls");
+    if (addText !== undefined) return recordAddition(threadId, addText, { confirmed, note, perCall, subagentPace, threshold });
+
     const calls = parseRange(flag(argv, "--calls"));
     if (calls === null) return { exitCode: 1, stderr: "Give the calls as a range, such as --calls 4-8." };
     // Threads that started before minutes were worked out still pass --minutes; it is ignored.
     const waitText = flag(argv, "--wait-minutes");
     const wait = waitText === undefined ? ([0, 0] as [number, number]) : parseRange(waitText);
     if (wait === null) return { exitCode: 1, stderr: "Give --wait-minutes as a range, such as 5-15." };
+    const subagentText = flag(argv, "--subagent-calls");
+    const subagentCalls = subagentText === undefined ? null : parseRange(subagentText);
+    if (subagentText !== undefined && (subagentCalls === null || subagentCalls[1] < subagentCalls[0])) {
+      return { exitCode: 1, stderr: "Give --subagent-calls as a range from low to high, such as 100-250." };
+    }
     const error = forecastInputError(calls, wait);
     if (error !== null) return { exitCode: 1, stderr: error };
-    const note = flag(argv, "--note")?.trim().slice(0, 200) || null;
     const callRange: [number, number] = [Math.round(calls[0]), Math.round(calls[1])];
+    const subagentRange: [number, number] | null =
+      subagentCalls === null ? null : [Math.round(subagentCalls[0]), Math.round(subagentCalls[1])];
     const waitMs: [number, number] = [Math.round(wait[0] * 60_000), Math.round(wait[1] * 60_000)];
     const finished = summariesOf(threadId).filter((turn) => turn.endedAt !== null);
     const pace =
       msPerCall(finished.map((turn) => ({ calls: turn.calls, workedMs: turn.time === null ? null : turn.time.model + turn.time.tools }))) ??
       DEFAULT_MS_PER_CALL;
     const [timeLowMs, timeHighMs] = timeRange(callRange, pace, waitMs);
-    store.recordForecast(threadId, {
+    // Subagents are timed as if they ran one after another, which a turn
+    // that runs several at once comes in under.
+    const subagentTime: [number, number] = subagentRange === null ? [0, 0] : [subagentRange[0] * subagentPace, subagentRange[1] * subagentPace];
+    const stored: StoredForecast = {
       at: Date.now(),
       callsLow: callRange[0],
       callsHigh: callRange[1],
-      timeLowMs: Math.round(timeLowMs),
-      timeHighMs: Math.round(timeHighMs),
+      timeLowMs: Math.round(timeLowMs + subagentTime[0]),
+      timeHighMs: Math.round(timeHighMs + subagentTime[1]),
       context: store.latestContext(threadId)?.usedTokens ?? null,
       growth: growthPerCall(store.threadCallSamples(threadId)),
       paceMs: pace,
       waitLowMs: waitMs[0],
       waitHighMs: waitMs[1],
       note,
-    });
+      subagentCallsLow: subagentRange?.[0] ?? null,
+      subagentCallsHigh: subagentRange?.[1] ?? null,
+      subagentPerCall: subagentRange === null ? null : perCall,
+      subagentPaceMs: subagentRange === null ? null : subagentPace,
+      addition: false,
+      confirmed,
+    };
+    store.recordForecast(threadId, stored);
     bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
     // The running turn's settings: the last message sent to the thread, read
     // from bb, since the sync may not have stored this turn's request yet.
@@ -513,7 +569,63 @@ export default async function plugin(bb: BbPluginApi) {
     }
     const record = trackRecordFor(scoredForecasts(Date.now() - RECORD_DAYS * 86_400_000, RECORD_TURNS), current);
     const reminder = goalReminder(goals.current(threadId));
-    return { exitCode: 0, stdout: `Recorded. ${record}${reminder === null ? "" : `\n${reminder}`}` };
+    const priced = toTurnForecast(stored);
+    const notice = confirmationNotice(priced.tokens ?? priced.subagentTokens ?? null, threshold, confirmed, sessionSize(threadId), formatTokens);
+    return {
+      exitCode: 0,
+      stdout: [`Recorded. ${record}`, notice, reminder].filter((line) => line !== null).join("\n"),
+    };
+  }
+
+  /**
+   * Records subagent calls Claude decided on after forecasting the turn, on
+   * top of the turn's first forecast, and checks the new total against the
+   * confirmation threshold.
+   */
+  function recordAddition(
+    threadId: string,
+    text: string,
+    options: { confirmed: boolean; note: string | null; perCall: number; subagentPace: number; threshold: number | null },
+  ): { exitCode: number; stdout?: string; stderr?: string } {
+    const range = parseRange(text);
+    if (range === null || range[1] < range[0] || range[1] < 1) {
+      return { exitCode: 1, stderr: "Give --add-subagent-calls as a range from low to high, such as 60-150." };
+    }
+    const forecasts = store.threadForecasts(threadId);
+    const base = forecasts.filter((forecast) => !forecast.addition).at(-1);
+    const lastEnd = summariesOf(threadId)
+      .map((turn) => turn.endedAt)
+      .filter((end): end is number => end !== null)
+      .reduce((latest, end) => Math.max(latest, end), 0);
+    if (base === undefined || base.at <= lastEnd) {
+      return {
+        exitCode: 1,
+        stderr: "This turn has no forecast to add to. Forecast it with bb tokenomics forecast --calls LOW-HIGH --subagent-calls LOW-HIGH.",
+      };
+    }
+    const calls: [number, number] = [Math.round(range[0]), Math.round(range[1])];
+    const addition: StoredForecast = {
+      at: Math.max(Date.now(), base.at + 1),
+      callsLow: 0,
+      callsHigh: 0,
+      timeLowMs: calls[0] * options.subagentPace,
+      timeHighMs: calls[1] * options.subagentPace,
+      context: null,
+      growth: null,
+      note: options.note,
+      subagentCallsLow: calls[0],
+      subagentCallsHigh: calls[1],
+      subagentPerCall: options.perCall,
+      subagentPaceMs: options.subagentPace,
+      addition: true,
+      confirmed: options.confirmed,
+    };
+    store.recordForecast(threadId, addition);
+    bb.realtime.publish(TURNS_CHANNEL, { threadIds: [threadId] });
+    const turn = toTurnForecast(base, [...additionsInTurn(forecasts, base, null), addition]);
+    const notice = confirmationNotice(turn.tokens ?? turn.subagentTokens ?? null, options.threshold, options.confirmed, sessionSize(threadId), formatTokens);
+    const total = turn.tokens === null ? "" : ` The turn's forecast is now ${formatTokens(turn.tokens[0])}–${formatTokens(turn.tokens[1])} tokens.`;
+    return { exitCode: 0, stdout: [`Added ${calls[0]}–${calls[1]} subagent calls.${total}`, notice].filter((line) => line !== null).join("\n") };
   }
 
   const CLI_USAGE = [
@@ -524,9 +636,13 @@ export default async function plugin(bb: BbPluginApi) {
     "  command times go back only to when Tokenomics began recording them.",
     "bb tokenomics commands [--days N] [--limit N] [--json]",
     "  The shell commands that took the most time across all threads.",
-    "bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]",
-    "  Records an 80% forecast of the running turn's model calls, and any waits you know of. Minutes",
-    "  and tokens follow from the thread's own pace. Prints how recent forecasts landed, then the",
+    "bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT]",
+    "  Records an 80% forecast of the running turn's model calls, its subagents' calls, and any waits",
+    "  you know of. Minutes and tokens follow from the thread's own pace and recent subagents' cost.",
+    "  Over the confirmation threshold, says to stop and ask the user; --confirmed once they said to go ahead.",
+    "bb tokenomics forecast --add-subagent-calls LOW-HIGH [--confirmed] [--note TEXT]",
+    "  Adds subagent calls decided on after forecasting to the running turn's forecast.",
+    "  Prints how recent forecasts landed, then the",
     "  goal's open entries and how to mark them.",
     "bb tokenomics forecasts [--days N] [--json]",
     "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
@@ -556,7 +672,8 @@ export default async function plugin(bb: BbPluginApi) {
       {
         name: "forecast",
         summary: "Forecast this turn's model calls",
-        usage: "bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]",
+        usage:
+          "bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT], or --add-subagent-calls LOW-HIGH",
       },
       {
         name: "forecasts",
@@ -646,6 +763,33 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /**
+   * The tokens the view's account used between two times. Tokens are recorded
+   * per provider, so after a switch of accounts only the time this account
+   * was signed in counts toward its limits.
+   */
+  function accountTokens(view: LimitView, samples: readonly LimitSample[]) {
+    const spans = accountSpans(samples, view.providerId, view.accountKey);
+    return (from: number, to: number) =>
+      tokensWithin(spans, from, to, (start, end) => store.providerTokens(start, end).get(view.providerId) ?? 0);
+  }
+
+  /**
+   * About how many tokens the view's window holds; null when it can't tell.
+   * A query for each of up to ten past windows and the current one, and one
+   * more for each switch of accounts inside them.
+   */
+  function limitSize(view: LimitView, samples: readonly LimitSample[]): number | null {
+    const spans = accountSpans(samples, view.providerId, view.accountKey);
+    const tokens = accountTokens(view, samples);
+    return (
+      sizeOf(
+        samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
+        (from, to) => (seenSince(spans, from) ? tokens(from, to) : null),
+      ) ?? null
+    );
+  }
+
   bb.rpc.register(rpcContract, {
     usage_limits: () => {
       const now = Date.now();
@@ -666,20 +810,11 @@ export default async function plugin(bb: BbPluginApi) {
       const oneModel = new Set(samples.filter((sample) => sample.model !== null).map(windowKey));
       return {
         limits: views.map((view) => {
-          // Tokens are recorded per provider, so after a switch of accounts
-          // only the time this account was signed in counts toward its limits.
-          const spans = accountSpans(samples, view.providerId, view.accountKey);
-          const tokens = (from: number, to: number) =>
-            tokensWithin(spans, from, to, (start, end) => store.providerTokens(start, end).get(view.providerId) ?? 0);
+          const tokens = accountTokens(view, samples);
           return {
             ...view,
             lastHourTokens: tokens(now - 3_600_000, now),
-            // A query for each of up to ten past windows and the current one,
-            // and one more for each switch of accounts inside them.
-            sizeTokens: sizeOf(
-              samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
-              (from, to) => (seenSince(spans, from) ? tokens(from, to) : null),
-            ) ?? null,
+            sizeTokens: limitSize(view, samples),
             // A session lasts five hours and resets on the hour's minute it began.
             ...(view.kind === "five-hour"
               ? { slots: store.providerSlots(view.providerId, view.resetsAt - 5 * 3_600_000, now, SLOT_MS) }

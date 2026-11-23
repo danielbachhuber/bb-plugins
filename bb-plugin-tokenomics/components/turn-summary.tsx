@@ -183,7 +183,7 @@ function ForecastRow({
   const tone = verdictTone(v);
   return (
     <div className="flex items-center gap-2 text-xs tabular-nums">
-      <span className="w-12 shrink-0">{label}</span>
+      <span className="w-16 shrink-0">{label}</span>
       <RangeBar actual={actual} range={range} width={72} />
       <span className="min-w-0 flex-1 truncate text-muted-foreground">
         {format(actual)}
@@ -236,6 +236,18 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
       {turn.forecast === null ? null : (
         <Section title="Forecast" aside={turn.forecast.context === null ? undefined : `at ${formatTokens(turn.forecast.context)} context`}>
           <ForecastRow label="Calls" actual={turn.calls} range={turn.forecast.calls} format={String} />
+          {turn.forecast.subagentCalls == null ? (
+            turn.subagentCalls === 0 ? null : (
+              <div className="flex items-center gap-2 text-xs tabular-nums">
+                <span className="w-16 shrink-0">Subagents</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {turn.subagentCalls} calls <span className="text-muted-foreground/60">none forecast</span>
+                </span>
+              </div>
+            )
+          ) : (
+            <ForecastRow label="Subagents" actual={turn.subagentCalls} range={turn.forecast.subagentCalls} format={String} unit=" calls" />
+          )}
           {turn.forecast.tokens === null || (running && tokens === 0) ? null : (
             <ForecastRow label="Tokens" actual={tokens} range={turn.forecast.tokens} format={formatTokens} />
           )}
@@ -249,6 +261,11 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
                 ? ""
                 : `, plus ${formatMinutes(turn.forecast.waitMs[0])}–${formatMinutes(turn.forecast.waitMs[1])} min of waits`}
               .
+            </p>
+          )}
+          {turn.forecast.addedSubagentCalls == null ? null : (
+            <p className="text-xs text-muted-foreground">
+              Includes {turn.forecast.addedSubagentCalls[0]}–{turn.forecast.addedSubagentCalls[1]} subagent calls added partway through the turn.
             </p>
           )}
           {turn.forecast.note === null ? null : <p className="text-xs italic text-muted-foreground">"{turn.forecast.note}"</p>}
@@ -277,6 +294,12 @@ export function TurnCard({ turn, running, now, work, openCommand }: TurnCardProp
             <Row label="New input" value={formatTokens(turn.input)} />
             <Row label="Cache reads" value={`${formatTokens(turn.cacheRead)} · ${share(turn.cacheRead, tokens)}`} />
             <Row label="Output" value={formatTokens(turn.output)} />
+            {turn.subagentCalls === 0 ? null : (
+              <Row
+                label="From subagents"
+                value={`${formatTokens(turn.subagentTokens)} in ${plural(turn.subagentCalls, "call")} · ${share(turn.subagentTokens, tokens)}`}
+              />
+            )}
           </>
         )}
       </Section>

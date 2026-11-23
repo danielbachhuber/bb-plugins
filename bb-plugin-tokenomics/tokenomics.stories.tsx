@@ -29,6 +29,7 @@ import {
   LONG_TURNS,
   CACHE_EXPIRED,
   FORECAST_RUNNING,
+  FORECAST_SUBAGENT_TURN,
   FORECAST_RUNNING_PAST,
   FORECAST_TURNS,
   METER,
@@ -577,6 +578,28 @@ export const ForecastCardOpen = () => (
   <ThreadFrame
     headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
     turnLines={FORECAST_TURNS.map((turn, index) => (
+      <div key={turn.turnId} className="-mx-2">
+        {index === 1 ? (
+          <AfterComposerFocus>
+            <TurnSummaryLine turn={turn} work={TURN_WORK} defaultOpen />
+          </AfterComposerFocus>
+        ) : (
+          <TurnSummaryLine turn={turn} />
+        )}
+      </div>
+    ))}
+  />
+);
+
+/**
+ * A turn that ran subagents: its own calls and its subagents' calls each
+ * against their range, the tokens against the two together, the subagent
+ * calls added partway through, and how much of the tokens were the subagents'.
+ */
+export const ForecastSubagentsCardOpen = () => (
+  <ThreadFrame
+    headerAction={<ThreadTokenCount usage={LONG} turns={LONG_TURNS} onOpenPage={noop} now={NOW.getTime()} />}
+    turnLines={[FORECAST_TURNS[0]!, FORECAST_SUBAGENT_TURN, FORECAST_TURNS[2]!].map((turn, index) => (
       <div key={turn.turnId} className="-mx-2">
         {index === 1 ? (
           <AfterComposerFocus>

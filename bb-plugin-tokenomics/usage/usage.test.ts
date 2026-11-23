@@ -257,7 +257,8 @@ describe("forecast storage", () => {
     ]);
 
     expect(store.threadForecasts("thr_widgets")).toEqual([
-      { at: T0, callsLow: 4, callsHigh: 8, timeLowMs: 60_000, timeHighMs: 180_000, context: 300_000, growth: 1_200, paceMs: 7_000, waitLowMs: 0, waitHighMs: 0, note: "Run the tests" },
+      { at: T0, callsLow: 4, callsHigh: 8, timeLowMs: 60_000, timeHighMs: 180_000, context: 300_000, growth: 1_200, paceMs: 7_000, waitLowMs: 0, waitHighMs: 0, note: "Run the tests",
+        subagentCallsLow: null, subagentCallsHigh: null, subagentPerCall: null, subagentPaceMs: null, addition: false, confirmed: false },
     ]);
     expect(store.threadTurnRequests("thr_widgets")).toEqual([
       { at: T0 - 1_000, model: "claude-opus-5-5", serviceTier: "fast", reasoningLevel: "medium" },

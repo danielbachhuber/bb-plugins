@@ -1,6 +1,6 @@
 # Tokenomics
 
-See what your threads cost in tokens and time, each thread's goal and its progress, how turns compared with forecasts, and if limits last.
+See what threads cost in tokens and time, each thread's goal, turns against forecasts, if limits last, and be asked before costly turns.
 
 ![The bb window with Tokenomics' title bar button open: the current session 52% of about 300M tokens and on pace to run out at 3:56 PM, 1h 54m before it resets, and the past day's tokens per hour running on to the reset with hatched bars. Below it, a thread with a sparkline and 28M tokens in its header, and a red meter above its composer reading 620K context with a Compact button](screenshots/page--window-with-limits.png)
 
@@ -37,11 +37,25 @@ context has been growing. The line
 under the turn shows each number against its range, amber when over and blue
 when under, and the strip above the composer counts calls against the range
 while the turn runs, turning amber once it passes. The turn's card names its
-model, fast mode, and reasoning level. Each forecast prints Claude's recent
+model, fast mode, and reasoning level. Claude counts the calls of the
+subagents it plans to start too, priced at what a subagent call cost and took
+across the past week's subagents, and adds calls when it decides on
+subagents partway through. The card shows the subagents' calls against their
+range and how many of the turn's tokens they used. Each forecast prints Claude's recent
 record for turns with the same settings, so its next range can move. When
 the thread has a goal, it also lists the entries still open and the command
 that marks them, so Claude keeps marking them after a compaction or a run of
 turns that each start from a button.
+
+### A check before costly turns
+
+![A turn's card with 14 of 8–20 calls, 212 of 120–260 subagent calls with 80–160 added partway through, and 23.4M of the turn's 25M tokens from subagents](screenshots/page--forecast-subagents-card-open.png)
+
+When a turn's forecast, its subagents included, could pass **Ask before turns
+over** (10M tokens unless you change it), `bb tokenomics forecast` tells Claude
+to stop and ask you first. The question gives the range, its share of your
+current session, and what the tokens would go to. Once you say to go ahead,
+Claude forecasts with `--confirmed` and carries on.
 
 ### Each thread's goal
 
@@ -155,7 +169,8 @@ threads without reading their transcripts.
 ```sh
 bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens, turns, context, and turn times per thread
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
-bb tokenomics forecast --calls LOW-HIGH [--wait-minutes LOW-HIGH] [--note TEXT]                # record this turn's forecast
+bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT]  # record this turn's forecast
+bb tokenomics forecast --add-subagent-calls LOW-HIGH [--confirmed]                              # add subagents decided on partway through
 bb tokenomics forecasts [--days N] [--json]                                                    # past forecasts against what each turn took
 bb tokenomics goal set "GOAL" --stage "END STATE" ... [--detail low|high] [--turns 3-8 ...]          # record this thread's goal
 bb tokenomics goal stage next|N                                                                # mark the next entry, or the first N, done
@@ -185,7 +200,8 @@ week's threads to review.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `contextWarningAt` | `300K` | Shows the context meter in amber once a thread's context passes this many tokens. Empty turns it off. |
-| `forecastTurns` | on | Adds about 200 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
+| `confirmTurnsOver` | `10M` | Has Claude stop and ask before a turn whose forecast could pass this many tokens. Empty never asks. |
+| `forecastTurns` | on | Adds about 350 tokens to each thread's instructions asking Claude to forecast each turn. Off stops new forecasts. |
 | `contextErrorAt` | `550K` | Turns the meter and the page's row red past this many tokens. Empty leaves only the warning. |
 | `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
 | `goalLine` | on | Shows the goal's donut on the thread header's token button, and the goal at the top of the summary it opens. Off removes them from open threads right away. |

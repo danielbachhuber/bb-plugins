@@ -13,6 +13,10 @@ import {
   trackRecordFor,
   turnRequestOf,
   forecastInTurn,
+  additionsInTurn,
+  confirmationNotice,
+  subagentPricing,
+  DEFAULT_SUBAGENT_PER_CALL,
   toTurnForecast,
   trackRecord,
   verdict,
@@ -240,5 +244,90 @@ describe("growthPerCall", () => {
 
   it("is null with fewer than three steps", () => {
     expect(growthPerCall(samples([100_000, 101_000, 102_000]))).toBeNull();
+  });
+});
+
+describe("subagent forecasts", () => {
+  const withSubagents = forecast(0, { growth: 0, subagentCallsLow: 100, subagentCallsHigh: 200, subagentPerCall: 120_000 });
+
+  it("adds the subagent calls' tokens to the turn's own", () => {
+    const turn = toTurnForecast(withSubagents);
+    expect(turn.subagentCalls).toEqual([100, 200]);
+    expect(turn.subagentTokens).toEqual([12_000_000, 24_000_000]);
+    expect(turn.tokens).toEqual([1_200_000 + 12_000_000, 2_400_000 + 24_000_000]);
+    expect(turn.addedSubagentCalls).toBeNull();
+  });
+
+  it("prices subagent calls at the default when none were priced", () => {
+    const turn = toTurnForecast(forecast(0, { subagentCallsLow: 10, subagentCallsHigh: 10 }));
+    expect(turn.subagentTokens).toEqual([10 * DEFAULT_SUBAGENT_PER_CALL, 10 * DEFAULT_SUBAGENT_PER_CALL]);
+  });
+
+  it("adds subagent calls added partway through, with their time", () => {
+    const addition = forecast(5_000, {
+      callsLow: 0,
+      callsHigh: 0,
+      timeLowMs: 300_000,
+      timeHighMs: 600_000,
+      context: null,
+      subagentCallsLow: 50,
+      subagentCallsHigh: 100,
+      subagentPerCall: 100_000,
+      addition: true,
+    });
+    const turn = toTurnForecast(withSubagents, [addition]);
+    expect(turn.subagentCalls).toEqual([150, 300]);
+    expect(turn.addedSubagentCalls).toEqual([50, 100]);
+    expect(turn.subagentTokens).toEqual([17_000_000, 34_000_000]);
+    expect(turn.timeMs).toEqual([360_000, 780_000]);
+    expect(turn.calls).toEqual([4, 8]);
+  });
+
+  it("never takes an addition for the turn's first forecast, and finds additions inside the turn", () => {
+    const first = forecast(1_000);
+    const added = forecast(2_000, { addition: true, subagentCallsLow: 5, subagentCallsHigh: 9 });
+    const later = forecast(9_000, { addition: true, subagentCallsLow: 5, subagentCallsHigh: 9 });
+    expect(forecastInTurn([forecast(500, { addition: true }), first, added], 0, 5_000)).toBe(first);
+    expect(additionsInTurn([first, added, later], first, 5_000)).toEqual([added]);
+    expect(additionsInTurn([first, added, later], first, null)).toEqual([added, later]);
+  });
+});
+
+describe("subagentPricing", () => {
+  it("uses the defaults with too few calls", () => {
+    expect(subagentPricing([{ agent: "a", at: 0, tokens: 1 }])).toEqual({ perCall: 100_000, paceMs: 6_000 });
+  });
+
+  it("takes the median tokens and the median gap between one subagent's calls", () => {
+    const calls = Array.from({ length: 30 }, (_, index) => ({
+      agent: index % 2 === 0 ? "a" : "b",
+      at: Math.floor(index / 2) * 4_000 + (index % 2) * 1_000,
+      tokens: index === 29 ? 5_000_000 : 80_000,
+    }));
+    // A long wait between two calls is a wait, not a call's work.
+    calls.push({ agent: "a", at: 900_000, tokens: 80_000 });
+    expect(subagentPricing(calls)).toEqual({ perCall: 80_000, paceMs: 4_000 });
+  });
+});
+
+describe("confirmationNotice", () => {
+  const format = (tokens: number) => `${tokens / 1_000_000}M`;
+
+  it("asks when the top of the range passes the threshold", () => {
+    const notice = confirmationNotice([8_000_000, 30_000_000], 10_000_000, false, { sizeTokens: 200_000_000 }, format);
+    expect(notice).toContain("this turn could use 8M–30M tokens, about 4–15% of the current session (200M)");
+    expect(notice).toContain("Stop before doing more of the work");
+    expect(notice).toContain("--confirmed");
+  });
+
+  it("leaves out the session share when its size is unknown", () => {
+    expect(confirmationNotice([1, 30_000_000], 10_000_000, false, null, format)).toContain("could use 0.000001M–30M tokens.");
+  });
+
+  it("says nothing under the threshold, without one, or once confirmed", () => {
+    expect(confirmationNotice([1, 10_000_000], 10_000_000, false, null, format)).toBeNull();
+    expect(confirmationNotice([1, 30_000_000], null, false, null, format)).toBeNull();
+    expect(confirmationNotice([1, 30_000_000], 10_000_000, true, null, format)).toBeNull();
+    expect(confirmationNotice(null, 10_000_000, false, null, format)).toBeNull();
   });
 });

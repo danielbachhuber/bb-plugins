@@ -2,7 +2,8 @@
 
 - **Tokens in each thread's header**: a sparkline of the thread's tokens over time, with its past day and lifetime totals. Click it to see which of your messages used the most tokens and time.
 - **Each turn's time, tokens, and commands** under the turn, with the running turn counted above the composer.
-- **Claude's forecast for each turn**: Claude records an 80% range of model calls, Tokenomics works out the minutes and tokens, and the line under the turn shows each number against it, amber when the turn ran over.
+- **Claude's forecast for each turn**: Claude records an 80% range of model calls, its subagents' included, Tokenomics works out the minutes and tokens, and the line under the turn shows each number against it, amber when the turn ran over.
+- **A check before costly turns**: when a forecast could pass 10M tokens, Claude stops and asks you first, with the turn's share of your session.
 - **Each thread's goal** on the token button in the thread header: a donut with a segment per "Done is" entry, a grouped one as long as its items and filled by its count, and the goal, its list, and what it has used at the top of the summary, with the same donut beside the thread in the sidebar. Claude records it in the first turn, up to 5 entries at low detail or 25 at high, grouping larger work with counts, and an estimate checked against past threads, and closes it as met, partly met, or not met. `/tokenomics-update-goal` changes it, and `/tokenomics-clear-goal` removes it.
 - **A context meter above the composer** once a thread's context passes 300K tokens, red past 550K, or once an idle thread's prompt cache expires, with a **Compact** button.
 - **Your session in the title bar**: a spark chart of its tokens and rings for the session and the week, amber or red once either is headed for its limit. Hover it for the limits and the past day's chart.

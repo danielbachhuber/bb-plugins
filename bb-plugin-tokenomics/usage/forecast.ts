@@ -1,10 +1,11 @@
 // Claude's forecast for a turn, and how the turn landed against it. Pure: the
 // inputs are rows the ledger already holds, so scoring needs no call to bb.
 //
-// Claude forecasts model calls, and any waits it knows of. Minutes and
-// tokens follow from calls: minutes at the thread's own pace per call, tokens
-// because every call reads the whole context again, and each call adds to
-// the context the next one reads.
+// Claude forecasts model calls, its own and its subagents', and any waits it
+// knows of. Minutes and tokens follow from calls: minutes at the thread's own
+// pace per call, tokens because every call reads the whole context again, and
+// each call adds to the context the next one reads. Subagent calls are priced
+// at what a subagent call cost and took across recent subagents.
 
 /** One forecast as `bb tokenomics forecast` records it. */
 export interface StoredForecast {
@@ -25,14 +26,30 @@ export interface StoredForecast {
   waitHighMs?: number | null;
   /** Claude's one-line reason. */
   note: string | null;
+  /** The subagent calls Claude forecast; null when it named none. */
+  subagentCallsLow?: number | null;
+  subagentCallsHigh?: number | null;
+  /** Tokens and model time of one recent subagent call, which price the subagent calls. */
+  subagentPerCall?: number | null;
+  subagentPaceMs?: number | null;
+  /** Subagent calls added partway through a turn, on top of its first forecast. */
+  addition?: boolean;
+  /** Made after the user said to go ahead with a turn over the confirmation threshold. */
+  confirmed?: boolean;
 }
 
 /** A turn's forecast, as the line and the strip draw it. */
 export interface TurnForecast {
   calls: [number, number];
   timeMs: [number, number];
-  /** Calls times the context; null when no context was recorded. */
+  /** The thread's own calls times the context, plus the subagents'; null when no context was recorded. */
   tokens: [number, number] | null;
+  /** The subagent calls forecast, additions included; null when none were. */
+  subagentCalls?: [number, number] | null;
+  /** What those subagent calls come to, in tokens, already in `tokens`. */
+  subagentTokens?: [number, number] | null;
+  /** The part of `subagentCalls` added partway through the turn; null when none was. */
+  addedSubagentCalls?: [number, number] | null;
   context: number | null;
   note: string | null;
   /** Time per call the time range assumed; null on forecasts that named minutes. */
@@ -77,15 +94,49 @@ function tokensFor(calls: number, context: number, growth: number): number {
   return calls * context + (growth * calls * (calls - 1)) / 2;
 }
 
-export function toTurnForecast(stored: StoredForecast): TurnForecast {
+/** One forecast's subagent calls and their tokens, or null when it named none. */
+function subagentPart(stored: StoredForecast): { calls: [number, number]; tokens: [number, number] } | null {
+  if (stored.subagentCallsLow == null || stored.subagentCallsHigh == null) return null;
+  const perCall = stored.subagentPerCall ?? DEFAULT_SUBAGENT_PER_CALL;
+  return {
+    calls: [stored.subagentCallsLow, stored.subagentCallsHigh],
+    tokens: [stored.subagentCallsLow * perCall, stored.subagentCallsHigh * perCall],
+  };
+}
+
+const plus = (a: [number, number] | null, b: [number, number] | null): [number, number] | null =>
+  a === null ? b : b === null ? a : [a[0] + b[0], a[1] + b[1]];
+
+/**
+ * A turn's forecast: its first forecast, plus the subagent calls added
+ * partway through it, whose tokens and time go on top.
+ */
+export function toTurnForecast(stored: StoredForecast, additions: readonly StoredForecast[] = []): TurnForecast {
   const growth = stored.growth ?? DEFAULT_GROWTH;
+  const own: [number, number] | null =
+    stored.context === null
+      ? null
+      : [tokensFor(stored.callsLow, stored.context, growth), tokensFor(stored.callsHigh, stored.context, growth)];
+  const first = subagentPart(stored);
+  let addedCalls: [number, number] | null = null;
+  let addedTokens: [number, number] | null = null;
+  let timeMs: [number, number] = [stored.timeLowMs, stored.timeHighMs];
+  for (const addition of additions) {
+    const part = subagentPart(addition);
+    if (part === null) continue;
+    addedCalls = plus(addedCalls, part.calls);
+    addedTokens = plus(addedTokens, part.tokens);
+    timeMs = [timeMs[0] + addition.timeLowMs, timeMs[1] + addition.timeHighMs];
+  }
+  const subagentCalls = plus(first?.calls ?? null, addedCalls);
+  const subagentTokens = plus(first?.tokens ?? null, addedTokens);
   return {
     calls: [stored.callsLow, stored.callsHigh],
-    timeMs: [stored.timeLowMs, stored.timeHighMs],
-    tokens:
-      stored.context === null
-        ? null
-        : [tokensFor(stored.callsLow, stored.context, growth), tokensFor(stored.callsHigh, stored.context, growth)],
+    timeMs,
+    tokens: own === null ? null : plus(own, subagentTokens),
+    subagentCalls,
+    subagentTokens,
+    addedSubagentCalls: addedCalls,
     context: stored.context,
     note: stored.note,
     paceMs: stored.paceMs ?? null,
@@ -108,10 +159,108 @@ export function forecastInTurn(
 ): StoredForecast | null {
   let first: StoredForecast | null = null;
   for (const forecast of forecasts) {
+    if (forecast.addition) continue;
     if (forecast.at < startedAt || (endedAt !== null && forecast.at > endedAt)) continue;
     if (first === null || forecast.at < first.at) first = forecast;
   }
   return first;
+}
+
+/** The subagent calls added during a turn, after its first forecast, oldest first. */
+export function additionsInTurn(
+  forecasts: readonly StoredForecast[],
+  first: StoredForecast,
+  endedAt: number | null,
+): StoredForecast[] {
+  return forecasts
+    .filter((forecast) => forecast.addition && forecast.at > first.at && (endedAt === null || forecast.at <= endedAt))
+    .sort((a, b) => a.at - b.at);
+}
+
+/** What one subagent call costs when too few recent ones were recorded: about this machine's median in late 2026. */
+export const DEFAULT_SUBAGENT_PER_CALL = 100_000;
+/** Model time per subagent call when too few were recorded. */
+export const DEFAULT_SUBAGENT_PACE_MS = 6_000;
+/** How many recent subagent calls price the next forecast. */
+export const SUBAGENT_SAMPLE = 2_000;
+/** Below this many, the defaults price them instead. */
+const LEAST_SUBAGENT_CALLS = 20;
+/** A gap between one subagent's calls longer than this was a wait, not a call's work. */
+const LONGEST_SUBAGENT_GAP_MS = 5 * 60_000;
+
+/** One subagent call, as the pricing reads it. */
+export interface SubagentCallCost {
+  /** Names the subagent, so gaps are measured between one subagent's own calls. */
+  agent: string;
+  at: number;
+  tokens: number;
+}
+
+const middleOf = (values: number[]): number | null => {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+};
+
+/**
+ * What one subagent call costs and takes: the median tokens across recent
+ * subagent calls, and the median gap between one subagent's consecutive
+ * calls. The median, so one subagent that read a huge file doesn't set the
+ * price. The defaults with too few calls to tell.
+ */
+export function subagentPricing(calls: readonly SubagentCallCost[]): { perCall: number; paceMs: number } {
+  if (calls.length < LEAST_SUBAGENT_CALLS) return { perCall: DEFAULT_SUBAGENT_PER_CALL, paceMs: DEFAULT_SUBAGENT_PACE_MS };
+  const byAgent = new Map<string, number[]>();
+  for (const call of calls) byAgent.set(call.agent, [...(byAgent.get(call.agent) ?? []), call.at]);
+  const gaps: number[] = [];
+  for (const times of byAgent.values()) {
+    times.sort((a, b) => a - b);
+    for (let index = 1; index < times.length; index += 1) {
+      const gap = times[index]! - times[index - 1]!;
+      if (gap > 0 && gap <= LONGEST_SUBAGENT_GAP_MS) gaps.push(gap);
+    }
+  }
+  return {
+    perCall: Math.round(middleOf(calls.map((call) => call.tokens))!),
+    paceMs: Math.round(middleOf(gaps) ?? DEFAULT_SUBAGENT_PACE_MS),
+  };
+}
+
+/** The current session's size and how much of it is used, for the confirmation notice. */
+export interface SessionShare {
+  sizeTokens: number;
+}
+
+/**
+ * What `bb tokenomics forecast` adds when a turn's forecast tops the
+ * threshold the user set: the range, its share of the session, and the
+ * instruction to stop and ask. Null under the threshold, without one, or
+ * once the user said to go ahead.
+ */
+export function confirmationNotice(
+  tokens: [number, number] | null,
+  threshold: number | null,
+  confirmed: boolean,
+  session: SessionShare | null,
+  formatTokens: (tokens: number) => string,
+): string | null {
+  if (tokens === null || threshold === null || confirmed || tokens[1] <= threshold) return null;
+  const share =
+    session === null || session.sizeTokens <= 0
+      ? ""
+      : `, about ${percentRange(tokens, session.sizeTokens)} of the current session (${formatTokens(session.sizeTokens)})`;
+  return [
+    `Over the ${formatTokens(threshold)} the user set to ask about: this turn could use ${formatTokens(tokens[0])}–${formatTokens(tokens[1])} tokens${share}.`,
+    "Stop before doing more of the work, and ask the user whether to go ahead: give the forecast, what the tokens would go to, and a cheaper way to do it if there is one.",
+    "Ask with an inline Impromptu UI question when it is available. Once they say to go ahead, add --confirmed to that turn's forecast.",
+  ].join("\n");
+}
+
+function percentRange([low, high]: [number, number], size: number): string {
+  const percent = (tokens: number) => Math.max(1, Math.round((tokens / size) * 100));
+  const [a, b] = [percent(low), percent(high)];
+  return a === b ? `${a}%` : `${a}–${b}%`;
 }
 
 /** One context sample bb recorded after a model response. */
@@ -140,6 +289,8 @@ export function callsInTurn(samples: readonly CallSample[], startedAt: number, e
 /** A finished turn with a forecast, for the track record. */
 export interface ScoredTurn {
   calls: number;
+  /** The subagents' calls during the turn. */
+  subagentCalls?: number;
   tokens: number;
   /** Model and tools time, without time spent waiting on the user. */
   workedMs: number;
@@ -245,6 +396,19 @@ export function formatForecasts(
     const f = report.forecast;
     const parts = [
       against(String(report.calls), String(f.calls[0]), String(f.calls[1]), " calls", verdict(report.calls, f.calls)),
+      ...(f.subagentCalls != null
+        ? [
+            against(
+              String(report.subagentCalls ?? 0),
+              String(f.subagentCalls[0]),
+              String(f.subagentCalls[1]),
+              " subagent calls",
+              verdict(report.subagentCalls ?? 0, f.subagentCalls),
+            ),
+          ]
+        : (report.subagentCalls ?? 0) > 0
+          ? [`${report.subagentCalls} subagent calls, none forecast`]
+          : []),
       against(
         String(minutesOf(report.workedMs)),
         String(minutesOf(f.timeMs[0])),
@@ -280,9 +444,13 @@ export const FORECAST_INSTRUCTIONS = [
   "Run it as a separate shell command in the same response as your first other tool call. That costs",
   "no extra model call. Never run it in a response of its own, which costs a whole model call. Skip it",
   "only when you answer without any tools.",
-  "Forecast only this turn: the responses you send before your reply to the user, in this thread.",
-  "Work you hand to another thread or a subagent is not part of it, so a turn that only starts a",
-  "thread is a few calls, however big the work it hands off.",
+  "Forecast only this turn: the responses you send before your reply to the user, in this thread,",
+  "and the subagents you start in it. Work you hand to another thread is not part of it, so a turn",
+  "that only starts a thread is a few calls, however big the work it hands off.",
+  "Count the model calls of the subagents you plan to start with --subagent-calls 100-250, all of",
+  "them together. When you decide to start subagents after forecasting, run",
+  "`bb tokenomics forecast --add-subagent-calls 60-150` in the same response that starts them.",
+  "When the command says the turn is over the user's threshold, stop and ask before going on.",
   "--calls is an 80% range of every response you send this turn, including the final reply: you expect",
   "8 in 10 turns to land inside it. Tokenomics works out minutes and tokens from it, at this thread's",
   "own pace. Add --wait-minutes 5-15 only for a wait you know of, such as a slow test suite or",

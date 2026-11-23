@@ -7,7 +7,7 @@
 import type { Database } from "better-sqlite3";
 
 import type { ContextRow } from "./context.js";
-import type { CallSample, StoredForecast, TurnRequest } from "./forecast.js";
+import type { CallSample, StoredForecast, SubagentCallCost, TurnRequest } from "./forecast.js";
 import type { LimitSample } from "./limits.js";
 import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
@@ -223,6 +223,17 @@ export const MIGRATIONS = [
      detail TEXT NOT NULL
    )`,
   `CREATE INDEX IF NOT EXISTS goal_events_thread_idx ON goal_events (thread_id, at)`,
+  // The subagent calls Claude forecast, and what one subagent call cost and
+  // took across recent subagents when it did, which price them. An addition
+  // is a forecast of subagent calls made partway through a turn, added to the
+  // turn's first forecast. Confirmed marks a forecast made after the user
+  // said to go ahead with a turn over the confirmation threshold.
+  `ALTER TABLE forecasts ADD COLUMN subagent_calls_low INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN subagent_calls_high INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN subagent_per_call INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN subagent_pace_ms INTEGER`,
+  `ALTER TABLE forecasts ADD COLUMN addition INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE forecasts ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0`,
 ];
 
 export interface ThreadInfo {
@@ -291,15 +302,30 @@ export function createStore(db: Database) {
   const insertForecast = db.prepare(
     `INSERT OR IGNORE INTO forecasts
        (thread_id, created_at, calls_low, calls_high, time_low_ms, time_high_ms, context, note, growth,
-        pace_ms, wait_low_ms, wait_high_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        pace_ms, wait_low_ms, wait_high_ms, subagent_calls_low, subagent_calls_high, subagent_per_call,
+        subagent_pace_ms, addition, confirmed)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const selectThreadForecasts = db.prepare(
     `SELECT created_at AS at, calls_low AS callsLow, calls_high AS callsHigh, time_low_ms AS timeLowMs,
             time_high_ms AS timeHighMs, context, note, growth, pace_ms AS paceMs,
-            wait_low_ms AS waitLowMs, wait_high_ms AS waitHighMs
+            wait_low_ms AS waitLowMs, wait_high_ms AS waitHighMs,
+            subagent_calls_low AS subagentCallsLow, subagent_calls_high AS subagentCallsHigh,
+            subagent_per_call AS subagentPerCall, subagent_pace_ms AS subagentPaceMs,
+            addition, confirmed
      FROM forecasts WHERE thread_id = ? ORDER BY created_at`,
   );
+  const selectSubagentRows = db.prepare(
+    `SELECT at, input, cacheRead, output FROM (
+       SELECT created_at AS at, input, cache_read AS cacheRead, output
+       FROM subagent_calls WHERE thread_id = ? ORDER BY created_at DESC LIMIT ?
+     ) ORDER BY at`,
+  );
+  const selectRecentSubagentCalls = db.prepare(
+    `SELECT thread_id || '/' || agent_id AS agent, created_at AS at, input + cache_read + output AS tokens
+     FROM subagent_calls WHERE created_at >= ? ORDER BY created_at DESC LIMIT ?`,
+  );
+  const selectThreadProvider = db.prepare(`SELECT provider_id AS providerId FROM threads WHERE thread_id = ?`);
   const selectForecastThreads = db.prepare(
     `SELECT thread_id AS threadId FROM forecasts WHERE created_at >= ?
      GROUP BY thread_id ORDER BY max(created_at) DESC`,
@@ -735,6 +761,12 @@ export function createStore(db: Database) {
         forecast.paceMs ?? null,
         forecast.waitLowMs ?? null,
         forecast.waitHighMs ?? null,
+        forecast.subagentCallsLow ?? null,
+        forecast.subagentCallsHigh ?? null,
+        forecast.subagentPerCall ?? null,
+        forecast.subagentPaceMs ?? null,
+        forecast.addition ? 1 : 0,
+        forecast.confirmed ? 1 : 0,
       );
     },
 
@@ -757,7 +789,24 @@ export function createStore(db: Database) {
 
     /** Every forecast made in the thread, oldest first. */
     threadForecasts(threadId: string): StoredForecast[] {
-      return selectThreadForecasts.all(threadId) as StoredForecast[];
+      return (selectThreadForecasts.all(threadId) as Array<Omit<StoredForecast, "addition" | "confirmed"> & { addition: number; confirmed: number }>).map(
+        (row) => ({ ...row, addition: row.addition === 1, confirmed: row.confirmed === 1 }),
+      );
+    },
+
+    /** The thread's subagents' calls, the latest `limit` of them, oldest first. */
+    threadSubagentRows(threadId: string, limit: number): UsageAt[] {
+      return selectSubagentRows.all(threadId, limit) as UsageAt[];
+    },
+
+    /** Subagent calls across every thread since `since`, newest first, up to `limit`. */
+    recentSubagentCalls(since: number, limit: number): SubagentCallCost[] {
+      return selectRecentSubagentCalls.all(since, limit) as SubagentCallCost[];
+    },
+
+    /** The provider the thread runs on, or null before it was recorded. */
+    threadProvider(threadId: string): string | null {
+      return (selectThreadProvider.get(threadId) as { providerId: string } | undefined)?.providerId ?? null;
     },
 
     /** The threads that forecast since `since`, most recent forecast first. */
