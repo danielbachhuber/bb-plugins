@@ -81,13 +81,14 @@ const inMilestone = (issues: readonly IssueWithActivity[], number: number) =>
 
 const bucketOf = (buckets: readonly Bucket[], at: number) => buckets.findIndex((bucket) => at >= bucket.start && at < bucket.end);
 
-/** Past due and due soonest first, then the rest by how much moved in the period, then by what is open. */
+/**
+ * Most active first: the most issues added and closed in the period. Ties go
+ * to the one due soonest, then to the one with the most open.
+ */
 function order(a: MilestoneSummary, b: MilestoneSummary): number {
-  if (a.due !== null && b.due !== null) return a.due - b.due || a.number - b.number;
-  if (a.due !== null) return -1;
-  if (b.due !== null) return 1;
   const moved = (m: MilestoneSummary) => m.added.reduce((x, y) => x + y, 0) + m.closedIn.reduce((x, y) => x + y, 0);
-  return moved(b) - moved(a) || b.open - a.open || a.number - b.number;
+  const due = (m: MilestoneSummary) => m.due ?? Number.POSITIVE_INFINITY;
+  return moved(b) - moved(a) || due(a) - due(b) || b.open - a.open || a.number - b.number;
 }
 
 export function milestoneSummaries(

@@ -386,7 +386,7 @@ export const rpcContract = defineRpcContract({
       /** Opened to merged, and requested to reviewed, for the charts that open the velocity sections. */
       velocity: z.object({ merge: bucketFlowsSchema, review: bucketFlowsSchema }),
       closedIssues: closedIssuesSchema,
-      /** Every open milestone, past due and due soonest first. */
+      /** Every open milestone, most active in the period first. */
       milestones: z.array(milestoneSummarySchema),
       authors: z.array(authorActivitySchema),
       people: z.array(personActivitySchema),

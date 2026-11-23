@@ -44,8 +44,16 @@ const ROWS: Row[] = [
   [34, "Nightly widget import checks", null, 1, 1, 1, 0, 0],
 ];
 
-/** The milestones over these buckets; a longer period moves more, a shorter one less. */
+const moved = (m: MilestoneSummary) => [...m.added, ...m.closedIn].reduce((a, b) => a + b, 0);
+
+/** The milestones over these buckets, most active first, as the server sorts them; a longer period moves more. */
 export function milestonesFor(buckets: readonly Bucket[], now: number): MilestoneSummary[] {
+  return unsorted(buckets, now).sort(
+    (a, b) => moved(b) - moved(a) || (a.due ?? Infinity) - (b.due ?? Infinity) || b.open - a.open,
+  );
+}
+
+function unsorted(buckets: readonly Bucket[], now: number): MilestoneSummary[] {
   const span = buckets.length === 0 ? 0 : (buckets.at(-1)!.end - buckets[0].start) / (42 * DAY);
   return ROWS.map(([number, title, dueIn, total, open, nobody, added6, closed6, addLean = "even", closeLean = "even"]) => {
     const added = Math.round(added6 * Math.min(span, 2));
@@ -118,7 +126,7 @@ const PEOPLE = ["octocat", "hubber", "monalisa"];
 
 /** "Sprocket storage migration": past due, mostly unheld, and gaining issues faster than it closes them. */
 export function milestoneDetailFor(buckets: readonly Bucket[], now: number, sync: SyncStatus): MilestoneDetailResult {
-  const milestone = milestonesFor(buckets, now).find((m) => m.number === 36)!;
+  const milestone = unsorted(buckets, now).find((m) => m.number === 36)!;
   const open: MilestoneIssue[] = TITLES.map((title, i) => ({
     number: 2104 + i * 6,
     title,

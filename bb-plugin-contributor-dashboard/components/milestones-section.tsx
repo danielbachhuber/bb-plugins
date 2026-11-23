@@ -1,7 +1,15 @@
 // Every open milestone as a row: when it is due, how much of it is closed,
 // what is open and unheld, and whether issues were added to it faster than
 // they closed over the period. A row opens the milestone's page. Display only.
+import { useState } from "react";
+
 import type { MilestoneSummary } from "@/dashboard/contract";
+import { pageOf } from "@/dashboard/paging";
+
+import { PageButton } from "./person-lists";
+
+/** Milestones per page; the rest are a click away. */
+export const MILESTONES_PER_PAGE = 10;
 
 // Written out rather than set as Tailwind classes: bb's stylesheet is
 // prebuilt, so an arbitrary colour class a plugin invents has no rule.
@@ -103,13 +111,19 @@ export function MilestonesTable({
   periodLabel,
   onOpenMilestone,
   now = Date.now(),
+  initialPage = 0,
 }: {
   milestones: readonly MilestoneSummary[];
   /** What the period is called in a sentence, such as "six weeks". */
   periodLabel: string;
   onOpenMilestone: (number: number) => void;
   now?: number;
+  /** The page to open on, for stories. */
+  initialPage?: number;
 }) {
+  const [wanted, setPage] = useState(initialPage);
+  // Clamped, because a shorter period can leave a reader past the last page.
+  const paging = pageOf(milestones.length, wanted, MILESTONES_PER_PAGE);
   if (milestones.length === 0) {
     return <p className="mt-3 text-sm text-muted-foreground">No open milestones.</p>;
   }
@@ -141,7 +155,7 @@ export function MilestonesTable({
           </tr>
         </thead>
         <tbody>
-          {milestones.map((milestone) => {
+          {milestones.slice(paging.offset, paging.to).map((milestone) => {
             const due = dueWords(milestone.due, now);
             return (
               <tr
@@ -179,6 +193,17 @@ export function MilestonesTable({
           })}
         </tbody>
       </table>
+      {paging.pages < 2 ? null : (
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            {paging.from}–{paging.to} of {milestones.length}
+          </span>
+          <span className="flex items-center gap-1">
+            <PageButton label="Previous" onClick={() => setPage(paging.page - 1)} disabled={paging.page === 0} />
+            <PageButton label="Next" onClick={() => setPage(paging.page + 1)} disabled={paging.page >= paging.pages - 1} />
+          </span>
+        </div>
+      )}
     </>
   );
 }

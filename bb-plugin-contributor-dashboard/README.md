@@ -89,8 +89,8 @@ no request to GitHub of its own.
 
 ![The Milestones section: a row per open milestone with its due date, a bar of how much is closed, its open and unassigned counts, what was added and closed over the period, and a small chart of issues in it against closed](screenshots/page--six-weeks.png)
 
-A row per open milestone, past due and due soonest first, then the rest by
-how much moved in the period. Each row shows when it is due, a bar of how
+A row per open milestone, ten to a page, the most active first: those with
+the most issues added and closed in the period. Each row shows when it is due, a bar of how
 much of it is closed with the open issues added in the period hatched, how
 many are open and how many of those nobody holds, and how many issues were
 added to it and closed over the period. A small chart draws the issues in it

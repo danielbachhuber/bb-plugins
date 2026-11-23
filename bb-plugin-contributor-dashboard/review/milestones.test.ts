@@ -109,7 +109,7 @@ describe("milestoneSummaries", () => {
     expect(summary).toMatchObject({ open: 3, closed: 2, nobody: 1, added: [1, 1], closedIn: [0, 1], openAdded: 2 });
   });
 
-  it("puts past due and due soonest first, then the rest by how much moved", () => {
+  it("puts the most active first, then ties by due date", () => {
     const order = milestoneSummaries(
       [
         milestone({ number: 1, title: "Quiet" }),
@@ -120,7 +120,7 @@ describe("milestoneSummaries", () => {
       [issue(1, { milestone: { number: 2 }, timelineItems: [milestoned("2026-10-06T09:00:00Z", "Busy")] })],
       WEEKS,
     ).map((m) => m.title);
-    expect(order).toEqual(["Past due", "Due later", "Busy", "Quiet"]);
+    expect(order).toEqual(["Busy", "Past due", "Due later", "Quiet"]);
   });
 });
 

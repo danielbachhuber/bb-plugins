@@ -171,7 +171,7 @@ export function DashboardView({
             <Section
               id="milestones"
               title="Milestones"
-              note={`open milestones, past due first; added and closed over ${selectionWords(selection)}`}
+              note={`open milestones, most active first; added and closed over ${selectionWords(selection)}`}
             >
               <MilestonesTable
                 milestones={data.milestones}
