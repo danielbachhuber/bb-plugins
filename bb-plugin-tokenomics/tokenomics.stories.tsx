@@ -41,6 +41,7 @@ import {
   PRUNED_TURNS,
   RUNS_OUT,
   SESSION_SLOTS,
+  SESSION_THREAD_LIST,
   SHORT,
   SHORT_TURNS,
   RUNNING_TURN,
@@ -321,6 +322,30 @@ export const TitleBarHovered = () => (
         providerName={() => "Claude Code"}
         onOpen={() => undefined}
         bars={dataFor("day").bars}
+        initialOpen
+      />
+    </div>
+  </div>
+);
+
+/**
+ * Below the chart, the session's top ten threads: each with its goal's
+ * progress, what the goal has spent against the top of its token estimate,
+ * amber once past it, and its tokens this session. A row opens its thread.
+ */
+export const TitleBarHoveredThreads = () => (
+  <div data-screenshot-frame className="h-[820px] w-[720px] p-4">
+    <div className="flex h-10 items-center gap-1.5 bg-background px-3">
+      <span className="inline-block size-7" />
+      <TopBarLimits
+        session={{ ...RUNS_OUT[0]!, slots: SESSION_SLOTS, lastHourTokens: 19_000_000 }}
+        limits={RUNS_OUT}
+        now={NOW.getTime()}
+        providerName={() => "Claude Code"}
+        onOpen={() => undefined}
+        bars={dataFor("day").bars}
+        threads={SESSION_THREAD_LIST}
+        onOpenThread={() => undefined}
         initialOpen
       />
     </div>

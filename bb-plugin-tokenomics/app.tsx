@@ -25,7 +25,7 @@ import { TopBarSlot, useTopBarRoom } from "@danielbachhuber/bb-plugin-component-
 import type { rpcContract } from "./server";
 import { cacheExpiredAt, contextLevel, type ContextThresholds } from "./usage/context.js";
 import { CONTEXT_CHANNEL, GOALS_CHANNEL, LIMITS_CHANNEL, TURNS_CHANNEL, USAGE_CHANNEL } from "./usage/channels.js";
-import type { GoalViewData, Limit, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
+import type { GoalViewData, Limit, SessionThread, TurnDetail, TurnSummary, TurnWork } from "./usage/contract.js";
 import { SidebarGoalMark, type SidebarMark } from "@/components/goal-line";
 import { keepsBbIcon, ROW_STATES, rowStateOf, withOpenCard, type BbRowState } from "@/components/row-activity";
 import { setGoalActivities, useGoalActivity } from "@/components/goal-activity";
@@ -108,6 +108,27 @@ function usePastDayBars() {
   return { bars, load };
 }
 
+/** How many threads the title bar's popover lists. */
+const SESSION_THREADS = 10;
+const FIVE_HOURS = 5 * 3_600_000;
+
+/**
+ * The session's top threads for the title bar's popover, read when it opens:
+ * one local query on the server each time, no call to a provider. Between
+ * sessions, the past five hours'.
+ */
+function useSessionThreads(session: Limit | null) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [threads, setThreads] = useState<{ threads: SessionThread[]; more: { count: number; tokens: number } } | null>(null);
+  const providerId = session?.providerId ?? null;
+  const since = session === null ? null : session.kind === "five-hour" ? session.resetsAt - FIVE_HOURS : Date.now() - FIVE_HOURS;
+  const load = useCallback(() => {
+    if (providerId === null || since === null) return;
+    rpc.call("session_threads", { since: Math.max(0, Math.round(since)), providerId, limit: SESSION_THREADS }).then(setThreads, () => undefined);
+  }, [rpc, providerId, since]);
+  return { threads, load };
+}
+
 function useProviderName() {
   const providers = experimental_useProviders();
   return (providerId: string) =>
@@ -126,13 +147,14 @@ function LimitsTopBar() {
   const providerName = useProviderName();
   const navigate = useBbNavigate();
   const pastDay = usePastDayBars();
+  const session = urgentSession(limits);
+  const sessionThreads = useSessionThreads(session);
   // The spark's empty slots are the time left, so it redraws as time passes.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
-  const session = urgentSession(limits);
   if (session === null) return null;
   const account = limits.filter(
     (limit) => limit.providerId === session.providerId && limit.accountKey === session.accountKey,
@@ -146,7 +168,12 @@ function LimitsTopBar() {
         providerName={providerName}
         onOpen={() => navigate.toPluginPanel("tokenomics")}
         bars={pastDay.bars}
-        onHover={pastDay.load}
+        onHover={() => {
+          pastDay.load();
+          sessionThreads.load();
+        }}
+        threads={sessionThreads.threads}
+        onOpenThread={(threadId) => navigate.toThread(threadId)}
       />
     </TopBarSlot>
   );

@@ -4,15 +4,16 @@
 // the weekly limit's ring and the past five hours' tokens. Hovering shows the
 // page's meters and its chart of the past day. Display only; app.tsx loads
 // the limits and the bars.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import type { Limit } from "@/usage/contract";
+import type { Limit, SessionThread } from "@/usage/contract";
 import { SLOT_MS } from "@/usage/limits";
 import type { Bar } from "@/usage/series";
 
 import { LimitMeters, paceText } from "./limit-meters";
+import { SessionThreads } from "./session-threads";
 import { UsageChart, UsageLegend } from "./usage-chart";
 import { withProjection } from "./usage-view";
 
@@ -129,6 +130,8 @@ export function TopBarLimits({
   onHover,
   initialOpen = false,
   compact = false,
+  threads = null,
+  onOpenThread,
 }: {
   session: Limit;
   /** Every limit of the session's subscription, for the popover. */
@@ -144,8 +147,29 @@ export function TopBarLimits({
   initialOpen?: boolean;
   /** Leaves the spark chart out, for a sidebar too narrow for the whole button. */
   compact?: boolean;
+  /** The session's top threads for the list below the chart; null until loaded. */
+  threads?: { threads: readonly SessionThread[]; more: { count: number; tokens: number } } | null;
+  onOpenThread?: (threadId: string) => void;
 }) {
   const [open, setOpen] = useState(initialOpen);
+  // The pointer crosses a gap between the button and the popover, so leaving
+  // either closes it a moment later, and entering the popover keeps it open
+  // so its rows can be clicked.
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepOpen = () => {
+    if (closing.current !== null) clearTimeout(closing.current);
+    closing.current = null;
+  };
+  const closeSoon = () => {
+    keepOpen();
+    closing.current = setTimeout(() => setOpen(false), 150);
+  };
+  useEffect(() => keepOpen, []);
+  const openThread = (threadId: string) => {
+    keepOpen();
+    setOpen(false);
+    onOpenThread?.(threadId);
+  };
   const chart = bars === null ? null : withProjection(bars, "hour", limits, now);
   const weekly = session.kind === "five-hour" ? weeklyLimit(limits) : null;
   return (
@@ -160,17 +184,24 @@ export function TopBarLimits({
             onOpen();
           }}
           onPointerEnter={() => {
+            keepOpen();
             setOpen(true);
             onHover?.();
           }}
-          onPointerLeave={() => setOpen(false)}
+          onPointerLeave={closeSoon}
           className="pr-2"
         >
           {compact ? null : <SessionSpark limit={session} now={now} />}
           <LimitDonut session={session} weekly={weekly} />
         </TopBarButton>
       </PopoverAnchor>
-      <PopoverContent align="start" className="pointer-events-none w-[440px] p-3" onOpenAutoFocus={(event) => event.preventDefault()}>
+      <PopoverContent
+        align="start"
+        className="w-[440px] p-3"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerEnter={keepOpen}
+        onPointerLeave={closeSoon}
+      >
         <LimitMeters limits={limits} providerName={providerName} className="" />
         {chart === null ? null : (
           <div className="mt-3 border-t border-border pt-3">
@@ -180,6 +211,18 @@ export function TopBarLimits({
               <UsageLegend hidden={NONE_HIDDEN} onToggle={() => undefined} pace={chart.projection !== null} />
             </div>
           </div>
+        )}
+        {threads === null ? null : (
+          <SessionThreads
+            threads={threads.threads}
+            more={threads.more}
+            onOpenThread={openThread}
+            onOpenAll={() => {
+              keepOpen();
+              setOpen(false);
+              onOpen();
+            }}
+          />
         )}
       </PopoverContent>
     </Popover>

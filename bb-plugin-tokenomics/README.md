@@ -145,6 +145,15 @@ While the sidebar is closed, it is hidden. It turns amber or red once either is
 headed for its limit. Hover it for the limits and the past day's tokens per hour, or click it
 to open the page.
 
+![The title bar's popover with the session's top ten threads below the chart: each with its goal's donut, what the goal has spent against the top of its estimate, amber for the ones past it, and its tokens this session](screenshots/page--title-bar-hovered-threads.png)
+
+Below the chart, the popover lists the session's ten threads that used the
+most tokens, subagents included. Each row shows the thread's goal donut,
+**Goal spent** against the top of the goal's token estimate, amber once past
+it, and the thread's tokens this **Session**. Click a row to open the thread.
+Opening the popover makes one query to Tokenomics' own database, and no call
+to a provider.
+
 ### The Tokenomics page
 
 ![The Tokenomics page for the past day: 110M tokens, a red session meter on pace to run out before it resets, an hourly chart running on to the reset with hatched bars, Where turn time goes, and five threads ranked by tokens](screenshots/page--limit-runs-out.png)

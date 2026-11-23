@@ -828,6 +828,41 @@ export default async function plugin(bb: BbPluginApi) {
       };
     },
     usage_hours: ({ since }) => ({ hours: store.hoursSince(Math.max(since, Date.now() - MAX_WINDOW_MS)) }),
+    session_threads: ({ since, providerId, limit }) => {
+      const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
+      const now = Date.now();
+      const ranked = store
+        .threadsSince(floor)
+        .filter((thread) => thread.providerId === providerId)
+        .map((thread) => ({ thread, tokens: thread.input + thread.cacheRead + thread.output }))
+        .sort((a, b) => b.tokens - a.tokens);
+      const shown = ranked.slice(0, limit);
+      const rest = ranked.slice(limit);
+      // One local query for the window's threads, then one for each listed
+      // thread's goal and one for what that goal has used.
+      return {
+        threads: shown.map(({ thread, tokens }) => {
+          const goal = goals.current(thread.threadId);
+          return {
+            threadId: thread.threadId,
+            title: thread.title,
+            archivedAt: thread.archivedAt,
+            tokens,
+            goal:
+              goal === null || goal.shape === "none"
+                ? null
+                : {
+                    states: goal.entries.map((entry) => entry.state),
+                    counts: goal.entries.map((entry) => entry.count ?? null),
+                    outcome: goal.outcome,
+                    spentTokens: goals.spentOn(goal, now).tokens,
+                    estimate: goal.estimate.tokens === null ? null : ([goal.estimate.tokens.low, goal.estimate.tokens.high] as [number, number]),
+                  },
+          };
+        }),
+        more: { count: rest.length, tokens: rest.reduce((sum, { tokens }) => sum + tokens, 0) },
+      };
+    },
     usage_window: async ({ since }) => {
       const floor = Math.max(since, Date.now() - MAX_WINDOW_MS);
       const [names, thresholds] = await Promise.all([projectNames(), contextThresholds()]);

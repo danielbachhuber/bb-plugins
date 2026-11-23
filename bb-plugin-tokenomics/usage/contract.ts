@@ -35,6 +35,29 @@ export const threadUsageSchema = z.object({
   ...tokens,
 });
 
+/** A thread in the title bar popover's list. See session_threads. */
+export const sessionThreadSchema = z.object({
+  threadId: z.string(),
+  title: z.string().nullable(),
+  archivedAt: z.number().nullable(),
+  /** Its tokens since the session began, subagents included. */
+  tokens: z.number(),
+  /** Its current goal; null without one. */
+  goal: z
+    .object({
+      states: z.array(z.enum(["todo", "current", "done", "dropped"])),
+      counts: z.array(z.object({ done: z.number(), total: z.number() }).nullable()),
+      outcome: z.enum(["met", "partly", "not"]).nullable(),
+      /** All the goal has used, across sessions. */
+      spentTokens: z.number(),
+      /** Its token estimate; null when it has none. */
+      estimate: z.tuple([z.number(), z.number()]).nullable(),
+    })
+    .nullable(),
+});
+
+export type SessionThread = z.infer<typeof sessionThreadSchema>;
+
 /** How many of a thread's latest usage rows the header and its summary read. */
 export const MAX_ROWS = 1_000;
 
@@ -206,6 +229,19 @@ export const rpcContract = defineRpcContract({
   usage_hours: {
     input: z.object({ since: z.number().int().nonnegative() }),
     output: z.object({ hours: z.array(hourUsageSchema) }),
+  },
+  /**
+   * The threads that used the most of one provider's tokens since `since`,
+   * subagents included, each with its current goal's progress and what the
+   * goal has spent against its token estimate. For the title bar's popover.
+   */
+  session_threads: {
+    input: z.object({ since: z.number().int().nonnegative(), providerId: z.string().min(1).max(100), limit: z.number().int().min(1).max(25) }),
+    output: z.object({
+      threads: z.array(sessionThreadSchema),
+      /** The threads past `limit`, and their tokens. */
+      more: z.object({ count: z.number(), tokens: z.number() }),
+    }),
   },
   usage_window: {
     input: z.object({ since: z.number().int().nonnegative() }),

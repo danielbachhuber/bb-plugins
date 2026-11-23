@@ -14,7 +14,7 @@ import type { PickerOption } from "@bb-app/components/pickers/OptionPicker";
 import type { ContextMeterProps } from "./components/context-meter";
 import type { ThreadTokens } from "./components/thread-token-count";
 import { UsageView, type UsageData } from "./components/usage-view";
-import type { Limit, ThreadUsage, TurnDetail, TurnSummary, TurnTimeBreakdown, TurnWork } from "./usage/contract";
+import type { Limit, SessionThread, ThreadUsage, TurnDetail, TurnSummary, TurnTimeBreakdown, TurnWork } from "./usage/contract";
 import type { TurnForecast } from "./usage/forecast";
 import { fillBars, windowFor, type RangeId } from "./usage/series";
 
@@ -549,3 +549,32 @@ export const FORECAST_SUBAGENT_TURN: TurnSummary = {
 /** The running turn with a forecast of 4–8 calls: on track at 5, past it at 13. */
 export const FORECAST_RUNNING: TurnSummary = { ...RUNNING_TURN, settings: OPUS, calls: 5, forecast: forecastOf([4, 8], [1, 3], 320_000, "Fix the failing test and rerun it.") };
 export const FORECAST_RUNNING_PAST: TurnSummary = { ...FORECAST_RUNNING, startedAt: NOW.getTime() - 402_000, calls: 13 };
+
+/**
+ * The session's top ten threads for the title bar's popover, shaped like a
+ * real morning: the top four about three quarters of the tokens, a goal far
+ * over its estimate, two met, one thread without a goal, one archived.
+ */
+const goalOf = (states: Array<"todo" | "current" | "done" | "dropped">, spent: number, estimate: [number, number] | null, outcome: "met" | null = null) => ({
+  states,
+  counts: states.map(() => null),
+  outcome,
+  spentTokens: spent,
+  estimate,
+});
+const MT = 1_000_000;
+export const SESSION_THREAD_LIST: { threads: SessionThread[]; more: { count: number; tokens: number } } = {
+  threads: [
+    { threadId: "s1", title: "Widgets export roadmap", archivedAt: null, tokens: 38 * MT, goal: goalOf(["done", "done", "current", "todo"], 142 * MT, [5 * MT, 25 * MT]) },
+    { threadId: "s2", title: "Dev #812: Move gadget sync to the background queue, with retries and a dead-letter table", archivedAt: null, tokens: 20.1 * MT, goal: goalOf(["done", "current", "todo"], 31 * MT, [15 * MT, 60 * MT]) },
+    { threadId: "s3", title: "Add a pricing table to the gadgets dashboard", archivedAt: null, tokens: 18 * MT, goal: goalOf(["done", "done", "done"], 27.5 * MT, [5 * MT, 25 * MT], "met") },
+    { threadId: "s4", title: "Dev #820: Record keyboard focus order in the Storybook tests", archivedAt: null, tokens: 11.2 * MT, goal: goalOf(["current", "todo", "todo"], 11.2 * MT, [10 * MT, 40 * MT]) },
+    { threadId: "s5", title: "Tokenomics review", archivedAt: null, tokens: 8 * MT, goal: goalOf(["done", "current"], 12.3 * MT, [2 * MT, 8 * MT]) },
+    { threadId: "s6", title: "Fix the accessibility findings", archivedAt: null, tokens: 4.7 * MT, goal: goalOf(["done", "done", "current", "todo", "todo"], 64 * MT, [50 * MT, 300 * MT]) },
+    { threadId: "s7", title: "Rename the widget sync flows", archivedAt: NOW.getTime() - HOUR, tokens: 4.2 * MT, goal: goalOf(["done", "done"], 6.4 * MT, [5 * MT, 20 * MT], "met") },
+    { threadId: "s8", title: "Review #830: a small change to the widgets", archivedAt: null, tokens: 2.1 * MT, goal: null },
+    { threadId: "s9", title: "Review #831: a small change to the widgets", archivedAt: null, tokens: 1.8 * MT, goal: goalOf(["current", "todo"], 1.6 * MT, [1 * MT, 4 * MT]) },
+    { threadId: "s10", title: "Review #832: a small change to the widgets", archivedAt: null, tokens: 1.6 * MT, goal: goalOf(["done", "todo"], 1.2 * MT, [1 * MT, 5 * MT]) },
+  ],
+  more: { count: 7, tokens: 5 * MT },
+};
