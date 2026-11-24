@@ -64,7 +64,10 @@ Claude forecasts with `--confirmed` and carries on.
 Each thread records one goal: what the whole thread is for, not its next
 step. In its first turn Claude records it with `bb tokenomics goal set`, from
 the brief a plugin or another thread wrote, or from your first prompt, and
-says so in one line instead of asking. A task gets a "Done is" list of end
+says so in one line instead of asking. When it can't tell yet what finished
+looks like, such as before you approve a plan, it suggests a goal instead.
+With Impromptu UI installed, the suggestion is a question above the composer:
+the goal, its "Done is" list and estimate, and a Set this goal button. A task gets a "Done is" list of end
 states such as "Tests pass" rather than steps, the last one what ends the
 thread, such as "PR open with checks passing", each marked in progress, done,
 or dropped as the work goes. The goal's detail level caps the list: up to 5
