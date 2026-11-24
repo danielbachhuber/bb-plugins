@@ -85,12 +85,32 @@ describe("code-block-wrap-diffs", () => {
     expect(isWrapped(md)).toBe(true);
   });
 
+  it("wraps unlabeled and plain-text blocks", async () => {
+    const unlabeled = renderBlock("");
+    const text = renderBlock("text");
+    const plaintext = renderBlock("plaintext");
+    await settle();
+    expect(isWrapped(unlabeled)).toBe(true);
+    expect(isWrapped(text)).toBe(true);
+    expect(isWrapped(plaintext)).toBe(true);
+  });
+
   it("leaves other languages unwrapped", async () => {
     const ts = renderBlock("ts");
-    const plain = renderBlock("");
     await settle();
     expect(isWrapped(ts)).toBe(false);
-    expect(isWrapped(plain)).toBe(false);
+  });
+
+  it("leaves a wrap toggle with no language label alone", async () => {
+    const host = document.createElement("div");
+    host.innerHTML = `
+      <div><div>
+        <button type="button" aria-pressed="false" aria-label="Wrap lines"></button>
+      </div></div>`;
+    document.body.append(host);
+    const toggle = host.querySelector("button") as HTMLButtonElement;
+    await settle();
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("keeps a diff block unwrapped once you unwrap it", async () => {

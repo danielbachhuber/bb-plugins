@@ -1,5 +1,5 @@
-// The sync loop: what turns on line wrap for diff and markdown code blocks in
-// chat.
+// The sync loop: what turns on line wrap for diff, markdown, plain-text, and
+// unlabeled code blocks in chat.
 //
 // bb renders each fenced code block in a message with a language label, a
 // wrap toggle, and a copy button. The wrap state lives in React and starts
@@ -21,16 +21,31 @@ export interface Engine {
   dispose: () => void;
 }
 
-/** The languages whose blocks start wrapped. */
-const WRAPPED_LANGUAGES = new Set(["diff", "markdown", "md"]);
+/**
+ * The languages whose blocks start wrapped. The empty string is a block with
+ * no language, which bb renders with an empty label.
+ */
+const WRAPPED_LANGUAGES = new Set([
+  "diff",
+  "markdown",
+  "md",
+  "text",
+  "txt",
+  "plaintext",
+  "",
+]);
 
 const TOGGLE_SELECTOR = 'button[aria-label="Wrap lines"][aria-pressed="false"]';
 
-/** The language label in the toggle's code-block header, lowercased. */
-export function blockLanguage(toggle: Element): string {
+/**
+ * The language label in the toggle's code-block header, lowercased, or null
+ * when the toggle has no label beside it and so is not a chat code block.
+ */
+export function blockLanguage(toggle: Element): string | null {
   const header = toggle.parentElement?.parentElement;
   const label = header?.querySelector(":scope > span");
-  return (label?.textContent ?? "").trim().toLowerCase();
+  if (!label) return null;
+  return (label.textContent ?? "").trim().toLowerCase();
 }
 
 export function startEngine(deps: EngineDeps): Engine {
@@ -61,7 +76,8 @@ export function startEngine(deps: EngineDeps): Engine {
         TOGGLE_SELECTOR,
       )) {
         if (clicked.has(toggle)) continue;
-        if (!WRAPPED_LANGUAGES.has(blockLanguage(toggle))) continue;
+        const language = blockLanguage(toggle);
+        if (language === null || !WRAPPED_LANGUAGES.has(language)) continue;
         clicked.add(toggle);
         toggle.click();
       }

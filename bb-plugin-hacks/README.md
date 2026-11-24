@@ -225,10 +225,10 @@ so a large image open in a visible window costs one read of it every 3
 seconds. Images from a git revision, which cannot change, and images from
 any other server are left alone.
 
-### Diff and markdown code blocks start wrapped
+### Diff, markdown, and plain-text code blocks start wrapped
 
-A fenced `diff` or `markdown` (or `md`) block in a chat message starts with
-long lines wrapped, instead of scrolling sideways. bb keeps each block's wrap
+A fenced `diff`, `markdown` (or `md`), `text` (or `txt`, `plaintext`), or
+unlabeled block in a chat message starts with long lines wrapped, instead of scrolling sideways. bb keeps each block's wrap
 toggle in React state and starts it off, so the hack clicks the toggle once
 when the block appears. Click it again to unwrap that block; it stays
 unwrapped until it remounts. Blocks in other languages are left alone.
@@ -378,7 +378,7 @@ matching, the hack does nothing and bb behaves exactly as it does without it.
 | `hacks/checkout-sync/sidebar.ts` | Placing and drawing the indicator in bb's project headers |
 | `hacks/checkout-sync/engine.ts` | The sync loop: polling, passes, observers, cleanup |
 | `hacks/close-all-tabs/engine.ts` | The sync loop: placing the button beside each tab strip, and closing the tabs |
-| `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff and markdown blocks and wrapping each once |
+| `hacks/code-block-wrap-diffs/engine.ts` | The sync loop: finding diff, markdown, and plain-text blocks and wrapping each once |
 | `hacks/fresh-file-images/rules.ts` | Pure logic: which image URLs are live files, and the versioned URL |
 | `hacks/fresh-file-images/engine.ts` | The sync loop: finding file images, checking their versions, and swapping the URL |
 | `app.tsx` | Wiring only: registers each hack's content script |
