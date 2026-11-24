@@ -62,6 +62,7 @@ export function usageRowOf(event: UsageEventLike): UsageRow | null {
   const usage = (event.data as UsagePayload | null)?.tokenUsage;
   if (usage?.last === undefined) return null;
   const tokens = splitBreakdown(usage.last);
+  const written = usage.last.cacheWriteInputTokens;
   return {
     eventId: event.id,
     createdAt: event.createdAt,
@@ -69,6 +70,9 @@ export function usageRowOf(event: UsageEventLike): UsageRow | null {
     runningTotal: Math.max(0, usage.total?.totalTokens ?? 0),
     cacheTtlMs:
       typeof usage.promptCacheTtlMs === "number" && usage.promptCacheTtlMs > 0 ? usage.promptCacheTtlMs : null,
+    // Kept apart from uncached input, which `tokens.input` still includes it in.
+    // Providers that report no writes, such as Codex, store null.
+    cacheWrite: typeof written === "number" && Number.isFinite(written) ? Math.min(Math.max(0, written), tokens.input) : null,
   };
 }
 

@@ -10,6 +10,8 @@ export interface SubagentCall {
   input: number;
   cacheRead: number;
   output: number;
+  /** The part of `input` written to the prompt cache. */
+  cacheWrite?: number;
 }
 
 interface TranscriptLine {
@@ -53,6 +55,7 @@ export function subagentCallsOf(text: string): SubagentCall[] {
       input: (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0),
       cacheRead: usage.cache_read_input_tokens ?? 0,
       output: usage.output_tokens ?? 0,
+      cacheWrite: usage.cache_creation_input_tokens ?? 0,
     });
   }
   return [...calls.values()];

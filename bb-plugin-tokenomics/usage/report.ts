@@ -1,5 +1,6 @@
 // The numbers `bb tokenomics` prints: one report per thread for a period, and
 // the commands that took the most time. Pure; server.ts gathers the inputs.
+import type { TokenParts } from "./cost.js";
 
 /**
  * Commands that only set up the one after them. A chained command line is
@@ -118,8 +119,14 @@ export interface ThreadReport {
   /** Turns with recorded usage in the period. */
   turns: number;
   tokens: { input: number; cacheRead: number; output: number; total: number };
-  /** Claude Code subagents run in the period; their tokens are already in `tokens`. */
-  subagents: { count: number; tokens: number };
+  /** The same tokens split as providers price them; `input` here is uncached input only. */
+  parts: TokenParts;
+  /** Input-equivalent tokens: each part weighted by its price against fresh input (see cost.ts). */
+  cost: number;
+  /** False when the provider has no weights, so `cost` counts every token as 1. */
+  weighted: boolean;
+  /** Claude Code subagents run in the period; their tokens and cost are already in `tokens` and `cost`. */
+  subagents: { count: number; tokens: number; cost: number };
   /** The largest context seen in the period, and the latest; null before any was recorded. */
   context: { peak: number | null; latest: number | null };
   turnTime: TurnTimeSummary | null;
@@ -153,11 +160,15 @@ export function minutes(ms: number): string {
 /** The human-readable table `bb tokenomics threads` prints without --json. */
 export function formatThreads(reports: readonly ThreadReport[], days: number): string {
   if (reports.length === 0) return `No thread used tokens in the past ${days} days.`;
-  const lines = [`${reports.length} threads, past ${days} days. Times are per turn: median / longest.`, ""];
+  const lines = [
+    `${reports.length} threads, past ${days} days. Cost is input-equivalent tokens (cache reads count 0.1, output 5 on Claude Code). Times are per turn: median / longest.`,
+    "",
+  ];
   for (const report of reports) {
     const time = report.turnTime === null ? "no turn times" : `${minutes(report.turnTime.medianMs)} / ${minutes(report.turnTime.longestMs)}`;
     const parts = [
       `${compact(report.tokens.total)} tokens`,
+      `cost ${compact(report.cost)}${report.weighted ? "" : " (unweighted)"}`,
       report.subagents.count > 0 ? `${compact(report.subagents.tokens)} in ${report.subagents.count} subagents` : null,
       `${report.turns} turns`,
       time,

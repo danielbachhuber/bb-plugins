@@ -7,6 +7,7 @@
 - **Each thread's goal** on the token button in the thread header: a donut with a segment per "Done is" entry, a grouped one as long as its items and filled by its count, and the goal, its list, and what it has used at the top of the summary, with the same donut beside the thread in the sidebar. Claude records it in the first turn, up to 5 entries at low detail or 25 at high, grouping larger work with counts, and an estimate checked against past threads, and closes it as met, partly met, or not met. `/tokenomics-update-goal` changes it, and `/tokenomics-clear-goal` removes it.
 - **A context meter above the composer** once a thread's context passes 300K tokens, red past 550K, or once an idle thread's prompt cache expires, with a **Compact** button.
 - **Your session in the title bar**: a spark chart of its tokens and rings for the session and the week, amber or red once either is headed for its limit. Hover it for the limits, the past day's chart, and the session's top ten threads with what each goal has spent against its estimate.
+- **Where threads waste tokens**: `/tokenomics-find-improvements` reads the costliest recent threads within a budget, weighs tokens by what they cost (a cache read counts a tenth of fresh input), and proposes fixes such as a script in your repository or a shorter skill, each priced by what it would have saved, as cards that open an issue or start a thread for the pull request.
 - **A Tokenomics page** with each usage limit and where it lands at the current pace, tokens by hour or day, where turn time went, the threads that used the most, and what each goal outcome cost.
 
 ## How it works
@@ -15,7 +16,7 @@ Tokenomics copies each usage event into its own database as bb records it, start
 
 ## For agents
 
-`bb tokenomics goal` records, moves, and closes a thread's goal. `bb tokenomics threads`, `bb tokenomics accounts`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts.
+`bb tokenomics goal` records, moves, and closes a thread's goal. `bb tokenomics threads`, `bb tokenomics accounts`, `bb tokenomics commands`, and `bb tokenomics forecasts` print the same numbers, with `--json`, so an agent can find expensive threads without reading their transcripts. `bb tokenomics improvements` collects, prices, and presents the find-improvements skill's work.
 
 ## Requirements
 

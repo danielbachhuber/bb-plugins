@@ -58,6 +58,12 @@ import {
 } from "./usage/forecast.js";
 import { formatTokens } from "./usage/series.js";
 import { attributeUsage, promptsByTurn } from "./usage/turns.js";
+import { costByTurn, costOfRows, parseWeights, partsOfRow, type WeightTable } from "./usage/cost.js";
+import { splitBreakdown, type ProviderTokenBreakdown } from "./usage/breakdown.js";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { improvementsCli, IMPROVEMENTS_USAGE, type ImprovementDeps, type ThreadInfo } from "./improvements/cli.js";
+import type { LogEvent } from "./improvements/digest.js";
 
 export { rpcContract } from "./usage/contract.js";
 
@@ -113,6 +119,13 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Show the goal on the thread's token button",
       description: "The goal's donut on the token button in the thread header, and the goal, its \"Done is\" list, and what it has used at the top of the summary it opens.",
       default: true,
+    },
+    costWeights: {
+      type: "string",
+      label: "Cost weights by provider (JSON)",
+      description:
+        'What each kind of token costs against fresh input, for the cost bb tokenomics threads and the find-improvements skill report. Claude Code defaults to {"input": 1, "cacheWrite": 1.25, "cacheWriteLong": 2, "cacheRead": 0.1, "output": 5}; other providers count every token as 1 until set here, such as {"codex": {"cacheRead": 0.1, "output": 4}}.',
+      default: "",
     },
     goalSidebar: {
       type: "boolean",
@@ -370,9 +383,23 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
+  /** The cost weights, the setting's overrides on the defaults; the defaults alone when it does not parse. */
+  async function costTable(): Promise<WeightTable> {
+    const { costWeights } = await settings.get();
+    try {
+      return parseWeights(costWeights ?? "");
+    } catch (error) {
+      bb.log.warn(`ignoring the cost weights setting: ${messageOf(error)}`);
+      return parseWeights("");
+    }
+  }
+
   /** One report per thread that used tokens since `since`. */
   async function threadReports(since: number): Promise<ThreadReport[]> {
     const names = await projectNames();
+    const table = await costTable();
+    const partRows = new Map<string, Array<ReturnType<typeof store.partsSince>[number]>>();
+    for (const row of store.partsSince(since)) partRows.set(row.threadId, [...(partRows.get(row.threadId) ?? []), row]);
     const subagents = store.subagentsSince(since);
     const peaks = store.peakContextsSince(since);
     const latest = store.latestContexts();
@@ -382,7 +409,11 @@ export default async function plugin(bb: BbPluginApi) {
     for (const run of store.commandsSince(since)) {
       commandsByThread.set(run.threadId, [...(commandsByThread.get(run.threadId) ?? []), run]);
     }
-    return store.threadsSince(since).map((thread) => ({
+    return store.threadsSince(since).map((thread) => {
+      const rows = partRows.get(thread.threadId) ?? [];
+      const costed = costOfRows(rows, thread.providerId, table);
+      const subagentCost = costOfRows(rows.filter((row) => row.subagent), thread.providerId, table).cost;
+      return {
       threadId: thread.threadId,
       title: thread.title,
       project: names.get(thread.projectId) ?? null,
@@ -395,12 +426,16 @@ export default async function plugin(bb: BbPluginApi) {
         output: thread.output,
         total: thread.input + thread.cacheRead + thread.output,
       },
-      subagents: subagents.get(thread.threadId) ?? { count: 0, tokens: 0 },
+      parts: costed.parts,
+      cost: costed.cost,
+      weighted: costed.weighted,
+      subagents: { ...(subagents.get(thread.threadId) ?? { count: 0, tokens: 0 }), cost: subagentCost },
       context: { peak: peaks.get(thread.threadId) ?? null, latest: latest.get(thread.threadId) ?? null },
       turnTime: turnTimeSummary((turnTimes.get(thread.threadId) ?? []).map((turn) => turn.ms)),
       waitingOnYou: waits.get(thread.threadId) ?? { count: 0, ms: 0 },
       slowestCommands: slowestCommands(commandsByThread.get(thread.threadId) ?? [], 3),
-    }));
+      };
+    });
   }
 
   /** The thread's turns, with their call counts and Claude's forecasts. */
@@ -632,10 +667,166 @@ export default async function plugin(bb: BbPluginApi) {
     return { exitCode: 0, stdout: [`Added ${calls[0]}–${calls[1]} subagent calls.${total}`, notice].filter((line) => line !== null).join("\n") };
   }
 
+  /** Every item and turn request in a thread's log, oldest first, a page at a time. */
+  async function itemEvents(threadId: string): Promise<LogEvent[]> {
+    const events: LogEvent[] = [];
+    let afterSeq: number | null = null;
+    // bb returns at most 100 events a page.
+    for (let page = 0; page < 300; page += 1) {
+      const batch = (await bb.sdk.threads.events.list({
+        threadId,
+        types: ["item/started", "item/completed", TURN_REQUEST_EVENT],
+        order: "asc",
+        limit: "100",
+        ...(afterSeq === null ? {} : { afterSeq: String(afterSeq) }),
+      })) as unknown as Array<LogEvent & { seq: number }>;
+      events.push(...batch);
+      if (batch.length < 100) break;
+      afterSeq = batch[batch.length - 1]!.seq;
+    }
+    return events;
+  }
+
+  /** The weights the last costTable() read, for the synchronous turn pricing below. */
+  let weightTable: WeightTable = parseWeights("");
+
+  const improvementDeps: ImprovementDeps = {
+    now: () => Date.now(),
+    home: homedir(),
+    async threads(since, threadIds) {
+      const from = threadIds === null ? since : Date.now() - 30 * 86_400_000;
+      const reports = await threadReports(from);
+      const chosen = threadIds === null ? reports : reports.filter((report) => threadIds.includes(report.threadId));
+      const meta = new Map<string, { originPluginId?: string | null; environmentPath?: string | null; projectId?: string }>();
+      for (let i = 0; i < chosen.length; i += 200) {
+        try {
+          const page = (await bb.sdk.threads.list({ threadIds: chosen.slice(i, i + 200).map((r) => r.threadId), includeHidden: true, limit: 200 } as never)) as unknown as Array<{
+            id: string;
+            originPluginId?: string | null;
+            environmentPath?: string | null;
+            projectId?: string;
+            visibility?: string;
+          }>;
+          for (const thread of page) if (thread.visibility !== "hidden") meta.set(thread.id, thread);
+        } catch (error) {
+          bb.log.warn(`reading thread details for find-improvements failed: ${messageOf(error)}`);
+        }
+      }
+      const paths = new Map<string, string>();
+      try {
+        for (const project of (await bb.sdk.projects.list()) as unknown as Array<{ id: string; sources?: Array<{ path?: string; isDefault?: boolean }> }>) {
+          const source = project.sources?.find((s) => s.isDefault) ?? project.sources?.[0];
+          if (source?.path) paths.set(project.id, source.path);
+        }
+      } catch (error) {
+        bb.log.warn(`listing project paths failed: ${messageOf(error)}`);
+      }
+      const windowCalls = store.contextSince(from);
+      const firsts = store.firstContexts(from);
+      return chosen
+        .filter((report) => meta.has(report.threadId))
+        .map((report): ThreadInfo => {
+          const thread = meta.get(report.threadId)!;
+          return {
+            threadId: report.threadId,
+            title: report.title ?? report.threadId,
+            project: report.project ?? "personal",
+            projectPath: thread.projectId === undefined ? null : (paths.get(thread.projectId) ?? null),
+            workPath: thread.environmentPath ?? null,
+            origin: thread.originPluginId ?? null,
+            provider: report.provider,
+            tokens: report.tokens.total,
+            subagentTokens: report.subagents.tokens,
+            cost: report.cost,
+            subagentCost: report.subagents.cost,
+            parts: report.parts,
+            turns: report.turns,
+            contextPeak: report.context.peak ?? 0,
+            firstContext: firsts.get(report.threadId) ?? null,
+            calls: windowCalls.get(report.threadId)?.calls ?? 0,
+            contextRead: windowCalls.get(report.threadId)?.used ?? 0,
+          };
+        });
+    },
+    events: itemEvents,
+    turns(threadId) {
+      const summaries = summariesOf(threadId);
+      const costs = costByTurn(
+        summaries.map((turn) => turn.startedAt),
+        store.threadPartRows(threadId),
+        store.threadProvider(threadId) ?? "claude-code",
+        weightTable,
+      );
+      return summaries.map((turn, index) => ({
+        startedAt: turn.startedAt,
+        endedAt: turn.endedAt,
+        calls: turn.calls,
+        tokens: turn.input + turn.cacheRead + turn.output,
+        subagentTokens: turn.subagentTokens,
+        cost: costs[index]!.total.cost,
+        subagentCost: costs[index]!.subagents.cost,
+        cacheWrite: costs[index]!.ownCacheWrite,
+      }));
+    },
+    samples: (threadId) => store.threadCallSamples(threadId),
+    partRows: (threadId) => store.threadPartRows(threadId),
+    provider: (threadId) => store.threadProvider(threadId),
+    async session(threadId) {
+      try {
+        const [event] = await bb.sdk.threads.events.list({ threadId, types: [TOKEN_USAGE_EVENT], order: "desc", limit: "1" });
+        const usage = (event?.data as { tokenUsage?: { total?: ProviderTokenBreakdown; promptCacheTtlMs?: number } } | undefined)?.tokenUsage;
+        if (usage?.total === undefined) return null;
+        const split = splitBreakdown(usage.total);
+        const written = usage.total.cacheWriteInputTokens;
+        return {
+          parts: partsOfRow({ ...split, cacheWrite: typeof written === "number" ? written : null }, store.threadProvider(threadId) ?? ""),
+          ttlMs: typeof usage.promptCacheTtlMs === "number" && usage.promptCacheTtlMs > 0 ? usage.promptCacheTtlMs : null,
+        };
+      } catch (error) {
+        bb.log.warn(`reading the latest token usage of ${threadId} failed: ${messageOf(error)}`);
+        return null;
+      }
+    },
+    async refresh(threadId) {
+      await scanSubagents(threadId).catch((error: unknown) => warn(threadId, error));
+    },
+    async costTable() {
+      weightTable = await costTable();
+      return weightTable;
+    },
+    async projects() {
+      try {
+        return ((await bb.sdk.projects.list()) as unknown as Array<{ name: string; gitRemoteUrl?: string | null; sources?: Array<{ path?: string }> }>).map(
+          (project) => ({
+            name: project.name,
+            paths: (project.sources ?? []).flatMap((source) => (source.path ? [source.path] : [])),
+            gitRemoteUrl: project.gitRemoteUrl ?? null,
+          }),
+        );
+      } catch (error) {
+        bb.log.warn(`listing projects failed: ${messageOf(error)}`);
+        return [];
+      }
+    },
+    fileSize(path) {
+      try {
+        const real = realpathSync(path);
+        return { real, bytes: statSync(real).size };
+      } catch {
+        return null;
+      }
+    },
+    write: (path, text) => writeFileSync(path, text),
+    read: (path) => readFileSync(path, "utf8"),
+    makeDir: (path) => mkdirSync(path, { recursive: true }),
+    exists: (path) => existsSync(path),
+  };
+
   const CLI_USAGE = [
     "bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]",
     "  One entry per thread that used tokens in the past N days (default 7, at most 30): tokens",
-    "  (Claude Code subagents included), turns, peak and latest context, turn times, time spent",
+    "  (Claude Code subagents included) and their cost in input-equivalent tokens, split into",
+    "  uncached input, cache writes, cache reads, and output; turns, peak and latest context, turn times, time spent",
     "  waiting on your answers, and its slowest shell commands. Context sizes, turn times, and",
     "  command times go back only to when Tokenomics began recording them.",
     "bb tokenomics accounts [--days N] [--json]",
@@ -656,6 +847,7 @@ export default async function plugin(bb: BbPluginApi) {
     "  Claude's turn forecasts against what each turn took, newest first, after a line on how",
     "  often they landed in range.",
     GOAL_USAGE,
+    IMPROVEMENTS_USAGE,
   ].join("\n");
 
   function flag(argv: string[], name: string): string | undefined {
@@ -694,6 +886,11 @@ export default async function plugin(bb: BbPluginApi) {
         usage: "bb tokenomics forecasts [--days N] [--json]",
       },
       {
+        name: "improvements",
+        summary: "Collect, price, present, and summarize the tokenomics-find-improvements skill's findings",
+        usage: "bb tokenomics improvements collect|price|view|summary ...",
+      },
+      {
         name: "goal",
         summary: "Record, move, estimate, close, or show this thread's goal",
         usage: "bb tokenomics goal set|stage|estimate|close|show ...",
@@ -704,6 +901,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (command === undefined || command === "help") return { exitCode: 0, stdout: CLI_USAGE };
       if (command === "forecast") return await recordForecast(ctx.threadId, argv);
       if (command === "goal") return await goalCli(goalDeps, ctx.threadId, argv.slice(argv.indexOf("goal") + 1));
+      if (command === "improvements") return await improvementsCli(improvementDeps, argv.slice(argv.indexOf("improvements") + 1), ctx.threadId ?? null);
       const json = argv.includes("--json");
       const days = Number(flag(argv, "--days") ?? 7);
       if (!Number.isFinite(days) || days <= 0 || days > 30) {

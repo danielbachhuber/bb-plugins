@@ -180,7 +180,7 @@ goal against without, by how they started.
 threads without reading their transcripts.
 
 ```sh
-bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens, turns, context, and turn times per thread
+bb tokenomics threads [--days N] [--sort tokens|time|context] [--limit N] [--active] [--json]   # tokens and their cost, turns, context, and turn times per thread
 bb tokenomics accounts [--days N] [--json]                                                     # tokens per day for each account, with its weekly limit
 bb tokenomics commands [--days N] [--limit N] [--json]                                         # the shell commands that took the most time
 bb tokenomics forecast --calls LOW-HIGH [--subagent-calls LOW-HIGH] [--wait-minutes LOW-HIGH] [--confirmed] [--note TEXT]  # record this turn's forecast
@@ -196,6 +196,8 @@ bb tokenomics goal entry count N DONE/TOTAL                                     
 bb tokenomics goal reopen [--stage "END STATE"] ...                                              # open a closed goal again, such as for feedback
 bb tokenomics goal clear [--reason TEXT]                                                         # take the goal off the thread, keeping it in the history
 bb tokenomics goal show [--json]                                                               # the goal, its list, what it has used, and each change with its time
+bb tokenomics improvements collect [--days N | --since TIME] [--thread ID ...] [--budget COST]  # digests of the costliest threads for the find-improvements reviewers
+bb tokenomics improvements price|view|summary FINDINGS.json                                    # price findings, build their cards, or print the run's summary
 ```
 
 The plugin ships the `tokenomics-update-goal` skill, which uses the goal you give
@@ -205,9 +207,19 @@ entries may no longer belong, and says in one line what the goal is now; and the
 `tokenomics-clear-goal` skill, which takes the goal off the thread with
 `goal clear`.
 
-The [self-improve-bb](https://github.com/danielbachhuber/skills/tree/main/skills/self-improve-bb)
-Claude Code skill uses `bb tokenomics threads` to pick which of the past
-week's threads to review.
+The `tokenomics-find-improvements` skill looks for where threads used tokens
+they did not need. `collect` picks the costliest threads in a period, as many
+as a budget (2M input-equivalent tokens by default) pays reviewers for, and
+writes a digest of each: every turn's calls with where each model response
+starts, the outputs later calls kept re-reading, cache health, and each
+project's starting prompt. Reviewer subagents read the digests and a research
+subagent looks for recent practices that cut tokens. Each finding names the
+file to change, such as a script in the repository, a skill, or an
+instruction, and `price` prices it from the turns it would have removed. The
+findings show as Impromptu UI cards with **Open issue** and **Start PR
+thread**, and the run ends with a summary of what it analyzed and what the
+fixes would save. `collect` reads Tokenomics' database and each selected
+thread's event log once; it makes no other API calls.
 
 ## Settings
 
@@ -220,6 +232,7 @@ week's threads to review.
 | `setGoals` | on | Adds about 450 tokens to each thread's instructions asking Claude to record, move, and close the thread's goal. Off stops new goals. |
 | `goalLine` | on | Shows the goal's donut on the thread header's token button, and the goal at the top of the summary it opens. Off removes them from open threads right away. |
 | `goalSidebar` | on | Shows the goal donut in sidebar rows. Off removes them right away. |
+| `costWeights` | empty | JSON of what each kind of token costs against fresh input, by provider, for the cost `bb tokenomics threads` reports. Claude Code counts cache reads as 0.1, cache writes as 1.25 (2 with an hour-long cache), and output as 5; other providers count every token as 1 until set here, such as `{"codex": {"cacheRead": 0.1, "output": 4}}`. |
 
 ## Requirements
 
@@ -227,7 +240,7 @@ bb 0.43 or later, and a provider that reports token usage to bb. Usage limits
 need a provider that reports them, such as Claude Code or Codex. No account or
 outside service.
 
-- Tokenomics counts tokens, not dollars.
+- Tokenomics counts tokens, not dollars. Its cost is in input-equivalent tokens: each kind of token weighted by its price against fresh input. Cache writes are stored apart from uncached input from this version on; on Claude Code, older rows count their fresh input as cache writes.
 - It counts a turn's model calls from the context bb records after each response, and keeps each forecast, about 100 bytes, with the thread's other rows.
 - It keeps each goal, and each earlier goal a revision replaced, with what it
   used, a few hundred bytes each, and a timed log of every change to them

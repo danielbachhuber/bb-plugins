@@ -13,6 +13,7 @@ import type { TranscriptRead } from "./subagent-files.js";
 import type { TimingRows } from "./timing.js";
 import type { AccountDay, AccountStretch } from "./accounts.js";
 import { addTokens, totalOf, ZERO_TOKENS, type Tokens } from "./breakdown.js";
+import type { PartRow } from "./cost.js";
 
 /**
  * APPEND-ONLY. Statement index is the migration id. Never edit or reorder a
@@ -239,6 +240,11 @@ export const MIGRATIONS = [
   // around it (see accounts.ts); null until a reading names it.
   `ALTER TABLE usage ADD COLUMN account_key TEXT`,
   `ALTER TABLE subagent_calls ADD COLUMN account_key TEXT`,
+  // The part of `input` written to the prompt cache. `input` still holds every
+  // fresh input token, writes included, so totals read as before; rows stored
+  // before this column are null, and cost.ts's partsOfRow decides what they were.
+  `ALTER TABLE usage ADD COLUMN cache_write INTEGER`,
+  `ALTER TABLE subagent_calls ADD COLUMN cache_write INTEGER`,
 ];
 
 export interface ThreadInfo {
@@ -259,6 +265,8 @@ export interface UsageRow {
   runningTotal: number;
   /** How long the provider keeps the prompt cache after this call, when it reports it. */
   cacheTtlMs?: number | null;
+  /** The part of `tokens.input` written to the prompt cache, when the provider reports it. */
+  cacheWrite?: number | null;
 }
 
 export interface HourUsage extends Tokens {
@@ -419,8 +427,8 @@ export function createStore(db: Database) {
   );
   const insertUsage = db.prepare(
     `INSERT OR IGNORE INTO usage
-       (event_id, thread_id, created_at, input, cache_read, output, running_total, cache_ttl_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (event_id, thread_id, created_at, input, cache_read, output, running_total, cache_ttl_ms, cache_write)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const selectCacheExpiry = db.prepare(
     `SELECT created_at + cache_ttl_ms AS expiresAt FROM usage
@@ -628,22 +636,57 @@ export function createStore(db: Database) {
        description = coalesce(excluded.description, subagent_files.description)`,
   );
   const upsertCall = db.prepare(
-    `INSERT INTO subagent_calls (thread_id, agent_id, message_id, created_at, input, cache_read, output)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO subagent_calls (thread_id, agent_id, message_id, created_at, input, cache_read, output, cache_write)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (thread_id, message_id) DO UPDATE SET
-       input = excluded.input, cache_read = excluded.cache_read, output = excluded.output`,
+       input = excluded.input, cache_read = excluded.cache_read, output = excluded.output,
+       cache_write = excluded.cache_write`,
   );
   const recordSubagents = db.transaction((threadId: string, reads: TranscriptRead[]) => {
     let calls = 0;
     for (const read of reads) {
       for (const call of read.calls) {
-        upsertCall.run(threadId, read.agentId, call.messageId, call.createdAt, call.input, call.cacheRead, call.output);
+        upsertCall.run(threadId, read.agentId, call.messageId, call.createdAt, call.input, call.cacheRead, call.output, call.cacheWrite ?? null);
         calls += 1;
       }
       upsertFile.run(read.path, threadId, read.agentId, read.description, read.offset);
     }
     return calls;
   });
+
+  // Grouped so each group shares a cache lifetime and whether writes were kept apart, which is all costOfRows needs.
+  const selectPartsSince = db.prepare(
+    `SELECT u.thread_id AS threadId, coalesce(t.provider_id, '') AS providerId,
+            sum(u.input) AS input, sum(u.cache_write) AS cacheWrite, sum(u.cache_read) AS cacheRead,
+            sum(u.output) AS output, CASE WHEN coalesce(u.ttl, 0) >= ${HOUR_MS} THEN ${HOUR_MS} END AS ttlMs, u.sub AS subagent
+     FROM (SELECT thread_id, created_at, input, cache_write, cache_read, output, cache_ttl_ms AS ttl, 0 AS sub FROM usage
+       UNION ALL
+       SELECT thread_id, created_at, input, cache_write, cache_read, output, NULL, 1 FROM subagent_calls) u
+       LEFT JOIN threads t ON t.thread_id = u.thread_id
+     WHERE u.created_at >= ?
+     GROUP BY u.thread_id, u.sub, u.cache_write IS NULL, coalesce(u.ttl, 0) >= ${HOUR_MS}`,
+  );
+  const selectPartRows = db.prepare(
+    `SELECT created_at AS at, input, cache_write AS cacheWrite, cache_read AS cacheRead, output,
+            cache_ttl_ms AS ttlMs, 0 AS subagent FROM usage WHERE thread_id = ?
+     UNION ALL
+     SELECT created_at, input, cache_write, cache_read, output, NULL, 1 FROM subagent_calls WHERE thread_id = ?
+     ORDER BY at`,
+  );
+  // bb records the context more than once per response, so calls are the distinct sizes.
+  const selectContextSince = db.prepare(
+    `SELECT thread_id AS threadId, count(DISTINCT used_tokens) AS calls, sum(DISTINCT used_tokens) AS used
+     FROM context WHERE auto_compact_at IS NULL AND created_at >= ? GROUP BY thread_id`,
+  );
+  const selectFirstContexts = db.prepare(
+    `SELECT c.thread_id AS threadId, c.used_tokens AS usedTokens
+     FROM context c JOIN (
+       SELECT thread_id, min(created_at) AS first FROM context
+       WHERE auto_compact_at IS NULL AND thread_id IN (SELECT DISTINCT thread_id FROM context WHERE created_at >= ?)
+       GROUP BY thread_id
+     ) f ON f.thread_id = c.thread_id AND c.created_at = f.first
+     WHERE c.auto_compact_at IS NULL`,
+  );
 
   const record = db.transaction((thread: ThreadInfo, rows: UsageRow[], lastSeq: number) => {
     let inserted = 0;
@@ -657,6 +700,7 @@ export function createStore(db: Database) {
         row.tokens.output,
         row.runningTotal,
         row.cacheTtlMs ?? null,
+        row.cacheWrite ?? null,
       );
       inserted += Number(result.changes);
     }
@@ -945,6 +989,37 @@ export function createStore(db: Database) {
 
     threadRows(threadId: string, limit: number): UsageAt[] {
       return selectRows.all(threadId, limit) as UsageAt[];
+    },
+
+    /**
+     * Each thread's usage since `since`, its own and its subagents', in
+     * groups that share a cache lifetime (an hour or more, or less) and
+     * whether cache writes were stored apart. Price them with costOfRows.
+     */
+    partsSince(since: number): Array<{ threadId: string; providerId: string } & Omit<PartRow, "at">> {
+      return (selectPartsSince.all(since) as Array<{ threadId: string; providerId: string; subagent: number } & Omit<PartRow, "at" | "subagent">>).map(
+        (row) => ({ ...row, subagent: row.subagent === 1 }),
+      );
+    },
+
+    /** Every usage row of the thread and its subagents, oldest first. */
+    threadPartRows(threadId: string): PartRow[] {
+      return (selectPartRows.all(threadId, threadId) as Array<Omit<PartRow, "subagent"> & { subagent: number }>).map((row) => ({
+        ...row,
+        subagent: row.subagent === 1,
+      }));
+    },
+
+    /** Each thread's model calls since `since`, and the context they read in all. */
+    contextSince(since: number): Map<string, { calls: number; used: number }> {
+      const rows = selectContextSince.all(since) as Array<{ threadId: string; calls: number; used: number }>;
+      return new Map(rows.map((row) => [row.threadId, { calls: row.calls, used: row.used }]));
+    },
+
+    /** The context of the first recorded call of each thread with a call since `since`. */
+    firstContexts(since: number): Map<string, number> {
+      const rows = selectFirstContexts.all(since) as Array<{ threadId: string; usedTokens: number }>;
+      return new Map(rows.map((row) => [row.threadId, row.usedTokens]));
     },
 
     threadTotal(threadId: string): ThreadTotal {

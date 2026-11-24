@@ -9,7 +9,7 @@
   },
   "bb": {
     "name": "Tokenomics",
-    "description": "See what threads cost in tokens and time, each thread's goal, turns against forecasts, if limits last, and be asked before costly turns.",
+    "description": "See what threads cost in tokens and time, each thread's goal, turns against forecasts, if limits last, and where threads waste tokens.",
     "branding": {
       "icon": "./icons/tokenomics.svg",
       "experimental_icons": {

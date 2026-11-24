@@ -79,7 +79,7 @@ Source: [`bb-plugin-super-diff`](bb-plugin-super-diff)
 
 [View in the marketplace](https://getbb.app/marketplace/tokenomics)
 
-See what threads cost in tokens and time, each thread's goal, turns against forecasts, if limits last, and be asked before costly turns.
+See what threads cost in tokens and time, each thread's goal, turns against forecasts, if limits last, and where threads waste tokens.
 
 Source: [`bb-plugin-tokenomics`](bb-plugin-tokenomics)
 

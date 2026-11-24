@@ -11,7 +11,7 @@ function line(id: string, timestamp: string, usage: Record<string, number>, type
 const usage = { input_tokens: 3, cache_creation_input_tokens: 1_000, cache_read_input_tokens: 50_000, output_tokens: 20 };
 
 describe("subagentCallsOf", () => {
-  it("counts each message once, keeping its last line, with cache writes as new input", () => {
+  it("counts each message once, keeping its last line, with cache writes in new input and apart", () => {
     const text = [
       line("msg_1", "2026-09-24T10:00:00Z", { ...usage, output_tokens: 5 }),
       line("msg_1", "2026-09-24T10:00:01Z", usage),
@@ -20,8 +20,8 @@ describe("subagentCallsOf", () => {
       "not json",
     ].join("\n");
     expect(subagentCallsOf(text)).toEqual([
-      { messageId: "msg_1", createdAt: Date.parse("2026-09-24T10:00:01Z"), input: 1_003, cacheRead: 50_000, output: 20 },
-      { messageId: "msg_2", createdAt: Date.parse("2026-09-24T10:00:05Z"), input: 1_003, cacheRead: 51_000, output: 20 },
+      { messageId: "msg_1", createdAt: Date.parse("2026-09-24T10:00:01Z"), input: 1_003, cacheRead: 50_000, output: 20, cacheWrite: 1_000 },
+      { messageId: "msg_2", createdAt: Date.parse("2026-09-24T10:00:05Z"), input: 1_003, cacheRead: 51_000, output: 20, cacheWrite: 1_000 },
     ]);
   });
 

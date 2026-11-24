@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { splitBreakdown } from "./breakdown.js";
 import { createStore, MIGRATIONS } from "./store.js";
-import { createSync, TOKEN_USAGE_EVENT, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
+import { createSync, TOKEN_USAGE_EVENT, usageRowOf, type EventSource, type ThreadLike, type UsageEventLike } from "./sync.js";
+import { costOfRows } from "./cost.js";
 
 function openStore() {
   const db = new Database(":memory:");
@@ -186,6 +187,35 @@ describe("sync and store", () => {
     const store = openStore();
     expect(store.startedAt(T0)).toBe(T0);
     expect(store.startedAt(T0 + HOUR)).toBe(T0);
+  });
+});
+
+describe("cache writes", () => {
+  it("are stored apart from uncached input, while input still holds both", () => {
+    const row = usageRowOf(usageEvent(5, T0, 1_000, 1_000))!;
+    expect(row.tokens).toEqual({ input: 100, cacheRead: 800, output: 100 });
+    expect(row.cacheWrite).toBe(90);
+  });
+
+  it("are null on rows from before they were kept, and on Claude Code those rows count their input as writes", async () => {
+    const store = openStore();
+    // A row recorded before the column existed.
+    store.record(
+      { threadId: thread.id, title: null, projectId: "prj_acme", providerId: "claude-code", archivedAt: null },
+      [{ eventId: "old", createdAt: T0 - 60_000, tokens: { input: 500, cacheRead: 5_000, output: 10 }, runningTotal: 5_510, cacheTtlMs: 3_600_000 }],
+      0,
+    );
+    await createSync(store, fakeSource([usageEvent(5, T0, 1_000, 1_000)]).source).syncThread(thread);
+    const rows = store.threadPartRows(thread.id);
+    expect(rows.map((r) => [r.input, r.cacheWrite, r.subagent])).toEqual([
+      [500, null, false],
+      [100, 90, false],
+    ]);
+    const costed = costOfRows(store.partsSince(0), "claude-code");
+    expect(costed.parts).toEqual({ input: 10, cacheWrite: 590, cacheRead: 5_800, output: 110 });
+    // 500 hour-long writes ×2, 90 writes ×1.25, 10 uncached, 5,800 reads ×0.1, 110 output ×5.
+    expect(costed.cost).toBe(1_000 + 113 + 10 + 580 + 550);
+    expect(costOfRows(store.partsSince(0), "codex")).toMatchObject({ parts: { input: 510, cacheWrite: 90, cacheRead: 5_800, output: 110 }, weighted: false });
   });
 });
 
