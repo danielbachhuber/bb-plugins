@@ -794,9 +794,12 @@ export function suggestsChange(item: Item): boolean {
 }
 
 /**
- * A card that suggests a change but gives the user only yes or no, such as
- * Apply and Skip, or Post and Post and close for a drafted comment, gets a note field and a Revise button that sends it, so the
- * user can ask for a different change instead of retyping the card in chat.
+ * A card that suggests a course of action gets a note field and a Revise
+ * button that sends it, so the user can ask for something else instead of
+ * retyping the card in chat. That is any card with a button that acts, such
+ * as Apply and Skip for a fix, Post for a drafted comment, or a choice
+ * between two ways forward. A card whose buttons only open links, a visual
+ * review, a closing step, and a one-line answer field are left alone.
  */
 function addRevise(view: View, warnings: string[]): View {
   if (view.layout !== "cards") return view;
@@ -805,12 +808,13 @@ function addRevise(view: View, warnings: string[]): View {
     sections: view.sections.map((section, s) => ({
       ...section,
       items: section.items.map((item, i) => {
-        const answerable = item.actions.some((action) => action.type === "message" || action.type === "thread");
-        if (!suggestsChange(item) || !answerable || item.note !== undefined || item.closing || item.draftFormat === "text") return item;
+        const acts = item.actions.some((action) => action.type !== "link");
+        if (!acts || item.note !== undefined || item.closing || item.variations.length > 0 || item.draftFormat === "text") return item;
         if (item.actions.length >= 6) {
-          warnings.push(`sections.${s}.items.${i}: suggests a change but has no Revise field, and has no room for one; drop a button and add a note with a Revise button that sends {note}`);
+          warnings.push(`sections.${s}.items.${i}: suggests a course of action but has no Revise field, and has no room for one; drop a button and add a note with a Revise button that sends {note}`);
           return item;
         }
+        const change = suggestsChange(item);
         const draft = item.changes.some(usesDraftAsAfter) || sendsDraft(item) ? `\n\nThe text as I left it:\n\n${DRAFT}` : "";
         const revise: Action = {
           type: "message",
@@ -819,8 +823,12 @@ function addRevise(view: View, warnings: string[]): View {
           repeat: true,
           text: `Revise ${item.id} ("${item.title}"): ${NOTE}${draft}`,
         };
-        warnings.push(`${item.id}: added a Revise field, since it suggests a change; a press sends "Revise ${item.id} (…): <note>". Give it your own note and Revise button to word them yourself.`);
-        return { ...item, note: { label: "Revise", placeholder: "What to change instead" }, actions: [...item.actions, revise] };
+        warnings.push(`${item.id}: added a Revise field, since it suggests a course of action; a press sends "Revise ${item.id} (…): <note>". Give it your own note and Revise button to word them yourself.`);
+        return {
+          ...item,
+          note: { label: "Revise", placeholder: change ? "What to change instead" : "What to do instead" },
+          actions: [...item.actions, revise],
+        };
       }),
     })),
   };

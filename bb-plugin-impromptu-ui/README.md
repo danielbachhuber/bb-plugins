@@ -24,7 +24,7 @@ With Impromptu UI, you can:
 - The agent publishes what it wants you to act on as numbered rows above the composer, grouped under headings.
 - Each view's header says how long ago the agent published it, such as **3h ago**, so you can tell whether it is still current. Hover for the exact time. Publishing again under the same key resets it.
 - Click a row to open its card in the side panel: the summary, any diff, a draft you can edit, and the buttons that act on it. Every card also has **Start thread** and **Dismiss**.
-- A card that suggests a change, such as a fix with **Apply** and **Skip** or a drafted comment with **Post**, always has a **Revise** field too. Type what to change and press Enter, and the agent sends back a new suggestion. If the agent leaves it out, `publish` adds it.
+- A card that suggests a course of action, such as a fix with **Apply** and **Skip**, a drafted comment with **Post**, or a choice between two ways forward, always has a **Revise** field too. Type what to do instead and press Enter, and the agent sends back a new suggestion. If the agent leaves it out, `publish` adds it. Cards whose buttons only open links, visual reviews, and closing steps don't get one.
 - Done and dismissed rows sink to the bottom, and the agent reads back what you did.
 - A view with the `inline` layout asks one to three questions instead. Click an answer, or type your own and press Enter, without opening the side panel.
   An inline view that holds something only cards can show, such as a status, a draft, or a single button, is published as cards, and `publish` prints a warning naming the field.

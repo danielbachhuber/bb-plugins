@@ -281,8 +281,7 @@ describe("item changes", () => {
       const item = parseView(view({ draftLabel: "Comment to post", draft: "Looks done.", actions: [post] })).sections[0]!.items[0]!;
       expect(item.note).toEqual({ label: "Revise", placeholder: "What to change instead" });
       expect(item.actions[1]).toMatchObject({ label: "Revise", text: 'Revise a ("A"): {note}\n\nThe text as I left it:\n\n{draft}' });
-      // A draft no button sends, or a one-line answer field, is not a suggestion.
-      expect(parseView(view({ draft: "Looks done.", actions: [apply] })).sections[0]!.items[0]!.note).toBeUndefined();
+      // A one-line answer field has no room for one.
       const answer = { type: "message", label: "Send", text: "{draft}" };
       expect(parseView(view({ draftFormat: "text", draft: "12", actions: [answer] })).sections[0]!.items[0]!.note).toBeUndefined();
     });
@@ -292,11 +291,24 @@ describe("item changes", () => {
       expect(item.note).toBeDefined();
     });
 
-    it("leaves alone a card with its own note, a pull request's own diff, a list row, or a card with no buttons", () => {
+    it("does the same for any card with a button that acts, asking what to do instead", () => {
+      const a = { type: "message", label: "With its most urgent PR", primary: true, text: "Group it with its most urgent PR" };
+      const b = { type: "message", label: "Its own group", text: "Give it its own group" };
+      const item = parseView(view({ actions: [a, b] })).sections[0]!.items[0]!;
+      expect(item.note).toEqual({ label: "Revise", placeholder: "What to do instead" });
+      expect(item.actions.map((action) => action.label)).toEqual(["With its most urgent PR", "Its own group", "Revise"]);
+      expect(fillNote(item.actions[2]!, "Neither")).toMatchObject({ text: 'Revise a ("A"): Neither' });
+      // A pull request's own diff with Apply, and a draft no button sends, are courses of action too.
+      expect(parseView(view({ changes: [{ label: "a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n" }], actions: [apply] })).sections[0]!.items[0]!.note).toBeDefined();
+      expect(parseView(view({ draft: "Looks done.", actions: [apply] })).sections[0]!.items[0]!.note).toBeDefined();
+    });
+
+    it("leaves alone a card with its own note, only links, a list row, or a card with no buttons", () => {
       const own = { note: {}, actions: [apply, { type: "message", label: "Redo", text: "Redo: {note}" }] };
       expect(readView(view({ ...fix, ...own }))).toMatchObject({ warnings: [] });
       expect(parseView(view({ ...fix, ...own })).sections[0]!.items[0]!.actions).toHaveLength(2);
-      expect(parseView(view({ changes: [{ label: "a.ts", patch: "@@ -1 +1 @@\n-a\n+b\n" }], actions: [apply] })).sections[0]!.items[0]!.note).toBeUndefined();
+      const link = { type: "link", label: "PR", url: "https://example.com" };
+      expect(parseView(view({ actions: [link] })).sections[0]!.items[0]!.note).toBeUndefined();
       expect(parseView(view({ changes: fix.changes })).sections[0]!.items[0]!.note).toBeUndefined();
       const list = JSON.stringify({ title: "T", layout: "list", sections: [{ items: [{ id: "a", title: "A", ...fix }] }] });
       expect(parseView(list).sections[0]!.items[0]!.note).toBeUndefined();
