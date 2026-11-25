@@ -4,11 +4,12 @@
 // button is no taller than the line of text beside it.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { UrlLink } from "@get-bb/plugin-sdk/app";
-import { writeLinkToClipboard } from "@danielbachhuber/bb-plugin-component-library/copy-link";
-import { StartingThreadLine, THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+import { BubbleChatAddIcon, BubbleChatIcon, Copy01Icon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 
-import { Icon } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
+import { writeLinkToClipboard } from "../copy-link/copy-link";
+import { cn } from "../lib/cn";
+import { StartingThreadLine, THREAD_EDGE_INSET, ThreadLine, type ThreadStatus } from "../thread-status/thread-status";
 
 /** How long the tick stays up before the copy glyph returns. */
 const COPIED_MS = 1500;
@@ -38,7 +39,7 @@ export function Assignees({ logins }: { logins: readonly string[] }) {
   if (logins.length === 0) {
     return (
       <span style={{ color: UNASSIGNED }} title="Nobody assigned" className="inline-flex shrink-0">
-        <Icon name="UserRoundPlus" className="size-3.5" />
+        <HugeiconsIcon icon={UserAdd01Icon} aria-hidden="true" className="size-3.5" />
       </span>
     );
   }
@@ -53,7 +54,7 @@ export function Assignees({ logins }: { logins: readonly string[] }) {
 
 /**
  * What a row's thread is doing, from bb's sidebar. The page provides it once,
- * from component-library's useThreadStatus, so the views between need not
+ * from useThreadStatus, so the views between need not
  * pass it down; the stories provide fixtures.
  */
 export const ThreadStatusContext = createContext<(threadId: string | null) => ThreadStatus | null>(() => null);
@@ -80,13 +81,13 @@ export const StartThreadContext = createContext<StartThreadRows>({
 });
 
 function RowAction({
-  name,
+  icon,
   label,
   expanded,
   disabled = false,
   onClick,
 }: {
-  name: string;
+  icon: IconSvgElement;
   label: string;
   /** Set on a button that opens something under the row; it stays pressed while that is open. */
   expanded?: boolean;
@@ -106,7 +107,7 @@ function RowAction({
         expanded && "bg-accent text-foreground",
       )}
     >
-      <Icon name={name} className="size-3.5" />
+      <HugeiconsIcon icon={icon} aria-hidden="true" className="size-3.5" />
     </button>
   );
 }
@@ -166,14 +167,14 @@ export function ItemRow({
           {facts}
           <span className="flex items-center gap-0.5">
             <RowAction
-              name={threadId === null && !starting ? "MessageSquarePlus" : "MessageSquare"}
+              icon={threadId === null && !starting ? BubbleChatAddIcon : BubbleChatIcon}
               label={starting ? "Starting a thread" : threadId === null ? "Start a thread" : "Open the thread"}
               expanded={threadId === null && !starting ? startThreadBox !== null : undefined}
               disabled={starting}
               onClick={onThread}
             />
             <RowAction
-              name={copied ? "Check" : "Copy"}
+              icon={copied ? Tick02Icon : Copy01Icon}
               label={copied ? "Copied" : "Copy link"}
               onClick={() => void copy()}
             />

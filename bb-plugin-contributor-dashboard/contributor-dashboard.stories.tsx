@@ -14,7 +14,7 @@ import { authoredFacets, DEFAULT_AUTHORED_QUERY, DEFAULT_WAITING_QUERY, peopleFa
 import { AUTHORED_PAGE_SIZE, PAGE_SIZE, pageOf } from "./dashboard/paging";
 import { bucketsFor, rangeOf, selectionWords, type PresetId, type Selection } from "./dashboard/period";
 import type { ThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
-import { ThreadStatusContext } from "./components/item-row";
+import { ThreadStatusContext } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import { teamReviewActivity } from "./review/people";
 
 export default {

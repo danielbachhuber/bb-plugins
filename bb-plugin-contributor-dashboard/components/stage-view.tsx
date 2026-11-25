@@ -4,7 +4,7 @@ import type { StageDetailResult, WaitingQuery } from "@/dashboard/contract";
 import { unitOfBuckets, type Selection } from "@/dashboard/period";
 
 import { days } from "./stage-flow";
-import { ItemRow } from "./item-row";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import type { ThreadSeed } from "./thread-seed";
 import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";

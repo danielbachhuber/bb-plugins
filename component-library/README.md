@@ -22,6 +22,8 @@ what not to do with it.
 | [Thread status](#thread-status) | `@danielbachhuber/bb-plugin-component-library/thread-status` | A row whose item has a thread: an orange edge, Open thread, and a line under the actions with what the thread is doing, read live from bb's sidebar |
 | [Last value](#last-value) | `@danielbachhuber/bb-plugin-component-library/last-value` | State that opens on the value the page last read from its server, kept in `localStorage`, so a page draws its list at once instead of a loading screen |
 | [Viewed ring](#viewed-ring) | `@danielbachhuber/bb-plugin-component-library/viewed-ring` | A ring that fills as files are marked Viewed, turning black when all are, with "3/6 viewed" beside it, as the changes panel's toolbar shows it |
+| [Item row](#item-row) | `@danielbachhuber/bb-plugin-component-library/item-row` | One issue or pull request in a list: its number and title linked to GitHub, assignee initials or an orange icon when nobody is assigned, the list's own facts, and Start or Open thread and Copy link buttons |
+| [Milestones](#milestones) | `@danielbachhuber/bb-plugin-component-library/milestones` | A table of a repository's open milestones, with due date, progress, open and unassigned counts and a trend chart per row, plus a milestone's history chart and the strip of where its issues stand |
 
 `sweep-ui`, the list the three sweeps draw, is a separate package because only
 the sweeps use it.
@@ -652,6 +654,56 @@ table of contents.
 
 **Don't** draw the ring without a count beside it. It is hidden from screen
 readers.
+
+## Item row
+
+```tsx
+import { ItemRow, StartThreadContext, ThreadStatusContext } from "@danielbachhuber/bb-plugin-component-library/item-row";
+
+<ItemRow
+  number={1402}
+  title="Gadget settings forget the theme"
+  url="https://github.com/acme/widgets/issues/1402"
+  assignees={["octocat"]}
+  facts={<span>added 11d ago</span>}
+  threadId={null}
+  onThread={() => openOrToggleBox(1402)}
+/>
+```
+
+Put it in a `<ul>`. `facts` is whatever the list says about the row, drawn
+muted before the buttons. Leave out `assignees` where the list is already
+about one person. The thread button calls `onThread`, which opens the thread
+when `threadId` is set and otherwise toggles a Start thread box under the row.
+
+The page provides two contexts once rather than passing them down each row:
+`ThreadStatusContext`, from Thread status's `useThreadStatus`, and
+`StartThreadContext`, which maps a row's number to Start thread's
+`useStartThreadBox` (`boxFor`, `isStarting`, `startedThread`). A row with a
+thread gets Thread status's orange edge and the line saying what it is doing.
+Contributor Dashboard and Milestone Sweep both use it.
+
+## Milestones
+
+```tsx
+import {
+  MilestonesTable,
+  MilestoneHistoryChart,
+  StandingStrip,
+  STANDINGS,
+} from "@danielbachhuber/bb-plugin-component-library/milestones";
+```
+
+`MilestonesTable` draws one row per open milestone, and a row click opens it.
+`MilestoneHistoryChart` and `StandingStrip` go on one milestone's page, and
+`STANDINGS` names and colours the groups its open issues are listed under.
+Each plugin works out a `MilestoneSummary` and `MilestoneHistory` from its own
+data and passes them in; nothing here reads GitHub. Contributor Dashboard and
+Milestone Sweep both use it.
+
+To stack several tables on one page, pass `legend={false}` and draw one
+`MilestonesLegend` above them, and pass `fixedColumns` so their columns line
+up.
 
 ## Working on it
 

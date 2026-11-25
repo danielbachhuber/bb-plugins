@@ -5,7 +5,7 @@ import type { AuthoredQuery, PersonActivityResult } from "@/dashboard/contract";
 import { authoredState } from "@/review/list-query";
 
 import type { BatchItem } from "./batch-dialog";
-import { ItemRow } from "./item-row";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import { BatchButton, ChoiceMenu, PeopleMenu, SortMenu, type SortOption } from "./list-toolbar";
 import { useLocalList } from "./local-list";
 import type { ThreadSeed } from "./thread-seed";

@@ -12,7 +12,7 @@ import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/perio
 import { ActivityStrips } from "./activity-strips";
 import type { BatchItem } from "./batch-dialog";
 import { AssignedIssues } from "./issue-lifelines";
-import { ItemRow } from "./item-row";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import { BatchButton, PeopleMenu, SortMenu } from "./list-toolbar";
 import { useLocalList } from "./local-list";
 import { AuthoredList, AwaitingList, Count, days, WAITING_KEYS, WAITING_SORTS } from "./person-lists";

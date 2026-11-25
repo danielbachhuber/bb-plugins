@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import type { OpenItemsResult, OpenQuery } from "@/dashboard/contract";
 
-import { ItemRow } from "./item-row";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import { describeQuery, ListToolbar } from "./list-toolbar";
 import { PageHeader } from "./page-header";
 import { BoneList, LoadingNote } from "./skeleton";

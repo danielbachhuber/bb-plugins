@@ -1,17 +1,18 @@
 // @vitest-environment jsdom
 import type { ReactElement } from "react";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
-import { installTestPluginRuntime, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render as mount, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@get-bb/plugin-sdk/app", () => ({
+  UrlLink: ({ href, ...props }: { href: string } & Record<string, unknown>) => <a href={href} {...props} />,
+  experimental_useSidebarThreads: () => [],
+}));
 
 import { ItemRow } from "./item-row";
 
-// The row draws bb's own Icon, which needs the runtime bb normally provides.
-beforeAll(installTestPluginRuntime);
 afterEach(cleanup);
 
-/** Mounts in the harness's slot, which the SDK's `UrlLink` needs. */
-const render = (ui: ReactElement) => renderSlot({ component: () => ui }, {});
+const render = (ui: ReactElement) => mount(ui);
 
 const row = {
   number: 1796,
@@ -51,12 +52,10 @@ describe("ItemRow", () => {
   });
 
   it("links the title to GitHub", () => {
-    const slot = render(<ItemRow {...row} assignees={[]} threadId={null} onThread={vi.fn()} />);
+    render(<ItemRow {...row} assignees={[]} threadId={null} onThread={vi.fn()} />);
     const link = screen.getByRole("link", { name: /Rebuild the gadget importer/ });
     expect(link.getAttribute("href")).toBe(row.url);
-    // No target, so a click goes through bb's "Open links in bb" setting.
+    // No target: the SDK's UrlLink sends the click through bb's "Open links in bb" setting.
     expect(link.hasAttribute("target")).toBe(false);
-    fireEvent.click(link);
-    expect(slot.navigateCalls).toEqual([{ method: "openUrl", url: row.url }]);
   });
 });

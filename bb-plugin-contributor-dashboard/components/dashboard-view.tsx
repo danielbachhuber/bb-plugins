@@ -9,7 +9,7 @@ import { selectionWords, unitOfBuckets, type Selection } from "@/dashboard/perio
 import { authorRow, reviewerRow } from "@/review/velocity";
 
 import { FlowDiagram } from "./flow-diagram";
-import { MilestonesTable } from "./milestones-section";
+import { MilestonesTable } from "@danielbachhuber/bb-plugin-component-library/milestones";
 import { ClosedIssuesChart } from "./closed-issues-chart";
 import { FlowChart, PullRequestFlowChart } from "./flow-chart";
 import { AUTHOR_SERIES, REVIEW_SERIES } from "./person-chart";

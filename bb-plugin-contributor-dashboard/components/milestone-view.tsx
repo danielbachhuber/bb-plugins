@@ -4,11 +4,19 @@
 // ones behind a toggle.
 import { useState, type ReactNode } from "react";
 
-import type { IssueStanding, MilestoneDetailResult } from "@/dashboard/contract";
+import type { MilestoneDetailResult } from "@/dashboard/contract";
 import type { Selection } from "@/dashboard/period";
 
-import { ItemRow } from "./item-row";
-import { AddedClosed, DUE_CLASS, dueWords, MILESTONE_COLORS } from "./milestones-section";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
+import {
+  AddedClosed,
+  DUE_CLASS,
+  dueWords,
+  MILESTONE_COLORS,
+  MilestoneHistoryChart,
+  STANDINGS,
+  StandingStrip,
+} from "@danielbachhuber/bb-plugin-component-library/milestones";
 import { PageHeader } from "./page-header";
 import { PeriodPicker } from "./period-picker";
 import { Bone, BoneList, LoadingNote } from "./skeleton";
@@ -16,18 +24,6 @@ import type { ThreadSeed } from "./thread-seed";
 
 const DAY = 86_400_000;
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
-
-/** Most advanced first, as the list reads top to bottom. */
-const STANDINGS: Array<{ key: IssueStanding; label: string; note: string; color: string }> = [
-  { key: "approved", label: "Approved", note: "a pull request approved, not merged", color: "#9b6cbf" },
-  { key: "review", label: "In review", note: "a pull request open for review", color: "#2a78d6" },
-  { key: "draft", label: "Draft pull request", note: "a pull request, still a draft", color: "#7fb0ea" },
-  { key: "assigned", label: "Assigned", note: "someone holds it; no pull request yet", color: "#d9820a" },
-  { key: "nobody", label: "Nobody assigned", note: "no one has taken it", color: "#7c8794" },
-];
-
-/** Left to right, from not started to closed. */
-const STRIP = [...STANDINGS].reverse();
 
 function ago(at: number, now: number): string {
   const days = Math.max(0, Math.floor((now - at) / DAY));
@@ -43,75 +39,6 @@ function Panel({ title, note, children }: { title: string; note: string; childre
       </div>
       <div className="mt-2">{children}</div>
     </div>
-  );
-}
-
-/** Every issue in it, and how many closed, since it was created; the period shaded and the due date marked. */
-function History({
-  history,
-  due,
-  periodStart,
-  periodLabel,
-}: {
-  history: MilestoneDetailResult["history"];
-  due: number | null;
-  periodStart: number;
-  periodLabel: string;
-}) {
-  const W = 960;
-  const H = 190;
-  const L = 34;
-  const R = 10;
-  const T = 14;
-  const B = H - 24;
-  const { at, total, closed } = history;
-  if (at.length < 2) return <p className="text-xs text-muted-foreground">Not enough history yet.</p>;
-  const first = at[0];
-  const last = at.at(-1)!;
-  const most = Math.max(1, ...total);
-  const px = (t: number) => L + ((t - first) / Math.max(1, last - first)) * (W - L - R);
-  const py = (v: number) => B - (v / most) * (B - T);
-  const line = (vs: number[]) => vs.map((v, i) => `${i ? "L" : "M"}${px(at[i]).toFixed(1)},${py(v).toFixed(1)}`).join("");
-  const step = most > 60 ? 50 : most > 30 ? 20 : most > 12 ? 10 : 5;
-  const ticks = Array.from({ length: Math.floor(most / step) + 1 }, (_, i) => i * step);
-  const shadeFrom = Math.max(first, periodStart);
-  const day = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${total.at(-1)} issues in it, ${closed.at(-1)} closed`}>
-      {shadeFrom < last ? (
-        <rect x={px(shadeFrom)} y={T} width={px(last) - px(shadeFrom)} height={B - T} fill={MILESTONE_COLORS.added} opacity={0.06} />
-      ) : null}
-      {ticks.map((t) => (
-        <g key={t}>
-          <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={MILESTONE_COLORS.track} />
-          <text x={L - 6} y={py(t) + 3} textAnchor="end" fontSize={10} fill={MILESTONE_COLORS.steady}>
-            {t}
-          </text>
-        </g>
-      ))}
-      <path d={`${line(closed)}L${px(last)},${B}L${px(first)},${B}Z`} fill={MILESTONE_COLORS.closed} opacity={0.3} />
-      <path d={line(closed)} fill="none" stroke={MILESTONE_COLORS.closed} strokeWidth={2} />
-      <path d={line(total)} fill="none" stroke={MILESTONE_COLORS.growing} strokeWidth={2} />
-      {due !== null && due >= first && due <= last ? (
-        <g>
-          <line x1={px(due)} x2={px(due)} y1={T} y2={B} stroke={MILESTONE_COLORS.late} strokeDasharray="3 2" />
-          <text x={px(due) - 4} y={T + 10} textAnchor="end" fontSize={10} fill={MILESTONE_COLORS.late}>
-            due
-          </text>
-        </g>
-      ) : null}
-      <text x={L} y={H - 6} fontSize={10} fill={MILESTONE_COLORS.steady}>
-        {day(first)}
-      </text>
-      {shadeFrom < last ? (
-        <text x={(px(shadeFrom) + px(last)) / 2} y={H - 6} textAnchor="middle" fontSize={10} fill={MILESTONE_COLORS.added}>
-          {periodLabel}
-        </text>
-      ) : null}
-      <text x={W - R} y={H - 6} textAnchor="end" fontSize={10} fill={MILESTONE_COLORS.steady}>
-        today
-      </text>
-    </svg>
   );
 }
 
@@ -208,11 +135,11 @@ export function MilestoneView({
               </a>
             </p>
 
-            <Strip data={data} />
+            <StandingStrip standings={data.open.map((issue) => issue.standing)} closed={data.closed.length} />
 
             <div className="mt-4">
               <Panel title="Issues in it, and closed" note="since it was created">
-                <History history={data.history} due={milestone.due} periodStart={periodStart} periodLabel={periodLabel} />
+                <MilestoneHistoryChart history={data.history} due={milestone.due} periodStart={periodStart} periodLabel={periodLabel} />
               </Panel>
             </div>
 
@@ -309,46 +236,6 @@ export function MilestoneView({
             ) : null}
           </>
         )}
-      </div>
-    </div>
-  );
-}
-
-/** One bar across the page: where the open issues stand, then what has closed. */
-function Strip({ data }: { data: MilestoneDetailResult }) {
-  const segments = [
-    ...STRIP.map((standing) => ({
-      label: standing.label,
-      color: standing.color,
-      count: data.open.filter((issue) => issue.standing === standing.key).length,
-    })),
-    { label: "Closed", color: MILESTONE_COLORS.closed, count: data.closed.length },
-  ];
-  const total = sum(segments.map((segment) => segment.count));
-  if (total === 0) return null;
-  return (
-    <div className="mt-4">
-      <div className="flex h-6 overflow-hidden rounded">
-        {segments.map((segment) =>
-          segment.count === 0 ? null : (
-            <div
-              key={segment.label}
-              title={`${segment.label}: ${segment.count}`}
-              className="flex items-center justify-center text-[11px] font-semibold text-white"
-              style={{ width: `${(segment.count / total) * 100}%`, background: segment.color }}
-            >
-              {segment.count / total > 0.03 ? segment.count : null}
-            </div>
-          ),
-        )}
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        {segments.map((segment) => (
-          <span key={segment.label} className="inline-flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: segment.color }} />
-            {segment.label} <span className="tabular-nums">{segment.count}</span>
-          </span>
-        ))}
       </div>
     </div>
   );

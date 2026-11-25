@@ -43,7 +43,7 @@ import { DEFAULT_AUTHORED_QUERY, DEFAULT_WAITING_QUERY } from "./review/list-que
 import { batchTitle, promptFor, type ThreadSeed } from "./components/thread-seed.js";
 import { rememberedScreen, rememberedSelection, rememberScreen, rememberSelection } from "./dashboard/remember.js";
 import { useThreadStatus } from "@danielbachhuber/bb-plugin-component-library/thread-status";
-import { StartThreadContext, ThreadStatusContext } from "./components/item-row";
+import { StartThreadContext, ThreadStatusContext } from "@danielbachhuber/bb-plugin-component-library/item-row";
 
 const PANEL_PATH = "contributor-dashboard";
 

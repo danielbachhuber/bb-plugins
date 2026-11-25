@@ -10,7 +10,7 @@ import type { AssignedIssue } from "@/dashboard/contract";
 import { sortBy } from "@/review/list-query";
 
 import type { BatchItem } from "./batch-dialog";
-import { ItemRow } from "./item-row";
+import { ItemRow } from "@danielbachhuber/bb-plugin-component-library/item-row";
 import { BatchButton, SortMenu, ToggleChip, type SortOption } from "./list-toolbar";
 import type { ThreadSeed } from "./thread-seed";
 
