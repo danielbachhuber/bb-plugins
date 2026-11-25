@@ -491,7 +491,13 @@ export const sectionSchema = z
   .describe("A group of items under a heading.");
 export type Section = z.infer<typeof sectionSchema>;
 
-export const viewSchema = z
+/**
+ * A view's fields, without the rules that relate one field to another. The
+ * RPCs that return saved views check this, not `viewSchema`: a rule added
+ * after a view was published must not stop that view, and every other view
+ * returned with it, from reaching the composer.
+ */
+export const viewShapeSchema = z
   .object({
     title: z.string().trim().min(1).max(200).describe("What the view is, shown over its rows."),
     summary: markdown.default("").describe("Markdown shown above the items."),
@@ -522,7 +528,9 @@ export const viewSchema = z
       .optional()
       .describe("The items laid out as the pages they fill, at the top of the side panel: each block sized by its item's meter max and filled by its value. Clicking a block opens its item. Needs the cards layout."),
     ...dismissLabel,
-  })
+  });
+
+export const viewSchema = viewShapeSchema
   .describe("A view published with `bb impromptu-ui publish --file <view.json>`: items for the user to read and act on, grouped into sections.")
   .superRefine((view, ctx) => {
     const seen = new Set<string>();

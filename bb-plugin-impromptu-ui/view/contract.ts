@@ -1,6 +1,6 @@
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { viewSchema } from "./schema.js";
+import { viewShapeSchema } from "./schema.js";
 
 const resultSchema = z.object({
   label: z.string(),
@@ -22,7 +22,7 @@ const storedViewSchema = z.object({
   id: z.number().int(),
   threadId: z.string(),
   key: z.string(),
-  view: viewSchema,
+  view: viewShapeSchema,
   cwd: z.string().nullable(),
   publishedAt: z.string(),
   hiddenAt: z.string().nullable(),
