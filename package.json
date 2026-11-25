@@ -15,6 +15,7 @@
     "bb-plugin-impromptu-ui",
     "bb-plugin-issue-sweep",
     "bb-plugin-markdown-editor",
+    "bb-plugin-milestone-sweep",
     "bb-plugin-new-issue",
     "bb-plugin-now",
     "bb-plugin-plugin-shelf",

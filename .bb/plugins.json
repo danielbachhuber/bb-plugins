@@ -48,6 +48,10 @@
       "source": "./bb-plugin-markdown-editor"
     },
     {
+      "name": "milestone-sweep",
+      "source": "./bb-plugin-milestone-sweep"
+    },
+    {
       "name": "now",
       "source": "./bb-plugin-now"
     },
