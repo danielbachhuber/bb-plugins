@@ -60,6 +60,7 @@ describe("inline view schema", () => {
 
   it("publishes what only the side panel shows as cards, naming the field", () => {
     const base = { id: "q", title: "Q", actions: [answer("Yes"), answer("No")] };
+    expect(moved([{ ...base, summary: "The design" }])).toMatch(/items\.0\.summary: summary needs the side panel/);
     expect(moved([{ ...base, draft: "x" }])).toMatch(/items\.0\.draft: draft needs the side panel/);
     expect(moved([{ ...base, changes: [{ label: "a", before: "x", after: "y" }] }])).toMatch(/changes needs the side panel/);
     expect(moved([{ ...base, closing: true }])).toMatch(/closing needs the side panel/);

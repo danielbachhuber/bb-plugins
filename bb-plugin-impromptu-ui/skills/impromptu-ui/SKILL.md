@@ -18,7 +18,7 @@ An `"inline"` view is for 1 to 3 quick questions answered right above the compos
 | Questions (items) | 1 to 3 |
 | Buttons per question | 2 to 4, at least 2 of them answers rather than links |
 | Button types | `message`, `thread`, `link`; no `command` |
-| Item fields | `title` and `actions` show (a `summary` or `badges` are kept but not shown); no `status`, `draft`, `note`, `changes`, `evidence`, `variations`, `related`, `history`, `meter`, `closing`, or `thread` |
+| Item fields | `title` and `actions` show (`badges` are kept but not shown); no `summary`, `status`, `draft`, `note`, `changes`, `evidence`, `variations`, `related`, `history`, `meter`, `closing`, or `thread` |
 | A question already answered | `bb impromptu-ui hide --key <key>`, not a republish with no buttons |
 | A question asked again under a new key | `publish --replaces <old key>`, so the old one leaves the composer |
 

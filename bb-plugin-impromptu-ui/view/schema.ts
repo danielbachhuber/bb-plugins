@@ -728,6 +728,7 @@ function checkInline(view: { sections: Array<{ items: Item[] }> }, ctx: z.Refine
         }
       });
       const panelOnly: Array<[keyof Item, boolean]> = [
+        ["summary", item.summary.trim() !== ""],
         ["draft", item.draft !== ""],
         ["note", item.note !== undefined],
         ["changes", item.changes.length > 0],
