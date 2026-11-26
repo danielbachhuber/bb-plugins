@@ -1,9 +1,9 @@
 ---
-name: refine-impromptu-ui
-description: Use when Impromptu UI fell short, or should have run and did not, such as "impromptu UI should have shown this", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", or "refine impromptu UI"; and when the user asks to scan recent or active threads for moments where Impromptu UI could have run or a better view would have helped. Run in a thread doing other work, it starts a new thread for the refinement. Finds the missed moments, shows a view in threads still waiting on the user, and turns the rest into a change to the plugin, its guide, or the skill that should have published, filing an anonymized issue on danielbachhuber/bb-plugins where the plugin needs to change.
+name: fix-impromptu-ui
+description: Use when the user invokes /fix-impromptu-ui, or when Impromptu UI fell short, misbehaved, or should have run and did not, such as "impromptu UI should have shown this", "the cards don't match what the thread published", "is adding cards broken again", "why didn't that show above the composer", "the view can't do what I need", "file feedback on impromptu UI", "fix impromptu UI", or "refine impromptu UI"; and when the user asks to scan recent or active threads for moments where Impromptu UI could have run or a better view would have helped. Run in a thread doing other work, it starts a new thread for the refinement. Finds the missed moments, shows a view in threads still waiting on the user, and turns the rest into a change to the plugin, its guide, or the skill that should have published, filing an anonymized issue on danielbachhuber/bb-plugins where the plugin needs to change.
 ---
 
-# Refine Impromptu UI
+# Fix Impromptu UI
 
 Impromptu UI falls short in three ways: a thread wrote its results into chat
 when a view would have let the user act on them, a view went up but could not
@@ -53,14 +53,14 @@ in a sentence or two what the user said went wrong, in their words where you
 can:
 
 ```
-Use the refine-impromptu-ui skill to refine one thread: @thread:<this thread's id>#msg=<seq>.
+Use the fix-impromptu-ui skill to refine one thread: @thread:<this thread's id>#msg=<seq>.
 What happened: <what the reply held, and what the user did or said about it>.
 ```
 
 ```bash
 bb thread spawn --project <project> --provider <this thread's providerId> \
   --title "Refine Impromptu UI: <the kind of work, in a few words>" \
-  --prompt-file /tmp/refine-impromptu-ui/handoff.md
+  --prompt-file /tmp/fix-impromptu-ui/handoff.md
 ```
 
 For `--project`, use the project whose checkout holds this plugin if
@@ -218,7 +218,7 @@ not finished.
 
 ### 4. Show the results
 
-Publish one view under the key `refine-impromptu-ui-scan`, with two sections.
+Publish one view under the key `fix-impromptu-ui-scan`, with two sections.
 
 **Waiting on you**: one card per open moment, titled with the thread's title.
 Before writing it, check the moment is still live: look in `bb thread list`
@@ -314,7 +314,7 @@ that fix is one card, not the decision. Edit nothing until the user presses
 **Do this one**. For each, say what it would change for the task at
 hand, and what it costs: another field every agent has to learn, a layout
 that suits only this kind of work, a change in behavior that existing views
-rely on. Show them as a view under the key `refine-impromptu-ui`, so it does
+rely on. Show them as a view under the key `fix-impromptu-ui`, so it does
 not replace the view the user is still working in, in one section titled
 **Ways to change it**, with `"dismissLabel": "Not this"`. Give each card one
 button, `{ "type": "message", "label": "Do this one", "text": "Do the
@@ -330,10 +330,10 @@ and ask which to do. The user may pick more than one; each filed issue links
 the others among its alternatives.
 
 After an edit, to another skill or the guide, publish the
-`refine-impromptu-ui` view again with the diff in the picked card's
+`fix-impromptu-ui` view again with the diff in the picked card's
 `changes`, and mark it `"complete": true`. If the repository's rules let you
 commit when asked, ask whether to commit and push as an inline question under
-its own key, `refine-impromptu-ui-commit`, not as a button on the card: the
+its own key, `fix-impromptu-ui-commit`, not as a button on the card: the
 card's buttons stay disabled once **Do this one** went through. End the turn
 there. Do not ask about committing in chat.
 
@@ -444,7 +444,7 @@ done by publishing the view again, and take down the alternatives view once
 every pick is handled:
 
 ```bash
-bb impromptu-ui hide --key refine-impromptu-ui
+bb impromptu-ui hide --key fix-impromptu-ui
 ```
 
 If `gh` is not installed or not signed in, give the user a link that opens

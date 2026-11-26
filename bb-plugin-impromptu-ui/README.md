@@ -61,7 +61,7 @@ Type `/clear-resolved-cards` in a thread, and the `clear-resolved-cards` skill r
 
 ### Refine Impromptu UI
 
-The `refine-impromptu-ui` skill finds the moments a view should have appeared, or a better one would have helped, and turns each into a fix. Start it one of three ways:
+The `fix-impromptu-ui` skill finds the moments a view should have appeared, or a better one would have helped, and turns each into a fix. Start it one of three ways:
 
 - **Mid-thread**, when a view fell short or never appeared. It shows the missing view if you still need it, then starts a new thread for the fix, so the refinement stays out of your work.
 - **On one thread.** It offers two to four ways to change Impromptu UI, each with what it costs, and edits nothing until you press **Do this one**. It then shows the edit as a diff, with **Commit and push**.

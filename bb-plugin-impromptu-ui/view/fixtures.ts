@@ -1358,7 +1358,7 @@ export const inlineTwoView: View = viewSchema.parse({
   ],
 });
 
-/** A refine-impromptu-ui scan: invented threads, moments, and fixes. */
+/** A fix-impromptu-ui scan: invented threads, moments, and fixes. */
 export const refineScanView: View = viewSchema.parse({
   title: "Refine Impromptu UI",
   summary: "14 threads from the last 2 days: 1 moment waiting on you, and 3 ways to stop the rest.",

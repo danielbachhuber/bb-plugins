@@ -419,7 +419,7 @@ const refineScanTurns: Turn[] = [
   },
 ];
 
-/** The refine-impromptu-ui skill's scan: a thread still waiting on an answer, and three fixes, each saying where it lands and how many threads showed it. */
+/** The fix-impromptu-ui skill's scan: a thread still waiting on an answer, and three fixes, each saying where it lands and how many threads showed it. */
 export function RefineScan() {
   return <ThreadStage turns={refineScanTurns} view={stored(refineScanView)} />;
 }

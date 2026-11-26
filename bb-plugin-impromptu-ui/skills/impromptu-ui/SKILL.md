@@ -438,4 +438,4 @@ To take only the cards the user has already acted on out of this thread's views,
 
 ## When it falls short
 
-If the user says a view should have appeared and did not, or that one could not do what the work needed, use the `refine-impromptu-ui` skill. It works out what went wrong with the user and files an anonymized issue with the improvement.
+If the user says a view should have appeared and did not, or that one could not do what the work needed, use the `fix-impromptu-ui` skill. It works out what went wrong with the user and files an anonymized issue with the improvement.
