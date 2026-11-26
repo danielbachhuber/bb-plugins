@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { diagnose, threadRequest } from "./failure";
 
 describe("diagnose", () => {
-  it("finds the missing program in sh, dash, zsh, and pnpm output", () => {
+  it("finds the missing program in sh, dash, bash, zsh, and pnpm output", () => {
     expect(diagnose("> tsx scripts/launch/cli.ts status --json\n\nsh: tsx: command not found\n ELIFECYCLE  Command failed.")).toEqual({
       kind: "missing-command",
       program: "tsx",
     });
     expect(diagnose("sh: 1: vite: not found")).toEqual({ kind: "missing-command", program: "vite" });
+    expect(diagnose("bash: line 1: vite: command not found")).toEqual({ kind: "missing-command", program: "vite" });
+    expect(diagnose("/bin/bash: vite: command not found")).toEqual({ kind: "missing-command", program: "vite" });
     expect(diagnose("zsh: command not found: pnpm")).toEqual({ kind: "missing-command", program: "pnpm" });
     expect(diagnose("zsh:1: command not found: tsx")).toEqual({ kind: "missing-command", program: "tsx" });
     expect(diagnose('ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command "tsx" not found')).toEqual({
