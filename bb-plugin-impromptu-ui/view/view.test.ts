@@ -711,6 +711,39 @@ describe("agent-set status", () => {
     expect(revisedAfterNote(fix("Round 2"), undefined)).toEqual([]);
   });
 
+  it("reopens a visual review the user sent feedback on when the agent publishes a new round", () => {
+    const review = (title: string, extra: Record<string, unknown> = {}) =>
+      parseView(
+        JSON.stringify({
+          title: "Mockups",
+          sections: [
+            {
+              title: "",
+              items: [
+                {
+                  id: "header",
+                  title,
+                  variations: [
+                    { label: "A", image: "/tmp/a.png" },
+                    { label: "B", image: "/tmp/b.png" },
+                  ],
+                  ...extra,
+                },
+              ],
+            },
+          ],
+        }),
+      );
+    const s = store();
+    const first = s.publish("thr_one", "mockups", review("Round 1"), null, "t");
+    const picked = s.setItem(first.id, "header", { state: "done", result: { label: "Send feedback", at: "t", feedback: { pick: 1, notes: ["", ""], overall: "" } } }, "t")!;
+    expect(revisedAfterNote(review("Round 2"), picked).map((item) => item.id)).toEqual(["header"]);
+    // The same round again is not a new one.
+    expect(revisedAfterNote(review("Round 1"), picked)).toEqual([]);
+    // The agent closed it itself.
+    expect(revisedAfterNote(review("Round 2", { status: { label: "Built", complete: true } }), picked)).toEqual([]);
+  });
+
   it("reopens an inline question answered in the user's own words when the agent publishes a new version", () => {
     const question = (title: string) =>
       parseView(
