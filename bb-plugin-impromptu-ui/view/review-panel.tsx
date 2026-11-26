@@ -40,6 +40,82 @@ function VariationImage({ url, label, onZoom }: { url: string | null | undefined
   );
 }
 
+/**
+ * A screenshot at full size, with the other versions a tab or an arrow key
+ * away. Every image sits in the same cell, so a flip is a cut in place and the
+ * scroll position stays put, which makes what changed jump out.
+ */
+function Lightbox({
+  versions,
+  imageUrl,
+  open,
+  onOpenChange,
+  onShow,
+}: {
+  versions: { name: string; label: string }[];
+  imageUrl: (index: number) => string | null | undefined;
+  /** The version showing, or null while closed. */
+  open: number | null;
+  onOpenChange: (open: number | null) => void;
+  /** Called as the user flips, so the panel can follow. */
+  onShow?: (index: number) => void;
+}) {
+  const count = versions.length;
+  const show = (index: number) => {
+    const next = Math.max(0, Math.min(count - 1, index));
+    onOpenChange(next);
+    onShow?.(next);
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    // The dialog is portaled, but React still bubbles its keys to the panel underneath.
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (open !== null) show(open + (event.key === "ArrowRight" ? 1 : -1));
+  };
+  const current = open === null ? undefined : versions[open];
+  return (
+    <Dialog open={open !== null} onOpenChange={(isOpen) => (isOpen ? null : onOpenChange(null))}>
+      <DialogContent className="flex max-h-[92vh] max-w-[92vw] flex-col gap-2 p-3" onKeyDown={onKeyDown}>
+        <div className="flex items-center gap-2 pr-8">
+          <DialogTitle className="min-w-0 truncate text-sm">{current?.label}</DialogTitle>
+          {count > 1 ? (
+            <div role="tablist" aria-label="Versions" className="ml-auto flex shrink-0 items-center gap-0.5 rounded-lg bg-muted p-0.5">
+              {versions.map((version, index) => (
+                <button
+                  key={`${index}:${version.name}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={open === index}
+                  title={version.label}
+                  className={cn(
+                    // No focus ring: the dialog focuses the first tab on open, and a ring there reads as selected.
+                    "rounded-md px-2.5 py-1 text-xs font-medium outline-none",
+                    open === index ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => show(index)}
+                >
+                  {version.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {count > 1 ? <span className="shrink-0 text-xs text-muted-foreground">← → to flip</span> : null}
+        </div>
+        <div className="min-h-0 overflow-auto">
+          <div className="grid">
+            {versions.map((version, index) => (
+              <div key={`${index}:${version.name}`} className={cn("[grid-area:1/1]", open === index ? "visible" : "invisible")} aria-hidden={open !== index}>
+                {open === null ? null : <img src={imageUrl(index) ?? undefined} alt={version.label} className="max-w-none" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** "A. Sections" becomes "A"; a label with no letter keeps its first word. */
 export function shortLabel(label: string): string {
   const lettered = /^([A-Za-z0-9]{1,3})[.):]\s/.exec(label);
@@ -212,12 +288,13 @@ function BeforeAfterPanel({ item, record, imageUrl, busy, onSubmit, initial }: R
         </div>
       )}
 
-      <Dialog open={zoomed !== null} onOpenChange={(open) => (open ? null : setZoomed(null))}>
-        <DialogContent className="max-h-[92vh] max-w-[92vw] overflow-auto p-3">
-          <DialogTitle className="text-sm">{zoomed === null ? "" : sides[zoomed as 0 | 1].name}</DialogTitle>
-          {zoomed === null ? null : <img src={imageUrl(zoomed) ?? undefined} alt={sides[zoomed as 0 | 1].name} className="max-w-none" />}
-        </DialogContent>
-      </Dialog>
+      <Lightbox
+        versions={sides.map((side) => ({ name: side.name, label: side.name }))}
+        imageUrl={imageUrl}
+        open={zoomed}
+        onOpenChange={setZoomed}
+        onShow={(index) => setShowing(index as 0 | 1)}
+      />
     </div>
   );
 }
@@ -243,7 +320,7 @@ function VariationsPanel({ item, record, imageUrl, busy, onSubmit, initial }: Re
   }, []);
   const locked = sent !== undefined || record?.state === "dismissed";
   const feedback: Feedback = { pick, notes, overall };
-  const zoomedVariation = zoomed === null ? undefined : item.variations[zoomed];
+  const labels = filmstripLabels(item.variations.map((variation) => variation.label));
   const count = item.variations.length;
 
   // One variation per screen, side by side: flipping between them keeps each
@@ -360,12 +437,13 @@ function VariationsPanel({ item, record, imageUrl, busy, onSubmit, initial }: Re
         </div>
       )}
 
-      <Dialog open={zoomed !== null} onOpenChange={(open) => (open ? null : setZoomed(null))}>
-        <DialogContent className="max-h-[92vh] max-w-[92vw] overflow-auto p-3">
-          <DialogTitle className="text-sm">{zoomedVariation?.label}</DialogTitle>
-          {zoomed === null ? null : <img src={imageUrl(zoomed) ?? undefined} alt={zoomedVariation?.label} className="max-w-none" />}
-        </DialogContent>
-      </Dialog>
+      <Lightbox
+        versions={item.variations.map((variation, index) => ({ name: labels[index]!, label: variation.label }))}
+        imageUrl={imageUrl}
+        open={zoomed}
+        onOpenChange={setZoomed}
+        onShow={show}
+      />
     </div>
   );
 }
