@@ -40,6 +40,11 @@ function VariationImage({ url, label, onZoom }: { url: string | null | undefined
   );
 }
 
+const zoomButtonClass =
+  "h-7 rounded-md px-2 text-xs text-muted-foreground outline-none hover:bg-state-active hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+
+const zoomSteps = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1];
+
 /**
  * A screenshot at full size, with the other versions a tab or an arrow key
  * away. Every image sits in the same cell, so a flip is a cut in place and the
@@ -61,13 +66,35 @@ function Lightbox({
   onShow?: (index: number) => void;
 }) {
   const count = versions.length;
+  // Kept while the dialog closes and opens again, so the next screenshot opens at the same size.
+  const [zoom, setZoom] = useState(1);
+  const scroller = useRef<HTMLDivElement | null>(null);
   const show = (index: number) => {
     const next = Math.max(0, Math.min(count - 1, index));
     onOpenChange(next);
     onShow?.(next);
   };
+  const step = (direction: 1 | -1) =>
+    setZoom((current) =>
+      direction > 0
+        ? (zoomSteps.find((value) => value > current + 0.001) ?? current)
+        : ([...zoomSteps].reverse().find((value) => value < current - 0.001) ?? current),
+    );
+  // Read once, on click: the widest version's width against the space the dialog has.
+  const fit = () => {
+    const element = scroller.current;
+    const widest = Math.max(0, ...Array.from(element?.querySelectorAll("img") ?? []).map((image) => image.naturalWidth));
+    if (element && widest > 0) setZoom(Math.min(1, element.clientWidth / widest));
+  };
   const onKeyDown = (event: KeyboardEvent) => {
     // The dialog is portaled, but React still bubbles its keys to the panel underneath.
+    if (event.key === "-" || event.key === "=" || event.key === "+" || event.key === "0") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "0") setZoom(1);
+      else step(event.key === "-" ? -1 : 1);
+      return;
+    }
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();
     event.stopPropagation();
@@ -76,7 +103,7 @@ function Lightbox({
   const current = open === null ? undefined : versions[open];
   return (
     <Dialog open={open !== null} onOpenChange={(isOpen) => (isOpen ? null : onOpenChange(null))}>
-      <DialogContent className="flex max-h-[92vh] max-w-[92vw] flex-col gap-2 p-3" onKeyDown={onKeyDown}>
+      <DialogContent className="flex max-h-[92vh] w-[92vw] max-w-[92vw] flex-col gap-2 p-3" onKeyDown={onKeyDown}>
         <div className="flex items-center gap-2 pr-8">
           <DialogTitle className="min-w-0 truncate text-sm">{current?.label}</DialogTitle>
           {count > 1 ? (
@@ -101,9 +128,28 @@ function Lightbox({
             </div>
           ) : null}
           {count > 1 ? <span className="shrink-0 text-xs text-muted-foreground">← → to flip</span> : null}
+          <div aria-label="Zoom" className={cn("flex shrink-0 items-center gap-0.5", count > 1 ? "" : "ml-auto")}>
+            <button type="button" className={zoomButtonClass} disabled={zoom <= zoomSteps[0]! + 0.001} onClick={() => step(-1)} aria-label="Zoom out" title="Zoom out (−)">
+              −
+            </button>
+            <button
+              type="button"
+              className="w-11 rounded-md py-1 text-center text-xs tabular-nums text-muted-foreground outline-none hover:text-foreground"
+              onClick={() => setZoom(1)}
+              title="Actual size (0)"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button type="button" className={zoomButtonClass} disabled={zoom >= 1} onClick={() => step(1)} aria-label="Zoom in" title="Zoom in (+)">
+              +
+            </button>
+            <button type="button" className={zoomButtonClass} onClick={fit} title="Fit the width">
+              Fit
+            </button>
+          </div>
         </div>
-        <div className="min-h-0 overflow-auto">
-          <div className="grid">
+        <div ref={scroller} className="min-h-0 overflow-auto">
+          <div className="grid" style={{ zoom }}>
             {versions.map((version, index) => (
               <div key={`${index}:${version.name}`} className={cn("[grid-area:1/1]", open === index ? "visible" : "invisible")} aria-hidden={open !== index}>
                 {open === null ? null : <img src={imageUrl(index) ?? undefined} alt={version.label} className="max-w-none" />}
