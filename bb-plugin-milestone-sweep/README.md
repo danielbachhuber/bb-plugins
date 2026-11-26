@@ -14,7 +14,7 @@ Each repository with open milestones gets a table, due soonest first. A row show
 
 ![A milestone's page: a strip of where its issues stand, a chart of issues in it and closed since it was created with the due date marked, and the open issues grouped from approved down to nobody assigned, two of them with a thread](screenshots/page--milestone.png)
 
-Clicking a row opens the milestone. A strip shows its issues from **Nobody assigned** to **Closed**, and a chart shows the issues in it and how many had closed, week by week, since it was created. Below that, the open issues are grouped by where they stand: **Approved**, **In review** or **Draft pull request** from the open pull requests that close them, then **Assigned** and **Nobody assigned**. **Closed** opens the closed issues. Each issue links to GitHub.
+Clicking a row opens the milestone. A strip shows its issues from **Nobody assigned** to **Closed**, and a chart shows the issues in it and how many had closed, week by week, since it was created. Below that, the open issues are grouped by where they stand: **Approved**, **In review** or **Draft pull request** from the open pull requests that close them, then **Assigned** and **Nobody assigned**. **Closed** opens the closed issues. Each issue links to GitHub. Opening the page again from the sidebar returns to the milestone last shown there, and **Milestones** goes back to the list.
 
 ### A thread from any issue
 

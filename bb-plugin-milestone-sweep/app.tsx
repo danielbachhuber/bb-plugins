@@ -18,6 +18,7 @@ import type { rpcContract } from "./server.js";
 import type { Listing, MilestonePageData } from "./milestones/contract.js";
 import { MilestoneList } from "./milestones/list-view.js";
 import { MilestonePage } from "./milestones/milestone-page.js";
+import { rememberedScreen, rememberScreen } from "./milestones/remember.js";
 
 const PANEL_PATH = "milestones";
 const CHANNEL = "milestones-updated";
@@ -144,7 +145,28 @@ function MilestoneScreen({ repo, number, onBack }: { repo: string; number: numbe
 function Panel({ subPath }: PluginNavPanelProps) {
   const navigate = useBbNavigate();
   const { listing } = useListing();
-  const open = milestoneFrom(subPath);
+  // bb keeps the panel mounted while its sub-path changes and remounts it when
+  // it is opened from elsewhere, which always arrives at the list. So the
+  // remembered milestone is restored on mount only, and Back still lands on
+  // the list.
+  const [restoring, setRestoring] = useState(() => {
+    if (subPath !== "") return null;
+    const remembered = rememberedScreen();
+    return milestoneFrom(remembered) !== null ? remembered : null;
+  });
+  useEffect(() => {
+    if (restoring !== null) navigate.toPluginPanel(PANEL_PATH, { subPath: restoring, replace: true });
+    // Once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Until the redirect lands, show the remembered milestone rather than a
+  // flash of the list; after it, follow the sub-path again.
+  useEffect(() => {
+    if (subPath !== "") setRestoring(null);
+  }, [subPath]);
+  const shown = restoring ?? subPath;
+  useEffect(() => rememberScreen(shown), [shown]);
+  const open = milestoneFrom(shown);
   if (open !== null) {
     return (
       <MilestoneScreen
