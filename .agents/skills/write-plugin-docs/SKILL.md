@@ -72,9 +72,10 @@ write, list the screenshots repository's directory and look at the images:
 - If a surface the README describes has no capture, or the capture is
   clipped or does not show the point, add or fix the story. A taller stage,
   a different starting state, or a more realistic fixture usually does it.
-- Commit the stories, push, and run
-  `npm run screenshots:isolated -- --plugin <name>`. Read
-  every image it lists, then commit them with `screenshots:commit`.
+- Commit the stories and push. A plugin in the marketplace is captured at
+  its next release. For one that is not, or one with no captures yet, run
+  `npm run screenshots:isolated -- --plugin <name>`, read every image it
+  lists, then commit them with `screenshots:commit`.
 - Once the README links an image as `screenshots/<story>.png`, each capture
   copies the story's image into the plugin's `screenshots/` directory and
   lists it. Commit those copies with the README.

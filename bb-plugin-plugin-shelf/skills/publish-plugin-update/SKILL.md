@@ -94,6 +94,11 @@ minor as the alternative with that cost, and **wait for the user to choose.**
 
 ## 4. Build, bump, commit, tag
 
+If the repository's AGENTS.md or CLAUDE.md has steps for a release, such as
+capturing the plugin's screenshots, run them first. Commit and push anything
+they change in this repository, such as images the README links, as its own
+commit, so the release commit holds only the version bump.
+
 Use the repository's Node version before any npm command. Another npm
 version rewrites the whole lockfile, and that rewrite would ship in the release
 commit. If the repository's AGENTS.md or CLAUDE.md gives a build sequence for a
@@ -113,9 +118,6 @@ git tag -a <tagPrefix>v<version> -m "Release <id> v<version>"
 
 If `git diff --stat` shows more than the version lines, stop and find out
 why before committing.
-
-If the repository's AGENTS.md or CLAUDE.md has steps to run after a commit,
-such as capturing screenshots, run them too.
 
 ## 5. Push, only after approval
 

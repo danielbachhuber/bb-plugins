@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Screenshot every story into the bb-plugins-screenshots checkout and commit
-// the result there, so each commit here has a picture of what it looked like
-// without the images living in this repository's history.
+// the result there, so each plugin release has a picture of what it looked
+// like without the images living in this repository's history.
 //
 //   npm run screenshots          build and capture, then list what changed
 //   npm run screenshots:commit   commit the capture there and push it
@@ -14,10 +14,10 @@
 // commit cannot be found, or when run with `-- --all`.
 //
 // Add `-- --plugin <name>` to photograph only one plugin's stories, named by
-// its directory (`bb-plugin-tokenomics`) or without the prefix (`tokenomics`).
-// The other plugins' images and READMEs stay as they are, even where other
-// commits changed them, so they are left for a capture with those changes.
-// Repeat it for several plugins.
+// its directory (`bb-plugin-tokenomics`) or without the prefix (`tokenomics`),
+// as a release does. Its stories are compared with the commit that plugin's
+// images were last captured from, and the other plugins' images and READMEs
+// stay as they are until their own release. Repeat it for several plugins.
 //
 // Add `-- --explore` to either capture command to include the stories in
 // explore/ directories, which are left out otherwise.
@@ -179,34 +179,6 @@ const sha = git(repoRoot, "rev-parse", "HEAD");
 const subject = git(repoRoot, "log", "-1", "--format=%s");
 const dirty = git(repoRoot, "status", "--porcelain") !== "";
 
-/** The bb-plugins commit the latest capture in the screenshots checkout was taken from, if it is in this history. */
-function lastCapturedSha() {
-  const sha = git(outDir, "log", "-20", "--format=%B").match(/danielbachhuber\/bb-plugins@([0-9a-f]{40})/)?.[1];
-  if (!sha) return null;
-  const isAncestor = spawnSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], { cwd: repoRoot });
-  return isAncestor.status === 0 ? sha : null;
-}
-
-// A change to any of these can alter every story's picture.
-const CAPTURE_SETUP = /^(\.ladle\/|scripts\/(screenshots|screenshot-stories|ladle)\.mjs$|package(-lock)?\.json$|\.nvmrc$)/;
-
-const baseSha = captureAll ? null : lastCapturedSha();
-const changedFiles = baseSha
-  ? [
-      ...new Set([
-        ...git(repoRoot, "diff", "--name-only", baseSha).split("\n"),
-        ...git(repoRoot, "ls-files", "--others", "--exclude-standard").split("\n"),
-      ]),
-    ].filter(Boolean)
-  : [];
-const captureEverything = captureAll
-  ? "asked for with --all"
-  : !baseSha
-    ? "the commit the last capture was taken from is not in this history"
-    : changedFiles.some((file) => CAPTURE_SETUP.test(file))
-      ? "the capture's own setup changed"
-      : null;
-
 const buildDir = isolated ? mkdtempSync(join(tmpdir(), "bb-plugins-build-")) : join(repoRoot, "build");
 if (isolated) process.on("exit", () => rmSync(buildDir, { recursive: true, force: true }));
 // Outside the build directory, which the build empties after writing this.
@@ -261,6 +233,41 @@ if (unmatched.length) {
 }
 // The output directories this run may change. The others keep their images and READMEs.
 const scopeDirs = new Set(stories.filter(inScope).map((id) => id.split("--")[0]));
+
+/**
+ * The bb-plugins commit the latest capture of `dirs` in the screenshots
+ * checkout was taken from, if it is in this history. With no `dirs`, the
+ * latest capture of anything. A plugin is captured when it is released, so
+ * each plugin's capture starts from its own last one rather than from whichever
+ * plugin was released most recently.
+ */
+function lastCapturedSha(dirs) {
+  const paths = dirs.length ? ["--", ...dirs] : [];
+  const sha = git(outDir, "log", "-20", "--format=%B", ...paths).match(/danielbachhuber\/bb-plugins@([0-9a-f]{40})/)?.[1];
+  if (!sha) return null;
+  const isAncestor = spawnSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], { cwd: repoRoot });
+  return isAncestor.status === 0 ? sha : null;
+}
+
+// A change to any of these can alter every story's picture.
+const CAPTURE_SETUP = /^(\.ladle\/|scripts\/(screenshots|screenshot-stories|ladle)\.mjs$|package(-lock)?\.json$|\.nvmrc$)/;
+
+const baseSha = captureAll ? null : lastCapturedSha(onlyPlugins.length ? [...scopeDirs] : []);
+const changedFiles = baseSha
+  ? [
+      ...new Set([
+        ...git(repoRoot, "diff", "--name-only", baseSha).split("\n"),
+        ...git(repoRoot, "ls-files", "--others", "--exclude-standard").split("\n"),
+      ]),
+    ].filter(Boolean)
+  : [];
+const captureEverything = captureAll
+  ? "asked for with --all"
+  : !baseSha
+    ? "the commit the last capture was taken from is not in this history"
+    : changedFiles.some((file) => CAPTURE_SETUP.test(file))
+      ? "the capture's own setup changed"
+      : null;
 
 /** Every module that imports one of `changed`, directly or through others, by absolute path. */
 function modulesImporting(changed) {
@@ -519,7 +526,7 @@ writeFileSync(
 # bb-plugins-screenshots
 
 A picture of every story in [bb-plugins](${REPO_URL}),
-taken after each commit there. The images live here so bb-plugins keeps a
+taken when each plugin is released. The images live here so bb-plugins keeps a
 small history while the visual history is still available.
 
 ## The plugins and shared packages

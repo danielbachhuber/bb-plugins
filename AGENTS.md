@@ -140,30 +140,28 @@ with `git add bb-plugin-now` instead of by file.
   another thread's files this way, minutes before that thread committed the
   rest of its change.
 - The same goes for screenshots. A capture photographs every story affected
-  by changes in this checkout since the last capture, including another
-  thread's commits and uncommitted changes (though not the `explore/` stories,
-  which it leaves out unless run with `-- --explore`). When your commit
-  changed only one plugin, run the capture with `-- --plugin <name>`, such as
-  `-- --plugin tokenomics`, and it photographs and rewrites only that
-  plugin's images and README. Otherwise, before `screenshots:commit`, restore
-  the images and READMEs that your commit did not change, with
-  `git -C <screenshots dir> checkout -- <path>` and `git clean` for new
-  files. A change to a shared package changes other plugins' stories, so do
-  not limit that capture to your plugin.
+  by changes in this checkout, including another thread's commits and
+  uncommitted changes. Run it with `-- --plugin <name>`, as a release does,
+  and it photographs and rewrites only that plugin's images and README.
 
-## Screenshot the stories after a visual change
+## Screenshot a plugin's stories when you release it
 
 Every story is photographed into a separate repository,
 `danielbachhuber/bb-plugins-screenshots`, so the history of how each plugin
-looks lives there instead of bloating this one. After you push a commit that
-changes what a story draws, such as a component, a story, a stylesheet, or a
-fixture:
+looks lives there instead of bloating this one. A plugin is photographed when
+it is released, not after each commit. The `publish-plugin-update` skill
+captures it after checking the checkout and before bumping the version, so the
+release commit has the README images the capture copies:
 
 ```sh
-npm run screenshots:isolated   # build, capture, list the images that changed
+npm run screenshots:isolated -- --plugin <name>   # build, capture, list the images that changed
 # after reading them, the commit command it prints:
 BB_PLUGINS_SCREENSHOTS_DIR=<worktree> npm run screenshots:commit
 ```
+
+Between releases, look at a story in `npm run storybook`, or photograph it
+into `/tmp` with `--story`, as the Stories section below describes. Neither
+touches the screenshots repository.
 
 Use the isolated run, because other threads capture at the same time. Plain
 `npm run screenshots` builds into `build/` and captures into the shared
@@ -174,18 +172,21 @@ made from `origin/main`. Committing from that worktree rebases onto
 `origin/main`, pushes, and removes the worktree. A run that finds no changes,
 or fails, removes it too.
 
-Skip it for a commit that changes nothing a story draws, such as server code,
-an RPC handler, tests, or prose. A change to a shared component still counts,
-even when your own plugin looks the same, because it alters other plugins'
-stories. The capture finds those itself. It photographs only the stories that import a file changed
-since the bb-plugins commit the screenshots repository last captured,
-following imports through the shared packages each plugin links, and leaves the other images as they are. A change to the
-capture's own setup (`.ladle/`, `scripts/ladle.mjs`, `scripts/screenshots.mjs`,
-the root `package.json` or lockfile, `.nvmrc`) photographs every story, and so
-does `npm run screenshots:isolated -- --all`. Use `--all` after updating the
-bb checkout, whose components every story renders and whose changes the
-capture cannot see. When nothing looks different, the capture says so and
-there is nothing to commit.
+With `--plugin`, the capture photographs only the plugin's stories that import
+a file changed since the bb-plugins commit that plugin was last captured from,
+following imports through the shared packages each plugin links, and leaves
+the other images as they are. So a change to a shared component shows up in
+each plugin's images at that plugin's next release. A change to the capture's
+own setup (`.ladle/`, `scripts/ladle.mjs`, `scripts/screenshots.mjs`, the root
+`package.json` or lockfile, `.nvmrc`) photographs every story of the plugin,
+and so does `-- --all`. Use `--all` after updating the bb checkout, whose
+components every story renders and whose changes the capture cannot see. When
+nothing looks different, the capture says so and there is nothing to commit.
+
+A plugin that is not in the marketplace has no releases. Capture it the same
+way when its README changes, as the `write-plugin-docs` skill does. Capture
+the component library's own stories (`--plugin component-library`) when you
+publish it to npm.
 
 The capture does not commit, because that repository is public too, and an
 image can carry what a text scan of the diff misses. Read every image it
@@ -205,7 +206,8 @@ images a plugin's README embeds are the exception: they live in its
 `screenshots/` directory, named as the capture names them, such as
 `screenshots/page--header-open.png`, so the README and the marketplace listing
 can use them. A capture copies each image a README links there from the
-story's new image and lists the copies. Commit them here with the plugin.
+story's new image and lists the copies. Commit them here before the
+release's version bump, so the tag includes them.
 
 ## Anything personal is a setting, never a constant
 

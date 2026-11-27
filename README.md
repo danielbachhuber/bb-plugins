@@ -230,13 +230,13 @@ capturing at the same time do not collide, and prints the commit command for
 that worktree. Both capture up to ten stories at once, leaving two CPU cores
 free; set `SCREENSHOTS_CONCURRENCY` to change the number. Add `-- --explore`
 to include the `explore/` stories, for when you want pictures of design
-options; those images are not meant to be committed. A run captures only the
-stories that import a file changed since the bb-plugins commit that checkout
-last captured, and keeps the other images as they are; add `-- --all` to
-capture every story. Add `-- --plugin <name>`, such as `-- --plugin tokenomics`
-or `-- --plugin bb-plugin-tokenomics`, to capture only that plugin's stories and
-rewrite only its README and its row in the root README, leaving other plugins'
-changes for their own captures. Repeat it to name several. It
+options; those images are not meant to be committed. A plugin is captured
+when it is released, with `-- --plugin <name>`, such as `-- --plugin tokenomics`
+or `-- --plugin bb-plugin-tokenomics`. That captures only the plugin's stories
+that import a file changed since the bb-plugins commit the plugin was last
+captured from, and rewrites only its README and its row in the root README,
+leaving other plugins for their own releases. Repeat it to name several, and
+add `-- --all` to capture every story. It
 needs `npm install`, which installs Playwright with everything else, and that checkout at
 `../bb-plugins-screenshots` or at `BB_PLUGINS_SCREENSHOTS_DIR` in `.env`.
 
