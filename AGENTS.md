@@ -183,9 +183,22 @@ and so does `-- --all`. Use `--all` after updating the bb checkout, whose
 components every story renders and whose changes the capture cannot see. When
 nothing looks different, the capture says so and there is nothing to commit.
 
-A plugin that is not in the marketplace has no releases. Capture it the same
-way when its README changes, as the `write-plugin-docs` skill does. Capture
-the component library's own stories (`--plugin component-library`) when you
+A plugin with no `<name>/v*` tag has no releases, so its captures fall behind
+unless someone asks for one. After a round of work on such a plugin, run:
+
+```sh
+node scripts/screenshots-due.mjs <name>
+```
+
+It prints a line when the plugin's last capture is at least 7 days old and a
+commit has changed its directory since, or when it has stories and no capture
+yet, and nothing otherwise. When it prints a line, suggest a capture with an
+Impromptu UI card rather than running one: its title names the plugin, its
+summary is the script's line, and its primary button sends a message asking
+you to capture the plugin's screenshots with the commands above. Run the
+capture only when the user presses it. Capture the same way when the plugin's
+README changes, as the `write-plugin-docs` skill does, and capture the
+component library's own stories (`--plugin component-library`) when you
 publish it to npm.
 
 The capture does not commit, because that repository is public too, and an
