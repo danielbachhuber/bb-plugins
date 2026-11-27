@@ -30,26 +30,31 @@ function toneColor(limit: Limit): string | undefined {
 
 /**
  * The session's tokens per 15 minutes from its start to its reset, with a dot
- * for each slot still to come. For a weekly limit, the past five hours'.
+ * for each slot still to come. For a weekly limit, the past five hours'. A
+ * narrower chart sums neighbouring slots into longer bars, 30 minutes at half
+ * the width, so its bars stay as wide as the full chart's.
  */
 export function SessionSpark({ limit, now, width = WIDTH }: { limit: Limit; now: number; width?: number }) {
-  const WIDTH = width;
-  const slots = (limit.slots ?? []).slice(0, SLOTS);
+  const per = Math.max(1, Math.round(WIDTH / width));
+  const count = Math.ceil(SLOTS / per);
+  const fine = (limit.slots ?? []).slice(0, SLOTS);
+  const slots = Array.from({ length: Math.ceil(fine.length / per) }, (_, index) =>
+    fine.slice(index * per, (index + 1) * per).reduce((sum, tokens) => sum + tokens, 0),
+  );
   const most = Math.max(1, ...slots);
-  const slot = WIDTH / SLOTS;
-  // Half-width bars lose their gap rather than shrinking to nothing.
-  const bar = Math.max(1, slot - (slot >= 3 ? 1 : 0.5));
+  const slot = width / count;
+  const bar = Math.max(1, slot - 1);
   const color = toneColor(limit) ?? "currentColor";
   const height = (tokens: number) => (tokens === 0 ? 0 : Math.max(1, (tokens / most) * HEIGHT));
   // The baseline runs to now; each slot still to come is a dot, so the empty
   // right side reads as time not yet reached rather than missing usage.
   const start = (limit.kind === "five-hour" ? limit.resetsAt : now) - SLOTS * SLOT_MS;
-  const nowX = Math.min(WIDTH, Math.max(0, ((now - start) / (SLOTS * SLOT_MS)) * WIDTH));
+  const nowX = Math.min(width, Math.max(0, ((now - start) / (SLOTS * SLOT_MS)) * width));
   return (
     // Inline, because the top-bar button sizes every svg inside it as a 16px icon.
-    <svg width={WIDTH} height={HEIGHT} aria-hidden className="shrink-0" style={{ width: WIDTH, height: HEIGHT }}>
+    <svg width={width} height={HEIGHT} aria-hidden className="shrink-0" style={{ width, height: HEIGHT }}>
       <line x1={0} x2={nowX} y1={HEIGHT - 0.5} y2={HEIGHT - 0.5} stroke="currentColor" opacity={0.2} />
-      {Array.from({ length: Math.max(0, SLOTS - slots.length) }, (_, k) => (
+      {Array.from({ length: Math.max(0, count - slots.length) }, (_, k) => (
         <rect
           key={`dot-${k}`}
           x={(slots.length + k) * slot + bar / 2 - 0.75}

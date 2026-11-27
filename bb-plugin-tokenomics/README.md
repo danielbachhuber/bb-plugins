@@ -149,7 +149,8 @@ headed for its limit. Hover it for the limits and the past day's tokens per hour
 to open the page.
 
 With more than one subscription, such as Claude Code and Codex, each gets
-its own chart at half the width and its own rings, side by side. The popover
+its own chart at half the width, with a bar per 30 minutes, and its own
+rings, side by side. The popover
 shows each one's session and weekly limit under its provider's name, then one
 chart of the past day's tokens across all of them, without a projection,
 since no single pace applies to the sum.
