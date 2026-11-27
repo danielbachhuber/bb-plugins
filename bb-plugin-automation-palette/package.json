@@ -27,7 +27,7 @@
     "@types/react-dom": "^19.0.0",
     "better-sqlite3": "^13.2.0",
     "cron-parser": "^5.10.6",
-    "hono": "^4.13.19",
+    "hono": "^4.13.20",
     "jsdom": "^31.0.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.12"
