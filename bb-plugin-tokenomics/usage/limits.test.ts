@@ -4,6 +4,7 @@ import {
   accountSpans,
   limitViews,
   pacePerHour,
+  rescaledAt,
   samplesFromUsage,
   seenSince,
   sizeOf,
@@ -54,6 +55,20 @@ describe("pacePerHour", () => {
     const weekly = { label: "Weekly limit", kind: "weekly", resetsAt: NOW + 5 * 24 * HOUR };
     const samples = [sample(24 * 60, 30, weekly), sample(60, 41, weekly), sample(0, 42, weekly)];
     expect(pacePerHour(samples, NOW, "weekly")).toBeCloseTo(0.5);
+  });
+
+  it("starts over when the window is counted again without resetting", () => {
+    // A plan change: 15% of the old limit becomes 0% of the new one, same reset.
+    const weekly = { label: "Weekly limit", kind: "weekly", resetsAt: NOW + 5 * 24 * HOUR };
+    const before = [sample(23 * 60, 5, weekly), sample(120, 15, weekly)];
+    expect(pacePerHour([...before, sample(60, 0, weekly)], NOW, "weekly")).toBeNull();
+    expect(pacePerHour([...before, sample(120 - 1, 0, weekly), sample(0, 2, weekly)], NOW, "weekly")).toBeCloseTo(1, 0);
+  });
+
+  it("ignores a point of rounding back", () => {
+    const samples = [sample(40, 20), sample(20, 19), sample(0, 30)];
+    // 19% to 30% in 40 minutes, not a restart at 19%.
+    expect(pacePerHour(samples, NOW, "five-hour")).toBeCloseTo(16.5);
   });
 
   it("ignores a baseline from long before the lookback", () => {
@@ -188,12 +203,51 @@ describe("sizeOf", () => {
     expect(sizeOf([...[...old].reverse(), sample(0, 5)], read)).toBeCloseTo(300e6);
   });
 
+  it("leaves out a past window bb saw only part of", () => {
+    // Last session bb saw 6M tokens at 60%, as when most of it was used
+    // elsewhere; this one says 300M, and so does the one before.
+    const sliver = sample(400, 60, { resetsAt: NOW - 100 * MIN });
+    const older = sample(700, 50, { resetsAt: NOW - 400 * MIN });
+    const read = (_from: number, to: number) => (to === sliver.sampledAt ? 6e6 : to === older.sampledAt ? 150e6 : tokens(_from, to));
+    expect(sizeOf([older, sliver, sample(10, 50), sample(0, 60)], read)).toBeCloseTo(300e6);
+  });
+
+  it("sizes nothing from before the limit changed", () => {
+    const after = sample(0, 60);
+    // The session began before the change, so its percent mixes two limits.
+    expect(sizeOf([before, sample(10, 50), after], withBefore, NOW - 30 * MIN)).toBeNull();
+    // A session begun after it can be sized, and the old one isn't used.
+    expect(sizeOf([before, after], withBefore, SESSION_RESET - 5 * HOUR)).toBeCloseTo(300e6);
+  });
+
   it("is null with no reading at 25% or more", () => {
     expect(sizeOf([sample(10, 12), sample(0, 20)], tokens)).toBeNull();
   });
 
   it("can't size a window for one model", () => {
     expect(sizeOf([sample(0, 40, { model: "fable" })], tokens)).toBeUndefined();
+  });
+});
+
+describe("rescaledAt", () => {
+  const weekly = { label: "Weekly limit", kind: "weekly", resetsAt: NOW + 5 * 24 * HOUR };
+
+  it("is when a window dropped without resetting", () => {
+    const samples = [sample(30, 15, weekly), sample(20, 15, weekly), sample(10, 0, weekly), sample(0, 1, weekly)];
+    expect(rescaledAt(samples, "claude-code", "acct_acme")).toBe(NOW - 10 * MIN);
+  });
+
+  it("ignores a reset, a point of rounding, another account, and a model's window", () => {
+    const samples = [
+      sample(30, 90),
+      sample(20, 4, { resetsAt: NOW + 4 * HOUR }),
+      sample(10, 3, { resetsAt: NOW + 4 * HOUR }),
+      sample(30, 50, { accountKey: "acct_other" }),
+      sample(10, 0, { accountKey: "acct_other" }),
+      sample(30, 50, { model: "fable" }),
+      sample(10, 0, { model: "fable" }),
+    ];
+    expect(rescaledAt(samples, "claude-code", "acct_acme")).toBeNull();
   });
 });
 

@@ -51,6 +51,41 @@ const PACE_SPAN: Record<string, { lookback: number; least: number }> = {
 /** The width of each of a session's slots in the title bar's spark chart. */
 export const SLOT_MS = 15 * MINUTE;
 
+/**
+ * A reading this many points below the one before it, in the same window,
+ * means the provider started counting the window again, as when a plan
+ * changes. Readings are rounded to whole points, so one point is noise.
+ */
+const RESCALE_DROP = 2;
+
+/** Whether `after` restarts the count of the window `before` was in, without the window resetting. */
+function rescaled(before: LimitSample, after: LimitSample): boolean {
+  // Reset times wobble by a few milliseconds between readings.
+  return Math.abs(after.resetsAt - before.resetsAt) <= MINUTE && after.usedPercent <= before.usedPercent - RESCALE_DROP;
+}
+
+/**
+ * When the account last restarted counting a window without the window
+ * resetting, as when a plan changes and the provider counts the same week
+ * against a new limit; null if it hasn't. Percents read before that are in
+ * the old limit's units, so neither a pace nor a size can use them.
+ */
+export function rescaledAt(samples: readonly LimitSample[], providerId: string, accountKey: string | null): number | null {
+  const byWindow = new Map<string, LimitSample[]>();
+  for (const sample of [...samples].sort((a, b) => a.sampledAt - b.sampledAt)) {
+    if (sample.providerId !== providerId || sample.accountKey !== accountKey || sample.model !== null) continue;
+    byWindow.set(windowKey(sample), [...(byWindow.get(windowKey(sample)) ?? []), sample]);
+  }
+  let latest: number | null = null;
+  for (const windowSamples of byWindow.values()) {
+    for (let index = 1; index < windowSamples.length; index += 1) {
+      const after = windowSamples[index]!;
+      if (rescaled(windowSamples[index - 1]!, after) && (latest === null || after.sampledAt > latest)) latest = after.sampledAt;
+    }
+  }
+  return latest;
+}
+
 /** Past this projected percent a limit is amber. */
 export const WARNING_PERCENT = 80;
 
@@ -73,7 +108,14 @@ export function pacePerHour(samples: readonly LimitSample[], now: number, kind: 
   // in it, unless polling stopped for long enough that it says little.
   const baseline = samples[inside - 1];
   const start = baseline !== undefined && baseline.sampledAt >= from - span.lookback ? inside - 1 : inside;
-  const recent = samples.slice(start).filter((sample) => sample.sampledAt <= now);
+  let recent = samples.slice(start).filter((sample) => sample.sampledAt <= now);
+  // Use from before the window was counted again is in another limit's units.
+  for (let index = recent.length - 1; index > 0; index -= 1) {
+    if (rescaled(recent[index - 1]!, recent[index]!)) {
+      recent = recent.slice(index);
+      break;
+    }
+  }
   if (recent.length < 2) return null;
   const first = recent[0]!;
   const last = recent.at(-1)!;
@@ -122,6 +164,13 @@ export function viewOf(samples: readonly LimitSample[], now: number): LimitView 
 export const WINDOW_LENGTH: Record<string, number> = { "five-hour": 5 * HOUR, weekly: 7 * 24 * HOUR };
 
 /**
+ * A past window whose estimate is under this share of the typical one is
+ * left out: bb saw only part of its use, as when the subscription was also
+ * used outside bb, and a window can't hold fewer tokens than it was used for.
+ */
+const LEAST_SIZING_SHARE = 0.25;
+
+/**
  * Below this percent a window's estimate isn't shown: a point of rounding
  * moves it too much, and so does use bb doesn't see early in a session.
  */
@@ -137,18 +186,23 @@ const SIZING_WINDOWS = 10;
  * typical one is the median of the past windows' estimates. The current
  * window's own estimate counts for as much of the result as the window is
  * used, 40% at 40% used, since early readings are rounded and swing with a
- * cache rewrite or a compaction. The limit isn't counted purely in tokens,
+ * cache rewrite or a compaction. A past window under a quarter of the median
+ * of every estimate, this window's included, is left out, since use bb
+ * didn't see only ever makes an estimate smaller. The limit isn't counted purely in tokens,
  * so this is an estimate either way.
  *
  * Null while no window has been read far enough in; undefined for a window
  * it can't size, one for a single model or of an unknown length, since
  * tokens aren't recorded per model. `samples` are one window key's, oldest
  * first. `tokensBetween` returns null for a stretch whose tokens bb didn't
- * all see, which gives that window no estimate.
+ * all see, which gives that window no estimate. `since` is when the account
+ * last changed limits (rescaledAt): a window that began before it gives no
+ * estimate, since its percents are in two limits' units.
  */
 export function sizeOf(
   samples: readonly LimitSample[],
   tokensBetween: (from: number, to: number) => number | null,
+  since: number | null = null,
 ): number | null | undefined {
   const latest = samples.at(-1);
   const length = latest === undefined ? undefined : WINDOW_LENGTH[latest.kind];
@@ -166,20 +220,30 @@ export function sizeOf(
     readings.push({ sample, current: Math.abs(sample.resetsAt - latest.resetsAt) <= MINUTE });
   }
   const estimate = ({ sample }: { sample: LimitSample }) => {
+    // A window counted again partway through measures two limits at once.
+    if (since !== null && sample.resetsAt - length < since) return null;
     const tokens = tokensBetween(sample.resetsAt - length, sample.sampledAt);
     return tokens !== null && tokens > 0 ? tokens / (sample.usedPercent / 100) : null;
   };
   const current = readings[0]?.current ? estimate(readings[0]) : null;
-  const past = readings
+  const seen = readings
     .filter((reading) => !reading.current)
     .map(estimate)
-    .filter((size): size is number => size !== null)
-    .sort((a, b) => a - b);
-  const typical = past.length === 0 ? null : (past[Math.floor((past.length - 1) / 2)]! + past[Math.ceil((past.length - 1) / 2)]!) / 2;
+    .filter((size): size is number => size !== null);
+  const everyEstimate = current === null ? seen : [...seen, current];
+  const floor = everyEstimate.length === 0 ? 0 : median(everyEstimate)! * LEAST_SIZING_SHARE;
+  const typical = median(seen.filter((size) => size >= floor));
   if (current === null) return typical;
   if (typical === null) return current;
   const weight = Math.min(1, latest.usedPercent / 100);
   return weight * current + (1 - weight) * typical;
+}
+
+/** The middle of `values`, or the mean of the two middle ones; null when there are none. */
+function median(values: readonly number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return (sorted[Math.floor((sorted.length - 1) / 2)]! + sorted[Math.ceil((sorted.length - 1) / 2)]!) / 2;
 }
 
 /**

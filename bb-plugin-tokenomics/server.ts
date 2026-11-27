@@ -7,6 +7,7 @@ import {
   accountSpans,
   limitViews,
   samplesFromUsage,
+  rescaledAt,
   seenSince,
   sizeOf,
   SLOT_MS,
@@ -1020,6 +1021,7 @@ export default async function plugin(bb: BbPluginApi) {
       sizeOf(
         samples.filter((sample) => windowKey(sample) === windowKey(view)).sort((a, b) => a.sampledAt - b.sampledAt),
         (from, to) => (seenSince(spans, from) ? tokens(from, to) : null),
+        rescaledAt(samples, view.providerId, view.accountKey),
       ) ?? null
     );
   }

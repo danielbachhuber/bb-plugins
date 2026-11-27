@@ -165,7 +165,8 @@ to a provider.
 Open **Tokenomics** in the sidebar. Meters for each usage limit show the
 percent used of about how many tokens the limit holds, and where it lands at
 the current pace, such as "On pace to run out at 3:56 PM, 1h 54m before it
-resets". Switch between **Past day**, **Past 3 days**, and **Past week** to
+resets". When a limit starts counting again partway through a window, as
+after a plan change, its pace and size use only the readings since then. Switch between **Past day**, **Past 3 days**, and **Past week** to
 chart tokens split into new input, cache reads, and output. **Where turn time
 goes** splits turns into the model's time, tools, and waiting on you, and
 names the slowest shell commands. The thread list ranks threads by tokens,
