@@ -1,9 +1,10 @@
 // The session in bb's title bar: its tokens per 15 minutes from its start to
 // its reset, with a dot for each 15 minutes still to come, and two rings for
 // the percent used: the session outside, the week inside. Between sessions,
-// the weekly limit's ring and the past five hours' tokens. Hovering shows the
-// page's meters and its chart of the past day. Display only; app.tsx loads
-// the limits and the bars.
+// the weekly limit's ring and the past five hours' tokens. With more than one
+// subscription, each gets its own half-width chart and rings. Hovering shows
+// every subscription's meters and one chart of the past day's tokens across
+// all of them. Display only; app.tsx loads the limits and the bars.
 import { useEffect, useRef, useState } from "react";
 
 import { TopBarButton } from "@danielbachhuber/bb-plugin-component-library/top-bar";
@@ -31,11 +32,13 @@ function toneColor(limit: Limit): string | undefined {
  * The session's tokens per 15 minutes from its start to its reset, with a dot
  * for each slot still to come. For a weekly limit, the past five hours'.
  */
-export function SessionSpark({ limit, now }: { limit: Limit; now: number }) {
+export function SessionSpark({ limit, now, width = WIDTH }: { limit: Limit; now: number; width?: number }) {
+  const WIDTH = width;
   const slots = (limit.slots ?? []).slice(0, SLOTS);
   const most = Math.max(1, ...slots);
   const slot = WIDTH / SLOTS;
-  const bar = Math.max(1, slot - 1);
+  // Half-width bars lose their gap rather than shrinking to nothing.
+  const bar = Math.max(1, slot - (slot >= 3 ? 1 : 0.5));
   const color = toneColor(limit) ?? "currentColor";
   const height = (tokens: number) => (tokens === 0 ? 0 : Math.max(1, (tokens / most) * HEIGHT));
   // The baseline runs to now; each slot still to come is a dot, so the empty
@@ -111,8 +114,46 @@ export function weeklyLimit(limits: readonly Limit[]): Limit | null {
   return others.find((limit) => limit.kind === "weekly") ?? others[0] ?? null;
 }
 
-/** The title bar button's width with its spark chart: padding, the chart, the gap, and the rings. */
-export const TOP_BAR_LIMITS_WIDTH = 8 + WIDTH + 6 + RING_SIZE + 8;
+/** Each subscription's spark chart is half as wide once there is more than one. */
+const SHARED_WIDTH = WIDTH / 2;
+/** The space between one subscription's rings and the next one's chart. */
+const ACCOUNT_GAP = 10;
+
+/**
+ * The title bar button's width with its spark charts, for `accounts`
+ * subscriptions: padding, then each one's chart, the gap, and its rings.
+ */
+export function topBarLimitsWidth(accounts: number): number {
+  const each = (accounts > 1 ? SHARED_WIDTH : WIDTH) + 6 + RING_SIZE;
+  return 8 + accounts * each + Math.max(0, accounts - 1) * ACCOUNT_GAP + 8;
+}
+
+const accountOf = (limit: Limit) => `${limit.providerId}\n${limit.accountKey ?? ""}`;
+
+/** What the title bar shows for one subscription: its session, or its weekly limit between sessions, and the week beside it. */
+export interface Headline {
+  limit: Limit;
+  weekly: Limit | null;
+}
+
+/**
+ * One headline per subscription in `limits`, in provider order so they keep
+ * their places as one or the other gets busier. `session` stands in for its
+ * own subscription's, since app.tsx gives it the spark's slots. A
+ * subscription with no session and no weekly spark has none.
+ */
+export function headlines(session: Limit, limits: readonly Limit[]): Headline[] {
+  const accounts = new Map<string, Limit[]>();
+  for (const limit of limits) accounts.set(accountOf(limit), [...(accounts.get(accountOf(limit)) ?? []), limit]);
+  if (!accounts.has(accountOf(session))) accounts.set(accountOf(session), [session]);
+  return [...accounts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([key, group]) => {
+      const limit = key === accountOf(session) ? session : urgentSession(group);
+      if (limit === null) return [];
+      return [{ limit, weekly: limit.kind === "five-hour" ? weeklyLimit(group) : null }];
+    });
+}
 
 /**
  * The title bar's button: the session's spark chart and the rings for the
@@ -134,7 +175,7 @@ export function TopBarLimits({
   onOpenThread,
 }: {
   session: Limit;
-  /** Every limit of the session's subscription, for the popover. */
+  /** Every subscription's limits, for the other subscriptions' charts and the popover's meters. */
   limits: readonly Limit[];
   now: number;
   providerName: (providerId: string) => string;
@@ -170,15 +211,28 @@ export function TopBarLimits({
     setOpen(false);
     onOpenThread?.(threadId);
   };
-  const chart = bars === null ? null : withProjection(bars, "hour", limits, now);
-  const weekly = session.kind === "five-hour" ? weeklyLimit(limits) : null;
+  const shown = headlines(session, limits);
+  const shared = shown.length > 1;
+  // The chart sums every provider's tokens, so one subscription's pace can't
+  // be drawn on it once there are two.
+  const chart =
+    bars === null
+      ? null
+      : shared
+        ? { bars, projection: null }
+        : withProjection(bars, "hour", limits.filter((limit) => accountOf(limit) === accountOf(session)), now);
+  const label = shown
+    .map(({ limit, weekly }) => {
+      const who = shared ? `${providerName(limit.providerId)} ` : "";
+      const week = weekly === null ? "" : ` ${weekly.label}: ${Math.round(weekly.usedPercent)}% used.`;
+      return `${who}${limit.label}: ${Math.round(limit.usedPercent)}% used. ${paceText(limit)}.${week}`;
+    })
+    .join(" ");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
         <TopBarButton
-          label={`${session.label}: ${Math.round(session.usedPercent)}% used. ${paceText(session)}.${
-            weekly === null ? "" : ` ${weekly.label}: ${Math.round(weekly.usedPercent)}% used.`
-          } Open Tokenomics`}
+          label={`${label} Open Tokenomics`}
           onClick={() => {
             setOpen(false);
             onOpen();
@@ -191,8 +245,16 @@ export function TopBarLimits({
           onPointerLeave={closeSoon}
           className="pr-2"
         >
-          {compact ? null : <SessionSpark limit={session} now={now} />}
-          <LimitDonut session={session} weekly={weekly} />
+          {shown.map(({ limit, weekly }, index) => (
+            <span
+              key={accountOf(limit)}
+              className="flex items-center gap-1.5"
+              style={index === 0 ? undefined : { marginLeft: ACCOUNT_GAP - 6 }}
+            >
+              {compact ? null : <SessionSpark limit={limit} now={now} width={shared ? SHARED_WIDTH : WIDTH} />}
+              <LimitDonut session={limit} weekly={weekly} />
+            </span>
+          ))}
         </TopBarButton>
       </PopoverAnchor>
       <PopoverContent
@@ -202,7 +264,11 @@ export function TopBarLimits({
         onPointerEnter={keepOpen}
         onPointerLeave={closeSoon}
       >
-        <LimitMeters limits={limits} providerName={providerName} className="" />
+        <LimitMeters
+          limits={[...limits].sort((a, b) => accountOf(a).localeCompare(accountOf(b)))}
+          providerName={providerName}
+          className=""
+        />
         {chart === null ? null : (
           <div className="mt-3 border-t border-border pt-3">
             <p className="mb-1 text-xs font-medium">Past day</p>

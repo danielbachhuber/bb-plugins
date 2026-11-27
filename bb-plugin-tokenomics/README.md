@@ -148,10 +148,16 @@ While the sidebar is closed, it is hidden. It turns amber or red once either is
 headed for its limit. Hover it for the limits and the past day's tokens per hour, or click it
 to open the page.
 
+With more than one subscription, such as Claude Code and Codex, each gets
+its own chart at half the width and its own rings, side by side. The popover
+shows each one's session and weekly limit under its provider's name, then one
+chart of the past day's tokens across all of them, without a projection,
+since no single pace applies to the sum.
+
 ![The title bar's popover with the session's top ten threads below the chart: each with its goal's donut, what the goal has spent against the top of its estimate, amber for the ones past it, and its tokens this session](screenshots/page--title-bar-hovered-threads.png)
 
-Below the chart, the popover lists the session's ten threads that used the
-most tokens, subagents included, most first. Each row shows the thread's
+Below the chart, the popover lists the ten threads that used the
+most tokens in the session closest to its limit, subagents included, most first. Each row shows the thread's
 goal donut, **Spent / Goal**: what its current goal has used against the top
 of the goal's token estimate, amber once past it, and the thread's tokens this
 **Session**. Click a row to open the thread.

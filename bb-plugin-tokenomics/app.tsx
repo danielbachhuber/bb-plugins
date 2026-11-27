@@ -17,7 +17,7 @@ import { SidebarLevels } from "@danielbachhuber/bb-plugin-component-library/side
 import { ContextMeter } from "@/components/context-meter";
 import { TurnStrip, TurnSummaryLine } from "@/components/turn-summary";
 import { ThreadTokenCount, type ThreadTokens } from "@/components/thread-token-count";
-import { TOP_BAR_LIMITS_WIDTH, TopBarLimits, urgentSession } from "@/components/limit-spark";
+import { headlines, TopBarLimits, topBarLimitsWidth, urgentSession } from "@/components/limit-spark";
 import { UsageView, type UsageData } from "@/components/usage-view";
 import type { GoalOutcomesData } from "@/components/goal-outcomes";
 import { TopBarSlot, useTopBarRoom } from "@danielbachhuber/bb-plugin-component-library/top-bar";
@@ -139,8 +139,9 @@ function useProviderName() {
  * The session in bb's title bar, after the other plugins' buttons: its spark
  * chart, rings for the session's and the week's percent used, the page's
  * meters and the past day's chart on hover, and the page on click. With two
- * subscriptions it shows the one closer to its limit. Draws nothing until a
- * provider reports a session.
+ * subscriptions it shows a half-width chart and rings for each, every one's
+ * meters on hover, and the threads of the one closer to its limit. Draws
+ * nothing until a provider reports a limit.
  */
 function LimitsTopBar() {
   const limits = useLimits();
@@ -156,14 +157,11 @@ function LimitsTopBar() {
     return () => clearInterval(timer);
   }, []);
   if (session === null) return null;
-  const account = limits.filter(
-    (limit) => limit.providerId === session.providerId && limit.accountKey === session.accountKey,
-  );
   return (
     <TopBarSlot pluginId="tokenomics" order={4} alignEnd activeOn={["/plugins/tokenomics/tokenomics"]}>
       <FittedLimits
         session={session}
-        limits={account}
+        limits={limits}
         now={now}
         providerName={providerName}
         onOpen={() => navigate.toPluginPanel("tokenomics")}
@@ -188,7 +186,8 @@ function LimitsTopBar() {
 function FittedLimits(props: ComponentProps<typeof TopBarLimits>) {
   const room = useTopBarRoom();
   if (room !== null && room < 0) return null;
-  return <TopBarLimits {...props} compact={room !== null && room < TOP_BAR_LIMITS_WIDTH} />;
+  const width = topBarLimitsWidth(headlines(props.session, props.limits).length);
+  return <TopBarLimits {...props} compact={room !== null && room < width} />;
 }
 
 /** The Goals section's data over the past 30 days, re-read when a goal changes. */

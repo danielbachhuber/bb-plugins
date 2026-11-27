@@ -328,6 +328,32 @@ export const TitleBarHovered = () => (
   </div>
 );
 
+/** With two subscriptions, each gets a half-width chart and rings in the title bar, and hovering shows every one's meters above one chart of the past day's tokens across all of them. */
+export const TitleBarTwoProviders = () => {
+  const codex = { providerId: "codex", accountKey: "acct_gadgets" };
+  const limits = [
+    ...ON_PACE,
+    limit({ ...codex, usedPercent: 61, pacePerHour: 9, projectedPercent: 92, tone: "warning", sizeTokens: 60_000_000, slots: SESSION_SLOTS.map((m) => m / 6) }),
+    weekly({ ...codex, usedPercent: 15, pacePerHour: 0.5, projectedPercent: 81, tone: "warning", sizeTokens: 330_000_000 }),
+  ];
+  return (
+    <div className="h-[640px] w-[720px] p-4">
+      <div className="flex h-10 items-center gap-1.5 bg-background px-3">
+        <span className="inline-block size-7" />
+        <TopBarLimits
+          session={{ ...ON_PACE[0]!, slots: SESSION_SLOTS }}
+          limits={limits}
+          now={NOW.getTime()}
+          providerName={(id) => (id === "codex" ? "Codex" : "Claude Code")}
+          onOpen={() => undefined}
+          bars={dataFor("day").bars}
+          initialOpen
+        />
+      </div>
+    </div>
+  );
+};
+
 /**
  * Below the chart, the session's top ten threads: each with its goal's
  * progress, what the goal has spent against the top of its token estimate,
